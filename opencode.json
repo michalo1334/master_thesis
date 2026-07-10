@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "explorer": {
+      "model": "opencode-go/deepseek-v4-flash",
+      "mode": "subagent"
+    }
+  },
+  "plugin": ["@sveltejs/opencode"],
+  "permission": "allow"
+}

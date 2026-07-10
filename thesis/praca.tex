@@ -1,0 +1,69 @@
+\documentclass{pclass}
+\addbibresource{refs.bib}
+\usepackage{url}
+
+\typpracy{PRACA DYPLOMOWA MAGISTERSKA}
+\author{Michał Olszewski}
+\title{Tytuł pracy}
+\tieng{Title}
+\album{136009}
+\studia{niestacjonarne}
+\poziom{II}
+\promotor{dr inż. Kamil Halbiniak}
+%\epigrafquote{I’d rather write programs to write programs than write programs.}
+%\epigrafsource{Richard Sites}
+%\dedykacja{pracę dedykuje\\...}
+
+\begin{document}
+
+\frontpage
+\setcounter{tocdepth}{1}
+
+\cleardoublepage
+\tableofcontents
+
+\cleardoublepage
+\include{chapter_introduction}
+
+\cleardoublepage
+\include{chapter_literature_review}
+
+\include{chapter_theory}
+
+\include{chapter_design}
+
+\include{chapter_implementation}
+
+\include{chapter_evaluation}
+
+\include{chapter_conclusion}
+
+\cleardoublepage
+
+\printbibliography
+\addcontentsline{toc}{chapter}{\bibname}
+
+\listoffigures
+\addcontentsline{toc}{chapter}{\listfigurename}
+
+\listoftables
+\addcontentsline{toc}{chapter}{\listtablename}
+
+\listoflistings
+\addcontentsline{toc}{chapter}{\listoflistingsname}
+
+\chapter*{Streszczenie}
+\addcontentsline{toc}{chapter}{Streszczenie}
+
+Streszczenie pracy.
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Thesis abstract.
+
+\include{keywords}
+
+\oswiadczenie
+
+\end{document}

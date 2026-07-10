@@ -1,0 +1,271 @@
+<!doctype html>
+<!--
+================================================================================
+WIREFRAME 2 of 3 — "Defense planning view"
+================================================================================
+RATIONALE / DESIGN PRINCIPLES EMBODIED
+  Primary use case: the analyst has *already* seen the graph, has *already*
+  pressed Optimize, and now lives in the "what-if" loop: pick a defense,
+  see the predicted delta, apply, re-simulate, compare. The graph is now
+  a verification surface; the defenses list is the workspace.
+
+  Principles:
+   1. Progressive disclosure (Nielsen 2006) — only the top-N recommended
+      defenses are visible up front. Clicking a row expands a "what-if
+      preview" of the post-defense blast-radius map (a secondary disclosure
+      level, per Nielsen's guidance that more than two levels hurts usability).
+   2. Recognition over recall (Nielsen #6) — every defense row carries the
+      action icon, the exact target string, AND a pre-computed delta so the
+      analyst never has to remember the pre-defense number.
+   3. Gestalt similarity (Wagemans et al. 2012) — defense rows all use the
+      same chrome (icon | target | delta | apply), so the eye parses them
+      as a single category, not four separate UI fragments.
+   4. Preattentive attributes (Laubheimer 2017; Wikipedia 2025) — the
+      pre/post blast-radius comparison uses *length* (a precise preattentive
+      attribute) on a horizontal "barbell" widget, not color or area. This
+      is the canonical Cleveland–McGill finding applied to security data.
+   5. Fitts's law (MacKenzie 1992) — Apply buttons are large, right-aligned,
+      and at a consistent y-offset across all rows so the analyst can build
+      motor memory for "row → right edge → click". The Optimize button sits
+      in the header's right magic corner.
+   6. User control & freedom (Nielsen #3) — every applied defense is
+      reversible: the applied-pile at the bottom is a stash of "undo" tokens,
+      not a one-way sink. This is Shneiderman's "permit easy reversal of
+      actions" rule applied to the what-if workflow.
+
+  TRADE-OFFS
+   - Graph is smaller (33% width) than wireframe #1. If the user wants to
+     trace a specific attack path, they have less canvas to work with.
+     Acceptable: in the planning loop, the graph is read as a heatmap, not
+     navigated as a map.
+   - The right panel is data-dense. Mitigation: the right panel is the
+     "expert" view — primary buttons, not the entry view (that's wireframe 1).
+   - The header is minimal here (no legend) because the legend now lives
+     next to the graph where it's used.
+================================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Wireframe 2 — Defense planning view</title>
+  <style>
+    html, body { margin: 0; padding: 0; font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif; color: #1a1a1a; background: #f5f5f5; }
+    .frame {
+      width: 1440px; height: 900px; margin: 0;
+      display: grid;
+      grid-template-columns: 480px 1fr 360px;
+      grid-template-rows: 72px 1fr 140px;
+      grid-template-areas:
+        "header  header  header"
+        "defs    graph   compare"
+        "applied applied applied";
+      background: #fff;
+      border: 1px solid #d4d4d4;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    header     { grid-area: header;   background: #1e3a5f; color: #fff; padding: 14px 20px; }
+    .defs      { grid-area: defs;     background: #fef3c7; border-right: 1px solid #d4d4d4; overflow: hidden; }
+    .graph     { grid-area: graph;    background: #fafafa; border-right: 1px solid #d4d4d4; position: relative; overflow: hidden; }
+    .compare   { grid-area: compare;  background: #fdf2f8; overflow: hidden; }
+    .applied   { grid-area: applied;  background: #f1f5f9; border-top: 1px solid #d4d4d4; padding: 12px 20px; }
+
+    /* --- Header --------------------------------------------------------- */
+    .header-row { display: flex; align-items: center; gap: 16px; height: 100%; }
+    .title { font-size: 20px; font-weight: 600; margin-right: auto; }
+    .meta { font-size: 13px; color: #cbd5e1; }
+    .meta b { color: #fff; font-weight: 500; }
+    .actions { display: flex; gap: 8px; }
+    .btn { background: #2563eb; color: #fff; border: none; padding: 10px 18px; font-size: 14px; font-weight: 500; border-radius: 6px; cursor: pointer; }
+    .btn.secondary { background: #475569; }
+    .btn.danger { background: #b45309; }
+
+    /* --- Defenses list (left) ------------------------------------------ */
+    .panel-title { font-size: 12px; font-weight: 600; color: #92400e; text-transform: uppercase; letter-spacing: 0.5px; margin: 12px 14px 6px; }
+    .def-row {
+      background: #fff; border: 1px solid #fde68a; border-left: 4px solid #f59e0b;
+      margin: 6px 14px; padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer;
+    }
+    .def-row:hover { background: #fffbeb; }
+    .def-row.selected { background: #fef3c7; border-left-color: #b45309; box-shadow: inset 0 0 0 2px #fbbf24; }
+    .def-row .icon { font-size: 16px; margin-right: 6px; }
+    .def-row .target { font-weight: 500; color: #0f172a; }
+    .def-row .delta { color: #b45309; font-weight: 600; float: right; }
+    .def-row .row2 { margin-top: 4px; color: #78716c; font-size: 11px; }
+    .search { margin: 0 14px 6px; width: calc(100% - 28px); padding: 6px 10px; border: 1px solid #fde68a; border-radius: 4px; font-size: 12px; }
+
+    /* --- Graph (center, smaller) --------------------------------------- */
+    .graph-label { position: absolute; top: 10px; left: 14px; font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .graph-legend { position: absolute; top: 10px; right: 14px; display: flex; gap: 10px; font-size: 11px; color: #475569; }
+    .sw { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 3px; }
+    .seg { position: absolute; border: 2px dashed #94a3b8; border-radius: 14px; background: rgba(148, 163, 184, 0.06); }
+    .seg .seg-label { position: absolute; top: 4px; left: 8px; font-size: 10px; color: #475569; font-weight: 600; }
+    .seg.dmz      { top: 40px; left: 30px; width: 160px; height: 220px; }
+    .seg.internal { top: 40px; left: 200px; width: 120px; height: 320px; }
+    .seg.db       { top: 240px; left: 50px; width: 110px; height: 150px; }
+    .node { position: absolute; border-radius: 50%; border: 2px solid #0f172a; }
+    .node.cold { background: #cccccc; }
+    .node.warm { background: #f59e0b; }
+    .node.hot  { background: #dc2626; }
+    .node.entry { box-shadow: 0 0 0 3px #2563eb; }
+    .node.cut  { background: repeating-linear-gradient(45deg, #fca5a5, #fca5a5 4px, #fee2e2 4px, #fee2e2 8px); border-color: #b91c1c; }
+    .node.cut-halo { box-shadow: 0 0 0 3px #16a34a; }
+
+    /* --- Right compare panel: pre vs post blast-radius deltas ---------- */
+    .panel-title.right { color: #9d174d; }
+    .compare-list { padding: 0 14px; }
+    .compare-row { background: #fff; border: 1px solid #fbcfe8; border-radius: 6px; padding: 10px 12px; margin: 6px 0; font-size: 11px; }
+    .compare-row .label { font-weight: 600; color: #0f172a; margin-bottom: 4px; }
+    .barbell { display: flex; align-items: center; gap: 6px; }
+    .bar { height: 10px; border-radius: 2px; }
+    .bar.pre  { background: #fda4af; }
+    .bar.post { background: #16a34a; }
+    .arrow { color: #9d174d; font-weight: 700; }
+    .num { font-family: ui-monospace, monospace; font-size: 11px; color: #334155; min-width: 28px; text-align: right; }
+
+    /* --- Applied-pile footer (undo) ------------------------------------ */
+    .applied-title { font-size: 12px; font-weight: 600; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .applied-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { background: #fff; border: 1px solid #cbd5e1; border-radius: 999px; padding: 6px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .chip .undo { color: #b91c1c; cursor: pointer; font-weight: 700; }
+    .summary { margin-left: auto; font-size: 12px; color: #334155; }
+    .summary b { color: #16a34a; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- HEADER -->
+    <header>
+      <div class="header-row">
+        <div class="title">Attack Graph — planning</div>
+        <div class="meta">Topology <b>medium-001</b> · Strategy <b>hybrid</b> · Mean blast-radius <b>0.41</b> (pre-defense)</div>
+        <div class="actions">
+          <button class="btn secondary">Re-simulate</button>
+          <button class="btn">Optimize</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- DEFENSES LIST (left) — the analyst's workspace -->
+    <aside class="defs" aria-label="Recommended defenses list">
+      <div class="panel-title">Recommended actions <span style="color:#b45309; font-weight:500;">(4)</span></div>
+      <input class="search" type="text" placeholder="Filter by host, CVE, or pool...">
+      <div class="def-row selected">
+        <span class="icon">✂</span><span class="target">Segment web01 ↔ db01 :3306</span>
+        <span class="delta">Δ −42%</span>
+        <div class="row2">Removes 3 :network_reach edges + 1 transitive reach edge.</div>
+        <button class="btn" style="margin-top:6px; font-size:11px; padding:4px 12px;">Apply (what-if)</button>
+      </div>
+      <div class="def-row">
+        <span class="icon">🩹</span><span class="target">Patch CVE-2020-14812</span>
+        <span class="delta">Δ −28%</span>
+        <div class="row2">Removes 7 :exploit edges (mysql) at prob ≥ 0.7.</div>
+        <button class="btn" style="margin-top:6px; font-size:11px; padding:4px 12px;">Apply (what-if)</button>
+      </div>
+      <div class="def-row">
+        <span class="icon">🔑</span><span class="target">Rotate credential "dbuser"</span>
+        <span class="delta">Δ −18%</span>
+        <div class="row2">Removes 6 :credential edges in pool.</div>
+        <button class="btn" style="margin-top:6px; font-size:11px; padding:4px 12px;">Apply (what-if)</button>
+      </div>
+      <div class="def-row">
+        <span class="icon">🚪</span><span class="target">Isolate app03/auth</span>
+        <span class="delta">Δ −9%</span>
+        <div class="row2">Removes all 12 :network_reach edges to/from app03.</div>
+        <button class="btn" style="margin-top:6px; font-size:11px; padding:4px 12px;">Apply (what-if)</button>
+      </div>
+    </aside>
+
+    <!-- GRAPH (center, smaller — used as a verification surface) -->
+    <section class="graph" aria-label="Graph preview">
+      <div class="graph-label">Preview — what-if applied</div>
+      <div class="graph-legend">
+        <span><span class="sw" style="background:#cccccc"></span>0.0–0.3</span>
+        <span><span class="sw" style="background:#f59e0b"></span>0.3–0.7</span>
+        <span><span class="sw" style="background:#dc2626"></span>0.7–1.0</span>
+        <span><span class="sw" style="background:repeating-linear-gradient(45deg,#fca5a5,#fca5a5 3px,#fee2e2 3px,#fee2e2 6px)"></span>cut</span>
+      </div>
+      <div class="seg dmz"><div class="seg-label">DMZ</div></div>
+      <div class="seg internal"><div class="seg-label">INTERNAL</div></div>
+      <div class="seg db"><div class="seg-label">DB</div></div>
+      <!-- Compact mock: focus on the affected nodes -->
+      <div class="node entry hot"   style="top:80px;  left:80px;  width:18px; height:18px;"></div>
+      <div class="node warm"       style="top:130px; left:140px; width:16px; height:16px;"></div>
+      <div class="node warm"       style="top:100px; left:200px; width:16px; height:16px;"></div>
+      <div class="node cut cut-halo" style="top:200px; left:90px;  width:18px; height:18px;"></div>
+      <div class="node-label" style="top:220px; left:60px; font-size:9px;">db01/mysql (cut)</div>
+      <div class="node warm"       style="top:170px; left:240px; width:16px; height:16px;"></div>
+      <div class="node cold"       style="top:250px; left:200px; width:14px; height:14px;"></div>
+      <div class="node cold"       style="top:290px; left:140px; width:14px; height:14px;"></div>
+    </section>
+
+    <!-- COMPARE PANEL (right) — pre vs post, per critical node -->
+    <aside class="compare" aria-label="Pre vs post comparison">
+      <div class="panel-title right">Pre vs post — top affected nodes</div>
+      <div class="compare-list">
+        <div class="compare-row">
+          <div class="label">db01 / mysql :root</div>
+          <div class="barbell">
+            <div class="bar pre"  style="width:120px;"></div>
+            <span class="num">0.74</span>
+            <span class="arrow">→</span>
+            <div class="bar post" style="width:24px;"></div>
+            <span class="num" style="color:#16a34a">0.15</span>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="label">db02 / pg :user</div>
+          <div class="barbell">
+            <div class="bar pre"  style="width:90px;"></div>
+            <span class="num">0.55</span>
+            <span class="arrow">→</span>
+            <div class="bar post" style="width:18px;"></div>
+            <span class="num" style="color:#16a34a">0.11</span>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="label">app03 / auth :user</div>
+          <div class="barbell">
+            <div class="bar pre"  style="width:115px;"></div>
+            <span class="num">0.70</span>
+            <span class="arrow">→</span>
+            <div class="bar post" style="width:60px;"></div>
+            <span class="num">0.37</span>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="label">app01 / ssh :user</div>
+          <div class="barbell">
+            <div class="bar pre"  style="width:62px;"></div>
+            <span class="num">0.38</span>
+            <span class="arrow">→</span>
+            <div class="bar post" style="width:46px;"></div>
+            <span class="num">0.28</span>
+          </div>
+        </div>
+        <div class="compare-row">
+          <div class="label">web01 / php :user</div>
+          <div class="barbell">
+            <div class="bar pre"  style="width:80px;"></div>
+            <span class="num">0.49</span>
+            <span class="arrow">→</span>
+            <div class="bar post" style="width:64px;"></div>
+            <span class="num">0.39</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- APPLIED-PILE FOOTER (undo tokens) -->
+    <section class="applied" aria-label="Applied defenses — undo">
+      <div class="applied-title">Applied (what-if) — click ✕ to undo</div>
+      <div class="applied-chips">
+        <div class="chip">✂ Segment web01 ↔ db01 :3306 <span class="undo" title="undo">✕</span></div>
+        <div class="chip">🩹 Patch CVE-2020-14812 <span class="undo" title="undo">✕</span></div>
+        <div class="summary">Combined Δ: <b>−54%</b> on mean blast-radius · 28 nodes no longer reachable</div>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Development: Elixir app with bind mounts for hot-reload + Vite HMR.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
+
+services:
+  network_defense:
+    build:
+      context: ../src
+      dockerfile: Dockerfile.dev
+    image: network_defense:dev
+    container_name: network-defense-app
+    env_file: ../src/.env
+    environment:
+      REPO_HOSTNAME: ${REPO_HOSTNAME:-postgres}
+      REPO_PORT: ${REPO_PORT:-5432}
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PHX_IP: ${PHX_IP:-0.0.0.0}
+      PORT: ${PORT:-4000}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
+    ports:
+      - "4000:4000"
+      - "4001:4001"
+      - "5173:5173"
+    volumes:
+      - ../src/lib:/app/lib
+      - ../src/priv:/app/priv
+      - ../src/config:/app/config
+      - ../src/assets/js:/app/assets/js
+      - ../src/assets/css:/app/assets/css
+      - ../src/assets/svelte:/app/assets/svelte
+      - ../src/assets/vendor:/app/assets/vendor
+      - ../src/assets/vite.config.mjs:/app/assets/vite.config.mjs
+      - ../src/_build:/app/_build
+      - ../src/deps:/app/deps
+    depends_on:
+      postgres:
+        condition: service_healthy

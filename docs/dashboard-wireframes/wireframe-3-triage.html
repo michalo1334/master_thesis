@@ -1,0 +1,276 @@
+<!doctype html>
+<!--
+================================================================================
+WIREFRAME 3 of 3 — "Operational triage view"
+================================================================================
+RATIONALE / DESIGN PRINCIPLES EMBODIED
+  Primary use case: a security operator (or thesis evaluation) wants the
+  at-a-glance posture of a network *without* committing to a single defense.
+  The graph is now a heatmap-strip (not a navigable canvas), and most of
+  the screen real estate is devoted to summary KPIs, distributions, and
+  rank-ordered lists that the eye can scan in a few seconds.
+
+  Principles:
+   1. Tufte's data-ink ratio (Tufte 1983, "The Visual Display of Quantitative
+      Information") — every chart in the KPI strip is the smallest possible
+      drawing that conveys the number. The histogram is a single line; the
+      top-N list is a single line per row; the segment summary is one cell
+      per segment. No 3D, no chartjunk, no decoration.
+   2. Shneiderman's mantra: "overview first" — the KPIs across the top are
+      the highest-level summary, the histogram is the second-level
+      distribution, the top-N list is the third-level detail-by-name, the
+      graph strip is the spatial view. Each level is reachable at a glance.
+   3. Pre-attentive attributes (Laubheimer 2017) — the segment summary uses
+      a horizontal bar whose length is the preattentive attribute that
+      humans can read most accurately (Cleveland & McGill 1985). Numbers
+      are *also* shown so the reader does not have to estimate from length
+      alone.
+   4. Gestalt principles of similarity and proximity (Wagemans et al. 2012)
+      — the four KPI cards are identical in size, color, and chrome, so
+      the eye reads them as a single row of equal-importance summaries.
+   5. Aesthetic and minimalist design (Nielsen #8) — chrome is one
+      hairline border per panel. The whole top strip is one visual band;
+      the bottom strip is another. Nothing else.
+   6. Visibility of system status (Nielsen #1) — every number is labeled
+      with what it is ("Mean", "p99", "Δ from baseline") so the reader
+      does not have to ask "what is 0.41?". The "what" is the title of
+      each cell, the "value" is the big number, the "context" is the
+      small subtext.
+
+  TRADE-OFFS
+   - No detail panel for a selected node. This view is for posture, not
+     investigation. The user who needs details clicks into wireframe 1.
+   - Graph is a thumbnail strip. The user cannot zoom, pan, or click
+     nodes. Acceptable: the strip answers "where are the hot zones",
+     not "how do I get from web01 to db01".
+   - The two-strip layout assumes a wide desktop. Not responsive in v1,
+     which matches the thesis scope (desktop 1440x900).
+   - The defenses panel is condensed into a single "open defenses
+     workspace" button. The point of this view is NOT to plan defenses
+     (that's wireframe 2); it's to see the network's current risk
+     profile at a glance.
+================================================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Wireframe 3 — Operational triage view</title>
+  <style>
+    html, body { margin: 0; padding: 0; font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif; color: #1a1a1a; background: #f5f5f5; }
+    .frame {
+      width: 1440px; height: 900px; margin: 0;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: 64px 160px 1fr 130px;
+      grid-template-areas:
+        "header  header  header  header"
+        "kpi1    kpi2    kpi3    kpi4"
+        "seg     hist    topn    graph"
+        "footer  footer  footer  footer";
+      gap: 1px;
+      background: #cbd5e1;
+      border: 1px solid #d4d4d4;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      color: #1a1a1a;
+    }
+    header { grid-area: header; background: #1e3a5f; color: #fff; padding: 12px 20px; }
+    .kpi   { background: #fff; padding: 14px 18px; display: flex; flex-direction: column; justify-content: center; }
+    .seg-panel, .hist-panel, .topn-panel, .graph-panel { background: #fff; padding: 12px 16px; overflow: hidden; }
+    .seg-panel  { grid-area: seg; }
+    .hist-panel { grid-area: hist; }
+    .topn-panel { grid-area: topn; border-left: 1px solid #cbd5e1; }
+    .graph-panel{ grid-area: graph; }
+    footer { grid-area: footer; background: #1e3a5f; color: #cbd5e1; padding: 10px 20px; display: flex; align-items: center; gap: 16px; font-size: 13px; }
+
+    /* Header */
+    .header-row { display: flex; align-items: center; gap: 16px; height: 100%; }
+    .title { font-size: 18px; font-weight: 600; margin-right: auto; }
+    .meta { font-size: 12px; color: #cbd5e1; }
+    .meta b { color: #fff; font-weight: 500; }
+    .btn { background: #2563eb; color: #fff; border: none; padding: 8px 14px; font-size: 13px; font-weight: 500; border-radius: 5px; cursor: pointer; }
+    .btn.secondary { background: #475569; }
+
+    /* KPI cards */
+    .kpi-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; }
+    .kpi-value { font-size: 38px; font-weight: 700; line-height: 1.1; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .kpi-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .kpi-sub.bad { color: #b91c1c; font-weight: 600; }
+    .kpi-sub.good { color: #15803d; font-weight: 600; }
+    .kpi.danger .kpi-value { color: #b91c1c; }
+    .kpi.warn   .kpi-value { color: #b45309; }
+    .kpi.ok     .kpi-value { color: #15803d; }
+
+    /* Section panel headers */
+    .panel-h { font-size: 11px; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; margin-bottom: 8px; }
+
+    /* Segment summary */
+    .seg-row { display: grid; grid-template-columns: 90px 1fr 56px; align-items: center; gap: 8px; font-size: 12px; margin: 6px 0; }
+    .seg-name { color: #334155; font-weight: 500; }
+    .seg-bar  { height: 12px; background: #fee2e2; border-radius: 2px; position: relative; }
+    .seg-bar .fill { height: 100%; background: #dc2626; border-radius: 2px; }
+    .seg-bar .marker { position: absolute; top: -3px; width: 2px; height: 18px; background: #0f172a; }
+    .seg-val  { font-family: ui-monospace, monospace; color: #0f172a; text-align: right; }
+
+    /* Histogram (single sparkline) */
+    .hist { width: 100%; height: 110px; position: relative; }
+    .hist svg { width: 100%; height: 100%; }
+    .axis-label { font-size: 10px; fill: #64748b; font-family: ui-monospace, monospace; }
+
+    /* Top-N list */
+    .topn-row { display: grid; grid-template-columns: 20px 1fr 56px 56px; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; border-bottom: 1px dashed #e2e8f0; }
+    .topn-row:last-child { border-bottom: none; }
+    .topn-rank { color: #94a3b8; font-family: ui-monospace, monospace; text-align: right; }
+    .topn-name { color: #0f172a; font-family: ui-monospace, monospace; }
+    .topn-name .priv { color: #94a3b8; }
+    .topn-val { font-family: ui-monospace, monospace; text-align: right; font-weight: 600; }
+    .topn-val.hot  { color: #b91c1c; }
+    .topn-val.warm { color: #b45309; }
+    .topn-tag { font-size: 10px; color: #64748b; text-align: right; }
+
+    /* Graph strip — heatmap-style, not navigable */
+    .strip { position: relative; width: 100%; height: calc(100% - 22px); }
+    .seg-box { position: absolute; border: 1.5px dashed #94a3b8; border-radius: 8px; background: rgba(148,163,184,0.04); }
+    .seg-box .lbl { position: absolute; top: 4px; left: 6px; font-size: 9px; color: #475569; font-weight: 600; }
+    .seg-box .num { position: absolute; bottom: 4px; right: 6px; font-size: 9px; color: #64748b; font-family: ui-monospace, monospace; }
+    .n { position: absolute; border-radius: 50%; }
+    .n.cold { background: #cccccc; }
+    .n.warm { background: #f59e0b; }
+    .n.hot  { background: #dc2626; }
+    .n.entry { box-shadow: 0 0 0 2px #2563eb; }
+
+    /* Footer */
+    .foot-spacer { flex: 1; }
+    .foot-action { background: #2563eb; color: #fff; border: none; padding: 8px 14px; font-size: 13px; font-weight: 500; border-radius: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+
+    <!-- ==================== HEADER ==================== -->
+    <header>
+      <div class="header-row">
+        <div class="title">Network Posture</div>
+        <div class="meta">Topology <b>medium-001</b> · Entry <b>web01 / nginx</b> · Sim <b>10,000 iters</b></div>
+        <button class="btn secondary">Re-simulate</button>
+        <button class="btn">Optimize →</button>
+      </div>
+    </header>
+
+    <!-- ==================== KPI STRIP ==================== -->
+    <div class="kpi danger">
+      <div class="kpi-label">Mean blast-radius</div>
+      <div class="kpi-value">0.41</div>
+      <div class="kpi-sub bad">+0.07 vs baseline</div>
+    </div>
+    <div class="kpi warn">
+      <div class="kpi-label">p99 blast-radius</div>
+      <div class="kpi-value">0.92</div>
+      <div class="kpi-sub">17 nodes ≥ 0.7</div>
+    </div>
+    <div class="kpi ok">
+      <div class="kpi-label">Nodes unreachable from entry</div>
+      <div class="kpi-value">63 / 200</div>
+      <div class="kpi-sub good">31% contained</div>
+    </div>
+    <div class="kpi warn">
+      <div class="kpi-label">Critical CVEs in blast path</div>
+      <div class="kpi-value">8</div>
+      <div class="kpi-sub">2 with CVSS ≥ 9.0</div>
+    </div>
+
+    <!-- ==================== SEGMENT SUMMARY (BL x SEG) ==================== -->
+    <section class="seg-panel">
+      <div class="panel-h">Blast-radius by segment</div>
+      <div class="seg-row"><span class="seg-name">DMZ</span><div class="seg-bar"><div class="fill" style="width:75%"></div></div><span class="seg-val">0.55</span></div>
+      <div class="seg-row"><span class="seg-name">INTERNAL</span><div class="seg-bar"><div class="fill" style="width:55%"></div></div><span class="seg-val">0.41</span></div>
+      <div class="seg-row"><span class="seg-name">DATABASE</span><div class="seg-bar"><div class="fill" style="width:88%"></div><div class="marker" style="left:50%"></div></div><span class="seg-val">0.65</span></div>
+      <div class="seg-row"><span class="seg-name">MGMT</span><div class="seg-bar"><div class="fill" style="width:20%"></div></div><span class="seg-val">0.15</span></div>
+      <div class="seg-row"><span class="seg-name">DEV</span><div class="seg-bar"><div class="fill" style="width:35%"></div></div><span class="seg-val">0.26</span></div>
+      <div style="font-size:10px; color:#94a3b8; margin-top:6px;">▌ marker = segment's own entry privilege; fill = mean blast-radius</div>
+    </section>
+
+    <!-- ==================== HISTOGRAM (blast-radius distribution) ==================== -->
+    <section class="hist-panel">
+      <div class="panel-h">Blast-radius distribution (200 nodes)</div>
+      <div class="hist">
+        <svg viewBox="0 0 360 110" preserveAspectRatio="none">
+          <!-- Bars: low to high blast-radius. The right tail is the alarm. -->
+          <g>
+            <rect x="0"   y="60" width="20" height="40"  fill="#cccccc"/>
+            <rect x="22"  y="48" width="20" height="52"  fill="#cccccc"/>
+            <rect x="44"  y="30" width="20" height="70"  fill="#cccccc"/>
+            <rect x="66"  y="38" width="20" height="62"  fill="#cccccc"/>
+            <rect x="88"  y="52" width="20" height="48"  fill="#cccccc"/>
+            <rect x="110" y="40" width="20" height="60"  fill="#cccccc"/>
+            <rect x="132" y="22" width="20" height="78"  fill="#f59e0b"/>
+            <rect x="154" y="34" width="20" height="66"  fill="#f59e0b"/>
+            <rect x="176" y="50" width="20" height="50"  fill="#f59e0b"/>
+            <rect x="198" y="62" width="20" height="38"  fill="#f59e0b"/>
+            <rect x="220" y="70" width="20" height="30"  fill="#f59e0b"/>
+            <rect x="242" y="76" width="20" height="24"  fill="#f59e0b"/>
+            <rect x="264" y="80" width="20" height="20"  fill="#f59e0b"/>
+            <rect x="286" y="86" width="20" height="14"  fill="#f59e0b"/>
+            <rect x="308" y="90" width="20" height="10"  fill="#dc2626"/>
+            <rect x="330" y="94" width="20" height="6"   fill="#dc2626"/>
+          </g>
+          <!-- Axis: blast-radius in [0,1] -->
+          <line x1="0" y1="100" x2="360" y2="100" stroke="#94a3b8" stroke-width="1"/>
+          <text class="axis-label" x="0"   y="108">0.0</text>
+          <text class="axis-label" x="88"  y="108">0.3</text>
+          <text class="axis-label" x="176" y="108">0.6</text>
+          <text class="axis-label" x="264" y="108">0.8</text>
+          <text class="axis-label" x="340" y="108">1.0</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ==================== TOP-N CRITICAL NODES ==================== -->
+    <section class="topn-panel">
+      <div class="panel-h">Top 8 nodes by blast-radius</div>
+      <div class="topn-row" style="font-weight:600; color:#475569; font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">
+        <span></span><span>node</span><span style="text-align:right;">p</span><span style="text-align:right;">priv</span>
+      </div>
+      <div class="topn-row"><span class="topn-rank">1</span><span class="topn-name">db01/mysql <span class="priv">:root</span></span><span class="topn-val hot">0.97</span><span class="topn-tag">critical</span></div>
+      <div class="topn-row"><span class="topn-rank">2</span><span class="topn-name">db01/mysql <span class="priv">:user</span></span><span class="topn-val hot">0.95</span><span class="topn-tag">critical</span></div>
+      <div class="topn-row"><span class="topn-rank">3</span><span class="topn-name">app03/auth <span class="priv">:user</span></span><span class="topn-val hot">0.89</span><span class="topn-tag">critical</span></div>
+      <div class="topn-row"><span class="topn-rank">4</span><span class="topn-name">db02/pg <span class="priv">:root</span></span><span class="topn-val hot">0.84</span><span class="topn-tag">critical</span></div>
+      <div class="topn-row"><span class="topn-rank">5</span><span class="topn-name">web01/php <span class="priv">:root</span></span><span class="topn-val hot">0.78</span><span class="topn-tag">critical</span></div>
+      <div class="topn-row"><span class="topn-rank">6</span><span class="topn-name">app02/api <span class="priv">:user</span></span><span class="topn-val warm">0.62</span><span class="topn-tag">elevated</span></div>
+      <div class="topn-row"><span class="topn-rank">7</span><span class="topn-name">web01/nginx <span class="priv">:user</span></span><span class="topn-val warm">0.62</span><span class="topn-tag">entry</span></div>
+      <div class="topn-row"><span class="topn-rank">8</span><span class="topn-name">app01/ssh <span class="priv">:user</span></span><span class="topn-val warm">0.38</span><span class="topn-tag">elevated</span></div>
+    </section>
+
+    <!-- ==================== GRAPH STRIP (heatmap, not navigable) ==================== -->
+    <section class="graph-panel">
+      <div class="panel-h">Heatmap — blast-radius at a glance</div>
+      <div class="strip">
+        <div class="seg-box" style="top:6px;  left:6px;   width:36%; height:48%;"><div class="lbl">DMZ</div><div class="num">28 nodes</div></div>
+        <div class="seg-box" style="top:6px;  left:44%;  width:30%; height:88%;"><div class="lbl">INTERNAL</div><div class="num">64 nodes</div></div>
+        <div class="seg-box" style="top:58%; left:6%;   width:36%; height:38%;"><div class="lbl">DATABASE</div><div class="num">22 nodes</div></div>
+        <div class="seg-box" style="top:6px;  left:76%;  width:18%; height:48%;"><div class="lbl">MGMT</div><div class="num">9 nodes</div></div>
+        <div class="seg-box" style="top:58%; left:76%;  width:18%; height:38%;"><div class="lbl">DEV</div><div class="num">14 nodes</div></div>
+        <!-- A few representative node dots, no labels — purely a heatmap -->
+        <div class="n entry hot" style="top:30%; left:10%; width:14px; height:14px;"></div>
+        <div class="n warm"     style="top:55%; left:18%; width:10px; height:10px;"></div>
+        <div class="n hot"      style="top:80%; left:18%; width:12px; height:12px;"></div>
+        <div class="n warm"     style="top:30%; left:55%; width:10px; height:10px;"></div>
+        <div class="n hot"      style="top:60%; left:60%; width:12px; height:12px;"></div>
+        <div class="n cold"     style="top:80%; left:55%; width:8px;  height:8px;"></div>
+        <div class="n cold"     style="top:30%; left:82%; width:8px;  height:8px;"></div>
+        <div class="n warm"     style="top:80%; left:82%; width:10px; height:10px;"></div>
+      </div>
+    </section>
+
+    <!-- ==================== FOOTER ==================== -->
+    <footer>
+      <span>Last simulation: <b style="color:#fff">2.3 s</b> ago · 10,000 iterations</span>
+      <span>·</span>
+      <span>Open <b style="color:#fff">graph view</b> for navigation, or <b style="color:#fff">defense workspace</b> for what-if planning.</span>
+      <span class="foot-spacer"></span>
+      <button class="foot-action">Open graph view →</button>
+      <button class="foot-action">Open defense workspace →</button>
+    </footer>
+
+  </div>
+</body>
+</html>

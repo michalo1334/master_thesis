@@ -1,0 +1,61 @@
+\chapter{Literature Review}
+\label{ch:literature_review}
+
+This chapter reviews prior work relevant to the thesis. The discussion is organized around four themes: \textbf{attack-graph construction}, \textbf{topological vulnerability analysis}, \textbf{CVSS-based prioritization}, and \textbf{Monte Carlo methods for network security}. Where useful, mathematical notation is used to make precise statements; for example, the expected blast radius of a single entry point is
+
+\[
+\mathrm{E}[B \mid e] = \sum_{h \in V} P(\text{compromise of } h \mid \text{entry at } e).
+\]
+
+A more realistic model that accounts for attacker skill level $s$ and time budget $t$ introduces a discount on deep attack paths and gives
+
+\[
+\mathrm{E}[B \mid e, s, t] = \sum_{h \in V} P(\text{compromise of } h \mid e, s, t).
+\]
+
+\section{Attack-Graph Construction}
+
+The notion of an attack graph as a means of reasoning about multi-step exploitation was formalized by \citeauthor{jha02two}~\cite{jha02two}. The two representations introduced in that work --- state-enumeration and assumption-based --- remain the conceptual reference point for almost every later tool.
+
+\begin{itemize}
+	\item \textbf{MulVAL}~\cite{ou05mulval} --- a logic-programming-based analyzer that produces a Datalog representation of the network and queries it for reachability. A canonical example of the assumption-based family.
+	\item \textbf{NetSPA}~\cite{homer08netspa} --- a scalable network-security problem analyzer that pre-computes a reachability map to avoid the exponential blow-up of state enumeration.
+	\begin{itemize}
+		\item Designed to handle enterprise-scale networks (thousands of hosts).
+		\item Emphasizes the shortest-path variant, which is fast but conservative.
+	\end{itemize}
+\end{itemize}
+
+\section{Topological Vulnerability Analysis}
+
+A separate line of work, beginning with \citeauthor{ammann02tva}~\cite{ammann02tva}, observes that the monotonicity assumption (attackers never lose privileges) makes attack graphs polynomial to construct. The multiple-prerequisite (MP) variant relaxes this assumption in a controlled way and is the subject of an empirical comparison by \citeauthor{ingols06mpg}~\cite{ingols06mpg}, which remains a touchstone for any new construction method.
+
+\begin{table}[hbt!]
+	\centering
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Tool}                & \textbf{Year} & \textbf{Representation}         \\
+		\midrule
+		MulVAL~\cite{ou05mulval}     & 2005 & Datalog / assumption-based      \\
+		TVA~\cite{ammann02tva}        & 2002 & State-enumeration (monotonic)  \\
+		NetSPA~\cite{homer08netspa}   & 2008 & Network reachability + shortest paths \\
+		MP graphs~\cite{ingols06mpg}  & 2006 & Multiple-prerequisite (MP)     \\
+		\bottomrule
+	\end{tabular}
+	\caption{Selected attack-graph construction methods surveyed in this chapter.}
+	\label{tab:lit:prior-tools}
+\end{table}
+
+\section{CVSS-Based Prioritization}
+
+The Common Vulnerability Scoring System~\cite{cvss31}, published by FIRST.org and used as the primary input to the U.S. National Vulnerability Database~\cite{nvd}, assigns each CVE a base score in the range $0$--$10$ derived from a fixed set of exploit and impact metrics. CVSS is the de-facto industry standard for per-vulnerability prioritization, and one of the baselines against which the present work is compared.
+
+CVSS-based prioritization has a known weakness that motivates this thesis: it scores vulnerabilities independently, with no representation of the dependency structure that determines whether a given vulnerability is reachable from a given entry point.
+
+\section{Monte Carlo Methods for Network Security}
+
+The Mann--Whitney $U$ test~\cite{mann47} is the standard non-parametric test for comparing two independent samples when the normality assumption does not hold. The blast-radius samples produced by the simulator in this work are not normally distributed (they are bounded counts on a discrete graph), so the Mann--Whitney $U$ test is the appropriate choice for the comparative evaluation in Chapter~\ref{ch:evaluation}.
+
+\section{Summary}
+
+The surveyed methods illustrate a recurring trade-off: tools that emphasize \emph{scalability} tend to under-represent attacker capability (e.g., shortest-path assumptions), while tools that emphasize \emph{expressiveness} (e.g., full state enumeration) do not scale to realistic networks. The present work positions itself in the middle: a graph construction in the NetSPA / MP family, augmented by a stochastic simulator that captures a wider range of attacker behavior, and an optimizer that operates on the resulting blast-radius map.\footnotetext{This observation is not new; it is stated here to motivate the design in Chapter~\ref{ch:design}.}

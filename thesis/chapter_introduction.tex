@@ -1,0 +1,35 @@
+\chapter{Introduction}
+\label{ch:introduction}
+
+Modern computer networks are routinely compromised. Once an attacker breaches the perimeter, the question is no longer \emph{whether} they will move laterally, but \emph{how far}. The \emph{blast radius} --- the set of resources an attacker can reach after the initial compromise --- is the single most actionable number a defender can compute~\cite{ou05mulval}. Conventional vulnerability prioritization, typically based on the CVSS score published by FIRST.org~\cite{cvss31}, treats each vulnerability in isolation and therefore misses the dependency structure that determines real attack paths.
+
+This thesis investigates a graph-based approach: build an \emph{attack graph} from network topology and CVE data, simulate attacker propagation by Monte Carlo sampling, and use the resulting blast-radius map to drive automated defense optimization. The system is implemented in \mintinline{elixir}|Elixir|, with a visualization front-end in \mintinline{elixir}|Phoenix.LiveView|, and is evaluated against three baselines (no defense, random action, and CVSS-priority ordering).
+
+\begin{quote}
+	\itshape A vulnerability score tells you how bad a single flaw is. An attack graph tells you what an attacker can actually do.
+\end{quote}
+
+The remainder of this chapter frames the goal of the thesis and outlines its structure. Section~\ref{ch:intro:goal} states the goal and scope. Section~\ref{ch:intro:questions} lists the research questions. Section~\ref{ch:intro:structure} describes the organization of the remaining chapters, and points forward to the architecture diagram in Chapter~\ref{ch:design} and the empirical evaluation in Chapter~\ref{ch:evaluation}.
+
+A working familiarity with the notation used throughout the document is assumed; readers may consult Chapter~\ref{ch:theory} for a self-contained reference of every visual element type used in this thesis.\footnote{That chapter doubles as a \emph{copy-paste catalog} of the LaTeX patterns this document relies on.}
+
+\section{Goal and scope of the thesis}
+\label{ch:intro:goal}
+
+The goal of the thesis is to design, implement, and evaluate a small but expressive system that demonstrates the proposed approach on synthetic but realistic network topologies of 20 to 1000 hosts. The scope is intentionally limited: a single-pass offline analysis, a single optimization family (min-cut segmentation, greedy patching, and a hybrid of the two), and a reproducible evaluation. Out-of-scope topics (online re-evaluation under topology change, real-CVE feed integration, multi-tenant operation) are noted in the conclusion.
+
+\section{Research questions}
+\label{ch:intro:questions}
+
+The work is organized around three sub-questions, which together determine the structure of the empirical evaluation:
+
+\begin{enumerate}
+	\item How effectively does graph-based attack-path modeling capture real lateral-movement patterns, compared to per-host CVSS-based scoring?
+	\item Which optimization strategy --- graph min-cut for segmentation, greedy patching, or a hybrid of the two --- achieves the greatest reduction in blast radius per defensive action?
+	\item How does the approach scale with the number of hosts in the network, both in graph-construction time and in simulation throughput?
+\end{enumerate}
+
+\section{Structure of the thesis}
+\label{ch:intro:structure}
+
+The thesis is organized into seven chapters. Chapter~\ref{ch:literature_review} surveys prior work on attack graphs and vulnerability prioritization. Chapter~\ref{ch:theory} establishes the theoretical background and serves as a visual-elements reference. Chapter~\ref{ch:design} presents the design. Chapter~\ref{ch:implementation} describes the implementation. Chapter~\ref{ch:evaluation} reports on the empirical evaluation. Chapter~\ref{ch:conclusion} summarizes the contributions and outlines future work.

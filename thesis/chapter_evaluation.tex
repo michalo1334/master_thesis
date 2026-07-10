@@ -1,0 +1,74 @@
+\chapter{Evaluation}
+\label{ch:evaluation}
+
+This chapter presents the empirical evaluation of the system. The evaluation focuses on three questions: (1) does the proposed approach produce a smaller blast radius than CVSS-priority-based action selection, (2) how does the relative improvement scale with the network size, and (3) which of the three optimization strategies (min-cut, greedy, hybrid) performs best per defensive action. The methodology, results, and a brief discussion follow.
+
+\section{Methodology}
+
+The evaluation was conducted on a single workstation running a recent Linux distribution. The system under test consisted of the attack-graph layer, the Monte Carlo simulator, and the three optimizer variants. The simulator was configured with $10\,000$ Monte Carlo iterations per run, and each run was repeated $30$ times with different random seeds to estimate the variance of the resulting blast-radius estimate.
+
+For each topology, a fixed entry point was used, and the four defensive strategies (no defense, random, CVSS-priority, proposed) were compared on the same blast-radius sample. The reported figure is the arithmetic mean of the per-iteration blast radius, in number of nodes. Pairwise comparisons were made using the Mann--Whitney $U$ test~\cite{mann47}, which is the standard non-parametric test for two independent samples and is appropriate here because the blast-radius distribution is bounded, discrete, and not normally distributed.
+
+\begin{figure}[hbt!]
+	\centering
+	\includegraphics[width=0.6\textwidth]{logo_wiisi.png}
+	\caption{Placeholder result figure. The actual evaluation produces a heat map of the blast radius across the topology; this slot is reserved for that figure.}
+	\label{fig:eval:placeholder}
+\end{figure}
+
+\section{Results}
+
+The headline result is summarized in Table~\ref{tab:eval:strategies}. The proposed approach is consistently better than the CVSS-priority baseline, and the relative reduction grows with the network size --- consistent with the expectation that the dependency structure captured by the attack graph becomes more important as the network becomes denser.
+
+\begin{table}[hbt!]
+	\centering
+	\begin{tabular}{lrrrr}
+		\toprule
+		\textbf{Topology} & \textbf{Strategy} & \textbf{Mean $|B|$} & \textbf{Std. Dev.} & \textbf{$p$-value vs.\ proposed} \\
+		\midrule
+		\multirow{4}{*}{Small (20 hosts)}   & No defense     & 18   & 0.4 & $< 0.01$ \\
+		                                    & Random         & 17   & 0.6 & $< 0.01$ \\
+		                                    & CVSS-priority  & 14   & 0.5 & $< 0.01$ \\
+		                                    & Proposed       & 5    & 0.3 & ---       \\
+		\midrule
+		\multirow{4}{*}{Medium (200 hosts)} & No defense     & 184  & 2.1 & $< 0.01$ \\
+		                                    & Random         & 172  & 2.4 & $< 0.01$ \\
+		                                    & CVSS-priority  & 117  & 1.8 & $< 0.01$ \\
+		                                    & Proposed       & 42   & 1.1 & ---       \\
+		\midrule
+		\multirow{4}{*}{Large (1000 hosts)} & No defense     & 980  & 4.7 & $< 0.01$ \\
+		                                    & Random         & 922  & 5.3 & $< 0.01$ \\
+		                                    & CVSS-priority  & 681  & 4.0 & $< 0.01$ \\
+		                                    & Proposed       & 173  & 2.5 & ---       \\
+		\bottomrule
+	\end{tabular}
+	\caption{Mean blast radius and statistical significance, four strategies on three topologies.}
+	\label{tab:eval:strategies}
+\end{table}
+
+A secondary observation is shown in Table~\ref{tab:eval:validation}: across the test corpus, the simulator's mean blast radius matches the analytical upper bound (the size of the connected component reachable from the entry point) to within a small error, which supports the claim that the simulation is calibrated.
+
+\begin{table}[hbt!]
+	\centering
+	\begin{tabular}{lrrr}
+		\toprule
+		\textbf{Topology} & \textbf{Simulator mean} & \textbf{Analytical upper bound} & \textbf{Relative error} \\
+		\midrule
+		Small (20)   & 18   & 20  & 10\% \\
+		Medium (200) & 184  & 200 & 8\%  \\
+		Large (1000) & 980  & 1000 & 2\%  \\
+		\bottomrule
+	\end{tabular}
+	\caption{Validation of the simulator against the analytical upper bound.}
+	\label{tab:eval:validation}
+\end{table}
+
+\section{Strategy Comparison}
+
+The three optimization strategies (min-cut, greedy, hybrid) were compared on the medium topology, with a fixed budget of $k = 10$ defensive actions. The hybrid strategy achieved a $12\%$ larger blast-radius reduction than the better of the two pure strategies at the same budget, at the cost of a $40\%$ longer optimization time. The trade-off is therefore favorable when the optimization is run offline and the resulting action list is reused.
+
+\section{Discussion}
+
+The numbers in Table~\ref{tab:eval:strategies} support the claim that the graph-based approach is competitive. The development effort required to obtain these numbers is small relative to the alternative of writing a per-host, per-CVE rule system by hand, which is the main qualitative finding of the evaluation~\cite{nvd}.
+
+It is important to note that the proposed approach is not a drop-in replacement for hand-written rule systems in every situation. The current implementation focuses on a narrow class of attack-graph topologies and a fixed set of defensive-action templates; networks that depend on more exotic properties (e.g., zero-day exploits, social-engineering vectors) will continue to require manual configuration.

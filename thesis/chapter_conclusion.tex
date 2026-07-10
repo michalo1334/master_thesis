@@ -1,0 +1,46 @@
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+The thesis set out to investigate how a graph-based attack-simulation pipeline, combined with an automated defense optimizer, can reduce the blast radius of network attacks compared to conventional CVSS-based vulnerability prioritization. The implementation and evaluation described in Chapters~\ref{ch:implementation} and~\ref{ch:evaluation} suggest that the proposed approach is viable for the problem domain explored, and that the design choices summarized in Chapter~\ref{ch:design} are reasonable.
+
+\section{Summary}
+\label{ch:conclusion:summary}
+
+Three contributions were made. First, an \emph{attack-graph construction} in the NetSPA / MP family, enriched with CVSS-derived edge weights from a synthetic CVE feed. Second, a \emph{Monte Carlo blast-radius simulator} that produces a calibrated blast-radius map under a fixed attacker model. Third, a small \emph{optimization framework} supporting three strategies (min-cut, greedy, hybrid) and a comparison against three baselines. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
+
+\begin{table}[hbt!]
+	\centering
+	\begin{tabular}{lll}
+		\toprule
+		\textbf{Area}             & \textbf{Contribution}                          & \textbf{Status}      \\
+		\midrule
+		Attack-graph construction & NetSPA / MP family, CVSS-weighted             & Implemented          \\
+		Monte Carlo simulation    & Stochastic propagation, blast-radius map      & Implemented          \\
+		Optimization framework    & Min-cut, greedy, hybrid                       & Implemented          \\
+		Empirical evaluation      & Comparison on three topologies, three baselines & Reported             \\
+		\bottomrule
+	\end{tabular}
+	\caption{Contributions of the thesis and their status.}
+	\label{tab:conclusion:contributions}
+\end{table}
+
+\section{Future Work}
+\label{ch:conclusion:future}
+
+Several directions are left open for future work:
+
+\begin{itemize}
+	\item \textbf{Real-CVE integration.} The current evaluation uses a synthetic CVE feed with the same statistical shape as the National Vulnerability Database~\cite{nvd}. Replacing the feed with a live NVD pull would test the pipeline on a larger and more realistic input.
+	\item \textbf{Dynamic topology.} The present system assumes a static network. Extending the attack-graph and simulator layers to handle changes in the network over time would unlock operational use cases (e.g., daily re-evaluation of a corporate network).
+	\item \textbf{Richer attacker models.} The current Monte Carlo simulator uses a single stochastic model for attacker behavior. A more expressive model, perhaps learned from incident data, would close the gap with the qualitative claims in the attack-graph literature~\cite{jha02two, ammann02tva}.
+	\item \textbf{Better diagnostics.} Translating the optimizer's recommendations back to source-level positions in the input topology (e.g., \enquote{segment the link between $H_3$ and $H_7$, patch CVE-2024-1234 on $H_{12}$}) would substantially improve the usability of the system for security operators.
+\end{itemize}
+
+\section{Personal Growth}
+\label{ch:conclusion:growth}
+
+Beyond the technical contributions, the project was a useful exercise in keeping a small, focused design coherent as the surface area grew. The act of writing examples that double as documentation forced several early design decisions to be revisited; in every case the result was a cleaner interface.
+
+\begin{quote}
+	\itshape A security tool is only as good as the assumptions it makes explicit. The blast-radius number on its own is not a defense; the act of computing it forces the defender to make the assumptions visible.
+\end{quote}

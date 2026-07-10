@@ -1,0 +1,26 @@
+# Production: Elixir app as a release build.
+#
+# Usage:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+
+services:
+  network_defense:
+    build:
+      context: ../src
+    image: network_defense:latest
+    container_name: network-defense-app
+    environment:
+      DATABASE_URL: ecto://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-network_defense_dev}
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PORT: ${PORT:-4000}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
+      ECTO_IPV6: ${ECTO_IPV6:-true}
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,823 @@
+<!doctype html>
+<!--
+  demo-svg.html — Attack-graph dashboard demo, SVG variant.
+  ---------------------------------------------------------------------------
+  Renders a force-directed attack graph with D3 v7.
+  - Nodes: <circle>
+  - Edges: <line>, 4 stroke styles (network_reach, intra_host, exploit, credential)
+  - Segments: dashed rounded <rect> hulls
+  - Blast-radius: 3-stop gray/orange/red scale at 0.3 / 0.7 thresholds
+  - Interactions: pan (d3.zoom background drag), zoom (scroll/pinch), select (click)
+  - Node drag: pinned where dropped (documented in the data node-drag handler)
+
+  Trade-off vs DOM variant (demo-dom.html):
+    + Single rendering context (SVG) means one transform applies to everything
+    + Crisp at any zoom, perfect for circles and lines
+    - Text scaling inherits the zoom transform (text scales with graph), which
+      is usually what you want for a force-directed graph but hurts dense labels
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Attack graph — SVG demo</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <style>
+    /* ============================================================ Layout
+       The "frame" is a grid that mirrors wireframe-1: header / graph / detail.
+       The defenses rail is omitted here to keep the demo focused on the graph
+       itself. Constants below drive every visual decision in the file. */
+    :root {
+      --bg:           #f5f5f5;
+      --panel:        #ffffff;
+      --header-bg:    #1e3a5f;
+      --header-fg:    #ffffff;
+      --meta:         #cbd5e1;
+      --detail-bg:    #ecfdf5;
+      --detail-edge:  #a7f3d0;
+      --detail-title: #047857;
+      --graph-bg:     #fafafa;
+      --graph-border: #d4d4d4;
+      --text:         #1a1a1a;
+      --muted:        #64748b;
+      --accent:       #2563eb;
+      --btn:          #2563eb;
+      --btn-sec:      #475569;
+
+      /* Blast-radius three-stop scale, matching the wireframe legend. */
+      --blast-cold:   #cccccc;
+      --blast-warm:   #f59e0b;
+      --blast-hot:    #dc2626;
+
+      /* Force simulation tuning. */
+      --charge:       -260;      /* repulsive force between nodes */
+      --link-dist:    70;        /* ideal link length */
+      --collide:      28;        /* node radius + padding for forceCollide */
+      --segment-pad:  70;        /* hull padding around the nodes in a segment */
+      --seg-strength: 0.06;      /* how strongly each node is pulled to its seg center */
+
+      /* Visual sizes. */
+      --node-r:       12;        /* base node radius */
+      --node-r-big:   16;        /* radius for :root nodes */
+      --sim-ticks:    300;       /* simulation stops after this many ticks */         /* selection ring stroke width */
+    }
+
+    html, body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .frame {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-rows: 64px 1fr 160px;
+      height: 100vh;
+      background: var(--panel);
+    }
+
+    /* ----- Header ----- */
+    header {
+      background: var(--header-bg);
+      color: var(--header-fg);
+      padding: 0 20px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .title { font-size: 18px; font-weight: 600; margin-right: auto; }
+    .meta  { font-size: 12px; color: var(--meta); }
+    .meta b { color: #fff; font-weight: 500; }
+    .legend { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--meta); }
+    .swatch {
+      display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      vertical-align: middle; margin-right: 4px;
+    }
+    .btn {
+      background: var(--btn); color: #fff; border: none;
+      padding: 8px 14px; font-size: 13px; font-weight: 500;
+      border-radius: 6px; cursor: pointer;
+    }
+    .btn.secondary { background: var(--btn-sec); }
+    .btn:hover     { filter: brightness(1.08); }
+
+    /* ----- Graph region ----- */
+    .graph {
+      position: relative;
+      background: var(--graph-bg);
+      border-top: 1px solid var(--graph-border);
+      border-bottom: 1px solid var(--graph-border);
+      overflow: hidden;
+      cursor: grab;        /* signals pan-on-drag */
+    }
+    .graph:active { cursor: grabbing; }
+
+    .graph-label {
+      position: absolute; top: 8px; left: 12px;
+      font-size: 11px; color: var(--muted);
+      letter-spacing: 0.4px; text-transform: uppercase;
+      pointer-events: none;
+    }
+    .graph-toolbar {
+      position: absolute; top: 8px; right: 12px;
+      display: flex; gap: 6px;
+    }
+    .graph-toolbar button {
+      background: #fff; border: 1px solid #cbd5e1; color: #475569;
+      font-size: 12px; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+    }
+
+    /* ----- SVG graph internals ----- */
+    .graph svg { width: 100%; height: 100%; display: block; }
+    .edge            { stroke: #94a3b8; fill: none; }
+    /* The four edge kinds — see model.md §"Edge kinds". */
+    .edge.network    { stroke: #94a3b8; stroke-width: 1;   opacity: 0.55; }
+    .edge.intra      { stroke: #0f172a; stroke-width: 2.5; opacity: 0.85; }
+    .edge.exploit    { stroke: #dc2626; stroke-width: 2;   opacity: 0.85; }
+    .edge.credential { stroke: #7c3aed; stroke-width: 1.5; stroke-dasharray: 5 3; opacity: 0.85; }
+
+    .segment-hull    {
+      fill: rgba(148, 163, 184, 0.06);
+      stroke: #94a3b8; stroke-width: 1.5;
+      stroke-dasharray: 6 4; rx: 14; ry: 14;
+      pointer-events: none;
+    }
+    .segment-label   {
+      font-size: 11px; font-weight: 600; fill: #475569;
+      letter-spacing: 0.6px; text-transform: uppercase;
+      pointer-events: none;
+    }
+    .node            {
+      stroke: #0f172a; stroke-width: 1.5;
+      cursor: pointer;
+      transition: r 120ms ease-out;
+    }
+    .node:hover      { stroke-width: 2.5; }
+    .node-label      {
+      font-size: 9px; fill: #0f172a;
+      pointer-events: none; text-anchor: middle;
+    }
+    .node-entry      { stroke: var(--accent); stroke-width: 3; }
+    .node-selected   { stroke: #000; stroke-width: var(--ring-w); }
+
+    /* ----- Detail drawer ----- */
+    .detail {
+      background: var(--detail-bg);
+      border-top: 1px solid var(--detail-edge);
+      padding: 10px 20px;
+      font-size: 12px;
+    }
+    .detail-title {
+      font-size: 11px; font-weight: 600; color: var(--detail-title);
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;
+      height: calc(100% - 22px);
+    }
+    .detail-box {
+      background: #fff; border: 1px solid var(--detail-edge);
+      border-radius: 6px; padding: 8px 10px;
+      overflow: auto;
+    }
+    .detail-box h4 { margin: 0 0 4px; font-size: 11px; color: var(--detail-title); }
+    .detail-box pre {
+      margin: 0; font-family: ui-monospace, "SF Mono", monospace;
+      font-size: 11px; color: #334155; white-space: pre-wrap; line-height: 1.45;
+    }
+    .pill {
+      display: inline-block; padding: 1px 8px; border-radius: 999px;
+      font-size: 10px; font-weight: 600; margin-left: 6px;
+    }
+    .pill.hot { background: #fecaca; color: #991b1b; }
+    .pill.cold { background: #e2e8f0; color: #334155; }
+    .pill.warm { background: #fde68a; color: #92400e; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <header>
+      <div class="title">Attack Graph <span style="font-weight:400;font-size:13px;opacity:0.7">— SVG variant</span></div>
+      <div class="meta">
+        Topology <b>medium-001</b> &nbsp;·&nbsp;
+        <span id="meta-counts">— nodes, — edges</span> &nbsp;·&nbsp;
+        <span id="meta-tick">tick 0</span>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--blast-cold)"></span>0.0–0.3</span>
+        <span><span class="swatch" style="background:var(--blast-warm)"></span>0.3–0.7</span>
+        <span><span class="swatch" style="background:var(--blast-hot)"></span>0.7–1.0</span>
+      </div>
+      <button class="btn secondary" id="reset-btn">Reset</button>
+    </header>
+
+    <section class="graph" id="graph">
+      <div class="graph-label">Graph view — drag background to pan · scroll to zoom · click a node to select</div>
+      <div class="graph-toolbar">
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">−</button>
+        <button id="zoom-fit">fit</button>
+      </div>
+      <svg id="canvas"></svg>
+    </section>
+
+    <section class="detail" id="detail">
+      <div class="detail-title">
+        Detail — selected: <strong id="sel-id">none</strong>
+        <span class="pill cold" id="sel-blast">no selection</span>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-box">
+          <h4>Outgoing edges</h4>
+          <pre id="sel-out">Click a node to inspect its outgoing edges.</pre>
+        </div>
+        <div class="detail-box">
+          <h4>Incoming edges</h4>
+          <pre id="sel-in">—</pre>
+        </div>
+        <div class="detail-box">
+          <h4>Blast-radius context</h4>
+          <pre id="sel-ctx">—</pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+  /* =====================================================================
+     1. CONSTANTS
+     Every magic number lives here so the rest of the code reads as intent.
+     Values that already have CSS variables are pulled from getComputedStyle
+     so a designer can tweak one place and have both CSS and JS agree. */
+  const root = getComputedStyle(document.documentElement);
+  const CHARGE       = parseInt(root.getPropertyValue('--charge'));        // -260
+  const LINK_DIST    = parseInt(root.getPropertyValue('--link-dist'));     // 70
+  const COLLIDE_R    = parseInt(root.getPropertyValue('--collide'));       // 28
+  const SEG_PAD      = parseInt(root.getPropertyValue('--segment-pad'));   // 70
+  const SEG_STRENGTH = parseFloat(root.getPropertyValue('--seg-strength'));// 0.06
+  const NODE_R       = parseInt(root.getPropertyValue('--node-r'));        // 12
+  const NODE_R_BIG   = parseInt(root.getPropertyValue('--node-r-big'));   // 16
+
+  // Three-stop blast-radius thresholds. The function returns a CSS color and
+  // is also used to classify nodes into cold/warm/hot buckets.
+  const BLAST_LO = 0.3, BLAST_HI = 0.7;
+  const BLAST_COLORS = { cold: '#cccccc', warm: '#f59e0b', hot: '#dc2626' };
+  function blastColor(v) {
+    if (v >= BLAST_HI) return BLAST_COLORS.hot;
+    if (v >= BLAST_LO) return BLAST_COLORS.warm;
+    return BLAST_COLORS.cold;
+  }
+  function blastClass(v) {
+    if (v >= BLAST_HI) return 'hot';
+    if (v >= BLAST_LO) return 'warm';
+    return 'cold';
+  }
+
+  // Entry point — the only node marked as the attacker's starting position.
+  // In a real run this comes from the topology (e.g. the first internet-facing
+  // service). For the demo we pick it from the DMZ web tier.
+  const ENTRY_ID = 'web01_nginx_network';
+
+  /* =====================================================================
+     2. DATA — synthetic but realistic.
+     3 segments, ~4-6 services each, 3 privilege levels per service.
+     ~30-50 nodes, ~50-80 edges. */
+
+  // Segment definitions: each maps a logical zone to a target center for the
+  // custom segment force (forceX/forceY pull). The pixel centers are computed
+  // at runtime from the graph size, but the *order* is fixed: DMZ left,
+  // internal middle, database right. */
+  const SEGMENTS = [
+    { id: 'dmz',      label: 'DMZ',      order: 0, x: 0.22, y: 0.40 },
+    { id: 'internal', label: 'INTERNAL', order: 1, x: 0.55, y: 0.45 },
+    { id: 'db',       label: 'DATABASE', order: 2, x: 0.82, y: 0.55 }
+  ];
+
+  // Host catalog. Each host lists its services. The same service may appear
+  // on multiple hosts (mirrored deployments) — that's intentional and the
+  // credential edge will show up between them.
+  //
+  // 3 segments, services per segment: DMZ=5, internal=6, db=2  → 13 services.
+  // We trim a few (haproxy :root, worker :root) to land in the 30-40 node range.
+  const HOSTS = [
+    // DMZ — 5 services across 3 hosts.
+    { id: 'web01',  seg: 'dmz',      services: ['nginx', 'php'] },
+    { id: 'web02',  seg: 'dmz',      services: ['nginx', 'php'] },
+    { id: 'edge01', seg: 'dmz',      services: ['haproxy'] },
+    // Internal — 6 services across 3 hosts.
+    { id: 'app01',  seg: 'internal', services: ['api', 'worker'] },
+    { id: 'app02',  seg: 'internal', services: ['api', 'auth'] },
+    { id: 'bastion',seg: 'internal', services: ['sshd'] },
+    // Database — 2 services across 2 hosts.
+    { id: 'db01',   seg: 'db',       services: ['mysql'] },
+    { id: 'db02',   seg: 'db',       services: ['pg'] }
+  ];
+  const PRIVS = ['network', 'user', 'root'];
+
+  // Synthetic CVEs: for the demo, every (service) has 1-2 applicable CVEs
+  // with a CVSS score in [4.0, 9.8]. The model says exploit probability =
+  // CVSS / 10, so these feed both the edges and (indirectly) the blast-radius.
+  const CVES = {
+    nginx:  [{ id: 'CVE-2021-23017', cvss: 7.7 }, { id: 'CVE-2022-41741', cvss: 7.1 }],
+    php:    [{ id: 'CVE-2019-11043', cvss: 9.8 }],
+    haproxy:[{ id: 'CVE-2021-40346', cvss: 9.8 }],
+    api:    [{ id: 'CVE-2023-12345', cvss: 8.5 }],
+    auth:   [{ id: 'CVE-2020-14812', cvss: 8.5 }],
+    worker: [{ id: 'CVE-2022-22965', cvss: 9.8 }],
+    sshd:   [{ id: 'CVE-2023-38408', cvss: 8.8 }],
+    mysql:  [{ id: 'CVE-2020-14812', cvss: 8.5 }, { id: 'CVE-2024-9999', cvss: 6.5 }],
+    pg:     [{ id: 'CVE-2023-31199', cvss: 7.2 }]
+  };
+
+  // Synthetic blast-radius: deterministic per node id so the demo is stable
+  // across reloads. The function is a hash, biased by segment: DMZ high,
+  // internal medium, database high. Privileged nodes get a boost (root is
+  // typically the goal of an attack chain, so blast-radius there is high).
+  function hash01(s) {
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+  function synthBlast(host, service, priv) {
+    const seg = HOSTS.find(h => h.id === host).seg;
+    // Segment bias: DMZ & database are the "interesting" zones (front and back
+    // of the attack chain), so the network/user nodes there run warmer.
+    // Internal is mostly a transit zone — colder on the network tier, warm
+    // at user/root where the real applications live.
+    const segBias = (seg === 'dmz' || seg === 'db') ? 0.30 : 0.10;
+    // Privilege bias: the attacker's goal is :root, so the blast-radius
+    // grows monotonically with privilege on the target.
+    const privBias = priv === 'root' ? 0.30 : priv === 'user' ? 0.15 : 0.0;
+    // Noise per node keeps the distribution interesting (some nodes in the
+    // same segment/privilege bucket end up cold, others hot). 0.30 max.
+    const noise = hash01(host + '|' + service + '|' + priv) * 0.30;
+    return Math.max(0, Math.min(1, segBias + privBias + noise));
+  }
+
+  // Build the node array. Three privilege levels per (host, service) gives
+  // 2+2+1 + 2+2+1 + 1+1 = ~15 services * 3 = 45 nodes (slightly trimmed
+  // for hosts with fewer services). Exactly the ~30-50 range the spec asked.
+  const nodes = [];
+  for (const host of HOSTS) {
+    for (const service of host.services) {
+      for (const priv of PRIVS) {
+        // Some (host, service) pairs don't have a :root node in the demo —
+        // omitting it keeps the total around 30-40, which is easier to read.
+        // Real graphs would include them.
+        if (priv === 'root' && (service === 'worker' || service === 'haproxy')) continue;
+        nodes.push({
+          id: `${host.id}_${service}_${priv}`,
+          host: host.id, service, priv,
+          seg: host.seg,
+          blast: synthBlast(host.id, service, priv),
+          isEntry: false
+        });
+      }
+    }
+  }
+  // Mark the entry node.
+  const entryNode = nodes.find(n => n.id === ENTRY_ID);
+  if (entryNode) entryNode.isEntry = true;
+
+  /* =====================================================================
+     3. EDGES
+     We generate the four kinds separately to keep the count readable.
+       - network_reach: between any two :network nodes whose hosts belong to
+         adjacent segments in the SEGMENTS chain (DMZ <-> internal, internal
+         <-> db, plus DMZ <-> db for the "open route" case). Directed.
+       - intra_host: between :user nodes that share a host.
+       - exploit:    one edge per (source :user, target :network, CVE) triple
+         for which the CVE applies to the target's service. Probability =
+         CVSS / 10 per model.md.
+       - credential: between services on different hosts that share a pool.
+         We invent a small pool graph by hand for the demo.
+     Total target: ~50-80 edges. */
+  const edges = [];
+  function addEdge(from, to, kind, extras = {}) {
+    edges.push({ id: `${from}->${to}::${kind}`, source: from, target: to, kind, ...extras });
+  }
+
+  // -- network_reach --
+  // Adjacency between segments: DMZ<->internal, internal<->db. We pick ONE
+  // representative :network node per host (the first service, conventionally
+  // the "front door" of that host) to keep the edge count small. Real
+  // construction would emit one per listening port; for the demo this
+  // is the gestalt — a thin gray line per host-to-host reachability.
+  const SEG_LINKS = [
+    ['dmz', 'internal'],
+    ['internal', 'db']
+  ];
+  function frontDoor(hostId) {
+    const h = HOSTS.find(x => x.id === hostId);
+    return nodes.find(n => n.host === hostId && n.priv === 'network' && n.service === h.services[0]).id;
+  }
+  for (const [a, b] of SEG_LINKS) {
+    const hostsA = HOSTS.filter(h => h.seg === a);
+    const hostsB = HOSTS.filter(h => h.seg === b);
+    for (const ha of hostsA) {
+      for (const hb of hostsB) {
+        addEdge(frontDoor(ha.id), frontDoor(hb.id), 'network');
+      }
+    }
+  }
+
+  // -- intra_host --
+  // Every pair of :user nodes on the same host shares a runtime. With at
+  // most 2 services per host this is at most 1 edge per host.
+  for (const host of HOSTS) {
+    const userNodes = nodes.filter(n => n.host === host.id && n.priv === 'user');
+    for (let i = 0; i < userNodes.length; i++) {
+      for (let j = i + 1; j < userNodes.length; j++) {
+        addEdge(userNodes[i].id, userNodes[j].id, 'intra');
+      }
+    }
+  }
+
+  // -- exploit --
+  // For each (target service, CVE), pick the *nearest* :user source (fewest
+  // hops away by segment distance) and emit ONE edge to the target's
+  // :network node. This mirrors the spirit of model.md pass #3 without the
+  // combinatorial blow-up; visually you still see red lines pointing at
+  // every "vulnerable" service.
+  function segDist(a, b) {
+    if (a === b) return 0;
+    return SEGMENTS.find(s => s.id === a).order - SEGMENTS.find(s => s.id === b).order;
+  }
+  for (const [service, cves] of Object.entries(CVES)) {
+    const targetUser = nodes.find(n => n.service === service && n.priv === 'user');
+    if (!targetUser) continue;
+    const targetNet = nodes.find(n => n.service === service && n.priv === 'network' && n.host === targetUser.host);
+    if (!targetNet) continue;
+    // Source candidates: all :user nodes (excluding the target itself),
+    // sorted by segment distance, then by host for stability.
+    const sources = nodes
+      .filter(n => n.priv === 'user' && n.id !== targetUser.id)
+      .sort((a, b) => Math.abs(segDist(a.seg, targetUser.seg)) - Math.abs(segDist(b.seg, targetUser.seg)) || a.host.localeCompare(b.host));
+    // Take the 2 nearest sources — gives ~2 red lines per CVE.
+    for (const src of sources.slice(0, 2)) {
+      for (const cve of cves) {
+        addEdge(src.id, targetNet.id, 'exploit', { cve: cve.id, prob: cve.cvss / 10 });
+      }
+    }
+  }
+
+  // -- credential --
+  // Two small pools (3-4 members each) → ~6-12 edges per pool. Model.md says
+  // "every ordered pair" but for a demo this is the gestalt; the dashed
+  // purple line tells the user "these services share a credential".
+  const POOLS = {
+    'deploy-ssh': ['web01', 'web02', 'app01'],          // ops deploys from anywhere
+    'db-app':     ['app01', 'app02', 'db01', 'db02']    // app tier talks to dbs
+  };
+  for (const [poolId, hosts] of Object.entries(POOLS)) {
+    const members = [];
+    for (const hid of hosts) {
+      const u = nodes.find(n => n.host === hid && n.priv === 'user');
+      if (u) members.push(u.id);
+    }
+    for (let i = 0; i < members.length; i++) {
+      for (let j = 0; j < members.length; j++) {
+        if (i === j) continue;
+        addEdge(members[i], members[j], 'credential', { pool: poolId });
+      }
+    }
+  }
+
+  /* =====================================================================
+     4. SVG SCAFFOLD + LAYERS
+     Order matters: hulls first (background), then edges, then nodes on top.
+     d3.zoom is attached to the root <svg>; the transform is applied to an
+     inner <g> that contains EVERYTHING (hulls, edges, nodes). That way one
+     transform pans and zooms the entire graph with a single attribute. */
+  const svg = d3.select('#canvas');
+  const gRoot = svg.append('g').attr('class', 'root');
+  const gHull  = gRoot.append('g').attr('class', 'hulls');
+  const gEdge  = gRoot.append('g').attr('class', 'edges');
+  const gNode  = gRoot.append('g').attr('class', 'nodes');
+
+  // Initial sizing: we let the SVG fill its container, but D3 needs explicit
+  // width/height to compute the viewport center for the simulation. Read the
+  // container size after layout via getBoundingClientRect.
+  let width = 0, height = 0;
+  function measure() {
+    const rect = svg.node().getBoundingClientRect();
+    width = rect.width;
+    height = rect.height;
+    svg.attr('viewBox', `0 0 ${width} ${height}`);
+  }
+  measure();
+  window.addEventListener('resize', () => {
+    measure();
+    simulation.force('center', d3.forceCenter(width / 2, height / 2));
+    simulation.alpha(0.3).restart();
+  });
+
+  /* =====================================================================
+     5. SELECTION STATE
+     Single-selection model. The variable `selectedId` is the single source
+     of truth; visual updates read from it. */
+  let selectedId = null;
+
+  /* =====================================================================
+     6. SEGMENT HULLS
+     Drawn before the simulation finishes — we update their position on
+     every tick. Each hull is the bounding box of its segment's nodes plus
+     a padding. Doing this in SVG (not HTML/CSS) keeps the hull inside the
+     same transform as the rest of the graph. */
+  const hulls = SEGMENTS.map(seg => {
+    const g = gHull.append('g').attr('class', `hull hull-${seg.id}`);
+    g.append('rect').attr('class', 'segment-hull');
+    g.append('text').attr('class', 'segment-label').text(seg.label);
+    return { ...seg, g, rect: g.select('rect'), label: g.select('text') };
+  });
+  function updateHulls() {
+    for (const h of hulls) {
+      const pts = nodesBySeg.get(h.id);
+      if (!pts || pts.length === 0) continue;
+      const [minX, maxX] = d3.extent(pts, p => p.x);
+      const [minY, maxY] = d3.extent(pts, p => p.y);
+      const x = minX - SEG_PAD, y = minY - SEG_PAD;
+      const w = (maxX - minX) + 2 * SEG_PAD, hh = (maxY - minY) + 2 * SEG_PAD;
+      h.rect.attr('x', x).attr('y', y).attr('width', w).attr('height', hh);
+      h.label.attr('x', x + 12).attr('y', y + 16);
+    }
+  }
+
+  /* =====================================================================
+     7. EDGE BINDING
+     We bind edges to the *simLinks* array (not the original `edges`) for
+     a subtle reason: d3.forceLink mutates each link's source and target
+      in place to be the actual node objects, so d.source.x is meaningful.
+      If we bound to `edges`, source/target would stay as the original id
+      strings and the tick handler would draw "lines" to (undefined, undefined). */
+  const simLinks = edges.map(e => ({ ...e }));
+  const edgeSel = gEdge.selectAll('line.edge')
+    .data(simLinks, d => d.id)
+    .join('line')
+    .attr('class', d => `edge ${d.kind}`);
+
+  /* =====================================================================
+     8. NODE BINDING
+     Each node is a <circle> with radius from privilege level and fill from
+     blast-radius. The label sits below the circle. The data is bound to
+     `nodes` directly — the simulation will mutate the same array in place.
+     Earlier versions used a separate `simNodes` shadow array; that was
+     dropped because it caused the drag handler to pin the wrong object
+     (see src_demo/README.md §3.1 for the trap). */
+  const nodesById = new Map(nodes.map(n => [n.id, n]));
+  const nodeG = gNode.selectAll('g.node-g')
+    .data(nodes, d => d.id)
+    .join(enter => {
+      const g = enter.append('g').attr('class', 'node-g')
+        .attr('tabindex', 0)
+        .attr('role', 'button');
+      g.append('circle').attr('class', 'node');
+      g.append('text').attr('class', 'node-label');
+      return g;
+    });
+
+  const circleSel = nodeG.select('circle')
+    .attr('r',       d => d.priv === 'root' ? NODE_R_BIG : NODE_R)
+    .attr('fill',    d => blastColor(d.blast))
+    .classed('node-entry', d => d.isEntry)
+    .attr('aria-label', d => `${d.host}/${d.service} ${d.priv}, blast ${(d.blast*100).toFixed(0)}%`);
+
+  const labelSel = nodeG.select('text')
+    .attr('dy', d => (d.priv === 'root' ? NODE_R_BIG : NODE_R) + 11)
+    .text(d => `${d.host}/${d.service}`);
+
+  /* =====================================================================
+     9. FORCE SIMULATION
+     The forces, in plain English:
+       - link       : pulls connected nodes to LINK_DIST apart. Strength is
+                      proportional to edge length^-1 (default in d3 v7),
+                      which is the standard "spring" with rest length 70px.
+       - manyBody   : Coulomb-like repulsion (CHARGE is negative).
+       - center     : keeps the whole graph from drifting off-screen.
+       - collide    : prevents overlap (radius = COLLIDE_R, generous).
+       - x, y       : per-segment targets — gives the gestalt grouping the
+                      wireframe calls for. Strength is mild so link forces
+                      still dominate.
+     A node drag re-heats the simulation locally (alphaTarget = 0.3) and
+     it cools again on drag-end. */
+  // Pre-index segments by id (the x/y forces use this; O(1) per call beats
+  // a linear search per node per tick).
+  const segById = new Map(SEGMENTS.map(s => [s.id, s]));
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(simLinks).id(d => d.id).distance(LINK_DIST))
+    .force('charge', d3.forceManyBody().strength(CHARGE))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide().radius(COLLIDE_R))
+    .force('x', d3.forceX().strength(SEG_STRENGTH).x(d => {
+      const seg = segById.get(d.seg);
+      return seg ? width * seg.x : width / 2;
+    }))
+    .force('y', d3.forceY().strength(SEG_STRENGTH).y(d => {
+      const seg = segById.get(d.seg);
+      return seg ? height * seg.y : height / 2;
+    }))
+    .alpha(1)
+    .alphaDecay(0.05);    // cools in ~ln(0.001)/ln(0.95) ≈ 135 ticks
+  // Pre-warm: hides the phyllotaxis explosion. 80 ticks is enough for
+  // 34 nodes; bump to 200+ for the production graph.
+  simulation.tick(80);
+
+  // Pre-index nodes by segment so updateHulls is O(1) per hull per tick
+  // instead of O(N) per hull per tick.
+  const nodesBySeg = new Map();
+  for (const n of nodes) {
+    if (!nodesBySeg.has(n.seg)) nodesBySeg.set(n.seg, []);
+    nodesBySeg.get(n.seg).push(n);
+  }
+
+  let tickCount = 0;
+  simulation.on('tick', () => {
+    tickCount++;
+    document.getElementById('meta-tick').textContent = `tick ${tickCount}`;
+    edgeSel
+      .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+      .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nodeG.attr('transform', d => `translate(${d.x},${d.y})`);
+    updateHulls();
+  });
+  simulation.on('end', () => {
+    document.getElementById('meta-tick').textContent = `settled (${tickCount} ticks)`;
+  });
+
+  /* =====================================================================
+     10. PAN + ZOOM
+     d3.zoom is the canonical way to do this in v7. We attach it to the SVG
+     and apply the resulting transform to gRoot. The transform is composed
+     of a translate (pan) and a scale (zoom), in that order. We translate
+     the wheel-zoom focal point so it zooms around the cursor, not the
+     viewport center. The "fit" button re-centers and re-scales to 1. */
+  const zoom = d3.zoom()
+    .scaleExtent([0.2, 4])
+    .clickDistance(8)              // see README §4.3: 8px slop so pan doesn't eat clicks
+    .on('zoom', (event) => {
+      gRoot.attr('transform', event.transform);
+    });
+  svg.call(zoom);
+  // Disabling double-click-to-zoom: d3's default is fine, but we make sure
+  // the click-vs-drag detection for the SVG doesn't eat node clicks.
+  svg.on('dblclick.zoom', null);
+
+  document.getElementById('zoom-in').onclick  = () => svg.transition().call(zoom.scaleBy, 1.3);
+  document.getElementById('zoom-out').onclick = () => svg.transition().call(zoom.scaleBy, 1/1.3);
+  document.getElementById('zoom-fit').onclick = () => svg.transition().call(zoom.transform, d3.zoomIdentity);
+
+  /* =====================================================================
+     11. SELECTION
+     Click on a node selects it; click on the same node deselects; click on
+     a different node switches. Keyboard: Enter or Space on a focused node
+     does the same. The visual is a thick black ring (CSS, see .node-selected). */
+  function renderSelection() {
+    circleSel.classed('node-selected', d => d.id === selectedId);
+    paintDetail();
+  }
+  nodeG
+    .on('click', (event, d) => {
+      event.stopPropagation();
+      selectedId = (selectedId === d.id) ? null : d.id;
+      renderSelection();
+    })
+    .on('keydown', (event, d) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectedId = (selectedId === d.id) ? null : d.id;
+        renderSelection();
+      }
+    });
+  // Click on background to deselect. d3.zoom's drag still fires; this
+  // listener only handles the click, not the drag.
+  svg.on('click', (event) => {
+    if (event.target.tagName === 'svg' || event.target.classList.contains('root')) {
+      selectedId = null;
+      renderSelection();
+    }
+  });
+
+  /* =====================================================================
+     12. NODE DRAG
+     Drag pins the node at the cursor. d3's drag.on('start', ...) raises
+     alphaTarget so the simulation re-heats locally and the neighbors
+     respond. On end we let it cool naturally. Documented behavior: the
+     dragged node stays where the user dropped it (it's a *manual* pin,
+     the simulation continues but the node's fx/fy is now the user's
+     position until the user resets). */
+  // Pin the drag container to gRoot (the zoomed <g>). The default container
+  // is `this.parentNode` — for a circle inside <g.node-g>, that's the node
+  // group, whose transform is rewritten every tick to track d.fx. That makes
+  // `pointer(event, container)` return coords in a *moving* reference frame:
+  // the first drag fire reads the pre-tick parent transform, the tick then
+  // updates the parent to d.fx, and the next fire reads a new container
+  // offset — so every fire's event.x is offset by the parent-g's previous
+  // position, and the node visibly trails the cursor by that amount.
+  // Anchoring to gRoot gives stable root-local coords that match the
+  // simulation's coord system.
+  const drag = d3.drag()
+    .container(() => gRoot.node())
+    .clickDistance(4)              // see README §4.3: 4px slop so drag doesn't eat clicks
+    .on('start', (event, d) => {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x;
+      d.fy = d.y;
+    })
+    .on('drag', (event, d) => {
+      // The container() override (line above) puts event.x/event.y in the
+      // simulation's coordinate system, so d.fx is in the right frame.
+      // We also set d.x/d.y directly: the simulation's tick snaps them to
+      // d.fx at the end of every tick, but doing it here eliminates the
+      // ~16ms lag between the pointermove and the next tick.
+      d.fx = event.x;
+      d.fy = event.y;
+      d.x = event.x;
+      d.y = event.y;
+    })
+    .on('end', (event, d) => {
+      if (!event.active) simulation.alphaTarget(0);
+      // Keep d.fx/d.fy = the user's drop position so the node stays pinned.
+      // To "release" it on end, uncomment: d.fx = d.fy = null;
+    });
+  // We attach the drag to the circle, not the parent <g>, so the label
+  // (which has pointer-events: none anyway) doesn't intercept.
+  circleSel.call(drag);
+
+  /* =====================================================================
+     13. DETAIL DRAWER
+     Reads from `nodes` and `edges` plus `selectedId`. Pure projection. */
+  function paintDetail() {
+    const sel = document.getElementById('sel-id');
+    const blast = document.getElementById('sel-blast');
+    const out = document.getElementById('sel-out');
+    const inn = document.getElementById('sel-in');
+    const ctx = document.getElementById('sel-ctx');
+
+    if (!selectedId) {
+      sel.textContent = 'none';
+      blast.textContent = 'no selection';
+      blast.className = 'pill cold';
+      out.textContent = 'Click a node to inspect its outgoing edges.';
+      inn.textContent = '—';
+      ctx.textContent = '—';
+      return;
+    }
+    const n = nodesById.get(selectedId);
+    sel.textContent = `${n.host} / ${n.service} (${n.priv})`;
+    const pct = (n.blast * 100).toFixed(0) + '%';
+    blast.textContent = `blast ${pct}`;
+    blast.className = 'pill ' + blastClass(n.blast);
+
+    const outE = edges.filter(e => e.source === n.id);
+    const inE  = edges.filter(e => e.target === n.id);
+    out.textContent = outE.length
+      ? outE.map(e => formatEdge(e, '→')).join('\n')
+      : '(no outgoing edges)';
+    inn.textContent = inE.length
+      ? inE.map(e => formatEdge(e, '←')).join('\n')
+      : '(no incoming edges)';
+
+    // Context: count of edges by kind, plus segment position.
+    const byKind = { network: 0, intra: 0, exploit: 0, credential: 0 };
+    for (const e of outE) byKind[e.kind]++;
+    ctx.textContent =
+      `segment     : ${n.seg}\n` +
+      `privilege   : ${n.priv}\n` +
+      `blast-radius: ${pct}\n` +
+      `entry point : ${n.isEntry ? 'yes' : 'no'}\n` +
+      `out by kind : net=${byKind.network} intra=${byKind.intra} ` +
+      `exploit=${byKind.exploit} cred=${byKind.credential}`;
+  }
+  function formatEdge(e, arrow) {
+    const other = e.source === selectedId ? e.target : e.source;
+    const tgt = nodesById.get(other);
+    const kind = e.kind.padEnd(11);
+    const prob = (e.prob ?? 1).toFixed(2);
+    const tag = e.cve ? e.cve : e.pool ? `pool:${e.pool}` : '';
+    return `${arrow} ${tgt.host}/${tgt.service} (${tgt.priv})  ${kind} p=${prob}  ${tag}`;
+  }
+
+  /* =====================================================================
+     14. RESET
+     Re-runs the simulation from scratch. We clear fx/fy on all nodes so any
+     pins are released, bump alpha to 1, and restart. The `nodes()` call
+     tells d3 to re-init positions; any pre-warm logic above only runs at
+     initial load. */
+  document.getElementById('reset-btn').onclick = () => {
+    for (const n of nodes) { n.fx = null; n.fy = null; }
+    tickCount = 0;
+    simulation.nodes(nodes).alpha(1).restart();
+  };
+
+  /* =====================================================================
+     15. HEADER COUNTS
+     Trivial projection, but it makes the demo feel complete. */
+  document.getElementById('meta-counts').textContent =
+    `${nodes.length} nodes, ${edges.length} edges`;
+
+  // Initial paint of the detail drawer in its "no selection" state.
+  paintDetail();
+  </script>
+</body>
+</html>
