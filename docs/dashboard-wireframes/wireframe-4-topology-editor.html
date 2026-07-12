@@ -212,174 +212,976 @@
 (() => {
   const $ = (s, root = document) => root.querySelector(s);
   const $$ = (s, root = document) => [...root.querySelectorAll(s)];
-  const graphs = $$('.graph-svg'), menu = $('#context-menu'), snackbar = $('#snackbar');
+  const graphs = $$('.graph-svg'),
+    menu = $('#context-menu'),
+    snackbar = $('#snackbar');
   let graph = $('#graph-svg');
   const data = {
-    api:{name:'App API',kind:'Compute asset',address:'10.0.20.21',zone:'Application / VLAN 20',risk:'Critical',owner:'Platform team',exposure:'Internal',blast:'68%'},
-    database:{name:'Primary DB',kind:'Database asset',address:'10.0.30.10',zone:'Data / VLAN 30',risk:'Critical',owner:'Data services',exposure:'Restricted',blast:'84%'},
-    'edge-fw':{name:'Edge FW',kind:'Security appliance',address:'10.0.10.1',zone:'DMZ / VLAN 10',risk:'High',owner:'Network team',exposure:'Public',blast:'42%'},
-    internet:{name:'Internet',kind:'External boundary',address:'Any',zone:'External',risk:'Untrusted',owner:'Unmanaged',exposure:'Public',blast:'—'},
-    vpn:{name:'VPN',kind:'Security appliance',address:'10.0.10.8',zone:'DMZ / VLAN 10',risk:'Low',owner:'Network team',exposure:'Public',blast:'26%'},
-    web:{name:'Web gateway',kind:'Compute asset',address:'10.0.20.14',zone:'Application / VLAN 20',risk:'Medium',owner:'Platform team',exposure:'DMZ ingress',blast:'51%'},
-    worker:{name:'Worker pool',kind:'Compute group',address:'Dynamic',zone:'Application / VLAN 20',risk:'Low',owner:'Platform team',exposure:'Internal',blast:'34%'},
-    cache:{name:'Redis cache',kind:'Data service',address:'10.0.30.18',zone:'Data / VLAN 30',risk:'Medium',owner:'Data services',exposure:'Restricted',blast:'47%'},
-    'free-laptop':{name:'Analyst laptop',kind:'Managed endpoint',address:'Dynamic',zone:'User devices',risk:'High',owner:'Security research',exposure:'Roaming',blast:'39%'},
-    'free-phone':{name:'Ops phone',kind:'Managed mobile',address:'Dynamic',zone:'User devices',risk:'Low',owner:'Operations',exposure:'Roaming',blast:'18%'},
-    'free-idp':{name:'Identity core',kind:'Identity provider',address:'10.40.8.12',zone:'Shared services',risk:'Critical',owner:'Identity team',exposure:'Internal',blast:'81%'},
-    'free-ci':{name:'CI runner',kind:'Ephemeral workload',address:'Dynamic',zone:'Shared services',risk:'Medium',owner:'Developer platform',exposure:'Internal',blast:'52%'},
-    'free-vault':{name:'Secret vault',kind:'Security service',address:'10.40.9.20',zone:'Infrastructure',risk:'Critical',owner:'Security platform',exposure:'Restricted',blast:'88%'},
-    'free-registry':{name:'Registry',kind:'Artifact service',address:'10.40.9.31',zone:'Platform network',risk:'Low',owner:'Developer platform',exposure:'Internal',blast:'44%'},
-    'free-printer':{name:'Office printer',kind:'Peripheral',address:'10.20.4.55',zone:'Campus network',risk:'Medium',owner:'Workplace IT',exposure:'Internal',blast:'27%'},
-    'free-jump':{name:'Admin jumpbox',kind:'Privileged endpoint',address:'10.20.8.9',zone:'Campus network',risk:'High',owner:'Operations',exposure:'Restricted',blast:'61%'},
-    'free-monitor':{name:'Telemetry',kind:'Observability service',address:'10.30.5.18',zone:'Shared services',risk:'Low',owner:'SRE',exposure:'Internal',blast:'24%'},
-    'free-broker':{name:'Message broker',kind:'Messaging service',address:'10.30.5.28',zone:'Shared services',risk:'Medium',owner:'Platform team',exposure:'Internal',blast:'48%'},
-    'free-database':{name:'Orders DB',kind:'Database asset',address:'10.40.9.44',zone:'Platform network',risk:'Critical',owner:'Data services',exposure:'Restricted',blast:'86%'},
-    'free-backup':{name:'Backup vault',kind:'Recovery service',address:'10.40.9.61',zone:'Platform network',risk:'High',owner:'Infrastructure',exposure:'Restricted',blast:'67%'}
+    api: {
+      name: 'App API',
+      kind: 'Compute asset',
+      address: '10.0.20.21',
+      zone: 'Application / VLAN 20',
+      risk: 'Critical',
+      owner: 'Platform team',
+      exposure: 'Internal',
+      blast: '68%',
+    },
+    database: {
+      name: 'Primary DB',
+      kind: 'Database asset',
+      address: '10.0.30.10',
+      zone: 'Data / VLAN 30',
+      risk: 'Critical',
+      owner: 'Data services',
+      exposure: 'Restricted',
+      blast: '84%',
+    },
+    'edge-fw': {
+      name: 'Edge FW',
+      kind: 'Security appliance',
+      address: '10.0.10.1',
+      zone: 'DMZ / VLAN 10',
+      risk: 'High',
+      owner: 'Network team',
+      exposure: 'Public',
+      blast: '42%',
+    },
+    internet: {
+      name: 'Internet',
+      kind: 'External boundary',
+      address: 'Any',
+      zone: 'External',
+      risk: 'Untrusted',
+      owner: 'Unmanaged',
+      exposure: 'Public',
+      blast: '—',
+    },
+    vpn: {
+      name: 'VPN',
+      kind: 'Security appliance',
+      address: '10.0.10.8',
+      zone: 'DMZ / VLAN 10',
+      risk: 'Low',
+      owner: 'Network team',
+      exposure: 'Public',
+      blast: '26%',
+    },
+    web: {
+      name: 'Web gateway',
+      kind: 'Compute asset',
+      address: '10.0.20.14',
+      zone: 'Application / VLAN 20',
+      risk: 'Medium',
+      owner: 'Platform team',
+      exposure: 'DMZ ingress',
+      blast: '51%',
+    },
+    worker: {
+      name: 'Worker pool',
+      kind: 'Compute group',
+      address: 'Dynamic',
+      zone: 'Application / VLAN 20',
+      risk: 'Low',
+      owner: 'Platform team',
+      exposure: 'Internal',
+      blast: '34%',
+    },
+    cache: {
+      name: 'Redis cache',
+      kind: 'Data service',
+      address: '10.0.30.18',
+      zone: 'Data / VLAN 30',
+      risk: 'Medium',
+      owner: 'Data services',
+      exposure: 'Restricted',
+      blast: '47%',
+    },
+    'free-laptop': {
+      name: 'Analyst laptop',
+      kind: 'Managed endpoint',
+      address: 'Dynamic',
+      zone: 'User devices',
+      risk: 'High',
+      owner: 'Security research',
+      exposure: 'Roaming',
+      blast: '39%',
+    },
+    'free-phone': {
+      name: 'Ops phone',
+      kind: 'Managed mobile',
+      address: 'Dynamic',
+      zone: 'User devices',
+      risk: 'Low',
+      owner: 'Operations',
+      exposure: 'Roaming',
+      blast: '18%',
+    },
+    'free-idp': {
+      name: 'Identity core',
+      kind: 'Identity provider',
+      address: '10.40.8.12',
+      zone: 'Shared services',
+      risk: 'Critical',
+      owner: 'Identity team',
+      exposure: 'Internal',
+      blast: '81%',
+    },
+    'free-ci': {
+      name: 'CI runner',
+      kind: 'Ephemeral workload',
+      address: 'Dynamic',
+      zone: 'Shared services',
+      risk: 'Medium',
+      owner: 'Developer platform',
+      exposure: 'Internal',
+      blast: '52%',
+    },
+    'free-vault': {
+      name: 'Secret vault',
+      kind: 'Security service',
+      address: '10.40.9.20',
+      zone: 'Infrastructure',
+      risk: 'Critical',
+      owner: 'Security platform',
+      exposure: 'Restricted',
+      blast: '88%',
+    },
+    'free-registry': {
+      name: 'Registry',
+      kind: 'Artifact service',
+      address: '10.40.9.31',
+      zone: 'Platform network',
+      risk: 'Low',
+      owner: 'Developer platform',
+      exposure: 'Internal',
+      blast: '44%',
+    },
+    'free-printer': {
+      name: 'Office printer',
+      kind: 'Peripheral',
+      address: '10.20.4.55',
+      zone: 'Campus network',
+      risk: 'Medium',
+      owner: 'Workplace IT',
+      exposure: 'Internal',
+      blast: '27%',
+    },
+    'free-jump': {
+      name: 'Admin jumpbox',
+      kind: 'Privileged endpoint',
+      address: '10.20.8.9',
+      zone: 'Campus network',
+      risk: 'High',
+      owner: 'Operations',
+      exposure: 'Restricted',
+      blast: '61%',
+    },
+    'free-monitor': {
+      name: 'Telemetry',
+      kind: 'Observability service',
+      address: '10.30.5.18',
+      zone: 'Shared services',
+      risk: 'Low',
+      owner: 'SRE',
+      exposure: 'Internal',
+      blast: '24%',
+    },
+    'free-broker': {
+      name: 'Message broker',
+      kind: 'Messaging service',
+      address: '10.30.5.28',
+      zone: 'Shared services',
+      risk: 'Medium',
+      owner: 'Platform team',
+      exposure: 'Internal',
+      blast: '48%',
+    },
+    'free-database': {
+      name: 'Orders DB',
+      kind: 'Database asset',
+      address: '10.40.9.44',
+      zone: 'Platform network',
+      risk: 'Critical',
+      owner: 'Data services',
+      exposure: 'Restricted',
+      blast: '86%',
+    },
+    'free-backup': {
+      name: 'Backup vault',
+      kind: 'Recovery service',
+      address: '10.40.9.61',
+      zone: 'Platform network',
+      risk: 'High',
+      owner: 'Infrastructure',
+      exposure: 'Restricted',
+      blast: '67%',
+    },
   };
-  const edgeData = { 'edge-internet-fw':['Internet → Edge FW','HTTPS / TCP 443','Allowed','Northbound'], 'edge-fw-web':['Edge FW → Web gateway','HTTPS / TCP 443','Allowed','Eastbound'], 'edge-web-api':['Web gateway → App API','HTTPS / TCP 8443','Allowed','Eastbound'], 'edge-api-db':['App API → Primary DB','PostgreSQL / TCP 5432','Review required','Eastbound'], 'edge-api-worker':['App API → Worker pool','AMQP / TCP 5672','Allowed','Eastbound'], 'edge-worker-cache':['Worker pool → Redis cache','Redis / TCP 6379','Allowed','Eastbound'], 'edge-vpn-api':['VPN → App API','SSH / TCP 22','Review required','Administrative'], 'force-laptop-id':['Analyst laptop → Identity core','OIDC / HTTPS','Allowed','Identity'], 'force-phone-id':['Ops phone → Identity core','MFA challenge','Allowed','Identity'], 'force-printer-broker':['Office printer → Message broker','IPP telemetry','Review required','Messaging'], 'force-jump-vault':['Admin jumpbox → Secret vault','SSH certificate','Review required','Administrative'], 'force-id-ci':['Identity core → CI runner','Workload identity','Allowed','Trust'], 'force-id-vault':['Identity core → Secret vault','Short-lived token','Allowed','Trust'], 'force-id-monitor':['Identity core → Telemetry','Audit events','Allowed','Telemetry'], 'force-ci-registry':['CI runner → Registry','Artifact push','Allowed','Delivery'], 'force-ci-broker':['CI runner → Message broker','Build events','Allowed','Messaging'], 'force-broker-database':['Message broker → Orders DB','Consumer writes','Allowed','Data'], 'force-registry-vault':['Registry → Secret vault','Signing request','Allowed','Trust'], 'force-registry-backup':['Registry → Backup vault','Artifact replication','Allowed','Recovery'], 'force-vault-database':['Secret vault → Orders DB','Credential lease','Allowed','Trust'], 'force-monitor-database':['Telemetry → Orders DB','Metrics scrape','Allowed','Telemetry'], 'force-backup-database':['Backup vault → Orders DB','Restore channel','Review required','Recovery'] };
+  const edgeData = {
+    'edge-internet-fw': ['Internet → Edge FW', 'HTTPS / TCP 443', 'Allowed', 'Northbound'],
+    'edge-fw-web': ['Edge FW → Web gateway', 'HTTPS / TCP 443', 'Allowed', 'Eastbound'],
+    'edge-web-api': ['Web gateway → App API', 'HTTPS / TCP 8443', 'Allowed', 'Eastbound'],
+    'edge-api-db': [
+      'App API → Primary DB',
+      'PostgreSQL / TCP 5432',
+      'Review required',
+      'Eastbound',
+    ],
+    'edge-api-worker': ['App API → Worker pool', 'AMQP / TCP 5672', 'Allowed', 'Eastbound'],
+    'edge-worker-cache': ['Worker pool → Redis cache', 'Redis / TCP 6379', 'Allowed', 'Eastbound'],
+    'edge-vpn-api': ['VPN → App API', 'SSH / TCP 22', 'Review required', 'Administrative'],
+    'force-laptop-id': ['Analyst laptop → Identity core', 'OIDC / HTTPS', 'Allowed', 'Identity'],
+    'force-phone-id': ['Ops phone → Identity core', 'MFA challenge', 'Allowed', 'Identity'],
+    'force-printer-broker': [
+      'Office printer → Message broker',
+      'IPP telemetry',
+      'Review required',
+      'Messaging',
+    ],
+    'force-jump-vault': [
+      'Admin jumpbox → Secret vault',
+      'SSH certificate',
+      'Review required',
+      'Administrative',
+    ],
+    'force-id-ci': ['Identity core → CI runner', 'Workload identity', 'Allowed', 'Trust'],
+    'force-id-vault': ['Identity core → Secret vault', 'Short-lived token', 'Allowed', 'Trust'],
+    'force-id-monitor': ['Identity core → Telemetry', 'Audit events', 'Allowed', 'Telemetry'],
+    'force-ci-registry': ['CI runner → Registry', 'Artifact push', 'Allowed', 'Delivery'],
+    'force-ci-broker': ['CI runner → Message broker', 'Build events', 'Allowed', 'Messaging'],
+    'force-broker-database': ['Message broker → Orders DB', 'Consumer writes', 'Allowed', 'Data'],
+    'force-registry-vault': ['Registry → Secret vault', 'Signing request', 'Allowed', 'Trust'],
+    'force-registry-backup': [
+      'Registry → Backup vault',
+      'Artifact replication',
+      'Allowed',
+      'Recovery',
+    ],
+    'force-vault-database': ['Secret vault → Orders DB', 'Credential lease', 'Allowed', 'Trust'],
+    'force-monitor-database': ['Telemetry → Orders DB', 'Metrics scrape', 'Allowed', 'Telemetry'],
+    'force-backup-database': [
+      'Backup vault → Orders DB',
+      'Restore channel',
+      'Review required',
+      'Recovery',
+    ],
+  };
+  // Area centers are soft attractors, not fixed columns. Links and repulsion can
+  // pull nodes across these centers, which keeps the result organic rather than linear.
   const forceAreas = {
-    campus:{label:'CAMPUS NETWORK',x:285,y:225,className:'campus'},
-    shared:{label:'SHARED SERVICES',x:535,y:440,className:'shared'},
-    platform:{label:'PLATFORM NETWORK',x:835,y:225,className:'platform'}
+    campus: { label: 'CAMPUS NETWORK', x: 285, y: 225, className: 'campus' },
+    shared: { label: 'SHARED SERVICES', x: 535, y: 440, className: 'shared' },
+    platform: { label: 'PLATFORM NETWORK', x: 835, y: 225, className: 'platform' },
   };
   const forceNodes = [
-    {id:'free-laptop',area:'campus',symbol:'LT',x:535,y:100,risk:'medium'},
-    {id:'free-phone',area:'campus',symbol:'MB',x:800,y:500,risk:'low'},
-    {id:'free-printer',area:'campus',symbol:'PR',x:430,y:520,risk:'medium'},
-    {id:'free-jump',area:'campus',symbol:'JB',x:930,y:145,risk:'high'},
-    {id:'free-idp',area:'shared',symbol:'ID',x:145,y:510,risk:'critical'},
-    {id:'free-ci',area:'shared',symbol:'CI',x:965,y:490,risk:'medium'},
-    {id:'free-monitor',area:'shared',symbol:'TM',x:315,y:105,risk:'low'},
-    {id:'free-broker',area:'shared',symbol:'MQ',x:730,y:105,risk:'medium'},
-    {id:'free-vault',area:'platform',symbol:'SV',x:190,y:170,risk:'critical'},
-    {id:'free-registry',area:'platform',symbol:'RG',x:830,y:545,risk:'low'},
-    {id:'free-database',area:'platform',symbol:'DB',x:995,y:305,risk:'critical'},
-    {id:'free-backup',area:'platform',symbol:'BK',x:520,y:570,risk:'high'}
-  ].map(node=>({...node,vx:0,vy:0}));
+    { id: 'free-laptop', area: 'campus', symbol: 'LT', x: 535, y: 100, risk: 'medium' },
+    { id: 'free-phone', area: 'campus', symbol: 'MB', x: 800, y: 500, risk: 'low' },
+    { id: 'free-printer', area: 'campus', symbol: 'PR', x: 430, y: 520, risk: 'medium' },
+    { id: 'free-jump', area: 'campus', symbol: 'JB', x: 930, y: 145, risk: 'high' },
+    { id: 'free-idp', area: 'shared', symbol: 'ID', x: 145, y: 510, risk: 'critical' },
+    { id: 'free-ci', area: 'shared', symbol: 'CI', x: 965, y: 490, risk: 'medium' },
+    { id: 'free-monitor', area: 'shared', symbol: 'TM', x: 315, y: 105, risk: 'low' },
+    { id: 'free-broker', area: 'shared', symbol: 'MQ', x: 730, y: 105, risk: 'medium' },
+    { id: 'free-vault', area: 'platform', symbol: 'SV', x: 190, y: 170, risk: 'critical' },
+    { id: 'free-registry', area: 'platform', symbol: 'RG', x: 830, y: 545, risk: 'low' },
+    { id: 'free-database', area: 'platform', symbol: 'DB', x: 995, y: 305, risk: 'critical' },
+    { id: 'free-backup', area: 'platform', symbol: 'BK', x: 520, y: 570, risk: 'high' },
+  ].map((node) => ({ ...node, vx: 0, vy: 0 }));
   const forceLinks = [
-    ['force-laptop-id','free-laptop','free-idp','trust'],['force-phone-id','free-phone','free-idp','trust'],['force-printer-broker','free-printer','free-broker',''],['force-jump-vault','free-jump','free-vault','admin'],['force-id-ci','free-idp','free-ci','trust'],['force-id-vault','free-idp','free-vault','trust'],['force-id-monitor','free-idp','free-monitor',''],['force-ci-registry','free-ci','free-registry',''],['force-ci-broker','free-ci','free-broker',''],['force-broker-database','free-broker','free-database',''],['force-registry-vault','free-registry','free-vault','trust'],['force-registry-backup','free-registry','free-backup',''],['force-vault-database','free-vault','free-database','trust'],['force-monitor-database','free-monitor','free-database',''],['force-backup-database','free-backup','free-database','admin']
-  ].map(([id,source,target,type])=>({id,source,target,type}));
+    ['force-laptop-id', 'free-laptop', 'free-idp', 'trust'],
+    ['force-phone-id', 'free-phone', 'free-idp', 'trust'],
+    ['force-printer-broker', 'free-printer', 'free-broker', ''],
+    ['force-jump-vault', 'free-jump', 'free-vault', 'admin'],
+    ['force-id-ci', 'free-idp', 'free-ci', 'trust'],
+    ['force-id-vault', 'free-idp', 'free-vault', 'trust'],
+    ['force-id-monitor', 'free-idp', 'free-monitor', ''],
+    ['force-ci-registry', 'free-ci', 'free-registry', ''],
+    ['force-ci-broker', 'free-ci', 'free-broker', ''],
+    ['force-broker-database', 'free-broker', 'free-database', ''],
+    ['force-registry-vault', 'free-registry', 'free-vault', 'trust'],
+    ['force-registry-backup', 'free-registry', 'free-backup', ''],
+    ['force-vault-database', 'free-vault', 'free-database', 'trust'],
+    ['force-monitor-database', 'free-monitor', 'free-database', ''],
+    ['force-backup-database', 'free-backup', 'free-database', 'admin'],
+  ].map(([id, source, target, type]) => ({ id, source, target, type }));
 
-  function initForceGraph(){
-    const ns='http://www.w3.org/2000/svg',svg=$('#freeform-svg'),viewport=$('.graph-viewport',svg),nodeById=new Map(forceNodes.map(node=>[node.id,node]));
-    const areas=$('#force-areas'),edges=$('#force-edges'),nodes=$('#force-nodes');
-    Object.entries(forceAreas).forEach(([id,area])=>{const ellipse=document.createElementNS(ns,'ellipse'),label=document.createElementNS(ns,'text');ellipse.setAttribute('class',`force-area ${area.className}`);ellipse.dataset.area=id;label.setAttribute('class','force-area-label');label.dataset.areaLabel=id;label.textContent=area.label;areas.append(ellipse,label);area.ellipse=ellipse;area.labelEl=label});
-    forceLinks.forEach(link=>{link.source=nodeById.get(link.source);link.target=nodeById.get(link.target);const group=document.createElementNS(ns,'g');group.setAttribute('class','edge');group.dataset.id=link.id;group.dataset.kind='edge';group.setAttribute('tabindex','0');group.setAttribute('role','button');group.setAttribute('aria-label',edgeData[link.id][0]);group.innerHTML=`<line class="force-edge-line ${link.type}"></line><line class="edge-hit"></line>`;edges.append(group);link.el=group;link.line=$('.force-edge-line',group);link.hit=$('.edge-hit',group)});
-    forceNodes.forEach(node=>{const details=data[node.id],group=document.createElementNS(ns,'g');group.setAttribute('class','node force-node');group.dataset.id=node.id;group.dataset.kind='node';group.dataset.area=node.area;group.dataset.risk=node.risk;group.setAttribute('tabindex','0');group.setAttribute('role','button');group.setAttribute('aria-label',`${details.name}, ${details.kind}, ${details.risk} risk`);group.innerHTML=`<circle class="force-node-body" r="28"></circle><circle class="force-node-core" r="17"></circle><text class="force-node-symbol">${node.symbol}</text><text class="force-node-label" y="44">${details.name}</text><text class="force-node-meta" y="57">${details.zone}</text>`;nodes.append(group);node.el=group;let dragId=null;group.addEventListener('pointerdown',event=>{if(event.button!==0)return;event.stopPropagation();dragId=event.pointerId;group.setPointerCapture(dragId);group.classList.add('dragging');node.fixed=true;moveNode(event)});group.addEventListener('pointermove',event=>{if(event.pointerId===dragId)moveNode(event)});group.addEventListener('pointerup',event=>{if(event.pointerId!==dragId)return;group.releasePointerCapture(dragId);group.classList.remove('dragging');dragId=null;animateForce(80)});group.addEventListener('pointercancel',()=>{group.classList.remove('dragging');dragId=null});function moveNode(event){const point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;const local=point.matrixTransform(viewport.getScreenCTM().inverse());node.x=Math.max(45,Math.min(1075,local.x));node.y=Math.max(45,Math.min(595,local.y));node.vx=0;node.vy=0;renderForceGraph()}});
-    for(let i=0;i<320;i++)stepForce(1-i/360);
+  function initForceGraph() {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = $('#freeform-svg');
+    const viewport = $('.graph-viewport', svg);
+    const nodeById = new Map(forceNodes.map((node) => [node.id, node]));
+    const areas = $('#force-areas');
+    const edges = $('#force-edges');
+    const nodes = $('#force-nodes');
+
+    Object.entries(forceAreas).forEach(([id, area]) => {
+      const ellipse = document.createElementNS(ns, 'ellipse');
+      const label = document.createElementNS(ns, 'text');
+
+      ellipse.setAttribute('class', `force-area ${area.className}`);
+      ellipse.dataset.area = id;
+      label.setAttribute('class', 'force-area-label');
+      label.dataset.areaLabel = id;
+      label.textContent = area.label;
+      areas.append(ellipse, label);
+      area.ellipse = ellipse;
+      area.labelEl = label;
+    });
+    forceLinks.forEach((link) => {
+      link.source = nodeById.get(link.source);
+      link.target = nodeById.get(link.target);
+      const group = document.createElementNS(ns, 'g');
+      group.setAttribute('class', 'edge');
+      group.dataset.id = link.id;
+      group.dataset.kind = 'edge';
+      group.setAttribute('tabindex', '0');
+      group.setAttribute('role', 'button');
+      group.setAttribute('aria-label', edgeData[link.id][0]);
+      group.innerHTML = `<line class="force-edge-line ${link.type}"></line><line class="edge-hit"></line>`;
+      edges.append(group);
+      link.el = group;
+      link.line = $('.force-edge-line', group);
+      link.hit = $('.edge-hit', group);
+    });
+    forceNodes.forEach((node) => {
+      const details = data[node.id],
+        group = document.createElementNS(ns, 'g');
+      group.setAttribute('class', 'node force-node');
+      group.dataset.id = node.id;
+      group.dataset.kind = 'node';
+      group.dataset.area = node.area;
+      group.dataset.risk = node.risk;
+      group.setAttribute('tabindex', '0');
+      group.setAttribute('role', 'button');
+      group.setAttribute('aria-label', `${details.name}, ${details.kind}, ${details.risk} risk`);
+      group.innerHTML = `<circle class="force-node-body" r="28"></circle><circle class="force-node-core" r="17"></circle><text class="force-node-symbol">${node.symbol}</text><text class="force-node-label" y="44">${details.name}</text><text class="force-node-meta" y="57">${details.zone}</text>`;
+      nodes.append(group);
+      node.el = group;
+      let dragId = null;
+      group.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        dragId = event.pointerId;
+        group.setPointerCapture(dragId);
+        group.classList.add('dragging');
+        node.fixed = true;
+        moveNode(event);
+      });
+      group.addEventListener('pointermove', (event) => {
+        if (event.pointerId === dragId) moveNode(event);
+      });
+      group.addEventListener('pointerup', (event) => {
+        if (event.pointerId !== dragId) return;
+        group.releasePointerCapture(dragId);
+        group.classList.remove('dragging');
+        dragId = null;
+        animateForce(80);
+      });
+      group.addEventListener('pointercancel', () => {
+        group.classList.remove('dragging');
+        dragId = null;
+      });
+
+      function moveNode(event) {
+        const point = svg.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+
+        // Pointer coordinates are in screen space. Applying the inverse current
+        // transformation matrix maps them back through pan and zoom into graph space.
+        const local = point.matrixTransform(viewport.getScreenCTM().inverse());
+        node.x = Math.max(45, Math.min(1075, local.x));
+        node.y = Math.max(45, Math.min(595, local.y));
+        node.vx = 0;
+        node.vy = 0;
+        renderForceGraph();
+      }
+    });
+
+    // Settle synchronously before first paint. Alpha decreases each iteration,
+    // analogous to simulated annealing: large early movement, fine late adjustment.
+    for (let i = 0; i < 320; i++) {
+      stepForce(1 - i / 360);
+    }
     renderForceGraph();
   }
-  function stepForce(alpha){
-    for(let i=0;i<forceNodes.length;i++)for(let j=i+1;j<forceNodes.length;j++){const a=forceNodes[i],b=forceNodes[j],dx=b.x-a.x||.1,dy=b.y-a.y||.1,distance=Math.max(1,Math.hypot(dx,dy)),repel=3200/Math.max(900,distance*distance)*alpha,ux=dx/distance,uy=dy/distance;a.vx-=ux*repel;a.vy-=uy*repel;b.vx+=ux*repel;b.vy+=uy*repel;if(distance<76){const push=(76-distance)*.035*alpha;a.vx-=ux*push;a.vy-=uy*push;b.vx+=ux*push;b.vy+=uy*push}}
-    forceLinks.forEach(link=>{const dx=link.target.x-link.source.x,dy=link.target.y-link.source.y,distance=Math.max(1,Math.hypot(dx,dy)),desired=link.source.area===link.target.area?105:175,spring=(distance-desired)*.012*alpha,ux=dx/distance,uy=dy/distance;link.source.vx+=ux*spring;link.source.vy+=uy*spring;link.target.vx-=ux*spring;link.target.vy-=uy*spring});
-    forceNodes.forEach(node=>{const center=forceAreas[node.area];node.vx+=(center.x-node.x)*.006*alpha;node.vy+=(center.y-node.y)*.006*alpha;if(node.fixed)return;node.vx*=.78;node.vy*=.78;node.x=Math.max(48,Math.min(1072,node.x+node.vx));node.y=Math.max(48,Math.min(590,node.y+node.vy))});
+
+  function stepForce(alpha) {
+    // Pairwise repulsion follows an inverse-square form F = k / r². Dividing
+    // (dx, dy) by distance produces the unit direction used to update velocity.
+    for (let i = 0; i < forceNodes.length; i++) {
+      for (let j = i + 1; j < forceNodes.length; j++) {
+        const a = forceNodes[i];
+        const b = forceNodes[j];
+        const dx = b.x - a.x || 0.1;
+        const dy = b.y - a.y || 0.1;
+        const distance = Math.max(1, Math.hypot(dx, dy));
+        const repel = (3200 / Math.max(900, distance * distance)) * alpha;
+        const ux = dx / distance;
+        const uy = dy / distance;
+
+        a.vx -= ux * repel;
+        a.vy -= uy * repel;
+        b.vx += ux * repel;
+        b.vy += uy * repel;
+
+        // Repulsion alone approaches overlap asymptotically. This soft collision
+        // constraint adds a force proportional to the overlap below 76 graph units.
+        if (distance < 76) {
+          const push = (76 - distance) * 0.035 * alpha;
+          a.vx -= ux * push;
+          a.vy -= uy * push;
+          b.vx += ux * push;
+          b.vy += uy * push;
+        }
+      }
+    }
+
+    // Each edge acts like a Hooke spring: F = k(r - L). Intra-area links use
+    // a shorter rest length L than links connecting separate network areas.
+    forceLinks.forEach((link) => {
+      const dx = link.target.x - link.source.x;
+      const dy = link.target.y - link.source.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const desired = link.source.area === link.target.area ? 105 : 175;
+      const spring = (distance - desired) * 0.012 * alpha;
+      const ux = dx / distance;
+      const uy = dy / distance;
+
+      link.source.vx += ux * spring;
+      link.source.vy += uy * spring;
+      link.target.vx -= ux * spring;
+      link.target.vy -= uy * spring;
+    });
+
+    forceNodes.forEach((node) => {
+      const center = forceAreas[node.area];
+
+      // A weak linear attraction groups nodes by area without imposing ranks or
+      // edge direction. It behaves like another spring anchored at the area center.
+      node.vx += (center.x - node.x) * 0.006 * alpha;
+      node.vy += (center.y - node.y) * 0.006 * alpha;
+      if (node.fixed) return;
+
+      // Semi-implicit Euler integration: damp velocity to remove energy, then
+      // advance position. Canvas bounds prevent the solver from drifting away.
+      node.vx *= 0.78;
+      node.vy *= 0.78;
+      node.x = Math.max(48, Math.min(1072, node.x + node.vx));
+      node.y = Math.max(48, Math.min(590, node.y + node.vy));
+    });
   }
-  function renderForceGraph(){
-    forceLinks.forEach(link=>{const dx=link.target.x-link.source.x,dy=link.target.y-link.source.y,distance=Math.max(1,Math.hypot(dx,dy)),ux=dx/distance,uy=dy/distance,x1=link.source.x+ux*30,y1=link.source.y+uy*30,x2=link.target.x-ux*32,y2=link.target.y-uy*32;[link.line,link.hit].forEach(line=>{line.setAttribute('x1',x1);line.setAttribute('y1',y1);line.setAttribute('x2',x2);line.setAttribute('y2',y2)})});
-    forceNodes.forEach(node=>node.el?.setAttribute('transform',`translate(${node.x} ${node.y})`));
-    Object.entries(forceAreas).forEach(([id,area])=>{const members=forceNodes.filter(node=>node.area===id),minX=Math.min(...members.map(node=>node.x))-66,maxX=Math.max(...members.map(node=>node.x))+66,minY=Math.min(...members.map(node=>node.y))-62,maxY=Math.max(...members.map(node=>node.y))+72,cx=(minX+maxX)/2,cy=(minY+maxY)/2;area.ellipse.setAttribute('cx',cx);area.ellipse.setAttribute('cy',cy);area.ellipse.setAttribute('rx',(maxX-minX)/2);area.ellipse.setAttribute('ry',(maxY-minY)/2);area.labelEl.setAttribute('x',minX+18);area.labelEl.setAttribute('y',minY+22)});
+
+  function renderForceGraph() {
+    // Clip each line to the circular node boundaries. The normalized edge vector
+    // gives points 30/32 units from the source/target centers, preserving arrows.
+    forceLinks.forEach((link) => {
+      const dx = link.target.x - link.source.x;
+      const dy = link.target.y - link.source.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const ux = dx / distance;
+      const uy = dy / distance;
+      const x1 = link.source.x + ux * 30;
+      const y1 = link.source.y + uy * 30;
+      const x2 = link.target.x - ux * 32;
+      const y2 = link.target.y - uy * 32;
+
+      [link.line, link.hit].forEach((line) => {
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+      });
+    });
+    forceNodes.forEach((node) =>
+      node.el?.setAttribute('transform', `translate(${node.x} ${node.y})`),
+    );
+
+    // Area ellipses are fitted to the axis-aligned bounding box of their members,
+    // then padded to keep labels and nodes away from the hull boundary.
+    Object.entries(forceAreas).forEach(([id, area]) => {
+      const members = forceNodes.filter((node) => node.area === id);
+      const minX = Math.min(...members.map((node) => node.x)) - 66;
+      const maxX = Math.max(...members.map((node) => node.x)) + 66;
+      const minY = Math.min(...members.map((node) => node.y)) - 62;
+      const maxY = Math.max(...members.map((node) => node.y)) + 72;
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      area.ellipse.setAttribute('cx', cx);
+      area.ellipse.setAttribute('cy', cy);
+      area.ellipse.setAttribute('rx', (maxX - minX) / 2);
+      area.ellipse.setAttribute('ry', (maxY - minY) / 2);
+      area.labelEl.setAttribute('x', minX + 18);
+      area.labelEl.setAttribute('y', minY + 22);
+    });
   }
-  function animateForce(frames){if(frames<=0)return;stepForce(Math.max(.12,frames/80));renderForceGraph();requestAnimationFrame(()=>animateForce(frames-1))}
+
+  function animateForce(frames) {
+    if (frames <= 0) return;
+
+    // Reheating after a drag starts with alpha near 1 and cools toward 0.12,
+    // allowing neighboring nodes to respond while the dragged node stays pinned.
+    stepForce(Math.max(0.12, frames / 80));
+    renderForceGraph();
+    requestAnimationFrame(() => animateForce(frames - 1));
+  }
   initForceGraph();
-  const viewStates = new Map(['dt-production','dt-scenario','dt-freeform'].map(id => [id,{zoom:100,x:0,y:0}]));
-  const documentSelections = new Map([['dt-production',{kind:'node',id:'api'}],['dt-scenario',{kind:'node',id:'api'}],['dt-freeform',{kind:'node',id:'free-idp'}]]);
-  let activeDocument = 'dt-production', selected = documentSelections.get(activeDocument), menuTarget = null, restoreFocus = null, lastRemoved = null, snackTimer, typeBuffer = '', typeTimer, panSession = null;
-  const icon = id => `<svg class="icon" aria-hidden="true"><use href="#${id}"></use></svg>`;
+  const viewStates = new Map(
+    ['dt-production', 'dt-scenario', 'dt-freeform'].map((id) => [id, { zoom: 100, x: 0, y: 0 }]),
+  );
+  const documentSelections = new Map([
+    ['dt-production', { kind: 'node', id: 'api' }],
+    ['dt-scenario', { kind: 'node', id: 'api' }],
+    ['dt-freeform', { kind: 'node', id: 'free-idp' }],
+  ]);
+  let activeDocument = 'dt-production',
+    selected = documentSelections.get(activeDocument),
+    menuTarget = null,
+    restoreFocus = null,
+    lastRemoved = null,
+    snackTimer,
+    typeBuffer = '',
+    typeTimer,
+    panSession = null;
+  const icon = (id) => `<svg class="icon" aria-hidden="true"><use href="#${id}"></use></svg>`;
 
   function setupTabs(selector, panelSelector) {
-    $$(selector).forEach((tab, index, tabs) => tab.addEventListener('keydown', e => {
-      if (!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
-      e.preventDefault(); let n = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length-1 : (index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[n].click(); tabs[n].focus();
-    }));
-    $$(selector).forEach(tab => tab.addEventListener('click', () => {
-      closeMenu(false); $$(selector).forEach(t => { t.setAttribute('aria-selected', t === tab); t.tabIndex = t === tab ? 0 : -1; });
-      if (panelSelector) $$(panelSelector).forEach(p => p.hidden = p.id !== tab.getAttribute('aria-controls'));
-    }));
+    $$(selector).forEach((tab, index, tabs) =>
+      tab.addEventListener('keydown', (e) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+        e.preventDefault();
+        let n =
+          e.key === 'Home'
+            ? 0
+            : e.key === 'End'
+              ? tabs.length - 1
+              : (index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        tabs[n].click();
+        tabs[n].focus();
+      }),
+    );
+    $$(selector).forEach((tab) =>
+      tab.addEventListener('click', () => {
+        closeMenu(false);
+        $$(selector).forEach((t) => {
+          t.setAttribute('aria-selected', t === tab);
+          t.tabIndex = t === tab ? 0 : -1;
+        });
+        if (panelSelector)
+          $$(panelSelector).forEach((p) => (p.hidden = p.id !== tab.getAttribute('aria-controls')));
+      }),
+    );
   }
   setupTabs('.ribbon-tab', '.ribbon-panel');
   setupTabs('.doc-tab');
-  $$('.doc-tab').forEach(t => t.addEventListener('click', () => {
-    $('#canvas-panel').setAttribute('aria-labelledby', t.id);
-    activeDocument = t.id;
-    const freeform = activeDocument === 'dt-freeform';
-    graph = freeform ? $('#freeform-svg') : $('#graph-svg');
-    graphs.forEach(svg => svg.toggleAttribute('hidden',svg !== graph));
-    $('#graph-svg').classList.toggle('scenario',activeDocument === 'dt-scenario');
-    $('#graph-title').textContent = activeDocument === 'dt-scenario' ? 'Segmentation scenario B' : 'Production network topology';
-    $('.filename').textContent = freeform ? 'Freeform topology' : activeDocument === 'dt-scenario' ? 'Segmentation scenario B' : 'Production network topology';
-    $('#topology-summary').textContent = freeform ? '12 assets · 15 relationships · 3 network areas' : activeDocument === 'dt-scenario' ? '8 assets · 6 active relationships · 4 zones' : '8 assets · 7 relationships · 4 zones';
-    $('#canvas-hint').textContent = freeform ? 'Drag nodes to reshape · drag empty space to pan · scroll to zoom' : 'Drag empty space to pan · scroll to zoom · right-click for actions';
-    const savedSelection = documentSelections.get(activeDocument);
-    selectTarget(savedSelection.kind,savedSelection.id);
-    updateViewport();
-    showSnack(freeform ? 'Freeform topology active' : activeDocument === 'dt-production' ? 'Production topology active' : 'Scenario B active', false);
-  }));
+  $$('.doc-tab').forEach((t) =>
+    t.addEventListener('click', () => {
+      $('#canvas-panel').setAttribute('aria-labelledby', t.id);
+      activeDocument = t.id;
+      const freeform = activeDocument === 'dt-freeform';
+      graph = freeform ? $('#freeform-svg') : $('#graph-svg');
+      graphs.forEach((svg) => svg.toggleAttribute('hidden', svg !== graph));
+      $('#graph-svg').classList.toggle('scenario', activeDocument === 'dt-scenario');
+      $('#graph-title').textContent =
+        activeDocument === 'dt-scenario'
+          ? 'Segmentation scenario B'
+          : 'Production network topology';
+      $('.filename').textContent = freeform
+        ? 'Freeform topology'
+        : activeDocument === 'dt-scenario'
+          ? 'Segmentation scenario B'
+          : 'Production network topology';
+      $('#topology-summary').textContent = freeform
+        ? '12 assets · 15 relationships · 3 network areas'
+        : activeDocument === 'dt-scenario'
+          ? '8 assets · 6 active relationships · 4 zones'
+          : '8 assets · 7 relationships · 4 zones';
+      $('#canvas-hint').textContent = freeform
+        ? 'Drag nodes to reshape · drag empty space to pan · scroll to zoom'
+        : 'Drag empty space to pan · scroll to zoom · right-click for actions';
+      const savedSelection = documentSelections.get(activeDocument);
+      selectTarget(savedSelection.kind, savedSelection.id);
+      updateViewport();
+      showSnack(
+        freeform
+          ? 'Freeform topology active'
+          : activeDocument === 'dt-production'
+            ? 'Production topology active'
+            : 'Scenario B active',
+        false,
+      );
+    }),
+  );
 
-  function inspectorNode(d) { return `<div class="prop-section"><h3>Identity</h3><div class="field"><label for="prop-name">Name</label><input id="prop-name" value="${d.name}"></div><div class="field"><label for="prop-address">Address</label><input id="prop-address" value="${d.address}"></div><div class="field"><label for="prop-zone">Zone</label><select id="prop-zone"><option>${d.zone}</option><option>DMZ / VLAN 10</option><option>Data / VLAN 30</option></select></div></div><div class="prop-section"><h3>Security posture</h3><div class="metric"><span>Risk rating</span><span class="tag">${d.risk}</span></div><div class="metric"><span>Exposure</span><strong>${d.exposure}</strong></div><div class="metric"><span>Expected blast radius</span><strong>${d.blast}</strong></div></div><div class="prop-section"><h3>Ownership</h3><div class="field"><label for="prop-owner">Owner</label><input id="prop-owner" value="${d.owner}"></div></div>`; }
-  function inspectorEdge(d) { return `<div class="prop-section"><h3>Relationship</h3><div class="metric"><span>Route</span><strong>${d[0]}</strong></div><div class="field"><label for="prop-protocol">Service</label><input id="prop-protocol" value="${d[1]}"></div><div class="field"><label for="prop-policy">Policy</label><select id="prop-policy"><option>${d[2]}</option><option>Allowed</option><option>Denied</option></select></div></div><div class="prop-section"><h3>Analysis</h3><div class="metric"><span>Traffic class</span><strong>${d[3]}</strong></div><div class="metric"><span>Attack traversal</span><strong>0.37 probability</strong></div></div>`; }
+  function inspectorNode(d) {
+    return `<div class="prop-section"><h3>Identity</h3><div class="field"><label for="prop-name">Name</label><input id="prop-name" value="${d.name}"></div><div class="field"><label for="prop-address">Address</label><input id="prop-address" value="${d.address}"></div><div class="field"><label for="prop-zone">Zone</label><select id="prop-zone"><option>${d.zone}</option><option>DMZ / VLAN 10</option><option>Data / VLAN 30</option></select></div></div><div class="prop-section"><h3>Security posture</h3><div class="metric"><span>Risk rating</span><span class="tag">${d.risk}</span></div><div class="metric"><span>Exposure</span><strong>${d.exposure}</strong></div><div class="metric"><span>Expected blast radius</span><strong>${d.blast}</strong></div></div><div class="prop-section"><h3>Ownership</h3><div class="field"><label for="prop-owner">Owner</label><input id="prop-owner" value="${d.owner}"></div></div>`;
+  }
+  function inspectorEdge(d) {
+    return `<div class="prop-section"><h3>Relationship</h3><div class="metric"><span>Route</span><strong>${d[0]}</strong></div><div class="field"><label for="prop-protocol">Service</label><input id="prop-protocol" value="${d[1]}"></div><div class="field"><label for="prop-policy">Policy</label><select id="prop-policy"><option>${d[2]}</option><option>Allowed</option><option>Denied</option></select></div></div><div class="prop-section"><h3>Analysis</h3><div class="metric"><span>Traffic class</span><strong>${d[3]}</strong></div><div class="metric"><span>Attack traversal</span><strong>0.37 probability</strong></div></div>`;
+  }
   function selectTarget(kind, id, focus = false) {
-    closeMenu(false); $$('.selected', graph).forEach(x => x.classList.remove('selected'));
-    const el = $(`[data-id="${id}"]`, graph); if (!el) return; el.classList.add('selected'); selected = {kind,id};documentSelections.set(activeDocument,selected);
-    if (kind === 'node') { const d=data[id]; $('#selection-name').textContent=d.name; $('#selection-kind').textContent=d.kind+' · selected'; $('#status-selection').textContent=d.name; $('#inspector-body').innerHTML=inspectorNode(d); }
-    else { const d=edgeData[id]; $('#selection-name').textContent=d[0]; $('#selection-kind').textContent='Network relationship · selected'; $('#status-selection').textContent=d[0]; $('#inspector-body').innerHTML=inspectorEdge(d); }
+    closeMenu(false);
+    $$('.selected', graph).forEach((x) => x.classList.remove('selected'));
+    const el = $(`[data-id="${id}"]`, graph);
+    if (!el) return;
+    el.classList.add('selected');
+    selected = { kind, id };
+    documentSelections.set(activeDocument, selected);
+    if (kind === 'node') {
+      const d = data[id];
+      $('#selection-name').textContent = d.name;
+      $('#selection-kind').textContent = d.kind + ' · selected';
+      $('#status-selection').textContent = d.name;
+      $('#inspector-body').innerHTML = inspectorNode(d);
+    } else {
+      const d = edgeData[id];
+      $('#selection-name').textContent = d[0];
+      $('#selection-kind').textContent = 'Network relationship · selected';
+      $('#status-selection').textContent = d[0];
+      $('#inspector-body').innerHTML = inspectorEdge(d);
+    }
     if (focus) el.focus();
   }
-  graphs.forEach(svg => $$('[data-kind="node"], [data-kind="edge"]', svg).forEach(el => {
-    el.addEventListener('click', e => { if (e.target.closest('[data-more]')) return; selectTarget(el.dataset.kind, el.dataset.id); });
-    el.addEventListener('keydown', e => { if (e.key === 'Enter') selectTarget(el.dataset.kind, el.dataset.id); if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) { e.preventDefault(); selectTarget(el.dataset.kind,el.dataset.id); openMenu(el.dataset.kind,el.dataset.id,centerOf(el),el); } });
-  }));
-  $$('tr[data-target]').forEach(row => row.addEventListener('click', () => selectTarget('node',row.dataset.target)));
+  graphs.forEach((svg) =>
+    $$('[data-kind="node"], [data-kind="edge"]', svg).forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-more]')) return;
+        selectTarget(el.dataset.kind, el.dataset.id);
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') selectTarget(el.dataset.kind, el.dataset.id);
+        if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+          e.preventDefault();
+          selectTarget(el.dataset.kind, el.dataset.id);
+          openMenu(el.dataset.kind, el.dataset.id, centerOf(el), el);
+        }
+      });
+    }),
+  );
+  $$('tr[data-target]').forEach((row) =>
+    row.addEventListener('click', () => selectTarget('node', row.dataset.target)),
+  );
 
-  function centerOf(el) { const r=el.getBoundingClientRect(); return {x:r.left+r.width/2,y:r.top+r.height/2}; }
-  const variants = {
-    node:[['Open properties','i-server','properties'],['Duplicate node','i-copy','duplicate'],['Start connection','i-link','connect'],['Run from this asset','i-play','simulate'],['sep'],['Remove node','i-trash','remove','danger']],
-    edge:[['Edit relationship','i-link','properties'],['Reverse direction','i-align','reverse'],['Disable relationship','i-lock','disable'],['sep'],['Remove relationship','i-trash','remove','danger']],
-    background:[['Add asset here','i-server','add'],['Add security zone','i-cloud','zone'],['Paste','i-copy','paste'],['sep'],['Fit topology','i-fit','fit']]
-  };
-  function openMenu(kind,id,point,opener) {
-    closeMenu(false); menuTarget={kind,id}; restoreFocus=opener || document.activeElement;
-    menu.innerHTML=`<div class="menu-label">${kind === 'background' ? 'Canvas' : kind === 'node' ? data[id]?.name || 'Node' : edgeData[id]?.[0] || 'Relationship'}</div>`+variants[kind].map((a,i)=>a[0]==='sep'?'<div class="menu-sep" role="separator"></div>':`<button class="menu-item ${a[3]||''}" role="menuitem" data-action="${a[2]}" tabindex="${i===0?0:-1}">${icon(a[1])}<span>${a[0]}</span></button>`).join('');
-    menu.hidden=false; menu.style.left='0px';menu.style.top='0px'; const r=menu.getBoundingClientRect(), pad=8; let x=point.x,y=point.y; if(x+r.width>innerWidth-pad)x=point.x-r.width;if(y+r.height>innerHeight-pad)y=point.y-r.height; menu.style.left=Math.max(pad,Math.min(x,innerWidth-r.width-pad))+'px';menu.style.top=Math.max(pad,Math.min(y,innerHeight-r.height-pad))+'px';
-    $('#more-actions').setAttribute('aria-expanded','true'); requestAnimationFrame(()=>$('.menu-item',menu)?.focus());
+  function centerOf(el) {
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
   }
-  function closeMenu(restore=true) { if(menu.hidden)return; menu.hidden=true; $('#more-actions').setAttribute('aria-expanded','false'); menuTarget=null; typeBuffer=''; if(restore && restoreFocus?.isConnected) restoreFocus.focus(); }
-  graphs.forEach(svg => {
-    svg.addEventListener('contextmenu', e => { if(e.shiftKey)return; const target=e.target.closest('[data-kind]'); const valid=target || e.target===svg || e.target.closest('g[aria-hidden="true"]'); if(!valid)return; e.preventDefault(); graph=svg; if(target) selectTarget(target.dataset.kind,target.dataset.id); openMenu(target?.dataset.kind||'background',target?.dataset.id||null,{x:e.clientX,y:e.clientY},target||$('#canvas-panel')); });
-    svg.addEventListener('pointerdown', e => {
-      if(e.button!==0 || e.target.closest('[data-kind]')) return;
-      graph=svg; svg.classList.add('panning');
-      panSession={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,originX:viewStates.get(activeDocument).x,originY:viewStates.get(activeDocument).y,moved:false};
+  const variants = {
+    node: [
+      ['Open properties', 'i-server', 'properties'],
+      ['Duplicate node', 'i-copy', 'duplicate'],
+      ['Start connection', 'i-link', 'connect'],
+      ['Run from this asset', 'i-play', 'simulate'],
+      ['sep'],
+      ['Remove node', 'i-trash', 'remove', 'danger'],
+    ],
+    edge: [
+      ['Edit relationship', 'i-link', 'properties'],
+      ['Reverse direction', 'i-align', 'reverse'],
+      ['Disable relationship', 'i-lock', 'disable'],
+      ['sep'],
+      ['Remove relationship', 'i-trash', 'remove', 'danger'],
+    ],
+    background: [
+      ['Add asset here', 'i-server', 'add'],
+      ['Add security zone', 'i-cloud', 'zone'],
+      ['Paste', 'i-copy', 'paste'],
+      ['sep'],
+      ['Fit topology', 'i-fit', 'fit'],
+    ],
+  };
+  function openMenu(kind, id, point, opener) {
+    closeMenu(false);
+    menuTarget = { kind, id };
+    restoreFocus = opener || document.activeElement;
+    menu.innerHTML =
+      `<div class="menu-label">${kind === 'background' ? 'Canvas' : kind === 'node' ? data[id]?.name || 'Node' : edgeData[id]?.[0] || 'Relationship'}</div>` +
+      variants[kind]
+        .map((a, i) =>
+          a[0] === 'sep'
+            ? '<div class="menu-sep" role="separator"></div>'
+            : `<button class="menu-item ${a[3] || ''}" role="menuitem" data-action="${a[2]}" tabindex="${i === 0 ? 0 : -1}">${icon(a[1])}<span>${a[0]}</span></button>`,
+        )
+        .join('');
+    menu.hidden = false;
+    menu.style.left = '0px';
+    menu.style.top = '0px';
+    const r = menu.getBoundingClientRect(),
+      pad = 8;
+    let x = point.x,
+      y = point.y;
+    if (x + r.width > innerWidth - pad) x = point.x - r.width;
+    if (y + r.height > innerHeight - pad) y = point.y - r.height;
+    menu.style.left = Math.max(pad, Math.min(x, innerWidth - r.width - pad)) + 'px';
+    menu.style.top = Math.max(pad, Math.min(y, innerHeight - r.height - pad)) + 'px';
+    $('#more-actions').setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => $('.menu-item', menu)?.focus());
+  }
+  function closeMenu(restore = true) {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    $('#more-actions').setAttribute('aria-expanded', 'false');
+    menuTarget = null;
+    typeBuffer = '';
+    if (restore && restoreFocus?.isConnected) restoreFocus.focus();
+  }
+  graphs.forEach((svg) => {
+    svg.addEventListener('contextmenu', (e) => {
+      if (e.shiftKey) return;
+      const target = e.target.closest('[data-kind]');
+      const valid = target || e.target === svg || e.target.closest('g[aria-hidden="true"]');
+      if (!valid) return;
+      e.preventDefault();
+      graph = svg;
+      if (target) selectTarget(target.dataset.kind, target.dataset.id);
+      openMenu(
+        target?.dataset.kind || 'background',
+        target?.dataset.id || null,
+        { x: e.clientX, y: e.clientY },
+        target || $('#canvas-panel'),
+      );
     });
-    svg.addEventListener('pointermove', e => {
-      if(!panSession || panSession.pointerId!==e.pointerId) return;
-      const rect=svg.getBoundingClientRect(), state=viewStates.get(activeDocument), scaleX=1120/rect.width, scaleY=650/rect.height;
-      state.x=panSession.originX+(e.clientX-panSession.startX)*scaleX;state.y=panSession.originY+(e.clientY-panSession.startY)*scaleY;
-      panSession.moved ||= Math.abs(e.clientX-panSession.startX)+Math.abs(e.clientY-panSession.startY)>3;updateViewport();
+    svg.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('[data-kind]')) return;
+      graph = svg;
+      svg.classList.add('panning');
+      panSession = {
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: viewStates.get(activeDocument).x,
+        originY: viewStates.get(activeDocument).y,
+        moved: false,
+      };
     });
-    const endPan=e=>{if(!panSession||panSession.pointerId!==e.pointerId)return;svg.classList.remove('panning');if(!panSession.moved){$$('.selected',graph).forEach(x=>x.classList.remove('selected'));selected=null;$('#selection-name').textContent='Canvas';$('#selection-kind').textContent='No object selected';$('#status-selection').textContent='None';$('#inspector-body').innerHTML='<div class="empty-inspector">Select a node or relationship to inspect its model properties.</div>';}panSession=null};
-    svg.addEventListener('pointerup',endPan);svg.addEventListener('pointercancel',endPan);
-    svg.addEventListener('mousedown',e=>{if(e.button!==0||e.target.closest('[data-kind]'))return;graph=svg;svg.classList.add('panning');const state=viewStates.get(activeDocument);panSession={pointerId:'mouse',startX:e.clientX,startY:e.clientY,originX:state.x,originY:state.y,moved:false}});
-    svg.addEventListener('mousemove',e=>{if(!panSession||panSession.pointerId!=='mouse')return;const rect=svg.getBoundingClientRect(),state=viewStates.get(activeDocument);state.x=panSession.originX+(e.clientX-panSession.startX)*(1120/rect.width);state.y=panSession.originY+(e.clientY-panSession.startY)*(650/rect.height);panSession.moved||=Math.abs(e.clientX-panSession.startX)+Math.abs(e.clientY-panSession.startY)>3;updateViewport()});
-    addEventListener('mouseup',()=>{if(!panSession||panSession.pointerId!=='mouse')return;svg.classList.remove('panning');panSession=null});
-    svg.addEventListener('wheel',e=>{e.preventDefault();graph=svg;setZoom(viewStates.get(activeDocument).zoom+(e.deltaY<0?10:-10));},{passive:false});
+    svg.addEventListener('pointermove', (e) => {
+      if (!panSession || panSession.pointerId !== e.pointerId) return;
+      const rect = svg.getBoundingClientRect(),
+        state = viewStates.get(activeDocument),
+        scaleX = 1120 / rect.width,
+        scaleY = 650 / rect.height;
+      state.x = panSession.originX + (e.clientX - panSession.startX) * scaleX;
+      state.y = panSession.originY + (e.clientY - panSession.startY) * scaleY;
+      panSession.moved ||=
+        Math.abs(e.clientX - panSession.startX) + Math.abs(e.clientY - panSession.startY) > 3;
+      updateViewport();
+    });
+    const endPan = (e) => {
+      if (!panSession || panSession.pointerId !== e.pointerId) return;
+      svg.classList.remove('panning');
+      if (!panSession.moved) {
+        $$('.selected', graph).forEach((x) => x.classList.remove('selected'));
+        selected = null;
+        $('#selection-name').textContent = 'Canvas';
+        $('#selection-kind').textContent = 'No object selected';
+        $('#status-selection').textContent = 'None';
+        $('#inspector-body').innerHTML =
+          '<div class="empty-inspector">Select a node or relationship to inspect its model properties.</div>';
+      }
+      panSession = null;
+    };
+    svg.addEventListener('pointerup', endPan);
+    svg.addEventListener('pointercancel', endPan);
+    svg.addEventListener('mousedown', (e) => {
+      if (e.button !== 0 || e.target.closest('[data-kind]')) return;
+      graph = svg;
+      svg.classList.add('panning');
+      const state = viewStates.get(activeDocument);
+      panSession = {
+        pointerId: 'mouse',
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: state.x,
+        originY: state.y,
+        moved: false,
+      };
+    });
+    svg.addEventListener('mousemove', (e) => {
+      if (!panSession || panSession.pointerId !== 'mouse') return;
+      const rect = svg.getBoundingClientRect(),
+        state = viewStates.get(activeDocument);
+      state.x = panSession.originX + (e.clientX - panSession.startX) * (1120 / rect.width);
+      state.y = panSession.originY + (e.clientY - panSession.startY) * (650 / rect.height);
+      panSession.moved ||=
+        Math.abs(e.clientX - panSession.startX) + Math.abs(e.clientY - panSession.startY) > 3;
+      updateViewport();
+    });
+    addEventListener('mouseup', () => {
+      if (!panSession || panSession.pointerId !== 'mouse') return;
+      svg.classList.remove('panning');
+      panSession = null;
+    });
+    svg.addEventListener(
+      'wheel',
+      (e) => {
+        e.preventDefault();
+        graph = svg;
+        setZoom(viewStates.get(activeDocument).zoom + (e.deltaY < 0 ? 10 : -10));
+      },
+      { passive: false },
+    );
   });
-  $$('.more-node').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();const id=el.dataset.more;selectTarget('node',id);openMenu('node',id,centerOf(el),el.closest('.node'));}));
-  $('#more-actions').addEventListener('click',e=>openMenu(selected?.kind||'background',selected?.id||null,centerOf(e.currentTarget),e.currentTarget));
-  $('#canvas-panel').addEventListener('keydown',e=>{if((e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10'))&&e.target===$('#canvas-panel')){e.preventDefault();const r=graph.getBoundingClientRect();openMenu('background',null,{x:r.left+r.width/2,y:r.top+r.height/2},e.target);}});
-  menu.addEventListener('keydown', e => { const items=$$('.menu-item',menu), cur=items.indexOf(document.activeElement); let n;if(e.key==='ArrowDown')n=(cur+1)%items.length;if(e.key==='ArrowUp')n=(cur-1+items.length)%items.length;if(e.key==='Home')n=0;if(e.key==='End')n=items.length-1;if(n!==undefined){e.preventDefault();items.forEach(x=>x.tabIndex=-1);items[n].tabIndex=0;items[n].focus();return;}if(e.key==='Escape'){e.preventDefault();closeMenu();return;}if(e.key==='Tab'){closeMenu(false);return;}if((e.key==='Enter'||e.key===' ')&&document.activeElement.matches('.menu-item')){e.preventDefault();document.activeElement.click();return;}if(e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey){typeBuffer+=e.key.toLowerCase();clearTimeout(typeTimer);typeTimer=setTimeout(()=>typeBuffer='',600);const found=items.find(x=>x.textContent.trim().toLowerCase().startsWith(typeBuffer));if(found){e.preventDefault();items.forEach(x=>x.tabIndex=-1);found.tabIndex=0;found.focus();}} });
-  menu.addEventListener('click', e => { const item=e.target.closest('[data-action]');if(!item)return;const action=item.dataset.action,target=menuTarget;closeMenu();if(action==='remove'&&target){const el=$(`[data-id="${target.id}"]`,graph);if(el){lastRemoved={el,parent:el.parentNode,next:el.nextSibling,target};el.remove();showSnack(`${target.kind==='node'?'Node':'Relationship'} removed`,true);}}else if(action==='fit'){fitGraph();showSnack('Topology fitted to canvas',false);}else showSnack(`${item.textContent.trim()} action ready`,false); });
-  document.addEventListener('pointerdown',e=>{if(!menu.hidden&&!menu.contains(e.target)&&!e.target.closest('[data-more],#more-actions'))closeMenu(false);});
-  addEventListener('resize',()=>closeMenu(false));addEventListener('scroll',()=>closeMenu(false),true);
+  $$('.more-node').forEach((el) =>
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.more;
+      selectTarget('node', id);
+      openMenu('node', id, centerOf(el), el.closest('.node'));
+    }),
+  );
+  $('#more-actions').addEventListener('click', (e) =>
+    openMenu(
+      selected?.kind || 'background',
+      selected?.id || null,
+      centerOf(e.currentTarget),
+      e.currentTarget,
+    ),
+  );
+  $('#canvas-panel').addEventListener('keydown', (e) => {
+    if (
+      (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) &&
+      e.target === $('#canvas-panel')
+    ) {
+      e.preventDefault();
+      const r = graph.getBoundingClientRect();
+      openMenu('background', null, { x: r.left + r.width / 2, y: r.top + r.height / 2 }, e.target);
+    }
+  });
+  menu.addEventListener('keydown', (e) => {
+    const items = $$('.menu-item', menu),
+      cur = items.indexOf(document.activeElement);
+    let n;
+    if (e.key === 'ArrowDown') n = (cur + 1) % items.length;
+    if (e.key === 'ArrowUp') n = (cur - 1 + items.length) % items.length;
+    if (e.key === 'Home') n = 0;
+    if (e.key === 'End') n = items.length - 1;
+    if (n !== undefined) {
+      e.preventDefault();
+      items.forEach((x) => (x.tabIndex = -1));
+      items[n].tabIndex = 0;
+      items[n].focus();
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMenu();
+      return;
+    }
+    if (e.key === 'Tab') {
+      closeMenu(false);
+      return;
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && document.activeElement.matches('.menu-item')) {
+      e.preventDefault();
+      document.activeElement.click();
+      return;
+    }
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      typeBuffer += e.key.toLowerCase();
+      clearTimeout(typeTimer);
+      typeTimer = setTimeout(() => (typeBuffer = ''), 600);
+      const found = items.find((x) => x.textContent.trim().toLowerCase().startsWith(typeBuffer));
+      if (found) {
+        e.preventDefault();
+        items.forEach((x) => (x.tabIndex = -1));
+        found.tabIndex = 0;
+        found.focus();
+      }
+    }
+  });
+  menu.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-action]');
+    if (!item) return;
+    const action = item.dataset.action,
+      target = menuTarget;
+    closeMenu();
+    if (action === 'remove' && target) {
+      const el = $(`[data-id="${target.id}"]`, graph);
+      if (el) {
+        lastRemoved = { el, parent: el.parentNode, next: el.nextSibling, target };
+        el.remove();
+        showSnack(`${target.kind === 'node' ? 'Node' : 'Relationship'} removed`, true);
+      }
+    } else if (action === 'fit') {
+      fitGraph();
+      showSnack('Topology fitted to canvas', false);
+    } else showSnack(`${item.textContent.trim()} action ready`, false);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!menu.hidden && !menu.contains(e.target) && !e.target.closest('[data-more],#more-actions'))
+      closeMenu(false);
+  });
+  addEventListener('resize', () => closeMenu(false));
+  addEventListener('scroll', () => closeMenu(false), true);
 
-  function showSnack(text,undo=true){clearTimeout(snackTimer);$('#snackbar-text').textContent=text;$('#undo-button').hidden=!undo;snackbar.classList.add('show');snackTimer=setTimeout(()=>snackbar.classList.remove('show'),5000);}
-  $('#undo-button').addEventListener('click',()=>{if(!lastRemoved)return;lastRemoved.parent.insertBefore(lastRemoved.el,lastRemoved.next);selectTarget(lastRemoved.target.kind,lastRemoved.target.id,true);lastRemoved=null;snackbar.classList.remove('show');});
-  function updateViewport(){const state=viewStates.get(activeDocument), viewport=$('.graph-viewport',graph), scale=state.zoom/100;viewport.setAttribute('transform',`translate(${560+state.x} ${325+state.y}) scale(${scale}) translate(-560 -325)`);$('#zoom-output').value=state.zoom+'%';}
-  function setZoom(value){const state=viewStates.get(activeDocument);state.zoom=Math.max(50,Math.min(180,value));updateViewport();}
-  function fitGraph(){const state=viewStates.get(activeDocument);state.zoom=100;state.x=0;state.y=0;updateViewport();}
-  $('#zoom-in').addEventListener('click',()=>setZoom(viewStates.get(activeDocument).zoom+10));$('#zoom-out').addEventListener('click',()=>setZoom(viewStates.get(activeDocument).zoom-10));$('#fit-button').addEventListener('click',fitGraph);
-  $$('[data-view]').forEach(btn=>btn.addEventListener('click',()=>{const list=btn.dataset.view==='list';$('#graph-view').hidden=list;$('#list-view').hidden=!list;$$('[data-view]').forEach(b=>{if(b.hasAttribute('aria-pressed'))b.setAttribute('aria-pressed',b.dataset.view===btn.dataset.view)});closeMenu(false);}));
-  $('#collapse-inspector').addEventListener('click',()=>{$('#inspector').classList.add('collapsed');$('#workspace').classList.add('inspector-off');closeMenu(false);});$('#inspector-restore').addEventListener('click',()=>{$('#inspector').classList.remove('collapsed');$('#workspace').classList.remove('inspector-off');$('#collapse-inspector').focus();});
-  selectTarget('node','api');updateViewport();
+  function showSnack(text, undo = true) {
+    clearTimeout(snackTimer);
+    $('#snackbar-text').textContent = text;
+    $('#undo-button').hidden = !undo;
+    snackbar.classList.add('show');
+    snackTimer = setTimeout(() => snackbar.classList.remove('show'), 5000);
+  }
+  $('#undo-button').addEventListener('click', () => {
+    if (!lastRemoved) return;
+    lastRemoved.parent.insertBefore(lastRemoved.el, lastRemoved.next);
+    selectTarget(lastRemoved.target.kind, lastRemoved.target.id, true);
+    lastRemoved = null;
+    snackbar.classList.remove('show');
+  });
+  function updateViewport() {
+    const state = viewStates.get(activeDocument);
+    const viewport = $('.graph-viewport', graph);
+    const scale = state.zoom / 100;
+
+    // Compose translate-center, scale, and translate-back so zoom is centered on
+    // the 1120x650 viewBox midpoint. state.x/state.y add document-specific panning.
+    viewport.setAttribute(
+      'transform',
+      `translate(${560 + state.x} ${325 + state.y}) scale(${scale}) translate(-560 -325)`,
+    );
+    $('#zoom-output').value = state.zoom + '%';
+  }
+  function setZoom(value) {
+    const state = viewStates.get(activeDocument);
+    state.zoom = Math.max(50, Math.min(180, value));
+    updateViewport();
+  }
+  function fitGraph() {
+    const state = viewStates.get(activeDocument);
+    state.zoom = 100;
+    state.x = 0;
+    state.y = 0;
+    updateViewport();
+  }
+  $('#zoom-in').addEventListener('click', () => setZoom(viewStates.get(activeDocument).zoom + 10));
+  $('#zoom-out').addEventListener('click', () => setZoom(viewStates.get(activeDocument).zoom - 10));
+  $('#fit-button').addEventListener('click', fitGraph);
+  $$('[data-view]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      const list = btn.dataset.view === 'list';
+      $('#graph-view').hidden = list;
+      $('#list-view').hidden = !list;
+      $$('[data-view]').forEach((b) => {
+        if (b.hasAttribute('aria-pressed'))
+          b.setAttribute('aria-pressed', b.dataset.view === btn.dataset.view);
+      });
+      closeMenu(false);
+    }),
+  );
+  $('#collapse-inspector').addEventListener('click', () => {
+    $('#inspector').classList.add('collapsed');
+    $('#workspace').classList.add('inspector-off');
+    closeMenu(false);
+  });
+  $('#inspector-restore').addEventListener('click', () => {
+    $('#inspector').classList.remove('collapsed');
+    $('#workspace').classList.remove('inspector-off');
+    $('#collapse-inspector').focus();
+  });
+  selectTarget('node', 'api');
+  updateViewport();
 })();
 </script>
 </body>
