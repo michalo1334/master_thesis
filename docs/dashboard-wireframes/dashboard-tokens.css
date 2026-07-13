@@ -1,0 +1,70 @@
+:root {
+  color-scheme: light;
+
+  /* Neutral and application chrome */
+  --ds-color-nav: #17243c;
+  --ds-color-nav-secondary: #223454;
+  --ds-color-surface: #f5f7fa;
+  --ds-color-canvas: #edf1f5;
+  --ds-color-paper: #fff;
+  --ds-color-text: #172033;
+  --ds-color-text-secondary: #4e5b6e;
+  --ds-color-text-muted: #617086;
+  --ds-color-text-faint: #7a8697;
+  --ds-color-border: #ccd4df;
+  --ds-color-border-soft: #e2e7ed;
+  --ds-color-on-dark: #fff;
+  --ds-color-on-dark-hover: #ffffff18;
+
+  /* Interactive UI; graph-specific status colors remain in each view. */
+  --ds-color-accent: #1769d2;
+  --ds-color-accent-soft: #e9f2ff;
+  --ds-color-focus: #0b6fe8;
+  --ds-color-danger: #b42318;
+
+  /* Typography */
+  --ds-font-ui: "Segoe UI", Arial, sans-serif;
+  --ds-font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --ds-line-height: 1.35;
+  --ds-text-xs: 11px;
+  --ds-text-sm: 12px;
+  --ds-text-base: 13px;
+  --ds-text-lg: 14px;
+
+  /* Four-point spacing grid for repeated component internals. */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-6: 24px;
+  --ds-space-8: 32px;
+
+  /* Shape, elevation, and recurring control dimensions */
+  --ds-radius-sm: 3px;
+  --ds-radius-md: 4px;
+  --ds-radius-lg: 6px;
+  --ds-shadow-sm: 0 1px 3px #17243c0b;
+  --ds-shadow-md: 0 5px 18px #17243c22;
+  --ds-shadow-lg: 0 10px 34px #17243c3a;
+  --ds-appbar-height: 42px;
+  --ds-control-height: 30px;
+  --ds-avatar-size: 25px;
+  --ds-ribbon-icon-size: 22px;
+}
+
+:root[data-dashboard-theme="simulation"] {
+  --ds-color-nav: #172234;
+  --ds-color-nav-secondary: #223149;
+  --ds-color-surface: #edf1f5;
+  --ds-color-text: #17202c;
+  --ds-color-text-secondary: #4d5a68;
+  --ds-color-text-muted: #657180;
+  --ds-color-text-faint: #75808d;
+  --ds-color-border: #c8d0da;
+  --ds-color-border-soft: #e1e6ec;
+  --ds-color-accent: #1769aa;
+  --ds-color-accent-soft: #dcecf8;
+  --ds-color-focus: #0b6fca;
+  --ds-shadow-md: 0 3px 12px #17223426;
+  --ds-shadow-lg: 0 8px 28px #1522343d;
+}

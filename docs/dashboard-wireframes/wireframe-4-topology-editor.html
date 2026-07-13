@@ -1,18 +1,19 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-dashboard-theme="topology">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Topology Editor - BlastShield</title>
+  <link rel="stylesheet" href="./dashboard-tokens.css">
   <style>
-    :root { --navy:#17243c; --navy2:#223454; --blue:#1769d2; --blue2:#e9f2ff; --ink:#172033; --muted:#617086; --line:#ccd4df; --line2:#e2e7ed; --paper:#fff; --surface:#f5f7fa; --canvas:#edf1f5; --danger:#b42318; --shadow:0 5px 18px #17243c22; --app-h:42px; --ribbon-h:126px; --status-h:28px; }
+    :root { --app-h:var(--ds-appbar-height); --ribbon-h:126px; --status-h:28px; }
     * { box-sizing:border-box; }
-    html, body { margin:0; height:100%; overflow:hidden; color:var(--ink); background:var(--surface); font:13px/1.35 "Segoe UI", Arial, sans-serif; }
+    html, body { margin:0; height:100%; overflow:hidden; color:var(--ds-color-text); background:var(--ds-color-surface); font:var(--ds-text-lg)/var(--ds-line-height) var(--ds-font-ui); }
     button, input, select { font:inherit; color:inherit; }
     button { cursor:pointer; }
-    button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid #0b6fe8; outline-offset:2px; }
+    button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible { outline:2px solid var(--ds-color-focus); outline-offset:2px; }
     .app { height:100%; display:grid; grid-template-rows:var(--app-h) var(--ribbon-h) minmax(0,1fr) var(--status-h); }
-    .appbar { display:flex; align-items:center; gap:12px; padding:0 14px; color:#fff; background:var(--navy); }
+    .appbar { display:flex; align-items:center; gap:12px; padding:0 14px; color:var(--ds-color-on-dark); background:var(--ds-color-nav); }
     .brand { display:flex; align-items:center; gap:9px; font-weight:700; letter-spacing:.2px; white-space:nowrap; }
     .brand-mark { width:22px; height:22px; display:grid; place-items:center; border-radius:5px; background:#3b83e5; }
     .brand-mark svg { width:15px; }
@@ -20,41 +21,43 @@
     .filename { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .saved { color:#b9c8dc; font-size:12px; }
     .app-actions { margin-left:auto; display:flex; align-items:center; gap:4px; }
-    .app-icon { width:32px; height:30px; border:0; border-radius:4px; color:white; background:transparent; display:grid; place-items:center; }
-    .app-icon:hover { background:#ffffff18; }
-    .avatar { margin-left:5px; width:25px; height:25px; border-radius:50%; display:grid; place-items:center; color:var(--navy); background:#d8e8ff; font-weight:700; font-size:11px; }
+    .app-icon { width:32px; height:var(--ds-control-height); border:0; border-radius:var(--ds-radius-md); color:var(--ds-color-on-dark); background:transparent; display:grid; place-items:center; }
+    .app-icon:hover { background:var(--ds-color-on-dark-hover); }
+    .avatar { margin-left:5px; width:var(--ds-avatar-size); height:var(--ds-avatar-size); border-radius:50%; display:grid; place-items:center; color:var(--ds-color-nav); background:#d8e8ff; font-weight:700; font-size:var(--ds-text-sm); }
     .icon { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; pointer-events:none; }
 
-    .ribbon { background:var(--paper); border-bottom:1px solid var(--line); min-width:0; box-shadow:0 1px 3px #17243c0b; z-index:3; }
-    .ribbon-tabs { height:33px; display:flex; align-items:end; gap:2px; padding:0 12px; border-bottom:1px solid var(--line2); }
-    .ribbon-tab { height:32px; padding:0 15px; border:0; border-bottom:2px solid transparent; background:transparent; color:#4e5b6e; }
-    .ribbon-tab[aria-selected="true"] { color:var(--blue); border-bottom-color:var(--blue); font-weight:600; }
+    .ribbon { background:var(--ds-color-paper); border-bottom:1px solid var(--ds-color-border); min-width:0; box-shadow:var(--ds-shadow-sm); z-index:3; }
+    .ribbon-tabs { height:33px; display:flex; align-items:end; gap:2px; padding:0 12px; border-bottom:1px solid var(--ds-color-border-soft); }
+    .ribbon-tab { height:32px; padding:0 15px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--ds-color-text-secondary); }
+    .ribbon-tab[aria-selected="true"] { color:var(--ds-color-accent); border-bottom-color:var(--ds-color-accent); font-weight:600; }
     .ribbon-panel { height:92px; display:flex; padding:7px 10px 5px; overflow:hidden; }
     .ribbon-panel[hidden] { display:none; }
-    .r-group { display:flex; align-items:stretch; gap:3px; padding:0 10px; border-right:1px solid var(--line2); position:relative; padding-bottom:16px; }
+    .r-group { display:flex; align-items:stretch; gap:3px; padding:0 10px; border-right:1px solid var(--ds-color-border-soft); position:relative; padding-bottom:16px; }
     .r-group:first-child { padding-left:3px; }
-    .r-group-label { position:absolute; bottom:0; left:0; right:0; text-align:center; color:#778397; font-size:10px; }
-    .r-btn { min-width:50px; height:62px; padding:5px 7px; border:1px solid transparent; border-radius:4px; background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
+    .r-group-label { position:absolute; bottom:0; left:0; right:0; text-align:center; color:var(--ds-color-text-faint); font-size:var(--ds-text-xs); }
+    .r-btn { min-width:50px; height:62px; padding:5px 7px; border:1px solid transparent; border-radius:var(--ds-radius-md); background:transparent; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; }
     .r-btn.small { min-width:82px; height:30px; flex-direction:row; justify-content:flex-start; padding:4px 7px; }
-    .r-btn:hover, .r-btn[aria-pressed="true"] { background:var(--blue2); border-color:#b9d5f8; }
-    .r-btn .icon { width:22px; height:22px; color:#315f9a; }
+    .r-btn:hover, .r-btn[aria-pressed="true"] { background:var(--ds-color-accent-soft); border-color:#b9d5f8; }
+    .r-btn .icon { width:var(--ds-ribbon-icon-size); height:var(--ds-ribbon-icon-size); color:#315f9a; }
     .r-btn.small .icon { width:16px; height:16px; }
     .stack { display:flex; flex-direction:column; gap:2px; }
 
     .workspace { display:grid; grid-template-columns:minmax(0,1fr) 292px; min-height:0; }
     .document { display:grid; grid-template-rows:37px minmax(0,1fr); min-width:0; min-height:0; }
     .docbar { display:flex; align-items:end; gap:2px; padding:5px 8px 0; background:#dfe5ec; border-bottom:1px solid #aeb8c5; overflow:hidden; }
-    .doc-tab { max-width:240px; min-width:140px; height:32px; padding:0 10px; border:1px solid #b7c0cc; border-bottom:0; border-radius:5px 5px 0 0; background:#edf1f5; color:#566276; display:flex; align-items:center; gap:8px; }
-    .doc-tab[aria-selected="true"] { background:white; color:var(--ink); font-weight:600; height:33px; }
+    .doc-item { position:relative; display:flex; align-items:end; }
+    .doc-tab { max-width:240px; min-width:140px; height:32px; padding:0 34px 0 10px; border:1px solid #b7c0cc; border-bottom:0; border-radius:5px 5px 0 0; background:#edf1f5; color:var(--ds-color-text-secondary); display:flex; align-items:center; gap:8px; }
+    .doc-tab[aria-selected="true"] { background:white; color:var(--ds-color-text); font-weight:600; height:33px; }
     .doc-tab .dot { width:8px; height:8px; border-radius:50%; background:#a0acba; }
     .doc-tab[aria-selected="true"] .dot { background:#2d75d5; }
     .doc-tab span:nth-child(2) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .doc-close { margin-left:auto; font-size:16px; color:#6c7888; }
-    .canvas-shell { min-height:0; position:relative; overflow:hidden; background-color:var(--canvas); background-image:linear-gradient(#cbd3dd55 1px,transparent 1px),linear-gradient(90deg,#cbd3dd55 1px,transparent 1px),linear-gradient(#b6c1ce44 1px,transparent 1px),linear-gradient(90deg,#b6c1ce44 1px,transparent 1px); background-size:20px 20px,20px 20px,100px 100px,100px 100px; }
-    .canvas-toolbar { position:absolute; z-index:2; top:10px; left:12px; display:flex; background:#fff; border:1px solid #b9c3cf; border-radius:5px; box-shadow:var(--shadow); }
-    .tool-btn { min-width:34px; height:32px; border:0; border-right:1px solid var(--line2); background:#fff; display:grid; place-items:center; }
+    .doc-close { position:absolute; z-index:1; right:4px; bottom:3px; width:26px; height:26px; border:0; border-radius:var(--ds-radius-md); background:transparent; color:var(--ds-color-text-faint); font-size:16px; line-height:1; }
+    .doc-close:hover { background:var(--ds-color-accent-soft); color:var(--ds-color-text); }
+    .canvas-shell { min-height:0; position:relative; overflow:hidden; background-color:var(--ds-color-canvas); background-image:linear-gradient(#cbd3dd55 1px,transparent 1px),linear-gradient(90deg,#cbd3dd55 1px,transparent 1px),linear-gradient(#b6c1ce44 1px,transparent 1px),linear-gradient(90deg,#b6c1ce44 1px,transparent 1px); background-size:20px 20px,20px 20px,100px 100px,100px 100px; }
+    .canvas-toolbar { position:absolute; z-index:2; top:10px; left:12px; display:flex; background:#fff; border:1px solid #b9c3cf; border-radius:5px; box-shadow:var(--ds-shadow-md); }
+    .tool-btn { min-width:34px; height:32px; border:0; border-right:1px solid var(--ds-color-border-soft); background:#fff; display:grid; place-items:center; }
     .tool-btn:first-child { border-radius:4px 0 0 4px; }.tool-btn:last-child { border-right:0;border-radius:0 4px 4px 0; }
-    .tool-btn:hover, .tool-btn[aria-pressed="true"] { background:var(--blue2); color:var(--blue); }
+    .tool-btn:hover, .tool-btn[aria-pressed="true"] { background:var(--ds-color-accent-soft); color:var(--ds-color-accent); }
     .view { width:100%; height:100%; }
     #graph-view { display:block; }
     #graph-view[hidden], #list-view[hidden] { display:none; }
@@ -66,7 +69,7 @@
     .force-area-label { font-size:11px; font-weight:700; letter-spacing:.7px; fill:#59687b; pointer-events:none; }
     .force-edge-line { stroke:#8190a4; stroke-width:1.7; fill:none; marker-end:url(#force-arrow); }.force-edge-line.trust { stroke:#7756a8; stroke-dasharray:6 3; marker-end:url(#force-arrow-trust); }.force-edge-line.admin { stroke:#c47718; marker-end:url(#force-arrow-warn); }.edge.selected .force-edge-line { stroke:#126bd6; stroke-width:3; }
     .force-node { cursor:grab; }.force-node.dragging { cursor:grabbing; }.force-node-body { fill:#fff; stroke:#697b91; stroke-width:2; filter:url(#force-shadow); }.force-node[data-risk="critical"] .force-node-body { fill:#fff0ee; stroke:#c34236; }.force-node[data-risk="medium"] .force-node-body { fill:#fff7e8; stroke:#c88424; }.force-node.selected .force-node-body { stroke:#0b6fe8; stroke-width:4; }
-    .force-node-core { fill:#e8f1fd; }.force-node[data-area="shared"] .force-node-core { fill:#eee8fa; }.force-node[data-area="platform"] .force-node-core { fill:#e5f3eb; }.force-node-symbol { text-anchor:middle; dominant-baseline:central; font-size:11px; font-weight:800; fill:#30465f; pointer-events:none; }.force-node-label { text-anchor:middle; font-size:10.5px; font-weight:700; fill:#243247; paint-order:stroke; stroke:#f5f7fa; stroke-width:4px; pointer-events:none; }.force-node-meta { text-anchor:middle; font-size:8.5px; fill:#68768a; paint-order:stroke; stroke:#f5f7fa; stroke-width:3px; pointer-events:none; }
+    .force-node-core { fill:#e8f1fd; }.force-node[data-area="shared"] .force-node-core { fill:#eee8fa; }.force-node[data-area="platform"] .force-node-core { fill:#e5f3eb; }.force-node-symbol { text-anchor:middle; dominant-baseline:central; font-size:var(--ds-text-xs); font-weight:800; fill:#30465f; pointer-events:none; }.force-node-label { text-anchor:middle; font-size:var(--ds-text-xs); font-weight:700; fill:#243247; paint-order:stroke; stroke:#f5f7fa; stroke-width:4px; pointer-events:none; }.force-node-meta { text-anchor:middle; font:var(--ds-text-xs) var(--ds-font-mono); fill:var(--ds-color-text-muted); paint-order:stroke; stroke:#f5f7fa; stroke-width:3px; pointer-events:none; }
     .zone { fill:#f9fbfdc9; stroke:#8796a9; stroke-width:1.2; stroke-dasharray:6 4; }
     .zone-title { font-size:12px; font-weight:700; fill:#647286; letter-spacing:.5px; }
     .edge-line { fill:none; stroke:#718197; stroke-width:2; marker-end:url(#arrow); }
@@ -76,54 +79,53 @@
     #graph-svg.scenario [data-id="edge-api-db"] .edge-line { stroke:#2e8b57; stroke-dasharray:8 4; }
     #graph-svg.scenario [data-id="edge-vpn-api"] { opacity:.24; }
     #graph-svg.scenario [data-id="database"] .node-card { stroke:#2e8b57; stroke-width:3; }
-    .edge-label { font-size:10px; fill:#526176; paint-order:stroke; stroke:#edf1f5; stroke-width:4px; stroke-linejoin:round; }
+    .edge-label { font-size:var(--ds-text-xs); fill:var(--ds-color-text-secondary); paint-order:stroke; stroke:#edf1f5; stroke-width:4px; stroke-linejoin:round; }
     .node { cursor:pointer; }
     .node-card { fill:#fff; stroke:#8090a4; stroke-width:1.2; filter:url(#node-shadow); }
     .node.selected .node-card { stroke:#0b6fe8; stroke-width:3; }
     .node-icon-bg { fill:#e7f0fc; }.node.critical .node-icon-bg { fill:#ffe9e6; }
     .node-icon { fill:none; stroke:#32669f; stroke-width:1.7; }.node.critical .node-icon { stroke:#b42318; }
-    .node-title { font-size:12px; font-weight:700; fill:#1b2738; }.node-sub { font-size:9.5px; fill:#657286; }
+    .node-title { font-size:var(--ds-text-sm); font-weight:700; fill:#1b2738; }.node-sub { font:var(--ds-text-xs) var(--ds-font-mono); fill:var(--ds-color-text-muted); }
     .risk { fill:#d04437; }.healthy { fill:#2e8b57; }.warn-dot { fill:#d28a20; }
     .port { fill:#fff; stroke:#607187; stroke-width:1.3; }
-    .more-node { opacity:.72; cursor:pointer; }.more-node:hover { opacity:1; }
-    .more-dot { fill:#36485f; }
     .canvas-hint { position:absolute; left:12px; bottom:12px; padding:5px 8px; border-radius:4px; background:#ffffffd9; color:#5d6a7d; border:1px solid #c7d0da; font-size:11px; }
-    .zoom { position:absolute; right:12px; bottom:12px; display:flex; align-items:center; border:1px solid #b9c3cf; border-radius:5px; background:#fff; box-shadow:var(--shadow); }
-    .zoom button { width:31px; height:29px; border:0; background:transparent; font-size:17px; }.zoom button:hover { background:var(--blue2); }
-    .zoom-output { min-width:48px; text-align:center; font-variant-numeric:tabular-nums; font-size:11px; }
+    .zoom { position:absolute; right:12px; bottom:12px; display:flex; align-items:center; border:1px solid #b9c3cf; border-radius:5px; background:#fff; box-shadow:var(--ds-shadow-md); }
+    .zoom button { width:31px; height:29px; border:0; background:transparent; font-size:17px; }.zoom button:hover { background:var(--ds-color-accent-soft); }
+    .zoom-output { min-width:48px; text-align:center; font:var(--ds-text-sm) var(--ds-font-mono); font-variant-numeric:tabular-nums; }
     #list-view { height:100%; overflow:auto; padding:54px 20px 20px; }
-    table { width:100%; border-collapse:collapse; background:white; border:1px solid var(--line); box-shadow:0 2px 6px #17243c12; }
-    th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line2); } th { color:#526176; background:#f6f8fa; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
-    tr[data-target] { cursor:pointer; } tr[data-target]:hover { background:var(--blue2); }
+    table { width:100%; border-collapse:collapse; background:white; border:1px solid var(--ds-color-border); box-shadow:0 2px 6px #17243c12; }
+    th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--ds-color-border-soft); } th { color:#526176; background:#f6f8fa; font-size:11px; text-transform:uppercase; letter-spacing:.4px; }
+    tr[data-target] { cursor:pointer; } tr[data-target]:hover { background:var(--ds-color-accent-soft); }
 
     .inspector { min-width:0; display:flex; flex-direction:column; background:#fff; border-left:1px solid #adb8c6; box-shadow:-2px 0 7px #17243c0c; z-index:2; }
     .inspector.collapsed { display:none; }
-    .inspector-head { height:42px; flex:none; padding:0 8px 0 14px; display:flex; align-items:center; border-bottom:1px solid var(--line); }
+    .inspector-head { height:42px; flex:none; padding:0 8px 0 14px; display:flex; align-items:center; border-bottom:1px solid var(--ds-color-border); }
     .inspector-head h2 { margin:0; font-size:14px; }
     .inspector-head button { margin-left:auto; width:29px; height:29px; border:0; background:transparent; border-radius:4px; }
     .inspector-head button:hover { background:#edf1f5; }
-    .selection-summary { padding:12px 14px; display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--line2); }
+    .selection-summary { padding:12px 14px; display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--ds-color-border-soft); }
     .selection-glyph { width:34px; height:34px; border-radius:6px; display:grid; place-items:center; background:#e7f0fc; color:#285c99; }
     .selection-glyph .icon { width:21px; height:21px; }
-    .selection-name { font-weight:700; }.selection-kind { color:var(--muted); font-size:11px; }
+    .selection-name { font-weight:700; }.selection-kind { color:var(--ds-color-text-muted); font-size:11px; }
     .inspector-body { overflow:auto; padding-bottom:20px; }
-    .prop-section { border-bottom:1px solid var(--line2); padding:11px 14px 13px; }
+    .prop-section { border-bottom:1px solid var(--ds-color-border-soft); padding:11px 14px 13px; }
     .prop-section h3 { margin:0 0 9px; font-size:11px; color:#566479; text-transform:uppercase; letter-spacing:.5px; }
     .field { display:grid; grid-template-columns:82px 1fr; align-items:center; gap:8px; margin:7px 0; }
     .field label { color:#667386; font-size:11px; }.field input,.field select { min-width:0; width:100%; height:29px; padding:4px 7px; border:1px solid #b9c3cf; border-radius:3px; background:#fff; }
     .tag { display:inline-flex; align-items:center; height:22px; padding:0 7px; border-radius:10px; color:#8d2c24; background:#fde9e7; font-size:11px; font-weight:600; }
     .metric { display:flex; justify-content:space-between; margin:7px 0; color:#5e6b7f; }.metric strong { color:#233147; font-variant-numeric:tabular-nums; }
     .empty-inspector { padding:28px 18px; color:#69768a; text-align:center; }
-    .inspector-restore { position:absolute; right:10px; top:10px; z-index:4; display:none; height:32px; padding:0 10px; border:1px solid #aeb9c7; border-radius:4px; background:#fff; box-shadow:var(--shadow); }
+    .inspector-restore { position:absolute; right:10px; top:10px; z-index:4; display:none; height:32px; padding:0 10px; border:1px solid #aeb9c7; border-radius:4px; background:#fff; box-shadow:var(--ds-shadow-md); }
     .workspace.inspector-off { grid-template-columns:minmax(0,1fr); }.workspace.inspector-off .inspector-restore { display:block; }
-    .statusbar { display:flex; align-items:center; gap:14px; padding:0 10px; color:#d6dfeb; background:var(--navy2); font-size:11px; }
+    .statusbar { display:flex; align-items:center; gap:14px; padding:0 10px; color:#d6dfeb; background:var(--ds-color-nav-secondary); font-size:var(--ds-text-sm); }
+    .status-item:not(:first-child), td:nth-child(2), td:last-child { font-family:var(--ds-font-mono); font-variant-numeric:tabular-nums; }
     .status-item { display:flex; align-items:center; gap:5px; white-space:nowrap; }.status-item.right { margin-left:auto; }.status-dot { width:7px;height:7px;border-radius:50%;background:#6cc18a; }
-    .context-menu { position:fixed; z-index:20; width:224px; padding:5px; border:1px solid #aeb8c5; border-radius:6px; background:#fff; box-shadow:0 10px 34px #17243c3a; }
+    .context-menu { position:fixed; z-index:20; width:224px; padding:5px; border:1px solid #aeb8c5; border-radius:var(--ds-radius-lg); background:var(--ds-color-paper); box-shadow:var(--ds-shadow-lg); }
     .context-menu[hidden] { display:none; }
     .menu-label { padding:6px 9px 5px; color:#69768a; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
     .menu-item { width:100%; height:32px; padding:0 9px; border:0; border-radius:3px; background:transparent; display:flex; align-items:center; gap:9px; text-align:left; }
-    .menu-item:hover,.menu-item:focus { background:#e8f1fd; outline:none; }.menu-item.danger { color:var(--danger); }.menu-item .icon { width:16px;height:16px; }.shortcut { margin-left:auto;color:#7a8697;font-size:10px; }
-    .menu-sep { height:1px; margin:4px 5px; background:var(--line2); }
+    .menu-item:hover,.menu-item:focus { background:#e8f1fd; outline:none; }.menu-item.danger { color:var(--ds-color-danger); }.menu-item .icon { width:16px;height:16px; }.shortcut { margin-left:auto;color:#7a8697;font-size:10px; }
+    .menu-sep { height:1px; margin:4px 5px; background:var(--ds-color-border-soft); }
     .snackbar { position:fixed; z-index:30; left:50%; bottom:42px; transform:translate(-50%,130px); min-width:330px; max-width:calc(100vw - 24px); height:48px; padding:0 8px 0 16px; border-radius:5px; background:#263348; color:white; box-shadow:0 8px 26px #0004; display:flex; align-items:center; gap:18px; transition:transform .18s ease; }
     .snackbar.show { transform:translate(-50%,0); }.snackbar button { margin-left:auto;padding:7px 10px;border:0;border-radius:3px;background:transparent;color:#8fc1ff;font-weight:700; }
     .sr-only { position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important; }
@@ -157,7 +159,7 @@
   </nav>
   <main class="workspace" id="workspace">
     <section class="document" aria-label="Topology documents">
-      <div class="docbar" role="tablist" aria-label="Open documents"><button class="doc-tab" id="dt-production" role="tab" aria-selected="true" aria-controls="canvas-panel"><span class="dot"></span><span>Production topology</span><span class="doc-close" aria-hidden="true">×</span></button><button class="doc-tab" id="dt-scenario" role="tab" aria-selected="false" aria-controls="canvas-panel" tabindex="-1"><span class="dot"></span><span>Segmentation scenario B</span><span class="doc-close" aria-hidden="true">×</span></button><button class="doc-tab" id="dt-freeform" role="tab" aria-selected="false" aria-controls="canvas-panel" tabindex="-1"><span class="dot"></span><span>Freeform topology</span><span class="doc-close" aria-hidden="true">×</span></button></div>
+      <div class="docbar" role="tablist" aria-label="Open documents"><div class="doc-item"><button class="doc-tab" id="dt-production" role="tab" aria-selected="true" aria-controls="canvas-panel"><span class="dot"></span><span>Production topology</span></button><button type="button" class="doc-close" aria-label="Close Production topology">×</button></div><div class="doc-item"><button class="doc-tab" id="dt-scenario" role="tab" aria-selected="false" aria-controls="canvas-panel" tabindex="-1"><span class="dot"></span><span>Segmentation scenario B</span></button><button type="button" class="doc-close" aria-label="Close Segmentation scenario B">×</button></div><div class="doc-item"><button class="doc-tab" id="dt-freeform" role="tab" aria-selected="false" aria-controls="canvas-panel" tabindex="-1"><span class="dot"></span><span>Freeform topology</span></button><button type="button" class="doc-close" aria-label="Close Freeform topology">×</button></div></div>
       <div class="canvas-shell" id="canvas-panel" role="tabpanel" aria-labelledby="dt-production" tabindex="0" aria-label="Network topology canvas. Use Tab to reach nodes and Shift F10 for actions.">
         <div class="canvas-toolbar" aria-label="Canvas tools"><button class="tool-btn" aria-pressed="true" title="Graph view" data-view="graph"><svg class="icon"><use href="#i-graph"/></svg></button><button class="tool-btn" aria-pressed="false" title="List view" data-view="list"><svg class="icon"><use href="#i-list"/></svg></button><button class="tool-btn" id="fit-button" title="Fit to screen"><svg class="icon"><use href="#i-fit"/></svg></button><button class="tool-btn" id="more-actions" aria-label="More actions for canvas" aria-haspopup="menu" aria-expanded="false" title="More actions"><svg class="icon"><use href="#i-more"/></svg></button></div>
         <div id="graph-view" class="view">
@@ -177,10 +179,10 @@
             </g>
             <g id="nodes-layer">
               <g class="node" data-id="internet" data-kind="node" transform="translate(70 170)" tabindex="0" role="button" aria-label="Internet ingress node"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 28h18M25 19c5 5 5 13 0 18M25 19c-5 5-5 13 0 18M25 18a10 10 0 1 1 0 20"/><text class="node-title" x="47" y="25">Internet</text><text class="node-sub" x="47" y="42">Untrusted ingress</text><circle class="warn-dot" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Exposed</text><circle class="port" cx="120" cy="36" r="4"/></g>
-              <g class="node critical" data-id="edge-fw" data-kind="node" transform="translate(300 138)" tabindex="0" role="button" aria-label="Edge firewall node, high risk"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M25 17 15 21v7c0 7 4 11 10 14 6-3 10-7 10-14v-7Z"/><text class="node-title" x="47" y="25">Edge FW</text><text class="node-sub" x="47" y="42">10.0.10.1</text><circle class="risk" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">2 findings</text><g class="more-node" data-more="edge-fw" transform="translate(105 10)" aria-label="More actions for Edge firewall"><circle class="more-dot" cx="0" cy="0" r="1.5"/><circle class="more-dot" cx="0" cy="5" r="1.5"/><circle class="more-dot" cx="0" cy="10" r="1.5"/></g><circle class="port" cx="0" cy="36" r="4"/><circle class="port" cx="120" cy="36" r="4"/></g>
+              <g class="node critical" data-id="edge-fw" data-kind="node" transform="translate(300 138)" tabindex="0" role="button" aria-label="Edge firewall node, high risk"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M25 17 15 21v7c0 7 4 11 10 14 6-3 10-7 10-14v-7Z"/><text class="node-title" x="47" y="25">Edge FW</text><text class="node-sub" x="47" y="42">10.0.10.1</text><circle class="risk" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">2 findings</text><circle class="port" cx="0" cy="36" r="4"/><circle class="port" cx="120" cy="36" r="4"/></g>
               <g class="node" data-id="vpn" data-kind="node" transform="translate(300 376)" tabindex="0" role="button" aria-label="VPN concentrator node"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 24h18v13H16zM20 24v-3a5 5 0 0 1 10 0v3"/><text class="node-title" x="47" y="25">VPN</text><text class="node-sub" x="47" y="42">10.0.10.8</text><circle class="healthy" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Hardened</text><circle class="port" cx="120" cy="36" r="4"/></g>
               <g class="node" data-id="web" data-kind="node" transform="translate(582 132)" tabindex="0" role="button" aria-label="Web gateway node"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 20h18v16H16zM16 25h18M20 22h1M24 22h1"/><text class="node-title" x="47" y="25">Web gateway</text><text class="node-sub" x="47" y="42">10.0.20.14</text><circle class="warn-dot" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">1 finding</text><circle class="port" cx="0" cy="36" r="4"/><circle class="port" cx="120" cy="36" r="4"/></g>
-              <g class="node critical selected" data-id="api" data-kind="node" transform="translate(760 280)" tabindex="0" role="button" aria-label="Application API node, selected, critical"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 20h18v7H16zM16 30h18v7H16zM20 23h1M20 33h1"/><text class="node-title" x="47" y="25">App API</text><text class="node-sub" x="47" y="42">10.0.20.21</text><circle class="risk" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Critical asset</text><g class="more-node" data-more="api" transform="translate(105 10)"><circle class="more-dot" r="1.5"/><circle class="more-dot" cy="5" r="1.5"/><circle class="more-dot" cy="10" r="1.5"/></g><circle class="port" cx="0" cy="36" r="4"/><circle class="port" cx="120" cy="36" r="4"/></g>
+              <g class="node critical selected" data-id="api" data-kind="node" transform="translate(760 280)" tabindex="0" role="button" aria-label="Application API node, selected, critical"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 20h18v7H16zM16 30h18v7H16zM20 23h1M20 33h1"/><text class="node-title" x="47" y="25">App API</text><text class="node-sub" x="47" y="42">10.0.20.21</text><circle class="risk" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Critical asset</text><circle class="port" cx="0" cy="36" r="4"/><circle class="port" cx="120" cy="36" r="4"/></g>
               <g class="node" data-id="worker" data-kind="node" transform="translate(558 453)" tabindex="0" role="button" aria-label="Worker pool node"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M17 20h16v6H17zM17 30h16v6H17zM20 23h1M20 33h1"/><text class="node-title" x="47" y="25">Worker pool</text><text class="node-sub" x="47" y="42">3 replicas</text><circle class="healthy" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Healthy</text><circle class="port" cx="120" cy="36" r="4"/></g>
               <g class="node critical" data-id="database" data-kind="node" transform="translate(904 219)" tabindex="0" role="button" aria-label="Primary database node, critical"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="M16 20c0-4 18-4 18 0v15c0 4-18 4-18 0ZM16 20c0 4 18 4 18 0M16 27c0 4 18 4 18 0"/><text class="node-title" x="47" y="25">Primary DB</text><text class="node-sub" x="47" y="42">10.0.30.10</text><circle class="risk" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Crown jewel</text><circle class="port" cx="0" cy="36" r="4"/></g>
               <g class="node" data-id="cache" data-kind="node" transform="translate(904 402)" tabindex="0" role="button" aria-label="Redis cache node"><rect class="node-card" width="120" height="72" rx="7"/><circle class="node-icon-bg" cx="25" cy="28" r="15"/><path class="node-icon" d="m16 22 9-4 9 4-9 4ZM16 27l9 4 9-4M16 32l9 4 9-4"/><text class="node-title" x="47" y="25">Redis cache</text><text class="node-sub" x="47" y="42">10.0.30.18</text><circle class="warn-dot" cx="16" cy="58" r="4"/><text class="node-sub" x="25" y="61">Review ACL</text><circle class="port" cx="0" cy="36" r="4"/></g>
@@ -195,11 +197,11 @@
           <div class="canvas-hint" id="canvas-hint">Drag empty space to pan · scroll to zoom · right-click for actions</div>
         </div>
         <div id="list-view" class="view" hidden><table aria-label="Topology assets"><thead><tr><th>Asset</th><th>Address</th><th>Zone</th><th>Risk</th><th>Connections</th></tr></thead><tbody><tr data-target="api"><td>App API</td><td>10.0.20.21</td><td>Application</td><td><span class="tag">Critical</span></td><td>4</td></tr><tr data-target="database"><td>Primary DB</td><td>10.0.30.10</td><td>Data</td><td><span class="tag">Critical</span></td><td>1</td></tr><tr data-target="edge-fw"><td>Edge FW</td><td>10.0.10.1</td><td>DMZ</td><td>High</td><td>2</td></tr><tr data-target="web"><td>Web gateway</td><td>10.0.20.14</td><td>Application</td><td>Medium</td><td>2</td></tr><tr data-target="worker"><td>Worker pool</td><td>Dynamic</td><td>Application</td><td>Low</td><td>2</td></tr></tbody></table></div>
-        <button class="inspector-restore" id="inspector-restore">Show properties</button>
+        <button class="inspector-restore" id="inspector-restore" aria-controls="inspector" aria-expanded="false">Show properties</button>
         <div class="zoom" aria-label="Canvas zoom"><button id="zoom-out" aria-label="Zoom out">−</button><output class="zoom-output" id="zoom-output">100%</output><button id="zoom-in" aria-label="Zoom in">+</button></div>
       </div>
     </section>
-    <aside class="inspector" id="inspector" aria-label="Properties inspector"><div class="inspector-head"><h2>Properties</h2><button id="collapse-inspector" aria-label="Collapse properties inspector"><svg class="icon"><use href="#i-chevron-right"/></svg></button></div><div class="selection-summary"><span class="selection-glyph"><svg class="icon"><use href="#i-server"/></svg></span><div><div class="selection-name" id="selection-name">App API</div><div class="selection-kind" id="selection-kind">Compute asset · selected</div></div></div><div class="inspector-body" id="inspector-body"></div></aside>
+    <aside class="inspector" id="inspector" aria-label="Properties inspector"><div class="inspector-head"><h2>Properties</h2><button id="collapse-inspector" aria-label="Collapse properties inspector" aria-controls="inspector" aria-expanded="true"><svg class="icon"><use href="#i-chevron-right"/></svg></button></div><div class="selection-summary"><span class="selection-glyph"><svg class="icon"><use href="#i-server"/></svg></span><div><div class="selection-name" id="selection-name">App API</div><div class="selection-kind" id="selection-kind">Compute asset · selected</div></div></div><div class="inspector-body" id="inspector-body"></div></aside>
   </main>
   <footer class="statusbar"><span class="status-item"><span class="status-dot"></span>Topology valid</span><span class="status-item" id="topology-summary">8 assets · 7 relationships · 4 zones</span><span class="status-item right">Selection: <strong id="status-selection">App API</strong></span><span class="status-item compact-hide">Grid: 20 px</span></footer>
 </div>
@@ -752,14 +754,17 @@
       tab.addEventListener('keydown', (e) => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
         e.preventDefault();
+        const availableTabs = tabs.filter((candidate) => !candidate.closest('[hidden]'));
+        const availableIndex = availableTabs.indexOf(tab);
         let n =
           e.key === 'Home'
             ? 0
             : e.key === 'End'
-              ? tabs.length - 1
-              : (index + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-        tabs[n].click();
-        tabs[n].focus();
+              ? availableTabs.length - 1
+              : (availableIndex + (e.key === 'ArrowRight' ? 1 : -1) + availableTabs.length) %
+                availableTabs.length;
+        availableTabs[n].click();
+        availableTabs[n].focus();
       }),
     );
     $$(selector).forEach((tab) =>
@@ -814,6 +819,27 @@
       );
     }),
   );
+  $$('.doc-close').forEach((button) => {
+    button.addEventListener('click', () => {
+      const item = button.closest('.doc-item');
+      const tab = $('.doc-tab', item);
+      const items = $$('.doc-item');
+      const visibleItems = items.filter((candidate) => !candidate.hidden);
+      if (visibleItems.length === 1) {
+        showSnack('Keep at least one topology document open.', false);
+        return;
+      }
+      const closedIndex = items.indexOf(item);
+      const wasSelected = tab.getAttribute('aria-selected') === 'true';
+
+      item.hidden = true;
+      if (wasSelected) {
+        const remainingTabs = $$('.doc-item:not([hidden]) .doc-tab');
+        remainingTabs[Math.min(closedIndex, remainingTabs.length - 1)]?.click();
+      }
+      showSnack(`${tab.textContent.trim()} closed`, false);
+    });
+  });
 
   function inspectorNode(d) {
     return `<div class="prop-section"><h3>Identity</h3><div class="field"><label for="prop-name">Name</label><input id="prop-name" value="${d.name}"></div><div class="field"><label for="prop-address">Address</label><input id="prop-address" value="${d.address}"></div><div class="field"><label for="prop-zone">Zone</label><select id="prop-zone"><option>${d.zone}</option><option>DMZ / VLAN 10</option><option>Data / VLAN 30</option></select></div></div><div class="prop-section"><h3>Security posture</h3><div class="metric"><span>Risk rating</span><span class="tag">${d.risk}</span></div><div class="metric"><span>Exposure</span><strong>${d.exposure}</strong></div><div class="metric"><span>Expected blast radius</span><strong>${d.blast}</strong></div></div><div class="prop-section"><h3>Ownership</h3><div class="field"><label for="prop-owner">Owner</label><input id="prop-owner" value="${d.owner}"></div></div>`;
@@ -847,7 +873,6 @@
   graphs.forEach((svg) =>
     $$('[data-kind="node"], [data-kind="edge"]', svg).forEach((el) => {
       el.addEventListener('click', (e) => {
-        if (e.target.closest('[data-more]')) return;
         selectTarget(el.dataset.kind, el.dataset.id);
       });
       el.addEventListener('keydown', (e) => {
@@ -860,9 +885,15 @@
       });
     }),
   );
-  $$('tr[data-target]').forEach((row) =>
-    row.addEventListener('click', () => selectTarget('node', row.dataset.target)),
-  );
+  $$('tr[data-target]').forEach((row) => {
+    row.tabIndex = 0;
+    row.addEventListener('click', () => selectTarget('node', row.dataset.target));
+    row.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      selectTarget('node', row.dataset.target, true);
+    });
+  });
 
   function centerOf(el) {
     const r = el.getBoundingClientRect();
@@ -1023,14 +1054,6 @@
       { passive: false },
     );
   });
-  $$('.more-node').forEach((el) =>
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const id = el.dataset.more;
-      selectTarget('node', id);
-      openMenu('node', id, centerOf(el), el.closest('.node'));
-    }),
-  );
   $('#more-actions').addEventListener('click', (e) =>
     openMenu(
       selected?.kind || 'background',
@@ -1173,11 +1196,15 @@
   $('#collapse-inspector').addEventListener('click', () => {
     $('#inspector').classList.add('collapsed');
     $('#workspace').classList.add('inspector-off');
+    $('#collapse-inspector').setAttribute('aria-expanded', 'false');
+    $('#inspector-restore').setAttribute('aria-expanded', 'false');
     closeMenu(false);
   });
   $('#inspector-restore').addEventListener('click', () => {
     $('#inspector').classList.remove('collapsed');
     $('#workspace').classList.remove('inspector-off');
+    $('#collapse-inspector').setAttribute('aria-expanded', 'true');
+    $('#inspector-restore').setAttribute('aria-expanded', 'true');
     $('#collapse-inspector').focus();
   });
   selectTarget('node', 'api');
