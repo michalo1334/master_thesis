@@ -36,6 +36,10 @@ case "${1:-}" in
     echo "pgAdmin: http://localhost:5050 (admin@admin.com / admin)"
     ;;
   dev)
+    if ! docker image inspect network_defense:dev &>/dev/null; then
+      echo "Image network_defense:dev not found, building..."
+      $COMPOSE -f docker/docker-compose.dev.yml build
+    fi
     $COMPOSE -f docker/docker-compose.dev.yml up -d
     ;;
   logs)
