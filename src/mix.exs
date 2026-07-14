@@ -47,6 +47,7 @@ defmodule NetworkDefense.MixProject do
     [
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
       {:igniter, "~> 0.6", only: [:dev, :test]},
       {:phoenix, "~> 1.8.9"},
       {:phoenix_ecto, "~> 4.5"},
