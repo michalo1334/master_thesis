@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Graph.Nodes.Host do
+defmodule NetworkDefense.Nodes.Host do
   use Ecto.Schema
   import Ecto.Changeset
 

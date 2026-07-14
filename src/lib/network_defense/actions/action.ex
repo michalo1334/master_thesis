@@ -11,9 +11,12 @@ defprotocol NetworkDefense.Actions.Action do
   """
   alias NetworkDefense.Simulator
   alias NetworkDefense.AttackerState.AttackerState
-  @spec execute(t(), Simulator) :: AttackerState
+  @spec execute(t(), Simulator.t()) :: AttackerState.t()
   def execute(action, simulation_state)
 
   @spec probability(t()) :: float()
   def probability(action)
+
+  @spec key(t()) :: term()
+  def key(action)
 end

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Nodes.Application do
+defmodule NetworkDefense.Relationships.NetworkReachability do
   use Ecto.Schema
   import Ecto.Changeset
 

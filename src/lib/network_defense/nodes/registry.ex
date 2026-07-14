@@ -4,13 +4,11 @@ defmodule NetworkDefense.Nodes.Registry do
 
   Provides central place to manage all current and future node types created in the source code
   """
-  alias NetworkDefense.Nodes.Capability
+  alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Graph.Nodes.Host
-  alias NetworkDefense.Nodes.Application
-  alias NetworkDefense.Graph.Nodes.Port
 
-  @types [Host, Port, Application, Vulnerability, Capability]
+  @types [Host, Service, Vulnerability]
 
   def get_all() do
     MapSet.new(@types)

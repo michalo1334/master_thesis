@@ -25,6 +25,24 @@ defmodule NetworkDefense.Graph.Graph do
 
   def nodes(graph), do: loaded_nodes(graph.nodes)
 
+  def create(attrs \\ %{}) do
+    %__MODULE__{}
+    |> changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def create_node(%__MODULE__{} = graph, attrs) do
+    %Node{graph_id: graph.id}
+    |> Node.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  def create_edge(%__MODULE__{} = graph, %Node{} = from, %Node{} = to, attrs) do
+    %Edge{graph_id: graph.id, from_id: from.id, to_id: to.id}
+    |> Edge.changeset(attrs)
+    |> Repo.insert()
+  end
+
   def node(graph, node_id) do
     Enum.find(nodes(graph), &(&1.id == node_id))
   end

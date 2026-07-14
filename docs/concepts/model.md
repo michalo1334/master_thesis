@@ -29,52 +29,32 @@ In PostgreSQL, the graph is stored as typed nodes and edges. For simulation, it 
 
 ## Initial node types
 
-The initial model may include:
+The thesis baseline uses three node types:
 
 * `host`;
-* `application`;
-* `port`;
-* `vulnerability`;
-* `capability`.
+* `service`, including its protocol and port;
+* `vulnerability`, including CVSS and an explicitly modeled exploit probability.
 
-Additional node types such as containers, virtual machines, credentials, network segments, and security controls may be introduced later.
+Capabilities, credentials, containers, network segments, and security controls are extensions. A port is a service attribute, not a separate graph node.
 
 ## Initial edge types
 
-The initial model may include:
+The thesis baseline uses:
 
-* `hosts`;
 * `runs`;
-* `has_network_link`;
-* `listens_on`;
+* `network_reachability`;
 * `has_vulnerability`;
-* `grants_capability`.
 
 ## Example
 
-```dot
-digraph G {
-  "host(app01)" -> "application(nginx, 1.1)"
-    [label="runs"];
-
-  "host(app02)" -> "application(postgres, 18.0)"
-    [label="runs"];
-
-  "host(app01)" -> "host(app02)"
-    [label="has_network_link"];
-
-  "application(nginx, 1.1)" -> "port(tcp, 80)"
-    [label="listens_on"];
-
-  "application(nginx, 1.1)" -> "vulnerability(CVE-2024-1)"
-    [label="has_vulnerability"];
-
-  "vulnerability(CVE-2024-1)" -> "capability(execute_commands)"
-    [label="grants_capability"];
-}
+```mermaid
+flowchart LR
+  Internet[Host: internet] -->|network_reachability| Nginx[Service: nginx TCP 443]
+  Web01[Host: web-01] -->|runs| Nginx
+  Nginx -->|has_vulnerability| CVE[Vulnerability: CVE]
 ```
 
-The graph may describe that successful exploitation of a vulnerability can grant a capability. Whether the attacker actually obtains that capability is determined during simulation and recorded in the attacker state.
+The reachability edge identifies the exact service that a foothold can contact. The `runs` edge identifies the host compromised by a successful exploit.
 
 # Simulator
 
@@ -130,29 +110,10 @@ It is intentionally stored separately from the context graph so that:
 
 ```yaml
 footholds:
-  - node_id: app01
-    access_level: user
-    capabilities:
-      - execute_commands
-
-attack_frontier:
-  - app01
-
-discovered_nodes:
-  - app01
-  - app02
-
-used_vulnerabilities:
-  - CVE-2024-1
-
-obtained_credentials:
-  - resource: app02
-    account: postgres
+  - internet
 
 attempted_actions:
-  - type: exploit_vulnerability
-    source: app01
-    target: app02
+  - source_host: internet
     vulnerability: CVE-2024-1
 ```
 
@@ -160,21 +121,7 @@ attempted_actions:
 
 A foothold represents a resource from which the attacker can perform further actions.
 
-A foothold may contain:
-
-* the compromised resource;
-* the attacker access level;
-* obtained privileges;
-* available capabilities;
-* persistence information.
-
-The initial foothold is part of the attack scenario. Successful attacker actions may create additional footholds.
-
-## Attack frontier
-
-The attack frontier contains footholds that may currently produce new actions.
-
-It is an execution optimization rather than the complete definition of attacker control. A compromised resource may remain under attacker control even after it no longer belongs to the active frontier.
+The thesis baseline records only the compromised host identifier. The initial foothold is part of the attack scenario. A successful exploit adds the target host as a new foothold. Attempted actions prevent unlimited retries.
 
 # Rules
 
@@ -201,14 +148,14 @@ applicable_actions(context_graph, attacker_state) -> [action]
 ## Example rule
 
 ```text
-Rule: remote_application_exploitation
+Rule: remote_service_exploitation
 
 Conditions:
 
 - the attacker has a foothold on the source node;
-- the source node can reach the target node;
-- the target runs a network-accessible application;
-- the application has an applicable vulnerability;
+- the source host has directed reachability to a target service;
+- a target host runs that service;
+- the service has an applicable vulnerability;
 - the attacker satisfies the vulnerability preconditions;
 - the same exploit attempt has not already been exhausted.
 
@@ -245,9 +192,9 @@ context graph + attacker state
 
 ## Initial action types
 
-The minimal simulator may begin with one action:
+The thesis baseline has one action:
 
-* `ExploitApplication`.
+* `ExploitVulnerability`.
 
 Later action types may include:
 
@@ -263,11 +210,11 @@ Later action types may include:
 
 ```yaml
 type: exploit_vulnerability
-source_node: app01
-target_node: app02
-target_application: postgres
+source_host: internet
+target_host: web-01
+service: nginx/tcp/443
 vulnerability: CVE-2024-1
-success_probability: 0.65
+success_probability: 0.8
 ```
 
 ## Example successful result
@@ -277,15 +224,7 @@ outcome: success
 
 state_changes:
   - add_foothold:
-      node_id: app02
-      access_level: user
-
-  - add_capability:
-      node_id: app02
-      capability: execute_commands
-
-  - add_to_attack_frontier:
-      node_id: app02
+      node_id: web-01
 ```
 
 ## Example failed result
@@ -296,8 +235,7 @@ outcome: failure
 state_changes:
   - mark_action_attempted:
       type: exploit_vulnerability
-      source_node: app01
-      target_node: app02
+      source_host: internet
       vulnerability: CVE-2024-1
 ```
 

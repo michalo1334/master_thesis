@@ -1,9 +1,12 @@
 defmodule NetworkDefense.Simulator do
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
+  alias NetworkDefense.AttackerState.AttackerState
 
   @default_seed 0
   @default_iteration_count 10_000
+
+  @type t :: %__MODULE__{}
 
   defstruct [
     :graph,
@@ -19,23 +22,35 @@ defmodule NetworkDefense.Simulator do
 
     initial_state = %__MODULE__{initial_state | initial_seed: seed}
 
-    Enum.reduce(1..iteration_count, initial_state, &perform_iteration(&1, &2))
+    Enum.reduce(1..iteration_count, initial_state, fn index, state ->
+      perform_iteration(state, index)
+    end)
   end
 
   def perform_iteration(%__MODULE__{} = state, index) do
-    %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
-    |> get_possible_actions()
-    |> select_action(state)
-    |> maybe_execute_action(state)
+    state = %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
+
+    case get_possible_actions(state) do
+      [] -> state
+      actions -> actions |> select_action(state) |> maybe_execute_action(state)
+    end
   end
 
   def get_possible_actions(state) do
     state.rules |> Enum.flat_map(&Rule.evaluate(&1, state))
   end
 
-  def maybe_execute_action(action, state) do
-    if :rand.uniform_real_s(state.current_seed) <= Action.probability(action) do
-      Action.execute(action, state)
+  def maybe_execute_action(action, %__MODULE__{} = state) do
+    {sample, current_seed} = :rand.uniform_s(state.current_seed)
+
+    state = %__MODULE__{
+      state
+      | current_seed: current_seed,
+        attacker_state: AttackerState.mark_attempted(state.attacker_state, Action.key(action))
+    }
+
+    if sample <= Action.probability(action) do
+      %{state | attacker_state: Action.execute(action, state)}
     else
       state
     end
@@ -46,18 +61,20 @@ defmodule NetworkDefense.Simulator do
 
   Default is to select first one.
   """
-  @spec select_action(__MODULE__, list(Action.t())) :: Action.t()
+  @spec select_action(list(Action.t()), __MODULE__.t()) :: Action.t()
   def select_action(actions, _state) do
     hd(actions)
   end
 
   defp derive_child_seed(parent_seed, index) when is_integer(parent_seed) and is_integer(index) do
-    <<derived::unsigned-64, _::binary>> =
+    <<first::unsigned-32, second::unsigned-32, third::unsigned-32, _::binary>> =
       :crypto.hash(
         :sha256,
         :erlang.term_to_binary(parent_seed + index)
       )
 
-    derived
+    :rand.seed_s(:exsss, {seed_part(first), seed_part(second), seed_part(third)})
   end
+
+  defp seed_part(value), do: rem(value, 2_147_483_646) + 1
 end

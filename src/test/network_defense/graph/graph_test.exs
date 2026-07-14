@@ -4,8 +4,79 @@ defmodule NetworkDefense.Graph.GraphTest do
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Graph.Nodes.Host
+  alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.Service
+  alias NetworkDefense.Nodes.Vulnerability
+  alias NetworkDefense.Relationships.HasVulnerability
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
+
+  describe "persistence" do
+    test "creates and loads a graph with typed nodes and edges" do
+      assert {:ok, graph} = Graph.create()
+
+      assert {:ok, source_host} =
+               Graph.create_node(graph, %{
+                 type: Atom.to_string(Host),
+                 data: %{"name" => "internet"}
+               })
+
+      assert {:ok, target_host} =
+               Graph.create_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "web-01"}})
+
+      assert {:ok, service} =
+               Graph.create_node(graph, %{
+                 type: Atom.to_string(Service),
+                 data: %{"name" => "nginx", "protocol" => "tcp", "port" => 443}
+               })
+
+      assert {:ok, vulnerability} =
+               Graph.create_node(graph, %{
+                 type: Atom.to_string(Vulnerability),
+                 data: %{
+                   "identifier" => "CVE-2024-0001",
+                   "cvss_score" => 7.5,
+                   "exploit_probability" => 0.8
+                 }
+               })
+
+      assert {:ok, reachability_edge} =
+               Graph.create_edge(graph, source_host, service, %{
+                 type: Atom.to_string(NetworkReachability)
+               })
+
+      assert {:ok, runs_edge} =
+               Graph.create_edge(graph, target_host, service, %{type: Atom.to_string(Runs)})
+
+      assert {:ok, vulnerability_edge} =
+               Graph.create_edge(graph, service, vulnerability, %{
+                 type: Atom.to_string(HasVulnerability)
+               })
+
+      loaded_graph = Graph.load!(graph.id)
+
+      assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
+               Enum.sort([source_host.id, target_host.id, service.id, vulnerability.id])
+
+      assert [{service_id, %{id: reachability_edge_id}}] =
+               Graph.outgoing(loaded_graph, source_host.id)
+
+      assert service_id == service.id
+      assert reachability_edge_id == reachability_edge.id
+
+      assert [{runs_service_id, %{id: runs_edge_id}}] =
+               Graph.outgoing(loaded_graph, target_host.id)
+
+      assert runs_service_id == service.id
+      assert runs_edge_id == runs_edge.id
+
+      assert [{vulnerability_id, %{id: vulnerability_edge_id}}] =
+               Graph.outgoing(loaded_graph, service.id)
+
+      assert vulnerability_id == vulnerability.id
+      assert vulnerability_edge_id == vulnerability_edge.id
+    end
+  end
 
   describe "load/1" do
     test "loads an empty graph" do

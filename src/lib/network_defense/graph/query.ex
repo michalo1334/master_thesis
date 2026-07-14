@@ -1,6 +1,6 @@
 defmodule NetworkDefense.Graph.Query do
   @moduledoc """
-  A mini DSL that models Cypher queries syntax via small set of generic functions. Simplifies graph operations.
+  A small, Cypher-like DSL for matching typed graph paths and joins.
   """
 
   alias NetworkDefense.Graph.Edge
@@ -9,14 +9,18 @@ defmodule NetworkDefense.Graph.Query do
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
-  def match(%Graph{} = graph, %{start: start, hops: hops}) when is_list(hops) do
+  def match(%Graph{} = graph, %{start: start, hops: hops} = pattern) when is_list(hops) do
+    joins = Map.get(pattern, :joins, [])
+
     initial_rows =
       graph
       |> match_nodes(start)
       |> Enum.map(&new_row(start, &1))
 
-    hops
-    |> Enum.reduce(initial_rows, fn hop, rows -> expand_join(graph, rows, hop) end)
+    rows = Enum.reduce(hops, initial_rows, fn hop, rows -> expand_join(graph, rows, hop) end)
+
+    joins
+    |> Enum.reduce(rows, fn join, rows -> join_rows(graph, rows, join) end)
     |> Enum.map(& &1.bindings)
   end
 
@@ -35,8 +39,35 @@ defmodule NetworkDefense.Graph.Query do
   defp extend_join(graph, row, via, to, {target_id, edge}) do
     with %Node{} = target <- Graph.node(graph, target_id),
          true <- matches?(edge, via),
-         true <- matches?(target, to) do
+         true <- matches?(target, to),
+         true <- binding_compatible?(row, via, edge),
+         true <- binding_compatible?(row, to, target) do
       [%{row | current: target} |> bind(via, edge) |> bind(to, target)]
+    else
+      _ -> []
+    end
+  end
+
+  defp join_rows(graph, rows, %{from: from, via: via, to: to}) do
+    Enum.flat_map(rows, fn row ->
+      graph
+      |> match_nodes(from)
+      |> Enum.flat_map(fn source ->
+        graph
+        |> Graph.outgoing(source.id)
+        |> Enum.flat_map(&extend_join_from(graph, row, from, via, to, source, &1))
+      end)
+    end)
+  end
+
+  defp extend_join_from(graph, row, from, via, to, source, {target_id, edge}) do
+    with %Node{} = target <- Graph.node(graph, target_id),
+         true <- matches?(edge, via),
+         true <- matches?(target, to),
+         true <- binding_compatible?(row, from, source),
+         true <- binding_compatible?(row, via, edge),
+         true <- binding_compatible?(row, to, target) do
+      [row |> bind(from, source) |> bind(via, edge) |> bind(to, target)]
     else
       _ -> []
     end
@@ -73,6 +104,17 @@ defmodule NetworkDefense.Graph.Query do
 
   defp bind(row, {variable, _type, _predicate}, value) do
     %{row | bindings: Map.put(row.bindings, variable, value)}
+  end
+
+  defp binding_compatible?(_row, {nil, _type}, _value), do: true
+  defp binding_compatible?(_row, {nil, _type, _predicate}, _value), do: true
+
+  defp binding_compatible?(row, {variable, _type}, value) do
+    Map.get(row.bindings, variable, value) == value
+  end
+
+  defp binding_compatible?(row, {variable, _type, _predicate}, value) do
+    Map.get(row.bindings, variable, value) == value
   end
 
   defp type_id!(registry, module) do

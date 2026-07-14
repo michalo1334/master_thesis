@@ -1,9 +1,7 @@
 defmodule NetworkDefense.Relationships.Registry do
-  alias NetworkDefense.Relationships.HasNetworkLink
   alias NetworkDefense.Relationships.HasVulnerability
-  alias NetworkDefense.Relationships.GrantsCapability
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
-  alias NetworkDefense.Relationships.ListensOn
 
   @moduledoc """
   A registry containing all relationship currently available to be supplied to the simulator.
@@ -11,7 +9,7 @@ defmodule NetworkDefense.Relationships.Registry do
   Provides central place to manage all current and future relationships created in the source code
   """
 
-  @types [ListensOn, Runs, GrantsCapability, HasVulnerability, HasNetworkLink]
+  @types [Runs, NetworkReachability, HasVulnerability]
 
   def get_all() do
     MapSet.new(@types)

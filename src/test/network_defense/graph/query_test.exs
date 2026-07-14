@@ -4,29 +4,29 @@ defmodule NetworkDefense.Graph.QueryTest do
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Graph.Nodes.Host
+  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Graph.Query
-  alias NetworkDefense.Nodes.Application
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
+  alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Relationships.HasNetworkLink
   alias NetworkDefense.Relationships.HasVulnerability
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Relationships.Runs
 
-  test "matches the remote application exploitation path and returns bound domain objects" do
+  test "matches the remote service exploitation path and returns bound domain objects" do
     foothold = node("foothold", Host)
     reachable_host = node("reachable-host", Host)
-    application = node("application", Application)
+    service = node("service", Service)
     vulnerability = node("vulnerability", Vulnerability)
 
-    link = edge("link", foothold, reachable_host, HasNetworkLink)
-    runs = edge("runs", reachable_host, application, Runs)
-    has_vulnerability = edge("has-vulnerability", application, vulnerability, HasVulnerability)
+    reachability = edge("reachability", foothold, service, NetworkReachability)
+    runs = edge("runs", reachable_host, service, Runs)
+    has_vulnerability = edge("has-vulnerability", service, vulnerability, HasVulnerability)
 
     graph =
-      graph([foothold, reachable_host, application, vulnerability], [
-        link,
+      graph([foothold, reachable_host, service, vulnerability], [
+        reachability,
         runs,
         has_vulnerability
       ])
@@ -35,15 +35,18 @@ defmodule NetworkDefense.Graph.QueryTest do
              Query.match(graph, %{
                start: {:foothold, Host, &(&1.id == foothold.id)},
                hops: [
-                 %{via: {nil, HasNetworkLink}, to: {nil, Host}},
-                 %{via: {:runs, Runs}, to: {:to, Application}},
+                 %{via: {nil, NetworkReachability}, to: {:to, Service}},
                  %{via: {nil, HasVulnerability}, to: {:vuln, Vulnerability}}
+               ],
+               joins: [
+                 %{from: {:target_host, Host}, via: {:runs, Runs}, to: {:to, Service}}
                ]
              })
 
     assert match.foothold == foothold
+    assert match.target_host == reachable_host
     assert match.runs == runs
-    assert match.to == application
+    assert match.to == service
     assert match.vuln == vulnerability
     refute Map.has_key?(match, nil)
   end
