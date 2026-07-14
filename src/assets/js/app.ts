@@ -2,7 +2,7 @@ import "vite/modulepreload-polyfill";
 import "phoenix_html"
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"
-import type {Hooks} from "phoenix_live_view"
+import type {HooksOptions, LiveSocketInstanceInterface} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/network_defense"
 import topbar from "topbar"
 import {getHooks} from "live_svelte"
@@ -12,7 +12,7 @@ const csrfToken = (document.querySelector("meta[name='csrf-token']") as HTMLMeta
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
-  hooks: {...(colocatedHooks as Hooks), ...getHooks(Components)} as Hooks,
+  hooks: {...(colocatedHooks as HooksOptions), ...getHooks(Components)} as HooksOptions,
 })
 
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
@@ -23,14 +23,14 @@ liveSocket.connect()
 
 declare global {
   interface Window {
-    liveSocket: LiveSocket
+    liveSocket: LiveSocketInstanceInterface
     liveReloader?: { enableServerLogs(): void; disableServerLogs(): void; openEditorAtCaller(el: Element): void; openEditorAtDef(el: Element): void }
   }
 }
 
 window.liveSocket = liveSocket
 
-if (process.env.NODE_ENV === "development") {
+if (import.meta.env.DEV) {
   window.addEventListener("phx:live_reload:attached", ((e: CustomEvent<{
     enableServerLogs(): void
     disableServerLogs(): void

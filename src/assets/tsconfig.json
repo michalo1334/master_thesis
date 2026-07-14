@@ -10,7 +10,10 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "baseUrl": ".",
+    "paths": {
+      "live_svelte": ["../deps/live_svelte/assets/js/live_svelte/types.d.ts"]
+    },
     "types": ["vite/client"]
   },
-  "include": ["js/**/*.ts"]
+  "include": ["js/**/*.ts", "js/**/*.d.ts", "svelte/**/*.svelte"]
 }

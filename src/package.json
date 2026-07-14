@@ -1,5 +1,8 @@
 {
   "type": "module",
+  "scripts": {
+    "typecheck": "svelte-check --tsconfig assets/tsconfig.json"
+  },
   "dependencies": {
     "live_svelte": "file:./deps/live_svelte",
     "phoenix": "file:./deps/phoenix",
@@ -14,7 +17,9 @@
     "@tailwindcss/vite": "^4.1.0",
     "phoenix_vite": "file:./deps/phoenix_vite",
     "svelte": "^5.0.0",
+    "svelte-check": "^4.7.2",
     "tailwindcss": "^4.1.0",
+    "typescript": "^5.9.3",
     "vite": "^8.0.0"
   }
 }
