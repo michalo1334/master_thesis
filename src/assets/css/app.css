@@ -2,6 +2,8 @@
 @import "@skeletonlabs/skeleton";
 @import "@skeletonlabs/skeleton-svelte";
 @import "@skeletonlabs/skeleton/themes/cerberus";
+@import "./design-tokens.css";
+@import "./dashboard.css";
 
 @source "../css";
 @source "../js";

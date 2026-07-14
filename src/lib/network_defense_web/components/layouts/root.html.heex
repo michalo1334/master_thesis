@@ -8,7 +8,7 @@
       {assigns[:page_title]}
     </.live_title>
     <PhoenixVite.Components.assets
-      names={["js/app.js", "css/app.css"]}
+      names={["js/app.ts", "css/app.css"]}
       manifest={{:network_defense, "priv/static/.vite/manifest.json"}}
       dev_server={PhoenixVite.Components.has_vite_watcher?(NetworkDefenseWeb.Endpoint)}
       to_url={fn p -> static_url(@conn, p) end}
