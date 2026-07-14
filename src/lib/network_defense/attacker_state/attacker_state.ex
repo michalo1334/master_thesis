@@ -1,4 +1,8 @@
 defmodule NetworkDefense.AttackerState.AttackerState do
+  @moduledoc """
+  Tracks the resources currently controlled by an attacker during one simulation.
+  """
+
   defstruct [
     :footholds,
     :attack_frontier

@@ -77,9 +77,7 @@ defmodule NetworkDefenseWeb.Telemetry do
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
       summary("vm.total_run_queue_lengths.io")
-    ] ++
-      NetworkDefense.Simulator.Metrics.list() ++
-      NetworkDefense.Optimizer.Metrics.list()
+    ]
   end
 
   defp periodic_measurements do

@@ -1,6 +1,3 @@
-alias NetworkDefense.Optimizer.Optimizer
-alias NetworkDefense.Simulator.Simulator
-
 defmodule NetworkDefenseWeb.SvelteDemoLive do
   use NetworkDefenseWeb, :live_view
 
@@ -18,9 +15,6 @@ defmodule NetworkDefenseWeb.SvelteDemoLive do
 
   @impl true
   def handle_event("increment", _params, socket) do
-    Optimizer.run()
-    Simulator.run()
-
     {:noreply, update(socket, :count, &(&1 + 1))}
   end
 

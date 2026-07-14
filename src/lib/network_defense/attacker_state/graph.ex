@@ -1,10 +1,12 @@
 defmodule NetworkDefense.AttackerState.Graph do
+  @moduledoc """
+  Projects attacker footholds onto nodes in a context graph.
+  """
+
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.AttackerState.AttackerState.AttackerState
-  alias NetworkDefense.AttackerState
   alias NetworkDefense.Graph.Graph
 
-  def foothold_nodes(%Graph{} = graph, %AttackerState.AttackerState{} = attacker_state) do
+  def foothold_nodes(%Graph{} = graph, %AttackerState{} = attacker_state) do
     foothold_ids =
       attacker_state
       |> AttackerState.foothold_nodes()

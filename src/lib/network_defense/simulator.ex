@@ -13,7 +13,7 @@ defmodule NetworkDefense.Simulator do
     :rules
   ]
 
-  def run(initial_state, opts) do
+  def run(%__MODULE__{} = initial_state, opts) do
     iteration_count = Keyword.get(opts, :iteration_count, @default_iteration_count)
     seed = Keyword.get(opts, :seed, @default_seed)
 
@@ -22,12 +22,12 @@ defmodule NetworkDefense.Simulator do
     Enum.reduce(1..iteration_count, initial_state, &perform_iteration(&1, &2))
   end
 
-  def perform_iteration(state, index) do
+  def perform_iteration(%__MODULE__{} = state, index) do
     state = %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
 
     actions = get_possible_actions(state)
 
-    Action.execute(state, select_action(state, actions))
+    Action.execute(select_action(state, actions), state)
   end
 
   def get_possible_actions(state) do
