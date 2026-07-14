@@ -79,7 +79,7 @@ Evaluation metrics may include:
 
 * **Elixir** — attack simulation and defense optimization.
 * **PostgreSQL** — persistent application, network, vulnerability, and simulation data.
-* **Phoenix LiveView, LiveSvelte, Svelte 5, Skeleton 5, and Tailwind CSS** — browser-based visualization and management of network topology, simulations, and defensive actions.
+* **Phoenix LiveView, LiveSvelte, Svelte 5, Bits UI, and Tailwind CSS** — browser-based visualization and management of network topology, simulations, and defensive actions.
 * **NVD API** — real CVE and vulnerability data.
 * **OpenTelemetry, Grafana, Tempo, Loki, Prometheus, and Grafana Alloy** — tracing, metrics, logging, and application observability.
 * **Python** — statistical analysis and evaluation of experimental results.

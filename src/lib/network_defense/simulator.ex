@@ -23,15 +23,22 @@ defmodule NetworkDefense.Simulator do
   end
 
   def perform_iteration(%__MODULE__{} = state, index) do
-    state = %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
-
-    actions = get_possible_actions(state)
-
-    Action.execute(select_action(state, actions), state)
+    %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
+    |> get_possible_actions()
+    |> select_action(state)
+    |> maybe_execute_action(state)
   end
 
   def get_possible_actions(state) do
     state.rules |> Enum.flat_map(&Rule.evaluate(&1, state))
+  end
+
+  def maybe_execute_action(action, state) do
+    if :rand.uniform_real_s(state.current_seed) <= Action.probability(action) do
+      Action.execute(action, state)
+    else
+      state
+    end
   end
 
   @moduledoc """
@@ -40,7 +47,7 @@ defmodule NetworkDefense.Simulator do
   Default is to select first one.
   """
   @spec select_action(__MODULE__, list(Action.t())) :: Action.t()
-  def select_action(_state, actions) do
+  def select_action(actions, _state) do
     hd(actions)
   end
 
