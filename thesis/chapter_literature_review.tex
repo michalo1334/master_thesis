@@ -1,61 +1,62 @@
 \chapter{Literature Review}
 \label{ch:literature_review}
 
-This chapter reviews prior work relevant to the thesis. The discussion is organized around four themes: \textbf{attack-graph construction}, \textbf{topological vulnerability analysis}, \textbf{CVSS-based prioritization}, and \textbf{Monte Carlo methods for network security}. Where useful, mathematical notation is used to make precise statements; for example, the expected blast radius of a single entry point is
+This chapter surveys prior work relevant to the thesis across five themes: attack-graph construction, probabilistic and Bayesian attack modeling, CVSS-based vulnerability prioritization, defense optimization and network hardening, and Monte Carlo methods for network security. The discussion identifies a research gap that the present work addresses: the absence of a system that combines stochastic attack-path simulation with automated defense optimization under a constrained budget and evaluates the result against conventional prioritization baselines.
 
-\[
-\mathrm{E}[B \mid e] = \sum_{h \in V} P(\text{compromise of } h \mid \text{entry at } e).
-\]
+\section{Attack-Graph Construction and Analysis}
 
-A more realistic model that accounts for attacker skill level $s$ and time budget $t$ introduces a discount on deep attack paths and gives
+The attack graph, as a formalism for reasoning about multi-step exploitation, was introduced by \citeauthor{phillips98}~\cite{phillips98}, who represented network configurations, vulnerabilities, and attacker capabilities in a directed graph and computed the set of reachable privilege states. This seminal work established the two core primitives that recur in all subsequent literature: nodes representing attacker or host states and edges representing possible exploitation steps.
 
-\[
-\mathrm{E}[B \mid e, s, t] = \sum_{h \in V} P(\text{compromise of } h \mid e, s, t).
-\]
+\citeauthor{jha02two}~\cite{jha02two} formalized the distinction between two families of attack graphs that shape the design of every later tool. \emph{State-enumeration} graphs represent each node as a global system state (the set of all compromised hosts and obtained privileges), while \emph{assumption-based} graphs track only the logical dependencies between individual exploits. The former gives completeness at the cost of combinatorial explosion; the latter trades some precision for tractability.
 
-\section{Attack-Graph Construction}
+\citeauthor{sheyner02}~\cite{sheyner02} automated attack-graph generation through symbolic model checking with NuSMV, constructing graphs from network topology, firewall rules, and vulnerability databases. Their tool produced complete state-enumeration graphs and introduced a security metric---the probability of an attacker reaching a given target---derived from edge weights. This work demonstrated that attack graphs could be built automatically, but the state-enumeration approach did not scale beyond a few hundred hosts.
 
-The notion of an attack graph as a means of reasoning about multi-step exploitation was formalized by \citeauthor{jha02two}~\cite{jha02two}. The two representations introduced in that work --- state-enumeration and assumption-based --- remain the conceptual reference point for almost every later tool.
+\citeauthor{ou05mulval}~\cite{ou05mulval} addressed scalability with MulVAL, a logic-programming-based analyzer that uses Datalog inference to derive the set of reachable exploits from a set of facts describing the network. MulVAL belongs to the assumption-based family and generates graphs for networks of several thousand hosts in seconds. Its output is a dependency graph in which leaf nodes are configuration facts and intermediate nodes represent exploits or conditions.
 
-\begin{itemize}
-	\item \textbf{MulVAL}~\cite{ou05mulval} --- a logic-programming-based analyzer that produces a Datalog representation of the network and queries it for reachability. A canonical example of the assumption-based family.
-	\item \textbf{NetSPA}~\cite{homer08netspa} --- a scalable network-security problem analyzer that pre-computes a reachability map to avoid the exponential blow-up of state enumeration.
-	\begin{itemize}
-		\item Designed to handle enterprise-scale networks (thousands of hosts).
-		\item Emphasizes the shortest-path variant, which is fast but conservative.
-	\end{itemize}
-\end{itemize}
+\citeauthor{homer08netspa}~\cite{homer08netspa} developed NetSPA, which pre-computes a reachability map to avoid the exponential blow-up of state enumeration. NetSPA was designed for enterprise-scale networks of thousands of hosts and emphasizes a shortest-path variant that is fast but conservative---it underestimates the attacker's ability to traverse longer paths. The tool's practical focus on network reachability makes it the closest precursor to the graph-construction component of the present work.
+
+Surveys by \citeauthor{lippmann05}~\cite{lippmann05} and \citeauthor{kaynar16}~\cite{kaynar16} catalogued more than fifty attack-graph construction methods and taxonomized them by representation, scalability, and analytical capability. Kaynar identified a recurring trade-off: tools that emphasize scalability tend to under-represent attacker capability, while tools that emphasize expressiveness sacrifice performance on real networks.
 
 \section{Topological Vulnerability Analysis}
 
-A separate line of work, beginning with \citeauthor{ammann02tva}~\cite{ammann02tva}, observes that the monotonicity assumption (attackers never lose privileges) makes attack graphs polynomial to construct. The multiple-prerequisite (MP) variant relaxes this assumption in a controlled way and is the subject of an empirical comparison by \citeauthor{ingols06mpg}~\cite{ingols06mpg}, which remains a touchstone for any new construction method.
+A separate line of work, beginning with \citeauthor{ammann02tva}~\cite{ammann02tva}, exploits the monotonicity assumption---that attackers never lose privileges---to make attack-graph construction polynomial in the number of exploits. Under this assumption, an attacker who exploits a vulnerability on host $A$ to reach host $B$ retains access to $A$, removing the need to track all combinations of compromised hosts. The resulting \emph{topological vulnerability analysis} (TVA) graph represents exploits as nodes and pre- and post-conditions as edges, producing a structure closer to a dependency graph than a state graph.
 
-\begin{table}[hbt!]
-	\centering
-	\begin{tabular}{lll}
-		\toprule
-		\textbf{Tool}                & \textbf{Year} & \textbf{Representation}         \\
-		\midrule
-		MulVAL~\cite{ou05mulval}     & 2005 & Datalog / assumption-based      \\
-		TVA~\cite{ammann02tva}        & 2002 & State-enumeration (monotonic)  \\
-		NetSPA~\cite{homer08netspa}   & 2008 & Network reachability + shortest paths \\
-		MP graphs~\cite{ingols06mpg}  & 2006 & Multiple-prerequisite (MP)     \\
-		\bottomrule
-	\end{tabular}
-	\caption{Selected attack-graph construction methods surveyed in this chapter.}
-	\label{tab:lit:prior-tools}
-\end{table}
+The multiple-prerequisite (MP) variant relaxes the strict monotonicity assumption in a controlled way by allowing exploits to require multiple preconditions before they can be attempted. \citeauthor{ingols06mpg}~\cite{ingols06mpg} provided an empirical comparison of MP graphs against state-enumeration and monotonic representations on laboratory networks of up to 250 hosts. They found that MP graphs capture most attack paths available to a realistic attacker while reducing construction time by an order of magnitude relative to full state enumeration.
 
-\section{CVSS-Based Prioritization}
+\section{Probabilistic and Bayesian Attack Modeling}
 
-The Common Vulnerability Scoring System~\cite{cvss31}, published by FIRST.org and used as the primary input to the U.S. National Vulnerability Database~\cite{nvd}, assigns each CVE a base score in the range $0$--$10$ derived from a fixed set of exploit and impact metrics. CVSS is the de-facto industry standard for per-vulnerability prioritization, and one of the baselines against which the present work is compared.
+The attack graphs discussed so far are deterministic: an edge either exists or does not. Real-world exploitation is probabilistic, depending on attacker skill, tool availability, and time budget. Several works address this by casting the attack graph as a probabilistic model.
 
-CVSS-based prioritization has a known weakness that motivates this thesis: it scores vulnerabilities independently, with no representation of the dependency structure that determines whether a given vulnerability is reachable from a given entry point.
+\citeauthor{frigault08}~\cite{frigault08} combined Bayesian networks with topological attack graphs to produce a probabilistic security metric: the likelihood that a given target is compromised given evidence about initial footholds. Each exploit node in the attack graph becomes a random variable in the Bayesian network, with conditional probability tables derived from CVSS exploitability metrics. The resulting model supports both forward inference (predicting compromise spread) and backward inference (identifying the most likely entry points for a given observed compromise).
+
+\citeauthor{poolsappasit12}~\cite{poolsappasit12} extended Bayesian attack graphs to dynamic security risk management. Their system recomputes compromise probabilities as vulnerabilities are patched or new exploits are discovered, allowing the defender to compare the marginal risk reduction of alternative defensive actions. This dynamic capability is the closest antecedent to the simulation-informed optimization loop in the present work, though their approach relies on analytic Bayesian inference rather than Monte Carlo sampling.
+
+\section{CVSS-Based Vulnerability Prioritization}
+
+The Common Vulnerability Scoring System~\cite{cvss31}, published by FIRST.org and used as the primary input to the U.S. National Vulnerability Database~\cite{nvd}, assigns each CVE a base score in $0$--$10$ derived from exploitability and impact metrics. CVSS is the industry standard for per-vulnerability prioritization and serves as one of the baselines against which the present work is compared.
+
+CVSS-based prioritization has a known limitation that motivates this thesis: it scores vulnerabilities in isolation, with no representation of the network topology that determines whether a given vulnerability is reachable from a given entry point. \citeauthor{allodi14}~\cite{allodi14} demonstrated empirically that fixing vulnerabilities solely on the basis of high CVSS scores is statistically equivalent to random patching. Using a case-control study of 374 public exploits, they found that the existence of a published proof-of-concept exploit is a significantly better risk predictor than the CVSS score. This finding reinforces the argument that contextual information---network topology, reachability, and attacker positioning---must complement vulnerability scoring for effective prioritization.
+
+\section{Defense Optimization and Network Hardening}
+
+The problem of selecting a set of defensive actions to minimize attack impact under a cost constraint has been studied from several angles.
+
+\citeauthor{noel03}~\cite{noel03} formulated network hardening as a minimum-cost set-covering problem on the exploit dependency graph. Given a set of initial conditions that must be disabled to prevent an attacker from reaching critical targets, their algorithm finds the cheapest combination of patches, firewall rule changes, and service deactivations that achieves this goal. The result is a single hardened configuration; the method does not produce a ranked list of incremental actions or account for probabilistic exploitation.
+
+\citeauthor{wang06hardening}~\cite{wang06hardening} extended this line of work by introducing probabilistic weights on exploit edges and formulating the hardening problem as finding the minimum-cost set of removals that brings the cumulative probability of reaching a target below a specified threshold. Their approach accounts for the fact that exploit success is uncertain, but the optimization remains a single-shot computation: it solves for a target configuration, not for a budget-constrained sequence of actions evaluated by their marginal impact.
+
+\citeauthor{albanese12}~\cite{albanese12} addressed the computational cost of hardening optimization by introducing a heuristic that prunes irrelevant portions of the attack graph before computing defenses. Their method reduces the search space by identifying ancestors of critical assets that do not lie on any feasible attack path, achieving orders-of-magnitude speedup on networks of several thousand hosts while maintaining solution quality close to the unpruned optimum.
+
+The defense optimizer in this thesis differs from these works in two respects. First, it evaluates candidate actions through repeated Monte Carlo simulation rather than closed-form probability propagation, capturing attacker behavior that would be missed by analytic models. Second, it operates as a greedy, incremental loop that selects actions one at a time under a budget constraint, producing a ranked sequence rather than a single target configuration.
 
 \section{Monte Carlo Methods for Network Security}
 
-The Mann--Whitney $U$ test~\cite{mann47} is the standard non-parametric test for comparing two independent samples when the normality assumption does not hold. The blast-radius samples produced by the simulator in this work are not normally distributed (they are bounded counts on a discrete graph), so the Mann--Whitney $U$ test is the appropriate choice for the comparative evaluation in Chapter~\ref{ch:evaluation}.
+The blast-radius samples produced by the simulator in this work are bounded counts on a discrete graph and are not normally distributed. The Mann--Whitney $U$ test~\cite{mann47}, a non-parametric test for comparing two independent samples when the normality assumption does not hold, is therefore the appropriate choice for the comparative evaluation in Chapter~\ref{ch:evaluation}.
 
-\section{Summary}
+Monte Carlo simulation has been applied to network security in several contexts. \citeauthor{matthews21}~\cite{matthews21} developed stochastic simulation techniques for inference on Bayesian attack graphs, demonstrating that Monte Carlo methods scale more favorably than exact Bayesian inference for large graphs with dense dependency structures. Their approach is closely related to the simulation engine in the present work, though theirs focuses on inference within an existing Bayesian graph rather than on comparing defense strategies.
 
-The surveyed methods illustrate a recurring trade-off: tools that emphasize \emph{scalability} tend to under-represent attacker capability (e.g., shortest-path assumptions), while tools that emphasize \emph{expressiveness} (e.g., full state enumeration) do not scale to realistic networks. The present work positions itself in the middle: a graph construction in the NetSPA / MP family, augmented by a stochastic simulator that captures a wider range of attacker behavior, and an optimizer that operates on the resulting blast-radius map.\footnotetext{This observation is not new; it is stated here to motivate the design in Chapter~\ref{ch:design}.}
+\section{Summary and Research Gap}
+
+The surveyed literature demonstrates a consistent pattern: attack graphs make network-level reasoning about exploitation possible, but existing tools make a trade-off between analytic tractability and representational fidelity. Tools that use closed-form probability propagation (Bayesian attack graphs, minimum-cost hardening) can compute exact solutions, but their models simplify attacker behavior to conditional probability tables. Tools that use state enumeration or monotonicity can represent complex dependencies, but they do not integrate stochastic attacker simulation with incremental defense optimization.
+
+This thesis addresses the gap by combining three elements not previously integrated: (1) a graph construction in the NetSPA/MP family that balances scalability with expressiveness, (2) a stochastic simulator that captures attacker behavior beyond what conditional probability tables can represent, and (3) a defense optimizer that evaluates candidate actions by their marginal impact on the simulated blast-radius distribution, producing a ranked sequence of recommendations under a constrained budget. The resulting system is evaluated against two baselines (CVSS-based and random prioritization) using the experimental methodology described in Chapter~\ref{ch:evaluation}.
