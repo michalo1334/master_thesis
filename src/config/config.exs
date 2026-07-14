@@ -33,7 +33,7 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
   live_view: [signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT") || "32w8i9Ge"]
 
 # Structured JSON logging via logger_json (emitted to stdout).
-# Promtail tails the container stdout and pushes to Loki.
+# Grafana Alloy tails the container stdout and pushes to Loki.
 config :logger, :default_handler, formatter: {LoggerJSON.Formatters.Basic, metadata: :all}
 
 # Use Jason for JSON parsing in Phoenix

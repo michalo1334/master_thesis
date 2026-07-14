@@ -24,7 +24,7 @@ The following components are common to all environments.
  - `loki` - Grafana Loki for structured logs. Stored **locally** as mounted volume
  - `tempo` - Grafana Tempo for trace data. Stored **locally** as mounted volume
  - `prometheus` - Prometheus for metrics data. Stored **locally** as mounted volume
- - `promtail` - fetching and converting Elixir logs to Loki log format. This is workaround due to sending logs to OTel is in experimental phase in Elixir/Erlang
+  - `alloy` - fetching and converting Elixir logs to Loki log format. This is workaround due to sending logs to OTel is in experimental phase in Elixir/Erlang
 
 See `docker-compose.*.yml` files
 

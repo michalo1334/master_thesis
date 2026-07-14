@@ -81,7 +81,7 @@ Evaluation metrics may include:
 * **PostgreSQL** — persistent application, network, vulnerability, and simulation data.
 * **Phoenix LiveView, LiveSvelte, Svelte 5, Skeleton 5, and Tailwind CSS** — browser-based visualization and management of network topology, simulations, and defensive actions.
 * **NVD API** — real CVE and vulnerability data.
-* **OpenTelemetry, Grafana, Tempo, Loki, Prometheus, and Promtail** — tracing, metrics, logging, and application observability.
+* **OpenTelemetry, Grafana, Tempo, Loki, Prometheus, and Grafana Alloy** — tracing, metrics, logging, and application observability.
 * **Python** — statistical analysis and evaluation of experimental results.
 * **LuaLaTeX, Minted, and TikZ** — master's thesis typesetting, source-code presentation, and technical diagrams.
 

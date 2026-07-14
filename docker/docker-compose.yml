@@ -80,17 +80,22 @@ services:
       - "3100:3100"
     restart: unless-stopped
 
-  promtail:
-    image: grafana/promtail:3.3.2
-    container_name: network-defense-promtail
-    command: ["-config.file=/etc/promtail/config.yaml"]
+  alloy:
+    image: grafana/alloy:v1.17.1
+    container_name: network-defense-alloy
+    command:
+      [
+        "run",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--storage.path=/var/lib/alloy/data",
+        "/etc/alloy/config.alloy"
+      ]
     volumes:
-      - ./promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - promtail-positions:/tmp/positions
+      - alloy-data:/var/lib/alloy/data
     ports:
-      - "9080:9080"
+      - "12345:12345"
     depends_on:
       - loki
     restart: unless-stopped
@@ -114,7 +119,7 @@ services:
       - tempo
       - prometheus
       - loki
-      - promtail
+      - alloy
     restart: unless-stopped
 
   pgadmin:
@@ -144,6 +149,6 @@ volumes:
   prometheus-data:
   grafana-data:
   loki-data:
-  promtail-positions:
+  alloy-data:
   pgadmin-data:
   postgres-data:
