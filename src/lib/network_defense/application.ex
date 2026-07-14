@@ -23,7 +23,10 @@ defmodule NetworkDefense.Application do
         [
           NetworkDefenseWeb.Telemetry,
           {Bandit,
-           scheme: :http, port: 4001, plug: NetworkDefenseWeb.MetricsPlug, ip: {0, 0, 0, 0}},
+           scheme: :http,
+           port: Application.get_env(:network_defense, :metrics_port, 4001),
+           plug: NetworkDefenseWeb.MetricsPlug,
+           ip: {0, 0, 0, 0}},
           NetworkDefense.Repo,
           {DNSCluster,
            query: Application.get_env(:network_defense, :dns_cluster_query) || :ignore},

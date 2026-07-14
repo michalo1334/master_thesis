@@ -17,8 +17,10 @@ config :network_defense, NetworkDefense.Repo,
 # you can enable the server option below.
 config :network_defense, NetworkDefenseWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: System.get_env("SECRET_KEY_BASE"),
+  secret_key_base: System.get_env("SECRET_KEY_BASE") || String.duplicate("a", 64),
   server: false
+
+config :network_defense, :metrics_port, 0
 
 # Print only warnings and errors during test
 config :logger, level: :warning
