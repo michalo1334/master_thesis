@@ -1,0 +1,53 @@
+defmodule NetworkDefense.Graph.Edge do
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  alias NetworkDefense.Relationships.Registry
+  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.Node
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
+  schema "edges" do
+    belongs_to :graph, Graph
+    belongs_to :from, Node
+    belongs_to :to, Node
+
+    field :type, :string
+    field :data, :map
+
+    timestamps(type: :utc_datetime)
+  end
+
+  @doc false
+  def changeset(edge, attrs) do
+    edge
+    |> cast(attrs, [:type, :data])
+    |> validate_required([:type])
+    |> foreign_key_constraint(:graph_id)
+    |> foreign_key_constraint(:from_id, name: :edges_from_graph_fkey)
+    |> foreign_key_constraint(:to_id, name: :edges_to_graph_fkey)
+    |> validate_dynamic_data()
+  end
+
+  defp validate_dynamic_data(changeset) do
+    type = get_field(changeset, :type)
+    data = get_field(changeset, :data)
+
+    case schema_for(type) do
+      nil ->
+        add_error(changeset, :type, "is invalid")
+
+      schema ->
+        data_changeset = schema.changeset(struct(schema), data || %{})
+
+        if data_changeset.valid? do
+          changeset
+        else
+          add_error(changeset, :data, "is invalid")
+        end
+    end
+  end
+
+  defp schema_for(type), do: Registry.module_for(type)
+end
