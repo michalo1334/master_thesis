@@ -58,7 +58,7 @@ Evaluation metrics may include:
 * memory usage;
 * convergence and stability of Monte Carlo estimates.
 
-# Repository layout
+# Repository layout & links to documents
 
 ```text
 📁 master_thesis/  — Attack simulation and automated defense optimization
@@ -68,11 +68,11 @@ Evaluation metrics may include:
 ├── 📁 docs/          — ADRs, concepts, research notes, wireframes, and thesis drafts
 │   ├── 📁 adr/
 │   ├── 📁 concepts/
-│   ├── 📁 dashboard-wireframes/
-│   └── 📁 initial/
+│   ├── 📁 initial/
+|   ├── 🗎 architecture.md
+|   └── 🗎 infrastructure.md
 ├── 📁 src/           — Elixir simulation engine and web application
 └── 📁 thesis/        — LaTeX source of the master's thesis
-    └── 📁 img/
 ```
 
 # Technology stack
