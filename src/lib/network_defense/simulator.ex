@@ -1,4 +1,13 @@
 defmodule NetworkDefense.Simulator do
+  @moduledoc """
+  Monte Carlo simulation of hypothethical attack on networked services.
+
+  Runs N successive iterations, with each iteration evaluating a set of rules and performing probalistically one selected action.
+
+  The entrypoint functions are run/2 and run_multiple/2.
+
+  While run/2 performs single simulator run, run_multiple execute multiple ones in sequence, which enables to obtain more accurate blast radius statistics (mean, min, max, p95 etc.).
+  """
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
@@ -15,6 +24,22 @@ defmodule NetworkDefense.Simulator do
     :attacker_state,
     :rules
   ]
+
+  @doc """
+  Runs the simulation multiple times with supplied options.
+  """
+  def run_multiple(opts) do
+  end
+
+  @doc """
+  Runs the simulation with supplied options. Returns final attacker state after all iterations.
+
+  Options:
+   - initial_state - the attacker initial state or none
+   - iteration_count - n
+   - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
+  """
+  def run(opts), do: run(%__MODULE__{}, opts)
 
   def run(%__MODULE__{} = initial_state, opts) do
     iteration_count = Keyword.get(opts, :iteration_count, @default_iteration_count)
