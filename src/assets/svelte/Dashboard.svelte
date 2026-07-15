@@ -1,5 +1,17 @@
 <script lang="ts">
+  import type { Live } from "live_svelte";
+  import { SvelteSet } from "svelte/reactivity";
   import AppBar from "./dashboard/shell/AppBar.svelte";
+  import {
+    commandAvailable,
+    executeCommand,
+    type CommandContext,
+    type CommandId,
+    type DashboardUiState,
+    type SelectedTopologyObject,
+    type TopologyLayout,
+  } from "./dashboard/commands/registry";
+  import TopologyContextMenu from "./dashboard/commands/TopologyContextMenu.svelte";
   import Button from "./dashboard/controls/Button.svelte";
   import Checkbox from "./dashboard/controls/Checkbox.svelte";
   import Icon from "./dashboard/controls/Icon.svelte";
@@ -7,6 +19,8 @@
   import Ribbon from "./dashboard/ribbon/Ribbon";
   import Select from "./dashboard/controls/Select.svelte";
   import SplitButton from "./dashboard/controls/SplitButton.svelte";
+  import Inspector from "./dashboard/workspace/Inspector.svelte";
+  import StatusBar from "./dashboard/shell/StatusBar.svelte";
   import SimulationReport from "./dashboard/statistics/SimulationReport.svelte";
   import Workspace from "./dashboard/workspace/Workspace";
 
@@ -18,6 +32,21 @@
     type: DocumentType;
   }
 
+  interface ServerCommand {
+    version: number;
+    command: string;
+    documentId?: string;
+    title?: string;
+    message: string;
+  }
+
+  interface Props {
+    live?: Live;
+    serverCommand?: ServerCommand;
+  }
+
+  let { live, serverCommand }: Props = $props();
+
   const documentTypes = [
     { id: "topology", label: "Topology", icon: "graph" },
     { id: "simulation", label: "Simulation result", icon: "play" },
@@ -26,6 +55,82 @@
   let documents = $state<WorkspaceDocument[]>([]);
   let activeDocumentId = $state<string>();
   let nextDocumentId = 1;
+  let activeDocument = $derived(
+    documents.find((document) => document.id === activeDocumentId),
+  );
+  let selectedObject = $state<SelectedTopologyObject>();
+  let serverStatus = $derived(serverCommand?.message);
+  let ui = $state<DashboardUiState>({
+    currentTool: "select",
+    topologyLayout: "layered",
+    showZoneBoundaries: true,
+    inspectorVisible: true,
+    presentation: "graph",
+  });
+  const reconciledServerCommandVersions = new SvelteSet<number>();
+  const topologyPlaceholderObject: SelectedTopologyObject = {
+    id: "topology-surface",
+    name: "Topology surface",
+  };
+
+  let commandContext = $derived.by(() => ({
+    activeDocument,
+    selectedObject,
+    ui: {
+      currentTool: ui.currentTool,
+      topologyLayout: ui.topologyLayout,
+      showZoneBoundaries: ui.showZoneBoundaries,
+      inspectorVisible: ui.inspectorVisible,
+      presentation: ui.presentation,
+      lastSelectionAction: ui.lastSelectionAction,
+    },
+    live,
+    setUi: updateUi,
+    setSelectedObject,
+  }));
+
+  $effect(() => {
+    if (serverCommand) reconcileServerCommand(serverCommand);
+  });
+
+  function reconcileServerCommand(command: ServerCommand) {
+    if (reconciledServerCommandVersions.has(command.version)) return;
+
+    reconciledServerCommandVersions.add(command.version);
+    if (command.command !== "run_simulation") return;
+
+    const id = command.documentId ?? `simulation-${command.version}`;
+    const existingDocument = documents.find((document) => document.id === id);
+    const title =
+      command.title ?? existingDocument?.title ?? "Simulation result";
+
+    documents = existingDocument
+      ? documents.map((document) =>
+          document.id === id ? { ...document, title } : document,
+        )
+      : [...documents, { id, title, type: "simulation" }];
+    activeDocumentId = id;
+  }
+
+  function updateUi(update: Partial<DashboardUiState>) {
+    Object.assign(ui, update);
+  }
+
+  function setSelectedObject(object?: SelectedTopologyObject) {
+    selectedObject = object;
+  }
+
+  function execute(
+    id: CommandId,
+    source: CommandContext["source"],
+    args?: unknown,
+  ) {
+    executeCommand(id, { ...commandContext, source }, args as never);
+  }
+
+  function isCommandAvailable(id: CommandId) {
+    return commandAvailable(id, { ...commandContext, source: "ribbon" });
+  }
 
   function createDocument(typeId: string) {
     const documentType = documentTypes.find(({ id }) => id === typeId);
@@ -60,8 +165,18 @@
   <Ribbon>
     <Ribbon.Tab title="Home">
       <Ribbon.Section title="Tools">
-        <Button><Icon name="cursor" size={22} /><span>Select</span></Button>
-        <Button><Icon name="link" size={22} /><span>Connect</span></Button>
+        <Button
+          aria-pressed={ui.currentTool === "select"}
+          disabled={!isCommandAvailable("select-tool")}
+          onclick={() => execute("select-tool", "ribbon")}
+          ><Icon name="cursor" size={22} /><span>Select</span></Button
+        >
+        <Button
+          aria-pressed={ui.currentTool === "connect"}
+          disabled={!isCommandAvailable("connect-tool")}
+          onclick={() => execute("connect-tool", "ribbon")}
+          ><Icon name="link" size={22} /><span>Connect</span></Button
+        >
       </Ribbon.Section>
       <Ribbon.Section title="Add">
         <SplitButton
@@ -77,26 +192,51 @@
         <Button><Icon name="zone" size={22} /><span>Zone</span></Button>
       </Ribbon.Section>
       <Ribbon.Section title="Layout">
-        <Select label="Topology layout" value="Layered">
-          <option>Layered</option>
-          <option>Force-directed</option>
-          <option>Radial</option>
+        <Select
+          label="Topology layout"
+          value={ui.topologyLayout}
+          disabled={!isCommandAvailable("set-topology-layout")}
+          onchange={(event) =>
+            execute("set-topology-layout", "ribbon", {
+              layout: event.currentTarget.value as TopologyLayout,
+            })}
+        >
+          <option value="layered">Layered</option>
+          <option value="force-directed">Force-directed</option>
+          <option value="radial">Radial</option>
         </Select>
       </Ribbon.Section>
       <Ribbon.Section title="Display">
-        <Checkbox checked>Show zone boundaries</Checkbox>
+        <Checkbox
+          checked={ui.showZoneBoundaries}
+          disabled={!isCommandAvailable("toggle-zone-boundaries")}
+          onchange={() => execute("toggle-zone-boundaries", "ribbon")}
+          >Show zone boundaries</Checkbox
+        >
       </Ribbon.Section>
       <Ribbon.Section title="Arrange">
-        <Button variant="small"
+        <Button
+          variant="small"
+          disabled={!isCommandAvailable("duplicate-selection")}
+          onclick={() => execute("duplicate-selection", "ribbon")}
           ><Icon name="copy" size={16} /><span>Duplicate</span></Button
         >
-        <Button variant="small"
+        <Button
+          variant="small"
+          disabled={!isCommandAvailable("remove-selection")}
+          onclick={() => execute("remove-selection", "ribbon")}
           ><Icon name="trash" size={16} /><span>Remove</span></Button
         >
-        <Button variant="small"
+        <Button
+          variant="small"
+          disabled={!isCommandAvailable("lock-selection")}
+          onclick={() => execute("lock-selection", "ribbon")}
           ><Icon name="lock" size={16} /><span>Lock</span></Button
         >
-        <Button variant="small"
+        <Button
+          variant="small"
+          disabled={!isCommandAvailable("align-selection")}
+          onclick={() => execute("align-selection", "ribbon")}
           ><Icon name="align" size={16} /><span>Align</span></Button
         >
       </Ribbon.Section>
@@ -114,44 +254,88 @@
     </Ribbon.Tab>
     <Ribbon.Tab title="Analyze">
       <Ribbon.Section title="Attack model">
-        <Button><Icon name="play" size={22} /><span>Simulate</span></Button>
-        <Button><Icon name="shield" size={22} /><span>Optimize</span></Button>
+        <Button
+          disabled={!isCommandAvailable("run-simulation")}
+          onclick={() => execute("run-simulation", "ribbon")}
+          ><Icon name="play" size={22} /><span>Simulate</span></Button
+        >
+        <Button
+          disabled={!isCommandAvailable("optimize-defense")}
+          onclick={() => execute("optimize-defense", "ribbon")}
+          ><Icon name="shield" size={22} /><span>Optimize</span></Button
+        >
       </Ribbon.Section>
     </Ribbon.Tab>
     <Ribbon.Tab title="View">
       <Ribbon.Section title="Presentation">
-        <RadioButton name="presentation" checked
+        <RadioButton
+          name="presentation"
+          checked={ui.presentation === "graph"}
+          disabled={!isCommandAvailable("show-graph")}
+          onchange={() => execute("show-graph", "ribbon")}
           ><Icon name="graph" size={16} />Graph</RadioButton
         >
-        <RadioButton name="presentation"
+        <RadioButton
+          name="presentation"
+          checked={ui.presentation === "list"}
+          disabled={!isCommandAvailable("show-list")}
+          onchange={() => execute("show-list", "ribbon")}
           ><Icon name="list" size={16} />List</RadioButton
         >
         <Button
+          aria-pressed={ui.inspectorVisible}
+          onclick={() => execute("toggle-inspector", "ribbon")}
           ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
         >
       </Ribbon.Section>
     </Ribbon.Tab>
   </Ribbon>
+  {#snippet inspector()}
+    {#if ui.inspectorVisible}
+      <Inspector title="Object inspector">
+        <p class="dashboard-inspector-empty">
+          {selectedObject
+            ? selectedObject.name
+            : "Select an object in the active document to inspect its properties."}
+        </p>
+      </Inspector>
+    {/if}
+  {/snippet}
   <Workspace
     {activeDocumentId}
     onActiveDocumentChange={(id) => (activeDocumentId = id)}
     onCloseDocument={closeDocument}
     {documentTypes}
     onCreateDocument={createDocument}
+    {inspector}
   >
     {#each documents as document (document.id)}
       <Workspace.Document id={document.id} title={document.title}>
         {#if document.type === "simulation"}
           <SimulationReport title={document.title} />
         {:else}
-          <section class="dashboard-document-placeholder">
+          <TopologyContextMenu
+            context={commandContext}
+            topologyObject={topologyPlaceholderObject}
+          >
             <h1>{document.title}</h1>
-            <p>Topology canvas coming soon.</p>
-          </section>
+            <p>
+              {ui.showZoneBoundaries
+                ? "Zone boundaries shown."
+                : "Zone boundaries hidden."} Right-click for topology commands.
+            </p>
+          </TopologyContextMenu>
         {/if}
       </Workspace.Document>
     {/each}
   </Workspace>
+  <StatusBar
+    selectedName={selectedObject?.name ??
+      activeDocument?.title ??
+      "No document"}
+    zoom={100}
+    statusMessage={serverStatus}
+  />
 </div>
 
 <style>
@@ -195,19 +379,24 @@
     outline-offset: 2px;
   }
 
-  .dashboard-document-placeholder {
+  :global(.dashboard-document-placeholder) {
     height: 100%;
     padding: 2rem;
     color: var(--ds-color-text-secondary);
     background: var(--ds-color-surface);
   }
 
-  .dashboard-document-placeholder h1,
-  .dashboard-document-placeholder p {
+  :global(.dashboard-document-placeholder h1),
+  :global(.dashboard-document-placeholder p) {
     margin: 0;
   }
 
-  .dashboard-document-placeholder p {
+  :global(.dashboard-document-placeholder p) {
     margin-top: var(--ds-space-2);
+  }
+
+  .dashboard-inspector-empty {
+    margin: 0;
+    color: var(--ds-color-text-faint);
   }
 </style>
