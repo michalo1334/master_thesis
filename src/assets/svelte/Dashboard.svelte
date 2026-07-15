@@ -7,6 +7,7 @@
   import Ribbon from "./dashboard/ribbon/Ribbon";
   import Select from "./dashboard/controls/Select.svelte";
   import SplitButton from "./dashboard/controls/SplitButton.svelte";
+  import SimulationReport from "./dashboard/statistics/SimulationReport.svelte";
   import Workspace from "./dashboard/workspace/Workspace";
 
   type DocumentType = "topology" | "simulation";
@@ -19,7 +20,7 @@
 
   const documentTypes = [
     { id: "topology", label: "Topology", icon: "graph" },
-    { id: "simulation", label: "Simulation result", icon: "play" }
+    { id: "simulation", label: "Simulation result", icon: "play" },
   ] as const;
 
   let documents = $state<WorkspaceDocument[]>([]);
@@ -40,18 +41,22 @@
 
   function closeDocument(id: string) {
     const closedIndex = documents.findIndex((document) => document.id === id);
-    const remainingDocuments = documents.filter((document) => document.id !== id);
+    const remainingDocuments = documents.filter(
+      (document) => document.id !== id,
+    );
 
     documents = remainingDocuments;
 
     if (activeDocumentId === id) {
-      activeDocumentId = remainingDocuments[closedIndex]?.id ?? remainingDocuments[closedIndex - 1]?.id;
+      activeDocumentId =
+        remainingDocuments[closedIndex]?.id ??
+        remainingDocuments[closedIndex - 1]?.id;
     }
   }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
-  <AppBar/>
+  <AppBar />
   <Ribbon>
     <Ribbon.Tab title="Home">
       <Ribbon.Section title="Tools">
@@ -59,12 +64,14 @@
         <Button><Icon name="link" size={22} /><span>Connect</span></Button>
       </Ribbon.Section>
       <Ribbon.Section title="Add">
-        <SplitButton items={[
-          { label: "Server", icon: "server" },
-          { label: "Workstation", icon: "server" },
-          { label: "Firewall", icon: "shield" },
-          { label: "Database", icon: "server" }
-        ]}>
+        <SplitButton
+          items={[
+            { label: "Server", icon: "server" },
+            { label: "Workstation", icon: "server" },
+            { label: "Firewall", icon: "shield" },
+            { label: "Database", icon: "server" },
+          ]}
+        >
           <Icon name="server" size={22} /><span>Asset</span>
         </SplitButton>
         <Button><Icon name="zone" size={22} /><span>Zone</span></Button>
@@ -80,10 +87,18 @@
         <Checkbox checked>Show zone boundaries</Checkbox>
       </Ribbon.Section>
       <Ribbon.Section title="Arrange">
-        <Button variant="small"><Icon name="copy" size={16} /><span>Duplicate</span></Button>
-        <Button variant="small"><Icon name="trash" size={16} /><span>Remove</span></Button>
-        <Button variant="small"><Icon name="lock" size={16} /><span>Lock</span></Button>
-        <Button variant="small"><Icon name="align" size={16} /><span>Align</span></Button>
+        <Button variant="small"
+          ><Icon name="copy" size={16} /><span>Duplicate</span></Button
+        >
+        <Button variant="small"
+          ><Icon name="trash" size={16} /><span>Remove</span></Button
+        >
+        <Button variant="small"
+          ><Icon name="lock" size={16} /><span>Lock</span></Button
+        >
+        <Button variant="small"
+          ><Icon name="align" size={16} /><span>Align</span></Button
+        >
       </Ribbon.Section>
       <Ribbon.Section title="Security">
         <Button><Icon name="shield" size={22} /><span>Defense</span></Button>
@@ -105,9 +120,15 @@
     </Ribbon.Tab>
     <Ribbon.Tab title="View">
       <Ribbon.Section title="Presentation">
-        <RadioButton name="presentation" checked><Icon name="graph" size={16} />Graph</RadioButton>
-        <RadioButton name="presentation"><Icon name="list" size={16} />List</RadioButton>
-        <Button><Icon name="chevron-right" size={22} /><span>Inspector</span></Button>
+        <RadioButton name="presentation" checked
+          ><Icon name="graph" size={16} />Graph</RadioButton
+        >
+        <RadioButton name="presentation"
+          ><Icon name="list" size={16} />List</RadioButton
+        >
+        <Button
+          ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
+        >
       </Ribbon.Section>
     </Ribbon.Tab>
   </Ribbon>
@@ -120,10 +141,14 @@
   >
     {#each documents as document (document.id)}
       <Workspace.Document id={document.id} title={document.title}>
-        <section class="dashboard-document-placeholder">
-          <h1>{document.title}</h1>
-          <p>{document.type === "topology" ? "Topology canvas coming soon." : "Simulation result details coming soon."}</p>
-        </section>
+        {#if document.type === "simulation"}
+          <SimulationReport title={document.title} />
+        {:else}
+          <section class="dashboard-document-placeholder">
+            <h1>{document.title}</h1>
+            <p>Topology canvas coming soon.</p>
+          </section>
+        {/if}
       </Workspace.Document>
     {/each}
   </Workspace>
@@ -161,7 +186,9 @@
     font: inherit;
   }
 
-  .dashboard-app :global(button:not(:disabled)) { cursor: pointer; }
+  .dashboard-app :global(button:not(:disabled)) {
+    cursor: pointer;
+  }
 
   .dashboard-app :global(:focus-visible) {
     outline: 2px solid var(--ds-color-focus);
@@ -180,6 +207,7 @@
     margin: 0;
   }
 
-  .dashboard-document-placeholder p { margin-top: var(--ds-space-2); }
-
+  .dashboard-document-placeholder p {
+    margin-top: var(--ds-space-2);
+  }
 </style>
