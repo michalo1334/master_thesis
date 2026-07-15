@@ -17,6 +17,7 @@
     onCloseDocument: (id: string) => void;
     documentTypes: readonly WorkspaceDocumentType[];
     onCreateDocument: (typeId: string) => void;
+    inspector?: Snippet;
     children: Snippet;
   }
 
@@ -26,7 +27,8 @@
     onCloseDocument,
     documentTypes,
     onCreateDocument,
-    children
+    inspector,
+    children,
   }: Props = $props();
   let documents = $state<{ id: string; title: () => string }[]>([]);
 
@@ -37,7 +39,7 @@
       return () => {
         documents = documents.filter(({ id }) => id !== document.id);
       };
-    }
+    },
   });
 
   function closeDocument(event: MouseEvent, id: string) {
@@ -46,7 +48,12 @@
   }
 </script>
 
-<main class="dashboard-workspace">
+<main
+  class={[
+    "dashboard-workspace",
+    inspector && "dashboard-workspace-with-inspector",
+  ]}
+>
   <Tabs.Root
     class="dashboard-document"
     value={activeDocumentId}
@@ -65,20 +72,30 @@
               type="button"
               class="dashboard-document-close"
               aria-label={`Close ${document.title()}`}
-              onclick={(event) => closeDocument(event, document.id)}
-            >×</button>
+              onclick={(event) => closeDocument(event, document.id)}>×</button
+            >
           </div>
         {/each}
       </Tabs.List>
 
       <DropdownMenu.Root>
-        <DropdownMenu.Trigger class="dashboard-document-add" aria-label="Create document">
+        <DropdownMenu.Trigger
+          class="dashboard-document-add"
+          aria-label="Create document"
+        >
           <Icon name="plus" size={18} />
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
-          <DropdownMenu.Content class="dashboard-document-create-menu" side="bottom" sideOffset={4} align="end">
+          <DropdownMenu.Content
+            class="dashboard-document-create-menu"
+            side="bottom"
+            sideOffset={4}
+            align="start"
+          >
             {#each documentTypes as documentType (documentType.id)}
-              <DropdownMenu.Item onclick={() => onCreateDocument(documentType.id)}>
+              <DropdownMenu.Item
+                onclick={() => onCreateDocument(documentType.id)}
+              >
                 {#if documentType.icon}
                   <Icon name={documentType.icon} size={16} />
                 {/if}
@@ -99,31 +116,176 @@
       </section>
     {/if}
   </Tabs.Root>
+
+  {@render inspector?.()}
 </main>
 
 <style>
-  .dashboard-workspace { grid-area: workspace; min-width: 0; min-height: 0; }
-  :global(.dashboard-document) { height: 100%; display: grid; grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr); min-width: 0; min-height: 0; }
-  .dashboard-document-tabs-container { display: flex; align-items: end; min-width: 0; padding: 0.3125rem var(--ds-space-2) 0; border-bottom: 1px solid #aeb8c5; background: #dfe5ec; }
-  .dashboard-document-tabs-container :global(.dashboard-document-tabs) { height: 100%; flex: 1; display: flex; align-items: end; gap: 0.125rem; min-width: 0; overflow-x: auto; }
-  .dashboard-document-item { position: relative; display: flex; align-items: end; flex: none; }
-  .dashboard-document-tabs-container :global(.dashboard-document-tab) { max-width: 15rem; min-width: 8.75rem; height: var(--ds-document-tab-height); padding: 0 2.125rem 0 0.625rem; border: 1px solid #b7c0cc; border-bottom: 0; border-radius: 0.3125rem 0.3125rem 0 0; background: #edf1f5; color: var(--ds-color-text-secondary); display: flex; align-items: center; gap: var(--ds-space-2); }
-  .dashboard-document-tabs-container :global(.dashboard-document-tab[data-state="active"]) { height: 2.0625rem; background: var(--ds-color-paper); color: var(--ds-color-text); font-weight: 600; }
-  .dashboard-document-dot { width: var(--ds-space-2); height: var(--ds-space-2); flex: none; border-radius: 50%; background: #a0acba; }
-  .dashboard-document-tabs-container :global(.dashboard-document-tab[data-state="active"] .dashboard-document-dot) { background: #2d75d5; }
-  .dashboard-document-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dashboard-document-close { position: absolute; z-index: 1; right: var(--ds-space-1); bottom: 0.1875rem; width: 1.625rem; height: 1.625rem; border: 0; border-radius: var(--ds-radius-md); background: transparent; color: var(--ds-color-text-faint); font-size: 1rem; line-height: 1; }
-  .dashboard-document-close:hover { background: var(--ds-color-accent-soft); color: var(--ds-color-text); }
-  .dashboard-document-tabs-container :global(.dashboard-document-add) { width: 2rem; height: var(--ds-document-tab-height); flex: none; border: 1px solid #b7c0cc; border-radius: var(--ds-radius-md); color: var(--ds-color-text-secondary); background: #edf1f5; display: grid; place-items: center; }
-  .dashboard-document-tabs-container :global(.dashboard-document-add:hover) { color: var(--ds-color-text); background: var(--ds-color-paper); }
-  :global(.dashboard-document-create-menu) { z-index: 100; min-width: 11rem; padding: 0.25rem; border: 1px solid var(--ds-color-border); border-radius: var(--ds-radius-md); background: var(--ds-color-paper); box-shadow: var(--ds-shadow-md); }
-  :global(.dashboard-document-create-menu [role="menuitem"]) { min-height: var(--ds-control-height); padding: 0.25rem 0.5rem; border-radius: var(--ds-radius-sm); display: flex; align-items: center; gap: var(--ds-space-2); outline: 0; }
-  :global(.dashboard-document-create-menu [role="menuitem"][data-highlighted]) { background: var(--ds-color-accent-soft); }
-  :global(.dashboard-document-panel) { min-width: 0; min-height: 0; }
-  .dashboard-workspace-empty { grid-row: 2; min-height: 0; display: grid; place-content: center; justify-items: center; gap: var(--ds-space-3); color: var(--ds-color-text-faint); background: var(--ds-color-surface); }
-  .dashboard-workspace-empty p { margin: 0; }
+  .dashboard-workspace {
+    grid-area: workspace;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+  }
+  .dashboard-workspace-with-inspector {
+    grid-template-columns: minmax(0, 1fr) var(--ds-inspector-width);
+  }
+  :global(.dashboard-document) {
+    grid-column: 1;
+    height: 100%;
+    display: grid;
+    grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr);
+    min-width: 0;
+    min-height: 0;
+  }
+  .dashboard-workspace :global(.dashboard-inspector) {
+    grid-column: 2;
+  }
+  .dashboard-document-tabs-container {
+    display: flex;
+    align-items: end;
+    min-width: 0;
+    padding: 0.3125rem var(--ds-space-2) 0;
+    border-bottom: 1px solid #aeb8c5;
+    background: #dfe5ec;
+  }
+  .dashboard-document-tabs-container :global(.dashboard-document-tabs) {
+    height: 100%;
+    flex: 0 1 auto;
+    max-width: calc(100% - 2rem);
+    display: flex;
+    align-items: end;
+    gap: 0.125rem;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .dashboard-document-item {
+    position: relative;
+    display: flex;
+    align-items: end;
+    flex: none;
+  }
+  .dashboard-document-tabs-container :global(.dashboard-document-tab) {
+    max-width: 15rem;
+    min-width: 8.75rem;
+    height: var(--ds-document-tab-height);
+    padding: 0 2.125rem 0 0.625rem;
+    border: 1px solid #b7c0cc;
+    border-bottom: 0;
+    border-radius: 0.3125rem 0.3125rem 0 0;
+    background: #edf1f5;
+    color: var(--ds-color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-2);
+  }
+  .dashboard-document-tabs-container
+    :global(.dashboard-document-tab[data-state="active"]) {
+    height: 2.0625rem;
+    background: var(--ds-color-paper);
+    color: var(--ds-color-text);
+    font-weight: 600;
+  }
+  .dashboard-document-dot {
+    width: var(--ds-space-2);
+    height: var(--ds-space-2);
+    flex: none;
+    border-radius: 50%;
+    background: #a0acba;
+  }
+  .dashboard-document-tabs-container
+    :global(
+      .dashboard-document-tab[data-state="active"] .dashboard-document-dot
+    ) {
+    background: #2d75d5;
+  }
+  .dashboard-document-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .dashboard-document-close {
+    position: absolute;
+    z-index: 1;
+    right: var(--ds-space-1);
+    bottom: 0.1875rem;
+    width: 1.625rem;
+    height: 1.625rem;
+    border: 0;
+    border-radius: var(--ds-radius-md);
+    background: transparent;
+    color: var(--ds-color-text-faint);
+    font-size: 1rem;
+    line-height: 1;
+  }
+  .dashboard-document-close:hover {
+    background: var(--ds-color-accent-soft);
+    color: var(--ds-color-text);
+  }
+  .dashboard-document-tabs-container :global(.dashboard-document-add) {
+    width: 2rem;
+    height: var(--ds-document-tab-height);
+    flex: none;
+    border: 1px solid #b7c0cc;
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-text-secondary);
+    background: #edf1f5;
+    display: grid;
+    place-items: center;
+  }
+  .dashboard-document-tabs-container :global(.dashboard-document-add:hover) {
+    color: var(--ds-color-text);
+    background: var(--ds-color-paper);
+  }
+  :global(.dashboard-document-create-menu) {
+    z-index: 100;
+    min-width: 11rem;
+    padding: 0.25rem;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    box-shadow: var(--ds-shadow-md);
+  }
+  :global(.dashboard-document-create-menu [role="menuitem"]) {
+    min-height: var(--ds-control-height);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--ds-radius-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-2);
+    outline: 0;
+  }
+  :global(.dashboard-document-create-menu [role="menuitem"][data-highlighted]) {
+    background: var(--ds-color-accent-soft);
+  }
+  :global(.dashboard-document-panel) {
+    min-width: 0;
+    min-height: 0;
+  }
+  .dashboard-workspace-empty {
+    grid-row: 2;
+    min-height: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: var(--ds-space-3);
+    color: var(--ds-color-text-faint);
+    background: var(--ds-color-surface);
+  }
+  .dashboard-workspace-empty p {
+    margin: 0;
+  }
 
   @media (max-width: 47.5em) {
-    .dashboard-document-tabs-container :global(.dashboard-document-tab) { min-width: 6.875rem; }
+    .dashboard-workspace-with-inspector {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dashboard-workspace :global(.dashboard-inspector) {
+      display: none;
+    }
+    .dashboard-document-tabs-container :global(.dashboard-document-tab) {
+      min-width: 6.875rem;
+    }
   }
 </style>
