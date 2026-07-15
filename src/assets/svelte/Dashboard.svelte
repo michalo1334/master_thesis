@@ -1,94 +1,75 @@
 <script lang="ts">
   import AppBar from "./dashboard/AppBar.svelte";
-  import Ribbon from "./dashboard/Ribbon.svelte";
-  import StatusBar from "./dashboard/StatusBar.svelte";
-  import Workspace from "./dashboard/Workspace.svelte";
-  import { dashboardDocuments, topologyNodes } from "./dashboard/data";
-  import type { DashboardDocument, ViewMode } from "./dashboard/types";
-
-  interface Props {
-    projectName?: string;
-    userName?: string;
-  }
-
-  let {
-    projectName = "Production network topology",
-    userName = "Aleksandra Nowak"
-  }: Props = $props();
-
-  const initialDocuments = dashboardDocuments.map((document) => ({ ...document }));
-
-  let documents = $state<DashboardDocument[]>(initialDocuments);
-  let activeDocumentId = $state(dashboardDocuments[0].id);
-  let inspectorOpen = $state(true);
-  let viewByDocument = $state<Record<string, ViewMode>>(
-    Object.fromEntries(dashboardDocuments.map((document) => [document.id, "graph"]))
-  );
-  let selectionByDocument = $state<Record<string, string>>(
-    Object.fromEntries(dashboardDocuments.map((document) => [document.id, document.initialSelectionId]))
-  );
-  let zoomByDocument = $state<Record<string, number>>(
-    Object.fromEntries(dashboardDocuments.map((document) => [document.id, 100]))
-  );
-
-  let activeDocument = $derived(
-    documents.find((document) => document.id === activeDocumentId) ?? documents[0]
-  );
-  let selectedNode = $derived(
-    topologyNodes.find((node) => node.id === selectionByDocument[activeDocumentId]) ?? topologyNodes[0]
-  );
-  let activeView = $derived(viewByDocument[activeDocumentId] ?? "graph");
-  let activeZoom = $derived(zoomByDocument[activeDocumentId] ?? 100);
-
-  function activateDocument(id: string) {
-    if (documents.some((document) => document.id === id)) activeDocumentId = id;
-  }
-
-  function closeDocument(id: string) {
-    if (documents.length === 1) return;
-
-    const closedIndex = documents.findIndex((document) => document.id === id);
-    const wasActive = id === activeDocumentId;
-    documents = documents.filter((document) => document.id !== id);
-
-    if (wasActive) {
-      activeDocumentId = documents[Math.min(closedIndex, documents.length - 1)].id;
-    }
-  }
-
-  function selectNode(id: string) {
-    selectionByDocument[activeDocumentId] = id;
-  }
-
-  function setView(view: ViewMode) {
-    viewByDocument[activeDocumentId] = view;
-  }
-
-  function setZoom(value: number) {
-    zoomByDocument[activeDocumentId] = Math.max(50, Math.min(180, value));
-  }
+  import Button from "./dashboard/Button.svelte";
+  import Checkbox from "./dashboard/Checkbox.svelte";
+  import Icon from "./dashboard/Icon.svelte";
+  import RadioButton from "./dashboard/RadioButton.svelte";
+  import Ribbon from "./dashboard/Ribbon";
+  import Select from "./dashboard/Select.svelte";
+  import SplitButton from "./dashboard/SplitButton.svelte";
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
-  <AppBar filename={activeDocument.title || projectName} {userName} />
-  <Ribbon {activeView} onViewChange={setView} onToggleInspector={() => (inspectorOpen = !inspectorOpen)} />
-  <Workspace
-    {documents}
-    {activeDocumentId}
-    {activeDocument}
-    {selectedNode}
-    {activeView}
-    {activeZoom}
-    {inspectorOpen}
-    onActivateDocument={activateDocument}
-    onCloseDocument={closeDocument}
-    onSelectNode={selectNode}
-    onViewChange={setView}
-    onZoomChange={setZoom}
-    onCloseInspector={() => (inspectorOpen = false)}
-    onRestoreInspector={() => (inspectorOpen = true)}
-  />
-  <StatusBar selectedName={selectedNode.name} zoom={activeZoom} />
+  <AppBar/>
+  <Ribbon>
+    <Ribbon.Tab title="Home">
+      <Ribbon.Section title="Tools">
+        <Button><Icon name="cursor" size={22} /><span>Select</span></Button>
+        <Button><Icon name="link" size={22} /><span>Connect</span></Button>
+      </Ribbon.Section>
+      <Ribbon.Section title="Add">
+        <SplitButton items={[
+          { label: "Server", icon: "server" },
+          { label: "Workstation", icon: "server" },
+          { label: "Firewall", icon: "shield" },
+          { label: "Database", icon: "server" }
+        ]}>
+          <Icon name="server" size={22} /><span>Asset</span>
+        </SplitButton>
+        <Button><Icon name="zone" size={22} /><span>Zone</span></Button>
+      </Ribbon.Section>
+      <Ribbon.Section title="Layout">
+        <Select label="Topology layout" value="Layered">
+          <option>Layered</option>
+          <option>Force-directed</option>
+          <option>Radial</option>
+        </Select>
+      </Ribbon.Section>
+      <Ribbon.Section title="Display">
+        <Checkbox checked>Show zone boundaries</Checkbox>
+      </Ribbon.Section>
+      <Ribbon.Section title="Arrange">
+        <Button variant="small"><Icon name="copy" size={16} /><span>Duplicate</span></Button>
+        <Button variant="small"><Icon name="trash" size={16} /><span>Remove</span></Button>
+        <Button variant="small"><Icon name="lock" size={16} /><span>Lock</span></Button>
+        <Button variant="small"><Icon name="align" size={16} /><span>Align</span></Button>
+      </Ribbon.Section>
+      <Ribbon.Section title="Security">
+        <Button><Icon name="shield" size={22} /><span>Defense</span></Button>
+        <Button><Icon name="tag" size={22} /><span>Classify</span></Button>
+      </Ribbon.Section>
+    </Ribbon.Tab>
+    <Ribbon.Tab title="Insert">
+      <Ribbon.Section title="Topology">
+        <Button><Icon name="server" size={22} /><span>Server</span></Button>
+        <Button><Icon name="zone" size={22} /><span>Gateway</span></Button>
+        <Button><Icon name="link" size={22} /><span>Trust link</span></Button>
+      </Ribbon.Section>
+    </Ribbon.Tab>
+    <Ribbon.Tab title="Analyze">
+      <Ribbon.Section title="Attack model">
+        <Button><Icon name="play" size={22} /><span>Simulate</span></Button>
+        <Button><Icon name="shield" size={22} /><span>Optimize</span></Button>
+      </Ribbon.Section>
+    </Ribbon.Tab>
+    <Ribbon.Tab title="View">
+      <Ribbon.Section title="Presentation">
+        <RadioButton name="presentation" checked><Icon name="graph" size={16} />Graph</RadioButton>
+        <RadioButton name="presentation"><Icon name="list" size={16} />List</RadioButton>
+        <Button><Icon name="chevron-right" size={22} /><span>Inspector</span></Button>
+      </Ribbon.Section>
+    </Ribbon.Tab>
+  </Ribbon>
 </div>
 
 <style>
@@ -130,33 +111,4 @@
     outline-offset: 2px;
   }
 
-  @media (max-width: 65.625em) {
-    .dashboard-app {
-      grid-template-rows:
-        minmax(var(--ds-appbar-height), auto)
-        minmax(var(--ds-ribbon-compact-height), auto)
-        minmax(0, 1fr)
-        minmax(var(--ds-statusbar-height), auto);
-    }
-  }
-
-  @media (max-width: 47.5em) {
-    .dashboard-app {
-      grid-template-rows:
-        minmax(var(--ds-appbar-height), auto)
-        minmax(var(--ds-ribbon-mobile-height), auto)
-        minmax(0, 1fr)
-        minmax(var(--ds-statusbar-height), auto);
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dashboard-app :global(*),
-    .dashboard-app :global(*::before),
-    .dashboard-app :global(*::after) {
-      scroll-behavior: auto !important;
-      transition: none !important;
-      animation: none !important;
-    }
-  }
 </style>
