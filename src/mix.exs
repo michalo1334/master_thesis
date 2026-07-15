@@ -106,9 +106,10 @@ defmodule NetworkDefense.MixProject do
       ],
       precommit: [
         "compile --warning-as-errors",
+        "format --check-formatted",
         "credo",
+        "sobelow --config",
         "deps.unlock --unused",
-        "format",
         "test"
       ]
     ]

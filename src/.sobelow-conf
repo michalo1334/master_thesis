@@ -1,0 +1,10 @@
+# TLS termination and the final CSP depend on the deployment boundary. Keep
+# these known configuration findings explicit while failing on all others.
+[
+  exit: "low",
+  format: "compact",
+  ignore: ["Config.CSP", "Config.HTTPS"],
+  private: true,
+  strict: true,
+  threshold: "low"
+]
