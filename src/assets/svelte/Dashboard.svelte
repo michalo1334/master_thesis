@@ -1,12 +1,53 @@
 <script lang="ts">
-  import AppBar from "./dashboard/AppBar.svelte";
-  import Button from "./dashboard/Button.svelte";
-  import Checkbox from "./dashboard/Checkbox.svelte";
-  import Icon from "./dashboard/Icon.svelte";
-  import RadioButton from "./dashboard/RadioButton.svelte";
-  import Ribbon from "./dashboard/Ribbon";
-  import Select from "./dashboard/Select.svelte";
-  import SplitButton from "./dashboard/SplitButton.svelte";
+  import AppBar from "./dashboard/shell/AppBar.svelte";
+  import Button from "./dashboard/controls/Button.svelte";
+  import Checkbox from "./dashboard/controls/Checkbox.svelte";
+  import Icon from "./dashboard/controls/Icon.svelte";
+  import RadioButton from "./dashboard/controls/RadioButton.svelte";
+  import Ribbon from "./dashboard/ribbon/Ribbon";
+  import Select from "./dashboard/controls/Select.svelte";
+  import SplitButton from "./dashboard/controls/SplitButton.svelte";
+  import Workspace from "./dashboard/workspace/Workspace";
+
+  type DocumentType = "topology" | "simulation";
+
+  interface WorkspaceDocument {
+    id: string;
+    title: string;
+    type: DocumentType;
+  }
+
+  const documentTypes = [
+    { id: "topology", label: "Topology", icon: "graph" },
+    { id: "simulation", label: "Simulation result", icon: "play" }
+  ] as const;
+
+  let documents = $state<WorkspaceDocument[]>([]);
+  let activeDocumentId = $state<string>();
+  let nextDocumentId = 1;
+
+  function createDocument(typeId: string) {
+    const documentType = documentTypes.find(({ id }) => id === typeId);
+
+    if (!documentType) return;
+
+    const id = `${documentType.id}-${nextDocumentId++}`;
+    const title = `${documentType.label} ${documents.filter((document) => document.type === documentType.id).length + 1}`;
+
+    documents = [...documents, { id, title, type: documentType.id }];
+    activeDocumentId = id;
+  }
+
+  function closeDocument(id: string) {
+    const closedIndex = documents.findIndex((document) => document.id === id);
+    const remainingDocuments = documents.filter((document) => document.id !== id);
+
+    documents = remainingDocuments;
+
+    if (activeDocumentId === id) {
+      activeDocumentId = remainingDocuments[closedIndex]?.id ?? remainingDocuments[closedIndex - 1]?.id;
+    }
+  }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
@@ -70,6 +111,22 @@
       </Ribbon.Section>
     </Ribbon.Tab>
   </Ribbon>
+  <Workspace
+    {activeDocumentId}
+    onActiveDocumentChange={(id) => (activeDocumentId = id)}
+    onCloseDocument={closeDocument}
+    {documentTypes}
+    onCreateDocument={createDocument}
+  >
+    {#each documents as document (document.id)}
+      <Workspace.Document id={document.id} title={document.title}>
+        <section class="dashboard-document-placeholder">
+          <h1>{document.title}</h1>
+          <p>{document.type === "topology" ? "Topology canvas coming soon." : "Simulation result details coming soon."}</p>
+        </section>
+      </Workspace.Document>
+    {/each}
+  </Workspace>
 </div>
 
 <style>
@@ -110,5 +167,19 @@
     outline: 2px solid var(--ds-color-focus);
     outline-offset: 2px;
   }
+
+  .dashboard-document-placeholder {
+    height: 100%;
+    padding: 2rem;
+    color: var(--ds-color-text-secondary);
+    background: var(--ds-color-surface);
+  }
+
+  .dashboard-document-placeholder h1,
+  .dashboard-document-placeholder p {
+    margin: 0;
+  }
+
+  .dashboard-document-placeholder p { margin-top: var(--ds-space-2); }
 
 </style>

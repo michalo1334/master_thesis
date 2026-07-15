@@ -3,7 +3,7 @@
   import type { Snippet } from "svelte";
   import type { HTMLButtonAttributes } from "svelte/elements";
   import Icon from "./Icon.svelte";
-  import type { IconName } from "./types";
+  import type { IconName } from "../types";
 
   export interface SplitButtonItem {
     label: string;

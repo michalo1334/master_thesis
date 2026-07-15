@@ -1,8 +1,8 @@
 <script lang="ts">
   import { DropdownMenu } from "bits-ui";
-  import Icon from "./Icon.svelte";
-  import { topologyEdges, topologyNodes } from "./data";
-  import type { DashboardDocument, ViewMode } from "./types";
+  import Icon from "../controls/Icon.svelte";
+  import { topologyEdges, topologyNodes } from "../data";
+  import type { DashboardDocument, ViewMode } from "../types";
 
   interface Props {
     document: DashboardDocument;

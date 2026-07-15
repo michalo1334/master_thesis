@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Tabs } from "bits-ui";
-  import type { DashboardDocument } from "./types";
+  import type { DashboardDocument } from "../types";
 
   interface Props {
     documents: DashboardDocument[];

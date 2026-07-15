@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Icon from "./Icon.svelte";
-  import type { TopologyNode } from "./types";
+  import Icon from "../controls/Icon.svelte";
+  import type { TopologyNode } from "../types";
 
   interface Props {
     node: TopologyNode;
