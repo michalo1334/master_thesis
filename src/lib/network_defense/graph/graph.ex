@@ -1,16 +1,15 @@
 defmodule NetworkDefense.Graph.Graph do
   use Ecto.Schema
   import Ecto.Changeset
-  import Ecto.Query
 
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Repo
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
     has_many :nodes, Node
+    has_many :edges, Edge
     field :adjacency_list, :map, virtual: true, default: %{}
 
     timestamps(type: :utc_datetime)
@@ -23,29 +22,28 @@ defmodule NetworkDefense.Graph.Graph do
     |> validate_required([])
   end
 
+  def new do
+    %__MODULE__{id: Ecto.UUID.generate(), nodes: [], edges: [], adjacency_list: %{}}
+  end
+
+  def hydrate(graph, nodes, edges) do
+    graph = %{graph | nodes: [], edges: [], adjacency_list: %{}}
+    graph = Enum.reduce(nodes, graph, &put_node(&2, &1))
+    Enum.reduce(edges, graph, &put_edge(&2, &1))
+  end
+
   def nodes(graph), do: loaded_nodes(graph.nodes)
 
-  def create(attrs \\ %{}) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Repo.insert()
+  def edges(graph) do
+    graph.adjacency_list
+    |> Map.values()
+    |> Enum.flat_map(& &1.outgoing)
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.uniq_by(& &1.id)
   end
 
-  def create_node(%__MODULE__{} = graph, attrs) do
-    %Node{graph_id: graph.id}
-    |> Node.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def create_edge(%__MODULE__{} = graph, %Node{} = from, %Node{} = to, attrs) do
-    %Edge{graph_id: graph.id, from_id: from.id, to_id: to.id}
-    |> Edge.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  def node(graph, node_id) do
-    Enum.find(nodes(graph), &(&1.id == node_id))
-  end
+  def node(graph, node_id), do: Enum.find(nodes(graph), &(&1.id == node_id))
+  def edge(graph, edge_id), do: Enum.find(edges(graph), &(&1.id == edge_id))
 
   def outgoing(graph, node_id) do
     graph.adjacency_list
@@ -59,54 +57,50 @@ defmodule NetworkDefense.Graph.Graph do
     |> Map.fetch!(:incoming)
   end
 
-  def load(id) do
-    case Repo.get(__MODULE__, id) do
-      nil -> nil
-      graph -> load_adjacency_list(graph)
-    end
-  end
+  def add_node(graph, %Node{} = node), do: put_node(graph, node)
+  def add_node(graph, attrs) when is_map(attrs), do: add_node(graph, Node.new(graph.id, attrs))
 
-  def load!(id) do
-    __MODULE__
-    |> Repo.get!(id)
-    |> load_adjacency_list()
-  end
+  def update_node(graph, %Node{} = updated_node) do
+    node!(graph, updated_node.id)
 
-  def add_node(graph, node) do
-    if node.graph_id != graph.id do
+    if updated_node.graph_id != graph.id do
       raise ArgumentError, "node does not belong to graph"
     end
 
-    if Map.has_key?(graph.adjacency_list, node.id) do
+    %{
       graph
-    else
-      %{
-        graph
-        | nodes: loaded_nodes(graph.nodes) ++ [node],
-          adjacency_list: Map.put(graph.adjacency_list, node.id, empty_adjacency())
-      }
-    end
+      | nodes:
+          Enum.map(nodes(graph), fn node ->
+            if node.id == updated_node.id, do: updated_node, else: node
+          end)
+    }
   end
 
-  def add_edge(graph, edge) do
-    unless edge.graph_id == graph.id and Map.has_key?(graph.adjacency_list, edge.from_id) and
-             Map.has_key?(graph.adjacency_list, edge.to_id) do
-      raise ArgumentError, "edge endpoints must belong to graph"
-    end
+  def add_edge(graph, %Edge{} = edge), do: put_edge(graph, edge)
+
+  def add_edge(graph, %Node{} = from, %Node{} = to, attrs) when is_map(attrs) do
+    add_edge(graph, Edge.new(graph.id, from.id, to.id, attrs))
+  end
+
+  def update_edge(graph, %Edge{} = updated_edge) do
+    edge!(graph, updated_edge.id)
 
     adjacency_list =
-      graph.adjacency_list
-      |> add_outgoing_edge(edge)
-      |> add_incoming_edge(edge)
+      Map.new(graph.adjacency_list, fn {node_id, adjacency} ->
+        {
+          node_id,
+          %{
+            outgoing: replace_edge(adjacency.outgoing, updated_edge),
+            incoming: replace_edge(adjacency.incoming, updated_edge)
+          }
+        }
+      end)
 
     %{graph | adjacency_list: adjacency_list}
   end
 
   def remove_node_by_id(graph, node_id) do
-    nodes =
-      graph.nodes
-      |> loaded_nodes()
-      |> Enum.reject(&(&1.id == node_id))
+    nodes = Enum.reject(nodes(graph), &(&1.id == node_id))
 
     adjacency_list =
       graph.adjacency_list
@@ -142,33 +136,41 @@ defmodule NetworkDefense.Graph.Graph do
     %{graph | adjacency_list: adjacency_list}
   end
 
-  defp load_adjacency_list(graph) do
-    graph = Repo.preload(graph, :nodes)
-    node_ids = Enum.map(graph.nodes, & &1.id)
+  defp put_node(graph, node) do
+    if node.graph_id != graph.id, do: raise(ArgumentError, "node does not belong to graph")
 
-    edges =
-      Repo.all(
-        from edge in Edge,
-          where:
-            edge.graph_id == ^graph.id and edge.from_id in ^node_ids and edge.to_id in ^node_ids,
-          order_by: [asc: edge.inserted_at, asc: edge.id]
-      )
+    if Map.has_key?(graph.adjacency_list, node.id) do
+      graph
+    else
+      %{
+        graph
+        | nodes: nodes(graph) ++ [node],
+          adjacency_list: Map.put(graph.adjacency_list, node.id, empty_adjacency())
+      }
+    end
+  end
 
-    adjacency_list =
-      graph.nodes
-      |> Map.new(&{&1.id, empty_adjacency()})
-      |> add_edges(edges)
+  defp put_edge(graph, edge) do
+    unless edge.graph_id == graph.id and Map.has_key?(graph.adjacency_list, edge.from_id) and
+             Map.has_key?(graph.adjacency_list, edge.to_id) do
+      raise ArgumentError, "edge endpoints must belong to graph"
+    end
 
+    adjacency_list = graph.adjacency_list |> add_outgoing_edge(edge) |> add_incoming_edge(edge)
     %{graph | adjacency_list: adjacency_list}
   end
 
-  defp add_edges(adjacency_list, edges) do
-    Enum.reduce(edges, adjacency_list, fn edge, adjacency_list ->
-      adjacency_list
-      |> add_outgoing_edge(edge)
-      |> add_incoming_edge(edge)
+  defp replace_edge(edges, updated_edge) do
+    Enum.map(edges, fn {node_id, edge} ->
+      if edge.id == updated_edge.id, do: {node_id, updated_edge}, else: {node_id, edge}
     end)
   end
+
+  defp node!(graph, node_id),
+    do: node(graph, node_id) || raise(ArgumentError, "node does not belong to graph")
+
+  defp edge!(graph, edge_id),
+    do: edge(graph, edge_id) || raise(ArgumentError, "edge does not belong to graph")
 
   defp add_outgoing_edge(adjacency_list, edge) do
     Map.update!(adjacency_list, edge.from_id, fn adjacency ->
@@ -183,7 +185,6 @@ defmodule NetworkDefense.Graph.Graph do
   end
 
   defp empty_adjacency, do: %{incoming: [], outgoing: []}
-
   defp loaded_nodes(nodes) when is_list(nodes), do: nodes
   defp loaded_nodes(%Ecto.Association.NotLoaded{}), do: []
 end

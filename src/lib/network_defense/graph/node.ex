@@ -30,6 +30,12 @@ defmodule NetworkDefense.Graph.Node do
     |> validate_dynamic_data()
   end
 
+  def new(graph_id, attrs) do
+    attrs
+    |> Map.merge(%{id: Ecto.UUID.generate(), graph_id: graph_id})
+    |> then(&struct!(__MODULE__, &1))
+  end
+
   defp validate_dynamic_data(changeset) do
     type = get_field(changeset, :type)
     data = get_field(changeset, :data)

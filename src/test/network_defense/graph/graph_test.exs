@@ -2,7 +2,9 @@ defmodule NetworkDefense.Graph.GraphTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.EditSession
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
@@ -13,47 +15,36 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   describe "persistence" do
     test "creates and loads a graph with typed nodes and edges" do
-      assert {:ok, graph} = Graph.create()
+      graph = Graph.new()
+      source_host = build_node(graph, Host, %{"name" => "internet"})
+      target_host = build_node(graph, Host, %{"name" => "web-01"})
 
-      assert {:ok, source_host} =
-               Graph.create_node(graph, %{
-                 type: Atom.to_string(Host),
-                 data: %{"name" => "internet"}
-               })
+      service =
+        build_node(graph, Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
 
-      assert {:ok, target_host} =
-               Graph.create_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "web-01"}})
+      vulnerability =
+        build_node(graph, Vulnerability, %{
+          "identifier" => "CVE-2024-0001",
+          "cvss_score" => 7.5,
+          "exploit_probability" => 0.8
+        })
 
-      assert {:ok, service} =
-               Graph.create_node(graph, %{
-                 type: Atom.to_string(Service),
-                 data: %{"name" => "nginx", "protocol" => "tcp", "port" => 443}
-               })
+      reachability_edge = build_edge(graph, source_host, service, NetworkReachability)
+      runs_edge = build_edge(graph, target_host, service, Runs)
+      vulnerability_edge = build_edge(graph, service, vulnerability, HasVulnerability)
 
-      assert {:ok, vulnerability} =
-               Graph.create_node(graph, %{
-                 type: Atom.to_string(Vulnerability),
-                 data: %{
-                   "identifier" => "CVE-2024-0001",
-                   "cvss_score" => 7.5,
-                   "exploit_probability" => 0.8
-                 }
-               })
+      graph =
+        graph
+        |> Graph.add_node(source_host)
+        |> Graph.add_node(target_host)
+        |> Graph.add_node(service)
+        |> Graph.add_node(vulnerability)
+        |> Graph.add_edge(reachability_edge)
+        |> Graph.add_edge(runs_edge)
+        |> Graph.add_edge(vulnerability_edge)
 
-      assert {:ok, reachability_edge} =
-               Graph.create_edge(graph, source_host, service, %{
-                 type: Atom.to_string(NetworkReachability)
-               })
-
-      assert {:ok, runs_edge} =
-               Graph.create_edge(graph, target_host, service, %{type: Atom.to_string(Runs)})
-
-      assert {:ok, vulnerability_edge} =
-               Graph.create_edge(graph, service, vulnerability, %{
-                 type: Atom.to_string(HasVulnerability)
-               })
-
-      loaded_graph = Graph.load!(graph.id)
+      assert {:ok, session} = graph |> EditSession.from_graph() |> EditSession.save()
+      loaded_graph = session.graph
 
       assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
                Enum.sort([source_host.id, target_host.id, service.id, vulnerability.id])
@@ -82,7 +73,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "loads an empty graph" do
       graph = insert_graph()
 
-      loaded_graph = Graph.load!(graph.id)
+      loaded_graph = Graphs.load!(graph.id)
 
       assert loaded_graph.nodes == []
       assert loaded_graph.adjacency_list == %{}
@@ -95,7 +86,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       isolated = insert_node(graph, "isolated")
       edge = insert_edge(source, target)
 
-      loaded_graph = Graph.load(graph.id)
+      loaded_graph = Graphs.load(graph.id)
 
       assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
                Enum.sort([source.id, target.id, isolated.id])
@@ -130,7 +121,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
 
     test "returns nil when the graph does not exist" do
-      assert Graph.load(Ecto.UUID.generate()) == nil
+      assert Graphs.load(Ecto.UUID.generate()) == nil
     end
   end
 
@@ -154,6 +145,22 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   describe "in-memory updates" do
+    test "builds nodes and edges with UUIDs" do
+      graph = Graph.new()
+      graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "source"}})
+      graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "target"}})
+      [source, target] = graph.nodes
+
+      graph = Graph.add_edge(graph, source, target, %{type: Atom.to_string(Runs), data: %{}})
+
+      assert {:ok, _graph_id} = Ecto.UUID.cast(graph.id)
+      assert {:ok, _source_id} = Ecto.UUID.cast(source.id)
+      assert {:ok, _target_id} = Ecto.UUID.cast(target.id)
+      assert [{target_id, %{id: edge_id}}] = Graph.outgoing(graph, source.id)
+      assert target_id == target.id
+      assert {:ok, _edge_id} = Ecto.UUID.cast(edge_id)
+    end
+
     test "add and remove operations maintain the adjacency list" do
       graph = insert_graph()
       source = insert_node(graph, "source")
@@ -206,6 +213,51 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
   end
 
+  describe "edit session" do
+    test "persists tracked node and edge changes" do
+      session =
+        EditSession.new()
+        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "source"}})
+        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "target"}})
+
+      [source, target] = session.graph.nodes
+
+      session =
+        EditSession.add_edge(session, source, target, %{type: Atom.to_string(Runs), data: %{}})
+
+      assert {:ok, session} = EditSession.save(session)
+
+      assert [{target_id, edge}] = Graph.outgoing(session.graph, source.id)
+      assert target_id == target.id
+
+      session =
+        session
+        |> EditSession.update_node(source.id, %{data: %{"name" => "renamed"}})
+        |> EditSession.update_edge(edge.id, %{type: Atom.to_string(NetworkReachability)})
+
+      assert {:ok, session} = EditSession.save(session)
+      assert Graph.node(session.graph, source.id).data == %{"name" => "renamed"}
+
+      session = EditSession.remove_node(session, target.id)
+      assert {:ok, session} = EditSession.save(session)
+      assert [remaining_node] = session.graph.nodes
+      assert remaining_node.id == source.id
+      assert Graph.outgoing(session.graph, source.id) == []
+    end
+
+    test "cancels an inserted node removed before save" do
+      session =
+        EditSession.new()
+        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "temporary"}})
+
+      [node] = session.graph.nodes
+      session = EditSession.remove_node(session, node.id)
+
+      assert {:ok, session} = EditSession.save(session)
+      assert session.graph.nodes == []
+    end
+  end
+
   describe "SQL ownership" do
     test "deleting a graph deletes its nodes and edges" do
       graph = insert_graph()
@@ -251,5 +303,20 @@ defmodule NetworkDefense.Graph.GraphTest do
     %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
     |> Edge.changeset(%{type: Atom.to_string(Runs)})
     |> Repo.insert!()
+  end
+
+  defp build_node(graph, type, data) do
+    %Node{id: Ecto.UUID.generate(), graph_id: graph.id, type: Atom.to_string(type), data: data}
+  end
+
+  defp build_edge(graph, from, to, type) do
+    %Edge{
+      id: Ecto.UUID.generate(),
+      graph_id: graph.id,
+      from_id: from.id,
+      to_id: to.id,
+      type: Atom.to_string(type),
+      data: %{}
+    }
   end
 end
