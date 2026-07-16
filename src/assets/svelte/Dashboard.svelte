@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Live } from "live_svelte";
+  import { onMount } from "svelte";
   import { SvelteSet } from "svelte/reactivity";
   import AppBar from "./dashboard/shell/AppBar.svelte";
   import {
@@ -11,7 +12,6 @@
     type SelectedTopologyObject,
     type TopologyLayout,
   } from "./dashboard/commands/registry";
-  import TopologyContextMenu from "./dashboard/commands/TopologyContextMenu.svelte";
   import Button from "./dashboard/controls/Button.svelte";
   import Checkbox from "./dashboard/controls/Checkbox.svelte";
   import Icon from "./dashboard/controls/Icon.svelte";
@@ -23,6 +23,8 @@
   import StatusBar from "./dashboard/shell/StatusBar.svelte";
   import SimulationReport from "./dashboard/statistics/SimulationReport.svelte";
   import Workspace from "./dashboard/workspace/Workspace";
+  import Canvas from "./dashboard/workspace/Canvas.svelte";
+  import type { AssetKind } from "./dashboard/workspace/canvas/fixtures";
 
   type DocumentType = "topology" | "simulation";
 
@@ -30,6 +32,12 @@
     id: string;
     title: string;
     type: DocumentType;
+  }
+
+  interface StoredWorkspace {
+    documents: unknown[];
+    activeDocumentId?: unknown;
+    nextDocumentId?: unknown;
   }
 
   interface ServerCommand {
@@ -51,15 +59,23 @@
     { id: "topology", label: "Topology", icon: "graph" },
     { id: "simulation", label: "Simulation result", icon: "play" },
   ] as const;
+  const workspaceStorageKey = "master-thesis.dashboard.workspace.v1";
 
   let documents = $state<WorkspaceDocument[]>([]);
   let activeDocumentId = $state<string>();
-  let nextDocumentId = 1;
+  let nextDocumentId = $state(1);
+  let workspaceRestored = $state(false);
+  let persistedWorkspace: string | undefined;
+  let serializedWorkspace = $derived(
+    JSON.stringify({ documents, activeDocumentId, nextDocumentId }),
+  );
   let activeDocument = $derived(
     documents.find((document) => document.id === activeDocumentId),
   );
   let selectedObject = $state<SelectedTopologyObject>();
+  let pendingAssetKind = $state<AssetKind>();
   let serverStatus = $derived(serverCommand?.message);
+  let canEditTopology = $derived(activeDocument?.type === "topology");
   let ui = $state<DashboardUiState>({
     currentTool: "select",
     topologyLayout: "layered",
@@ -68,11 +84,6 @@
     presentation: "graph",
   });
   const reconciledServerCommandVersions = new SvelteSet<number>();
-  const topologyPlaceholderObject: SelectedTopologyObject = {
-    id: "topology-surface",
-    name: "Topology surface",
-  };
-
   let commandContext = $derived.by(() => ({
     activeDocument,
     selectedObject,
@@ -89,11 +100,182 @@
     setSelectedObject,
   }));
 
+  $effect(reconcileServerCommand);
+
   $effect(() => {
-    if (serverCommand) reconcileServerCommand(serverCommand);
+    if (!workspaceRestored) return;
+
+    const workspace = serializedWorkspace;
+    if (workspace === persistedWorkspace) return;
+
+    try {
+      localStorage[workspaceStorageKey] = workspace;
+    } catch {
+      // Storage can be unavailable or full; retain the in-memory workspace.
+    }
+    persistedWorkspace = workspace;
   });
 
-  function reconcileServerCommand(command: ServerCommand) {
+  onMount(() => {
+    const workspaceWasNormalized = restoreWorkspace(localStorage);
+
+    persistedWorkspace = serializedWorkspace;
+    workspaceRestored = true;
+
+    if (workspaceWasNormalized) persistWorkspace(persistedWorkspace);
+  });
+
+  function restoreWorkspace(storage: Storage) {
+    let value: string | null;
+
+    try {
+      value = storage.getItem(workspaceStorageKey);
+    } catch {
+      return false;
+    }
+
+    if (value === null) return false;
+
+    let storedWorkspace: StoredWorkspace;
+
+    try {
+      const parsedWorkspace: unknown = JSON.parse(value);
+      if (!isStoredWorkspace(parsedWorkspace))
+        throw new Error("Invalid workspace");
+      storedWorkspace = parsedWorkspace;
+    } catch {
+      removeStoredWorkspace(storage);
+      return false;
+    }
+
+    const restoredDocuments: WorkspaceDocument[] = [];
+    const documentIds = new SvelteSet<string>();
+    let workspaceWasNormalized = false;
+
+    for (const value of storedWorkspace.documents) {
+      const document = parseWorkspaceDocument(value);
+
+      if (!document || documentIds.has(document.id)) {
+        workspaceWasNormalized = true;
+        continue;
+      }
+
+      documentIds.add(document.id);
+      restoredDocuments.push(document);
+    }
+
+    const restoredActiveDocumentId =
+      typeof storedWorkspace.activeDocumentId === "string" &&
+      documentIds.has(storedWorkspace.activeDocumentId)
+        ? storedWorkspace.activeDocumentId
+        : undefined;
+    const restoredNextDocumentId = isAvailableNextDocumentId(
+      storedWorkspace.nextDocumentId,
+      restoredDocuments,
+    )
+      ? storedWorkspace.nextDocumentId
+      : deriveNextDocumentId(restoredDocuments);
+
+    if (
+      storedWorkspace.activeDocumentId !== restoredActiveDocumentId ||
+      storedWorkspace.nextDocumentId !== restoredNextDocumentId
+    ) {
+      workspaceWasNormalized = true;
+    }
+
+    documents = restoredDocuments;
+    activeDocumentId = restoredActiveDocumentId;
+    nextDocumentId = restoredNextDocumentId;
+
+    return workspaceWasNormalized;
+  }
+
+  function isStoredWorkspace(value: unknown): value is StoredWorkspace {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value) &&
+      Array.isArray((value as StoredWorkspace).documents)
+    );
+  }
+
+  function parseWorkspaceDocument(
+    value: unknown,
+  ): WorkspaceDocument | undefined {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return undefined;
+    }
+
+    const { id, title, type } = value as Record<string, unknown>;
+
+    if (
+      typeof id !== "string" ||
+      !id.trim() ||
+      typeof title !== "string" ||
+      !title.trim() ||
+      (type !== "topology" && type !== "simulation")
+    ) {
+      return undefined;
+    }
+
+    return { id, title, type };
+  }
+
+  function isAvailableNextDocumentId(
+    value: unknown,
+    restoredDocuments: WorkspaceDocument[],
+  ): value is number {
+    return (
+      typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value > 0 &&
+      !hasDocumentIdCollision(value, restoredDocuments)
+    );
+  }
+
+  function deriveNextDocumentId(restoredDocuments: WorkspaceDocument[]) {
+    let candidate = 1;
+
+    while (hasDocumentIdCollision(candidate, restoredDocuments)) candidate += 1;
+
+    return candidate;
+  }
+
+  function hasDocumentIdCollision(
+    candidate: number,
+    restoredDocuments: WorkspaceDocument[],
+  ) {
+    return restoredDocuments.some(
+      (document) =>
+        document.id === `topology-${candidate}` ||
+        document.id === `simulation-${candidate}`,
+    );
+  }
+
+  function serializeWorkspace() {
+    return JSON.stringify({ documents, activeDocumentId, nextDocumentId });
+  }
+
+  function persistWorkspace(workspace: string) {
+    try {
+      localStorage.setItem(workspaceStorageKey, workspace);
+    } catch {
+      // Storage can be unavailable or full; retain the in-memory workspace.
+    }
+  }
+
+  function removeStoredWorkspace(storage: Storage) {
+    try {
+      storage.removeItem(workspaceStorageKey);
+    } catch {
+      // Storage can be unavailable; leave the in-memory workspace unchanged.
+    }
+  }
+
+  function reconcileServerCommand() {
+    const command = serverCommand;
+
+    if (!command) return;
     if (reconciledServerCommandVersions.has(command.version)) return;
 
     reconciledServerCommandVersions.add(command.version);
@@ -118,6 +300,21 @@
 
   function setSelectedObject(object?: SelectedTopologyObject) {
     selectedObject = object;
+  }
+
+  function armAssetPlacement(kind: AssetKind) {
+    pendingAssetKind = kind;
+    updateUi({ currentTool: "select" });
+  }
+
+  function activateConnectTool() {
+    pendingAssetKind = undefined;
+    execute("connect-tool", "ribbon");
+  }
+
+  function activateSelectTool() {
+    pendingAssetKind = undefined;
+    execute("select-tool", "ribbon");
   }
 
   function execute(
@@ -168,24 +365,48 @@
         <Button
           aria-pressed={ui.currentTool === "select"}
           disabled={!isCommandAvailable("select-tool")}
-          onclick={() => execute("select-tool", "ribbon")}
+          onclick={activateSelectTool}
           ><Icon name="cursor" size={22} /><span>Select</span></Button
         >
         <Button
           aria-pressed={ui.currentTool === "connect"}
           disabled={!isCommandAvailable("connect-tool")}
-          onclick={() => execute("connect-tool", "ribbon")}
+          onclick={activateConnectTool}
           ><Icon name="link" size={22} /><span>Connect</span></Button
         >
       </Ribbon.Section>
       <Ribbon.Section title="Add">
         <SplitButton
           items={[
-            { label: "Server", icon: "server" },
-            { label: "Workstation", icon: "server" },
-            { label: "Firewall", icon: "shield" },
-            { label: "Database", icon: "server" },
+            {
+              label: "Server",
+              icon: "server",
+              disabled: !canEditTopology,
+              onclick: () => armAssetPlacement("Server"),
+            },
+            {
+              label: "Workstation",
+              icon: "server",
+              disabled: !canEditTopology,
+              onclick: () => armAssetPlacement("Workstation"),
+            },
+            {
+              label: "Firewall",
+              icon: "shield",
+              disabled: !canEditTopology,
+              onclick: () => armAssetPlacement("Firewall"),
+            },
+            {
+              label: "Database",
+              icon: "server",
+              disabled: !canEditTopology,
+              onclick: () => armAssetPlacement("Database"),
+            },
           ]}
+          aria-label="Add server"
+          aria-pressed={pendingAssetKind === "Server"}
+          disabled={!canEditTopology}
+          onclick={() => armAssetPlacement("Server")}
         >
           <Icon name="server" size={22} /><span>Asset</span>
         </SplitButton>
@@ -247,9 +468,21 @@
     </Ribbon.Tab>
     <Ribbon.Tab title="Insert">
       <Ribbon.Section title="Topology">
-        <Button><Icon name="server" size={22} /><span>Server</span></Button>
-        <Button><Icon name="zone" size={22} /><span>Gateway</span></Button>
-        <Button><Icon name="link" size={22} /><span>Trust link</span></Button>
+        <Button
+          aria-pressed={pendingAssetKind === "Server"}
+          disabled={!canEditTopology}
+          onclick={() => armAssetPlacement("Server")}
+          ><Icon name="server" size={22} /><span>Server</span></Button
+        >
+        <Button disabled
+          ><Icon name="zone" size={22} /><span>Gateway</span></Button
+        >
+        <Button
+          aria-pressed={ui.currentTool === "connect"}
+          disabled={!isCommandAvailable("connect-tool")}
+          onclick={activateConnectTool}
+          ><Icon name="link" size={22} /><span>Trust link</span></Button
+        >
       </Ribbon.Section>
     </Ribbon.Tab>
     <Ribbon.Tab title="Analyze">
@@ -296,7 +529,7 @@
         <p class="dashboard-inspector-empty">
           {selectedObject
             ? selectedObject.name
-            : "Select an object in the active document to inspect its properties."}
+            : "The active canvas has no selected objects."}
         </p>
       </Inspector>
     {/if}
@@ -314,26 +547,19 @@
         {#if document.type === "simulation"}
           <SimulationReport title={document.title} />
         {:else}
-          <TopologyContextMenu
-            context={commandContext}
-            topologyObject={topologyPlaceholderObject}
-          >
-            <h1>{document.title}</h1>
-            <p>
-              {ui.showZoneBoundaries
-                ? "Zone boundaries shown."
-                : "Zone boundaries hidden."} Right-click for topology commands.
-            </p>
-          </TopologyContextMenu>
+          <Canvas
+            tool={ui.currentTool}
+            placementKind={pendingAssetKind}
+            onPlacementConsumed={() => (pendingAssetKind = undefined)}
+            onSelectionChange={setSelectedObject}
+            onEdgeCreated={() => updateUi({ currentTool: "select" })}
+          />
         {/if}
       </Workspace.Document>
     {/each}
   </Workspace>
   <StatusBar
-    selectedName={selectedObject?.name ??
-      activeDocument?.title ??
-      "No document"}
-    zoom={100}
+    documentName={activeDocument?.title ?? "No document"}
     statusMessage={serverStatus}
   />
 </div>

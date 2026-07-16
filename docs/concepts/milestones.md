@@ -38,15 +38,15 @@ Due to: 31.07.2026
 
 ## UI
 
-- [] Dashboard & ribbon layout
+- [x] Dashboard & ribbon layout
 - [] Canvas displaying graph
-- [] Tabs
+- [x] Tabs
 
 ## Thesis
 
 - [x] Skeleton
 - [] Chapter - introduction
-- [] Chapter - literature review
+- [x] Chapter - literature review
 
 # Milestone 2 -
 

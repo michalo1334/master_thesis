@@ -1,27 +1,22 @@
 <script lang="ts">
   interface Props {
-    selectedName: string;
-    zoom: number;
+    documentName: string;
     statusMessage?: string;
   }
 
-  let { selectedName, zoom, statusMessage }: Props = $props();
+  let { documentName, statusMessage }: Props = $props();
 </script>
 
 <footer class="dashboard-statusbar">
   <span class="dashboard-status-item"
-    ><span class="dashboard-valid-dot" aria-hidden="true"></span>Topology valid</span
+    ><span class="dashboard-valid-dot" aria-hidden="true"></span>Canvas ready</span
   >
-  <span class="dashboard-status-item">8 assets · 7 relationships · 4 zones</span
-  >
+  <span class="dashboard-status-item">Blank grid canvas</span>
   {#if statusMessage}<span class="dashboard-status-item" role="status"
       >{statusMessage}</span
     >{/if}
   <span class="dashboard-status-item dashboard-status-selection"
-    >Selection: <strong>{selectedName}</strong></span
-  >
-  <span class="dashboard-status-item dashboard-status-compact"
-    >Zoom: {zoom}% · Grid: 20 px</span
+    >Document: <strong>{documentName}</strong></span
   >
 </footer>
 
@@ -54,8 +49,7 @@
   }
 
   @media (max-width: 47.5em) {
-    .dashboard-status-item:nth-child(2),
-    .dashboard-status-compact {
+    .dashboard-status-item:nth-child(2) {
       display: none;
     }
   }
