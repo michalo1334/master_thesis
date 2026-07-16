@@ -536,6 +536,7 @@
   {/snippet}
   <Workspace
     {activeDocumentId}
+    orientation="vertical"
     onActiveDocumentChange={(id) => (activeDocumentId = id)}
     onCloseDocument={closeDocument}
     {documentTypes}

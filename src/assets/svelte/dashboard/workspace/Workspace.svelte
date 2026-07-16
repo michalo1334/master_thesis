@@ -11,8 +11,11 @@
     icon?: IconName;
   }
 
+  export type WorkspaceOrientation = "horizontal" | "vertical";
+
   interface Props {
     activeDocumentId?: string;
+    orientation?: WorkspaceOrientation;
     onActiveDocumentChange: (id: string) => void;
     onCloseDocument: (id: string) => void;
     documentTypes: readonly WorkspaceDocumentType[];
@@ -23,6 +26,7 @@
 
   let {
     activeDocumentId,
+    orientation = "horizontal",
     onActiveDocumentChange,
     onCloseDocument,
     documentTypes,
@@ -56,6 +60,7 @@
 >
   <Tabs.Root
     class="dashboard-document"
+    {orientation}
     value={activeDocumentId}
     onValueChange={onActiveDocumentChange}
     loop
@@ -195,10 +200,10 @@
     background: #a0acba;
   }
   .dashboard-document-tabs-container
-    :global(
-      .dashboard-document-tab[data-state="active"] .dashboard-document-dot
-    ) {
-    background: #2d75d5;
+    :global(.dashboard-document-tab[data-state="active"]) {
+    .dashboard-document-dot {
+      background: #2d75d5;
+    }
   }
   .dashboard-document-title {
     overflow: hidden;
@@ -276,7 +281,6 @@
   .dashboard-workspace-empty p {
     margin: 0;
   }
-
   @media (max-width: 47.5em) {
     .dashboard-workspace-with-inspector {
       grid-template-columns: minmax(0, 1fr);
@@ -286,6 +290,105 @@
     }
     .dashboard-document-tabs-container :global(.dashboard-document-tab) {
       min-width: 6.875rem;
+    }
+  }
+  :global(.dashboard-document[data-orientation="vertical"]) {
+    grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+
+    .dashboard-document-tabs-container {
+      flex-direction: column;
+      align-items: stretch;
+      padding: var(--ds-space-2) 0.3125rem;
+      border-right: 1px solid #aeb8c5;
+      border-bottom: 0;
+    }
+    :global(.dashboard-document-tabs) {
+      width: 100%;
+      max-width: none;
+      flex: 1 1 auto;
+      flex-direction: column;
+      align-items: stretch;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    .dashboard-document-item {
+      width: 100%;
+      align-items: center;
+    }
+    :global(.dashboard-document-tab) {
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      border-bottom: 1px solid #b7c0cc;
+      border-radius: var(--ds-radius-md);
+    }
+    :global(.dashboard-document-tab[data-state="active"]) {
+      height: var(--ds-document-tab-height);
+    }
+    .dashboard-document-close {
+      top: 50%;
+      bottom: auto;
+      transform: translateY(-50%);
+    }
+    :global(.dashboard-document-add) {
+      width: 100%;
+    }
+    :global(.dashboard-document-panel) {
+      grid-column: 2;
+      grid-row: 1;
+    }
+    .dashboard-workspace-empty {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    @media (max-width: 47.5em) {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr);
+
+      .dashboard-document-tabs-container {
+        flex-direction: row;
+        align-items: end;
+        padding: 0.3125rem var(--ds-space-2) 0;
+        border-right: 0;
+        border-bottom: 1px solid #aeb8c5;
+      }
+      :global(.dashboard-document-tabs) {
+        width: auto;
+        max-width: calc(100% - 2rem);
+        flex: 0 1 auto;
+        flex-direction: row;
+        align-items: end;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      .dashboard-document-item {
+        width: auto;
+        align-items: end;
+      }
+      :global(.dashboard-document-tab) {
+        width: auto;
+        min-width: 6.875rem;
+        border-bottom: 0;
+        border-radius: 0.3125rem 0.3125rem 0 0;
+      }
+      .dashboard-document-close {
+        top: auto;
+        bottom: 0.1875rem;
+        transform: none;
+      }
+      :global(.dashboard-document-add) {
+        width: 2rem;
+      }
+      :global(.dashboard-document-panel) {
+        grid-column: auto;
+        grid-row: 2;
+      }
+      .dashboard-workspace-empty {
+        grid-column: auto;
+        grid-row: 2;
+      }
     }
   }
 </style>
