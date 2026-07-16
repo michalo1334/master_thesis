@@ -1,17 +1,9 @@
 <script lang="ts">
   import type { Live } from "live_svelte";
+  import { Dialog } from "bits-ui";
   import { onMount } from "svelte";
-  import { SvelteSet } from "svelte/reactivity";
+  import { dashboardDocuments } from "./dashboard/data";
   import AppBar from "./dashboard/shell/AppBar.svelte";
-  import {
-    commandAvailable,
-    executeCommand,
-    type CommandContext,
-    type CommandId,
-    type DashboardUiState,
-    type SelectedTopologyObject,
-    type TopologyLayout,
-  } from "./dashboard/commands/registry";
   import Button from "./dashboard/controls/Button.svelte";
   import Checkbox from "./dashboard/controls/Checkbox.svelte";
   import Icon from "./dashboard/controls/Icon.svelte";
@@ -27,6 +19,13 @@
   import type { AssetKind } from "./dashboard/workspace/canvas/fixtures";
 
   type DocumentType = "topology" | "simulation";
+  type TopologyLayout = "layered" | "force-directed" | "radial";
+  type TopologyTool = "select" | "connect";
+
+  interface SelectedTopologyObject {
+    id: string;
+    name: string;
+  }
 
   interface WorkspaceDocument {
     id: string;
@@ -40,20 +39,11 @@
     nextDocumentId?: unknown;
   }
 
-  interface ServerCommand {
-    version: number;
-    command: string;
-    documentId?: string;
-    title?: string;
-    message: string;
-  }
-
   interface Props {
     live?: Live;
-    serverCommand?: ServerCommand;
   }
 
-  let { live, serverCommand }: Props = $props();
+  let { live }: Props = $props();
 
   const documentTypes = [
     { id: "topology", label: "Topology", icon: "graph" },
@@ -64,6 +54,8 @@
   let documents = $state<WorkspaceDocument[]>([]);
   let activeDocumentId = $state<string>();
   let nextDocumentId = $state(1);
+  let topologyDialogOpen = $state(false);
+  let selectedTopologyId = $state<string>();
   let workspaceRestored = $state(false);
   let persistedWorkspace: string | undefined;
   let serializedWorkspace = $derived(
@@ -72,36 +64,20 @@
   let activeDocument = $derived(
     documents.find((document) => document.id === activeDocumentId),
   );
+  let selectedTopology = $derived(
+    dashboardDocuments.find((topology) => topology.id === selectedTopologyId),
+  );
   let selectedObject = $state<SelectedTopologyObject>();
   let pendingAssetKind = $state<AssetKind>();
-  let serverStatus = $derived(serverCommand?.message);
-  let canEditTopology = $derived(activeDocument?.type === "topology");
-  let ui = $state<DashboardUiState>({
-    currentTool: "select",
-    topologyLayout: "layered",
-    showZoneBoundaries: true,
-    inspectorVisible: true,
-    presentation: "graph",
-  });
-  const reconciledServerCommandVersions = new SvelteSet<number>();
-  let commandContext = $derived.by(() => ({
-    activeDocument,
-    selectedObject,
-    ui: {
-      currentTool: ui.currentTool,
-      topologyLayout: ui.topologyLayout,
-      showZoneBoundaries: ui.showZoneBoundaries,
-      inspectorVisible: ui.inspectorVisible,
-      presentation: ui.presentation,
-      lastSelectionAction: ui.lastSelectionAction,
-    },
-    live,
-    setUi: updateUi,
-    setSelectedObject,
-  }));
-
-  $effect(reconcileServerCommand);
-
+  let hasTopologyDocument = $derived(activeDocument?.type === "topology");
+  let hasTopologySelection = $derived(
+    hasTopologyDocument && selectedObject !== undefined,
+  );
+  let currentTool = $state<TopologyTool>("select");
+  let topologyLayout = $state<TopologyLayout>("layered");
+  let showZoneBoundaries = $state(true);
+  let inspectorVisible = $state(true);
+  let presentation = $state<"graph" | "list">("graph");
   $effect(() => {
     if (!workspaceRestored) return;
 
@@ -149,24 +125,24 @@
     }
 
     const restoredDocuments: WorkspaceDocument[] = [];
-    const documentIds = new SvelteSet<string>();
+    const documentIds: string[] = [];
     let workspaceWasNormalized = false;
 
     for (const value of storedWorkspace.documents) {
       const document = parseWorkspaceDocument(value);
 
-      if (!document || documentIds.has(document.id)) {
+      if (!document || documentIds.includes(document.id)) {
         workspaceWasNormalized = true;
         continue;
       }
 
-      documentIds.add(document.id);
+      documentIds.push(document.id);
       restoredDocuments.push(document);
     }
 
     const restoredActiveDocumentId =
       typeof storedWorkspace.activeDocumentId === "string" &&
-      documentIds.has(storedWorkspace.activeDocumentId)
+      documentIds.includes(storedWorkspace.activeDocumentId)
         ? storedWorkspace.activeDocumentId
         : undefined;
     const restoredNextDocumentId = isAvailableNextDocumentId(
@@ -264,6 +240,13 @@
     }
   }
 
+  function onSave(): void {
+    const workspace = serializeWorkspace();
+
+    persistWorkspace(workspace);
+    persistedWorkspace = workspace;
+  }
+
   function removeStoredWorkspace(storage: Storage) {
     try {
       storage.removeItem(workspaceStorageKey);
@@ -272,64 +255,99 @@
     }
   }
 
-  function reconcileServerCommand() {
-    const command = serverCommand;
-
-    if (!command) return;
-    if (reconciledServerCommandVersions.has(command.version)) return;
-
-    reconciledServerCommandVersions.add(command.version);
-    if (command.command !== "run_simulation") return;
-
-    const id = command.documentId ?? `simulation-${command.version}`;
-    const existingDocument = documents.find((document) => document.id === id);
-    const title =
-      command.title ?? existingDocument?.title ?? "Simulation result";
-
-    documents = existingDocument
-      ? documents.map((document) =>
-          document.id === id ? { ...document, title } : document,
-        )
-      : [...documents, { id, title, type: "simulation" }];
-    activeDocumentId = id;
-  }
-
-  function updateUi(update: Partial<DashboardUiState>) {
-    Object.assign(ui, update);
-  }
-
   function setSelectedObject(object?: SelectedTopologyObject) {
     selectedObject = object;
   }
 
   function armAssetPlacement(kind: AssetKind) {
+    if (!hasTopologyDocument) return;
+
     pendingAssetKind = kind;
-    updateUi({ currentTool: "select" });
+    currentTool = "select";
   }
 
   function activateConnectTool() {
+    if (!hasTopologyDocument) return;
+
     pendingAssetKind = undefined;
-    execute("connect-tool", "ribbon");
+    currentTool = "connect";
   }
 
   function activateSelectTool() {
+    if (!hasTopologyDocument) return;
+
     pendingAssetKind = undefined;
-    execute("select-tool", "ribbon");
+    currentTool = "select";
   }
 
-  function execute(
-    id: CommandId,
-    source: CommandContext["source"],
-    args?: unknown,
-  ) {
-    executeCommand(id, { ...commandContext, source }, args as never);
+  function setTopologyLayout(event: Event) {
+    if (!hasTopologyDocument) return;
+
+    topologyLayout = (event.currentTarget as HTMLSelectElement)
+      .value as TopologyLayout;
   }
 
-  function isCommandAvailable(id: CommandId) {
-    return commandAvailable(id, { ...commandContext, source: "ribbon" });
+  function toggleZoneBoundaries() {
+    if (!hasTopologyDocument) return;
+
+    showZoneBoundaries = !showZoneBoundaries;
+  }
+
+  function removeSelection() {
+    if (!hasTopologySelection) return;
+
+    selectedObject = undefined;
+  }
+
+  function duplicateSelection() {}
+
+  function lockSelection() {}
+
+  function alignSelection() {}
+
+  function runSimulation() {
+    if (!hasTopologyDocument) return;
+
+    live?.pushEvent("run_simulation", {
+      document_id: activeDocument?.id,
+      selected_object_id: selectedObject?.id,
+      source: "ribbon",
+    });
+  }
+
+  function optimizeDefense() {
+    if (!hasTopologyDocument) return;
+
+    live?.pushEvent("optimize_defense", {
+      document_id: activeDocument?.id,
+      selected_object_id: selectedObject?.id,
+      source: "ribbon",
+    });
+  }
+
+  function showGraph() {
+    if (!hasTopologyDocument) return;
+
+    presentation = "graph";
+  }
+
+  function showList() {
+    if (!hasTopologyDocument) return;
+
+    presentation = "list";
+  }
+
+  function toggleInspector() {
+    inspectorVisible = !inspectorVisible;
   }
 
   function createDocument(typeId: string) {
+    if (typeId === "topology") {
+      selectedTopologyId = undefined;
+      topologyDialogOpen = true;
+      return;
+    }
+
     const documentType = documentTypes.find(({ id }) => id === typeId);
 
     if (!documentType) return;
@@ -339,6 +357,21 @@
 
     documents = [...documents, { id, title, type: documentType.id }];
     activeDocumentId = id;
+  }
+
+  function openSelectedTopology(): void {
+    const topology = selectedTopology;
+
+    if (!topology) return;
+
+    const id = `topology-${nextDocumentId++}`;
+
+    documents = [...documents, { id, title: topology.title, type: "topology" }];
+    activeDocumentId = id;
+    selectedObject = undefined;
+    pendingAssetKind = undefined;
+    selectedTopologyId = undefined;
+    topologyDialogOpen = false;
   }
 
   function closeDocument(id: string) {
@@ -358,19 +391,19 @@
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
-  <AppBar />
+  <AppBar {onSave} />
   <Ribbon>
     <Ribbon.Tab title="Home">
       <Ribbon.Section title="Tools">
         <Button
-          aria-pressed={ui.currentTool === "select"}
-          disabled={!isCommandAvailable("select-tool")}
+          aria-pressed={currentTool === "select"}
+          disabled={!hasTopologyDocument}
           onclick={activateSelectTool}
           ><Icon name="cursor" size={22} /><span>Select</span></Button
         >
         <Button
-          aria-pressed={ui.currentTool === "connect"}
-          disabled={!isCommandAvailable("connect-tool")}
+          aria-pressed={currentTool === "connect"}
+          disabled={!hasTopologyDocument}
           onclick={activateConnectTool}
           ><Icon name="link" size={22} /><span>Connect</span></Button
         >
@@ -381,31 +414,31 @@
             {
               label: "Server",
               icon: "server",
-              disabled: !canEditTopology,
+              disabled: !hasTopologyDocument,
               onclick: () => armAssetPlacement("Server"),
             },
             {
               label: "Workstation",
               icon: "server",
-              disabled: !canEditTopology,
+              disabled: !hasTopologyDocument,
               onclick: () => armAssetPlacement("Workstation"),
             },
             {
               label: "Firewall",
               icon: "shield",
-              disabled: !canEditTopology,
+              disabled: !hasTopologyDocument,
               onclick: () => armAssetPlacement("Firewall"),
             },
             {
               label: "Database",
               icon: "server",
-              disabled: !canEditTopology,
+              disabled: !hasTopologyDocument,
               onclick: () => armAssetPlacement("Database"),
             },
           ]}
           aria-label="Add server"
           aria-pressed={pendingAssetKind === "Server"}
-          disabled={!canEditTopology}
+          disabled={!hasTopologyDocument}
           onclick={() => armAssetPlacement("Server")}
         >
           <Icon name="server" size={22} /><span>Asset</span>
@@ -415,12 +448,9 @@
       <Ribbon.Section title="Layout">
         <Select
           label="Topology layout"
-          value={ui.topologyLayout}
-          disabled={!isCommandAvailable("set-topology-layout")}
-          onchange={(event) =>
-            execute("set-topology-layout", "ribbon", {
-              layout: event.currentTarget.value as TopologyLayout,
-            })}
+          value={topologyLayout}
+          disabled={!hasTopologyDocument}
+          onchange={setTopologyLayout}
         >
           <option value="layered">Layered</option>
           <option value="force-directed">Force-directed</option>
@@ -429,35 +459,34 @@
       </Ribbon.Section>
       <Ribbon.Section title="Display">
         <Checkbox
-          checked={ui.showZoneBoundaries}
-          disabled={!isCommandAvailable("toggle-zone-boundaries")}
-          onchange={() => execute("toggle-zone-boundaries", "ribbon")}
-          >Show zone boundaries</Checkbox
+          checked={showZoneBoundaries}
+          disabled={!hasTopologyDocument}
+          onchange={toggleZoneBoundaries}>Show zone boundaries</Checkbox
         >
       </Ribbon.Section>
       <Ribbon.Section title="Arrange">
         <Button
           variant="small"
-          disabled={!isCommandAvailable("duplicate-selection")}
-          onclick={() => execute("duplicate-selection", "ribbon")}
+          disabled={!hasTopologySelection}
+          onclick={duplicateSelection}
           ><Icon name="copy" size={16} /><span>Duplicate</span></Button
         >
         <Button
           variant="small"
-          disabled={!isCommandAvailable("remove-selection")}
-          onclick={() => execute("remove-selection", "ribbon")}
+          disabled={!hasTopologySelection}
+          onclick={removeSelection}
           ><Icon name="trash" size={16} /><span>Remove</span></Button
         >
         <Button
           variant="small"
-          disabled={!isCommandAvailable("lock-selection")}
-          onclick={() => execute("lock-selection", "ribbon")}
+          disabled={!hasTopologySelection}
+          onclick={lockSelection}
           ><Icon name="lock" size={16} /><span>Lock</span></Button
         >
         <Button
           variant="small"
-          disabled={!isCommandAvailable("align-selection")}
-          onclick={() => execute("align-selection", "ribbon")}
+          disabled={!hasTopologySelection}
+          onclick={alignSelection}
           ><Icon name="align" size={16} /><span>Align</span></Button
         >
       </Ribbon.Section>
@@ -470,7 +499,7 @@
       <Ribbon.Section title="Topology">
         <Button
           aria-pressed={pendingAssetKind === "Server"}
-          disabled={!canEditTopology}
+          disabled={!hasTopologyDocument}
           onclick={() => armAssetPlacement("Server")}
           ><Icon name="server" size={22} /><span>Server</span></Button
         >
@@ -478,8 +507,8 @@
           ><Icon name="zone" size={22} /><span>Gateway</span></Button
         >
         <Button
-          aria-pressed={ui.currentTool === "connect"}
-          disabled={!isCommandAvailable("connect-tool")}
+          aria-pressed={currentTool === "connect"}
+          disabled={!hasTopologyDocument}
           onclick={activateConnectTool}
           ><Icon name="link" size={22} /><span>Trust link</span></Button
         >
@@ -487,14 +516,10 @@
     </Ribbon.Tab>
     <Ribbon.Tab title="Analyze">
       <Ribbon.Section title="Attack model">
-        <Button
-          disabled={!isCommandAvailable("run-simulation")}
-          onclick={() => execute("run-simulation", "ribbon")}
+        <Button disabled={!hasTopologyDocument} onclick={runSimulation}
           ><Icon name="play" size={22} /><span>Simulate</span></Button
         >
-        <Button
-          disabled={!isCommandAvailable("optimize-defense")}
-          onclick={() => execute("optimize-defense", "ribbon")}
+        <Button disabled={!hasTopologyDocument} onclick={optimizeDefense}
           ><Icon name="shield" size={22} /><span>Optimize</span></Button
         >
       </Ribbon.Section>
@@ -503,28 +528,24 @@
       <Ribbon.Section title="Presentation">
         <RadioButton
           name="presentation"
-          checked={ui.presentation === "graph"}
-          disabled={!isCommandAvailable("show-graph")}
-          onchange={() => execute("show-graph", "ribbon")}
-          ><Icon name="graph" size={16} />Graph</RadioButton
+          checked={presentation === "graph"}
+          disabled={!hasTopologyDocument}
+          onchange={showGraph}><Icon name="graph" size={16} />Graph</RadioButton
         >
         <RadioButton
           name="presentation"
-          checked={ui.presentation === "list"}
-          disabled={!isCommandAvailable("show-list")}
-          onchange={() => execute("show-list", "ribbon")}
-          ><Icon name="list" size={16} />List</RadioButton
+          checked={presentation === "list"}
+          disabled={!hasTopologyDocument}
+          onchange={showList}><Icon name="list" size={16} />List</RadioButton
         >
-        <Button
-          aria-pressed={ui.inspectorVisible}
-          onclick={() => execute("toggle-inspector", "ribbon")}
+        <Button aria-pressed={inspectorVisible} onclick={toggleInspector}
           ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
         >
       </Ribbon.Section>
     </Ribbon.Tab>
   </Ribbon>
   {#snippet inspector()}
-    {#if ui.inspectorVisible}
+    {#if inspectorVisible}
       <Inspector title="Object inspector">
         <p class="dashboard-inspector-empty">
           {selectedObject
@@ -549,20 +570,67 @@
           <SimulationReport title={document.title} />
         {:else}
           <Canvas
-            tool={ui.currentTool}
+            tool={currentTool}
             placementKind={pendingAssetKind}
             onPlacementConsumed={() => (pendingAssetKind = undefined)}
             onSelectionChange={setSelectedObject}
-            onEdgeCreated={() => updateUi({ currentTool: "select" })}
+            onEdgeCreated={() => (currentTool = "select")}
           />
         {/if}
       </Workspace.Document>
     {/each}
   </Workspace>
-  <StatusBar
-    documentName={activeDocument?.title ?? "No document"}
-    statusMessage={serverStatus}
-  />
+  <Dialog.Root bind:open={topologyDialogOpen}>
+    <Dialog.Portal>
+      <Dialog.Overlay class="dashboard-topology-dialog-overlay" />
+      <Dialog.Content class="dashboard-topology-dialog-content">
+        <Dialog.Title class="dashboard-topology-dialog-title"
+          >Topology</Dialog.Title
+        >
+        <fieldset class="dashboard-topology-dialog-options">
+          <legend class="dashboard-topology-dialog-legend"
+            >Choose a topology</legend
+          >
+          {#each dashboardDocuments as topology (topology.id)}
+            <label
+              class={[
+                "dashboard-topology-dialog-option",
+                selectedTopologyId === topology.id &&
+                  "dashboard-topology-dialog-option-selected",
+              ]}
+            >
+              <input
+                type="radio"
+                name="topology-document"
+                value={topology.id}
+                bind:group={selectedTopologyId}
+              />
+              <span class="dashboard-topology-dialog-option-copy">
+                <span class="dashboard-topology-dialog-option-title"
+                  >{topology.title}</span
+                >
+                <span class="dashboard-topology-dialog-option-kind"
+                  >{topology.kind}</span
+                >
+              </span>
+            </label>
+          {/each}
+        </fieldset>
+        <div class="dashboard-topology-dialog-actions">
+          <Dialog.Close class="dashboard-topology-dialog-close" type="button"
+            >Close</Dialog.Close
+          >
+          <button
+            class="dashboard-topology-dialog-open"
+            type="button"
+            disabled={!selectedTopology}
+            onclick={openSelectedTopology}>Open</button
+          >
+        </div>
+      </Dialog.Content>
+    </Dialog.Portal>
+  </Dialog.Root>
+  <StatusBar documentName={activeDocument?.title ?? "No document"} />
 </div>
 
 <style>
@@ -625,5 +693,142 @@
   .dashboard-inspector-empty {
     margin: 0;
     color: var(--ds-color-text-faint);
+  }
+
+  :global(.dashboard-topology-dialog-overlay) {
+    position: fixed;
+    z-index: 200;
+    inset: 0;
+    background: rgb(14 26 43 / 50%);
+  }
+
+  :global(.dashboard-topology-dialog-content) {
+    position: fixed;
+    z-index: 201;
+    top: 50%;
+    left: 50%;
+    width: min(32rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: var(--ds-space-4);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    box-shadow: var(--ds-shadow-md);
+    transform: translate(-50%, -50%);
+  }
+
+  :global(.dashboard-topology-dialog-title) {
+    margin: 0;
+    color: var(--ds-color-text);
+    font-size: var(--ds-text-xl);
+  }
+
+  :global(.dashboard-topology-dialog-options) {
+    display: grid;
+    gap: var(--ds-space-2);
+    margin: var(--ds-space-4) 0;
+    padding: 0;
+    border: 0;
+  }
+
+  :global(.dashboard-topology-dialog-legend) {
+    padding: 0;
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+  }
+
+  :global(.dashboard-topology-dialog-option) {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-space-3);
+    padding: var(--ds-space-3);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-surface);
+  }
+
+  :global(.dashboard-topology-dialog-option:hover) {
+    background: var(--ds-color-accent-soft);
+  }
+
+  :global(.dashboard-topology-dialog-option-selected) {
+    border-color: var(--ds-color-focus);
+    background: var(--ds-color-accent-soft);
+  }
+
+  :global(.dashboard-topology-dialog-option input) {
+    flex: none;
+    margin: 0;
+    accent-color: var(--ds-color-focus);
+  }
+
+  :global(.dashboard-topology-dialog-option-copy) {
+    min-width: 0;
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  :global(.dashboard-topology-dialog-option-title) {
+    color: var(--ds-color-text);
+    font-weight: 600;
+  }
+
+  :global(.dashboard-topology-dialog-option-kind) {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-sm);
+    text-transform: capitalize;
+  }
+
+  :global(.dashboard-topology-dialog-actions) {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--ds-space-2);
+  }
+
+  :global(.dashboard-topology-dialog-close) {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-color-text);
+    background: var(--ds-color-surface);
+  }
+
+  :global(.dashboard-topology-dialog-close:hover) {
+    background: var(--ds-color-accent-soft);
+  }
+
+  :global(.dashboard-topology-dialog-open) {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--ds-color-focus);
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-color-on-dark);
+    background: var(--ds-color-focus);
+  }
+
+  :global(.dashboard-topology-dialog-open:disabled) {
+    opacity: 0.55;
+  }
+
+  :global(.dashboard-topology-dialog-open:not(:disabled):hover) {
+    filter: brightness(0.95);
+  }
+
+  @media (max-width: 30rem) {
+    :global(.dashboard-topology-dialog-content) {
+      width: calc(100vw - 1rem);
+      max-height: calc(100dvh - 1rem);
+      padding: var(--ds-space-3);
+    }
+
+    :global(.dashboard-topology-dialog-actions) {
+      flex-direction: column-reverse;
+    }
+
+    :global(.dashboard-topology-dialog-close),
+    :global(.dashboard-topology-dialog-open) {
+      width: 100%;
+    }
   }
 </style>

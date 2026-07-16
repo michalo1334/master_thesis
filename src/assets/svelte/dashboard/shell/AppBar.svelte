@@ -1,6 +1,12 @@
 <script lang="ts">
   import { Avatar, DropdownMenu } from "bits-ui";
   import Icon from "../controls/Icon.svelte";
+
+  interface Props {
+    onSave: () => void;
+  }
+
+  let { onSave }: Props = $props();
 </script>
 
 <header class="dashboard-appbar">
@@ -10,16 +16,17 @@
   </div>
   <span class="dashboard-appbar-divider" aria-hidden="true"></span>
   <div class="dashboard-app-actions">
+    <button class="dashboard-app-save" type="button" onclick={onSave}
+      >Save</button
+    >
     <button class="dashboard-app-icon" aria-label="Search"
-      ><Icon name="search"/></button
+      ><Icon name="search" /></button
     >
     <button class="dashboard-app-icon" aria-label="Help"
       ><Icon name="help" /></button
     >
     <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        class="dashboard-avatar-trigger"
-      >
+      <DropdownMenu.Trigger class="dashboard-avatar-trigger">
         <Avatar.Root class="dashboard-avatar">
           <Avatar.Fallback>s</Avatar.Fallback>
         </Avatar.Root>
@@ -91,6 +98,7 @@
   }
   /* Bits UI owns the trigger and avatar DOM, so these selectors cross that component boundary. */
   .dashboard-app-icon,
+  .dashboard-app-save,
   .dashboard-appbar :global(.dashboard-avatar-trigger) {
     border: 0;
     border-radius: var(--ds-radius-md);
@@ -103,7 +111,14 @@
     display: grid;
     place-items: center;
   }
+  .dashboard-app-save {
+    height: var(--ds-control-height);
+    padding: 0 var(--ds-space-2);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+  }
   .dashboard-app-icon:hover,
+  .dashboard-app-save:hover,
   .dashboard-appbar :global(.dashboard-avatar-trigger:hover) {
     background: var(--ds-color-on-dark-hover);
   }
