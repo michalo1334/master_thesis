@@ -40,6 +40,11 @@ Due to: 31.07.2026
 
 - [x] Dashboard & ribbon layout
 - [] Canvas displaying graph
+    - [] Select and load graph
+    - [] Add nodes
+    - [] Remove nodes
+    - [] Connect 
+    - [] Save graph
 - [x] Tabs
 
 ## Thesis

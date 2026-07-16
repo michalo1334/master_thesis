@@ -31,8 +31,14 @@ services:
       - ../src/assets/svelte:/app/assets/svelte
       - ../src/assets/vendor:/app/assets/vendor
       - ../src/assets/vite.config.mjs:/app/assets/vite.config.mjs
-      - ../src/_build:/app/_build
-      - ../src/deps:/app/deps
+      # Generated build artifacts stay in Docker volumes so root inside the
+      # development container cannot change ownership of host directories.
+      - network-defense-build:/app/_build
+      - network-defense-deps:/app/deps
     depends_on:
       postgres:
         condition: service_healthy
+
+volumes:
+  network-defense-build:
+  network-defense-deps:
