@@ -2,8 +2,8 @@
   import { DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
   import Icon from "../controls/Icon.svelte";
-  import { setWorkspaceContext } from "./workspace-context";
   import type { IconName } from "../types";
+  import type { WorkspaceDocument } from "./model";
 
   export interface WorkspaceDocumentType {
     id: string;
@@ -14,6 +14,7 @@
   export type WorkspaceOrientation = "horizontal" | "vertical";
 
   interface Props {
+    documents: WorkspaceDocument[];
     activeDocumentId?: string;
     orientation?: WorkspaceOrientation;
     onActiveDocumentChange: (id: string) => void;
@@ -21,10 +22,11 @@
     documentTypes: readonly WorkspaceDocumentType[];
     onCreateDocument: (typeId: string) => void;
     inspector?: Snippet;
-    children: Snippet;
+    content: Snippet<[WorkspaceDocument]>;
   }
 
   let {
+    documents,
     activeDocumentId,
     orientation = "horizontal",
     onActiveDocumentChange,
@@ -32,19 +34,11 @@
     documentTypes,
     onCreateDocument,
     inspector,
-    children,
+    content,
   }: Props = $props();
-  let documents = $state<{ id: string; title: () => string }[]>([]);
-
-  setWorkspaceContext({
-    registerDocument: (document) => {
-      documents = [...documents, document];
-
-      return () => {
-        documents = documents.filter(({ id }) => id !== document.id);
-      };
-    },
-  });
+  let activeDocument = $derived(
+    documents.find((document) => document.id === activeDocumentId),
+  );
 
   function closeDocument(event: MouseEvent, id: string) {
     event.stopPropagation();
@@ -71,12 +65,12 @@
           <div class="dashboard-document-item">
             <Tabs.Trigger class="dashboard-document-tab" value={document.id}>
               <span class="dashboard-document-dot" aria-hidden="true"></span>
-              <span class="dashboard-document-title">{document.title()}</span>
+              <span class="dashboard-document-title">{document.title}</span>
             </Tabs.Trigger>
             <button
               type="button"
               class="dashboard-document-close"
-              aria-label={`Close ${document.title()}`}
+              aria-label={`Close ${document.title}`}
               onclick={(event) => closeDocument(event, document.id)}>×</button
             >
           </div>
@@ -112,7 +106,11 @@
       </DropdownMenu.Root>
     </div>
 
-    {@render children()}
+    {#if activeDocument}
+      <Tabs.Content class="dashboard-document-panel" value={activeDocument.id}>
+        {@render content(activeDocument)}
+      </Tabs.Content>
+    {/if}
 
     {#if documents.length === 0}
       <section class="dashboard-workspace-empty" aria-label="No open documents">

@@ -1,18 +1,35 @@
 <script lang="ts">
-  import { edgeEndpoints } from "./fixtures";
-  import type { CanvasEdgeData, CanvasNodeData } from "./fixtures";
+  import { edgeEndpoints } from "./geometry";
+  import {
+    graphNodeLabel,
+    graphTypeLabel,
+    type GraphEdge,
+    type GraphNode,
+    type GraphPoint,
+  } from "../model";
 
   interface Props {
-    edge: CanvasEdgeData;
-    source: CanvasNodeData;
-    target: CanvasNodeData;
+    edge: GraphEdge;
+    source: GraphNode;
+    target: GraphNode;
+    sourcePosition: GraphPoint;
+    targetPosition: GraphPoint;
     selected: boolean;
     onclick: (event: MouseEvent) => void;
   }
 
-  let { edge, source, target, selected, onclick }: Props = $props();
+  let {
+    edge,
+    source,
+    target,
+    sourcePosition,
+    targetPosition,
+    selected,
+    onclick,
+  }: Props = $props();
   const markerId = $props.id();
-  let geometry = $derived(edgeEndpoints(source, target));
+  let edgeType = $derived(graphTypeLabel(edge.type));
+  let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,
   );
@@ -29,10 +46,7 @@
   }
 </script>
 
-<g
-  class={["canvas-edge", edge.visualStyle, selected && "selected"]}
-  data-graph-interactive
->
+<g class={["canvas-edge", selected && "selected"]} data-graph-interactive>
   <defs>
     <marker
       id={markerId}
@@ -52,7 +66,7 @@
     tabindex="0"
     role="button"
     aria-pressed={selected}
-    aria-label={`${edge.visualStyle} ${edge.relationshipLabel} relationship from ${source.name} to ${target.name}${selected ? ", selected" : ""}`}
+    aria-label={`${edgeType} relationship from ${graphNodeLabel(source)} to ${graphNodeLabel(target)}${selected ? ", selected" : ""}`}
     {onclick}
     onkeydown={handleKeydown}
   />
@@ -62,7 +76,7 @@
     y={labelPosition.y}
     text-anchor="middle"
     dominant-baseline="central"
-    aria-hidden="true">{edge.relationshipLabel}</text
+    aria-hidden="true">{edgeType}</text
   >
 </g>
 
@@ -76,40 +90,12 @@
   .canvas-edge-arrow {
     fill: #59677a;
   }
-  .canvas-edge.trust .canvas-edge-line {
-    stroke: #7c3aed;
-    stroke-dasharray: 7 4;
-  }
-  .canvas-edge.trust .canvas-edge-arrow {
-    fill: #7c3aed;
-  }
-  .canvas-edge.warning .canvas-edge-line {
-    stroke: #d97706;
-    stroke-dasharray: 7 4;
-  }
-  .canvas-edge.warning .canvas-edge-arrow {
-    fill: #d97706;
-  }
-  .canvas-edge.standard.selected .canvas-edge-line {
+  .canvas-edge.selected .canvas-edge-line {
     stroke: #0b6fe8;
     stroke-width: 3;
   }
-  .canvas-edge.standard.selected .canvas-edge-arrow {
+  .canvas-edge.selected .canvas-edge-arrow {
     fill: #0b6fe8;
-  }
-  .canvas-edge.trust.selected .canvas-edge-line {
-    stroke: #5b21b6;
-    stroke-width: 3;
-  }
-  .canvas-edge.trust.selected .canvas-edge-arrow {
-    fill: #5b21b6;
-  }
-  .canvas-edge.warning.selected .canvas-edge-line {
-    stroke: #9a3412;
-    stroke-width: 3;
-  }
-  .canvas-edge.warning.selected .canvas-edge-arrow {
-    fill: #9a3412;
   }
   .canvas-edge-hit-target {
     fill: none;
@@ -132,12 +118,6 @@
     stroke: var(--ds-color-canvas);
     stroke-linejoin: round;
     stroke-width: 5px;
-  }
-  .canvas-edge.trust .canvas-edge-label {
-    fill: #5b21b6;
-  }
-  .canvas-edge.warning .canvas-edge-label {
-    fill: #9a3412;
   }
   .canvas-edge.selected .canvas-edge-label {
     font-weight: 800;

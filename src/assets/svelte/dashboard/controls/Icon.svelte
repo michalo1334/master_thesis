@@ -10,25 +10,12 @@
     shield: "hero-shield-check",
     search: "hero-magnifying-glass",
     help: "hero-question-mark-circle",
-    bell: "hero-bell",
-    "chevron-down": "hero-chevron-down",
     cursor: "hero-cursor-arrow-rays",
     link: "hero-link",
-    server: "hero-server-stack",
-    zone: "hero-cloud",
-    copy: "hero-document-duplicate",
-    trash: "hero-trash",
-    lock: "hero-lock-closed",
-    align: "hero-bars-3-bottom-left",
-    tag: "hero-tag",
     play: "hero-play",
     graph: "hero-share",
-    list: "hero-list-bullet",
-    fit: "hero-arrows-pointing-out",
-    more: "hero-ellipsis-horizontal",
     "chevron-right": "hero-chevron-right",
-    minus: "hero-minus",
-    plus: "hero-plus"
+    plus: "hero-plus",
   };
 
   let { name, size = 18 }: Props = $props();
