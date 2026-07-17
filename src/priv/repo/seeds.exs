@@ -95,7 +95,7 @@ new_node = fn graph, type, data ->
   Node.new(graph.id, %{type: type_id.(type), data: data})
 end
 
-graph = Graph.new()
+graph = Graph.new("Enterprise Network")
 
 {graph, hosts} =
   Enum.reduce(host_names, {graph, %{}}, fn host_name, {graph, hosts} ->

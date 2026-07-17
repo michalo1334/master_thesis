@@ -10,13 +10,14 @@
   import Workspace, {
     type WorkspaceDocumentType,
   } from "./dashboard/workspace/Workspace.svelte";
-  import { createDemoTopologyGraph } from "./dashboard/workspace/demo-graph";
   import {
+    createTopologyDocumentFromServerGraph,
     createSimulationDocument,
-    createTopologyDocument,
     graphNodeLabel,
     graphTypeLabel,
     nextActiveDocumentId,
+    type ServerGraphSummary,
+    type ServerTopologyGraph,
     type TopologyDocument,
     type TopologyEditorState,
     type WorkspaceDocument,
@@ -25,12 +26,21 @@
     parseWorkspace,
     serializeWorkspace,
   } from "./dashboard/workspace/persistence";
+  import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
 
   interface Props {
     live?: Live;
+    graphSummaries?: readonly ServerGraphSummary[];
+    selectedGraph?: ServerTopologyGraph;
+    selectedGraphRequestId?: number;
   }
 
-  let { live }: Props = $props();
+  let {
+    live,
+    graphSummaries = [],
+    selectedGraph,
+    selectedGraphRequestId,
+  }: Props = $props();
 
   const documentTypes = [
     { id: "topology", label: "Topology", icon: "graph" },
@@ -42,6 +52,9 @@
   let activeDocumentId = $state<string>();
   let nextDocumentId = $state(1);
   let inspectorVisible = $state(true);
+  let topologyPickerOpen = $state(false);
+  let lastSelectedGraphRequestId = $state<number>();
+  let selectedGraphRequestsReady = $state(false);
   let workspaceRestored = $state(false);
   let persistedWorkspace: string | undefined;
   let activeDocument = $derived(
@@ -69,10 +82,31 @@
     persistedWorkspace = serializedWorkspace;
   });
 
+  $effect(() => {
+    if (
+      !selectedGraphRequestsReady ||
+      selectedGraphRequestId === undefined ||
+      (lastSelectedGraphRequestId !== undefined &&
+        selectedGraphRequestId <= lastSelectedGraphRequestId) ||
+      !selectedGraph
+    )
+      return;
+
+    lastSelectedGraphRequestId = selectedGraphRequestId;
+    const id = `topology-${nextDocumentId++}`;
+    documents = [
+      ...documents,
+      createTopologyDocumentFromServerGraph(id, selectedGraph),
+    ];
+    activeDocumentId = id;
+  });
+
   onMount(() => {
     restoreWorkspace(localStorage);
     persistedWorkspace = serializedWorkspace;
     workspaceRestored = true;
+    lastSelectedGraphRequestId = selectedGraphRequestId;
+    selectedGraphRequestsReady = true;
   });
 
   function restoreWorkspace(storage: Storage) {
@@ -150,13 +184,7 @@
 
   function createDocument(typeId: string) {
     if (typeId === "topology") {
-      const id = `topology-${nextDocumentId++}`;
-      const title = `Topology ${documents.filter((document) => document.type === "topology").length + 1}`;
-      documents = [
-        ...documents,
-        createTopologyDocument(id, title, createDemoTopologyGraph(id)),
-      ];
-      activeDocumentId = id;
+      topologyPickerOpen = true;
       return;
     }
 
@@ -166,6 +194,11 @@
     const title = `Simulation result ${documents.filter((document) => document.type === "simulation").length + 1}`;
     documents = [...documents, createSimulationDocument(id, title)];
     activeDocumentId = id;
+  }
+
+  function openTopology(graph: ServerGraphSummary) {
+    topologyPickerOpen = false;
+    live?.pushEvent("open_topology", { graph_id: graph.id });
   }
 
   function updateTopologyDocument(
@@ -188,7 +221,7 @@
     if (!activeTopology) return;
 
     live?.pushEvent("run_simulation", {
-      document_id: activeTopology.id,
+      graph_id: activeTopology.graph.id,
       selected_object_id: selectedObject?.id,
       source: "ribbon",
     });
@@ -198,7 +231,7 @@
     if (!activeTopology) return;
 
     live?.pushEvent("optimize_defense", {
-      document_id: activeTopology.id,
+      graph_id: activeTopology.graph.id,
       selected_object_id: selectedObject?.id,
       source: "ribbon",
     });
@@ -249,6 +282,12 @@
     onCreateDocument={createDocument}
     inspector={inspectorVisible ? inspector : undefined}
     content={documentContent}
+  />
+  <TopologyPickerDialog
+    {graphSummaries}
+    open={topologyPickerOpen}
+    onOpenChange={(open) => (topologyPickerOpen = open)}
+    onSelect={openTopology}
   />
 
   <StatusBar documentName={activeDocument?.title ?? "No document"} />

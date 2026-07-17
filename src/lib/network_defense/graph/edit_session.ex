@@ -13,7 +13,7 @@ defmodule NetworkDefense.Graph.EditSession do
 
   defstruct [:graph, unit_of_work: UnitOfWork.new()]
 
-  def new, do: from_graph(Graph.new())
+  def new, do: from_graph(Graph.new("Untitled"))
 
   def from_graph(graph) do
     unit_of_work =

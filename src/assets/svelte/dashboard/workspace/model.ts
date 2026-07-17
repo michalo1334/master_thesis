@@ -30,6 +30,20 @@ export interface TopologyGraph {
   positions: Record<string, GraphPoint>;
 }
 
+export interface ServerGraphSummary {
+  id: string;
+  title: string;
+  nodeCount: number;
+  edgeCount: number;
+}
+
+export interface ServerTopologyGraph {
+  id: string;
+  title: string;
+  nodes: readonly GraphNode[];
+  edges: readonly GraphEdge[];
+}
+
 export interface TopologyEditorState {
   tool: TopologyTool;
   selectedId?: string;
@@ -76,16 +90,56 @@ export function createTopologyEditor(): TopologyEditorState {
   };
 }
 
+export function topologyGraphFromServerGraph(
+  graph: ServerTopologyGraph,
+): TopologyGraph {
+  return {
+    id: graph.id,
+    nodes: [...graph.nodes],
+    edges: [...graph.edges],
+    positions: createGridPositions(graph.nodes),
+  };
+}
+
+export function createTopologyDocumentFromServerGraph(
+  documentId: string,
+  graph: ServerTopologyGraph,
+): TopologyDocument {
+  return createTopologyDocument(
+    documentId,
+    graph.title,
+    topologyGraphFromServerGraph(graph),
+  );
+}
+
+export function createGridPositions(
+  nodes: readonly Pick<GraphNode, "id">[],
+): Record<string, GraphPoint> {
+  const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+
+  return Object.fromEntries(
+    [...nodes]
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((node, index) => [
+        node.id,
+        {
+          x: 80 + (index % columns) * 200,
+          y: 80 + Math.floor(index / columns) * 120,
+        },
+      ]),
+  );
+}
+
 export function cloneTopologyGraph(graph: TopologyGraph): TopologyGraph {
   return {
     id: graph.id,
     nodes: graph.nodes.map((node) => ({
       ...node,
-      data: structuredClone(node.data),
+      data: cloneGraphData(node.data),
     })),
     edges: graph.edges.map((edge) => ({
       ...edge,
-      data: structuredClone(edge.data),
+      data: cloneGraphData(edge.data),
     })),
     positions: Object.fromEntries(
       Object.entries(graph.positions).map(([id, position]) => [
@@ -94,6 +148,13 @@ export function cloneTopologyGraph(graph: TopologyGraph): TopologyGraph {
       ]),
     ),
   };
+}
+
+function cloneGraphData(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  // LiveSvelte props can be reactive proxies, which structuredClone cannot copy.
+  return JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
 }
 
 export function createTopologyDocument(

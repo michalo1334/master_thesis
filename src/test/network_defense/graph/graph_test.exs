@@ -13,9 +13,84 @@ defmodule NetworkDefense.Graph.GraphTest do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
 
+  describe "new/1" do
+    test "creates a graph with the given title" do
+      graph = Graph.new("My Topology")
+      assert graph.title == "My Topology"
+      assert {:ok, _} = Ecto.UUID.cast(graph.id)
+    end
+  end
+
+  describe "changeset" do
+    test "validates title is present" do
+      changeset = Graph.changeset(%Graph{}, %{})
+      refute changeset.valid?
+      assert "can't be blank" in errors_on(changeset).title
+    end
+
+    test "validates title is non-empty" do
+      changeset = Graph.changeset(%Graph{}, %{title: ""})
+      refute changeset.valid?
+      assert "can't be blank" in errors_on(changeset).title
+    end
+
+    test "accepts a valid title" do
+      changeset = Graph.changeset(%Graph{}, %{title: "Valid Graph"})
+      assert changeset.valid?
+    end
+  end
+
+  describe "list_summaries/0" do
+    test "returns empty list when no graphs exist" do
+      delete_all_graphs()
+
+      assert Graphs.list_summaries() == []
+    end
+
+    test "returns summaries with correct counts for graphs with nodes and edges" do
+      delete_all_graphs()
+      graph = insert_graph()
+      source = insert_node(graph, "source")
+      target = insert_node(graph, "target")
+      insert_edge(source, target)
+
+      summaries = Graphs.list_summaries()
+
+      assert [summary] = summaries
+      assert summary.id == graph.id
+      assert summary.title == "test-graph"
+      assert summary.nodeCount == 2
+      assert summary.edgeCount == 1
+    end
+
+    test "returns summaries for multiple graphs" do
+      delete_all_graphs()
+      graph1 = insert_graph()
+      graph2 = insert_graph()
+
+      source1 = insert_node(graph1, "s1")
+      target1 = insert_node(graph1, "t1")
+      insert_edge(source1, target1)
+
+      insert_node(graph2, "s2")
+      insert_node(graph2, "i2")
+
+      summaries = Graphs.list_summaries()
+      assert length(summaries) == 2
+
+      g1 = Enum.find(summaries, &(&1.id == graph1.id))
+      assert g1.nodeCount == 2
+      assert g1.edgeCount == 1
+
+      g2 = Enum.find(summaries, &(&1.id == graph2.id))
+      assert g2.nodeCount == 2
+      assert g2.edgeCount == 0
+    end
+  end
+
   describe "persistence" do
     test "creates and loads a graph with typed nodes and edges" do
-      graph = Graph.new()
+      graph = Graph.new("test-graph")
       source_host = build_node(graph, Host, %{"name" => "internet"})
       target_host = build_node(graph, Host, %{"name" => "web-01"})
 
@@ -146,7 +221,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   describe "in-memory updates" do
     test "builds nodes and edges with UUIDs" do
-      graph = Graph.new()
+      graph = Graph.new("test-graph")
       graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "source"}})
       graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "target"}})
       [source, target] = graph.nodes
@@ -289,7 +364,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   defp insert_graph do
     %Graph{}
-    |> Graph.changeset(%{})
+    |> Graph.changeset(%{title: "test-graph"})
     |> Repo.insert!()
   end
 
@@ -303,6 +378,12 @@ defmodule NetworkDefense.Graph.GraphTest do
     %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
     |> Edge.changeset(%{type: Atom.to_string(Runs)})
     |> Repo.insert!()
+  end
+
+  defp delete_all_graphs do
+    Repo.delete_all(Edge)
+    Repo.delete_all(Node)
+    Repo.delete_all(Graph)
   end
 
   defp build_node(graph, type, data) do
