@@ -1,0 +1,9 @@
+# Svelte MCP server
+[mcp_servers.svelte]
+url = "https://mcp.svelte.dev/mcp"
+
+# Instructions injected into every session
+model_instructions_file = ".opencode/instructions/opencode-agents.md"
+
+# Model — override with your preferred model
+model = "gpt-5.6"

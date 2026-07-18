@@ -4,8 +4,14 @@
     "explorer": {
       "model": "opencode-go/deepseek-v4-flash",
       "mode": "subagent"
-    },
+    }
   },
-  "plugin": ["@sveltejs/opencode"],
+  "mcp": {
+    "svelte": {
+      "type": "remote",
+      "url": "https://mcp.svelte.dev/mcp"
+    }
+  },
+  "instructions": [".opencode/instructions/opencode-agents.md"],
   "permission": "allow"
 }
