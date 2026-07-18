@@ -35,7 +35,7 @@ To discuss with user
 
 ## Agents
 
-
+For exploration use explorer_fast
 
 ## Project tracking
 

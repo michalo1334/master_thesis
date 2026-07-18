@@ -4,6 +4,10 @@
     "explorer": {
       "model": "opencode-go/deepseek-v4-flash",
       "mode": "subagent"
+    },
+    "explorer_fast": {
+      "model": "opencode-go/deepseek-v4-flash",
+      "mode": "subagent"
     }
   },
   "plugin": ["@sveltejs/opencode"],
