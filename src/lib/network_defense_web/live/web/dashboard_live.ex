@@ -107,27 +107,30 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp graph_payload(graph) do
-    %{
-      title: graph.title,
+    alias NetworkDefenseWeb.Web.Contracts.Graph.{Contract, Node, NodeViewData, Edge}
+
+    %Contract{
       id: graph.id,
-      lockVersion: graph.lock_version,
+      title: graph.title,
+      lock_version: graph.lock_version,
       nodes:
         Enum.map(Graph.nodes(graph), fn node ->
-          %{
+          %Node{
             id: node.id,
-            graphId: graph.id,
             type: node.type,
             data: node.data,
-            viewData: node.view_data
+            view_data: %NodeViewData{
+              x_pos: Map.get(node.view_data, :x_pos) || Map.get(node.view_data, "x_pos"),
+              y_pos: Map.get(node.view_data, :y_pos) || Map.get(node.view_data, "y_pos")
+            }
           }
         end),
       edges:
         Enum.map(Graph.edges(graph), fn edge ->
-          %{
+          %Edge{
             id: edge.id,
-            graphId: graph.id,
-            fromId: edge.from_id,
-            toId: edge.to_id,
+            from_id: edge.from_id,
+            to_id: edge.to_id,
             type: edge.type,
             data: edge.data
           }
