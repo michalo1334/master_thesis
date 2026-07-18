@@ -31,6 +31,11 @@ To discuss with user
 - Always use Mermaid for diagrams, including those embedded inside markdown blocks. See `mermaid-diagrams` for reference. Do not use ASCII art or other languages like PlantUML unless expliticly specified by the user
 - Never copy paste source code or concrete values unless is for example purposes. It gets outdated very quickly. Instead point to relevant file/place for current values. The point is that documentation can get out of sync with aspects that change dynamically like source code
 - Do not document what can be read from the config or source code. Document why, not what.
+- Documentation files verbosity: Imagine you are lazy engineer who prefers doing useful work and hates absolutely documentation. Document absolute bare minimum, do not over explain. Brief sentences. If explanation is unclear, follow up with example (can be complex one) in elixir or pseudocode
+
+## Agents
+
+
 
 ## Project tracking
 

@@ -36,6 +36,10 @@ defmodule NetworkDefense.Graph.Node do
     |> then(&struct!(__MODULE__, &1))
   end
 
+  def position(node) do
+    {node.view_data.x_pos, node.view_data.y_pos}
+  end
+
   defp validate_dynamic_data(changeset) do
     type = get_field(changeset, :type)
     data = get_field(changeset, :data)

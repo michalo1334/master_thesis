@@ -4,7 +4,7 @@ defmodule NetworkDefense.Simulator do
 
   Runs N successive iterations, with each iteration evaluating a set of rules and performing probalistically one selected action.
 
-  The entrypoint functions are run/2 and run_multiple/2.
+  The entrypoint functions are run/2 and run_multiple/1.
 
   While run/2 performs single simulator run, run_multiple execute multiple ones in sequence, which enables to obtain more accurate blast radius statistics (mean, min, max, p95 etc.).
   """
@@ -13,6 +13,7 @@ defmodule NetworkDefense.Simulator do
   alias NetworkDefense.AttackerState.AttackerState
 
   @default_seed 0
+  @default_simulation_count 1
   @default_iteration_count 10_000
 
   @type t :: %__MODULE__{}
@@ -27,8 +28,19 @@ defmodule NetworkDefense.Simulator do
 
   @doc """
   Runs the simulation multiple times with supplied options.
+
+  Options:
+   - simulation_count - number of simulation runs
+   - seed - initial seed
+
+  Returns a list whose index is nth simulation and element is final attacker state in given simulation instance.
   """
+  @spec run_multiple(keyword()) :: list(AttackerState)
   def run_multiple(opts) do
+    seed = Keyword.get(opts, :seed, @default_seed)
+    simulation_count = Keyword.get(opts, :simulation_count, @default_simulation_count)
+
+    Enum.map(1..simulation_count, fn _ -> run(opts |> Keyword.put(:seed, seed)) end)
   end
 
   @doc """
@@ -81,7 +93,7 @@ defmodule NetworkDefense.Simulator do
     end
   end
 
-  @moduledoc """
+  @doc """
   Select action to execute for the given iteration.
 
   Default is to select first one.

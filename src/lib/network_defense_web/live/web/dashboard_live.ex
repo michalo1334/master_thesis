@@ -1,4 +1,5 @@
 defmodule NetworkDefenseWeb.DashboardLive do
+  alias NetworkDefense.Graph.GraphLayout
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Graph
@@ -34,8 +35,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("open_topology", %{"graph_id" => graph_id}, socket) when is_binary(graph_id) do
     case Graphs.load(graph_id) do
-      nil -> {:reply, %{topology: nil}, socket}
-      graph -> {:reply, %{topology: graph_payload(graph)}, socket}
+      nil ->
+        {:reply, %{topology: nil}, socket}
+
+      graph ->
+        {:reply, %{topology: graph |> GraphLayout.lay_out(:none) |> graph_payload()}, socket}
     end
   end
 
@@ -60,7 +64,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
     case Graphs.replace(graph_id, lock_version, attrs) do
       {:ok, %{graph: graph}} ->
-        {:reply, %{status: "ok", topology: graph_payload(graph)},
+        {:reply,
+         %{status: "ok", topology: graph |> GraphLayout.lay_out(:none) |> graph_payload()},
          assign(socket, :graph_summaries, Graphs.list_summaries())}
 
       {:error, :stale} ->
