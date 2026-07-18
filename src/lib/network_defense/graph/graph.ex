@@ -12,7 +12,6 @@ defmodule NetworkDefense.Graph.Graph do
     has_many :edges, Edge
     field :adjacency_list, :map, virtual: true, default: %{}
     field :lock_version, :integer, default: 1
-    field :positions, :map, default: %{}
     field :title, :string
 
     timestamps(type: :utc_datetime)
@@ -21,7 +20,7 @@ defmodule NetworkDefense.Graph.Graph do
   @doc false
   def changeset(graph, attrs) do
     graph
-    |> cast(attrs, [:title, :positions])
+    |> cast(attrs, [:title])
     |> validate_required([:title])
     |> validate_length(:title, min: 1)
   end
@@ -33,8 +32,7 @@ defmodule NetworkDefense.Graph.Graph do
       nodes: [],
       edges: [],
       adjacency_list: %{},
-      lock_version: 1,
-      positions: %{}
+      lock_version: 1
     }
   end
 

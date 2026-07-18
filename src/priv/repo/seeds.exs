@@ -164,6 +164,21 @@ graph =
     )
   end)
 
+nodes = Graph.nodes(graph)
+column_count = nodes |> length() |> :math.sqrt() |> Float.ceil() |> trunc() |> max(1)
+
+graph =
+  nodes
+  |> Enum.with_index()
+  |> Enum.reduce(graph, fn {node, index}, graph ->
+    view_data = %{
+      "x_pos" => 80 + rem(index, column_count) * 200,
+      "y_pos" => 80 + div(index, column_count) * 120
+    }
+
+    Graph.update_node(graph, %{node | view_data: view_data})
+  end)
+
 {:ok, _graph} = Graphs.insert(graph)
 
 IO.puts("Seeded enterprise graph #{graph.id} with #{length(host_names)} hosts")

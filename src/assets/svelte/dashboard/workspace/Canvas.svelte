@@ -60,8 +60,8 @@
     graph.nodes.find((node) => node.id === editor.connectionSourceId),
   );
 
-  function nodePosition(nodeId: string): GraphPoint {
-    return graph.positions[nodeId] ?? { x: 0, y: 0 };
+  function nodePosition(node: GraphNode): GraphPoint {
+    return { x: node.viewData.x_pos, y: node.viewData.y_pos };
   }
 
   function updateEditor(change: Partial<TopologyEditorState>) {
@@ -132,7 +132,7 @@
     event.stopPropagation();
     const element = event.currentTarget as SVGGElement;
     element.setPointerCapture(event.pointerId);
-    const position = nodePosition(node.id);
+    const position = nodePosition(node);
     nodeDrag = {
       pointerId: event.pointerId,
       nodeId: node.id,
@@ -156,13 +156,18 @@
 
       const scale = editor.zoom / 100;
       updateGraph({
-        positions: {
-          ...graph.positions,
-          [nodeDrag.nodeId]: {
-            x: nodeDrag.nodeX + deltaX / scale,
-            y: nodeDrag.nodeY + deltaY / scale,
-          },
-        },
+        nodes: graph.nodes.map((node) =>
+          node.id === nodeDrag?.nodeId
+            ? {
+                ...node,
+                viewData: {
+                  ...node.viewData,
+                  x_pos: nodeDrag.nodeX + deltaX / scale,
+                  y_pos: nodeDrag.nodeY + deltaY / scale,
+                },
+              }
+            : node,
+        ),
       });
       return;
     }
@@ -355,15 +360,15 @@
                   {edge}
                   {source}
                   {target}
-                  sourcePosition={nodePosition(source.id)}
-                  targetPosition={nodePosition(target.id)}
+                  sourcePosition={nodePosition(source)}
+                  targetPosition={nodePosition(target)}
                   selected={editor.selectedId === edge.id}
                   onclick={(event) => handleEdgeClick(edge, event)}
                 />{/if}
             {/each}
             {#if editor.tool === "connect" && connectionSource && pointerGraphPosition}
               {@const sourcePosition = nodeCenter(
-                nodePosition(connectionSource.id),
+                nodePosition(connectionSource),
               )}
               <path
                 class="canvas-preview-edge"
@@ -374,7 +379,7 @@
             {#each graph.nodes as node (node.id)}
               <CanvasNode
                 {node}
-                position={nodePosition(node.id)}
+                position={nodePosition(node)}
                 selected={editor.selectedId === node.id}
                 source={editor.connectionSourceId === node.id}
                 dragging={nodeDrag?.nodeId === node.id}

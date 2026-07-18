@@ -202,7 +202,11 @@ defmodule NetworkDefense.Graph.GraphTest do
   describe "type validation" do
     test "accepts fully qualified registered module names" do
       node_changeset =
-        Node.changeset(%Node{}, %{type: Atom.to_string(Host), data: %{"name" => "host"}})
+        Node.changeset(%Node{}, %{
+          type: Atom.to_string(Host),
+          data: %{"name" => "host"},
+          view_data: %{"x_pos" => 0, "y_pos" => 0}
+        })
 
       edge_changeset = Edge.changeset(%Edge{}, %{type: Atom.to_string(Runs), data: %{}})
 
@@ -211,7 +215,12 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
 
     test "rejects unregistered module names" do
-      changeset = Node.changeset(%Node{}, %{type: "Elixir.Unknown.Node", data: %{}})
+      changeset =
+        Node.changeset(%Node{}, %{
+          type: "Elixir.Unknown.Node",
+          data: %{},
+          view_data: %{"x_pos" => 0, "y_pos" => 0}
+        })
 
       refute changeset.valid?
       assert "is invalid" in errors_on(changeset).type
@@ -296,16 +305,10 @@ defmodule NetworkDefense.Graph.GraphTest do
       old_edge = insert_edge(source, removed)
       edge_id = Ecto.UUID.generate()
 
-      positions = %{
-        source.id => %{"x" => 100, "y" => 200},
-        target.id => %{"x" => 300, "y" => 400}
-      }
-
       attrs = %{
         "title" => "replaced graph",
         "nodes" => [node_attrs(source), node_attrs(target)],
-        "edges" => [edge_attrs(edge_id, source.id, target.id, NetworkReachability)],
-        "positions" => positions
+        "edges" => [edge_attrs(edge_id, source.id, target.id, NetworkReachability)]
       }
 
       assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
@@ -319,7 +322,13 @@ defmodule NetworkDefense.Graph.GraphTest do
       assert source_id == source.id
       assert target_id == target.id
       assert type == Atom.to_string(NetworkReachability)
-      assert saved.positions == positions
+
+      for node <- saved.nodes do
+        assert %{"x_pos" => x, "y_pos" => y} = node.view_data
+        assert is_number(x)
+        assert is_number(y)
+      end
+
       assert diff.nodes.removed == [removed.id]
       assert diff.edges.removed == [old_edge.id]
       assert diff.edges.added == [edge_id]
@@ -328,15 +337,13 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "does not rewrite or increment an unchanged graph" do
       graph = Graph.new("test-graph")
       node = build_node(graph, Host, %{"name" => "source"})
-      positions = %{node.id => %{"x" => 1, "y" => 2}}
-      graph = graph |> Graph.add_node(node) |> Map.put(:positions, positions)
+      graph = graph |> Graph.add_node(node)
       assert {:ok, graph} = Graphs.insert(graph)
 
       attrs = %{
         "title" => graph.title,
         "nodes" => [node_attrs(node)],
-        "edges" => [],
-        "positions" => positions
+        "edges" => []
       }
 
       assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
@@ -350,8 +357,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       attrs = %{
         "title" => "first replacement",
         "nodes" => [],
-        "edges" => [],
-        "positions" => %{}
+        "edges" => []
       }
 
       assert {:ok, %{graph: saved}} = Graphs.replace(graph.id, 1, attrs)
@@ -370,8 +376,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       attrs = %{
         "title" => "invalid replacement",
         "nodes" => [node_attrs(source)],
-        "edges" => [edge_attrs(Ecto.UUID.generate(), source.id, Ecto.UUID.generate(), Runs)],
-        "positions" => %{source.id => %{"x" => 1, "y" => 2}}
+        "edges" => [edge_attrs(Ecto.UUID.generate(), source.id, Ecto.UUID.generate(), Runs)]
       }
 
       assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
@@ -381,45 +386,63 @@ defmodule NetworkDefense.Graph.GraphTest do
       assert persisted.lock_version == 1
     end
 
-    test "requires one valid position for every node" do
+    test "validates view_data for every node" do
       graph = insert_graph()
       source = insert_node(graph, "source")
+      valid_node_attrs = node_attrs(source)
+
+      invalid_nodes = [
+        Map.delete(valid_node_attrs, "view_data"),
+        %{valid_node_attrs | "view_data" => "not_a_map"},
+        %{valid_node_attrs | "view_data" => %{"x" => 1, "y" => 2}},
+        %{valid_node_attrs | "view_data" => %{"x_pos" => "abc", "y_pos" => 2}}
+      ]
+
+      Enum.each(invalid_nodes, fn invalid_node ->
+        attrs = %{"title" => graph.title, "nodes" => [invalid_node], "edges" => []}
+        assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+      end)
+
+      assert {:ok, _} =
+               Graphs.replace(graph.id, 1, %{
+                 "title" => graph.title,
+                 "nodes" => [valid_node_attrs],
+                 "edges" => []
+               })
+    end
+
+    test "view-data-only replacement increments lock_version" do
+      graph = insert_graph()
+      node = insert_node(graph, "node")
+      new_view_data = %{"x_pos" => 10, "y_pos" => 20}
 
       attrs = %{
         "title" => graph.title,
-        "nodes" => [node_attrs(source)],
-        "edges" => [],
-        "positions" => %{}
+        "nodes" => [%{node_attrs(node) | "view_data" => new_view_data}],
+        "edges" => []
       }
 
-      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
+      assert saved.lock_version == 2
+      refute GraphDiff.empty?(diff)
 
-      attrs = %{
-        attrs
-        | "positions" => %{
-            source.id => %{"x" => 1, "y" => 2},
-            Ecto.UUID.generate() => %{"x" => 3, "y" => 4}
-          }
-      }
-
-      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+      [saved_node] = saved.nodes
+      assert saved_node.view_data == new_view_data
     end
   end
 
   describe "graph diff" do
-    test "matches by stable IDs and includes position-only changes" do
+    test "matches by stable IDs and includes view-data-only changes" do
       graph = Graph.new("graph")
       node = build_node(graph, Host, %{"name" => "source"})
+      node_a = %{node | view_data: %{"x_pos" => 1, "y_pos" => 2}}
+      node_b = %{node | view_data: %{"x_pos" => 3, "y_pos" => 2}}
 
-      previous =
-        graph
-        |> Graph.add_node(node)
-        |> Map.put(:positions, %{node.id => %{"x" => 1, "y" => 2}})
-
-      candidate = %{previous | positions: %{node.id => %{"x" => 3, "y" => 2}}}
+      previous = graph |> Graph.add_node(node_a)
+      candidate = Graph.update_node(previous, node_b)
       diff = GraphDiff.compare(previous, candidate)
 
-      assert diff.nodes.changed == [%{id: node.id, fields: [:position]}]
+      assert diff.nodes.changed == [%{id: node.id, fields: [:view_data]}]
       refute GraphDiff.empty?(diff)
     end
 
@@ -480,7 +503,11 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   defp insert_node(graph, name) do
     %Node{graph_id: graph.id}
-    |> Node.changeset(%{type: Atom.to_string(Host), data: %{"name" => name}})
+    |> Node.changeset(%{
+      type: Atom.to_string(Host),
+      data: %{"name" => name},
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    })
     |> Repo.insert!()
   end
 
@@ -491,7 +518,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   defp node_attrs(node) do
-    %{"id" => node.id, "type" => node.type, "data" => node.data}
+    %{"id" => node.id, "type" => node.type, "data" => node.data, "view_data" => node.view_data}
   end
 
   defp edge_attrs(id, from_id, to_id, type) do
@@ -511,7 +538,13 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   defp build_node(graph, type, data) do
-    %Node{id: Ecto.UUID.generate(), graph_id: graph.id, type: Atom.to_string(type), data: data}
+    %Node{
+      id: Ecto.UUID.generate(),
+      graph_id: graph.id,
+      type: Atom.to_string(type),
+      data: data,
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    }
   end
 
   defp build_edge(graph, from, to, type) do

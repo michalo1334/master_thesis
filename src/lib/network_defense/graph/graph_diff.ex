@@ -14,11 +14,11 @@ defmodule NetworkDefense.Graph.GraphDiff do
     %{
       title_changed: previous.title != candidate.title,
       nodes:
-        compare_entities(previous_nodes, candidate_nodes, fn id, left, right ->
+        compare_entities(previous_nodes, candidate_nodes, fn _id, left, right ->
           changed_fields([
             {:type, left.type, right.type},
             {:data, left.data, right.data},
-            {:position, previous.positions[id], candidate.positions[id]}
+            {:view_data, left.view_data, right.view_data}
           ])
         end),
       edges:

@@ -37,7 +37,15 @@ function createWorkspace(): WorkspaceSnapshot {
 
 describe("workspace persistence", () => {
   it("persists complete topology state but excludes simulation documents", () => {
-    const restored = parseWorkspace(serializeWorkspace(createWorkspace()));
+    const serialized = serializeWorkspace(createWorkspace());
+    const persisted = JSON.parse(serialized);
+    const restored = parseWorkspace(serialized);
+
+    expect(persisted.version).toBe(6);
+    expect(persisted.documents[0].graph).not.toHaveProperty("positions");
+    expect(persisted.documents[0].graph.nodes[0]).toMatchObject({
+      viewData: { x_pos: 100, y_pos: 180 },
+    });
 
     expect(restored).toEqual(
       expect.objectContaining({
@@ -65,6 +73,29 @@ describe("workspace persistence", () => {
       restored?.documents[0].type === "topology" &&
         restored.documents[0].graph.nodes,
     ).toHaveLength(4);
+  });
+
+  it("preserves future JSON-compatible view data fields", () => {
+    const workspace = createWorkspace();
+    const document = workspace.documents[0];
+    if (document.type !== "topology") throw new Error("Topology expected");
+    document.graph.nodes[0].viewData = {
+      ...document.graph.nodes[0].viewData,
+      collapsed: true,
+      style: { color: "blue", badges: ["critical", null] },
+    };
+
+    const restored = parseWorkspace(serializeWorkspace(workspace));
+
+    expect(
+      restored?.documents[0].type === "topology" &&
+        restored.documents[0].graph.nodes[0].viewData,
+    ).toEqual({
+      x_pos: 100,
+      y_pos: 180,
+      collapsed: true,
+      style: { color: "blue", badges: ["critical", null] },
+    });
   });
 
   it("preserves saved and dirty topology state across reloads", () => {
@@ -120,9 +151,13 @@ describe("workspace persistence", () => {
       ),
     ).toBeUndefined();
 
-    const legacyWorkspace = JSON.parse(serializeWorkspace(createWorkspace()));
-    legacyWorkspace.version = 4;
-    expect(parseWorkspace(JSON.stringify(legacyWorkspace))).toBeUndefined();
+    const versionFiveWorkspace = JSON.parse(
+      serializeWorkspace(createWorkspace()),
+    );
+    versionFiveWorkspace.version = 5;
+    expect(
+      parseWorkspace(JSON.stringify(versionFiveWorkspace)),
+    ).toBeUndefined();
 
     const duplicateDocuments = JSON.parse(
       serializeWorkspace(createWorkspace()),
@@ -135,6 +170,16 @@ describe("workspace persistence", () => {
     danglingEdge.documents[0].graph.edges[0].fromId = "missing-node";
 
     expect(parseWorkspace(JSON.stringify(danglingEdge))).toBeUndefined();
+
+    const topLevelPositions = JSON.parse(serializeWorkspace(createWorkspace()));
+    topLevelPositions.documents[0].graph.positions = {};
+
+    expect(parseWorkspace(JSON.stringify(topLevelPositions))).toBeUndefined();
+
+    const invalidViewData = JSON.parse(serializeWorkspace(createWorkspace()));
+    invalidViewData.documents[0].graph.nodes[0].viewData.x_pos = null;
+
+    expect(parseWorkspace(JSON.stringify(invalidViewData))).toBeUndefined();
 
     const missingLockVersion = JSON.parse(
       serializeWorkspace(createWorkspace()),

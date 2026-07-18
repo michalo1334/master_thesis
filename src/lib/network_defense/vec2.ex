@@ -1,4 +1,6 @@
 defmodule NetworkDefense.Vec2 do
+  @moduledoc "Two-dimensional vector operations."
+
   import Kernel, except: [length: 1]
 
   def sub({ax, ay}, {bx, by}) do
@@ -9,23 +11,23 @@ defmodule NetworkDefense.Vec2 do
     {ax + bx, ay + by}
   end
 
-  def add({ax, ay}, n) when is_float(n) do
+  def add({ax, ay}, n) when is_number(n) do
     {ax + n, ay + n}
   end
 
-  def add(n, {ax, ay}) when is_float(n) do
+  def add(n, {ax, ay}) when is_number(n) do
     {n + ax, n + ay}
   end
 
-  def mul({ax, ay}, n) when is_float(n) do
+  def mul({ax, ay}, n) when is_number(n) do
     {ax * n, ay * n}
   end
 
-  def mul(n, {ax, ay}) when is_float(n) do
+  def mul(n, {ax, ay}) when is_number(n) do
     {n * ax, n * ay}
   end
 
-  def scale({x, y}, s) when is_float(s) do
+  def scale({x, y}, s) when is_number(s) do
     {x * s, y * s}
   end
 

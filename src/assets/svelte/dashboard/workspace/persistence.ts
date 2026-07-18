@@ -2,13 +2,14 @@ import {
   createTopologyEditor,
   type GraphEdge,
   type GraphNode,
+  type GraphNodeViewData,
   type TopologyDocument,
   type TopologyEditorState,
   type TopologyGraph,
   type WorkspaceSnapshot,
 } from "./model";
 
-const WORKSPACE_SCHEMA_VERSION = 5;
+const WORKSPACE_SCHEMA_VERSION = 6;
 const topologyTools = new Set<TopologyEditorState["tool"]>([
   "select",
   "connect",
@@ -138,17 +139,12 @@ function restoreTopologyDocument(
       nodes: document.graph.nodes.map((node) => ({
         ...node,
         data: structuredClone(node.data),
+        viewData: structuredClone(node.viewData),
       })),
       edges: document.graph.edges.map((edge) => ({
         ...edge,
         data: structuredClone(edge.data),
       })),
-      positions: Object.fromEntries(
-        Object.entries(document.graph.positions).map(([id, position]) => [
-          id,
-          { ...position },
-        ]),
-      ),
     },
     editor: {
       ...createTopologyEditor(),
@@ -207,19 +203,17 @@ function isTopologyGraph(value: unknown): value is TopologyGraph {
     !isNonEmptyString(value.id) ||
     !isNonEmptyString(value.title) ||
     !isLockVersion(value.lockVersion) ||
+    "positions" in value ||
     !Array.isArray(value.nodes) ||
     !value.nodes.every(isGraphNode) ||
     !Array.isArray(value.edges) ||
-    !value.edges.every(isGraphEdge) ||
-    !isPositionMap(value.positions)
+    !value.edges.every(isGraphEdge)
   ) {
     return false;
   }
 
   const nodeIds = new Set(value.nodes.map((node) => node.id));
   const edgeIds = new Set(value.edges.map((edge) => edge.id));
-  const positions = value.positions as TopologyGraph["positions"];
-
   return (
     nodeIds.size === value.nodes.length &&
     edgeIds.size === value.edges.length &&
@@ -229,9 +223,7 @@ function isTopologyGraph(value: unknown): value is TopologyGraph {
         edge.graphId === value.id &&
         nodeIds.has(edge.fromId) &&
         nodeIds.has(edge.toId),
-    ) &&
-    Object.keys(positions).length === value.nodes.length &&
-    value.nodes.every((node) => positions[node.id] !== undefined)
+    )
   );
 }
 
@@ -241,7 +233,8 @@ function isGraphNode(value: unknown): value is GraphNode {
     isNonEmptyString(value.id) &&
     isNonEmptyString(value.graphId) &&
     isNonEmptyString(value.type) &&
-    isJsonRecord(value.data)
+    isJsonRecord(value.data) &&
+    isGraphNodeViewData(value.viewData)
   );
 }
 
@@ -257,15 +250,11 @@ function isGraphEdge(value: unknown): value is GraphEdge {
   );
 }
 
-function isPositionMap(value: unknown): value is TopologyGraph["positions"] {
+function isGraphNodeViewData(value: unknown): value is GraphNodeViewData {
   return (
-    isRecord(value) &&
-    Object.values(value).every(
-      (position) =>
-        isRecord(position) &&
-        isFiniteNumber(position.x) &&
-        isFiniteNumber(position.y),
-    )
+    isJsonRecord(value) &&
+    isFiniteNumber(value.x_pos) &&
+    isFiniteNumber(value.y_pos)
   );
 }
 

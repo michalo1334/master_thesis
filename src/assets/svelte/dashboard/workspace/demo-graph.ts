@@ -20,18 +20,21 @@ export function createDemoTopologyGraph(id: string): TopologyGraph {
         graphId: id,
         type: hostType,
         data: { name: "Gateway host" },
+        viewData: { x_pos: 100, y_pos: 180 },
       },
       {
         id: `${id}-host-application`,
         graphId: id,
         type: hostType,
         data: { name: "Application host" },
+        viewData: { x_pos: 360, y_pos: 330 },
       },
       {
         id: `${id}-service-api`,
         graphId: id,
         type: serviceType,
         data: { name: "API", protocol: "tcp", port: 8443 },
+        viewData: { x_pos: 620, y_pos: 220 },
       },
       {
         id: `${id}-vulnerability-api`,
@@ -42,6 +45,7 @@ export function createDemoTopologyGraph(id: string): TopologyGraph {
           cvss_score: 8.1,
           exploit_probability: 0.42,
         },
+        viewData: { x_pos: 880, y_pos: 220 },
       },
     ],
     edges: [
@@ -70,11 +74,5 @@ export function createDemoTopologyGraph(id: string): TopologyGraph {
         data: {},
       },
     ],
-    positions: {
-      [`${id}-host-gateway`]: { x: 100, y: 180 },
-      [`${id}-host-application`]: { x: 360, y: 330 },
-      [`${id}-service-api`]: { x: 620, y: 220 },
-      [`${id}-vulnerability-api`]: { x: 880, y: 220 },
-    },
   };
 }

@@ -131,7 +131,8 @@ defmodule NetworkDefense.Graph.Graphs do
   defp replace_graph(persisted, candidate, diff) do
     updated_graph =
       persisted
-      |> Graph.changeset(%{title: candidate.title, positions: candidate.positions})
+      |> Graph.changeset(%{title: candidate.title})
+      |> Changeset.force_change(:title, candidate.title)
       |> Changeset.optimistic_lock(:lock_version)
       |> update_or_rollback(:graph)
 
@@ -149,20 +150,18 @@ defmodule NetworkDefense.Graph.Graphs do
          %{
            "title" => title,
            "nodes" => node_attrs,
-           "edges" => edge_attrs,
-           "positions" => positions
+           "edges" => edge_attrs
          }
        )
-       when is_binary(title) and is_list(node_attrs) and is_list(edge_attrs) and is_map(positions) do
+       when is_binary(title) and is_list(node_attrs) and is_list(edge_attrs) do
     with {:ok, nodes} <- candidate_nodes(graph_id, node_attrs),
          :ok <- unique_ids(nodes),
          {:ok, edges} <- candidate_edges(graph_id, edge_attrs),
          :ok <- unique_ids(edges),
          :ok <- valid_endpoints(edges, nodes),
-         :ok <- valid_positions(positions, nodes),
          {:ok, graph} <-
            %Graph{id: graph_id, lock_version: lock_version, nodes: [], edges: []}
-           |> Graph.changeset(%{title: title, positions: positions})
+           |> Graph.changeset(%{title: title})
            |> Changeset.apply_action(:update) do
       {:ok, Graph.hydrate(graph, nodes, edges)}
     else
@@ -174,10 +173,11 @@ defmodule NetworkDefense.Graph.Graphs do
 
   defp candidate_nodes(graph_id, attrs) do
     map_candidates(attrs, fn
-      %{"id" => id, "type" => type, "data" => data} when is_map(data) ->
+      %{"id" => id, "type" => type, "data" => data, "view_data" => view_data}
+      when is_map(data) and is_map(view_data) ->
         with {:ok, id} <- Ecto.UUID.cast(id) do
           %Node{id: id, graph_id: graph_id}
-          |> Node.changeset(%{type: type, data: data})
+          |> Node.changeset(%{type: type, data: data, view_data: view_data})
           |> Changeset.apply_action(:insert)
         end
 
@@ -237,21 +237,6 @@ defmodule NetworkDefense.Graph.Graphs do
        ),
        do: :ok,
        else: {:error, :invalid_endpoints}
-  end
-
-  defp valid_positions(positions, nodes) do
-    node_ids = MapSet.new(nodes, & &1.id)
-    position_ids = MapSet.new(Map.keys(positions))
-
-    valid_values? =
-      Enum.all?(positions, fn
-        {_id, %{"x" => x, "y" => y}} when is_number(x) and is_number(y) -> true
-        _position -> false
-      end)
-
-    if valid_values? and MapSet.equal?(node_ids, position_ids),
-      do: :ok,
-      else: {:error, :invalid_positions}
   end
 
   defp insert_nodes(nodes),

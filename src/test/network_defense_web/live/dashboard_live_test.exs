@@ -86,7 +86,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   describe "save_topology" do
-    test "persists topology edges and positions", %{conn: conn} do
+    test "persists topology edges and node view_data", %{conn: conn} do
       graph = insert_graph("save-topology")
       source = insert_node(graph, "source")
       target = insert_node(graph, "target")
@@ -99,8 +99,18 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "lock_version" => graph.lock_version,
         "title" => "saved topology",
         "nodes" => [
-          %{"id" => source.id, "type" => source.type, "data" => source.data},
-          %{"id" => target.id, "type" => target.type, "data" => target.data}
+          %{
+            "id" => source.id,
+            "type" => source.type,
+            "data" => source.data,
+            "view_data" => %{"x_pos" => 120, "y_pos" => 240}
+          },
+          %{
+            "id" => target.id,
+            "type" => target.type,
+            "data" => target.data,
+            "view_data" => %{"x_pos" => 360, "y_pos" => 480}
+          }
         ],
         "edges" => [
           %{
@@ -110,11 +120,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             "type" => Atom.to_string(NetworkReachability),
             "data" => %{}
           }
-        ],
-        "positions" => %{
-          source.id => %{"x" => 120, "y" => 240},
-          target.id => %{"x" => 360, "y" => 480}
-        }
+        ]
       })
 
       saved_graph = Graphs.load!(graph.id)
@@ -126,10 +132,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert saved_graph.title == "saved topology"
       assert saved_graph.lock_version == 2
 
-      assert saved_graph.positions == %{
-               source.id => %{"x" => 120, "y" => 240},
-               target.id => %{"x" => 360, "y" => 480}
-             }
+      source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
+      target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
+      assert source_node.view_data == %{"x_pos" => 120, "y_pos" => 240}
+      assert target_node.view_data == %{"x_pos" => 360, "y_pos" => 480}
     end
   end
 
@@ -141,7 +147,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   defp insert_node(graph, name) do
     %Node{graph_id: graph.id}
-    |> Node.changeset(%{type: Atom.to_string(Host), data: %{"name" => name}})
+    |> Node.changeset(%{
+      type: Atom.to_string(Host),
+      data: %{"name" => name},
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    })
     |> Repo.insert!()
   end
 

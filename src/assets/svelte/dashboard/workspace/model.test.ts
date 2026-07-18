@@ -4,7 +4,6 @@ import {
   applySavedTopology,
   cloneTopologyGraph,
   createNetworkReachabilityEdge,
-  createGridPositions,
   createTopologyDocumentFromServerGraph,
   createTopologyDocument,
   nextActiveDocumentId,
@@ -20,13 +19,16 @@ import {
 describe("topology documents", () => {
   it("clones a template graph for every document", () => {
     const template = createDemoTopologyGraph("template");
+    template.nodes[0].viewData.color = "blue";
     const first = createTopologyDocument("topology-1", "First", template);
     const second = createTopologyDocument("topology-2", "Second", template);
 
     first.graph.nodes[0].data.name = "Changed node";
+    first.graph.nodes[0].viewData.color = "red";
     first.editor.zoom = 150;
 
     expect(second.graph.nodes[0].data.name).not.toBe("Changed node");
+    expect(second.graph.nodes[0].viewData.color).toBe("blue");
     expect(second.editor.zoom).toBe(100);
   });
 
@@ -87,40 +89,29 @@ describe("server topology conversion", () => {
         graphId: "graph-1",
         type: "NetworkDefense.Nodes.Host",
         data: {},
+        viewData: { x_pos: 280, y_pos: 80, collapsed: true },
       },
       {
         id: "node-a",
         graphId: "graph-1",
         type: "NetworkDefense.Nodes.Host",
         data: {},
+        viewData: { x_pos: 80, y_pos: 80 },
       },
     ],
     edges: [],
   };
 
-  it("adds deterministic, non-overlapping positions to a server graph", () => {
+  it("uses node view data from the server graph", () => {
     const graph = topologyGraphFromServerGraph(selectedGraph);
 
-    expect(graph.positions).toEqual({
-      "node-a": { x: 80, y: 80 },
-      "node-b": { x: 280, y: 80 },
-    });
-  });
-
-  it("assigns positions independently of the server node order", () => {
-    expect(createGridPositions(selectedGraph.nodes)).toEqual(
-      createGridPositions([...selectedGraph.nodes].reverse()),
-    );
-  });
-
-  it("keeps every grid position distinct", () => {
-    const positions = createGridPositions(
-      Array.from({ length: 5 }, (_, index) => ({ id: `node-${index}` })),
-    );
-
-    expect([
-      ...new Set(Object.values(positions).map(({ x, y }) => `${x},${y}`)),
-    ]).toHaveLength(5);
+    expect(graph.nodes.map(({ id, viewData }) => ({ id, viewData }))).toEqual([
+      {
+        id: "node-b",
+        viewData: { x_pos: 280, y_pos: 80, collapsed: true },
+      },
+      { id: "node-a", viewData: { x_pos: 80, y_pos: 80 } },
+    ]);
   });
 
   it("creates a local tab while preserving the server graph id and title", () => {
@@ -147,6 +138,7 @@ describe("server topology conversion", () => {
         {
           ...selectedGraph.nodes[0],
           data: new Proxy({ name: "Gateway" }, {}),
+          viewData: new Proxy({ x_pos: 280, y_pos: 80, color: "blue" }, {}),
         },
       ],
     };
@@ -154,6 +146,11 @@ describe("server topology conversion", () => {
     const document = createTopologyDocumentFromServerGraph("topology-8", graph);
 
     expect(document.graph.nodes[0].data).toEqual({ name: "Gateway" });
+    expect(document.graph.nodes[0].viewData).toEqual({
+      x_pos: 280,
+      y_pos: 80,
+      color: "blue",
+    });
   });
 });
 
@@ -168,10 +165,10 @@ describe("saved topology application", () => {
         graphId: "graph-1",
         type: "NetworkDefense.Nodes.Host",
         data: { name: "Updated gateway" },
+        viewData: { x_pos: 240, y_pos: 160, color: "orange" },
       },
     ],
     edges: [],
-    positions: { gateway: { x: 240, y: 160 } },
   };
 
   it("updates only the topology document that initiated the save", () => {
@@ -274,7 +271,7 @@ describe("saved topology application", () => {
 });
 
 describe("topology editable state", () => {
-  it("compares title, nodes, edges, and positions canonically", () => {
+  it("compares title, nodes, edges, and view data canonically", () => {
     const graph = createDemoTopologyGraph("graph-1");
     graph.nodes[0].data = { z: 1, nested: { z: 2, a: 3 }, a: 4 };
     const equivalent = cloneTopologyGraph(graph);
@@ -285,6 +282,12 @@ describe("topology editable state", () => {
       nested: { a: 3, z: 2 },
       z: 1,
     };
+    equivalent.nodes.find((node) => node.id === graph.nodes[0].id)!.viewData = {
+      y_pos: graph.nodes[0].viewData.y_pos,
+      label: { z: 2, a: 1 },
+      x_pos: graph.nodes[0].viewData.x_pos,
+    };
+    graph.nodes[0].viewData.label = { a: 1, z: 2 };
 
     const baseline = topologyEditableStateKey(graph);
     expect(topologyEditableStateKey(equivalent)).toBe(baseline);
@@ -295,14 +298,14 @@ describe("topology editable state", () => {
     changedNode.nodes[0].data.name = "Renamed node";
     const changedEdge = cloneTopologyGraph(graph);
     changedEdge.edges[0].data.allowed = false;
-    const changedPosition = cloneTopologyGraph(graph);
-    changedPosition.positions[graph.nodes[0].id].x += 1;
+    const changedViewData = cloneTopologyGraph(graph);
+    changedViewData.nodes[0].viewData.x_pos += 1;
 
     for (const changed of [
       changedTitle,
       changedNode,
       changedEdge,
-      changedPosition,
+      changedViewData,
     ]) {
       expect(topologyEditableStateKey(changed)).not.toBe(baseline);
     }
@@ -325,6 +328,7 @@ describe("topology saving", () => {
         id: node.id,
         type: node.type,
         data: node.data,
+        view_data: node.viewData,
       })),
       edges: graph.edges.map((edge) => ({
         id: edge.id,
@@ -333,8 +337,9 @@ describe("topology saving", () => {
         type: edge.type,
         data: edge.data,
       })),
-      positions: graph.positions,
     });
+    expect(payload).not.toHaveProperty("positions");
+    expect(payload.nodes[0]).not.toHaveProperty("viewData");
   });
 
   it("does not accept a topology from stale or error replies", () => {
@@ -344,7 +349,6 @@ describe("topology saving", () => {
       lockVersion: 8,
       nodes: [],
       edges: [],
-      positions: {},
     };
 
     expect(topologyFromSuccessfulSaveReply({ topology })).toBe(topology);

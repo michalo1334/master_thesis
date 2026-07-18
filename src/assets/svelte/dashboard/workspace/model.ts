@@ -7,11 +7,24 @@ export interface GraphPoint {
   y: number;
 }
 
+export type JsonPrimitive = null | boolean | number | string;
+export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
+
+export interface JsonObject {
+  [key: string]: JsonValue;
+}
+
+export interface GraphNodeViewData extends JsonObject {
+  x_pos: number;
+  y_pos: number;
+}
+
 export interface GraphNode {
   id: string;
   graphId: string;
   type: string;
   data: Record<string, unknown>;
+  viewData: GraphNodeViewData;
 }
 
 export interface GraphEdge {
@@ -29,7 +42,6 @@ export interface TopologyGraph {
   lockVersion: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
-  positions: Record<string, GraphPoint>;
 }
 
 export interface ServerGraphSummary {
@@ -45,7 +57,6 @@ export interface ServerTopologyGraph {
   lockVersion: number;
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
-  positions?: Readonly<Record<string, GraphPoint>>;
 }
 
 export interface TopologySavePayload {
@@ -56,6 +67,7 @@ export interface TopologySavePayload {
     id: string;
     type: string;
     data: Record<string, unknown>;
+    view_data: GraphNodeViewData;
   }>;
   edges: Array<{
     id: string;
@@ -64,7 +76,6 @@ export interface TopologySavePayload {
     type: string;
     data: Record<string, unknown>;
   }>;
-  positions: Record<string, GraphPoint>;
 }
 
 export interface TopologySaveReply {
@@ -133,8 +144,6 @@ export function createTopologyEditor(): TopologyEditorState {
 export function topologyGraphFromServerGraph(
   graph: ServerTopologyGraph,
 ): TopologyGraph {
-  const fallbackPositions = createGridPositions(graph.nodes);
-
   return {
     id: graph.id,
     title: graph.title,
@@ -142,17 +151,12 @@ export function topologyGraphFromServerGraph(
     nodes: graph.nodes.map((node) => ({
       ...node,
       data: cloneGraphData(node.data),
+      viewData: cloneJsonObject(node.viewData),
     })),
     edges: graph.edges.map((edge) => ({
       ...edge,
       data: cloneGraphData(edge.data),
     })),
-    positions: Object.fromEntries(
-      graph.nodes.map((node) => [
-        node.id,
-        { ...(graph.positions?.[node.id] ?? fallbackPositions[node.id]) },
-      ]),
-    ),
   };
 }
 
@@ -167,24 +171,6 @@ export function createTopologyDocumentFromServerGraph(
   );
 }
 
-export function createGridPositions(
-  nodes: readonly Pick<GraphNode, "id">[],
-): Record<string, GraphPoint> {
-  const columns = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
-
-  return Object.fromEntries(
-    [...nodes]
-      .sort((left, right) => left.id.localeCompare(right.id))
-      .map((node, index) => [
-        node.id,
-        {
-          x: 80 + (index % columns) * 200,
-          y: 80 + Math.floor(index / columns) * 120,
-        },
-      ]),
-  );
-}
-
 export function cloneTopologyGraph(graph: TopologyGraph): TopologyGraph {
   return {
     id: graph.id,
@@ -193,18 +179,18 @@ export function cloneTopologyGraph(graph: TopologyGraph): TopologyGraph {
     nodes: graph.nodes.map((node) => ({
       ...node,
       data: cloneGraphData(node.data),
+      viewData: cloneJsonObject(node.viewData),
     })),
     edges: graph.edges.map((edge) => ({
       ...edge,
       data: cloneGraphData(edge.data),
     })),
-    positions: Object.fromEntries(
-      Object.entries(graph.positions).map(([id, position]) => [
-        id,
-        { ...position },
-      ]),
-    ),
   };
+}
+
+function cloneJsonObject<T extends JsonObject>(data: T): T {
+  // LiveSvelte props can be reactive proxies, which structuredClone cannot copy.
+  return JSON.parse(JSON.stringify(data)) as T;
 }
 
 function cloneGraphData(
@@ -295,6 +281,7 @@ export function topologyEditableStateKey(graph: TopologyGraph): string {
         graphId: node.graphId,
         type: node.type,
         data: canonicalJsonValue(node.data),
+        viewData: canonicalJsonValue(node.viewData),
       })),
     edges: [...graph.edges]
       .sort((left, right) => left.id.localeCompare(right.id))
@@ -306,9 +293,6 @@ export function topologyEditableStateKey(graph: TopologyGraph): string {
         type: edge.type,
         data: canonicalJsonValue(edge.data),
       })),
-    positions: Object.entries(graph.positions)
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([id, position]) => ({ id, x: position.x, y: position.y })),
   });
 }
 
@@ -321,6 +305,7 @@ export function topologySavePayload(graph: TopologyGraph): TopologySavePayload {
       id: node.id,
       type: node.type,
       data: cloneGraphData(node.data),
+      view_data: cloneJsonObject(node.viewData),
     })),
     edges: graph.edges.map((edge) => ({
       id: edge.id,
@@ -329,12 +314,6 @@ export function topologySavePayload(graph: TopologyGraph): TopologySavePayload {
       type: edge.type,
       data: cloneGraphData(edge.data),
     })),
-    positions: Object.fromEntries(
-      Object.entries(graph.positions).map(([id, position]) => [
-        id,
-        { ...position },
-      ]),
-    ),
   };
 }
 

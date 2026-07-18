@@ -39,7 +39,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
         {:reply, %{topology: nil}, socket}
 
       graph ->
-        {:reply, %{topology: graph |> GraphLayout.lay_out(:none) |> graph_payload()}, socket}
+        {:reply,
+         %{topology: graph |> then(&GraphLayout.lay_out(:none, &1, [])) |> graph_payload()},
+         socket}
     end
   end
 
@@ -55,18 +57,19 @@ defmodule NetworkDefenseWeb.DashboardLive do
           "lock_version" => lock_version,
           "title" => title,
           "nodes" => nodes,
-          "edges" => edges,
-          "positions" => positions
+          "edges" => edges
         },
         socket
       ) do
-    attrs = %{"title" => title, "nodes" => nodes, "edges" => edges, "positions" => positions}
+    attrs = %{"title" => title, "nodes" => nodes, "edges" => edges}
 
     case Graphs.replace(graph_id, lock_version, attrs) do
       {:ok, %{graph: graph}} ->
         {:reply,
-         %{status: "ok", topology: graph |> GraphLayout.lay_out(:none) |> graph_payload()},
-         assign(socket, :graph_summaries, Graphs.list_summaries())}
+         %{
+           status: "ok",
+           topology: graph |> then(&GraphLayout.lay_out(:none, &1, [])) |> graph_payload()
+         }, assign(socket, :graph_summaries, Graphs.list_summaries())}
 
       {:error, :stale} ->
         {:reply, %{status: "stale"}, socket}
@@ -108,14 +111,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
       title: graph.title,
       id: graph.id,
       lockVersion: graph.lock_version,
-      positions: graph.positions,
       nodes:
         Enum.map(Graph.nodes(graph), fn node ->
           %{
             id: node.id,
             graphId: graph.id,
             type: node.type,
-            data: node.data
+            data: node.data,
+            viewData: node.view_data
           }
         end),
       edges:
