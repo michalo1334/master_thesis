@@ -1,65 +1,133 @@
 # Thesis Scope Roadmap
 
-## Direction
+## Research Framing
 
-The initial attack-propagation model is the first valid milestone, not the thesis ceiling. The thesis should develop into resilience-oriented defense planning under incomplete knowledge.
+The thesis develops and evaluates a graph-based method for selecting preventive and recovery controls that preserve critical capabilities during multi-stage cyberattacks.
 
-## Revised Research Question
+Working title:
 
-> How effectively can simulation-informed, cost-aware defense optimization minimize expected mission impact in partially observed enterprise networks compared with severity- and topology-based prioritization?
+> Graph-Based Modelling and Optimization of Cyber Resilience in Mission-Critical Enterprise Networks
+
+The contribution is not a generic cyber-resilience platform. It is a reproducible decision method that joins attack propagation, mission dependencies, recovery capacity, and constrained defensive investment.
+
+Blast radius remains an explanatory measure of attacker reach. The primary outcome is mission loss over time.
+
+## Research Question
+
+> To what extent does a graph-based model combining attack propagation, mission dependencies, and recovery capacity improve the selection of cost-constrained cyber-resilience controls compared with severity- and topology-based prioritization?
 
 ## Research Claims
 
-The evaluation should test three claims:
+The evaluation should test these claims:
 
-1. Propagation-aware optimization outperforms local severity and topology heuristics.
-2. Cost-aware combinations of patching and segmentation reduce mission impact more effectively than patch-only defense.
-3. Reachability controls and robust strategies retain value when the defender has incomplete asset and vulnerability knowledge.
+1. Severity-only prioritization can select controls that do not minimize mission loss in interconnected networks.
+2. Propagation-aware optimization selects more effective controls than CVSS, centrality, random, and no-defense baselines under the same budget.
+3. Combining preventive controls with prepared recovery capacity reduces cumulative mission loss and restoration time more effectively than prevention alone.
+4. The proposed strategy retains value when the defender has incomplete knowledge of the environment.
+
+## Model Boundary
+
+The system models mission-critical enterprise IT. It does not claim to represent every cyber threat, operational technology environment, or a real military network.
+
+The static context graph contains:
+
+* hosts, technical services, vulnerabilities, and directed reachability;
+* mission-capability nodes that represent outcomes the organization must preserve;
+* support and dependency relationships that determine how infrastructure failure disrupts a capability;
+* recovery relationships between backup or standby infrastructure and protected hosts.
+
+The dynamic state of one run remains separate from the context graph:
+
+* attacker state records footholds, access, and attempted actions;
+* system state records compromise, availability, isolation, restoration, and pending recovery events;
+* mission availability is derived from the system state and declared dependency rules.
+
+A capability must declare whether all, any, or a threshold number of supporting resources are needed. This makes redundancy and failover measurable rather than assumed.
+
+Network zones, organizational units, and long-lived controls remain attributes or configuration unless a simulation rule requires them as first-class graph entities. Credentials and privilege levels are added only with attacker behaviors that use them.
+
+## Resilience Objective
+
+The optimizer selects a portfolio before an attack. It chooses preparations, not autonomous runtime decisions.
+
+```text
+minimize expected cumulative mission loss over a fixed time horizon
+subject to defense and recovery-preparedness budget
+```
+
+Initial control classes are:
+
+* vulnerability patching;
+* reachability restriction or segmentation;
+* isolation preparation after detection;
+* backup restoration preparation;
+* failover preparation for supported capabilities.
+
+Each control has an investment cost and, where relevant, an operational cost or recovery delay. During a simulation, configured recovery policies may trigger after an attack event.
 
 ## Development Layers
 
 ```mermaid
 flowchart TD
-  Foundation[Foundation: attack propagation and cost-aware defense] --> Impact[Operational impact: mission dependencies and criticality]
-  Impact --> Knowledge[Incomplete knowledge: observed and ground-truth graphs]
-  Knowledge --> CaseStudy[Real-host case study: observed lab infrastructure]
-  CaseStudy --> Competition[Competition extension: enterprise realism and MITRE mapping]
+  Foundation[Validated attack-propagation baseline] --> Impact[Mission dependencies and impact]
+  Impact --> Recovery[Time-based recovery and resilience optimization]
+  Recovery --> Knowledge[Incomplete defender knowledge]
+  Knowledge --> Evidence[Reproducible case study and experiments]
+  Evidence --> Competition[Competition-ready contribution]
 ```
 
-### Foundation
+### 1. Validated Attack-Propagation Baseline
 
-Model hosts, services, vulnerabilities, and directed reachability. Simulate remote exploitation, then optimize patching and segmentation under a normalized operational-cost budget.
+Complete the simulation and optimizer before broadening the model. Independent deterministic runs, event traces, explicit attacker action selection, graph-changing defensive controls, and budget compliance are prerequisites for evidence.
 
-Compare the proposed optimizer against no defense, random selection, CVSS prioritization, centrality prioritization, and topology-driven segmentation.
+Compare no defense, random selection, CVSS prioritization, graph-centrality prioritization, topology-driven segmentation, and the proposed strategy.
 
-### Operational Impact
+### 2. Mission Dependencies And Impact
 
-Add asset criticality and business-service or mission-capability nodes. Model how infrastructure and applications support operational capabilities through dependency relationships.
+Add mission-capability nodes and support/dependency relationships. Distinguish compromise from operational unavailability. Evaluate mission disruption rather than treating every compromised host as equally important.
 
-Evaluate expected mission loss and probability of mission-service failure alongside blast radius.
+### 3. Time-Based Recovery And Resilience
 
-### Incomplete Defender Knowledge
+Introduce discrete simulation time, detection assumptions, isolation, restoration delays, and failover. Derive each capability's availability after every state transition.
 
-Maintain separate graphs for the defender's observations and the ground truth. The ground truth can contain unobserved assets, services, reachability relationships, and vulnerabilities. The optimizer must use only the observed graph; evaluation occurs against the ground truth.
+Evaluate probability of mission disruption, cumulative mission loss, time to disruption, time to restoration, and blast radius. Blast radius remains secondary evidence of propagation.
 
-Measure how each strategy changes as observation coverage declines. Compare risk-neutral expected-loss selection with conservative strategies that minimize tail or worst-case loss.
+### 4. Incomplete Defender Knowledge
 
-### Real-Host Case Study
+Maintain an observed graph for optimization and a ground-truth graph for evaluation. Vary observation coverage and compare expected-loss selection with conservative strategies that limit tail loss.
 
-Use agents to observe package versions, exposed services, and reachability in a self-hosted lab. Convert observations into the same source-agnostic graph used for synthetic experiments.
+### 5. Reproducible Evidence
 
-Compare predicted risk reduction after a patch or network-control change with the updated observed graph. Automated remediation is optional; reliable observation and reproducible before-and-after measurements provide the research value.
+Use synthetic enterprise scenarios with identity services, jump hosts, remote access, CI/CD, databases, administrative workstations, and backup infrastructure. A self-hosted lab may supply a separate case study, but synthetic experiments remain the controlled evidence.
 
-### Competition Extension
+Map implemented attacker behaviors to MITRE ATT&CK. The mapping documents modeled behavior; it does not claim complete ATT&CK coverage or adversary emulation.
 
-Use enterprise roles such as identity services, jump hosts, CI/CD, backup infrastructure, databases, and administrative workstations. Map implemented attacker behaviors to MITRE ATT&CK techniques.
+## Original Contribution
 
-Frame the system as an operational cyber-resilience platform that minimizes mission impact, not as a vulnerability dashboard.
+The original contribution is the experimentally evaluated integration of three decisions normally assessed separately:
+
+* where an attack can propagate;
+* which technical assets sustain a critical capability;
+* which limited preventive and recovery preparations minimize disruption over time.
+
+The thesis should demonstrate a concrete result: a lower-severity or less central vulnerability can be the correct priority when it threatens a mission dependency, while a high-severity isolated vulnerability may not be. It should also show when recovery capacity changes the optimal preventive investment.
+
+## Competition Fit
+
+The Konkurs im. Mariana Rejewskiego evaluates substantive value, independent research, innovation, and significance for national defense. This work addresses those criteria through:
+
+* a transparent, testable model instead of an opaque dashboard claim;
+* controlled comparisons against credible defensive baselines;
+* a measurable contribution to continuity of critical digital capabilities;
+* realistic but non-sensitive enterprise scenarios relevant to public-sector and defense-supporting environments;
+* explicit assumptions, reproducible experiments, and threats to validity.
+
+The intended practical value is decision support for prioritizing finite cyber-defense and recovery resources. The thesis must not claim that its simulated results prove effectiveness in a production or military environment.
 
 ## Scope Boundary
 
-Avoid adding features that do not test one of the research claims. Reinforcement learning, graph neural networks, chat interfaces, autonomous offensive agents, and generic malware detection are outside this scope.
+Do not add features that fail to test a research claim. Reinforcement learning, graph neural networks, chat interfaces, autonomous offensive agents, generic malware detection, full SOC orchestration, and automated remediation are outside scope.
 
 ## Milestone Rule
 
-Treat each layer as a standalone, evaluated contribution. Do not start the next layer until the previous layer has a reproducible experiment, baselines, and documented validity limits.
+Treat each layer as a standalone evaluated contribution. Do not start the next layer until the current layer has a reproducible experiment, defined baselines, tests, and documented validity limits.
