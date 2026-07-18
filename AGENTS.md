@@ -41,9 +41,17 @@ To discuss with user
 |-------|------|-------|---------|
 | `explorer_fast` | `.opencode/agents/explorer_fast.md` | `opencode-go/deepseek-v4-flash` | Fast codebase exploration, read-only |
 | `svelte-file-editor` | `.opencode/agents/svelte-file-editor.md` | `opencode-go/deepseek-v4-pro` | Svelte 5 component authoring with MCP docs |
-| `visual-verifier` | `.opencode/agents/visual-verifier.md` | `minimax/m3` | Cheap UI verification via playwright-cli |
+| `visual-verifier` | `.opencode/agents/visual-verifier.md` | `opencode-go/minimax-m3` | Cheap UI verification via playwright-cli |
 
 Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
+
+## Models
+
+| Model ID | Used by | Purpose |
+|----------|---------|---------|
+| `opencode-go/deepseek-v4-flash` | `explorer_fast` | Fast, cheap codebase exploration |
+| `opencode-go/deepseek-v4-pro` | `svelte-file-editor` | Heavier Svelte editing with doc lookups |
+| `opencode-go/minimax-m3` | `visual-verifier` | Cheap browser-based visual checks |
 
 ### Codex CLI
 
