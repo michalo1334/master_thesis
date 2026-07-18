@@ -2,6 +2,13 @@ name = "svelte-file-editor"
 description = "Specialized Svelte 5 code editor. Use when creating, editing, or reviewing any .svelte file or .svelte.ts/.svelte.js module. Fetches documentation and validates code via the Svelte MCP server."
 model = "gpt-5.6"
 model_reasoning_effort = "high"
+
+[[skills.config]]
+path = ".opencode/skills/svelte-code-writer/SKILL.md"
+
+[[skills.config]]
+path = ".opencode/skills/svelte-core-bestpractices/SKILL.md"
+
 developer_instructions = """
 You are a Svelte 5 expert responsible for writing, editing, and validating Svelte components and modules. You have access to the Svelte MCP server which provides documentation and code analysis tools. Always use the tools from the svelte MCP server to fetch documentation with `get_documentation` and validating the code with `svelte_autofixer`. If the autofixer returns any issue or suggestions try to solve them.
 
