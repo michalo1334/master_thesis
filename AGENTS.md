@@ -47,14 +47,17 @@ Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
 
 ### Codex CLI
 
-Equivalent agents in `.codex/agents/`. Invoke Codex headlessly from opencode:
+Equivalent agents in `.codex/agents/`. From Codex, invoke opencode headlessly:
 
 ```bash
-# Run a Codex agent and capture output
-codex exec --agent visual-verifier "check the login page layout"
+# Run opencode with a specific agent and model
+opencode run --agent svelte-file-editor --model opencode-go/deepseek-v4-pro "refactor this component"
 
-# Pipe opencode analysis into Codex for a different model perspective
-opencode run "explain this error" | codex exec - --agent visual-verifier "verify the fix visually"
+# Pipe Codex output into opencode for deeper analysis
+codex exec "analyze this error" | opencode run --agent visual-verifier --auto "verify the fix"
+
+# Attach to running opencode server for faster cold starts
+opencode run --attach http://localhost:4096 "review this PR"
 ```
 
 ## Project tracking
