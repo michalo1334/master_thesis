@@ -35,7 +35,27 @@ To discuss with user
 
 ## Agents
 
-For exploration use explorer_fast
+### Available
+
+| Agent | File | Model | Purpose |
+|-------|------|-------|---------|
+| `explorer_fast` | `.opencode/agents/explorer_fast.md` | `opencode-go/deepseek-v4-flash` | Fast codebase exploration, read-only |
+| `svelte-file-editor` | `.opencode/agents/svelte-file-editor.md` | `opencode-go/deepseek-v4-pro` | Svelte 5 component authoring with MCP docs |
+| `visual-verifier` | `.opencode/agents/visual-verifier.md` | `minimax/m3` | Cheap UI verification via playwright-cli |
+
+Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
+
+### Codex CLI
+
+Equivalent agents in `.codex/agents/`. Invoke Codex headlessly from opencode:
+
+```bash
+# Run a Codex agent and capture output
+codex exec --agent visual-verifier "check the login page layout"
+
+# Pipe opencode analysis into Codex for a different model perspective
+opencode run "explain this error" | codex exec - --agent visual-verifier "verify the fix visually"
+```
 
 ## Project tracking
 
