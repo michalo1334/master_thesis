@@ -1,16 +1,19 @@
 import type { TopologyGraph } from "./model";
 
-const hostType = "NetworkDefense.Nodes.Host";
-const serviceType = "NetworkDefense.Nodes.Service";
-const vulnerabilityType = "NetworkDefense.Nodes.Vulnerability";
-const reachabilityType = "NetworkDefense.Relationships.NetworkReachability";
-const runsType = "NetworkDefense.Relationships.Runs";
+const hostType = "Elixir.NetworkDefense.Nodes.Host";
+const serviceType = "Elixir.NetworkDefense.Nodes.Service";
+const vulnerabilityType = "Elixir.NetworkDefense.Nodes.Vulnerability";
+const reachabilityType =
+  "Elixir.NetworkDefense.Relationships.NetworkReachability";
+const runsType = "Elixir.NetworkDefense.Relationships.Runs";
 const vulnerabilityRelationshipType =
-  "NetworkDefense.Relationships.HasVulnerability";
+  "Elixir.NetworkDefense.Relationships.HasVulnerability";
 
 export function createDemoTopologyGraph(id: string): TopologyGraph {
   return {
     id,
+    title: "Demo topology",
+    lockVersion: 1,
     nodes: [
       {
         id: `${id}-host-gateway`,

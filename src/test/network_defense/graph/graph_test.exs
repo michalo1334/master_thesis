@@ -2,8 +2,8 @@ defmodule NetworkDefense.Graph.GraphTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Graph.Edge
-  alias NetworkDefense.Graph.EditSession
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.GraphDiff
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
@@ -118,8 +118,7 @@ defmodule NetworkDefense.Graph.GraphTest do
         |> Graph.add_edge(runs_edge)
         |> Graph.add_edge(vulnerability_edge)
 
-      assert {:ok, session} = graph |> EditSession.from_graph() |> EditSession.save()
-      loaded_graph = session.graph
+      assert {:ok, loaded_graph} = Graphs.insert(graph)
 
       assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
                Enum.sort([source_host.id, target_host.id, service.id, vulnerability.id])
@@ -288,48 +287,159 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
   end
 
-  describe "edit session" do
-    test "persists tracked node and edge changes" do
-      session =
-        EditSession.new()
-        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "source"}})
-        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "target"}})
+  describe "complete graph replacement" do
+    test "replaces the complete graph and increments its lock version" do
+      graph = insert_graph()
+      source = insert_node(graph, "source")
+      target = insert_node(graph, "target")
+      removed = insert_node(graph, "removed")
+      old_edge = insert_edge(source, removed)
+      edge_id = Ecto.UUID.generate()
 
-      [source, target] = session.graph.nodes
+      positions = %{
+        source.id => %{"x" => 100, "y" => 200},
+        target.id => %{"x" => 300, "y" => 400}
+      }
 
-      session =
-        EditSession.add_edge(session, source, target, %{type: Atom.to_string(Runs), data: %{}})
+      attrs = %{
+        "title" => "replaced graph",
+        "nodes" => [node_attrs(source), node_attrs(target)],
+        "edges" => [edge_attrs(edge_id, source.id, target.id, NetworkReachability)],
+        "positions" => positions
+      }
 
-      assert {:ok, session} = EditSession.save(session)
+      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
+      assert saved.title == "replaced graph"
+      assert saved.lock_version == 2
+      assert Enum.sort(Enum.map(saved.nodes, & &1.id)) == Enum.sort([source.id, target.id])
 
-      assert [{target_id, edge}] = Graph.outgoing(session.graph, source.id)
+      assert [%{id: ^edge_id, from_id: source_id, to_id: target_id, type: type}] =
+               Graph.edges(saved)
+
+      assert source_id == source.id
       assert target_id == target.id
-
-      session =
-        session
-        |> EditSession.update_node(source.id, %{data: %{"name" => "renamed"}})
-        |> EditSession.update_edge(edge.id, %{type: Atom.to_string(NetworkReachability)})
-
-      assert {:ok, session} = EditSession.save(session)
-      assert Graph.node(session.graph, source.id).data == %{"name" => "renamed"}
-
-      session = EditSession.remove_node(session, target.id)
-      assert {:ok, session} = EditSession.save(session)
-      assert [remaining_node] = session.graph.nodes
-      assert remaining_node.id == source.id
-      assert Graph.outgoing(session.graph, source.id) == []
+      assert type == Atom.to_string(NetworkReachability)
+      assert saved.positions == positions
+      assert diff.nodes.removed == [removed.id]
+      assert diff.edges.removed == [old_edge.id]
+      assert diff.edges.added == [edge_id]
     end
 
-    test "cancels an inserted node removed before save" do
-      session =
-        EditSession.new()
-        |> EditSession.add_node(%{type: Atom.to_string(Host), data: %{"name" => "temporary"}})
+    test "does not rewrite or increment an unchanged graph" do
+      graph = Graph.new("test-graph")
+      node = build_node(graph, Host, %{"name" => "source"})
+      positions = %{node.id => %{"x" => 1, "y" => 2}}
+      graph = graph |> Graph.add_node(node) |> Map.put(:positions, positions)
+      assert {:ok, graph} = Graphs.insert(graph)
 
-      [node] = session.graph.nodes
-      session = EditSession.remove_node(session, node.id)
+      attrs = %{
+        "title" => graph.title,
+        "nodes" => [node_attrs(node)],
+        "edges" => [],
+        "positions" => positions
+      }
 
-      assert {:ok, session} = EditSession.save(session)
-      assert session.graph.nodes == []
+      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
+      assert GraphDiff.empty?(diff)
+      assert saved.lock_version == 1
+    end
+
+    test "rejects a stale lock version without changing the graph" do
+      graph = insert_graph()
+
+      attrs = %{
+        "title" => "first replacement",
+        "nodes" => [],
+        "edges" => [],
+        "positions" => %{}
+      }
+
+      assert {:ok, %{graph: saved}} = Graphs.replace(graph.id, 1, attrs)
+      assert saved.lock_version == 2
+
+      assert {:error, :stale} =
+               Graphs.replace(graph.id, 1, %{attrs | "title" => "stale replacement"})
+
+      assert Graphs.load!(graph.id).title == "first replacement"
+    end
+
+    test "rejects an invalid complete graph without partial writes" do
+      graph = insert_graph()
+      source = insert_node(graph, "source")
+
+      attrs = %{
+        "title" => "invalid replacement",
+        "nodes" => [node_attrs(source)],
+        "edges" => [edge_attrs(Ecto.UUID.generate(), source.id, Ecto.UUID.generate(), Runs)],
+        "positions" => %{source.id => %{"x" => 1, "y" => 2}}
+      }
+
+      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+      persisted = Graphs.load!(graph.id)
+      assert persisted.title == "test-graph"
+      assert Enum.map(persisted.nodes, & &1.id) == [source.id]
+      assert persisted.lock_version == 1
+    end
+
+    test "requires one valid position for every node" do
+      graph = insert_graph()
+      source = insert_node(graph, "source")
+
+      attrs = %{
+        "title" => graph.title,
+        "nodes" => [node_attrs(source)],
+        "edges" => [],
+        "positions" => %{}
+      }
+
+      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+
+      attrs = %{
+        attrs
+        | "positions" => %{
+            source.id => %{"x" => 1, "y" => 2},
+            Ecto.UUID.generate() => %{"x" => 3, "y" => 4}
+          }
+      }
+
+      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
+    end
+  end
+
+  describe "graph diff" do
+    test "matches by stable IDs and includes position-only changes" do
+      graph = Graph.new("graph")
+      node = build_node(graph, Host, %{"name" => "source"})
+
+      previous =
+        graph
+        |> Graph.add_node(node)
+        |> Map.put(:positions, %{node.id => %{"x" => 1, "y" => 2}})
+
+      candidate = %{previous | positions: %{node.id => %{"x" => 3, "y" => 2}}}
+      diff = GraphDiff.compare(previous, candidate)
+
+      assert diff.nodes.changed == [%{id: node.id, fields: [:position]}]
+      refute GraphDiff.empty?(diff)
+    end
+
+    test "reports changed node and edge fields" do
+      graph = Graph.new("graph")
+      source = build_node(graph, Host, %{"name" => "source"})
+      target = build_node(graph, Host, %{"name" => "target"})
+      edge = build_edge(graph, source, target, Runs)
+
+      previous = graph |> Graph.add_node(source) |> Graph.add_node(target) |> Graph.add_edge(edge)
+
+      candidate =
+        previous
+        |> Graph.update_node(%{source | data: %{"name" => "renamed"}})
+        |> Graph.update_edge(%{edge | type: Atom.to_string(NetworkReachability)})
+
+      diff = GraphDiff.compare(previous, candidate)
+
+      assert diff.nodes.changed == [%{id: source.id, fields: [:data]}]
+      assert diff.edges.changed == [%{id: edge.id, fields: [:type]}]
     end
   end
 
@@ -378,6 +488,20 @@ defmodule NetworkDefense.Graph.GraphTest do
     %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
     |> Edge.changeset(%{type: Atom.to_string(Runs)})
     |> Repo.insert!()
+  end
+
+  defp node_attrs(node) do
+    %{"id" => node.id, "type" => node.type, "data" => node.data}
+  end
+
+  defp edge_attrs(id, from_id, to_id, type) do
+    %{
+      "id" => id,
+      "from_id" => from_id,
+      "to_id" => to_id,
+      "type" => Atom.to_string(type),
+      "data" => %{}
+    }
   end
 
   defp delete_all_graphs do

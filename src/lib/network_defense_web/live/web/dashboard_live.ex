@@ -13,9 +13,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
         id="dashboard"
         props={
           %{
-            graphSummaries: @graph_summaries,
-            selectedGraph: @selected_graph,
-            selectedGraphRequestId: @open_request_seq
+            graphSummaries: @graph_summaries
           }
         }
         socket={@socket}
@@ -29,60 +27,55 @@ defmodule NetworkDefenseWeb.DashboardLive do
     socket =
       socket
       |> assign(:graph_summaries, Graphs.list_summaries())
-      |> assign(:selected_graph, nil)
-      |> assign(:open_request_seq, 0)
 
     {:ok, socket}
   end
 
   @impl true
   def handle_event("open_topology", %{"graph_id" => graph_id}, socket) when is_binary(graph_id) do
-    socket =
-      case Graphs.load(graph_id) do
-        nil ->
-          socket
-
-        graph ->
-          seq = socket.assigns.open_request_seq + 1
-
-          nodes =
-            Enum.map(Graph.nodes(graph), fn node ->
-              %{
-                id: node.id,
-                graphId: graph.id,
-                type: node.type,
-                data: node.data
-              }
-            end)
-
-          edges =
-            Enum.map(Graph.edges(graph), fn edge ->
-              %{
-                id: edge.id,
-                graphId: graph.id,
-                fromId: edge.from_id,
-                toId: edge.to_id,
-                type: edge.type,
-                data: edge.data
-              }
-            end)
-
-          selected_graph = %{
-            title: graph.title,
-            id: graph.id,
-            nodes: nodes,
-            edges: edges
-          }
-
-          assign(socket, :selected_graph, selected_graph)
-          |> assign(:open_request_seq, seq)
-      end
-
-    {:noreply, socket}
+    case Graphs.load(graph_id) do
+      nil -> {:reply, %{topology: nil}, socket}
+      graph -> {:reply, %{topology: graph_payload(graph)}, socket}
+    end
   end
 
   def handle_event("open_topology", _params, socket) do
-    {:noreply, socket}
+    {:reply, %{topology: nil}, socket}
+  end
+
+  @impl true
+  def handle_event(
+        "save_topology",
+        %{
+          "graph_id" => graph_id,
+          "lock_version" => lock_version,
+          "title" => title,
+          "nodes" => nodes,
+          "edges" => edges,
+          "positions" => positions
+        },
+        socket
+      ) do
+    attrs = %{"title" => title, "nodes" => nodes, "edges" => edges, "positions" => positions}
+
+    case Graphs.replace(graph_id, lock_version, attrs) do
+      {:ok, %{graph: graph}} ->
+        {:reply, %{status: "ok", topology: graph_payload(graph)},
+         assign(socket, :graph_summaries, Graphs.list_summaries())}
+
+      {:error, :stale} ->
+        {:reply, %{status: "stale"}, socket}
+
+      {:error, :not_found} ->
+        {:reply, %{status: "not_found"}, socket}
+
+      {:error, _reason} ->
+        {:reply, %{status: "error"}, socket}
+    end
+  end
+
+  def handle_event("save_topology", _params, socket) do
+    {:reply, %{status: "error"}, socket}
   end
 
   @impl true
@@ -103,5 +96,34 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_event("optimize_defense", _params, socket) do
     {:noreply, socket}
+  end
+
+  defp graph_payload(graph) do
+    %{
+      title: graph.title,
+      id: graph.id,
+      lockVersion: graph.lock_version,
+      positions: graph.positions,
+      nodes:
+        Enum.map(Graph.nodes(graph), fn node ->
+          %{
+            id: node.id,
+            graphId: graph.id,
+            type: node.type,
+            data: node.data
+          }
+        end),
+      edges:
+        Enum.map(Graph.edges(graph), fn edge ->
+          %{
+            id: edge.id,
+            graphId: graph.id,
+            fromId: edge.from_id,
+            toId: edge.to_id,
+            type: edge.type,
+            data: edge.data
+          }
+        end)
+    }
   end
 end

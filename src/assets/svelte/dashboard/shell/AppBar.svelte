@@ -4,9 +4,10 @@
 
   interface Props {
     onSave: () => void;
+    isSaving: boolean;
   }
 
-  let { onSave }: Props = $props();
+  let { onSave, isSaving }: Props = $props();
 </script>
 
 <header class="dashboard-appbar">
@@ -16,8 +17,12 @@
   </div>
   <span class="dashboard-appbar-divider" aria-hidden="true"></span>
   <div class="dashboard-app-actions">
-    <button class="dashboard-app-save" type="button" onclick={onSave}
-      >Save</button
+    <button
+      class="dashboard-app-save"
+      type="button"
+      onclick={onSave}
+      disabled={isSaving}
+      aria-busy={isSaving}>Save</button
     >
     <button class="dashboard-app-icon" aria-label="Search"
       ><Icon name="search" /></button
@@ -118,9 +123,12 @@
     font-weight: 600;
   }
   .dashboard-app-icon:hover,
-  .dashboard-app-save:hover,
+  .dashboard-app-save:not(:disabled):hover,
   .dashboard-appbar :global(.dashboard-avatar-trigger:hover) {
     background: var(--ds-color-on-dark-hover);
+  }
+  .dashboard-app-save:disabled {
+    opacity: 0.6;
   }
   .dashboard-appbar :global(.dashboard-avatar-trigger) {
     display: flex;

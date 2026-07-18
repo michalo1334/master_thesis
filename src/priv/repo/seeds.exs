@@ -3,7 +3,7 @@
 #     mix run priv/repo/seeds.exs
 #
 alias NetworkDefense.Graph.Graph
-alias NetworkDefense.Graph.EditSession
+alias NetworkDefense.Graph.Graphs
 alias NetworkDefense.Graph.Node
 alias NetworkDefense.Nodes.Host
 alias NetworkDefense.Nodes.Service
@@ -164,6 +164,6 @@ graph =
     )
   end)
 
-{:ok, _session} = graph |> EditSession.from_graph() |> EditSession.save()
+{:ok, _graph} = Graphs.insert(graph)
 
 IO.puts("Seeded enterprise graph #{graph.id} with #{length(host_names)} hosts")

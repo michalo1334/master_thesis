@@ -8,7 +8,7 @@ import {
   type WorkspaceSnapshot,
 } from "./model";
 
-const WORKSPACE_SCHEMA_VERSION = 3;
+const WORKSPACE_SCHEMA_VERSION = 5;
 const topologyTools = new Set<TopologyEditorState["tool"]>([
   "select",
   "connect",
@@ -43,6 +43,7 @@ interface PersistedTopologyDocument {
 interface PersistedWorkspace {
   version: number;
   documents: PersistedTopologyDocument[];
+  topologyBaselines: Record<string, string>;
   activeDocumentId?: string;
   nextDocumentId: number;
 }
@@ -54,7 +55,7 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): string {
     return [
       {
         id: document.id,
-        title: document.title,
+        title: document.graph.title,
         type: document.type,
         graph: document.graph,
         editor: {
@@ -73,10 +74,17 @@ export function serializeWorkspace(snapshot: WorkspaceSnapshot): string {
   )
     ? snapshot.activeDocumentId
     : undefined;
+  const topologyBaselines = Object.fromEntries(
+    documents.map((document) => [
+      document.id,
+      snapshot.topologyBaselines[document.id],
+    ]),
+  );
 
   return JSON.stringify({
     version: WORKSPACE_SCHEMA_VERSION,
     documents,
+    topologyBaselines,
     activeDocumentId,
     nextDocumentId: snapshot.nextDocumentId,
   } satisfies PersistedWorkspace);
@@ -97,13 +105,20 @@ export function parseWorkspace(
 
   const documents = value.documents.map(restoreTopologyDocument);
   const documentIds = new Set(documents.map((document) => document.id));
+  const baselineDocumentIds = Object.keys(value.topologyBaselines);
 
   if (documentIds.size !== documents.length) return undefined;
   if (value.activeDocumentId && !documentIds.has(value.activeDocumentId))
     return undefined;
+  if (
+    baselineDocumentIds.length !== documentIds.size ||
+    baselineDocumentIds.some((id) => !documentIds.has(id))
+  )
+    return undefined;
 
   return {
     documents,
+    topologyBaselines: { ...value.topologyBaselines },
     activeDocumentId: value.activeDocumentId,
     nextDocumentId: value.nextDocumentId,
   };
@@ -114,10 +129,12 @@ function restoreTopologyDocument(
 ): TopologyDocument {
   return {
     id: document.id,
-    title: document.title,
+    title: document.graph.title,
     type: "topology",
     graph: {
       id: document.graph.id,
+      title: document.graph.title,
+      lockVersion: document.graph.lockVersion,
       nodes: document.graph.nodes.map((node) => ({
         ...node,
         data: structuredClone(node.data),
@@ -152,9 +169,20 @@ function isPersistedWorkspace(value: unknown): value is PersistedWorkspace {
     value.version === WORKSPACE_SCHEMA_VERSION &&
     Array.isArray(value.documents) &&
     value.documents.every(isPersistedTopologyDocument) &&
+    isTopologyBaselines(value.topologyBaselines) &&
     (value.activeDocumentId === undefined ||
       isNonEmptyString(value.activeDocumentId)) &&
     isAvailableNextDocumentId(value.nextDocumentId)
+  );
+}
+
+function isTopologyBaselines(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([documentId, baseline]) =>
+        isNonEmptyString(documentId) && isNonEmptyString(baseline),
+    )
   );
 }
 
@@ -168,6 +196,7 @@ function isPersistedTopologyDocument(
     isNonEmptyString(value.title) &&
     value.type === "topology" &&
     isTopologyGraph(value.graph) &&
+    value.title === value.graph.title &&
     isPersistedTopologyEditor(value.editor)
   );
 }
@@ -176,6 +205,8 @@ function isTopologyGraph(value: unknown): value is TopologyGraph {
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.id) ||
+    !isNonEmptyString(value.title) ||
+    !isLockVersion(value.lockVersion) ||
     !Array.isArray(value.nodes) ||
     !value.nodes.every(isGraphNode) ||
     !Array.isArray(value.edges) ||
@@ -288,4 +319,8 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isAvailableNextDocumentId(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function isLockVersion(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }

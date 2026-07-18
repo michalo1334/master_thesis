@@ -5,8 +5,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Repo
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Nodes.Host
 
@@ -19,7 +21,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   describe "open_topology" do
-    test "loads a graph and sends adapted payload", %{conn: conn} do
+    test "is handled for an existing graph", %{conn: conn} do
       graph = insert_graph("dwg-001")
       source = insert_node(graph, "origin")
       target = insert_node(graph, "dest")
@@ -80,6 +82,54 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "optimize_defense", %{})
 
       assert has_element?(view, "#dashboard[data-name='Dashboard']")
+    end
+  end
+
+  describe "save_topology" do
+    test "persists topology edges and positions", %{conn: conn} do
+      graph = insert_graph("save-topology")
+      source = insert_node(graph, "source")
+      target = insert_node(graph, "target")
+      edge_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      render_hook(view, "save_topology", %{
+        "graph_id" => graph.id,
+        "lock_version" => graph.lock_version,
+        "title" => "saved topology",
+        "nodes" => [
+          %{"id" => source.id, "type" => source.type, "data" => source.data},
+          %{"id" => target.id, "type" => target.type, "data" => target.data}
+        ],
+        "edges" => [
+          %{
+            "id" => edge_id,
+            "from_id" => source.id,
+            "to_id" => target.id,
+            "type" => Atom.to_string(NetworkReachability),
+            "data" => %{}
+          }
+        ],
+        "positions" => %{
+          source.id => %{"x" => 120, "y" => 240},
+          target.id => %{"x" => 360, "y" => 480}
+        }
+      })
+
+      saved_graph = Graphs.load!(graph.id)
+
+      assert [%{from_id: source_id, to_id: target_id, type: type}] = Graph.edges(saved_graph)
+      assert source_id == source.id
+      assert target_id == target.id
+      assert type == Atom.to_string(NetworkReachability)
+      assert saved_graph.title == "saved topology"
+      assert saved_graph.lock_version == 2
+
+      assert saved_graph.positions == %{
+               source.id => %{"x" => 120, "y" => 240},
+               target.id => %{"x" => 360, "y" => 480}
+             }
     end
   end
 

@@ -4,20 +4,18 @@
   import CanvasNode from "./canvas/CanvasNode.svelte";
   import { nodeCenter } from "./canvas/geometry";
   import type {
-    GraphEdge,
     GraphNode,
     GraphPoint,
     TopologyDocument,
     TopologyEditorState,
   } from "./model";
+  import { createNetworkReachabilityEdge, type GraphEdge } from "./model";
 
   const MIN_ZOOM = 25;
   const MAX_ZOOM = 200;
   const ZOOM_STEP = 10;
   const PAN_STEP = 40;
   const DRAG_THRESHOLD = 4;
-  const networkReachabilityType =
-    "NetworkDefense.Relationships.NetworkReachability";
 
   interface Props {
     graph: TopologyDocument["graph"];
@@ -254,19 +252,7 @@
     );
     const target = graph.nodes.find((candidate) => candidate.id === node.id);
     if (!source || !target) return;
-    let edgeId = `${editor.connectionSourceId}-${node.id}`;
-    let suffix = 2;
-    while (graph.edges.some((edge) => edge.id === edgeId))
-      edgeId = `${editor.connectionSourceId}-${node.id}-${suffix++}`;
-
-    const edge: GraphEdge = {
-      id: edgeId,
-      graphId: graph.id,
-      fromId: source.id,
-      toId: target.id,
-      type: networkReachabilityType,
-      data: {},
-    };
+    const edge = createNetworkReachabilityEdge(graph.id, source.id, target.id);
     updateGraph({ edges: [...graph.edges, edge] });
     updateEditor({
       selectedId: edge.id,

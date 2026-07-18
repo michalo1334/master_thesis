@@ -5,10 +5,29 @@ defmodule NetworkDefense.Graph.Graphs do
 
   import Ecto.Query
 
+  alias Ecto.Changeset
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.GraphDiff
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Repo
+
+  def insert(%Graph{} = graph) do
+    Repo.transaction(fn ->
+      persisted_graph =
+        graph
+        |> Map.put(:nodes, [])
+        |> Map.put(:edges, [])
+        |> Map.put(:adjacency_list, %{})
+        |> Graph.changeset(%{})
+        |> insert_or_rollback(:graph)
+
+      insert_nodes(Graph.nodes(graph))
+      insert_edges(Graph.edges(graph))
+
+      hydrate_graph(persisted_graph)
+    end)
+  end
 
   def load(id) do
     Graph
@@ -66,8 +85,192 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  def replace(id, expected_lock_version, attrs)
+      when is_binary(id) and is_integer(expected_lock_version) and is_map(attrs) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         {:ok, candidate} <- candidate_graph(id, expected_lock_version, attrs) do
+      Repo.transaction(fn -> replace_in_transaction(id, expected_lock_version, candidate) end)
+    else
+      _error -> {:error, :invalid_graph}
+    end
+  end
+
+  def replace(_id, _expected_lock_version, _attrs), do: {:error, :invalid_graph}
+
   defp hydrate_graph(%Graph{} = graph) do
     graph = Repo.preload(graph, [:nodes, :edges], force: true)
     Graph.hydrate(graph, graph.nodes, graph.edges)
+  end
+
+  defp replace_in_transaction(id, expected_lock_version, candidate) do
+    graph =
+      Graph
+      |> where([graph], graph.id == ^id)
+      |> lock("FOR UPDATE")
+      |> Repo.one()
+
+    cond do
+      is_nil(graph) ->
+        Repo.rollback(:not_found)
+
+      graph.lock_version != expected_lock_version ->
+        Repo.rollback(:stale)
+
+      true ->
+        persisted = hydrate_graph(graph)
+        diff = GraphDiff.compare(persisted, candidate)
+
+        if GraphDiff.empty?(diff) do
+          %{graph: persisted, diff: diff}
+        else
+          replace_graph(persisted, candidate, diff)
+        end
+    end
+  end
+
+  defp replace_graph(persisted, candidate, diff) do
+    updated_graph =
+      persisted
+      |> Graph.changeset(%{title: candidate.title, positions: candidate.positions})
+      |> Changeset.optimistic_lock(:lock_version)
+      |> update_or_rollback(:graph)
+
+    Repo.delete_all(from(edge in Edge, where: edge.graph_id == ^persisted.id))
+    Repo.delete_all(from(node in Node, where: node.graph_id == ^persisted.id))
+    insert_nodes(Graph.nodes(candidate))
+    insert_edges(Graph.edges(candidate))
+
+    %{graph: hydrate_graph(updated_graph), diff: diff}
+  end
+
+  defp candidate_graph(
+         graph_id,
+         lock_version,
+         %{
+           "title" => title,
+           "nodes" => node_attrs,
+           "edges" => edge_attrs,
+           "positions" => positions
+         }
+       )
+       when is_binary(title) and is_list(node_attrs) and is_list(edge_attrs) and is_map(positions) do
+    with {:ok, nodes} <- candidate_nodes(graph_id, node_attrs),
+         :ok <- unique_ids(nodes),
+         {:ok, edges} <- candidate_edges(graph_id, edge_attrs),
+         :ok <- unique_ids(edges),
+         :ok <- valid_endpoints(edges, nodes),
+         :ok <- valid_positions(positions, nodes),
+         {:ok, graph} <-
+           %Graph{id: graph_id, lock_version: lock_version, nodes: [], edges: []}
+           |> Graph.changeset(%{title: title, positions: positions})
+           |> Changeset.apply_action(:update) do
+      {:ok, Graph.hydrate(graph, nodes, edges)}
+    else
+      _error -> {:error, :invalid_graph}
+    end
+  end
+
+  defp candidate_graph(_graph_id, _lock_version, _attrs), do: {:error, :invalid_graph}
+
+  defp candidate_nodes(graph_id, attrs) do
+    map_candidates(attrs, fn
+      %{"id" => id, "type" => type, "data" => data} when is_map(data) ->
+        with {:ok, id} <- Ecto.UUID.cast(id) do
+          %Node{id: id, graph_id: graph_id}
+          |> Node.changeset(%{type: type, data: data})
+          |> Changeset.apply_action(:insert)
+        end
+
+      _attrs ->
+        {:error, :invalid_node}
+    end)
+  end
+
+  defp candidate_edges(graph_id, attrs) do
+    map_candidates(attrs, fn
+      %{
+        "id" => id,
+        "from_id" => from_id,
+        "to_id" => to_id,
+        "type" => type,
+        "data" => data
+      }
+      when is_map(data) ->
+        with {:ok, id} <- Ecto.UUID.cast(id),
+             {:ok, from_id} <- Ecto.UUID.cast(from_id),
+             {:ok, to_id} <- Ecto.UUID.cast(to_id) do
+          %Edge{id: id, graph_id: graph_id, from_id: from_id, to_id: to_id}
+          |> Edge.changeset(%{type: type, data: data})
+          |> Changeset.apply_action(:insert)
+        end
+
+      _attrs ->
+        {:error, :invalid_edge}
+    end)
+  end
+
+  defp map_candidates(attrs, mapper) do
+    Enum.reduce_while(attrs, {:ok, []}, fn attrs, {:ok, entities} ->
+      case mapper.(attrs) do
+        {:ok, entity} -> {:cont, {:ok, [entity | entities]}}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, entities} -> {:ok, Enum.reverse(entities)}
+      error -> error
+    end
+  end
+
+  defp unique_ids(entities) do
+    if entities |> Enum.map(& &1.id) |> Enum.uniq() |> length() == length(entities),
+      do: :ok,
+      else: {:error, :duplicate_ids}
+  end
+
+  defp valid_endpoints(edges, nodes) do
+    node_ids = MapSet.new(nodes, & &1.id)
+
+    if Enum.all?(
+         edges,
+         &(MapSet.member?(node_ids, &1.from_id) and MapSet.member?(node_ids, &1.to_id))
+       ),
+       do: :ok,
+       else: {:error, :invalid_endpoints}
+  end
+
+  defp valid_positions(positions, nodes) do
+    node_ids = MapSet.new(nodes, & &1.id)
+    position_ids = MapSet.new(Map.keys(positions))
+
+    valid_values? =
+      Enum.all?(positions, fn
+        {_id, %{"x" => x, "y" => y}} when is_number(x) and is_number(y) -> true
+        _position -> false
+      end)
+
+    if valid_values? and MapSet.equal?(node_ids, position_ids),
+      do: :ok,
+      else: {:error, :invalid_positions}
+  end
+
+  defp insert_nodes(nodes),
+    do: Enum.each(nodes, &insert_or_rollback(Node.changeset(&1, %{}), :node))
+
+  defp insert_edges(edges),
+    do: Enum.each(edges, &insert_or_rollback(Edge.changeset(&1, %{}), :edge))
+
+  defp insert_or_rollback(changeset, operation) do
+    case Repo.insert(changeset) do
+      {:ok, record} -> record
+      {:error, changeset} -> Repo.rollback({operation, changeset})
+    end
+  end
+
+  defp update_or_rollback(changeset, operation) do
+    case Repo.update(changeset) do
+      {:ok, record} -> record
+      {:error, changeset} -> Repo.rollback({operation, changeset})
+    end
   end
 end

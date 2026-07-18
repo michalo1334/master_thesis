@@ -11,6 +11,8 @@ defmodule NetworkDefense.Graph.Graph do
     has_many :nodes, Node
     has_many :edges, Edge
     field :adjacency_list, :map, virtual: true, default: %{}
+    field :lock_version, :integer, default: 1
+    field :positions, :map, default: %{}
     field :title, :string
 
     timestamps(type: :utc_datetime)
@@ -19,13 +21,21 @@ defmodule NetworkDefense.Graph.Graph do
   @doc false
   def changeset(graph, attrs) do
     graph
-    |> cast(attrs, [:title])
+    |> cast(attrs, [:title, :positions])
     |> validate_required([:title])
     |> validate_length(:title, min: 1)
   end
 
   def new(title) when is_binary(title) and byte_size(title) > 0 do
-    %__MODULE__{id: Ecto.UUID.generate(), title: title, nodes: [], edges: [], adjacency_list: %{}}
+    %__MODULE__{
+      id: Ecto.UUID.generate(),
+      title: title,
+      nodes: [],
+      edges: [],
+      adjacency_list: %{},
+      lock_version: 1,
+      positions: %{}
+    }
   end
 
   def hydrate(graph, nodes, edges) do

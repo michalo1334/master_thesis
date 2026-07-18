@@ -11,13 +11,12 @@
     type WorkspaceDocumentType,
   } from "./dashboard/workspace/Workspace.svelte";
   import {
-    createTopologyDocumentFromServerGraph,
-    createSimulationDocument,
-    graphNodeLabel,
-    graphTypeLabel,
-    nextActiveDocumentId,
+    topologyEditableStateKey,
+    topologyFromSuccessfulSaveReply,
+    topologySavePayload,
     type ServerGraphSummary,
     type ServerTopologyGraph,
+    type TopologySaveReply,
     type TopologyDocument,
     type TopologyEditorState,
     type WorkspaceDocument,
@@ -26,21 +25,15 @@
     parseWorkspace,
     serializeWorkspace,
   } from "./dashboard/workspace/persistence";
+  import { WorkspaceState } from "./dashboard/workspace/state.svelte";
   import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
 
   interface Props {
     live?: Live;
     graphSummaries?: readonly ServerGraphSummary[];
-    selectedGraph?: ServerTopologyGraph;
-    selectedGraphRequestId?: number;
   }
 
-  let {
-    live,
-    graphSummaries = [],
-    selectedGraph,
-    selectedGraphRequestId,
-  }: Props = $props();
+  let { live, graphSummaries = [] }: Props = $props();
 
   const documentTypes = [
     { id: "topology", label: "Topology", icon: "graph" },
@@ -48,65 +41,14 @@
   ] as const satisfies readonly WorkspaceDocumentType[];
   const workspaceStorageKey = "master-thesis.dashboard.workspace.v1";
 
-  let documents = $state<WorkspaceDocument[]>([]);
-  let activeDocumentId = $state<string>();
-  let nextDocumentId = $state(1);
+  const workspace = new WorkspaceState();
   let inspectorVisible = $state(true);
   let topologyPickerOpen = $state(false);
-  let lastSelectedGraphRequestId = $state<number>();
-  let selectedGraphRequestsReady = $state(false);
-  let workspaceRestored = $state(false);
-  let persistedWorkspace: string | undefined;
-  let activeDocument = $derived(
-    documents.find((document) => document.id === activeDocumentId),
-  );
-  let activeTopology = $derived(
-    activeDocument?.type === "topology" ? activeDocument : undefined,
-  );
-  let selectedObject = $derived.by(() =>
-    selectedTopologyObject(activeTopology),
-  );
-  let serializedWorkspace = $derived(
-    serializeWorkspace({ documents, activeDocumentId, nextDocumentId }),
-  );
-
-  $effect(() => {
-    if (!workspaceRestored || serializedWorkspace === persistedWorkspace)
-      return;
-
-    try {
-      localStorage.setItem(workspaceStorageKey, serializedWorkspace);
-    } catch {
-      // Storage can be unavailable or full; retain the in-memory workspace.
-    }
-    persistedWorkspace = serializedWorkspace;
-  });
-
-  $effect(() => {
-    if (
-      !selectedGraphRequestsReady ||
-      selectedGraphRequestId === undefined ||
-      (lastSelectedGraphRequestId !== undefined &&
-        selectedGraphRequestId <= lastSelectedGraphRequestId) ||
-      !selectedGraph
-    )
-      return;
-
-    lastSelectedGraphRequestId = selectedGraphRequestId;
-    const id = `topology-${nextDocumentId++}`;
-    documents = [
-      ...documents,
-      createTopologyDocumentFromServerGraph(id, selectedGraph),
-    ];
-    activeDocumentId = id;
-  });
+  let isSaving = $state(false);
+  let saveStatusMessage = $state<string>();
 
   onMount(() => {
     restoreWorkspace(localStorage);
-    persistedWorkspace = serializedWorkspace;
-    workspaceRestored = true;
-    lastSelectedGraphRequestId = selectedGraphRequestId;
-    selectedGraphRequestsReady = true;
   });
 
   function restoreWorkspace(storage: Storage) {
@@ -126,9 +68,7 @@
       return;
     }
 
-    documents = restored.documents;
-    activeDocumentId = restored.activeDocumentId;
-    nextDocumentId = restored.nextDocumentId;
+    workspace.restore(restored);
   }
 
   function persistWorkspace(workspace: string) {
@@ -137,6 +77,10 @@
     } catch {
       // Storage can be unavailable or full; retain the in-memory workspace.
     }
+  }
+
+  function persistCurrentWorkspace() {
+    persistWorkspace(serializeWorkspace(workspace.snapshot()));
   }
 
   function removeStoredWorkspace(storage: Storage) {
@@ -148,38 +92,55 @@
   }
 
   function onSave() {
-    const workspace = serializeWorkspace({
-      documents,
-      activeDocumentId,
-      nextDocumentId,
-    });
-    persistWorkspace(workspace);
-    persistedWorkspace = workspace;
-  }
+    persistCurrentWorkspace();
 
-  function selectedTopologyObject(document?: TopologyDocument) {
-    const selectedId = document?.editor.selectedId;
-    if (!document || !selectedId) return undefined;
+    if (isSaving || !workspace.activeTopology || !live) return;
 
-    const node = document.graph.nodes.find(
-      (candidate) => candidate.id === selectedId,
-    );
-    if (node) return { id: node.id, name: graphNodeLabel(node) };
+    const savingDocument = workspace.activeTopology;
+    const submittedStateKey = topologyEditableStateKey(savingDocument.graph);
+    saveStatusMessage = undefined;
+    isSaving = true;
 
-    const edge = document.graph.edges.find(
-      (candidate) => candidate.id === selectedId,
-    );
-    if (!edge) return undefined;
+    try {
+      live.pushEvent(
+        "save_topology",
+        topologySavePayload(savingDocument.graph),
+        (reply) => {
+          try {
+            const savingDocumentIsOpen = workspace.documents.some(
+              (document) =>
+                document.type === "topology" &&
+                document.id === savingDocument.id &&
+                document.graph.id === savingDocument.graph.id,
+            );
+            if (!savingDocumentIsOpen) return;
 
-    const source = document.graph.nodes.find((node) => node.id === edge.fromId);
-    const target = document.graph.nodes.find((node) => node.id === edge.toId);
-    return {
-      id: edge.id,
-      name:
-        source && target
-          ? `${graphNodeLabel(source)} → ${graphNodeLabel(target)} (${graphTypeLabel(edge.type)})`
-          : graphTypeLabel(edge.type),
-    };
+            const saveReply = reply as TopologySaveReply;
+            const topology = topologyFromSuccessfulSaveReply(saveReply);
+            if (topology) {
+              workspace.applySavedTopology(
+                savingDocument.id,
+                topology,
+                submittedStateKey,
+              );
+              persistCurrentWorkspace();
+              saveStatusMessage = "Saved";
+              return;
+            }
+
+            saveStatusMessage =
+              saveReply.status === "stale" || saveReply.stale === true
+                ? "Save conflict: local changes were kept. Reopen the topology before retrying."
+                : "Save failed; local changes kept";
+          } finally {
+            isSaving = false;
+          }
+        },
+      );
+    } catch {
+      isSaving = false;
+      saveStatusMessage = "Save failed; local changes kept";
+    }
   }
 
   function createDocument(typeId: string) {
@@ -190,62 +151,71 @@
 
     if (typeId !== "simulation") return;
 
-    const id = `simulation-${nextDocumentId++}`;
-    const title = `Simulation result ${documents.filter((document) => document.type === "simulation").length + 1}`;
-    documents = [...documents, createSimulationDocument(id, title)];
-    activeDocumentId = id;
+    workspace.createSimulationDocument();
+    persistCurrentWorkspace();
   }
 
   function openTopology(graph: ServerGraphSummary) {
     topologyPickerOpen = false;
-    live?.pushEvent("open_topology", { graph_id: graph.id });
+    live?.pushEvent("open_topology", { graph_id: graph.id }, (reply) => {
+      const { topology } = reply as { topology?: ServerTopologyGraph };
+      if (!topology) return;
+
+      workspace.openTopology(topology);
+      persistCurrentWorkspace();
+    });
   }
 
   function updateTopologyDocument(
     id: string,
     change: Pick<TopologyDocument, "graph"> | Pick<TopologyDocument, "editor">,
   ) {
-    documents = documents.map((document) =>
-      document.type === "topology" && document.id === id
-        ? { ...document, ...change }
-        : document,
-    );
+    workspace.updateTopologyDocument(id, change);
+    if ("graph" in change) saveStatusMessage = undefined;
+    persistCurrentWorkspace();
   }
 
   function closeDocument(id: string) {
-    activeDocumentId = nextActiveDocumentId(documents, activeDocumentId, id);
-    documents = documents.filter((document) => document.id !== id);
+    workspace.closeDocument(id);
+    persistCurrentWorkspace();
+  }
+
+  function activateDocument(id: string) {
+    workspace.activeDocumentId = id;
+    saveStatusMessage = undefined;
+    persistCurrentWorkspace();
   }
 
   function runSimulation() {
-    if (!activeTopology) return;
+    if (!workspace.activeTopology) return;
 
     live?.pushEvent("run_simulation", {
-      graph_id: activeTopology.graph.id,
-      selected_object_id: selectedObject?.id,
+      graph_id: workspace.activeTopology.graph.id,
+      selected_object_id: workspace.selectedObject?.id,
       source: "ribbon",
     });
   }
 
   function optimizeDefense() {
-    if (!activeTopology) return;
+    if (!workspace.activeTopology) return;
 
     live?.pushEvent("optimize_defense", {
-      graph_id: activeTopology.graph.id,
-      selected_object_id: selectedObject?.id,
+      graph_id: workspace.activeTopology.graph.id,
+      selected_object_id: workspace.selectedObject?.id,
       source: "ribbon",
     });
   }
 
   function updateActiveEditor(editor: TopologyEditorState) {
-    if (activeTopology) updateTopologyDocument(activeTopology.id, { editor });
+    if (workspace.activeTopology)
+      updateTopologyDocument(workspace.activeTopology.id, { editor });
   }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
-  <AppBar {onSave} />
+  <AppBar {onSave} {isSaving} />
   <DashboardRibbon
-    topology={activeTopology}
+    topology={workspace.activeTopology}
     {inspectorVisible}
     onEditorChange={updateActiveEditor}
     onInspectorToggle={() => (inspectorVisible = !inspectorVisible)}
@@ -269,14 +239,14 @@
   {/snippet}
 
   {#snippet inspector()}
-    <DashboardInspector {selectedObject} />
+    <DashboardInspector selectedObject={workspace.selectedObject} />
   {/snippet}
 
   <Workspace
-    {documents}
-    {activeDocumentId}
+    documents={workspace.documents}
+    activeDocumentId={workspace.activeDocumentId}
     orientation="vertical"
-    onActiveDocumentChange={(id) => (activeDocumentId = id)}
+    onActiveDocumentChange={activateDocument}
     onCloseDocument={closeDocument}
     {documentTypes}
     onCreateDocument={createDocument}
@@ -290,7 +260,12 @@
     onSelect={openTopology}
   />
 
-  <StatusBar documentName={activeDocument?.title ?? "No document"} />
+  <StatusBar
+    documentName={workspace.activeDocument?.title ?? "No document"}
+    statusMessage={workspace.activeTopologyDirty
+      ? (saveStatusMessage ?? "Unsaved changes")
+      : saveStatusMessage}
+  />
 </div>
 
 <style>

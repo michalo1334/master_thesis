@@ -25,6 +25,8 @@ export interface GraphEdge {
 
 export interface TopologyGraph {
   id: string;
+  title: string;
+  lockVersion: number;
   nodes: GraphNode[];
   edges: GraphEdge[];
   positions: Record<string, GraphPoint>;
@@ -40,8 +42,37 @@ export interface ServerGraphSummary {
 export interface ServerTopologyGraph {
   id: string;
   title: string;
+  lockVersion: number;
   nodes: readonly GraphNode[];
   edges: readonly GraphEdge[];
+  positions?: Readonly<Record<string, GraphPoint>>;
+}
+
+export interface TopologySavePayload {
+  graph_id: string;
+  lock_version: number;
+  title: string;
+  nodes: Array<{
+    id: string;
+    type: string;
+    data: Record<string, unknown>;
+  }>;
+  edges: Array<{
+    id: string;
+    from_id: string;
+    to_id: string;
+    type: string;
+    data: Record<string, unknown>;
+  }>;
+  positions: Record<string, GraphPoint>;
+}
+
+export interface TopologySaveReply {
+  ok?: boolean;
+  status?: string;
+  stale?: boolean;
+  error?: unknown;
+  topology?: ServerTopologyGraph;
 }
 
 export interface TopologyEditorState {
@@ -73,9 +104,18 @@ export type WorkspaceDocument = TopologyDocument | SimulationDocument;
 
 export interface WorkspaceSnapshot {
   documents: WorkspaceDocument[];
+  topologyBaselines: Record<string, string>;
   activeDocumentId?: string;
   nextDocumentId: number;
 }
+
+export interface SavedTopologyApplication {
+  documents: WorkspaceDocument[];
+  topologyBaselines: Record<string, string>;
+}
+
+export const NETWORK_REACHABILITY_TYPE =
+  "Elixir.NetworkDefense.Relationships.NetworkReachability";
 
 export function createTopologyEditor(): TopologyEditorState {
   return {
@@ -93,11 +133,26 @@ export function createTopologyEditor(): TopologyEditorState {
 export function topologyGraphFromServerGraph(
   graph: ServerTopologyGraph,
 ): TopologyGraph {
+  const fallbackPositions = createGridPositions(graph.nodes);
+
   return {
     id: graph.id,
-    nodes: [...graph.nodes],
-    edges: [...graph.edges],
-    positions: createGridPositions(graph.nodes),
+    title: graph.title,
+    lockVersion: graph.lockVersion,
+    nodes: graph.nodes.map((node) => ({
+      ...node,
+      data: cloneGraphData(node.data),
+    })),
+    edges: graph.edges.map((edge) => ({
+      ...edge,
+      data: cloneGraphData(edge.data),
+    })),
+    positions: Object.fromEntries(
+      graph.nodes.map((node) => [
+        node.id,
+        { ...(graph.positions?.[node.id] ?? fallbackPositions[node.id]) },
+      ]),
+    ),
   };
 }
 
@@ -133,6 +188,8 @@ export function createGridPositions(
 export function cloneTopologyGraph(graph: TopologyGraph): TopologyGraph {
   return {
     id: graph.id,
+    title: graph.title,
+    lockVersion: graph.lockVersion,
     nodes: graph.nodes.map((node) => ({
       ...node,
       data: cloneGraphData(node.data),
@@ -166,7 +223,7 @@ export function createTopologyDocument(
     id,
     title,
     type: "topology",
-    graph: cloneTopologyGraph(graph),
+    graph: { ...cloneTopologyGraph(graph), title },
     editor: createTopologyEditor(),
   };
 }
@@ -176,6 +233,154 @@ export function createSimulationDocument(
   title: string,
 ): SimulationDocument {
   return { id, title, type: "simulation" };
+}
+
+export function applySavedTopology(
+  documents: readonly WorkspaceDocument[],
+  topologyBaselines: Readonly<Record<string, string>>,
+  documentId: string,
+  topology: ServerTopologyGraph,
+  submittedStateKey?: string,
+): SavedTopologyApplication {
+  const savedGraph = topologyGraphFromServerGraph(topology);
+  const baseline = topologyEditableStateKey(savedGraph);
+  const target = documents.find(
+    (document) =>
+      document.type === "topology" &&
+      document.id === documentId &&
+      document.graph.id === topology.id,
+  );
+
+  if (!target || target.type !== "topology") {
+    return {
+      documents: [...documents],
+      topologyBaselines: { ...topologyBaselines },
+    };
+  }
+
+  const hasNewerLocalEdits =
+    submittedStateKey !== undefined &&
+    topologyEditableStateKey(target.graph) !== submittedStateKey;
+
+  return {
+    documents: documents.map((document) =>
+      document.type === "topology" && document.id === documentId
+        ? hasNewerLocalEdits
+          ? {
+              ...document,
+              title: document.graph.title,
+              graph: { ...document.graph, lockVersion: topology.lockVersion },
+            }
+          : {
+              ...document,
+              title: topology.title,
+              graph: cloneTopologyGraph(savedGraph),
+            }
+        : document,
+    ),
+    topologyBaselines: {
+      ...topologyBaselines,
+      [documentId]: baseline,
+    },
+  };
+}
+
+export function topologyEditableStateKey(graph: TopologyGraph): string {
+  return JSON.stringify({
+    title: graph.title,
+    nodes: [...graph.nodes]
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((node) => ({
+        id: node.id,
+        graphId: node.graphId,
+        type: node.type,
+        data: canonicalJsonValue(node.data),
+      })),
+    edges: [...graph.edges]
+      .sort((left, right) => left.id.localeCompare(right.id))
+      .map((edge) => ({
+        id: edge.id,
+        graphId: edge.graphId,
+        fromId: edge.fromId,
+        toId: edge.toId,
+        type: edge.type,
+        data: canonicalJsonValue(edge.data),
+      })),
+    positions: Object.entries(graph.positions)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([id, position]) => ({ id, x: position.x, y: position.y })),
+  });
+}
+
+export function topologySavePayload(graph: TopologyGraph): TopologySavePayload {
+  return {
+    graph_id: graph.id,
+    lock_version: graph.lockVersion,
+    title: graph.title,
+    nodes: graph.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      data: cloneGraphData(node.data),
+    })),
+    edges: graph.edges.map((edge) => ({
+      id: edge.id,
+      from_id: edge.fromId,
+      to_id: edge.toId,
+      type: edge.type,
+      data: cloneGraphData(edge.data),
+    })),
+    positions: Object.fromEntries(
+      Object.entries(graph.positions).map(([id, position]) => [
+        id,
+        { ...position },
+      ]),
+    ),
+  };
+}
+
+export function topologyFromSuccessfulSaveReply(
+  reply: TopologySaveReply,
+): ServerTopologyGraph | undefined {
+  const statusIsFailure =
+    reply.status !== undefined &&
+    reply.status !== "ok" &&
+    reply.status !== "success";
+
+  if (
+    reply.ok === false ||
+    statusIsFailure ||
+    reply.stale === true ||
+    reply.error != null
+  )
+    return undefined;
+
+  return reply.topology;
+}
+
+export function createNetworkReachabilityEdge(
+  graphId: string,
+  fromId: string,
+  toId: string,
+): GraphEdge {
+  return {
+    id: crypto.randomUUID(),
+    graphId,
+    fromId,
+    toId,
+    type: NETWORK_REACHABILITY_TYPE,
+    data: {},
+  };
+}
+
+export function canonicalJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (typeof value !== "object" || value === null) return value;
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, canonicalJsonValue(entry)]),
+  );
 }
 
 export function nextActiveDocumentId(
