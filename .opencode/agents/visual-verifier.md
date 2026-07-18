@@ -1,7 +1,7 @@
 ---
 description: Visual verification specialist. Uses playwright-cli to open pages, inspect layouts, verify UI states, and report visual issues. Acts as the "eyes" for other agents — cheap and fast for browser-based checks.
 mode: subagent
-model: minimax/m3
+model: opencode-go/minimax-m3
 permission:
   bash: allow
 ---
