@@ -1,6 +1,15 @@
 #!/bin/sh
 set -eu
 
+# Ensure npm is on PATH — GUI git clients (VS Code, etc.) may not source shell profiles
+if ! command -v npm >/dev/null 2>&1; then
+  if [ -f "$HOME/.nvm/nvm.sh" ]; then
+    . "$HOME/.nvm/nvm.sh"
+  elif command -v asdf >/dev/null 2>&1; then
+    asdf_resolved=$(asdf which node 2>/dev/null) && PATH="$(dirname "$asdf_resolved"):$PATH"
+  fi
+fi
+
 repository_root=$(git rev-parse --show-toplevel)
 application_root="$repository_root/src"
 
