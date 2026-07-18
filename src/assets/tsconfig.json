@@ -15,5 +15,11 @@
     },
     "types": ["vite/client"]
   },
-  "include": ["js/**/*.ts", "js/**/*.d.ts", "svelte/**/*.svelte"]
+  "include": [
+    "js/**/*.ts",
+    "js/**/*.d.ts",
+    "svelte/**/*.svelte",
+    "svelte/**/*.svelte.ts",
+    "svelte/**/*.ts"
+  ]
 }

@@ -1,15 +1,15 @@
 <script lang="ts">
   import { ContextMenu } from "bits-ui";
-  import CanvasEdge from "./canvas/CanvasEdge.svelte";
-  import CanvasNode from "./canvas/CanvasNode.svelte";
-  import { nodeCenter } from "./canvas/geometry";
-  import type {
-    GraphNode,
-    GraphPoint,
-    TopologyDocument,
-    TopologyEditorState,
-  } from "./model";
-  import { createNetworkReachabilityEdge, type GraphEdge } from "./model";
+  import CanvasEdge from "./CanvasEdge.svelte";
+  import CanvasNode from "./CanvasNode.svelte";
+  import { nodeCenter } from "./geometry";
+  import type { Edge, Graph, Node } from "../contract";
+  import {
+    type DragState,
+    type NodeDragState,
+    type CanvasState,
+    type Point,
+  } from "./canvasState";
 
   const MIN_ZOOM = 25;
   const MAX_ZOOM = 200;
@@ -18,57 +18,45 @@
   const DRAG_THRESHOLD = 4;
 
   interface Props {
-    graph: TopologyDocument["graph"];
-    editor: TopologyEditorState;
-    onGraphChange: (graph: TopologyDocument["graph"]) => void;
-    onEditorChange: (editor: TopologyEditorState) => void;
+    graph: Graph;
+    onGraphChange: (graph: Graph) => void;
+    onCanvasStateChange: (state: CanvasState) => void;
   }
 
-  let { graph, editor, onGraphChange, onEditorChange }: Props = $props();
+  let { graph, onGraphChange, onCanvasStateChange }: Props = $props();
   const canvasPreviewArrowId = $props.id();
   let viewport = $state({ width: 0, height: 0 });
-  let pointerGraphPosition = $state<GraphPoint>();
+  let pointerGraphPosition = $state<Point>();
   let didPan = $state(false);
   let suppressNodeClick = $state(false);
-  let drag:
-    | {
-        pointerId: number;
-        startX: number;
-        startY: number;
-        panX: number;
-        panY: number;
-      }
-    | undefined;
-  let nodeDrag = $state<
-    | {
-        pointerId: number;
-        nodeId: string;
-        startX: number;
-        startY: number;
-        nodeX: number;
-        nodeY: number;
-        moved: boolean;
-        element: SVGGElement;
-      }
-    | undefined
-  >();
-  let gridSize = $derived(20 * (editor.zoom / 100));
+
+  let canvasState = $state<CanvasState>({
+    connectMode: false,
+    zoom: 0,
+    pan: { x: 0, y: 0 },
+    connectionSourceId: undefined,
+    selectedId: undefined,
+  });
+  let dragState = $state<DragState>();
+  let nodeDragState = $state<NodeDragState>();
+
+  let gridSize = $derived(20 * (canvasState.zoom / 100));
   let worldTransform = $derived(
-    `translate(${editor.pan.x} ${editor.pan.y}) scale(${editor.zoom / 100})`,
+    `translate(${canvasState.pan.x} ${canvasState.pan.y}) scale(${canvasState.zoom / 100})`,
   );
   let connectionSource = $derived(
-    graph.nodes.find((node) => node.id === editor.connectionSourceId),
+    graph.nodes.find((node) => node.id === canvasState.connectionSourceId),
   );
 
-  function nodePosition(node: GraphNode): GraphPoint {
-    return { x: node.viewData.x_pos, y: node.viewData.y_pos };
+  function nodePosition(node: Node): Point {
+    return { x: node.view_data.x_pos, y: node.view_data.y_pos };
   }
 
-  function updateEditor(change: Partial<TopologyEditorState>) {
-    onEditorChange({ ...editor, ...change });
+  function updateCanvasState(change: Partial<CanvasState>) {
+    onCanvasStateChange({ ...canvasState, ...change });
   }
 
-  function updateGraph(change: Partial<TopologyDocument["graph"]>) {
+  function updateGraph(change: Partial<Graph>) {
     onGraphChange({ ...graph, ...change });
   }
 
@@ -77,24 +65,26 @@
   }
 
   function setZoom(zoom: number) {
-    updateEditor({ zoom: clampZoom(zoom) });
+    updateCanvasState({ zoom: clampZoom(zoom) });
   }
 
   function panBy(x: number, y: number) {
-    updateEditor({ pan: { x: editor.pan.x + x, y: editor.pan.y + y } });
+    updateCanvasState({
+      pan: { x: canvasState.pan.x + x, y: canvasState.pan.y + y },
+    });
   }
 
   function resetView() {
-    updateEditor({ zoom: 100, pan: { x: 0, y: 0 } });
+    updateCanvasState({ zoom: 100, pan: { x: 0, y: 0 } });
   }
 
-  function graphPosition(event: PointerEvent | MouseEvent): GraphPoint {
+  function graphPosition(event: PointerEvent | MouseEvent): Point {
     const surface = event.currentTarget as HTMLElement;
     const bounds = surface.getBoundingClientRect();
-    const scale = editor.zoom / 100;
+    const scale = canvasState.zoom / 100;
     return {
-      x: (event.clientX - bounds.left - editor.pan.x) / scale,
-      y: (event.clientY - bounds.top - editor.pan.y) / scale,
+      x: (event.clientX - bounds.left - canvasState.pan.x) / scale,
+      y: (event.clientY - bounds.top - canvasState.pan.y) / scale,
     };
   }
 
@@ -117,29 +107,25 @@
     surface.focus();
     surface.setPointerCapture(event.pointerId);
     didPan = false;
-    drag = {
+    dragState = {
       pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      panX: editor.pan.x,
-      panY: editor.pan.y,
+      start: { x: event.clientX, y: event.clientY },
+      pan: canvasState.pan,
     };
   }
 
-  function startNodeDrag(node: GraphNode, event: PointerEvent) {
+  function startNodeDrag(node: Node, event: PointerEvent) {
     if (event.button !== 0 || !event.isPrimary) return;
 
     event.stopPropagation();
     const element = event.currentTarget as SVGGElement;
     element.setPointerCapture(event.pointerId);
     const position = nodePosition(node);
-    nodeDrag = {
+    nodeDragState = {
       pointerId: event.pointerId,
       nodeId: node.id,
-      startX: event.clientX,
-      startY: event.clientY,
-      nodeX: position.x,
-      nodeY: position.y,
+      start: { x: event.clientX, y: event.clientY },
+      nodePos: { x: position.x, y: position.y },
       moved: false,
       element,
     };
@@ -147,23 +133,23 @@
 
   function handlePointerMove(event: PointerEvent) {
     pointerGraphPosition = graphPosition(event);
-    if (nodeDrag?.pointerId === event.pointerId) {
-      const deltaX = event.clientX - nodeDrag.startX;
-      const deltaY = event.clientY - nodeDrag.startY;
-      if (!nodeDrag.moved && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD)
-        nodeDrag.moved = true;
-      if (!nodeDrag.moved) return;
+    if (nodeDragState?.pointerId === event.pointerId) {
+      const deltaX = event.clientX - nodeDragState.start.x;
+      const deltaY = event.clientY - nodeDragState.start.y;
+      if (!nodeDragState.moved && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD)
+        nodeDragState.moved = true;
+      if (!nodeDragState.moved) return;
 
-      const scale = editor.zoom / 100;
+      const scale = canvasState.zoom / 100;
       updateGraph({
         nodes: graph.nodes.map((node) =>
-          node.id === nodeDrag?.nodeId
+          node.id === nodeDragState?.nodeId
             ? {
                 ...node,
                 viewData: {
-                  ...node.viewData,
-                  x_pos: nodeDrag.nodeX + deltaX / scale,
-                  y_pos: nodeDrag.nodeY + deltaY / scale,
+                  ...node.view_data,
+                  x_pos: nodeDragState.nodePos.x + deltaX / scale,
+                  y_pos: nodeDragState.nodePos.y + deltaY / scale,
                 },
               }
             : node,
@@ -171,102 +157,62 @@
       });
       return;
     }
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
 
-    didPan ||= event.clientX !== drag.startX || event.clientY !== drag.startY;
-    updateEditor({
+    didPan ||=
+      event.clientX !== dragState.start.x ||
+      event.clientY !== dragState.start.y;
+    updateCanvasState({
       pan: {
-        x: drag.panX + event.clientX - drag.startX,
-        y: drag.panY + event.clientY - drag.startY,
+        x: dragState.pan.x + event.clientX - dragState.start.x,
+        y: dragState.pan.y + event.clientY - dragState.start.y,
       },
     });
   }
 
   function releasePointer(event: PointerEvent) {
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
     const surface = event.currentTarget as HTMLDivElement;
     if (surface.hasPointerCapture(event.pointerId))
       surface.releasePointerCapture(event.pointerId);
   }
 
   function endNodeDrag(event: PointerEvent) {
-    if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
-    if (nodeDrag.element.hasPointerCapture(event.pointerId))
-      nodeDrag.element.releasePointerCapture(event.pointerId);
-    if (event.type === "pointerup" && nodeDrag.moved) suppressNodeClick = true;
-    nodeDrag = undefined;
+    if (!nodeDragState || nodeDragState.pointerId !== event.pointerId) return;
+    if (nodeDragState.element.hasPointerCapture(event.pointerId))
+      nodeDragState.element.releasePointerCapture(event.pointerId);
+    if (event.type === "pointerup" && nodeDragState.moved)
+      suppressNodeClick = true;
+    nodeDragState = undefined;
   }
 
   function handlePointerUp(event: PointerEvent) {
-    if (nodeDrag?.pointerId === event.pointerId) return endNodeDrag(event);
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
+    if (!dragState || dragState.pointerId !== event.pointerId) return;
     releasePointer(event);
-    drag = undefined;
+    dragState = undefined;
   }
 
   function cancelPan(event: PointerEvent) {
-    if (nodeDrag?.pointerId === event.pointerId) return endNodeDrag(event);
+    if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
     releasePointer(event);
-    drag = undefined;
+    dragState = undefined;
   }
 
   function handleWheel(event: WheelEvent) {
     event.preventDefault();
-    setZoom(editor.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+    setZoom(canvasState.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
   }
 
   function selectObject(id: string) {
-    updateEditor({ selectedId: id });
+    updateCanvasState({ selectedId: id });
   }
 
-  function handleBlankCanvasClick(event: MouseEvent) {
-    if (isGraphInteractive(event.target) || drag) return;
-    if (didPan) {
-      didPan = false;
-      return;
-    }
-    updateEditor({
-      selectedId: undefined,
-      connectionSourceId:
-        editor.tool === "connect" ? undefined : editor.connectionSourceId,
-    });
-  }
+  function handleBlankCanvasClick(event: MouseEvent) {}
 
-  function handleNodeClick(node: GraphNode, event: MouseEvent) {
-    event.stopPropagation();
-    if (suppressNodeClick) {
-      suppressNodeClick = false;
-      return;
-    }
-    if (editor.tool !== "connect") return selectObject(node.id);
-    if (!editor.connectionSourceId) {
-      updateEditor({ connectionSourceId: node.id, selectedId: node.id });
-      return;
-    }
-    if (editor.connectionSourceId === node.id) return;
-    if (
-      graph.edges.some(
-        (edge) =>
-          edge.fromId === editor.connectionSourceId && edge.toId === node.id,
-      )
-    )
-      return;
+  function handleNodeClick(node: Node, event: MouseEvent) {}
 
-    const source = graph.nodes.find(
-      (candidate) => candidate.id === editor.connectionSourceId,
-    );
-    const target = graph.nodes.find((candidate) => candidate.id === node.id);
-    if (!source || !target) return;
-    const edge = createNetworkReachabilityEdge(graph.id, source.id, target.id);
-    updateGraph({ edges: [...graph.edges, edge] });
-    updateEditor({
-      selectedId: edge.id,
-      connectionSourceId: undefined,
-      tool: "select",
-    });
-  }
-
-  function handleEdgeClick(edge: GraphEdge, event: MouseEvent) {
+  function handleEdgeClick(edge: Edge, event: MouseEvent) {
     event.stopPropagation();
     selectObject(edge.id);
   }
@@ -274,7 +220,7 @@
   function handleKeydown(event: KeyboardEvent) {
     switch (event.key) {
       case "Escape":
-        updateEditor({ connectionSourceId: undefined });
+        updateCanvasState({ connectionSourceId: undefined });
         break;
       case "ArrowUp":
         event.preventDefault();
@@ -295,11 +241,11 @@
       case "+":
       case "=":
         event.preventDefault();
-        setZoom(editor.zoom + ZOOM_STEP);
+        setZoom(canvasState.zoom + ZOOM_STEP);
         break;
       case "-":
         event.preventDefault();
-        setZoom(editor.zoom - ZOOM_STEP);
+        setZoom(canvasState.zoom - ZOOM_STEP);
         break;
       case "0":
         event.preventDefault();
@@ -318,8 +264,8 @@
         role="application"
         tabindex="0"
         aria-label="Network topology canvas. Drag blank space to pan or drag nodes to reposition them. Right-click to open viewport actions. Use the mouse wheel or keyboard to zoom."
-        style:--grid-offset-x={`${editor.pan.x}px`}
-        style:--grid-offset-y={`${editor.pan.y}px`}
+        style:--grid-offset-x={`${canvasState.pan.x}px`}
+        style:--grid-offset-y={`${canvasState.pan.y}px`}
         style:--minor-grid-size={`${gridSize}px`}
         style:--major-grid-size={`${gridSize * 5}px`}
         bind:clientWidth={viewport.width}
@@ -351,10 +297,10 @@
           <g transform={worldTransform}>
             {#each graph.edges as edge (edge.id)}
               {@const source = graph.nodes.find(
-                (node) => node.id === edge.fromId,
+                (node) => node.id === edge.from_id,
               )}
               {@const target = graph.nodes.find(
-                (node) => node.id === edge.toId,
+                (node) => node.id === edge.to_id,
               )}
               {#if source && target}<CanvasEdge
                   {edge}
@@ -362,11 +308,11 @@
                   {target}
                   sourcePosition={nodePosition(source)}
                   targetPosition={nodePosition(target)}
-                  selected={editor.selectedId === edge.id}
+                  selected={canvasState.selectedId === edge.id}
                   onclick={(event) => handleEdgeClick(edge, event)}
                 />{/if}
             {/each}
-            {#if editor.tool === "connect" && connectionSource && pointerGraphPosition}
+            {#if canvasState.connectMode && connectionSource && pointerGraphPosition}
               {@const sourcePosition = nodeCenter(
                 nodePosition(connectionSource),
               )}
@@ -380,9 +326,9 @@
               <CanvasNode
                 {node}
                 position={nodePosition(node)}
-                selected={editor.selectedId === node.id}
-                source={editor.connectionSourceId === node.id}
-                dragging={nodeDrag?.nodeId === node.id}
+                selected={canvasState.selectedId === node.id}
+                source={canvasState.connectionSourceId === node.id}
+                dragging={nodeDragState?.nodeId === node.id}
                 onpointerdown={(event) => startNodeDrag(node, event)}
                 onclick={(event) => handleNodeClick(node, event)}
               />
@@ -399,12 +345,12 @@
       >
         <ContextMenu.Item
           class="dashboard-menu-item"
-          onclick={() => setZoom(editor.zoom + ZOOM_STEP)}
+          onclick={() => setZoom(canvasState.zoom + ZOOM_STEP)}
           >Zoom in</ContextMenu.Item
         >
         <ContextMenu.Item
           class="dashboard-menu-item"
-          onclick={() => setZoom(editor.zoom - ZOOM_STEP)}
+          onclick={() => setZoom(canvasState.zoom - ZOOM_STEP)}
           >Zoom out</ContextMenu.Item
         >
         <ContextMenu.Item class="dashboard-menu-item" onclick={resetView}
@@ -421,12 +367,12 @@
     <button
       type="button"
       aria-label="Zoom out"
-      onclick={() => setZoom(editor.zoom - ZOOM_STEP)}>−</button
-    ><output aria-live="polite" aria-atomic="true">{editor.zoom}%</output
+      onclick={() => setZoom(canvasState.zoom - ZOOM_STEP)}>−</button
+    ><output aria-live="polite" aria-atomic="true">{canvasState.zoom}%</output
     ><button
       type="button"
       aria-label="Zoom in"
-      onclick={() => setZoom(editor.zoom + ZOOM_STEP)}>+</button
+      onclick={() => setZoom(canvasState.zoom + ZOOM_STEP)}>+</button
     ><button type="button" class="canvas-reset" onclick={resetView}
       >Reset</button
     >

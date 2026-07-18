@@ -1,23 +1,8 @@
 <script lang="ts">
   import { Dialog } from "bits-ui";
-  import type { ServerGraphSummary } from "./model";
-
-  interface Props {
-    graphSummaries: readonly ServerGraphSummary[];
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onSelect: (graph: ServerGraphSummary) => void;
-  }
-
-  let { graphSummaries, open, onOpenChange, onSelect }: Props = $props();
-  const numberFormatter = new Intl.NumberFormat();
-
-  function countLabel(count: number, singular: string, plural: string) {
-    return `${numberFormatter.format(count)} ${count === 1 ? singular : plural}`;
-  }
 </script>
 
-<Dialog.Root {open} {onOpenChange}>
+<Dialog.Root>
   <Dialog.Portal>
     <Dialog.Overlay class="topology-picker-overlay" />
     <Dialog.Content class="topology-picker-dialog">
@@ -26,25 +11,7 @@
         Select a saved network topology to open in the workspace.
       </Dialog.Description>
 
-      <div class="topology-picker-list" aria-label="Saved topologies">
-        {#each graphSummaries as graph (graph.id)}
-          <button
-            type="button"
-            class="topology-picker-item"
-            onclick={() => onSelect(graph)}
-          >
-            <span class="topology-picker-title">{graph.title}</span>
-            <span class="topology-picker-counts">
-              {countLabel(graph.nodeCount, "node", "nodes")} ·
-              {countLabel(graph.edgeCount, "edge", "edges")}
-            </span>
-          </button>
-        {:else}
-          <p class="topology-picker-empty">
-            No saved topologies are available.
-          </p>
-        {/each}
-      </div>
+      <div class="topology-picker-list" aria-label="Saved topologies"></div>
 
       <Dialog.Close
         class="topology-picker-close"

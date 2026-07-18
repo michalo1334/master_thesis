@@ -1,15 +1,10 @@
 <script lang="ts">
-  import {
-    graphNodeLabel,
-    graphNodeMetadata,
-    graphTypeLabel,
-    type GraphNode,
-    type GraphPoint,
-  } from "../model";
+  import { type Node, type NodeViewData } from "../contract";
+  import type { Point } from "./canvasState";
 
   interface Props {
-    node: GraphNode;
-    position: GraphPoint;
+    node: Node;
+    position: Point;
     selected: boolean;
     source: boolean;
     dragging: boolean;
@@ -26,9 +21,9 @@
     onclick,
     onpointerdown,
   }: Props = $props();
-  let label = $derived(graphNodeLabel(node));
-  let type = $derived(graphTypeLabel(node.type));
-  let metadata = $derived(graphNodeMetadata(node));
+  let label = $derived("TODO");
+  let type = $derived("TODO");
+  let metadata = $derived("TODO");
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== "Enter" && event.key !== " ") return;

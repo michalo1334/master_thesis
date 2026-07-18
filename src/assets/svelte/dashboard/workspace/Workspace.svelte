@@ -3,7 +3,11 @@
   import type { Snippet } from "svelte";
   import Icon from "../controls/Icon.svelte";
   import type { IconName } from "../types";
-  import type { WorkspaceDocument } from "./model";
+
+  export interface WorkspaceDocument {
+    id: string;
+    title: string;
+  }
 
   export interface WorkspaceDocumentType {
     id: string;
@@ -14,28 +18,29 @@
   export type WorkspaceOrientation = "horizontal" | "vertical";
 
   interface Props {
-    documents: WorkspaceDocument[];
+    documents?: readonly WorkspaceDocument[];
     activeDocumentId?: string;
     orientation?: WorkspaceOrientation;
-    onActiveDocumentChange: (id: string) => void;
-    onCloseDocument: (id: string) => void;
-    documentTypes: readonly WorkspaceDocumentType[];
-    onCreateDocument: (typeId: string) => void;
+    onActiveDocumentChange?: (id: string) => void;
+    onCloseDocument?: (id: string) => void;
+    documentTypes?: readonly WorkspaceDocumentType[];
+    onCreateDocument?: (typeId: string) => void;
     inspector?: Snippet;
-    content: Snippet<[WorkspaceDocument]>;
+    content?: Snippet<[WorkspaceDocument]>;
   }
 
   let {
-    documents,
-    activeDocumentId,
+    documents = [],
+    activeDocumentId = undefined,
     orientation = "horizontal",
-    onActiveDocumentChange,
-    onCloseDocument,
-    documentTypes,
-    onCreateDocument,
-    inspector,
-    content,
+    onActiveDocumentChange = () => {},
+    onCloseDocument = () => {},
+    documentTypes = [],
+    onCreateDocument = () => {},
+    inspector = undefined,
+    content = undefined,
   }: Props = $props();
+
   let activeDocument = $derived(
     documents.find((document) => document.id === activeDocumentId),
   );
@@ -46,12 +51,7 @@
   }
 </script>
 
-<main
-  class={[
-    "dashboard-workspace",
-    inspector && "dashboard-workspace-with-inspector",
-  ]}
->
+<main class={["dashboard-workspace", "dashboard-workspace-with-inspector"]}>
   <Tabs.Root
     class="dashboard-document"
     {orientation}
@@ -108,7 +108,7 @@
 
     {#if activeDocument}
       <Tabs.Content class="dashboard-document-panel" value={activeDocument.id}>
-        {@render content(activeDocument)}
+        {@render content?.(activeDocument)}
       </Tabs.Content>
     {/if}
 

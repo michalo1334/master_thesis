@@ -5,15 +5,11 @@
     selectedObject?: { id: string; name: string };
   }
 
-  let { selectedObject }: Props = $props();
+  let {}: Props = $props();
 </script>
 
 <Inspector title="Object inspector">
-  <p class="dashboard-inspector-empty">
-    {selectedObject
-      ? selectedObject.name
-      : "The active canvas has no selected objects."}
-  </p>
+  <p class="dashboard-inspector-empty"></p>
 </Inspector>
 
 <style>

@@ -1,19 +1,14 @@
 <script lang="ts">
   import { edgeEndpoints } from "./geometry";
-  import {
-    graphNodeLabel,
-    graphTypeLabel,
-    type GraphEdge,
-    type GraphNode,
-    type GraphPoint,
-  } from "../model";
+  import { type Edge, type Node, type NodeViewData } from "../contract";
+  import type { Point } from "./canvasState";
 
   interface Props {
-    edge: GraphEdge;
-    source: GraphNode;
-    target: GraphNode;
-    sourcePosition: GraphPoint;
-    targetPosition: GraphPoint;
+    edge: Edge;
+    source: Node;
+    target: Node;
+    sourcePosition: Point;
+    targetPosition: Point;
     selected: boolean;
     onclick: (event: MouseEvent) => void;
   }
@@ -28,7 +23,7 @@
     onclick,
   }: Props = $props();
   const markerId = $props.id();
-  let edgeType = $derived(graphTypeLabel(edge.type));
+  let edgeType = $derived("generic_type");
   let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,
@@ -66,7 +61,7 @@
     tabindex="0"
     role="button"
     aria-pressed={selected}
-    aria-label={`${edgeType} relationship from ${graphNodeLabel(source)} to ${graphNodeLabel(target)}${selected ? ", selected" : ""}`}
+    aria-label={`${edgeType} relationship from TODO to TODO}${selected ? ", selected" : ""}`}
     {onclick}
     onkeydown={handleKeydown}
   />

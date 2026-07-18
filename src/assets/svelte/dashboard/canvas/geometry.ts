@@ -1,19 +1,17 @@
-import type { GraphPoint } from "../model";
+import type { NodeViewData } from "../contract";
+import type { Point } from "./canvasState";
 
 export const NODE_WIDTH = 120;
 export const NODE_HEIGHT = 72;
 
-export function nodeCenter(position: GraphPoint): GraphPoint {
+export function nodeCenter(position: Point): Point {
   return {
     x: position.x + NODE_WIDTH / 2,
     y: position.y + NODE_HEIGHT / 2,
   };
 }
 
-export function edgeEndpoints(
-  sourcePosition: GraphPoint,
-  targetPosition: GraphPoint,
-) {
+export function edgeEndpoints(sourcePosition: Point, targetPosition: Point) {
   const sourceCenter = nodeCenter(sourcePosition);
   const targetCenter = nodeCenter(targetPosition);
   const deltaX = targetCenter.x - sourceCenter.x;

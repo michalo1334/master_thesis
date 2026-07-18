@@ -1,3 +1,4 @@
 {
-    "elixirLS.projectDir": "./src"
+  "elixirLS.projectDir": "./src",
+  "svelte.enable-ts-plugin": true
 }
