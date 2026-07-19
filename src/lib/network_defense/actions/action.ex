@@ -9,9 +9,8 @@ defprotocol NetworkDefense.Actions.Action do
 
   Actions whose execution chance is probalistic are first sampled inside simulator and then (if) executed.
   """
-  alias NetworkDefense.Simulator
   alias NetworkDefense.AttackerState.AttackerState
-  @spec execute(t(), Simulator.t()) :: AttackerState.t()
+  @spec execute(t(), AttackerState.t()) :: AttackerState.t()
   def execute(action, simulation_state)
 
   @spec probability(t()) :: float()

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulator do
+defmodule NetworkDefense.Simulation.Simulator do
   @moduledoc """
   Monte Carlo simulation of hypothethical attack on networked services.
 
@@ -11,20 +11,11 @@ defmodule NetworkDefense.Simulator do
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.IterationStep
 
   @default_seed 0
-  @default_simulation_count 1
-  @default_iteration_count 10_000
-
-  @type t :: %__MODULE__{}
-
-  defstruct [
-    :graph,
-    :initial_seed,
-    :current_seed,
-    :attacker_state,
-    :rules
-  ]
+  @default_simulation_count 10
 
   @doc """
   Runs the simulation multiple times with supplied options.
@@ -40,7 +31,9 @@ defmodule NetworkDefense.Simulator do
     seed = Keyword.get(opts, :seed, @default_seed)
     simulation_count = Keyword.get(opts, :simulation_count, @default_simulation_count)
 
-    Enum.map(1..simulation_count, fn _ -> run(opts |> Keyword.put(:seed, seed)) end)
+    Enum.map(1..simulation_count, fn idx ->
+      run(opts |> Keyword.put(:seed, derive_child_seed(seed, idx)))
+    end)
   end
 
   @doc """
@@ -51,25 +44,41 @@ defmodule NetworkDefense.Simulator do
    - iteration_count - n
    - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
   """
-  def run(opts), do: run(%__MODULE__{}, opts)
+  def run(opts) do
+    run(State.new(Keyword.put(opts, :initial_seed, Keyword.get(opts, :seed, 0))), opts)
+  end
 
-  def run(%__MODULE__{} = initial_state, opts) do
-    iteration_count = Keyword.get(opts, :iteration_count, @default_iteration_count)
-    seed = Keyword.get(opts, :seed, @default_seed)
-
-    initial_state = %__MODULE__{initial_state | initial_seed: seed}
+  def run(%State{iteration_count: iteration_count} = initial_state, _opts) do
+    initial_state = ensure_seed_state(initial_state)
 
     Enum.reduce(1..iteration_count, initial_state, fn index, state ->
       perform_iteration(state, index)
     end)
   end
 
-  def perform_iteration(%__MODULE__{} = state, index) do
-    state = %__MODULE__{state | current_seed: derive_child_seed(state.initial_seed, index)}
+  def perform_iteration(%State{} = state, index) do
+    selected_action = get_possible_actions(state) |> select_action(state)
 
-    case get_possible_actions(state) do
-      [] -> state
-      actions -> actions |> select_action(state) |> maybe_execute_action(state)
+    if is_nil(selected_action) do
+      state
+    else
+      {success?, new_seed, new_attacker_state} =
+        maybe_execute_action(
+          selected_action,
+          State.current_seed(state),
+          State.current_attacker_state(state)
+        )
+
+      next_iteration =
+        IterationStep.new(
+          index: index + 1,
+          attempted_action: selected_action,
+          success?: success?,
+          seed: new_seed,
+          attacker_state: new_attacker_state
+        )
+
+      state |> State.add_iteration_step(next_iteration)
     end
   end
 
@@ -77,19 +86,15 @@ defmodule NetworkDefense.Simulator do
     state.rules |> Enum.flat_map(&Rule.evaluate(&1, state))
   end
 
-  def maybe_execute_action(action, %__MODULE__{} = state) do
-    {sample, current_seed} = :rand.uniform_s(state.current_seed)
+  def maybe_execute_action(action, seed, attacker_state) do
+    {sample, new_seed} = :rand.uniform_s(seed)
 
-    state = %__MODULE__{
-      state
-      | current_seed: current_seed,
-        attacker_state: AttackerState.mark_attempted(state.attacker_state, Action.key(action))
-    }
+    new_attacker_state = AttackerState.mark_attempted(attacker_state, Action.key(action))
 
     if sample <= Action.probability(action) do
-      %{state | attacker_state: Action.execute(action, state)}
+      {true, new_seed, Action.execute(action, new_attacker_state)}
     else
-      state
+      {false, new_seed, new_attacker_state}
     end
   end
 
@@ -98,7 +103,9 @@ defmodule NetworkDefense.Simulator do
 
   Default is to select first one.
   """
-  @spec select_action(list(Action.t()), __MODULE__.t()) :: Action.t()
+  @spec select_action(list(Action.t()), State.t()) :: Action.t() | nil
+  def select_action([], _state), do: nil
+
   def select_action(actions, _state) do
     hd(actions)
   end
@@ -114,4 +121,17 @@ defmodule NetworkDefense.Simulator do
   end
 
   defp seed_part(value), do: rem(value, 2_147_483_646) + 1
+
+  defp ensure_seed_state(%State{initial_seed: seed} = state) when is_integer(seed) do
+    %{state | initial_seed: integer_to_seed_state(seed)}
+  end
+
+  defp ensure_seed_state(state), do: state
+
+  defp integer_to_seed_state(seed) do
+    <<first::unsigned-32, second::unsigned-32, third::unsigned-32, _::binary>> =
+      :crypto.hash(:sha256, :erlang.term_to_binary(seed))
+
+    :rand.seed_s(:exsss, {seed_part(first), seed_part(second), seed_part(third)})
+  end
 end

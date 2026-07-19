@@ -25,6 +25,12 @@ Bad
 To discuss with user
  - "common defaults" like well-known service ports or port mappings (e.g. Grafana, PostgresSQL)
 
+## Frontend
+
+- Follow the conventions established in codebase
+- For new components use bits-ui
+- BE defined types contracts must match between frontend and backend (contracts/ directories)
+
 ## Documentation
 
 - Always activate `writing-clearly-and-concisely` skill before proceeding with writing documentation OR interacting with the user. UNCONDITIONALLY.
