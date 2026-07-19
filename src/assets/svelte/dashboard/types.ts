@@ -7,4 +7,5 @@ export type IconName =
   | "play"
   | "graph"
   | "chevron-right"
-  | "plus";
+  | "plus"
+  | "squares-2x2";

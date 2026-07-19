@@ -16,6 +16,7 @@
     graph: "hero-share",
     "chevron-right": "hero-chevron-right",
     plus: "hero-plus",
+    "squares-2x2": "hero-squares-2x2",
   };
 
   let { name, size = 18 }: Props = $props();

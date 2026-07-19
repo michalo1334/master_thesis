@@ -20,7 +20,7 @@
     CanvasSelection,
   } from "./dashboard/workspace/CanvasDocument.svelte";
   import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
-  import type { GraphSummary } from "./dashboard/contract";
+  import type { GraphSummary, LayoutGraphParams } from "./dashboard/contract";
 
   interface Props {
     live: Live;
@@ -47,6 +47,14 @@
   let isSaving = $state(false);
   let statusMessage = $state("");
 
+  // -- layout state --
+  let layoutParams = $state<LayoutGraphParams>({
+    iterations: 100,
+    springLength: 150,
+    repulsion: 50,
+  });
+  let isLayingOut = $state(false);
+
   // -- derived from active document --
   let activeCanvasDoc = $derived.by(() => {
     const doc = dashboardController.activeDocument;
@@ -59,6 +67,8 @@
   );
 
   let documentName = $derived(activeCanvasDoc ? activeCanvasDoc.title : "");
+
+  let hasActiveCanvas = $derived(!!activeCanvasDoc);
 
   // -- callbacks --
 
@@ -107,6 +117,23 @@
     });
   }
 
+  function handleLayoutParamsChange(change: Partial<LayoutGraphParams>): void {
+    Object.assign(layoutParams, change);
+  }
+
+  function handleForceLayout(): void {
+    const doc = activeCanvasDoc;
+    if (!doc || isLayingOut) return;
+
+    isLayingOut = true;
+    server.layoutGraph(doc.graph, layoutParams, (reply) => {
+      isLayingOut = false;
+      if (reply.status === "ok" && reply.graph) {
+        doc.graph = reply.graph;
+      }
+    });
+  }
+
   function applyCanvasSelection(
     doc: CanvasDocument,
     selection: CanvasSelection,
@@ -126,7 +153,12 @@
 
 <div class="dashboard-app" data-dashboard-theme="topology">
   <AppBar onSave={handleSave} {saveDisabled} {isSaving} />
-  <DashboardRibbon inspectorVisible={true} />
+  <DashboardRibbon
+    {hasActiveCanvas}
+    {layoutParams}
+    onLayoutParamsChange={handleLayoutParamsChange}
+    onForceLayout={handleForceLayout}
+  />
 
   {#snippet inspector()}
     <DashboardInspector document={dashboardController.activeDocument} />
