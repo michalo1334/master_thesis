@@ -14,8 +14,6 @@
 
 {#if node}
   <Inspector title="Host">
-    <InspectorField
-      fields={[{ label: "Name", value: node.data.name }]}
-    />
+    <InspectorField fields={[{ label: "Name", value: node.data.name }]} />
   </Inspector>
 {/if}

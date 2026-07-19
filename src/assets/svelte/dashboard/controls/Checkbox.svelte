@@ -26,7 +26,7 @@
     {...attributes}
     class={["dashboard-checkbox-input", className]}
     type="checkbox"
-    checked={checked}
+    {checked}
     onchange={handleChange}
   />
   <span class="dashboard-checkbox-indicator" aria-hidden="true"></span>

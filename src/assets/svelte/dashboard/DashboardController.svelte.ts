@@ -68,11 +68,11 @@ export class DashboardController {
     this.selectedDocumentId = id;
   }
 
-  isCanvasDocumentSelected() : boolean {
+  isCanvasDocumentSelected(): boolean {
     return this.activeDocument?.kind === "canvas";
   }
 
-  isSimulationDocumentSelected() : boolean {
+  isSimulationDocumentSelected(): boolean {
     return this.activeDocument?.kind === "simulation-report";
   }
 
@@ -92,7 +92,5 @@ export class DashboardController {
     }
   }
 
-  runSimulation(id: string): void {
-
-  }
+  runSimulation(id: string): void {}
 }

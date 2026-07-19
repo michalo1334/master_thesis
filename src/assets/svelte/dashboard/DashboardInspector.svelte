@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Selectable } from "./contract";
-import type { WorkspaceDocument } from "./workspace/WorkspaceDocument.svelte";
-import { inspectorFor } from "./canvas/inspectorMappings";
+  import type { WorkspaceDocument } from "./workspace/WorkspaceDocument.svelte";
+  import { inspectorFor } from "./canvas/inspectorMappings";
 
   interface Props {
     document: WorkspaceDocument | undefined;
@@ -13,9 +13,13 @@ import { inspectorFor } from "./canvas/inspectorMappings";
     if (!document || document.kind !== "canvas") return undefined;
     const sel = document.selection;
     if (sel.kind === "node")
-      return document.graph.nodes.find((n: { id: string }) => n.id === sel.nodeId);
+      return document.graph.nodes.find(
+        (n: { id: string }) => n.id === sel.nodeId,
+      );
     if (sel.kind === "edge")
-      return document.graph.edges.find((e: { id: string }) => e.id === sel.edgeId);
+      return document.graph.edges.find(
+        (e: { id: string }) => e.id === sel.edgeId,
+      );
     return undefined;
   });
 

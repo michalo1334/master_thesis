@@ -107,6 +107,9 @@ defmodule NetworkDefense.MixProject do
       precommit: [
         "compile --warning-as-errors",
         "format --check-formatted",
+        "cmd npm run format:check",
+        "cmd npm run typecheck",
+        "assets.build",
         "credo",
         "sobelow --config",
         "deps.unlock --unused",

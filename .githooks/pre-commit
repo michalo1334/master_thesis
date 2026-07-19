@@ -1,15 +1,6 @@
 #!/bin/sh
 set -eu
 
-# Ensure npm is on PATH — GUI git clients (VS Code, etc.) may not source shell profiles
-if ! command -v npm >/dev/null 2>&1; then
-  if [ -f "$HOME/.nvm/nvm.sh" ]; then
-    . "$HOME/.nvm/nvm.sh"
-  elif command -v asdf >/dev/null 2>&1; then
-    asdf_resolved=$(asdf which node 2>/dev/null) && PATH="$(dirname "$asdf_resolved"):$PATH"
-  fi
-fi
-
 repository_root=$(git rev-parse --show-toplevel)
 application_root="$repository_root/src"
 
@@ -19,19 +10,4 @@ if [ ! -d "$application_root/node_modules" ]; then
 fi
 
 cd "$application_root"
-
-frontend_files=$(git diff --cached --relative --name-only --diff-filter=ACMR -- assets | while IFS= read -r file; do
-  case "$file" in
-    *.svelte|*.ts|*.js|*.css) printf '%s\n' "$file" ;;
-  esac
-done)
-
-if [ -n "$frontend_files" ]; then
-  printf '%s\n' "$frontend_files" | while IFS= read -r file; do
-    git show ":0:./$file" | "$application_root/node_modules/.bin/prettier" --check --stdin-filepath "$file"
-  done
-fi
-
-npm run typecheck
-MIX_ENV=test mix assets.build
-MIX_ENV=test mix format --check-formatted
+mix precommit

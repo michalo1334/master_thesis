@@ -7,12 +7,22 @@
     children?: Snippet;
   }
 
-  let { variant = "large", children, class: className, type, ...attributes }: Props = $props();
+  let {
+    variant = "large",
+    children,
+    class: className,
+    type,
+    ...attributes
+  }: Props = $props();
 </script>
 
 <button
   {...attributes}
-  class={["dashboard-button", variant === "small" && "dashboard-button-small", className]}
+  class={[
+    "dashboard-button",
+    variant === "small" && "dashboard-button-small",
+    className,
+  ]}
   type={type ?? "button"}
 >
   {@render children?.()}

@@ -9,7 +9,9 @@
 </script>
 
 <text class="canvas-node-title" x="28" y="22">{node.data.name}</text>
-<text class="canvas-node-sub" x="10" y="60">{node.data.port}/{node.data.protocol}</text>
+<text class="canvas-node-sub" x="10" y="60"
+  >{node.data.port}/{node.data.protocol}</text
+>
 
 <style>
   .canvas-node-title {

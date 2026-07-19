@@ -9,4 +9,5 @@ interface RibbonContext {
   registerTab: (tab: RibbonTab) => () => void;
 }
 
-export const [getRibbonContext, setRibbonContext] = createContext<RibbonContext>();
+export const [getRibbonContext, setRibbonContext] =
+  createContext<RibbonContext>();

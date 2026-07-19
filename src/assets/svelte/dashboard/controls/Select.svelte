@@ -24,7 +24,12 @@
   {#if label}
     <label class="dashboard-select-label" for={id}>{label}</label>
   {/if}
-  <select {...attributes} class={["dashboard-select-control", className]} {id} bind:value>
+  <select
+    {...attributes}
+    class={["dashboard-select-control", className]}
+    {id}
+    bind:value
+  >
     {@render children?.()}
   </select>
 </div>

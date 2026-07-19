@@ -5,19 +5,26 @@
 <div class="card">
   <div class="badge">LiveSvelte</div>
   <h1>End-to-end reactivity</h1>
-  <p class="subtitle">This counter is powered by a Phoenix LiveView server — no page reload needed.</p>
+  <p class="subtitle">
+    This counter is powered by a Phoenix LiveView server — no page reload
+    needed.
+  </p>
 
   <div class="counter">
-    <button class="btn btn-ghost" phx-click="decrement" aria-label="Decrement">−</button>
+    <button class="btn btn-ghost" phx-click="decrement" aria-label="Decrement"
+      >−</button
+    >
     <span class="count">{count}</span>
-    <button class="btn btn-primary" phx-click="increment" aria-label="Increment">+</button>
+    <button class="btn btn-primary" phx-click="increment" aria-label="Increment"
+      >+</button
+    >
   </div>
 
-  <div phx-update="ignore">
-    Here goes graph view
-  </div>
+  <div phx-update="ignore">Here goes graph view</div>
 
-  <p class="hint">Click the buttons to update server state via the LiveView websocket.</p>
+  <p class="hint">
+    Click the buttons to update server state via the LiveView websocket.
+  </p>
 </div>
 
 <style>
@@ -33,7 +40,10 @@
     border: 1px solid #e5e7eb;
     border-radius: 1rem;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
-    font-family: system-ui, -apple-system, sans-serif;
+    font-family:
+      system-ui,
+      -apple-system,
+      sans-serif;
     text-align: center;
   }
 
@@ -53,7 +63,7 @@
   }
 
   .badge::before {
-    content: '';
+    content: "";
     display: inline-block;
     width: 6px;
     height: 6px;
@@ -106,7 +116,10 @@
     font-weight: 400;
     line-height: 1;
     cursor: pointer;
-    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    transition:
+      background 0.15s ease,
+      transform 0.1s ease,
+      box-shadow 0.15s ease;
   }
 
   .btn:active {
@@ -140,8 +153,13 @@
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.4;
+    }
   }
 
   @media (prefers-color-scheme: dark) {
@@ -150,19 +168,29 @@
       border-color: #374151;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
     }
-    h1 { color: #f9fafb; }
-    .count { color: #f9fafb; }
-    .subtitle { color: #9ca3af; }
+    h1 {
+      color: #f9fafb;
+    }
+    .count {
+      color: #f9fafb;
+    }
+    .subtitle {
+      color: #9ca3af;
+    }
     .badge {
       background: #431407;
       border-color: #ea6c0b;
       color: #fdba74;
     }
-    .badge::before { background: #fb923c; }
+    .badge::before {
+      background: #fb923c;
+    }
     .btn-ghost {
       background: #374151;
       color: #d1d5db;
     }
-    .btn-ghost:hover { background: #4b5563; }
+    .btn-ghost:hover {
+      background: #4b5563;
+    }
   }
 </style>

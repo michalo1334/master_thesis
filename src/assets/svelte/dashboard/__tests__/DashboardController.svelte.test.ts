@@ -64,10 +64,7 @@ describe("DashboardController", () => {
       controller.createDocument("canvas");
       const doc = controller.documents[0];
       expect(doc.kind).toBe("canvas");
-      expect(
-        (doc as CanvasDocument)
-          .loaded,
-      ).toBe(false);
+      expect((doc as CanvasDocument).loaded).toBe(false);
     });
   });
 
@@ -153,14 +150,8 @@ describe("DashboardController", () => {
       const doc = controller.documents[0];
       expect(doc.kind).toBe("canvas");
       expect(doc.title).toBe("My Graph");
-      expect(
-        (doc as CanvasDocument)
-          .loaded,
-      ).toBe(true);
-      expect(
-        (doc as CanvasDocument)
-          .loadedGraphId,
-      ).toBe("g1");
+      expect((doc as CanvasDocument).loaded).toBe(true);
+      expect((doc as CanvasDocument).loadedGraphId).toBe("g1");
       expect(result).toBe(doc);
       expect(controller.selectedDocumentId).toBe(doc.id);
     });
@@ -177,16 +168,8 @@ describe("DashboardController", () => {
       const loadedDoc = controller.documents[1];
       expect(loadedDoc.kind).toBe("canvas");
       expect(loadedDoc.title).toBe("My Topology");
-      expect(
-        (
-          loadedDoc as CanvasDocument
-        ).loaded,
-      ).toBe(true);
-      expect(
-        (
-          loadedDoc as CanvasDocument
-        ).loadedGraphId,
-      ).toBe("g2");
+      expect((loadedDoc as CanvasDocument).loaded).toBe(true);
+      expect((loadedDoc as CanvasDocument).loadedGraphId).toBe("g2");
       expect(result).toBe(loadedDoc);
       expect(controller.selectedDocumentId).toBe(loadedDoc.id);
     });
@@ -203,10 +186,7 @@ describe("DashboardController", () => {
       const doc = controller.documents[0];
       expect(doc.id).toBe(blankId);
       expect(doc.title).toBe("Reused");
-      expect(
-        (doc as CanvasDocument)
-          .loaded,
-      ).toBe(true);
+      expect((doc as CanvasDocument).loaded).toBe(true);
       expect(result).toBe(doc);
     });
 
@@ -223,12 +203,9 @@ describe("DashboardController", () => {
       // Still 2 documents (loaded "g3" + blank), loaded one is now selected
       expect(controller.documents.length).toBe(2);
       expect(controller.selectedDocumentId).not.toBe(blankId);
-      expect(
-        (
-          controller
-            .documents[0] as CanvasDocument
-        ).loadedGraphId,
-      ).toBe("g3");
+      expect((controller.documents[0] as CanvasDocument).loadedGraphId).toBe(
+        "g3",
+      );
       expect(result).toBeUndefined(); // undefined = activated existing, no new tab
     });
 
@@ -248,10 +225,7 @@ describe("DashboardController", () => {
       const reused = controller.documents.find((d) => d.id === blankId)!;
       expect(reused).toBeDefined();
       expect(reused.title).toBe("G2");
-      expect(
-        (reused as CanvasDocument)
-          .loadedGraphId,
-      ).toBe("g2");
+      expect((reused as CanvasDocument).loadedGraphId).toBe("g2");
       expect(result).toBe(reused);
       expect(controller.selectedDocumentId).toBe(reused.id);
     });

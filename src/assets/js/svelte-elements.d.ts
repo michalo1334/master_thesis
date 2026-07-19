@@ -1,8 +1,8 @@
-import "svelte/elements"
+import "svelte/elements";
 
 declare module "svelte/elements" {
   interface HTMLAttributes<T extends EventTarget> {
-    "phx-click"?: string
-    "phx-update"?: string
+    "phx-click"?: string;
+    "phx-update"?: string;
   }
 }

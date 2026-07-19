@@ -26,7 +26,7 @@
     {...attributes}
     class={["dashboard-radio-button-input", className]}
     type="radio"
-    checked={checked}
+    {checked}
     onchange={handleChange}
   />
   <span class="dashboard-radio-button-indicator" aria-hidden="true"></span>
@@ -70,7 +70,8 @@
     border-color: var(--ds-color-accent);
   }
 
-  .dashboard-radio-button-input:checked + .dashboard-radio-button-indicator::after {
+  .dashboard-radio-button-input:checked
+    + .dashboard-radio-button-indicator::after {
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 50%;
@@ -78,7 +79,8 @@
     content: "";
   }
 
-  .dashboard-radio-button-input:focus-visible + .dashboard-radio-button-indicator {
+  .dashboard-radio-button-input:focus-visible
+    + .dashboard-radio-button-indicator {
     outline: 2px solid var(--ds-color-focus);
     outline-offset: 2px;
   }
