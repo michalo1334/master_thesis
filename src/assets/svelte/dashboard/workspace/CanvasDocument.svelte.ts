@@ -1,4 +1,4 @@
-import type { LoadedGraph } from "../contract";
+import type { LoadedGraph, Selectable } from "../contract";
 import type { DocumentBase } from "./WorkspaceDocument.svelte";
 
 export type CanvasSelection =
@@ -66,8 +66,19 @@ export class CanvasDocument implements DocumentBase {
     this._preserveSelection(value);
   }
 
-  get selection(): CanvasSelection {
+  get canvasSelection(): CanvasSelection {
     return this._selection;
+  }
+
+  get selection(): Selectable | undefined {
+    const selection = this._selection;
+
+    if (selection.kind === "node")
+      return this.graph.nodes.find((node) => node.id === selection.nodeId);
+    if (selection.kind === "edge")
+      return this.graph.edges.find((edge) => edge.id === selection.edgeId);
+
+    return undefined;
   }
 
   selectNode(nodeId: string): void {

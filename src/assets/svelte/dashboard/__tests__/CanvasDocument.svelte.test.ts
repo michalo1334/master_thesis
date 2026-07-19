@@ -13,6 +13,19 @@ function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   };
 }
 
+function hostNode(id: string, xPos = 0, yPos = 0) {
+  return {
+    id,
+    type: "Host" as const,
+    data: { name: id },
+    view_data: { x_pos: xPos, y_pos: yPos },
+  };
+}
+
+function runsEdge(id: string) {
+  return { id, from_id: "a", to_id: "b", type: "Runs" as const, data: {} };
+}
+
 describe("CanvasDocument", () => {
   let doc: CanvasDocument;
 
@@ -35,7 +48,7 @@ describe("CanvasDocument", () => {
     });
 
     it("has no selection initially", () => {
-      expect(doc.selection.kind).toBe("none");
+      expect(doc.canvasSelection.kind).toBe("none");
     });
 
     it("has a blank graph initially", () => {
@@ -63,44 +76,45 @@ describe("CanvasDocument", () => {
   describe("selection", () => {
     it("selectNode sets selection to node kind", () => {
       doc.selectNode("node-1");
-      expect(doc.selection).toEqual({ kind: "node", nodeId: "node-1" });
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: "node-1" });
+    });
+
+    it("resolves a selected node", () => {
+      const node = hostNode("node-1");
+      doc.graph = makeGraph({ nodes: [node] });
+      doc.selectNode(node.id);
+
+      expect(doc.selection).toBe(node);
     });
 
     it("selectEdge sets selection to edge kind", () => {
       doc.selectEdge("edge-1");
-      expect(doc.selection).toEqual({ kind: "edge", edgeId: "edge-1" });
+      expect(doc.canvasSelection).toEqual({ kind: "edge", edgeId: "edge-1" });
     });
 
     it("clearSelection resets to none", () => {
       doc.selectNode("node-1");
       doc.clearSelection();
-      expect(doc.selection).toEqual({ kind: "none" });
+      expect(doc.canvasSelection).toEqual({ kind: "none" });
     });
 
     it("switches from node to edge selection", () => {
       doc.selectNode("node-1");
       doc.selectEdge("edge-2");
-      expect(doc.selection).toEqual({ kind: "edge", edgeId: "edge-2" });
+      expect(doc.canvasSelection).toEqual({ kind: "edge", edgeId: "edge-2" });
     });
 
     it("switches from edge to node selection", () => {
       doc.selectEdge("edge-1");
       doc.selectNode("node-2");
-      expect(doc.selection).toEqual({ kind: "node", nodeId: "node-2" });
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: "node-2" });
     });
   });
 
   describe("graph setter preserves valid selection", () => {
     it("retains node selection when the node still exists in the new graph", () => {
       const existingGraph = makeGraph({
-        nodes: [
-          {
-            id: "node-1",
-            type: "host",
-            data: {},
-            view_data: { x_pos: 0, y_pos: 0 },
-          },
-        ],
+        nodes: [hostNode("node-1")],
       });
       doc.graph = existingGraph;
       doc.selectNode("node-1");
@@ -108,14 +122,12 @@ describe("CanvasDocument", () => {
       // replace graph — same node still present
       doc.graph = { ...existingGraph, id: "g2" };
 
-      expect(doc.selection).toEqual({ kind: "node", nodeId: "node-1" });
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: "node-1" });
     });
 
     it("retains edge selection when the edge still exists in the new graph", () => {
       const existingGraph = makeGraph({
-        edges: [
-          { id: "edge-1", from_id: "a", to_id: "b", type: "link", data: {} },
-        ],
+        edges: [runsEdge("edge-1")],
       });
       doc.graph = existingGraph;
       doc.selectEdge("edge-1");
@@ -123,19 +135,12 @@ describe("CanvasDocument", () => {
       // replace graph — same edge still present
       doc.graph = { ...existingGraph, id: "g2" };
 
-      expect(doc.selection).toEqual({ kind: "edge", edgeId: "edge-1" });
+      expect(doc.canvasSelection).toEqual({ kind: "edge", edgeId: "edge-1" });
     });
 
     it("clears node selection when the node is removed from the new graph", () => {
       const existingGraph = makeGraph({
-        nodes: [
-          {
-            id: "node-1",
-            type: "host",
-            data: {},
-            view_data: { x_pos: 0, y_pos: 0 },
-          },
-        ],
+        nodes: [hostNode("node-1")],
       });
       doc.graph = existingGraph;
       doc.selectNode("node-1");
@@ -143,14 +148,12 @@ describe("CanvasDocument", () => {
       // replace with a graph that does NOT contain node-1
       doc.graph = makeGraph();
 
-      expect(doc.selection.kind).toBe("none");
+      expect(doc.canvasSelection.kind).toBe("none");
     });
 
     it("clears edge selection when the edge is removed from the new graph", () => {
       const existingGraph = makeGraph({
-        edges: [
-          { id: "edge-1", from_id: "a", to_id: "b", type: "link", data: {} },
-        ],
+        edges: [runsEdge("edge-1")],
       });
       doc.graph = existingGraph;
       doc.selectEdge("edge-1");
@@ -158,13 +161,13 @@ describe("CanvasDocument", () => {
       // replace with a graph that does NOT contain edge-1
       doc.graph = makeGraph();
 
-      expect(doc.selection.kind).toBe("none");
+      expect(doc.canvasSelection.kind).toBe("none");
     });
 
     it("does not clear selection when reading graph", () => {
       doc.selectNode("node-1");
       const _g = doc.graph; // read only, should not clear
-      expect(doc.selection.kind).toBe("node");
+      expect(doc.canvasSelection.kind).toBe("node");
     });
   });
 
@@ -174,14 +177,7 @@ describe("CanvasDocument", () => {
         id: "server-g",
         title: "Server Topology",
         lock_version: 3,
-        nodes: [
-          {
-            id: "n1",
-            type: "router",
-            data: {},
-            view_data: { x_pos: 10, y_pos: 20 },
-          },
-        ],
+        nodes: [hostNode("n1", 10, 20)],
       });
 
       doc.replaceFromLoadedGraph(graph);
@@ -197,37 +193,23 @@ describe("CanvasDocument", () => {
     it("replaceFromLoadedGraph preserves valid node selection", () => {
       doc.selectNode("n1");
       const graph = makeGraph({
-        nodes: [
-          {
-            id: "n1",
-            type: "router",
-            data: {},
-            view_data: { x_pos: 10, y_pos: 20 },
-          },
-        ],
+        nodes: [hostNode("n1", 10, 20)],
       });
 
       doc.replaceFromLoadedGraph(graph);
 
-      expect(doc.selection).toEqual({ kind: "node", nodeId: "n1" });
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: "n1" });
     });
 
     it("replaceFromLoadedGraph clears selection when the selected item is gone", () => {
       doc.selectNode("stale-node");
       const graph = makeGraph({
-        nodes: [
-          {
-            id: "n1",
-            type: "router",
-            data: {},
-            view_data: { x_pos: 10, y_pos: 20 },
-          },
-        ],
+        nodes: [hostNode("n1", 10, 20)],
       });
 
       doc.replaceFromLoadedGraph(graph);
 
-      expect(doc.selection.kind).toBe("none");
+      expect(doc.canvasSelection.kind).toBe("none");
     });
 
     it("replaceFromSaveReply updates graph and lock version", () => {
@@ -256,14 +238,7 @@ describe("CanvasDocument", () => {
         makeGraph({
           id: "sg",
           lock_version: 1,
-          nodes: [
-            {
-              id: "n1",
-              type: "host",
-              data: {},
-              view_data: { x_pos: 0, y_pos: 0 },
-            },
-          ],
+          nodes: [hostNode("n1")],
         }),
       );
       doc.selectNode("n1");
@@ -272,24 +247,11 @@ describe("CanvasDocument", () => {
         makeGraph({
           id: "sg",
           lock_version: 2,
-          nodes: [
-            {
-              id: "n1",
-              type: "host",
-              data: {},
-              view_data: { x_pos: 0, y_pos: 0 },
-            },
-            {
-              id: "n2",
-              type: "host",
-              data: {},
-              view_data: { x_pos: 10, y_pos: 10 },
-            },
-          ],
+          nodes: [hostNode("n1"), hostNode("n2", 10, 10)],
         }),
       );
 
-      expect(doc.selection).toEqual({ kind: "node", nodeId: "n1" });
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: "n1" });
     });
   });
 

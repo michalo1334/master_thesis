@@ -166,7 +166,7 @@
     {#if document.kind === "canvas"}
       <Canvas
         graph={document.graph}
-        selection={document.selection}
+        selection={document.canvasSelection}
         onGraphChange={(g) => (document.graph = g)}
         onSelectionChange={(sel) => applyCanvasSelection(document, sel)}
         fitToViewRequested={fitToViewCounter}

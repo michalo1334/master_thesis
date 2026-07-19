@@ -6,7 +6,29 @@ import type { Node, Edge } from "../contract";
 type NodeType = "Host" | "Service" | "Vulnerability";
 
 function mkNode(id: string, type: NodeType): Node {
-  return { id, type, data: {}, view_data: { x_pos: 0, y_pos: 0 } };
+  switch (type) {
+    case "Host":
+      return {
+        id,
+        type,
+        data: { name: id },
+        view_data: { x_pos: 0, y_pos: 0 },
+      };
+    case "Service":
+      return {
+        id,
+        type,
+        data: { name: id, protocol: "tcp", port: 80 },
+        view_data: { x_pos: 0, y_pos: 0 },
+      };
+    case "Vulnerability":
+      return {
+        id,
+        type,
+        data: { identifier: id, cvss_score: 0, exploit_probability: 0 },
+        view_data: { x_pos: 0, y_pos: 0 },
+      };
+  }
 }
 
 function groupByType(nodes: Node[]): Map<string, Node[]> {

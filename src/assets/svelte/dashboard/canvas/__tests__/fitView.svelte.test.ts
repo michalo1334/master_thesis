@@ -6,7 +6,7 @@ function mkNode(id: string, x: number, y: number): Node {
   return {
     id,
     type: "Host",
-    data: {},
+    data: { name: id },
     view_data: { x_pos: x, y_pos: y },
   };
 }

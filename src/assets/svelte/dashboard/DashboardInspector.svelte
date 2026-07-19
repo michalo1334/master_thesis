@@ -11,16 +11,7 @@
 
   let selectable = $derived.by((): Selectable | undefined => {
     if (!document || document.kind !== "canvas") return undefined;
-    const sel = document.selection;
-    if (sel.kind === "node")
-      return document.graph.nodes.find(
-        (n: { id: string }) => n.id === sel.nodeId,
-      );
-    if (sel.kind === "edge")
-      return document.graph.edges.find(
-        (e: { id: string }) => e.id === sel.edgeId,
-      );
-    return undefined;
+    return document.selection;
   });
 
   let InspectorComponent = $derived(inspectorFor(selectable));

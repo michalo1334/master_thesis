@@ -115,7 +115,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
             data: node.data,
             view_data: %{
               x_pos: Map.get(node.view_data, :x_pos) || Map.get(node.view_data, "x_pos"),
-              y_pos: Map.get(node.view_data, :y_pos) || Map.get(node.view_data, "y_pos")
+              y_pos: Map.get(node.view_data, :y_pos) || Map.get(node.view_data, "y_pos"),
+              radius: Map.get(node.view_data, :radius) || Map.get(node.view_data, "radius")
             }
           }
         end),

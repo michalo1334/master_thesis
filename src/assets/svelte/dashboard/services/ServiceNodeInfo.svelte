@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { Node } from "../contract";
+  import type { ServiceNode } from "../contracts.generated";
 
   interface Props {
-    node: Node;
+    node: ServiceNode;
   }
 
   let { node }: Props = $props();

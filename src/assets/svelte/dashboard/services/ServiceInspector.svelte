@@ -1,26 +1,22 @@
 <script lang="ts">
-  import type { Selectable } from "../contract";
+  import type { ServiceNode } from "../contracts.generated";
   import Inspector from "../workspace/Inspector.svelte";
   import InspectorField from "../workspace/InspectorField.svelte";
 
   interface Props {
-    selectable: Selectable;
+    selectable: ServiceNode;
   }
 
   let { selectable }: Props = $props();
-
-  let node = $derived("view_data" in selectable ? selectable : null);
 </script>
 
-{#if node}
-  <Inspector title="Service">
-    <InspectorField
-      fields={[
-        { label: "Name", value: node.data.name },
-        { label: "Protocol", value: node.data.protocol },
-        { label: "Port", value: node.data.port },
-        { label: "Version", value: node.data.version ?? "—" },
-      ]}
-    />
-  </Inspector>
-{/if}
+<Inspector title="Service">
+  <InspectorField
+    fields={[
+      { label: "Name", value: selectable.data.name },
+      { label: "Protocol", value: selectable.data.protocol },
+      { label: "Port", value: String(selectable.data.port) },
+      { label: "Version", value: selectable.data.version ?? "—" },
+    ]}
+  />
+</Inspector>

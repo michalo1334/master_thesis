@@ -15,6 +15,7 @@ defmodule NetworkDefense.MixProject do
       ],
       aliases: aliases(),
       deps: deps(),
+      dialyzer: [plt_add_apps: [:mix, :ex_unit]],
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
@@ -47,6 +48,7 @@ defmodule NetworkDefense.MixProject do
     [
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
       {:igniter, "~> 0.6", only: [:dev, :test]},
       {:phoenix, "~> 1.8.9"},
@@ -106,11 +108,13 @@ defmodule NetworkDefense.MixProject do
       ],
       precommit: [
         "compile --warning-as-errors",
+        "gen.contracts",
         "format --check-formatted",
         "cmd npm run format:check",
         "cmd npm run typecheck",
         "assets.build",
         "credo",
+        "dialyzer",
         "sobelow --config",
         "deps.unlock --unused",
         "test"
