@@ -34,6 +34,9 @@ RUN mix local.hex --force && mix local.rebar --force
 # prepare build dir
 WORKDIR /app
 
+# keep build artifacts separate from host-side _build
+ENV MIX_BUILD_PATH=/app/_build_docker
+
 # install mix dependencies
 COPY mix.exs mix.lock ./
 COPY .formatter.exs ./
@@ -71,6 +74,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 RUN mix local.hex --force && mix local.rebar --force
 
 WORKDIR /app
+
+ENV MIX_BUILD_PATH=/app/_build_docker
 
 # copy compiled deps and source from builder — source will be overridden by bind mounts
 COPY --from=builder /app .

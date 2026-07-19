@@ -12,6 +12,7 @@ services:
     container_name: network-defense-app
     env_file: ../src/.env
     environment:
+      MIX_BUILD_PATH: /app/_build_docker
       REPO_HOSTNAME: ${REPO_HOSTNAME:-postgres}
       REPO_PORT: ${REPO_PORT:-5432}
       PHX_HOST: ${PHX_HOST:-localhost}
@@ -34,7 +35,7 @@ services:
       - ../src/assets/vite.config.mjs:/app/assets/vite.config.mjs
       # Generated build artifacts stay in Docker volumes so root inside the
       # development container cannot change ownership of host directories.
-      - network-defense-build:/app/_build
+      - network-defense-build:/app/_build_docker
       - network-defense-deps:/app/deps
     depends_on:
       postgres:
