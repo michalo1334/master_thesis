@@ -14,6 +14,8 @@ defmodule NetworkDefense.Graph.GraphLayout do
   - do nothing
   - force directed
   """
+  def lay_out(strategy, graph, opts \\ [])
+
   def lay_out(:none, %Graph{} = graph, _opts), do: graph
 
   def lay_out(:force_directed, %Graph{} = graph, opts) do

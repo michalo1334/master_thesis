@@ -89,12 +89,12 @@
     display: grid;
     place-items: center;
     border-radius: 0.3125rem;
-    background: #3b83e5;
+    background: var(--ds-color-accent);
   }
   .dashboard-appbar-divider {
     width: 1px;
     height: 1.25rem;
-    background: #ffffff35;
+    background: color-mix(in srgb, var(--ds-color-on-dark) 21%, transparent);
   }
   .dashboard-app-actions {
     margin-left: auto;
@@ -143,7 +143,7 @@
     place-items: center;
     border-radius: 50%;
     color: var(--ds-color-nav);
-    background: #d8e8ff;
+    background: var(--ds-color-accent-soft);
     font-size: var(--ds-text-sm);
     font-weight: 700;
   }

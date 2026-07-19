@@ -17,7 +17,6 @@ defmodule NetworkDefenseWeb.Router do
   scope "/", NetworkDefenseWeb do
     pipe_through :browser
     live "/dashboard", DashboardLive
-    live "/svelte_demo", SvelteDemoLive
 
     get "/", PageController, :home
   end

@@ -78,19 +78,19 @@
 <style>
   .canvas-edge-line {
     fill: none;
-    stroke: #59677a;
+    stroke: var(--ds-color-text-muted);
     stroke-width: 2;
     pointer-events: none;
   }
   .canvas-edge-arrow {
-    fill: #59677a;
+    fill: var(--ds-color-text-muted);
   }
   .canvas-edge.selected .canvas-edge-line {
-    stroke: #0b6fe8;
+    stroke: var(--ds-color-focus);
     stroke-width: 3;
   }
   .canvas-edge.selected .canvas-edge-arrow {
-    fill: #0b6fe8;
+    fill: var(--ds-color-focus);
   }
   .canvas-edge-hit-target {
     fill: none;
@@ -106,7 +106,7 @@
     stroke-opacity: 0.35;
   }
   .canvas-edge-label {
-    fill: #273447;
+    fill: var(--ds-color-nav-secondary);
     font: 700 var(--ds-text-xs) var(--ds-font-mono);
     paint-order: stroke;
     pointer-events: none;

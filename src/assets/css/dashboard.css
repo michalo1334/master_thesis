@@ -21,7 +21,7 @@
   z-index: 100;
   min-width: 13.125rem;
   padding: 0.3125rem;
-  border: 1px solid #aeb8c5;
+  border: 1px solid var(--ds-color-border);
   border-radius: var(--ds-radius-lg);
   background: var(--ds-color-paper);
   color: var(--ds-color-text);

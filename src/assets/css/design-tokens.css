@@ -22,6 +22,16 @@
   --ds-color-focus: #0b6fe8;
   --ds-color-danger: #b42318;
 
+  /* Graph canvas — selection/source state */
+  --ds-color-preview-edge: #c77a19;
+
+  /* Status and semantic state */
+  --ds-color-status-dot: #6cc18a;
+  --ds-color-positive: #39825a;
+  --ds-color-warning: #d18b21;
+  --ds-color-warning-bg: #fef3c7;
+  --ds-color-warning-text: #92400e;
+
   /* Typography */
   --ds-font-ui: "Segoe UI", Arial, sans-serif;
   --ds-font-mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
@@ -75,6 +85,12 @@
   --ds-color-accent: #1769aa;
   --ds-color-accent-soft: #dcecf8;
   --ds-color-focus: #0b6fca;
+  --ds-color-preview-edge: #b8711e;
+  --ds-color-status-dot: #63b380;
+  --ds-color-positive: #347852;
+  --ds-color-warning: #bf801e;
+  --ds-color-warning-bg: #f5e9be;
+  --ds-color-warning-text: #843a0d;
   --ds-shadow-md: 0 3px 12px #17223426;
   --ds-shadow-lg: 0 8px 28px #1522343d;
 }
@@ -99,6 +115,12 @@
   --ds-color-accent-soft: #193a64;
   --ds-color-focus: #7ab4ff;
   --ds-color-danger: #ff8076;
+  --ds-color-preview-edge: #da9d4a;
+  --ds-color-status-dot: #8ad4a0;
+  --ds-color-positive: #5ea67a;
+  --ds-color-warning: #e0a945;
+  --ds-color-warning-bg: #3d2e1a;
+  --ds-color-warning-text: #d99a45;
   --ds-shadow-sm: 0 1px 3px #0000003d;
   --ds-shadow-md: 0 5px 18px #00000059;
   --ds-shadow-lg: 0 10px 34px #00000073;

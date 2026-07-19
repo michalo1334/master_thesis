@@ -27,7 +27,7 @@
     align-items: center;
     gap: 0.875rem;
     padding: 0 0.625rem;
-    color: #d6dfeb;
+    color: var(--ds-color-on-dark);
     background: var(--ds-color-nav-secondary);
     font-size: var(--ds-text-sm);
   }
@@ -42,7 +42,7 @@
     width: 0.4375rem;
     height: 0.4375rem;
     border-radius: 50%;
-    background: #6cc18a;
+    background: var(--ds-color-status-dot);
   }
   .dashboard-status-selection {
     margin-left: auto;

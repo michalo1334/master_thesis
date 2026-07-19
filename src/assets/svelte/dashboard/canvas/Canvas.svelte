@@ -407,10 +407,24 @@
     outline: 0;
     background-color: var(--ds-color-canvas);
     background-image:
-      linear-gradient(#cbd3dd55 1px, transparent 1px),
-      linear-gradient(90deg, #cbd3dd55 1px, transparent 1px),
-      linear-gradient(#b6c1ce44 1px, transparent 1px),
-      linear-gradient(90deg, #b6c1ce44 1px, transparent 1px);
+      linear-gradient(
+        color-mix(in srgb, var(--ds-color-border) 33%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--ds-color-border) 33%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        color-mix(in srgb, var(--ds-color-border) 27%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--ds-color-border) 27%, transparent) 1px,
+        transparent 1px
+      );
     background-position:
       var(--grid-offset-x) var(--grid-offset-y),
       var(--grid-offset-x) var(--grid-offset-y),
@@ -438,13 +452,13 @@
   }
   .canvas-preview-edge {
     fill: none;
-    stroke: #c77a19;
+    stroke: var(--ds-color-preview-edge);
     stroke-width: 2;
     stroke-dasharray: 6 4;
     pointer-events: none;
   }
   .canvas-preview-arrow {
-    fill: #c77a19;
+    fill: var(--ds-color-preview-edge);
   }
   .canvas-hint,
   .canvas-controls {

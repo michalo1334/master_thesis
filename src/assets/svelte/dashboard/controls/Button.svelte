@@ -41,13 +41,13 @@
     align-items: center;
     justify-content: center;
     gap: var(--ds-space-1);
-    --dashboard-icon-color: #315f9a;
+    --dashboard-icon-color: var(--ds-color-accent);
   }
 
   .dashboard-button:not(:disabled):hover,
   .dashboard-button[aria-pressed="true"]:not(:disabled) {
     background: var(--ds-color-accent-soft);
-    border-color: #b9d5f8;
+    border-color: var(--ds-color-accent-soft);
   }
 
   .dashboard-button:disabled {

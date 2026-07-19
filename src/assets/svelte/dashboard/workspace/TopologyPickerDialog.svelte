@@ -67,7 +67,7 @@
     position: fixed;
     z-index: 200;
     inset: 0;
-    background: rgb(20 31 47 / 45%);
+    background: color-mix(in srgb, var(--ds-color-nav) 45%, transparent);
   }
   :global(.topology-picker-dialog) {
     position: fixed;
@@ -134,8 +134,8 @@
     margin: var(--ds-space-3) 0 0;
     padding: var(--ds-space-2) var(--ds-space-3);
     border-radius: var(--ds-radius-sm);
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--ds-color-warning-bg);
+    color: var(--ds-color-warning-text);
     font-size: var(--ds-text-sm);
   }
   :global(.topology-picker-close) {

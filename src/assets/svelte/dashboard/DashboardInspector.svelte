@@ -23,11 +23,7 @@
     return undefined;
   });
 
-  let InspectorComponent = $derived(
-    selectable ? inspectorFor(selectable) : null,
-  );
+  let InspectorComponent = $derived(inspectorFor(selectable));
 </script>
 
-{#if InspectorComponent}
-  <InspectorComponent {selectable} />
-{/if}
+<InspectorComponent {selectable} />

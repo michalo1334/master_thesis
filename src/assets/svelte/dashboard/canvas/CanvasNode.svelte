@@ -69,35 +69,39 @@
     cursor: grabbing;
   }
   .canvas-node-card {
-    fill: #fff;
-    stroke: #8090a4;
+    fill: var(--ds-color-paper);
+    stroke: var(--ds-color-text-faint);
     stroke-width: 1.2;
-    filter: drop-shadow(0 2px 2px #17243c29);
+    filter: drop-shadow(
+      0 2px 2px color-mix(in srgb, var(--ds-color-nav) 16%, transparent)
+    );
   }
   .canvas-node.dragging .canvas-node-card {
-    stroke: #0b6fe8;
+    stroke: var(--ds-color-focus);
     stroke-width: 3;
-    filter: drop-shadow(0 4px 5px #17243c40);
+    filter: drop-shadow(
+      0 4px 5px color-mix(in srgb, var(--ds-color-nav) 25%, transparent)
+    );
   }
   .canvas-node.selected .canvas-node-card {
-    stroke: #0b6fe8;
+    stroke: var(--ds-color-focus);
     stroke-width: 3;
   }
   .canvas-node.source .canvas-node-card {
-    stroke: #c77a19;
+    stroke: var(--ds-color-preview-edge);
     stroke-width: 3;
     stroke-dasharray: 5 3;
   }
   .canvas-node-glyph {
-    fill: #e7f0fc;
-    stroke: #32669f;
+    fill: var(--ds-color-accent-soft);
+    stroke: var(--ds-color-accent);
     stroke-width: 1.5;
     pointer-events: none;
   }
   .canvas-node-title {
     font-size: var(--ds-text-sm);
     font-weight: 700;
-    fill: #1b2738;
+    fill: var(--ds-color-text);
     pointer-events: none;
   }
   .canvas-node-sub {

@@ -3,7 +3,8 @@
   "scripts": {
     "test": "vitest run assets/svelte/dashboard",
     "typecheck": "svelte-check --tsconfig assets/tsconfig.json",
-    "format:check": "prettier --check 'assets/**/*.{svelte,ts,js,css}'"
+    "format:check": "prettier --check 'assets/**/*.{svelte,ts,js,css}'",
+    "lint:color": "stylelint 'assets/**/*.{css,svelte}' --config assets/.stylelintrc.mjs"
   },
   "dependencies": {
     "bits-ui": "^2.18.1",

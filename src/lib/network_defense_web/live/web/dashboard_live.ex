@@ -1,4 +1,5 @@
 defmodule NetworkDefenseWeb.DashboardLive do
+  alias NetworkDefense.Graph.GraphLayout
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Graph
@@ -64,7 +65,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
     case Graphs.replace(graph_id, lock_version, attrs) do
       {:ok, %{graph: graph}} ->
-        {:reply, %{status: "ok", graph: graph_payload(graph)},
+        {:reply,
+         %{status: "ok", graph: graph_payload(GraphLayout.lay_out(:force_directed, graph))},
          assign(socket, :graph_summaries, Graphs.list_summaries())}
 
       {:error, :stale} ->
@@ -111,7 +113,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
         Enum.map(Graph.nodes(graph), fn node ->
           %{
             id: node.id,
-            type: node.type,
+            type: type(node.type),
             data: node.data,
             view_data: %{
               x_pos: Map.get(node.view_data, :x_pos) || Map.get(node.view_data, "x_pos"),
@@ -125,10 +127,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
             id: edge.id,
             from_id: edge.from_id,
             to_id: edge.to_id,
-            type: edge.type,
+            type: type(edge.type),
             data: edge.data
           }
         end)
     }
   end
+
+  defp type(module), do: module |> Module.split() |> List.last()
 end

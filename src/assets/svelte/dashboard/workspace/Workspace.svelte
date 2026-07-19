@@ -148,8 +148,8 @@
     align-items: end;
     min-width: 0;
     padding: 0.3125rem var(--ds-space-2) 0;
-    border-bottom: 1px solid #aeb8c5;
-    background: #dfe5ec;
+    border-bottom: 1px solid var(--ds-color-border);
+    background: var(--ds-color-border-soft);
   }
   .dashboard-document-tabs-container :global(.dashboard-document-tabs) {
     height: 100%;
@@ -172,10 +172,10 @@
     min-width: 8.75rem;
     height: var(--ds-document-tab-height);
     padding: 0 2.125rem 0 0.625rem;
-    border: 1px solid #b7c0cc;
+    border: 1px solid var(--ds-color-border);
     border-bottom: 0;
     border-radius: 0.3125rem 0.3125rem 0 0;
-    background: #edf1f5;
+    background: var(--ds-color-canvas);
     color: var(--ds-color-text-secondary);
     display: flex;
     align-items: center;
@@ -193,12 +193,12 @@
     height: var(--ds-space-2);
     flex: none;
     border-radius: 50%;
-    background: #a0acba;
+    background: var(--ds-color-text-faint);
   }
   .dashboard-document-tabs-container
     :global(.dashboard-document-tab[data-state="active"]) {
     .dashboard-document-dot {
-      background: #2d75d5;
+      background: var(--ds-color-accent);
     }
   }
   .dashboard-document-title {
@@ -228,10 +228,10 @@
     width: 2rem;
     height: var(--ds-document-tab-height);
     flex: none;
-    border: 1px solid #b7c0cc;
+    border: 1px solid var(--ds-color-border);
     border-radius: var(--ds-radius-md);
     color: var(--ds-color-text-secondary);
-    background: #edf1f5;
+    background: var(--ds-color-canvas);
     display: grid;
     place-items: center;
   }
@@ -296,7 +296,7 @@
       flex-direction: column;
       align-items: stretch;
       padding: var(--ds-space-2) 0.3125rem;
-      border-right: 1px solid #aeb8c5;
+      border-right: 1px solid var(--ds-color-border);
       border-bottom: 0;
     }
     :global(.dashboard-document-tabs) {
@@ -316,7 +316,7 @@
       width: 100%;
       max-width: none;
       min-width: 0;
-      border-bottom: 1px solid #b7c0cc;
+      border-bottom: 1px solid var(--ds-color-border);
       border-radius: var(--ds-radius-md);
     }
     :global(.dashboard-document-tab[data-state="active"]) {
@@ -348,7 +348,7 @@
         align-items: end;
         padding: 0.3125rem var(--ds-space-2) 0;
         border-right: 0;
-        border-bottom: 1px solid #aeb8c5;
+        border-bottom: 1px solid var(--ds-color-border);
       }
       :global(.dashboard-document-tabs) {
         width: auto;

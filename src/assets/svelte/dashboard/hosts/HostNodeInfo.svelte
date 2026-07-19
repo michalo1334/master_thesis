@@ -14,7 +14,7 @@
   .canvas-node-title {
     font-size: var(--ds-text-sm);
     font-weight: 700;
-    fill: #1b2738;
+    fill: var(--ds-color-text);
     pointer-events: none;
   }
 </style>

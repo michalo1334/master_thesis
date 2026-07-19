@@ -37,10 +37,10 @@
     box-shadow: var(--ds-shadow-sm);
   }
   .statistics-kpi-positive {
-    border-top-color: #39825a;
+    border-top-color: var(--ds-color-positive);
   }
   .statistics-kpi-warning {
-    border-top-color: #d18b21;
+    border-top-color: var(--ds-color-warning);
   }
   .statistics-kpi-label,
   .statistics-kpi-value,
