@@ -1,4 +1,4 @@
-import type { DocumentBase } from "./WorkspaceDocument.svelte";
+import type { DocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
 export class SimulationReportDocument implements DocumentBase {
   readonly kind = "simulation-report" as const;

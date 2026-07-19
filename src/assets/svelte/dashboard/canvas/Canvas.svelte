@@ -10,7 +10,7 @@
     type CanvasState,
     type Point,
   } from "./canvasState";
-  import type { CanvasSelection } from "../document/CanvasDocument.svelte";
+  import type { CanvasSelection } from "../workspace/CanvasDocument.svelte";
 
   const MIN_ZOOM = 25;
   const MAX_ZOOM = 200;

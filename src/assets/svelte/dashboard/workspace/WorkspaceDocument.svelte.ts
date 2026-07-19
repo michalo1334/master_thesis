@@ -1,5 +1,5 @@
 import type { CanvasDocument } from "./CanvasDocument.svelte";
-import type { SimulationReportDocument } from "./SimulationReportDocument.svelte";
+import type { SimulationReportDocument } from "../simulation/SimulationReportDocument.svelte";
 
 export type DocumentKind = "canvas" | "simulation-report";
 

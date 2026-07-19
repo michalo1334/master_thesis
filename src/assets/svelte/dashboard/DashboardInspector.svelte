@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Selectable } from "./contract";
-  import type { WorkspaceDocument } from "./document/WorkspaceDocument.svelte";
-  import { inspectorFor } from "./canvas/inspectors/nodeMappings";
+import type { WorkspaceDocument } from "./workspace/WorkspaceDocument.svelte";
+import { inspectorFor } from "./canvas/inspectorMappings";
 
   interface Props {
     document: WorkspaceDocument | undefined;

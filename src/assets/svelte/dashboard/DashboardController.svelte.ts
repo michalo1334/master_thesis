@@ -1,9 +1,9 @@
-import { CanvasDocument } from "./document/CanvasDocument.svelte";
-import { SimulationReportDocument } from "./document/SimulationReportDocument.svelte";
+import { CanvasDocument } from "./workspace/CanvasDocument.svelte";
+import { SimulationReportDocument } from "./simulation/SimulationReportDocument.svelte";
 import type {
   WorkspaceDocument,
   DocumentKind,
-} from "./document/WorkspaceDocument.svelte";
+} from "./workspace/WorkspaceDocument.svelte";
 import type { LoadedGraph } from "./contract";
 
 export class DashboardController {
@@ -68,6 +68,14 @@ export class DashboardController {
     this.selectedDocumentId = id;
   }
 
+  isCanvasDocumentSelected() : boolean {
+    return this.activeDocument?.kind === "canvas";
+  }
+
+  isSimulationDocumentSelected() : boolean {
+    return this.activeDocument?.kind === "simulation-report";
+  }
+
   closeDocument(id: string): void {
     const currentIdx = this._documents.findIndex((d) => d.id === id);
     if (currentIdx === -1) return;
@@ -82,5 +90,9 @@ export class DashboardController {
         this.selectedDocumentId = this._documents[nextIdx]?.id;
       }
     }
+  }
+
+  runSimulation(id: string): void {
+
   }
 }

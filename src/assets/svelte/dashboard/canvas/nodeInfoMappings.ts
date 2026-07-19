@@ -1,8 +1,8 @@
 import type { Component } from "svelte";
 import type { Node } from "../contract";
-import HostNodeInfo from "./HostNodeInfo.svelte";
-import ServiceNodeInfo from "./ServiceNodeInfo.svelte";
-import VulnerabilityNodeInfo from "./VulnerabilityNodeInfo.svelte";
+import HostNodeInfo from "../hosts/HostNodeInfo.svelte";
+import ServiceNodeInfo from "../services/ServiceNodeInfo.svelte";
+import VulnerabilityNodeInfo from "../vulnerabilities/VulnerabilityNodeInfo.svelte";
 
 const registry: Record<string, Component<any>> = {
   Host: HostNodeInfo,

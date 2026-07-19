@@ -23,7 +23,7 @@
     onclick,
   }: Props = $props();
   const markerId = $props.id();
-  let edgeType = $derived("generic_type");
+  let edgeType = $derived(edge.type);
   let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,

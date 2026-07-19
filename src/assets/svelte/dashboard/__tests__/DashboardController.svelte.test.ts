@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { DashboardController } from "../DashboardController.svelte";
 import type { LoadedGraph } from "../contract";
+import type { CanvasDocument } from "../workspace/CanvasDocument.svelte";
 
 function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
@@ -64,7 +65,7 @@ describe("DashboardController", () => {
       const doc = controller.documents[0];
       expect(doc.kind).toBe("canvas");
       expect(
-        (doc as import("../document/CanvasDocument.svelte").CanvasDocument)
+        (doc as CanvasDocument)
           .loaded,
       ).toBe(false);
     });
@@ -153,11 +154,11 @@ describe("DashboardController", () => {
       expect(doc.kind).toBe("canvas");
       expect(doc.title).toBe("My Graph");
       expect(
-        (doc as import("../document/CanvasDocument.svelte").CanvasDocument)
+        (doc as CanvasDocument)
           .loaded,
       ).toBe(true);
       expect(
-        (doc as import("../document/CanvasDocument.svelte").CanvasDocument)
+        (doc as CanvasDocument)
           .loadedGraphId,
       ).toBe("g1");
       expect(result).toBe(doc);
@@ -178,12 +179,12 @@ describe("DashboardController", () => {
       expect(loadedDoc.title).toBe("My Topology");
       expect(
         (
-          loadedDoc as import("../document/CanvasDocument.svelte").CanvasDocument
+          loadedDoc as CanvasDocument
         ).loaded,
       ).toBe(true);
       expect(
         (
-          loadedDoc as import("../document/CanvasDocument.svelte").CanvasDocument
+          loadedDoc as CanvasDocument
         ).loadedGraphId,
       ).toBe("g2");
       expect(result).toBe(loadedDoc);
@@ -203,7 +204,7 @@ describe("DashboardController", () => {
       expect(doc.id).toBe(blankId);
       expect(doc.title).toBe("Reused");
       expect(
-        (doc as import("../document/CanvasDocument.svelte").CanvasDocument)
+        (doc as CanvasDocument)
           .loaded,
       ).toBe(true);
       expect(result).toBe(doc);
@@ -225,7 +226,7 @@ describe("DashboardController", () => {
       expect(
         (
           controller
-            .documents[0] as import("../document/CanvasDocument.svelte").CanvasDocument
+            .documents[0] as CanvasDocument
         ).loadedGraphId,
       ).toBe("g3");
       expect(result).toBeUndefined(); // undefined = activated existing, no new tab
@@ -248,7 +249,7 @@ describe("DashboardController", () => {
       expect(reused).toBeDefined();
       expect(reused.title).toBe("G2");
       expect(
-        (reused as import("../document/CanvasDocument.svelte").CanvasDocument)
+        (reused as CanvasDocument)
           .loadedGraphId,
       ).toBe("g2");
       expect(result).toBe(reused);

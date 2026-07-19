@@ -10,15 +10,15 @@
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
   import Canvas from "./dashboard/canvas/Canvas.svelte";
-  import SimulationReport from "./dashboard/statistics/SimulationReport.svelte";
+  import SimulationReport from "./dashboard/simulation/SimulationReport.svelte";
   import type {
     WorkspaceDocument,
     DocumentKind,
-  } from "./dashboard/document/WorkspaceDocument.svelte";
+  } from "./dashboard/workspace/WorkspaceDocument.svelte";
   import type {
     CanvasDocument,
     CanvasSelection,
-  } from "./dashboard/document/CanvasDocument.svelte";
+  } from "./dashboard/workspace/CanvasDocument.svelte";
   import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
   import type { GraphSummary } from "./dashboard/contract";
 

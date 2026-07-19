@@ -6,7 +6,7 @@
   import type {
     WorkspaceDocument,
     DocumentKind,
-  } from "../document/WorkspaceDocument.svelte";
+  } from "./WorkspaceDocument.svelte";
 
   export interface WorkspaceDocumentType {
     id: DocumentKind;
