@@ -1,15 +1,22 @@
-import type { Live } from "live_svelte";
 import {
   type Id,
-  type Graph,
+  type LoadedGraph,
   type RequestCorrelationId,
   type OpenGraphPayload,
+  type OpenGraphReply,
   type SaveGraphPayload,
+  type SaveGraphReply,
 } from "./contract";
 
-interface DashboardServer {
-  openGraph(graphId: Id): RequestCorrelationId;
-  saveGraph(graph: Graph): RequestCorrelationId;
+export interface DashboardServer {
+  openGraph(
+    graphId: Id,
+    onReply: (reply: OpenGraphReply) => void,
+  ): RequestCorrelationId;
+  saveGraph(
+    graph: LoadedGraph,
+    onReply: (reply: SaveGraphReply) => void,
+  ): RequestCorrelationId;
 }
 
 export type LiveServer = {
@@ -22,13 +29,23 @@ export type LiveServer = {
 
 export function createDashboardServer(live: LiveServer): DashboardServer {
   return {
-    openGraph(graphId) {
-      return live.pushEvent<OpenGraphPayload>("open_graph", {
-        graph_id: graphId,
-      });
+    openGraph(graphId, onReply) {
+      return live.pushEvent<OpenGraphPayload>(
+        "open_graph",
+        { graph_id: graphId },
+        (reply) => {
+          onReply(reply as OpenGraphReply);
+        },
+      );
     },
-    saveGraph(graph) {
-      return live.pushEvent<SaveGraphPayload>("save_graph", { graph: graph });
+    saveGraph(graph, onReply) {
+      return live.pushEvent<SaveGraphPayload>(
+        "save_graph",
+        { graph },
+        (reply) => {
+          onReply(reply as SaveGraphReply);
+        },
+      );
     },
   };
 }

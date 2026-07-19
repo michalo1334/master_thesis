@@ -8,16 +8,16 @@
 </script>
 
 <footer class="dashboard-statusbar">
-  <span class="dashboard-status-item"
-    ><span class="dashboard-valid-dot" aria-hidden="true"></span>Canvas ready</span
-  >
+  <span class="dashboard-status-item">
+    <span class="dashboard-valid-dot" aria-hidden="true"></span>Canvas ready
+  </span>
   <span class="dashboard-status-item">Blank grid canvas</span>
-  {#if statusMessage}<span class="dashboard-status-item" role="status"
-      >{statusMessage}</span
-    >{/if}
-  <span class="dashboard-status-item dashboard-status-selection"
-    >Document: <strong>{documentName}</strong></span
-  >
+  {#if statusMessage}
+    <span class="dashboard-status-item" role="status">{statusMessage}</span>
+  {/if}
+  <span class="dashboard-status-item dashboard-status-selection">
+    {#if documentName}Document: <strong>{documentName}</strong>{/if}
+  </span>
 </footer>
 
 <style>

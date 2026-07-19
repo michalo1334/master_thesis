@@ -1,40 +1,170 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import type { Live } from "live_svelte";
   import { DashboardController } from "./dashboard/DashboardController.svelte";
   import { setDashboardContext } from "./dashboard/dashboard-context";
+  import { createDashboardServer, type LiveServer } from "./dashboard/server";
   import AppBar from "./dashboard/shell/AppBar.svelte";
   import StatusBar from "./dashboard/shell/StatusBar.svelte";
   import DashboardInspector from "./dashboard/DashboardInspector.svelte";
   import DashboardRibbon from "./dashboard/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
+  import Canvas from "./dashboard/canvas/Canvas.svelte";
+  import SimulationReport from "./dashboard/statistics/SimulationReport.svelte";
+  import type {
+    WorkspaceDocument,
+    DocumentKind,
+  } from "./dashboard/document/WorkspaceDocument.svelte";
+  import type {
+    CanvasDocument,
+    CanvasSelection,
+  } from "./dashboard/document/CanvasDocument.svelte";
+  import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
+  import type { GraphSummary } from "./dashboard/contract";
+
   interface Props {
     live: Live;
+    graphSummaries?: GraphSummary[];
   }
 
-  const { live }: Props = $props();
+  const { live, graphSummaries = [] }: Props = $props();
 
-  const dashboardController = new DashboardController({
-    pushEvent: (event, payload, onReply) =>
-      live.pushEvent(event, payload, onReply),
-  });
+  const dashboardController = new DashboardController();
+  const server = $derived(createDashboardServer(live as LiveServer));
 
   setDashboardContext(dashboardController);
+
+  const documentTypes: readonly WorkspaceDocumentType[] = [
+    { id: "canvas", label: "Canvas", icon: "graph" },
+    { id: "simulation-report", label: "Report", icon: "shield" },
+  ];
+
+  // -- dialog state --
+  let topologyPickerOpen = $state(false);
+  let topologyPickerStatus = $state("");
+
+  // -- save state --
+  let isSaving = $state(false);
+  let statusMessage = $state("");
+
+  // -- derived from active document --
+  let activeCanvasDoc = $derived.by(() => {
+    const doc = dashboardController.activeDocument;
+    if (!doc || doc.kind !== "canvas") return undefined;
+    return doc as CanvasDocument;
+  });
+
+  let saveDisabled = $derived(
+    isSaving || !activeCanvasDoc || !activeCanvasDoc.saveEligible,
+  );
+
+  let documentName = $derived(activeCanvasDoc ? activeCanvasDoc.title : "");
+
+  // -- callbacks --
+
+  function handleCreateDocument(kind: DocumentKind): void {
+    if (kind === "canvas") {
+      // Canvas menu opens the topology picker, not a blank tab.
+      topologyPickerOpen = true;
+      topologyPickerStatus = "";
+    } else {
+      dashboardController.createDocument(kind);
+    }
+  }
+
+  function handleTopologySelect(summary: GraphSummary): void {
+    topologyPickerStatus = "";
+    server.openGraph(summary.id, (reply) => {
+      if (reply.status === "ok" && reply.graph) {
+        dashboardController.openLoadedGraph(reply.graph);
+        topologyPickerOpen = false;
+      } else {
+        topologyPickerStatus =
+          reply.status === "not_found"
+            ? "Topology not found."
+            : "Failed to open topology.";
+      }
+    });
+  }
+
+  function handleSave(): void {
+    const doc = activeCanvasDoc;
+    if (!doc || !doc.saveEligible || isSaving) return;
+
+    isSaving = true;
+    server.saveGraph(doc.graph, (reply) => {
+      isSaving = false;
+      if (reply.status === "ok" && reply.graph) {
+        doc.replaceFromSaveReply(reply.graph);
+        statusMessage = "Saved.";
+      } else if (reply.status === "stale") {
+        statusMessage = "Save failed: graph was modified by another user.";
+      } else if (reply.status === "not_found") {
+        statusMessage = "Save failed: graph no longer exists.";
+      } else {
+        statusMessage = "Save failed.";
+      }
+    });
+  }
+
+  function applyCanvasSelection(
+    doc: CanvasDocument,
+    selection: CanvasSelection,
+  ): void {
+    switch (selection.kind) {
+      case "node":
+        doc.selectNode(selection.nodeId);
+        break;
+      case "edge":
+        doc.selectEdge(selection.edgeId);
+        break;
+      default:
+        doc.clearSelection();
+    }
+  }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
-  <AppBar onSave={() => {}} isSaving={false} />
+  <AppBar onSave={handleSave} {saveDisabled} {isSaving} />
   <DashboardRibbon inspectorVisible={true} />
 
   {#snippet inspector()}
-    <DashboardInspector />
+    <DashboardInspector document={dashboardController.activeDocument} />
   {/snippet}
 
-  <Workspace />
-  <TopologyPickerDialog />
+  {#snippet content(document: WorkspaceDocument)}
+    {#if document.kind === "canvas"}
+      <Canvas
+        graph={document.graph}
+        selection={document.selection}
+        onGraphChange={(g) => (document.graph = g)}
+        onSelectionChange={(sel) => applyCanvasSelection(document, sel)}
+      />
+    {:else if document.kind === "simulation-report"}
+      <SimulationReport title={document.title} />
+    {/if}
+  {/snippet}
 
-  <StatusBar documentName="abc" statusMessage="abc" />
+  <Workspace
+    documents={dashboardController.documents}
+    activeDocumentId={dashboardController.selectedDocumentId}
+    {documentTypes}
+    onCreateDocument={handleCreateDocument}
+    onActiveDocumentChange={(id) => dashboardController.selectDocument(id)}
+    onCloseDocument={(id) => dashboardController.closeDocument(id)}
+    {inspector}
+    {content}
+  />
+
+  <TopologyPickerDialog
+    open={topologyPickerOpen}
+    summaries={graphSummaries}
+    onOpenChange={(open) => (topologyPickerOpen = open)}
+    onSelect={handleTopologySelect}
+    status={topologyPickerStatus}
+  />
+
+  <StatusBar {documentName} {statusMessage} />
 </div>
 
 <style>
@@ -53,7 +183,7 @@
     overflow: hidden;
     color: var(--ds-color-text);
     background: var(--ds-color-surface);
-    font: var(--ds-text-lg)/var(--ds-line-height) var(--ds-font-ui);
+    font: var(--ds-text-lg) / var(--ds-line-height) var(--ds-font-ui);
   }
 
   .dashboard-app :global(*),

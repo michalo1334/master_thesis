@@ -1,20 +1,31 @@
 <script lang="ts">
-  import Inspector from "./workspace/Inspector.svelte";
+  import type { WorkspaceDocument } from "./document/WorkspaceDocument.svelte";
+  import CanvasNodeInspector from "./canvas/inspectors/CanvasNodeInspector.svelte";
+  import CanvasEdgeInspector from "./canvas/inspectors/CanvasEdgeInspector.svelte";
 
   interface Props {
-    selectedObject?: { id: string; name: string };
+    document: WorkspaceDocument | undefined;
   }
 
-  let {}: Props = $props();
+  let { document }: Props = $props();
+
+  let selectedNode = $derived.by(() => {
+    if (!document || document.kind !== "canvas") return undefined;
+    const sel = document.selection;
+    if (sel.kind !== "node") return undefined;
+    return document.graph.nodes.find((n) => n.id === sel.nodeId);
+  });
+
+  let selectedEdge = $derived.by(() => {
+    if (!document || document.kind !== "canvas") return undefined;
+    const sel = document.selection;
+    if (sel.kind !== "edge") return undefined;
+    return document.graph.edges.find((e) => e.id === sel.edgeId);
+  });
 </script>
 
-<Inspector title="Object inspector">
-  <p class="dashboard-inspector-empty"></p>
-</Inspector>
-
-<style>
-  .dashboard-inspector-empty {
-    margin: 0;
-    color: var(--ds-color-text-faint);
-  }
-</style>
+{#if selectedNode}
+  <CanvasNodeInspector node={selectedNode} />
+{:else if selectedEdge}
+  <CanvasEdgeInspector edge={selectedEdge} />
+{/if}

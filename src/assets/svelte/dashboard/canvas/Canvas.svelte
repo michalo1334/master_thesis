@@ -3,13 +3,14 @@
   import CanvasEdge from "./CanvasEdge.svelte";
   import CanvasNode from "./CanvasNode.svelte";
   import { nodeCenter } from "./geometry";
-  import type { Edge, Graph, Node } from "../contract";
+  import type { Edge, LoadedGraph, Node } from "../contract";
   import {
     type DragState,
     type NodeDragState,
     type CanvasState,
     type Point,
   } from "./canvasState";
+  import type { CanvasSelection } from "../document/CanvasDocument.svelte";
 
   const MIN_ZOOM = 25;
   const MAX_ZOOM = 200;
@@ -18,12 +19,13 @@
   const DRAG_THRESHOLD = 4;
 
   interface Props {
-    graph: Graph;
-    onGraphChange: (graph: Graph) => void;
-    onCanvasStateChange: (state: CanvasState) => void;
+    graph: LoadedGraph;
+    selection: CanvasSelection;
+    onGraphChange: (graph: LoadedGraph) => void;
+    onSelectionChange: (selection: CanvasSelection) => void;
   }
 
-  let { graph, onGraphChange, onCanvasStateChange }: Props = $props();
+  let { graph, selection, onGraphChange, onSelectionChange }: Props = $props();
   const canvasPreviewArrowId = $props.id();
   let viewport = $state({ width: 0, height: 0 });
   let pointerGraphPosition = $state<Point>();
@@ -32,10 +34,9 @@
 
   let canvasState = $state<CanvasState>({
     connectMode: false,
-    zoom: 0,
+    zoom: 100,
     pan: { x: 0, y: 0 },
     connectionSourceId: undefined,
-    selectedId: undefined,
   });
   let dragState = $state<DragState>();
   let nodeDragState = $state<NodeDragState>();
@@ -53,10 +54,10 @@
   }
 
   function updateCanvasState(change: Partial<CanvasState>) {
-    onCanvasStateChange({ ...canvasState, ...change });
+    Object.assign(canvasState, change);
   }
 
-  function updateGraph(change: Partial<Graph>) {
+  function updateGraph(change: Partial<LoadedGraph>) {
     onGraphChange({ ...graph, ...change });
   }
 
@@ -146,7 +147,7 @@
           node.id === nodeDragState?.nodeId
             ? {
                 ...node,
-                viewData: {
+                view_data: {
                   ...node.view_data,
                   x_pos: nodeDragState.nodePos.x + deltaX / scale,
                   y_pos: nodeDragState.nodePos.y + deltaY / scale,
@@ -204,17 +205,22 @@
     setZoom(canvasState.zoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
   }
 
-  function selectObject(id: string) {
-    updateCanvasState({ selectedId: id });
+  function handleBlankCanvasClick(_event: MouseEvent) {
+    onSelectionChange({ kind: "none" });
   }
 
-  function handleBlankCanvasClick(event: MouseEvent) {}
-
-  function handleNodeClick(node: Node, event: MouseEvent) {}
+  function handleNodeClick(node: Node, event: MouseEvent) {
+    event.stopPropagation();
+    if (suppressNodeClick) {
+      suppressNodeClick = false;
+      return;
+    }
+    onSelectionChange({ kind: "node", nodeId: node.id });
+  }
 
   function handleEdgeClick(edge: Edge, event: MouseEvent) {
     event.stopPropagation();
-    selectObject(edge.id);
+    onSelectionChange({ kind: "edge", edgeId: edge.id });
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -308,7 +314,8 @@
                   {target}
                   sourcePosition={nodePosition(source)}
                   targetPosition={nodePosition(target)}
-                  selected={canvasState.selectedId === edge.id}
+                  selected={selection.kind === "edge" &&
+                    selection.edgeId === edge.id}
                   onclick={(event) => handleEdgeClick(edge, event)}
                 />{/if}
             {/each}
@@ -326,7 +333,8 @@
               <CanvasNode
                 {node}
                 position={nodePosition(node)}
-                selected={canvasState.selectedId === node.id}
+                selected={selection.kind === "node" &&
+                  selection.nodeId === node.id}
                 source={canvasState.connectionSourceId === node.id}
                 dragging={nodeDragState?.nodeId === node.id}
                 onpointerdown={(event) => startNodeDrag(node, event)}

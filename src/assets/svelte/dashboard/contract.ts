@@ -2,29 +2,31 @@ export type Id = string;
 export type Status = "ok" | "stale" | "not_found" | "unmapped_error";
 export type RequestCorrelationId = number;
 
-//contracts/open_graph.ex
+// contracts/open_graph.ex
 export interface OpenGraphPayload {
   graph_id: Id;
 }
 
 export interface OpenGraphReply {
   status: Status;
-  graph: Graph | null;
+  graph: LoadedGraph | null;
 }
 
-//contracts/save_graph.ex
+// contracts/save_graph.ex
 export interface SaveGraphPayload {
-  graph: Graph;
+  graph: LoadedGraph;
 }
 
 export interface SaveGraphReply {
   status: Status;
+  graph: LoadedGraph | null;
 }
 
 // contracts/graph.ex
-export interface Graph {
+export interface LoadedGraph {
   id: Id;
   title: string;
+  lock_version: number;
   nodes: Node[];
   edges: Edge[];
 }
@@ -47,4 +49,12 @@ export interface Edge {
   to_id: Id;
   type: string;
   data: any;
+}
+
+// Graph summary from the server (list_summaries)
+export interface GraphSummary {
+  id: Id;
+  title: string;
+  nodeCount: number;
+  edgeCount: number;
 }

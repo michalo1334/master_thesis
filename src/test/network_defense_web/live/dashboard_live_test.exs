@@ -20,8 +20,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
-  describe "open_topology" do
-    test "is handled for an existing graph", %{conn: conn} do
+  describe "open_graph" do
+    test "accepts an existing graph", %{conn: conn} do
       graph = insert_graph("dwg-001")
       source = insert_node(graph, "origin")
       target = insert_node(graph, "dest")
@@ -29,23 +29,25 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "open_topology", %{"graph_id" => graph.id})
+      render_hook(view, "open_graph", %{"graph_id" => graph.id})
 
       assert has_element?(view, "#dashboard[data-name='Dashboard']")
     end
 
-    test "is safely ignored for an invalid graph_id", %{conn: conn} do
+    test "accepts a missing graph_id", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "open_topology", %{"graph_id" => "00000000-0000-0000-0000-000000000000"})
+      render_hook(view, "open_graph", %{
+        "graph_id" => "00000000-0000-0000-0000-000000000000"
+      })
 
       assert has_element?(view, "#dashboard[data-name='Dashboard']")
     end
 
-    test "is safely ignored without graph_id", %{conn: conn} do
+    test "accepts an open request without graph_id", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "open_topology", %{})
+      render_hook(view, "open_graph", %{})
 
       assert has_element?(view, "#dashboard[data-name='Dashboard']")
     end
@@ -85,42 +87,44 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
-  describe "save_topology" do
-    test "persists topology edges and node view_data", %{conn: conn} do
-      graph = insert_graph("save-topology")
+  describe "save_graph" do
+    test "persists graph edges and node view_data", %{conn: conn} do
+      graph = insert_graph("save-graph")
       source = insert_node(graph, "source")
       target = insert_node(graph, "target")
       edge_id = Ecto.UUID.generate()
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "save_topology", %{
-        "graph_id" => graph.id,
-        "lock_version" => graph.lock_version,
-        "title" => "saved topology",
-        "nodes" => [
-          %{
-            "id" => source.id,
-            "type" => source.type,
-            "data" => source.data,
-            "view_data" => %{"x_pos" => 120, "y_pos" => 240}
-          },
-          %{
-            "id" => target.id,
-            "type" => target.type,
-            "data" => target.data,
-            "view_data" => %{"x_pos" => 360, "y_pos" => 480}
-          }
-        ],
-        "edges" => [
-          %{
-            "id" => edge_id,
-            "from_id" => source.id,
-            "to_id" => target.id,
-            "type" => Atom.to_string(NetworkReachability),
-            "data" => %{}
-          }
-        ]
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "lock_version" => graph.lock_version,
+          "title" => "saved graph",
+          "nodes" => [
+            %{
+              "id" => source.id,
+              "type" => source.type,
+              "data" => source.data,
+              "view_data" => %{"x_pos" => 120, "y_pos" => 240}
+            },
+            %{
+              "id" => target.id,
+              "type" => target.type,
+              "data" => target.data,
+              "view_data" => %{"x_pos" => 360, "y_pos" => 480}
+            }
+          ],
+          "edges" => [
+            %{
+              "id" => edge_id,
+              "from_id" => source.id,
+              "to_id" => target.id,
+              "type" => Atom.to_string(NetworkReachability),
+              "data" => %{}
+            }
+          ]
+        }
       })
 
       saved_graph = Graphs.load!(graph.id)
@@ -129,13 +133,31 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert source_id == source.id
       assert target_id == target.id
       assert type == Atom.to_string(NetworkReachability)
-      assert saved_graph.title == "saved topology"
+      assert saved_graph.title == "saved graph"
       assert saved_graph.lock_version == 2
 
       source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
       target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
       assert source_node.view_data == %{"x_pos" => 120, "y_pos" => 240}
       assert target_node.view_data == %{"x_pos" => 360, "y_pos" => 480}
+    end
+
+    test "does not replace a stale graph", %{conn: conn} do
+      graph = insert_graph("stale-graph")
+
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "lock_version" => graph.lock_version - 1,
+          "title" => "stale graph",
+          "nodes" => [],
+          "edges" => []
+        }
+      })
+
+      assert Graphs.load!(graph.id).title == "stale-graph"
     end
   end
 

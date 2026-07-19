@@ -1,5 +1,4 @@
 defmodule NetworkDefenseWeb.DashboardLive do
-  alias NetworkDefense.Graph.GraphLayout
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Graph
@@ -33,31 +32,31 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("open_topology", %{"graph_id" => graph_id}, socket) when is_binary(graph_id) do
+  def handle_event("open_graph", %{"graph_id" => graph_id}, socket) when is_binary(graph_id) do
     case Graphs.load(graph_id) do
       nil ->
-        {:reply, %{topology: nil}, socket}
+        {:reply, %{status: "not_found", graph: nil}, socket}
 
       graph ->
-        {:reply,
-         %{topology: graph |> then(&GraphLayout.lay_out(:none, &1, [])) |> graph_payload()},
-         socket}
+        {:reply, %{status: "ok", graph: graph_payload(graph)}, socket}
     end
   end
 
-  def handle_event("open_topology", _params, socket) do
-    {:reply, %{topology: nil}, socket}
+  def handle_event("open_graph", _params, socket) do
+    {:reply, %{status: "not_found", graph: nil}, socket}
   end
 
   @impl true
   def handle_event(
-        "save_topology",
+        "save_graph",
         %{
-          "graph_id" => graph_id,
-          "lock_version" => lock_version,
-          "title" => title,
-          "nodes" => nodes,
-          "edges" => edges
+          "graph" => %{
+            "id" => graph_id,
+            "lock_version" => lock_version,
+            "title" => title,
+            "nodes" => nodes,
+            "edges" => edges
+          }
         },
         socket
       ) do
@@ -65,25 +64,22 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
     case Graphs.replace(graph_id, lock_version, attrs) do
       {:ok, %{graph: graph}} ->
-        {:reply,
-         %{
-           status: "ok",
-           topology: graph |> then(&GraphLayout.lay_out(:none, &1, [])) |> graph_payload()
-         }, assign(socket, :graph_summaries, Graphs.list_summaries())}
+        {:reply, %{status: "ok", graph: graph_payload(graph)},
+         assign(socket, :graph_summaries, Graphs.list_summaries())}
 
       {:error, :stale} ->
-        {:reply, %{status: "stale"}, socket}
+        {:reply, %{status: "stale", graph: nil}, socket}
 
       {:error, :not_found} ->
-        {:reply, %{status: "not_found"}, socket}
+        {:reply, %{status: "not_found", graph: nil}, socket}
 
       {:error, _reason} ->
-        {:reply, %{status: "error"}, socket}
+        {:reply, %{status: "unmapped_error", graph: nil}, socket}
     end
   end
 
-  def handle_event("save_topology", _params, socket) do
-    {:reply, %{status: "error"}, socket}
+  def handle_event("save_graph", _params, socket) do
+    {:reply, %{status: "unmapped_error", graph: nil}, socket}
   end
 
   @impl true
@@ -107,19 +103,17 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp graph_payload(graph) do
-    alias NetworkDefenseWeb.Web.Contracts.Graph.{Contract, Node, NodeViewData, Edge}
-
-    %Contract{
+    %{
       id: graph.id,
       title: graph.title,
       lock_version: graph.lock_version,
       nodes:
         Enum.map(Graph.nodes(graph), fn node ->
-          %Node{
+          %{
             id: node.id,
             type: node.type,
             data: node.data,
-            view_data: %NodeViewData{
+            view_data: %{
               x_pos: Map.get(node.view_data, :x_pos) || Map.get(node.view_data, "x_pos"),
               y_pos: Map.get(node.view_data, :y_pos) || Map.get(node.view_data, "y_pos")
             }
@@ -127,7 +121,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
         end),
       edges:
         Enum.map(Graph.edges(graph), fn edge ->
-          %Edge{
+          %{
             id: edge.id,
             from_id: edge.from_id,
             to_id: edge.to_id,

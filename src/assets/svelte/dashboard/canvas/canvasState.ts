@@ -4,9 +4,8 @@ export interface Point {
 }
 
 export interface CanvasState {
-  connectMode: Boolean;
+  connectMode: boolean;
   connectionSourceId: string | undefined;
-  selectedId: string | undefined;
   zoom: number;
   pan: Point;
 }

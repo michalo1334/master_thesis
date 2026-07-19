@@ -3,14 +3,13 @@
   import type { Snippet } from "svelte";
   import Icon from "../controls/Icon.svelte";
   import type { IconName } from "../types";
-
-  export interface WorkspaceDocument {
-    id: string;
-    title: string;
-  }
+  import type {
+    WorkspaceDocument,
+    DocumentKind,
+  } from "../document/WorkspaceDocument.svelte";
 
   export interface WorkspaceDocumentType {
-    id: string;
+    id: DocumentKind;
     label: string;
     icon?: IconName;
   }
@@ -24,7 +23,7 @@
     onActiveDocumentChange?: (id: string) => void;
     onCloseDocument?: (id: string) => void;
     documentTypes?: readonly WorkspaceDocumentType[];
-    onCreateDocument?: (typeId: string) => void;
+    onCreateDocument?: (typeId: DocumentKind) => void;
     inspector?: Snippet;
     content?: Snippet<[WorkspaceDocument]>;
   }
@@ -114,8 +113,7 @@
 
     {#if documents.length === 0}
       <section class="dashboard-workspace-empty" aria-label="No open documents">
-        <Icon name="plus" size={24} />
-        <p>Create a document to begin.</p>
+        <p>No documents opened</p>
       </section>
     {/if}
   </Tabs.Root>

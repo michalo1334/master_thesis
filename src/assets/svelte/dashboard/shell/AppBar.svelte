@@ -4,10 +4,11 @@
 
   interface Props {
     onSave: () => void;
+    saveDisabled: boolean;
     isSaving: boolean;
   }
 
-  let { onSave, isSaving }: Props = $props();
+  let { onSave, saveDisabled, isSaving }: Props = $props();
 </script>
 
 <header class="dashboard-appbar">
@@ -21,7 +22,7 @@
       class="dashboard-app-save"
       type="button"
       onclick={onSave}
-      disabled={isSaving}
+      disabled={saveDisabled}
       aria-busy={isSaving}>Save</button
     >
     <button class="dashboard-app-icon" aria-label="Search"
@@ -101,7 +102,6 @@
     align-items: center;
     gap: var(--ds-space-1);
   }
-  /* Bits UI owns the trigger and avatar DOM, so these selectors cross that component boundary. */
   .dashboard-app-icon,
   .dashboard-app-save,
   .dashboard-appbar :global(.dashboard-avatar-trigger) {

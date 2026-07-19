@@ -1,8 +1,12 @@
-import type { Component } from "svelte";
-import type Icon from "../controls/Icon.svelte";
+import type { CanvasDocument } from "./CanvasDocument.svelte";
+import type { SimulationReportDocument } from "./SimulationReportDocument.svelte";
 
-export interface WorkspaceDocument {
-  id: string;
-  label(): string;
-  icon(): typeof Icon;
+export type DocumentKind = "canvas" | "simulation-report";
+
+export interface DocumentBase {
+  readonly id: string;
+  readonly kind: DocumentKind;
+  readonly title: string;
 }
+
+export type WorkspaceDocument = CanvasDocument | SimulationReportDocument;
