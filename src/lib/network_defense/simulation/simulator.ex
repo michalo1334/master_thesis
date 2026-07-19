@@ -45,12 +45,15 @@ defmodule NetworkDefense.Simulation.Simulator do
    - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
   """
   def run(opts) do
-    run(State.new(Keyword.put(opts, :initial_seed, Keyword.get(opts, :seed, 0))), opts)
+    state_opts =
+      opts
+      |> Keyword.take([:graph, :initial_attacker_state, :rules, :iteration_count])
+      |> Keyword.put(:initial_seed, Keyword.get(opts, :seed, 0))
+
+    run(State.new(state_opts), opts)
   end
 
   def run(%State{iteration_count: iteration_count} = initial_state, _opts) do
-    initial_state = ensure_seed_state(initial_state)
-
     Enum.reduce(1..iteration_count, initial_state, fn index, state ->
       perform_iteration(state, index)
     end)
@@ -71,7 +74,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
       next_iteration =
         IterationStep.new(
-          index: index + 1,
+          index: index,
           attempted_action: selected_action,
           success?: success?,
           seed: new_seed,
@@ -87,6 +90,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   end
 
   def maybe_execute_action(action, seed, attacker_state) do
+    seed = seed_state(seed)
     {sample, new_seed} = :rand.uniform_s(seed)
 
     new_attacker_state = AttackerState.mark_attempted(attacker_state, Action.key(action))
@@ -111,22 +115,19 @@ defmodule NetworkDefense.Simulation.Simulator do
   end
 
   defp derive_child_seed(parent_seed, index) when is_integer(parent_seed) and is_integer(index) do
-    <<first::unsigned-32, second::unsigned-32, third::unsigned-32, _::binary>> =
+    <<child_seed::unsigned-64, _::binary>> =
       :crypto.hash(
         :sha256,
         :erlang.term_to_binary(parent_seed + index)
       )
 
-    :rand.seed_s(:exsss, {seed_part(first), seed_part(second), seed_part(third)})
+    rem(child_seed, 9_223_372_036_854_775_807)
   end
 
   defp seed_part(value), do: rem(value, 2_147_483_646) + 1
 
-  defp ensure_seed_state(%State{initial_seed: seed} = state) when is_integer(seed) do
-    %{state | initial_seed: integer_to_seed_state(seed)}
-  end
-
-  defp ensure_seed_state(state), do: state
+  defp seed_state(seed) when is_integer(seed), do: integer_to_seed_state(seed)
+  defp seed_state(seed), do: seed
 
   defp integer_to_seed_state(seed) do
     <<first::unsigned-32, second::unsigned-32, third::unsigned-32, _::binary>> =

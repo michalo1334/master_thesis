@@ -1,62 +1,85 @@
 defmodule NetworkDefense.Simulation.State do
-  @moduledoc """
-  Represents simulation step
-  """
-  alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Rules.Rule
+  use Ecto.Schema
+
+  import Ecto.Changeset
+
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Rules.Rule
+  alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
+
+  @primary_key {:id, :binary_id, autogenerate: true}
+  @foreign_key_type :binary_id
 
   @type t :: %__MODULE__{
-          graph: %Graph{},
-          initial_seed: term(),
+          id: String.t() | nil,
+          graph_id: String.t() | nil,
+          graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
+          initial_seed: integer(),
           initial_attacker_state: AttackerState.t(),
-          rules: list(Rule.t()),
           iteration_count: non_neg_integer(),
-          iterations: list(IterationStep.t())
+          rules: list(Rule.t()),
+          iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t()
         }
 
-  defstruct [
-    :graph,
-    :initial_seed,
-    :initial_attacker_state,
-    :rules,
-    :iteration_count,
-    :iterations
-  ]
+  schema "simulations" do
+    belongs_to :graph, Graph
+
+    field :initial_seed, :integer, default: 0
+    field :initial_attacker_state, AttackerStateType
+    field :iteration_count, :integer, default: 1000
+    field :rules, :any, virtual: true, default: []
+
+    has_many :iterations, IterationStep, foreign_key: :simulation_id
+
+    timestamps(type: :utc_datetime)
+  end
+
+  def changeset(state, attrs) do
+    state
+    |> cast(attrs, [:initial_seed, :initial_attacker_state, :iteration_count])
+    |> validate_required([:graph_id, :initial_seed, :initial_attacker_state, :iteration_count])
+    |> validate_number(:initial_seed, greater_than_or_equal_to: 0)
+    |> validate_number(:iteration_count, greater_than: 0)
+    |> foreign_key_constraint(:graph_id)
+  end
 
   def new(opts \\ []) do
-    defaults = [
-      initial_seed: 0,
-      iteration_count: 1000,
-      iterations: []
-    ]
+    state =
+      struct!(
+        __MODULE__,
+        Keyword.merge([initial_seed: 0, iteration_count: 1000, iterations: [], rules: []], opts)
+      )
 
-    struct!(__MODULE__, Keyword.merge(defaults, opts))
+    %{state | graph_id: state.graph_id || graph_id(state.graph)}
   end
 
-  def current_iteration(%__MODULE__{iterations: iterations}) do
-    case iterations do
-      [] -> nil
-      _ -> hd(iterations)
-    end
-  end
+  def current_iteration(%__MODULE__{iterations: []}), do: nil
+  def current_iteration(%__MODULE__{iterations: [iteration | _]}), do: iteration
 
   def current_attacker_state(%__MODULE__{} = state) do
-    case state.iterations do
-      [] -> state.initial_attacker_state
-      _ -> current_iteration(state).attacker_state
+    case current_iteration(state) do
+      nil -> state.initial_attacker_state
+      iteration -> iteration.attacker_state
     end
   end
 
   def current_seed(%__MODULE__{} = state) do
-    case state.iterations do
-      [] -> state.initial_seed
-      _ -> current_iteration(state).seed
+    case current_iteration(state) do
+      nil -> state.initial_seed
+      iteration -> iteration.seed
     end
   end
 
-  def add_iteration_step(%__MODULE__{} = state, iteration_step) do
-    %__MODULE__{state | iterations: [iteration_step | state.iterations]}
+  def add_iteration_step(
+        %__MODULE__{iterations: iterations} = state,
+        %IterationStep{} = iteration
+      )
+      when is_list(iterations) do
+    %{state | iterations: [iteration | iterations]}
   end
+
+  defp graph_id(%Graph{id: id}), do: id
+  defp graph_id(_), do: nil
 end
