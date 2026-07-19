@@ -3,19 +3,19 @@
   import Icon from "./controls/Icon.svelte";
   import Ribbon from "./ribbon/Ribbon";
   import Slider from "./controls/Slider.svelte";
-  import type { LayoutGraphParams } from "./contract";
+  import type { ForceParams } from "./layout/ForceLayout.types";
 
   interface Props {
     hasActiveCanvas: boolean;
-    layoutParams: LayoutGraphParams;
-    onLayoutParamsChange: (change: Partial<LayoutGraphParams>) => void;
+    forceParams: ForceParams;
+    onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
   }
 
   let {
     hasActiveCanvas,
-    layoutParams,
-    onLayoutParamsChange,
+    forceParams,
+    onForceParamsChange,
     onForceLayout,
   }: Props = $props();
 </script>
@@ -36,27 +36,45 @@
     </Ribbon.Section>
     <Ribbon.Section title="Parameters">
       <Slider
-        label="Iterations"
-        min={1}
-        max={500}
-        value={layoutParams.iterations}
-        onchange={(v) => onLayoutParamsChange({ iterations: v })}
+        label="Repulsion"
+        min={-1000}
+        max={-10}
+        value={forceParams.repulsion}
+        onchange={(v) => onForceParamsChange({ repulsion: v })}
         disabled={!hasActiveCanvas}
       />
       <Slider
-        label="Spring"
+        label="Link dist."
         min={50}
         max={500}
-        value={layoutParams.springLength}
-        onchange={(v) => onLayoutParamsChange({ springLength: v })}
+        value={forceParams.linkDistance}
+        onchange={(v) => onForceParamsChange({ linkDistance: v })}
         disabled={!hasActiveCanvas}
       />
       <Slider
-        label="Repulsion"
-        min={1}
-        max={100}
-        value={layoutParams.repulsion}
-        onchange={(v) => onLayoutParamsChange({ repulsion: v })}
+        label="Collision rad."
+        min={30}
+        max={150}
+        value={forceParams.collisionRadius}
+        onchange={(v) => onForceParamsChange({ collisionRadius: v })}
+        disabled={!hasActiveCanvas}
+      />
+      <Slider
+        label="Center grav."
+        min={0}
+        max={0.3}
+        step={0.01}
+        value={forceParams.centerStrength}
+        onchange={(v) => onForceParamsChange({ centerStrength: v })}
+        disabled={!hasActiveCanvas}
+      />
+      <Slider
+        label="Alpha decay"
+        min={0.005}
+        max={0.1}
+        step={0.005}
+        value={forceParams.alphaDecay}
+        onchange={(v) => onForceParamsChange({ alphaDecay: v })}
         disabled={!hasActiveCanvas}
       />
     </Ribbon.Section>

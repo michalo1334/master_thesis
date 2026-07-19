@@ -36,6 +36,8 @@ WORKDIR /app
 
 # install mix dependencies
 COPY mix.exs mix.lock ./
+COPY .formatter.exs ./
+COPY prettier.config.mjs ./
 RUN mix deps.get
 
 # copy compile-time config and compile deps
@@ -50,6 +52,7 @@ RUN mix assets.setup
 COPY lib lib
 COPY priv priv
 COPY assets assets
+COPY test test
 RUN mix compile
 
 # ---- runner stage ----

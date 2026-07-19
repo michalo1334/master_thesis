@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "bits-ui": "^2.18.1",
+    "d3-force": "^3.0.0",
     "echarts": "^5.6.0",
     "live_svelte": "file:./deps/live_svelte",
     "phoenix": "file:./deps/phoenix",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@skeletonlabs/skeleton": "^4.15.2",
     "@skeletonlabs/skeleton-svelte": "^4.15.2",
+    "@types/d3-force": "^3.0.10",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@tailwindcss/vite": "^4.1.0",
     "phoenix_vite": "file:./deps/phoenix_vite",

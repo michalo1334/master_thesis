@@ -1,8 +1,10 @@
 <script lang="ts">
   import { ContextMenu } from "bits-ui";
+  import { untrack } from "svelte";
   import CanvasEdge from "./CanvasEdge.svelte";
   import CanvasNode from "./CanvasNode.svelte";
   import { nodeCenter } from "./geometry";
+  import { computeFitState } from "./fitView";
   import type { Edge, LoadedGraph, Node } from "../contract";
   import {
     type DragState,
@@ -23,9 +25,16 @@
     selection: CanvasSelection;
     onGraphChange: (graph: LoadedGraph) => void;
     onSelectionChange: (selection: CanvasSelection) => void;
+    fitToViewRequested?: number;
   }
 
-  let { graph, selection, onGraphChange, onSelectionChange }: Props = $props();
+  let {
+    graph,
+    selection,
+    onGraphChange,
+    onSelectionChange,
+    fitToViewRequested = 0,
+  }: Props = $props();
   const canvasPreviewArrowId = $props.id();
   let viewport = $state({ width: 0, height: 0 });
   let pointerGraphPosition = $state<Point>();
@@ -78,6 +87,25 @@
   function resetView() {
     updateCanvasState({ zoom: 100, pan: { x: 0, y: 0 } });
   }
+
+  function fitGraphToView() {
+    const result = computeFitState({
+      nodes: graph.nodes,
+      viewportWidth: viewport.width,
+      viewportHeight: viewport.height,
+      minZoom: MIN_ZOOM,
+      maxZoom: MAX_ZOOM,
+    });
+    if (result) {
+      updateCanvasState(result);
+    }
+  }
+
+  $effect(() => {
+    if (fitToViewRequested > 0) {
+      untrack(() => fitGraphToView());
+    }
+  });
 
   function graphPosition(event: PointerEvent | MouseEvent): Point {
     const surface = event.currentTarget as HTMLElement;

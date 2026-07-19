@@ -28,6 +28,8 @@
 /cover/
 /doc/
 /test/
+!/test/
+!/test/**
 /tmp/
 .elixir_ls
 

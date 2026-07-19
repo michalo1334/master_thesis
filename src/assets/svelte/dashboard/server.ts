@@ -1,9 +1,6 @@
 import {
   type Id,
   type LoadedGraph,
-  type LayoutGraphParams,
-  type LayoutGraphPayload,
-  type LayoutGraphReply,
   type RequestCorrelationId,
   type OpenGraphPayload,
   type OpenGraphReply,
@@ -19,11 +16,6 @@ export interface DashboardServer {
   saveGraph(
     graph: LoadedGraph,
     onReply: (reply: SaveGraphReply) => void,
-  ): RequestCorrelationId;
-  layoutGraph(
-    graph: LoadedGraph,
-    params: LayoutGraphParams,
-    onReply: (reply: LayoutGraphReply) => void,
   ): RequestCorrelationId;
 }
 
@@ -52,15 +44,6 @@ export function createDashboardServer(live: LiveServer): DashboardServer {
         { graph },
         (reply) => {
           onReply(reply as SaveGraphReply);
-        },
-      );
-    },
-    layoutGraph(graph, params, onReply) {
-      return live.pushEvent<LayoutGraphPayload>(
-        "layout_graph",
-        { graph, params },
-        (reply) => {
-          onReply(reply as LayoutGraphReply);
         },
       );
     },

@@ -77,6 +77,7 @@ export interface Node {
 export interface NodeViewData {
   x_pos: number;
   y_pos: number;
+  radius?: number;
 }
 
 export interface Edge {
@@ -88,23 +89,6 @@ export interface Edge {
 }
 
 export type Selectable = Node | Edge;
-
-// contracts/layout_graph.ex
-export interface LayoutGraphParams {
-  iterations: number;
-  springLength: number;
-  repulsion: number;
-}
-
-export interface LayoutGraphPayload {
-  graph: LoadedGraph;
-  params: LayoutGraphParams;
-}
-
-export interface LayoutGraphReply {
-  status: Status;
-  graph: LoadedGraph | null;
-}
 
 // Graph summary from the server (list_summaries)
 export interface GraphSummary {

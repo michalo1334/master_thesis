@@ -25,6 +25,7 @@ services:
     volumes:
       - ../src/lib:/app/lib
       - ../src/priv:/app/priv
+      - ../src/test:/app/test
       - ../src/config:/app/config
       - ../src/assets/js:/app/assets/js
       - ../src/assets/css:/app/assets/css

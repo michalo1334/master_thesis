@@ -20,7 +20,9 @@
     CanvasSelection,
   } from "./dashboard/workspace/CanvasDocument.svelte";
   import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
-  import type { GraphSummary, LayoutGraphParams } from "./dashboard/contract";
+  import type { GraphSummary } from "./dashboard/contract";
+  import type { ForceParams } from "./dashboard/layout/ForceLayout.types";
+  import { defaultForceParams } from "./dashboard/layout/ForceLayout.types";
 
   interface Props {
     live: Live;
@@ -48,12 +50,10 @@
   let statusMessage = $state("");
 
   // -- layout state --
-  let layoutParams = $state<LayoutGraphParams>({
-    iterations: 100,
-    springLength: 150,
-    repulsion: 50,
-  });
-  let isLayingOut = $state(false);
+  let forceParams = $state<ForceParams>({ ...defaultForceParams });
+
+  // Increment after force layout to trigger Canvas fit-to-view.
+  let fitToViewCounter = $state(0);
 
   // -- derived from active document --
   let activeCanvasDoc = $derived.by(() => {
@@ -117,21 +117,19 @@
     });
   }
 
-  function handleLayoutParamsChange(change: Partial<LayoutGraphParams>): void {
-    Object.assign(layoutParams, change);
+  function handleForceParamsChange(change: Partial<ForceParams>): void {
+    Object.assign(forceParams, change);
   }
 
-  function handleForceLayout(): void {
+  async function handleForceLayout(): Promise<void> {
     const doc = activeCanvasDoc;
-    if (!doc || isLayingOut) return;
+    if (!doc) return;
 
-    isLayingOut = true;
-    server.layoutGraph(doc.graph, layoutParams, (reply) => {
-      isLayingOut = false;
-      if (reply.status === "ok" && reply.graph) {
-        doc.graph = reply.graph;
-      }
-    });
+    const { applyForceLayout } =
+      await import("./dashboard/layout/ForceLayout.svelte");
+    applyForceLayout(doc.graph.nodes, doc.graph.edges, forceParams);
+    doc.graph = { ...doc.graph };
+    fitToViewCounter++;
   }
 
   function applyCanvasSelection(
@@ -155,8 +153,8 @@
   <AppBar onSave={handleSave} {saveDisabled} {isSaving} />
   <DashboardRibbon
     {hasActiveCanvas}
-    {layoutParams}
-    onLayoutParamsChange={handleLayoutParamsChange}
+    {forceParams}
+    onForceParamsChange={handleForceParamsChange}
     onForceLayout={handleForceLayout}
   />
 
@@ -171,6 +169,7 @@
         selection={document.selection}
         onGraphChange={(g) => (document.graph = g)}
         onSelectionChange={(sel) => applyCanvasSelection(document, sel)}
+        fitToViewRequested={fitToViewCounter}
       />
     {:else if document.kind === "simulation-report"}
       <SimulationReport title={document.title} />
