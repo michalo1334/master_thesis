@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { type Node, type NodeViewData } from "../contract";
+  import type { Node } from "../contract";
   import type { Point } from "./canvasState";
+  import { nodeInfoFor } from "./nodeInfoMappings";
 
   interface Props {
     node: Node;
@@ -21,9 +22,8 @@
     onclick,
     onpointerdown,
   }: Props = $props();
-  let label = $derived("TODO");
-  let type = $derived("TODO");
-  let metadata = $derived("TODO");
+
+  let InfoComponent = $derived(nodeInfoFor(node));
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -44,18 +44,21 @@
   tabindex="0"
   role="button"
   aria-pressed={selected}
-  aria-label={`${label}, ${type}${metadata ? `, ${metadata}` : ""}${selected ? ", selected" : ""}${source ? ", connection source" : ""}`}
+  aria-label={`${node.type}${selected ? ", selected" : ""}${source ? ", connection source" : ""}`}
   data-graph-interactive
   {onclick}
   {onpointerdown}
   onkeydown={handleKeydown}
 >
-  <title>{label} - {type}{metadata ? ` - ${metadata}` : ""}</title>
+  <title>{node.type}</title>
   <rect class="canvas-node-card" width="120" height="72" rx="7" />
   <circle class="canvas-node-glyph" cx="16" cy="18" r="6" />
-  <text class="canvas-node-title" x="28" y="22">{label}</text>
-  <text class="canvas-node-sub" x="10" y="43">{type}</text>
-  <text class="canvas-node-sub" x="10" y="60">{metadata || "No metadata"}</text>
+  {#if InfoComponent}
+    <InfoComponent {node} />
+  {:else}
+    <text class="canvas-node-title" x="10" y="22">{node.type}</text>
+  {/if}
+  <text class="canvas-node-sub" x="10" y="43">{node.type}</text>
 </g>
 
 <style>
