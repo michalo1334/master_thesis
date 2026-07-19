@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { Selectable } from "./contract";
   import type { WorkspaceDocument } from "./document/WorkspaceDocument.svelte";
-  import CanvasNodeInspector from "./canvas/inspectors/CanvasNodeInspector.svelte";
-  import CanvasEdgeInspector from "./canvas/inspectors/CanvasEdgeInspector.svelte";
+  import { inspectorFor } from "./canvas/inspectors/nodeMappings";
 
   interface Props {
     document: WorkspaceDocument | undefined;
@@ -9,23 +9,21 @@
 
   let { document }: Props = $props();
 
-  let selectedNode = $derived.by(() => {
+  let selectable = $derived.by((): Selectable | undefined => {
     if (!document || document.kind !== "canvas") return undefined;
     const sel = document.selection;
-    if (sel.kind !== "node") return undefined;
-    return document.graph.nodes.find((n) => n.id === sel.nodeId);
+    if (sel.kind === "node")
+      return document.graph.nodes.find((n: { id: string }) => n.id === sel.nodeId);
+    if (sel.kind === "edge")
+      return document.graph.edges.find((e: { id: string }) => e.id === sel.edgeId);
+    return undefined;
   });
 
-  let selectedEdge = $derived.by(() => {
-    if (!document || document.kind !== "canvas") return undefined;
-    const sel = document.selection;
-    if (sel.kind !== "edge") return undefined;
-    return document.graph.edges.find((e) => e.id === sel.edgeId);
-  });
+  let InspectorComponent = $derived(
+    selectable ? inspectorFor(selectable) : null,
+  );
 </script>
 
-{#if selectedNode}
-  <CanvasNodeInspector node={selectedNode} />
-{:else if selectedEdge}
-  <CanvasEdgeInspector edge={selectedEdge} />
+{#if InspectorComponent}
+  <InspectorComponent {selectable} />
 {/if}

@@ -12,15 +12,23 @@
 </script>
 
 {#if node}
-  <Inspector title="Node inspector">
+  <Inspector title="Service">
     <dl class="canvas-node-inspector">
       <div class="canvas-inspector-field">
-        <dt>ID</dt>
-        <dd>{node.id}</dd>
+        <dt>Name</dt>
+        <dd>{node.data.name}</dd>
       </div>
       <div class="canvas-inspector-field">
-        <dt>Type</dt>
-        <dd>{node.type}</dd>
+        <dt>Protocol</dt>
+        <dd>{node.data.protocol}</dd>
+      </div>
+      <div class="canvas-inspector-field">
+        <dt>Port</dt>
+        <dd>{node.data.port}</dd>
+      </div>
+      <div class="canvas-inspector-field">
+        <dt>Version</dt>
+        <dd>{node.data.version ?? "—"}</dd>
       </div>
     </dl>
   </Inspector>

@@ -1,34 +1,38 @@
 <script lang="ts">
-  import type { Edge } from "../../contract";
+  import type { Selectable } from "../../contract";
   import Inspector from "../../workspace/Inspector.svelte";
 
   interface Props {
-    edge: Edge;
+    selectable: Selectable;
   }
 
-  let { edge }: Props = $props();
+  let { selectable }: Props = $props();
+
+  let edge = $derived(!("view_data" in selectable) ? selectable : null);
 </script>
 
-<Inspector title="Edge inspector">
-  <dl class="canvas-edge-inspector">
-    <div class="canvas-inspector-field">
-      <dt>ID</dt>
-      <dd>{edge.id}</dd>
-    </div>
-    <div class="canvas-inspector-field">
-      <dt>Type</dt>
-      <dd>{edge.type}</dd>
-    </div>
-    <div class="canvas-inspector-field">
-      <dt>From</dt>
-      <dd>{edge.from_id}</dd>
-    </div>
-    <div class="canvas-inspector-field">
-      <dt>To</dt>
-      <dd>{edge.to_id}</dd>
-    </div>
-  </dl>
-</Inspector>
+{#if edge}
+  <Inspector title="Edge inspector">
+    <dl class="canvas-edge-inspector">
+      <div class="canvas-inspector-field">
+        <dt>ID</dt>
+        <dd>{edge.id}</dd>
+      </div>
+      <div class="canvas-inspector-field">
+        <dt>Type</dt>
+        <dd>{edge.type}</dd>
+      </div>
+      <div class="canvas-inspector-field">
+        <dt>From</dt>
+        <dd>{edge.from_id}</dd>
+      </div>
+      <div class="canvas-inspector-field">
+        <dt>To</dt>
+        <dd>{edge.to_id}</dd>
+      </div>
+    </dl>
+  </Inspector>
+{/if}
 
 <style>
   .canvas-edge-inspector {

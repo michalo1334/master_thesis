@@ -51,6 +51,8 @@ export interface Edge {
   data: any;
 }
 
+export type Selectable = Node | Edge;
+
 // Graph summary from the server (list_summaries)
 export interface GraphSummary {
   id: Id;

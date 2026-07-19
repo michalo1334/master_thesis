@@ -12,15 +12,11 @@
 </script>
 
 {#if node}
-  <Inspector title="Node inspector">
+  <Inspector title="Host">
     <dl class="canvas-node-inspector">
       <div class="canvas-inspector-field">
-        <dt>ID</dt>
-        <dd>{node.id}</dd>
-      </div>
-      <div class="canvas-inspector-field">
-        <dt>Type</dt>
-        <dd>{node.type}</dd>
+        <dt>Name</dt>
+        <dd>{node.data.name}</dd>
       </div>
     </dl>
   </Inspector>
