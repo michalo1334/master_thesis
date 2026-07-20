@@ -2,7 +2,11 @@
   import type { Live } from "live_svelte";
   import { DashboardController } from "./dashboard/DashboardController.svelte";
   import { setDashboardContext } from "./dashboard/dashboard-context";
-  import { createDashboardServer, type LiveServer } from "./dashboard/server";
+  import {
+    createDashboardServer,
+    registerSimulationDoneHandler,
+    type LiveServer,
+  } from "./dashboard/server";
   import AppBar from "./dashboard/shell/AppBar.svelte";
   import StatusBar from "./dashboard/shell/StatusBar.svelte";
   import DashboardInspector from "./dashboard/DashboardInspector.svelte";
@@ -18,7 +22,7 @@
   import type {
     CanvasDocument,
     CanvasSelection,
-  } from "./dashboard/workspace/CanvasDocument.svelte";
+  } from "./dashboard/canvas/CanvasDocument.svelte";
   import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
   import type { GraphSummary } from "./dashboard/contract";
   import type { ForceParams } from "./dashboard/layout/ForceLayout.types";
@@ -33,6 +37,8 @@
 
   const dashboardController = new DashboardController();
   const server = $derived(createDashboardServer(live as LiveServer));
+
+  registerSimulationDoneHandler(dashboardController);
 
   setDashboardContext(dashboardController);
 
@@ -132,6 +138,13 @@
     fitToViewCounter++;
   }
 
+  function handleRunSimulation(): void {
+    const doc = activeCanvasDoc;
+    if (!doc) return;
+
+    server.runSimulation(doc.id);
+  }
+
   function applyCanvasSelection(
     doc: CanvasDocument,
     selection: CanvasSelection,
@@ -153,9 +166,11 @@
   <AppBar onSave={handleSave} {saveDisabled} {isSaving} />
   <DashboardRibbon
     {hasActiveCanvas}
+    hasUnreadReport={false}
     {forceParams}
     onForceParamsChange={handleForceParamsChange}
     onForceLayout={handleForceLayout}
+    onRunSimulation={handleRunSimulation}
   />
 
   {#snippet inspector()}

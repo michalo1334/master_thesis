@@ -7,20 +7,31 @@
 
   interface Props {
     hasActiveCanvas: boolean;
+    hasUnreadReport: boolean;
     forceParams: ForceParams;
     onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
+    onRunSimulation: () => void;
   }
 
   let {
     hasActiveCanvas,
+    hasUnreadReport,
     forceParams,
     onForceParamsChange,
     onForceLayout,
+    onRunSimulation,
   }: Props = $props();
 </script>
 
-<Ribbon>
+<Ribbon
+  tabDecorations={{
+    Report: {
+      color: "var(--ds-color-warning)",
+      animate: hasUnreadReport ? "pulse" : undefined,
+    },
+  }}
+>
   <Ribbon.Tab title="Home">
     <Ribbon.Section title="Tools">
       <Button><Icon name="cursor" size={22} /><span>Select</span></Button>
@@ -81,11 +92,28 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Analyze">
     <Ribbon.Section title="Attack model">
-      <Button><Icon name="play" size={22} /><span>Simulate</span></Button>
+      <Button onclick={(_) => onRunSimulation()}
+        ><Icon name="play" size={22} /><span>Simulate</span></Button
+      >
       <Button><Icon name="shield" size={22} /><span>Optimize</span></Button>
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="View">
+    <Ribbon.Section title="Workspace">
+      <Button
+        ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
+      >
+    </Ribbon.Section>
+  </Ribbon.Tab>
+  <Ribbon.Tab title="Analyze">
+    <Ribbon.Section title="Attack model">
+      <Button onclick={(_) => onRunSimulation()}
+        ><Icon name="play" size={22} /><span>Simulate</span></Button
+      >
+      <Button><Icon name="shield" size={22} /><span>Optimize</span></Button>
+    </Ribbon.Section>
+  </Ribbon.Tab>
+  <Ribbon.Tab title="Report">
     <Ribbon.Section title="Workspace">
       <Button
         ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button

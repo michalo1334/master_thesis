@@ -1,4 +1,5 @@
 defmodule NetworkDefenseWeb.DashboardLive do
+  alias NetworkDefense.Simulations
   use NetworkDefenseWeb, :live_view
 
   require Logger
@@ -29,6 +30,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
     socket =
       socket
       |> assign(:graph_summaries, Graphs.list_summaries())
+
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, "simulation_done")
+    end
 
     {:ok, socket}
   end
@@ -99,6 +104,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("run_simulation", %{"graph_id" => graph_id}, socket)
       when is_binary(graph_id) and byte_size(graph_id) > 0 do
+    Simulations.run_async()
     {:noreply, socket}
   end
 
@@ -114,6 +120,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_event("optimize_defense", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:simulation_done, id, msg}, socket) do
+    Logger.info("simulation_done: #{inspect(id)}")
+    {:noreply, push_event(socket, "simulation_done", %{id: id, message: msg})}
   end
 
   defp graph_payload(graph) do

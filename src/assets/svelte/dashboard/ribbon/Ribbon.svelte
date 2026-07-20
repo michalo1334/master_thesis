@@ -5,11 +5,18 @@
 
   interface Props {
     children: Snippet;
+    tabDecorations?: Record<string, { color?: string; animate?: string }>;
   }
 
-  let { children }: Props = $props();
+  let { children, tabDecorations = {} }: Props = $props();
   let selectedTab = $state<string>();
-  let tabs = $state<{ title: () => string; value: string }[]>([]);
+
+  interface RibbonTabEntry {
+    title: () => string;
+    value: string;
+  }
+
+  let tabs = $state<RibbonTabEntry[]>([]);
 
   setRibbonContext({
     registerTab: (tab) => {
@@ -36,9 +43,17 @@
   >
     <Tabs.List class="dashboard-ribbon-tabs" aria-label="Ribbon sections">
       {#each tabs as tab (tab.value)}
-        <Tabs.Trigger class="dashboard-ribbon-tab" value={tab.value}
-          >{tab.title()}</Tabs.Trigger
+        {@const decoration = tabDecorations[tab.title()]}
+        <span
+          data-ribbon-animate={decoration?.animate}
+          style={decoration?.color
+            ? `--ribbon-tab-color: ${decoration.color}`
+            : undefined}
         >
+          <Tabs.Trigger class="dashboard-ribbon-tab" value={tab.value}
+            >{tab.title()}</Tabs.Trigger
+          >
+        </span>
       {/each}
     </Tabs.List>
     {@render children()}
@@ -88,6 +103,23 @@
     color: var(--ds-color-accent);
     border-bottom-color: var(--ds-color-accent);
     font-weight: 600;
+  }
+  :global(
+    .dashboard-ribbon-content
+      [data-ribbon-animate="pulse"]
+      .dashboard-ribbon-tab
+  ) {
+    animation: ribbon-pulse 1.5s ease-in-out infinite;
+    color: var(--ribbon-tab-color, inherit);
+  }
+  @keyframes ribbon-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.15;
+    }
   }
   :global(.dashboard-ribbon-content .dashboard-ribbon-panel) {
     grid-row: 2;

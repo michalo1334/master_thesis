@@ -1,4 +1,4 @@
-import { CanvasDocument } from "./workspace/CanvasDocument.svelte";
+import { CanvasDocument } from "./canvas/CanvasDocument.svelte";
 import { SimulationReportDocument } from "./simulation/SimulationReportDocument.svelte";
 import type {
   WorkspaceDocument,
@@ -92,5 +92,7 @@ export class DashboardController {
     }
   }
 
-  runSimulation(id: string): void {}
+  onSimulationDone(msg: any): void {
+    console.log("simulation done!", msg);
+  }
 }
