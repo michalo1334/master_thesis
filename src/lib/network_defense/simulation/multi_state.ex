@@ -17,7 +17,10 @@ defmodule NetworkDefense.Simulation.MultiState do
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           seed: integer(),
           iteration_count: non_neg_integer(),
+          simulation_count: non_neg_integer(),
           initial_attacker_state: AttackerState.t(),
+          lock_version: integer(),
+          runtime_ms: integer(),
           simulations: list(State.t()) | Ecto.Association.NotLoaded.t()
         }
 
@@ -26,7 +29,10 @@ defmodule NetworkDefense.Simulation.MultiState do
 
     field :seed, :integer
     field :iteration_count, :integer
+    field :simulation_count, :integer, default: 1
     field :initial_attacker_state, AttackerStateType
+    field :lock_version, :integer, default: 1
+    field :runtime_ms, :integer, default: 0
 
     has_many :simulations, State
 
@@ -35,7 +41,14 @@ defmodule NetworkDefense.Simulation.MultiState do
 
   def changeset(state, attrs) do
     state
-    |> cast(attrs, [:seed, :iteration_count, :initial_attacker_state])
+    |> cast(attrs, [
+      :seed,
+      :iteration_count,
+      :simulation_count,
+      :initial_attacker_state,
+      :lock_version,
+      :runtime_ms
+    ])
     |> validate_required([:graph_id, :seed, :iteration_count, :initial_attacker_state])
     |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)

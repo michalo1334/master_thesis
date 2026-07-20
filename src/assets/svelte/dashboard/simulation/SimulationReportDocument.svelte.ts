@@ -1,15 +1,46 @@
+import type { SimulationReportData } from "../contract";
 import type { DocumentBase } from "../workspace/WorkspaceDocument.svelte";
+import { registerDocument } from "../workspace/WorkspaceDocument.svelte";
 
 export class SimulationReportDocument implements DocumentBase {
   readonly kind = "simulation-report" as const;
   readonly id: string;
-  readonly title: string;
+  readonly graphId: string;
 
-  /** null means simulation has not yet produced a result */
-  result = $state<unknown>(null);
+  title = $state<string>("");
+  status = $state<"waiting" | "ready" | "empty">("empty");
+  hasUnread = $state(false);
+  multiStateId = $state<string | null>(null);
+  reportData = $state<SimulationReportData | null>(null);
 
-  constructor(title: string) {
+  constructor(graphTitle: string, graphId: string) {
     this.id = crypto.randomUUID();
-    this.title = title;
+    this.title = `Report for ${graphTitle}`;
+    this.graphId = graphId;
+  }
+
+  markWaiting(): void {
+    this.status = "waiting";
+    this.reportData = null;
+  }
+
+  markReady(multiStateId: string): void {
+    this.multiStateId = multiStateId;
+    this.status = "ready";
+  }
+
+  markRead(): void {
+    this.hasUnread = false;
+  }
+
+  setReportData(data: SimulationReportData): void {
+    this.reportData = data;
+    this.title = `Report for ${data.graph_title}`;
   }
 }
+
+registerDocument(
+  "simulation-report",
+  (graphTitle: string, graphId: string) =>
+    new SimulationReportDocument(graphTitle, graphId),
+);

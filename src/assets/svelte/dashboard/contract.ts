@@ -13,6 +13,14 @@ import type {
   OpenGraphReply,
   SaveGraphPayload,
   SaveGraphReply,
+  SimulationRunSummary,
+  FetchSimulationReportPayload,
+  FetchSimulationReportReply,
+  FetchSimulationRunsPayload,
+  FetchSimulationRunsReply,
+  KpiMetric,
+  ReportCharts,
+  ChartSpec,
 } from "./contracts.generated";
 
 export type {
@@ -30,6 +38,14 @@ export type {
   OpenGraphReply,
   SaveGraphPayload,
   SaveGraphReply,
+  SimulationRunSummary,
+  FetchSimulationReportPayload,
+  FetchSimulationReportReply,
+  FetchSimulationRunsPayload,
+  FetchSimulationRunsReply,
+  KpiMetric,
+  ReportCharts,
+  ChartSpec,
 } from "./contracts.generated";
 
 export type Id = string;
@@ -57,3 +73,5 @@ export interface GraphSummary {
   nodeCount: number;
   edgeCount: number;
 }
+
+export type SimulationReportData = FetchSimulationReportReply;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { KpiMetric } from "./types";
+  import type { KpiMetric } from "../contract";
 
   interface Props {
     metrics: readonly KpiMetric[];

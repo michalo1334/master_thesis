@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { CanvasDocument } from "../workspace/CanvasDocument.svelte";
+import { CanvasDocument } from "../canvas/CanvasDocument.svelte";
 import type { LoadedGraph } from "../contract";
 
 function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {

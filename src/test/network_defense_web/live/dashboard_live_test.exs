@@ -55,9 +55,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   describe "existing events" do
     test "dashboard root is present after run_simulation", %{conn: conn} do
+      graph = insert_graph("run-sim-test")
+
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "run_simulation", %{"graph_id" => "topology-1"})
+      render_hook(view, "run_simulation", %{"graph_id" => graph.id})
 
       assert has_element?(view, "#dashboard[data-name='Dashboard']")
     end

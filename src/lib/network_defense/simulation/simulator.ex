@@ -8,6 +8,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   While run/2 performs single simulator run, run_multiple execute multiple ones in sequence, which enables to obtain more accurate blast radius statistics (mean, min, max, p95 etc.).
   """
+  require Logger
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
@@ -37,11 +38,14 @@ defmodule NetworkDefense.Simulation.Simulator do
     seed = Keyword.get(opts, :seed, @default_seed)
     simulation_count = Keyword.get(opts, :simulation_count, @default_simulation_count)
     iteration_count = Keyword.get(opts, :iteration_count, 1000)
+    lock_version = Keyword.get(opts, :lock_version, 1)
 
     multi_state =
       MultiState.new(
         seed: seed,
         iteration_count: iteration_count,
+        simulation_count: simulation_count,
+        lock_version: lock_version,
         graph: Keyword.get(opts, :graph),
         initial_attacker_state: Keyword.get(opts, :initial_attacker_state)
       )

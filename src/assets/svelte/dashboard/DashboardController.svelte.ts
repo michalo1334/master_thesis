@@ -4,6 +4,7 @@ import type {
   WorkspaceDocument,
   DocumentKind,
 } from "./workspace/WorkspaceDocument.svelte";
+import { createDocument } from "./workspace/WorkspaceDocument.svelte";
 import type { LoadedGraph } from "./contract";
 
 export class DashboardController {
@@ -18,25 +19,32 @@ export class DashboardController {
     return this._documents.find((each) => each.id === this.selectedDocumentId);
   }
 
+  get activeCanvas(): CanvasDocument | undefined {
+    const doc = this.activeDocument;
+    if (doc?.kind === "canvas") return doc as CanvasDocument;
+    return undefined;
+  }
+
+  get hasUnreadReport(): boolean {
+    return this._documents.some(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).hasUnread,
+    );
+  }
+
   createDocument(kind: DocumentKind): void {
     if (kind === "canvas") {
-      const canvas = new CanvasDocument("Untitled canvas");
+      const canvas = createDocument(
+        "canvas",
+        "Untitled canvas",
+      ) as CanvasDocument;
       this._documents.push(canvas);
       this.selectedDocumentId = canvas.id;
-    } else {
-      const report = new SimulationReportDocument("Simulation report");
-      this._documents.push(report);
-      this.selectedDocumentId = report.id;
     }
   }
 
-  /**
-   * Open a loaded graph from the server.
-   * Returns the CanvasDocument if a new tab was created,
-   * or undefined if an existing tab was activated (dedup).
-   */
   openLoadedGraph(graph: LoadedGraph): CanvasDocument | undefined {
-    // Dedup: if this loaded graph is already open, activate it.
     const existing = this._documents.find(
       (d) =>
         d.kind === "canvas" && (d as CanvasDocument).loadedGraphId === graph.id,
@@ -46,7 +54,6 @@ export class DashboardController {
       return undefined;
     }
 
-    // Reuse the first blank canvas, or create a new tab.
     const blankCanvas = this._documents.find(
       (d) => d.kind === "canvas" && !(d as CanvasDocument).loaded,
     );
@@ -57,15 +64,59 @@ export class DashboardController {
       return blankCanvas as CanvasDocument;
     }
 
-    const canvas = new CanvasDocument(graph.title);
+    const canvas = createDocument("canvas", graph.title) as CanvasDocument;
     canvas.replaceFromLoadedGraph(graph);
     this._documents.push(canvas);
     this.selectedDocumentId = canvas.id;
     return canvas;
   }
 
+  runSimulationForGraph(graphId: string, graphTitle: string): void {
+    const existing = this._documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).graphId === graphId,
+    ) as SimulationReportDocument | undefined;
+
+    if (existing) {
+      existing.markWaiting();
+      this.selectedDocumentId = existing.id;
+    } else {
+      const report = createDocument(
+        "simulation-report",
+        graphTitle,
+        graphId,
+      ) as SimulationReportDocument;
+      report.markWaiting();
+      this._documents.push(report);
+      this.selectedDocumentId = report.id;
+    }
+  }
+
+  showSimulationReport(
+    runs: { id: string; graph_id: string; graph_title: string }[],
+  ): void {
+    if (runs.length === 0) return;
+    const run = runs[0];
+    const existing = this._documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).graphId === run.graph_id,
+    ) as SimulationReportDocument | undefined;
+
+    if (existing) {
+      this.selectedDocumentId = existing.id;
+    }
+  }
+
   selectDocument(id: string): void {
     this.selectedDocumentId = id;
+
+    const doc = this.activeDocument;
+    if (doc?.kind === "simulation-report") {
+      const report = doc as SimulationReportDocument;
+      report.markRead();
+    }
   }
 
   isCanvasDocumentSelected(): boolean {
@@ -92,7 +143,36 @@ export class DashboardController {
     }
   }
 
-  onSimulationDone(msg: any): void {
-    console.log("simulation done!", msg);
+  onSimulationDone(payload: {
+    id: string;
+    graph_id: string;
+    message: string;
+  }): SimulationReportDocument | null {
+    const report = this._documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).graphId === payload.graph_id,
+    ) as SimulationReportDocument | undefined;
+
+    if (!report) return null;
+
+    report.markReady(payload.id);
+
+    if (report.id === this.selectedDocumentId) {
+      return report;
+    }
+
+    report.hasUnread = true;
+    return null;
+  }
+
+  getReportDocumentForCanvas(
+    canvas: CanvasDocument,
+  ): SimulationReportDocument | undefined {
+    return this._documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).graphId === canvas.loadedGraphId,
+    ) as SimulationReportDocument | undefined;
   }
 }

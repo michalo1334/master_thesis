@@ -12,6 +12,7 @@
     onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
     onRunSimulation: () => void;
+    onShowReport: () => void;
   }
 
   let {
@@ -21,6 +22,7 @@
     onForceParamsChange,
     onForceLayout,
     onRunSimulation,
+    onShowReport,
   }: Props = $props();
 </script>
 
@@ -114,9 +116,9 @@
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="Report">
-    <Ribbon.Section title="Workspace">
-      <Button
-        ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
+    <Ribbon.Section title="Reports">
+      <Button onclick={(_) => onShowReport()}
+        ><Icon name="shield" size={22} /><span>Show report</span></Button
       >
     </Ribbon.Section>
   </Ribbon.Tab>

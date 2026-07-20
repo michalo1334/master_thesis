@@ -1,11 +1,13 @@
 defmodule NetworkDefenseWeb.DashboardLive do
-  alias NetworkDefense.Simulations
   use NetworkDefenseWeb, :live_view
 
   require Logger
 
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Simulation.Reports
+  alias NetworkDefense.Simulation.Report
+  alias NetworkDefense.Simulations
 
   @impl true
   def render(assigns) do
@@ -104,8 +106,22 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("run_simulation", %{"graph_id" => graph_id}, socket)
       when is_binary(graph_id) and byte_size(graph_id) > 0 do
-    Simulations.run_async()
+    Logger.info("run_simulation: loading graph #{graph_id}")
+
+    case Graphs.load(graph_id) do
+      nil ->
+        Logger.warning("Cannot run simulation: graph #{graph_id} not found")
+
+      graph ->
+        Logger.info("run_simulation: graph loaded, node count: #{length(Graph.nodes(graph))}")
+        Simulations.run_async(graph)
+    end
+
     {:noreply, socket}
+  rescue
+    Ecto.Query.CastError ->
+      Logger.warning("run_simulation: invalid graph_id format #{inspect(graph_id)}")
+      {:noreply, socket}
   end
 
   def handle_event("run_simulation", _params, socket) do
@@ -123,9 +139,52 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_info({:simulation_done, id, msg}, socket) do
-    Logger.info("simulation_done: #{inspect(id)}")
-    {:noreply, push_event(socket, "simulation_done", %{id: id, message: msg})}
+  def handle_event("fetch_simulation_report", %{"multi_state_id" => multi_state_id}, socket) do
+    case Reports.load_for_report(multi_state_id) do
+      nil ->
+        {:reply, %{status: "not_found"}, socket}
+
+      multi_state ->
+        report = Report.generate(multi_state)
+        {:reply, report, socket}
+    end
+  end
+
+  def handle_event("fetch_simulation_runs", %{"graph_ids" => graph_ids}, socket)
+      when is_list(graph_ids) do
+    runs =
+      graph_ids
+      |> Simulations.list_runs()
+      |> Enum.map(fn ms ->
+        %{
+          id: ms.id,
+          graph_id: ms.graph_id,
+          graph_title: (ms.graph && ms.graph.title) || "Unknown",
+          seed: ms.seed,
+          simulation_count: ms.simulation_count || 0,
+          iteration_count: ms.iteration_count,
+          runtime_ms: ms.runtime_ms,
+          started_at: ms.inserted_at && DateTime.to_iso8601(ms.inserted_at)
+        }
+      end)
+
+    {:reply, %{runs: runs}, socket}
+  end
+
+  def handle_event("fetch_simulation_runs", _params, socket) do
+    {:reply, %{runs: []}, socket}
+  end
+
+  @impl true
+  def handle_info({:simulation_done, multi_state_id, graph_id, msg}, socket) do
+    Logger.info("simulation_done: #{inspect(multi_state_id)} for graph #{graph_id}")
+
+    {:noreply,
+     push_event(socket, "simulation_done", %{
+       id: multi_state_id,
+       graph_id: graph_id,
+       message: msg
+     })}
   end
 
   defp graph_payload(graph) do

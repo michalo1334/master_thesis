@@ -2,9 +2,16 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
+  alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Repo
+  alias NetworkDefense.Simulation.MultiState
   alias NetworkDefense.Simulation.MultiStates
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.States
+
+  import Ecto.Query
+
+  require Logger
 
   def run(opts \\ []) do
     state = Simulator.run(opts)
@@ -18,15 +25,78 @@ defmodule NetworkDefense.Simulations do
     saved
   end
 
-  def run_async(opts \\ []) do
-    Task.start(fn ->
-      {:ok, multi_state} = run_multiple(opts)
+  def run_async(graph) do
+    rules = default_rules()
 
-      Phoenix.PubSub.broadcast(
-        NetworkDefense.PubSub,
-        "simulation_done",
-        {:simulation_done, multi_state.id, "Simulation done!"}
-      )
+    Task.start(fn ->
+      try do
+        {elapsed_us, {multi_state, states}} =
+          :timer.tc(fn ->
+            Simulator.run_multiple(
+              graph: graph,
+              initial_attacker_state: initial_attacker_state(graph),
+              lock_version: graph.lock_version,
+              rules: rules
+            )
+          end)
+
+        runtime_ms = div(elapsed_us, 1000)
+
+        multi_state = %{
+          multi_state
+          | runtime_ms: runtime_ms,
+            lock_version: graph.lock_version,
+            simulation_count: length(states)
+        }
+
+        case MultiStates.insert(multi_state) do
+          {:ok, saved} ->
+            Logger.info("simulation persisted: #{saved.id} for graph #{saved.graph_id}")
+
+            Phoenix.PubSub.broadcast(
+              NetworkDefense.PubSub,
+              "simulation_done",
+              {:simulation_done, saved.id, saved.graph_id, "Simulation done!"}
+            )
+
+          {:error, reason} ->
+            Logger.error("Failed to persist simulation: #{inspect(reason)}")
+        end
+      rescue
+        e ->
+          Logger.error("Simulation task crashed: #{inspect(e)}")
+      end
     end)
+  end
+
+  def list_runs(graph_ids) when is_list(graph_ids) do
+    query =
+      from ms in MultiState,
+        where: ms.graph_id in ^graph_ids,
+        order_by: [desc: :inserted_at],
+        preload: [:graph]
+
+    Repo.all(query)
+  end
+
+  def list_runs(graph_ids), do: list_runs([graph_ids])
+
+  defp initial_attacker_state(graph) do
+    internet_host =
+      graph
+      |> NetworkDefense.Graph.Graph.nodes()
+      |> Enum.find(fn node ->
+        short_type = node.type |> Module.split() |> List.last()
+        short_type == "Host" and Map.get(node.data, "name") == "internet"
+      end)
+
+    case internet_host do
+      nil -> AttackerState.new("internet")
+      host -> AttackerState.new(host.id)
+    end
+  end
+
+  defp default_rules do
+    [%NetworkDefense.Rules.RemoteServiceExploitation{}]
   end
 end

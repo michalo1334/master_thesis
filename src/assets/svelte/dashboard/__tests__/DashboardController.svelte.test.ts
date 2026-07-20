@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { DashboardController } from "../DashboardController.svelte";
 import type { LoadedGraph } from "../contract";
-import type { CanvasDocument } from "../workspace/CanvasDocument.svelte";
+import type { CanvasDocument } from "../canvas/CanvasDocument.svelte";
 
 function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {

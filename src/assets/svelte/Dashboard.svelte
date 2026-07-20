@@ -15,6 +15,7 @@
   import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
   import Canvas from "./dashboard/canvas/Canvas.svelte";
   import SimulationReport from "./dashboard/simulation/SimulationReport.svelte";
+  import SimulationRunsModal from "./dashboard/simulation/SimulationRunsModal.svelte";
   import type {
     WorkspaceDocument,
     DocumentKind,
@@ -23,8 +24,12 @@
     CanvasDocument,
     CanvasSelection,
   } from "./dashboard/canvas/CanvasDocument.svelte";
+  import { SimulationReportDocument } from "./dashboard/simulation/SimulationReportDocument.svelte";
   import type { WorkspaceDocumentType } from "./dashboard/workspace/Workspace.svelte";
-  import type { GraphSummary } from "./dashboard/contract";
+  import type {
+    GraphSummary,
+    SimulationRunSummary,
+  } from "./dashboard/contract";
   import type { ForceParams } from "./dashboard/layout/ForceLayout.types";
   import { defaultForceParams } from "./dashboard/layout/ForceLayout.types";
 
@@ -38,7 +43,25 @@
   const dashboardController = new DashboardController();
   const server = $derived(createDashboardServer(live as LiveServer));
 
-  registerSimulationDoneHandler(dashboardController);
+  registerSimulationDoneHandler((payload) => {
+    console.log("simulation_done received", payload);
+    const activeReport = dashboardController.onSimulationDone(payload);
+    console.log("active report after onSimulationDone", {
+      hasActiveReport: !!activeReport,
+      multiStateId: activeReport?.multiStateId,
+    });
+    if (activeReport && activeReport.multiStateId) {
+      console.log("fetching report for", activeReport.multiStateId);
+      server.fetchSimulationReport(
+        activeReport.multiStateId,
+        activeReport.graphId,
+        (data) => {
+          console.log("simulation report fetched", data);
+          activeReport.setReportData(data);
+        },
+      );
+    }
+  });
 
   setDashboardContext(dashboardController);
 
@@ -50,6 +73,9 @@
   // -- dialog state --
   let topologyPickerOpen = $state(false);
   let topologyPickerStatus = $state("");
+  let simulationRunsModalOpen = $state(false);
+  let simulationRuns = $state<SimulationRunSummary[]>([]);
+  let simulationRunsStatus = $state("");
 
   // -- save state --
   let isSaving = $state(false);
@@ -80,10 +106,9 @@
 
   function handleCreateDocument(kind: DocumentKind): void {
     if (kind === "canvas") {
-      // Canvas menu opens the topology picker, not a blank tab.
       topologyPickerOpen = true;
       topologyPickerStatus = "";
-    } else {
+    } else if (kind === "simulation-report") {
       dashboardController.createDocument(kind);
     }
   }
@@ -140,9 +165,59 @@
 
   function handleRunSimulation(): void {
     const doc = activeCanvasDoc;
-    if (!doc) return;
+    if (!doc) {
+      console.warn("Simulate ignored: no active canvas document");
+      return;
+    }
+    if (!doc.loadedGraphId) {
+      console.warn("Simulate ignored: canvas has no loadedGraphId");
+      return;
+    }
 
-    server.runSimulation(doc.id);
+    console.log("Starting simulation for graph", doc.loadedGraphId, doc.title);
+    dashboardController.runSimulationForGraph(doc.loadedGraphId, doc.title);
+    server.runSimulation(doc.loadedGraphId);
+  }
+
+  function handleShowReport(): void {
+    const canvasDocs = dashboardController.documents
+      .filter((d) => d.kind === "canvas")
+      .map((d) => d as CanvasDocument)
+      .filter((d) => d.loadedGraphId)
+      .map((d) => d.loadedGraphId!);
+
+    if (canvasDocs.length === 0) return;
+
+    simulationRunsStatus = "";
+    simulationRunsModalOpen = true;
+
+    server.fetchSimulationRuns(canvasDocs, (reply) => {
+      simulationRuns = reply.runs;
+      if (reply.runs.length === 0) {
+        simulationRunsStatus = "No simulation runs found.";
+      }
+    });
+  }
+
+  function handleSimulationRunSelect(run: SimulationRunSummary): void {
+    simulationRunsModalOpen = false;
+
+    const existing = dashboardController.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        (d as SimulationReportDocument).graphId === run.graph_id,
+    ) as SimulationReportDocument | undefined;
+
+    if (existing) {
+      dashboardController.selectedDocumentId = existing.id;
+    } else {
+      const report = new SimulationReportDocument(
+        run.graph_title,
+        run.graph_id,
+      );
+      dashboardController.documents.push(report);
+      dashboardController.selectedDocumentId = report.id;
+    }
   }
 
   function applyCanvasSelection(
@@ -166,11 +241,12 @@
   <AppBar onSave={handleSave} {saveDisabled} {isSaving} />
   <DashboardRibbon
     {hasActiveCanvas}
-    hasUnreadReport={false}
+    hasUnreadReport={dashboardController.hasUnreadReport}
     {forceParams}
     onForceParamsChange={handleForceParamsChange}
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
+    onShowReport={handleShowReport}
   />
 
   {#snippet inspector()}
@@ -179,15 +255,16 @@
 
   {#snippet content(document: WorkspaceDocument)}
     {#if document.kind === "canvas"}
+      {@const canvasDoc = document as CanvasDocument}
       <Canvas
-        graph={document.graph}
-        selection={document.canvasSelection}
-        onGraphChange={(g) => (document.graph = g)}
-        onSelectionChange={(sel) => applyCanvasSelection(document, sel)}
+        graph={canvasDoc.graph}
+        selection={canvasDoc.canvasSelection}
+        onGraphChange={(g) => (canvasDoc.graph = g)}
+        onSelectionChange={(sel) => applyCanvasSelection(canvasDoc, sel)}
         fitToViewRequested={fitToViewCounter}
       />
     {:else if document.kind === "simulation-report"}
-      <SimulationReport title={document.title} />
+      <SimulationReport document={document as SimulationReportDocument} />
     {/if}
   {/snippet}
 
@@ -196,7 +273,25 @@
     activeDocumentId={dashboardController.selectedDocumentId}
     {documentTypes}
     onCreateDocument={handleCreateDocument}
-    onActiveDocumentChange={(id) => dashboardController.selectDocument(id)}
+    onActiveDocumentChange={(id) => {
+      dashboardController.selectDocument(id);
+      const doc = dashboardController.activeDocument;
+      if (
+        doc?.kind === "simulation-report" &&
+        doc.status === "ready" &&
+        doc.reportData === null &&
+        doc.multiStateId
+      ) {
+        const reportDoc = doc as SimulationReportDocument;
+        server.fetchSimulationReport(
+          reportDoc.multiStateId!,
+          reportDoc.graphId,
+          (data) => {
+            reportDoc.setReportData(data);
+          },
+        );
+      }
+    }}
     onCloseDocument={(id) => dashboardController.closeDocument(id)}
     {inspector}
     {content}
@@ -208,6 +303,14 @@
     onOpenChange={(open) => (topologyPickerOpen = open)}
     onSelect={handleTopologySelect}
     status={topologyPickerStatus}
+  />
+
+  <SimulationRunsModal
+    open={simulationRunsModalOpen}
+    runs={simulationRuns}
+    onOpenChange={(open) => (simulationRunsModalOpen = open)}
+    onSelect={handleSimulationRunSelect}
+    status={simulationRunsStatus}
   />
 
   <StatusBar {documentName} {statusMessage} />

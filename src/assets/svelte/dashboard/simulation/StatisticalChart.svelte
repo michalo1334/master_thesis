@@ -1,7 +1,8 @@
 <script lang="ts">
   import { Chart } from "svelte-echarts";
+  import type { EChartsOption } from "echarts";
   import { init } from "./echarts";
-  import type { ChartSpec } from "./types";
+  import type { ChartSpec } from "../contract";
 
   interface Props {
     chart: ChartSpec;
@@ -10,13 +11,7 @@
   let { chart }: Props = $props();
 </script>
 
-<article
-  class={[
-    "statistical-chart",
-    chart.height === "compact" && "statistical-chart-compact",
-  ]}
-  aria-labelledby={`${chart.id}-title`}
->
+<article class="statistical-chart" aria-labelledby={`${chart.id}-title`}>
   <header>
     <h3 id={`${chart.id}-title`}>{chart.title}</h3>
     <p>{chart.takeaway}</p>
@@ -24,9 +19,9 @@
   <div class="statistical-chart-canvas">
     <Chart
       {init}
-      options={chart.option}
+      options={chart.option as EChartsOption}
       tabindex={0}
-      aria-label={chart.ariaLabel}
+      aria-label={chart.aria_label}
     />
   </div>
 </article>
@@ -58,9 +53,6 @@
   .statistical-chart-canvas {
     height: 15rem;
     margin-top: var(--ds-space-3);
-  }
-  .statistical-chart-compact .statistical-chart-canvas {
-    height: 13.5rem;
   }
 
   @media (max-width: 34em) {

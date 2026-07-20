@@ -75,7 +75,15 @@ defmodule NetworkDefense.Simulation.MultiStates do
   defp graph_id(_), do: nil
 
   defp multi_state_attrs(multi_state) do
-    Map.take(multi_state, [:seed, :iteration_count, :initial_attacker_state, :graph_id])
+    Map.take(multi_state, [
+      :seed,
+      :iteration_count,
+      :simulation_count,
+      :initial_attacker_state,
+      :graph_id,
+      :lock_version,
+      :runtime_ms
+    ])
   end
 
   defp iteration_attrs(iteration) do

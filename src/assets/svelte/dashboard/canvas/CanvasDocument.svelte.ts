@@ -1,5 +1,6 @@
 import type { LoadedGraph, Selectable } from "../contract";
-import type { DocumentBase } from "./WorkspaceDocument.svelte";
+import type { DocumentBase } from "../workspace/WorkspaceDocument.svelte";
+import { registerDocument } from "../workspace/WorkspaceDocument.svelte";
 
 export type CanvasSelection =
   | { kind: "none" }
@@ -120,3 +121,5 @@ export class CanvasDocument implements DocumentBase {
     this._selection = { kind: "none" };
   }
 }
+
+registerDocument("canvas", (title: string) => new CanvasDocument(title));
