@@ -19,11 +19,15 @@ services:
       PHX_IP: ${PHX_IP:-0.0.0.0}
       PORT: ${PORT:-4000}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/var/log/network_defense/network_defense.jsonl}
+    stdin_open: true
+    tty: true
     ports:
       - "4000:4000"
       - "4001:4001"
       - "5173:5173"
     volumes:
+      - network-defense-logs:/var/log/network_defense
       - ../src/lib:/app/lib
       - ../src/priv:/app/priv
       - ../src/test:/app/test

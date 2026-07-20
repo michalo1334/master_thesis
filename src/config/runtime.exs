@@ -20,6 +20,48 @@ if System.get_env("PHX_SERVER") do
   config :network_defense, NetworkDefenseWeb.Endpoint, server: true
 end
 
+# File logger: structured JSON emitted to a file consumed by Grafana Alloy.
+# Stdout (via :default_handler in config.exs) stays active for dev console.
+# Only the file stream is scraped by Alloy, excluding non-Logger stdio noise
+# (compile, IEx, banners).
+#
+# Active in releases (prod) and when LOG_FILE_PATH is explicitly set (dev in
+# docker). Local `mix phx.server` without docker skips it so it never tries to
+# create /var/log/network_defense on the host. Override path and level via
+# LOG_FILE_PATH / LOG_FILE_LEVEL.
+enable_file_log =
+  config_env() == :prod or System.get_env("LOG_FILE_PATH") != nil
+
+if enable_file_log do
+  log_file = System.get_env("LOG_FILE_PATH", "/var/log/network_defense/network_defense.jsonl")
+  File.mkdir_p!(Path.dirname(log_file))
+
+  level =
+    case System.get_env("LOG_FILE_LEVEL", "info") do
+      "debug" -> :debug
+      "info" -> :info
+      "warning" -> :warning
+      "error" -> :error
+      _ -> :info
+    end
+
+  config :network_defense, :logger, [
+    {:handler, :file_log, :logger_std_h,
+     %{
+       level: level,
+       formatter: {LoggerJSON.Formatters.Basic, metadata: :all},
+       config: %{
+         file: ~c"#{log_file}",
+         filesync_repeat_interval: 5000,
+         file_check: 5000,
+         max_no_bytes: 100_000_000,
+         max_no_files: 5,
+         compress_on_rotate: true
+       }
+     }}
+  ]
+end
+
 if config_env() == :prod do
   read_secret = fn base_var ->
     file_var = base_var <> "_FILE"

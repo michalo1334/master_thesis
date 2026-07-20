@@ -92,7 +92,7 @@ services:
       ]
     volumes:
       - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - network-defense-logs:/var/log/network_defense:ro
       - alloy-data:/var/lib/alloy/data
     ports:
       - "12345:12345"
@@ -152,3 +152,4 @@ volumes:
   alloy-data:
   pgadmin-data:
   postgres-data:
+  network-defense-logs:

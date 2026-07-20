@@ -4,12 +4,21 @@ defmodule NetworkDefense.Application do
   @moduledoc false
 
   use Application
+  require Logger
 
   @impl true
   def start(_type, _args) do
     OpentelemetryBandit.setup()
     OpentelemetryPhoenix.setup(adapter: :bandit)
     OpentelemetryEcto.setup([:network_defense, :repo])
+
+    # Registers the :file_log handler from `config :network_defense, :logger`
+    # (set in runtime.exs). Returns {:error, _} if the path is not writable;
+    # we keep the app booting and surface the failure so operators notice.
+    case Logger.add_handlers(:network_defense) do
+      :ok -> :ok
+      {:error, reason} -> Logger.warning("file log handler not installed: #{inspect(reason)}")
+    end
 
     node_js_children =
       if Application.get_env(:live_svelte, :ssr_module, nil) == LiveSvelte.SSR.NodeJS do

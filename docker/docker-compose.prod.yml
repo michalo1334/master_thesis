@@ -15,9 +15,12 @@ services:
       PORT: ${PORT:-4000}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
+      LOG_FILE_PATH: ${LOG_FILE_PATH:-/var/log/network_defense/network_defense.jsonl}
       ECTO_IPV6: ${ECTO_IPV6:-true}
     ports:
       - "4000:4000"
+    volumes:
+      - network-defense-logs:/var/log/network_defense
     depends_on:
       postgres:
         condition: service_healthy

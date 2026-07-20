@@ -24,9 +24,17 @@ The following components are common to all environments.
  - `loki` - Grafana Loki for structured logs. Stored **locally** as mounted volume
  - `tempo` - Grafana Tempo for trace data. Stored **locally** as mounted volume
  - `prometheus` - Prometheus for metrics data. Stored **locally** as mounted volume
-  - `alloy` - fetching and converting Elixir logs to Loki log format. This is workaround due to sending logs to OTel is in experimental phase in Elixir/Erlang
+ - `alloy` - tails the Elixir `:logger` file output and ships to Loki
 
 See `docker-compose.*.yml` files
+
+## Logging pipeline
+
+Elixir's `:logger` writes structured JSON to `/var/log/network_defense/network_defense.jsonl` via an OTP `:logger_std_h` handler registered in `src/lib/network_defense/application.ex`. The file lives on the shared `network-defense-logs` Docker volume, which Grafana Alloy mounts read-only and tails with `loki.source.file` (see `docker/alloy-config.alloy`). The bootloader stdout handler stays on for `docker logs`/dev console, but only the file is scraped by Alloy.
+
+Why a file and not the container stdio: the stdio stream mixes `Logger.*` output with non-Logger noise (compile messages, IEx prompts, framework banners). The file handler receives only Logger events, so Loki never sees the noise.
+
+Native OpenTelemetry log export (push OTLP `LogRecord`s to the collector) is the eventual target. The Erlang/Elixir SDK exposes the logs signal only through the `opentelemetry_experimental` app (still non-GA upstream, latest 0.6.x). This file-based path is the stable interim: when the logs signal is promoted to the stable SDK, switch the handler to `:otel_log_handler` and add a `logs` pipeline to the collector config.
 
 ## Dev environment
 
