@@ -7,6 +7,7 @@ defmodule NetworkDefense.Simulation.State do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.MultiState
   alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -20,11 +21,14 @@ defmodule NetworkDefense.Simulation.State do
           initial_attacker_state: AttackerState.t(),
           iteration_count: non_neg_integer(),
           rules: list(Rule.t()),
-          iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t()
+          iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t(),
+          multi_state_id: String.t() | nil,
+          multi_state: MultiState.t() | Ecto.Association.NotLoaded.t() | nil
         }
 
   schema "simulations" do
     belongs_to :graph, Graph
+    belongs_to :multi_state, MultiState
 
     field :initial_seed, :integer, default: 0
     field :initial_attacker_state, AttackerStateType
@@ -38,7 +42,7 @@ defmodule NetworkDefense.Simulation.State do
 
   def changeset(state, attrs) do
     state
-    |> cast(attrs, [:initial_seed, :initial_attacker_state, :iteration_count])
+    |> cast(attrs, [:initial_seed, :initial_attacker_state, :iteration_count, :multi_state_id])
     |> validate_required([:graph_id, :initial_seed, :initial_attacker_state, :iteration_count])
     |> validate_number(:initial_seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)
@@ -49,7 +53,16 @@ defmodule NetworkDefense.Simulation.State do
     state =
       struct!(
         __MODULE__,
-        Keyword.merge([initial_seed: 0, iteration_count: 1000, iterations: [], rules: []], opts)
+        Keyword.merge(
+          [
+            id: Ecto.UUID.generate(),
+            initial_seed: 0,
+            iteration_count: 1000,
+            iterations: [],
+            rules: []
+          ],
+          opts
+        )
       )
 
     %{state | graph_id: state.graph_id || graph_id(state.graph)}

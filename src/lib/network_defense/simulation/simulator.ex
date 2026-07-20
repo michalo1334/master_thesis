@@ -13,6 +13,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Simulation.State
   alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.MultiState
 
   @default_seed 0
   @default_simulation_count 10
@@ -22,33 +23,61 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   Options:
    - simulation_count - number of simulation runs
-   - seed - initial seed
+   - seed - master seed from which child seeds are derived
+   - graph - the network graph
+   - initial_attacker_state - attacker starting position
+   - iteration_count - iterations per run
+   - rules - rule set to evaluate
 
-  Returns a list whose index is nth simulation and element is final attacker state in given simulation instance.
+  Returns a tuple `{multi_state, states}` where `multi_state` is the parent
+  record linking all runs and `states` is the list of completed simulation runs.
   """
-  @spec run_multiple(keyword()) :: list(AttackerState)
+  @spec run_multiple(keyword()) :: {MultiState.t(), list(State.t())}
   def run_multiple(opts) do
     seed = Keyword.get(opts, :seed, @default_seed)
     simulation_count = Keyword.get(opts, :simulation_count, @default_simulation_count)
+    iteration_count = Keyword.get(opts, :iteration_count, 1000)
 
-    Enum.map(1..simulation_count, fn idx ->
-      run(opts |> Keyword.put(:seed, derive_child_seed(seed, idx)))
-    end)
+    multi_state =
+      MultiState.new(
+        seed: seed,
+        iteration_count: iteration_count,
+        graph: Keyword.get(opts, :graph),
+        initial_attacker_state: Keyword.get(opts, :initial_attacker_state)
+      )
+
+    states =
+      Enum.map(1..simulation_count, fn idx ->
+        run(
+          opts
+          |> Keyword.put(:seed, derive_child_seed(seed, idx))
+          |> Keyword.put(:multi_state_id, multi_state.id)
+        )
+      end)
+
+    {%{multi_state | simulations: states}, states}
   end
 
   @doc """
-  Runs the simulation with supplied options. Returns final attacker state after all iterations.
+  Runs the simulation with supplied options. Returns final State struct after all iterations.
 
   Options:
    - initial_state - the attacker initial state or none
    - iteration_count - n
    - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
+   - multi_state_id - optional parent MultiState id linking this run to a batch
   """
   def run(opts) do
     state_opts =
       opts
       |> Keyword.take([:graph, :initial_attacker_state, :rules, :iteration_count])
       |> Keyword.put(:initial_seed, Keyword.get(opts, :seed, 0))
+      |> then(fn base_opts ->
+        case Keyword.get(opts, :multi_state_id) do
+          nil -> base_opts
+          id -> Keyword.put(base_opts, :multi_state_id, id)
+        end
+      end)
 
     run(State.new(state_opts), opts)
   end
