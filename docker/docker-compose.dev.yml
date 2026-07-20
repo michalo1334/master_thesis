@@ -20,6 +20,7 @@ services:
       PORT: ${PORT:-4000}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
       LOG_FILE_PATH: ${LOG_FILE_PATH:-/var/log/network_defense/network_defense.jsonl}
+      LOG_FILE_LEVEL: ${LOG_FILE_LEVEL:-debug}
     stdin_open: true
     tty: true
     ports:
