@@ -33,7 +33,8 @@ export type {
 } from "./contracts.generated";
 
 export type Id = string;
-export type Status = "ok" | "stale" | "not_found" | "unmapped_error";
+export type Status =
+  "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 export type RequestCorrelationId = number;
 
 export type NodeDataByType = {

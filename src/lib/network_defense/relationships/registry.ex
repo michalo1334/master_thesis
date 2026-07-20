@@ -21,6 +21,12 @@ defmodule NetworkDefense.Relationships.Registry do
 
   def module_for(_type), do: nil
 
+  def module_for_short(short) when is_binary(short) do
+    Enum.find(@types, &(Module.split(&1) |> List.last() == short))
+  end
+
+  def module_for_short(_), do: nil
+
   def type_for(module) when module in @types, do: Atom.to_string(module)
   def type_for(_module), do: nil
 end

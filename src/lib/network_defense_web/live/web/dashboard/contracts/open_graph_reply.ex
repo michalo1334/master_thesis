@@ -3,7 +3,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphReply do
 
   use NetworkDefenseWeb.Web.Contracts
 
-  @enum_values status: [:ok, :stale, :not_found, :unmapped_error]
+  @enum_values status: [:ok, :stale, :not_found, :invalid_graph, :unmapped_error]
 
   def contract_meta, do: %{enum_values: @enum_values}
 

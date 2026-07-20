@@ -1,6 +1,8 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
+  require Logger
+
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
 
@@ -60,6 +62,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
         },
         socket
       ) do
+    Logger.debug(%{
+      save_graph: :entry,
+      graph_id: graph_id,
+      lock_version: lock_version,
+      title: title,
+      nodes: nodes,
+      edges: edges
+    })
+
     attrs = %{"title" => title, "nodes" => nodes, "edges" => edges}
 
     case Graphs.replace(graph_id, lock_version, attrs) do
@@ -72,6 +83,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, :not_found} ->
         {:reply, %{status: "not_found", graph: nil}, socket}
+
+      {:error, :invalid_graph} ->
+        {:reply, %{status: "invalid_graph", graph: nil}, socket}
 
       {:error, _reason} ->
         {:reply, %{status: "unmapped_error", graph: nil}, socket}

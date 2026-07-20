@@ -3,6 +3,8 @@ defmodule NetworkDefense.Graph.Graphs do
   Loads persisted graphs into their in-memory adjacency representation.
   """
 
+  require Logger
+
   import Ecto.Query
 
   alias Ecto.Changeset
@@ -87,12 +89,23 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def replace(id, expected_lock_version, attrs)
       when is_binary(id) and is_integer(expected_lock_version) and is_map(attrs) do
-    with {:ok, id} <- Ecto.UUID.cast(id),
-         {:ok, candidate} <- candidate_graph(id, expected_lock_version, attrs) do
-      Repo.transaction(fn -> replace_in_transaction(id, expected_lock_version, candidate) end)
-    else
-      _error -> {:error, :invalid_graph}
-    end
+    Logger.debug(%{
+      graph_replace: :entry,
+      id: id,
+      lock_version: expected_lock_version,
+      attrs: attrs
+    })
+
+    result =
+      with {:ok, id} <- Ecto.UUID.cast(id),
+           {:ok, candidate} <- candidate_graph(id, expected_lock_version, attrs) do
+        Repo.transaction(fn -> replace_in_transaction(id, expected_lock_version, candidate) end)
+      else
+        error -> error
+      end
+
+    Logger.debug(%{graph_replace: :result, result: inspect(result)})
+    result
   end
 
   def replace(_id, _expected_lock_version, _attrs), do: {:error, :invalid_graph}
@@ -165,7 +178,9 @@ defmodule NetworkDefense.Graph.Graphs do
            |> Changeset.apply_action(:update) do
       {:ok, Graph.hydrate(graph, nodes, edges)}
     else
-      _error -> {:error, :invalid_graph}
+      error ->
+        Logger.debug(%{candidate_graph: :failed, error: inspect(error)})
+        {:error, :invalid_graph}
     end
   end
 
@@ -177,7 +192,7 @@ defmodule NetworkDefense.Graph.Graphs do
       when is_map(data) and is_map(view_data) ->
         with {:ok, id} <- Ecto.UUID.cast(id) do
           %Node{id: id, graph_id: graph_id}
-          |> Node.changeset(%{type: type, data: data, view_data: view_data})
+          |> Node.changeset(%{type: resolve_type(type, :node), data: data, view_data: view_data})
           |> Changeset.apply_action(:insert)
         end
 
@@ -200,13 +215,29 @@ defmodule NetworkDefense.Graph.Graphs do
              {:ok, from_id} <- Ecto.UUID.cast(from_id),
              {:ok, to_id} <- Ecto.UUID.cast(to_id) do
           %Edge{id: id, graph_id: graph_id, from_id: from_id, to_id: to_id}
-          |> Edge.changeset(%{type: type, data: data})
+          |> Edge.changeset(%{type: resolve_type(type, :edge), data: data})
           |> Changeset.apply_action(:insert)
         end
 
       _attrs ->
         {:error, :invalid_edge}
     end)
+  end
+
+  defp resolve_type(type, :node), do: resolve_type(type, NetworkDefense.Nodes.Registry)
+  defp resolve_type(type, :edge), do: resolve_type(type, NetworkDefense.Relationships.Registry)
+
+  defp resolve_type(type, registry) do
+    case registry.module_for(type) do
+      nil ->
+        case registry.module_for_short(type) do
+          nil -> type
+          module -> Atom.to_string(module)
+        end
+
+      _module ->
+        type
+    end
   end
 
   defp map_candidates(attrs, mapper) do

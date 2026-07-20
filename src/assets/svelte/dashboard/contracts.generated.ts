@@ -93,7 +93,7 @@ export interface OpenGraphPayload {
 
 export interface OpenGraphReply {
   graph?: GraphContract | null;
-  status: "ok" | "stale" | "not_found" | "unmapped_error";
+  status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
 export interface SaveGraphPayload {
@@ -102,5 +102,5 @@ export interface SaveGraphPayload {
 
 export interface SaveGraphReply {
   graph?: GraphContract | null;
-  status: "ok" | "stale" | "not_found" | "unmapped_error";
+  status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
