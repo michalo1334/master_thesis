@@ -1,5 +1,10 @@
-defmodule NetworkDefense.Simulation.Simulations do
-  @moduledoc false
+defmodule NetworkDefense.Simulation.States do
+  @moduledoc """
+  Persists `State` records into the `simulations` table.
+
+  The struct represents run state; the table name reflects that
+  each persisted row is a completed simulation run.
+  """
 
   import Ecto.Query
 

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.SimulationsTest do
+defmodule NetworkDefense.Simulation.StatesTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Actions.ExploitVulnerability
@@ -6,7 +6,7 @@ defmodule NetworkDefense.Simulation.SimulationsTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Simulations
+  alias NetworkDefense.Simulation.States
   alias NetworkDefense.Simulation.State
 
   test "persists and reloads a simulation with its iteration steps" do
@@ -33,9 +33,9 @@ defmodule NetworkDefense.Simulation.SimulationsTest do
         ]
       )
 
-    assert {:ok, persisted} = Simulations.insert(state)
+    assert {:ok, persisted} = States.insert(state)
 
-    loaded = Simulations.load(persisted.id)
+    loaded = States.load(persisted.id)
 
     assert loaded.graph_id == graph.id
     assert loaded.initial_seed == 42
