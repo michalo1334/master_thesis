@@ -53,12 +53,14 @@ vulnerability_specs = [
   {"vpn-arbitrary-file-read", "CVE-2019-11510", 10.0, 0.8},
   {"identity-service-rce", "CVE-2021-44228", 10.0, 0.7},
   {"git-command-execution", "CVE-2022-24765", 7.8, 0.35},
+  {"bastion-ssh-command-execution", "CVE-2024-6387", 8.1, 0.9},
   {"postgres-privilege-escalation", "CVE-2019-9193", 8.8, 0.3},
   {"api-http2-dos", "CVE-2023-44487", 7.5, 0.25}
 ]
 
 reachability_specs = [
   {"internet", :host, "edge-fw-01"},
+  {"internet", :service, "vpn"},
   {"edge-fw-01", :service, "vpn"},
   {"edge-fw-01", :service, "web-01"},
   {"edge-fw-01", :service, "web-02"},
@@ -84,6 +86,7 @@ vulnerability_assignments = [
   {"web-01", "nginx-path-traversal"},
   {"web-02", "nginx-path-traversal"},
   {"vpn", "vpn-arbitrary-file-read"},
+  {"bastion", "bastion-ssh-command-execution"},
   {"idp", "identity-service-rce"},
   {"git", "git-command-execution"},
   {"db-primary", "postgres-privilege-escalation"},

@@ -52,7 +52,7 @@ defmodule NetworkDefense.Simulation.Report do
     n = length(sorted)
 
     if n == 0 do
-      %{mean: 0, median: 0, p95: 0, p99: 0, min: 0, max: 0, variance: 0}
+      %{mean: 0.0, median: 0, p95: 0, p99: 0, min: 0, max: 0, variance: 0.0}
     else
       mean = Enum.sum(sorted) / n
       variance = Enum.reduce(sorted, 0.0, fn x, acc -> acc + (x - mean) * (x - mean) end) / n
@@ -187,12 +187,17 @@ defmodule NetworkDefense.Simulation.Report do
 
     series = convergence_series(counts)
 
+    takeaway =
+      case List.last(series) do
+        nil -> "No completed simulation runs are available."
+        %{mean: mean} -> "Expected blast radius stabilizes near #{Float.round(mean, 1)} hosts."
+      end
+
     [
       %{
         id: "mean-convergence",
         title: "Monte Carlo convergence",
-        takeaway:
-          "Expected blast radius stabilizes near #{Float.round(List.last(series)[:mean], 1)} hosts.",
+        takeaway: takeaway,
         aria_label: "Line chart showing mean blast radius as Monte Carlo runs increase.",
         option: convergence_option(series)
       }
@@ -200,7 +205,7 @@ defmodule NetworkDefense.Simulation.Report do
   end
 
   defp convergence_series(counts) do
-    {_, series} =
+    {_, _, series} =
       counts
       |> Enum.reduce({0.0, 0, []}, fn count, {sum, n, acc} ->
         sum = sum + count

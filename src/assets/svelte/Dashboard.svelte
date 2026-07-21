@@ -208,16 +208,21 @@
         (d as SimulationReportDocument).graphId === run.graph_id,
     ) as SimulationReportDocument | undefined;
 
+    let report: SimulationReportDocument;
+
     if (existing) {
-      dashboardController.selectedDocumentId = existing.id;
+      report = existing;
     } else {
-      const report = new SimulationReportDocument(
-        run.graph_title,
-        run.graph_id,
-      );
+      report = new SimulationReportDocument(run.graph_title, run.graph_id);
       dashboardController.documents.push(report);
-      dashboardController.selectedDocumentId = report.id;
     }
+
+    report.markReady(run.id);
+    dashboardController.selectedDocumentId = report.id;
+
+    server.fetchSimulationReport(run.id, run.graph_id, (data) => {
+      report.setReportData(data);
+    });
   }
 
   function applyCanvasSelection(
