@@ -45,11 +45,13 @@ defmodule NetworkDefense.Simulation.MultiStates do
     state_attrs =
       state
       |> Map.take([:initial_seed, :initial_attacker_state, :iteration_count])
-      |> Map.put(:graph_id, graph_id(state))
       |> Map.put(:multi_state_id, multi_state_id)
 
     simulation =
-      %State{}
+      %State{
+        graph_id: graph_id(state),
+        multi_state_id: multi_state_id
+      }
       |> State.changeset(state_attrs)
       |> insert_or_rollback(:simulation)
 
@@ -80,7 +82,6 @@ defmodule NetworkDefense.Simulation.MultiStates do
       :iteration_count,
       :simulation_count,
       :initial_attacker_state,
-      :graph_id,
       :lock_version,
       :runtime_ms
     ])

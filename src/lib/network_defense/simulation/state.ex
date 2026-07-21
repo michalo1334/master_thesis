@@ -42,7 +42,12 @@ defmodule NetworkDefense.Simulation.State do
 
   def changeset(state, attrs) do
     state
-    |> cast(attrs, [:initial_seed, :initial_attacker_state, :iteration_count, :multi_state_id])
+    |> cast(attrs, [
+      :initial_seed,
+      :initial_attacker_state,
+      :iteration_count,
+      :multi_state_id
+    ])
     |> validate_required([:graph_id, :initial_seed, :initial_attacker_state, :iteration_count])
     |> validate_number(:initial_seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)
