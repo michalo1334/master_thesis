@@ -1,7 +1,7 @@
 ---
 description: Code reviewer focused on best practices, bugs, and design patterns
 mode: subagent
-model: openai/codex-gpt-5.6-terra
+model: openai/gpt-5.6-terra
 temperature: 0.1
 permission:
   read: allow
