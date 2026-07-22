@@ -113,17 +113,23 @@ export class WorkspaceModel {
     return doc;
   }
 
-  async openGraph(api: DashboardApi, summary: GraphSummary): Promise<void> {
+  async openGraph(api: DashboardApi, summary: GraphSummary): Promise<boolean> {
     this.topologyPickerStatus = "";
-    const reply = await api.openGraph(summary.id);
-    if (reply.status === "ok" && reply.graph) {
-      this.openLoadedGraph(reply.graph, api);
-      this.topologyPickerOpen = false;
-    } else {
+    try {
+      const reply = await api.openGraph(summary.id);
+      if (reply.status === "ok" && reply.graph) {
+        this.openLoadedGraph(reply.graph, api);
+        return true;
+      }
+
       this.topologyPickerStatus =
         reply.status === "not_found"
           ? "Topology not found."
           : "Failed to open topology.";
+      return false;
+    } catch {
+      this.topologyPickerStatus = "Failed to open topology.";
+      return false;
     }
   }
 
@@ -187,9 +193,7 @@ export class WorkspaceModel {
   async selectSimulationRun(
     api: DashboardApi,
     run: SimulationRunSummary,
-  ): Promise<void> {
-    this.simulationRunsModalOpen = false;
-
+  ): Promise<boolean> {
     const existing = this.documents.find(
       (d) => d.kind === "simulation-report" && d.simulationId === run.id,
     ) as SimulationReportDocument | undefined;
@@ -206,6 +210,7 @@ export class WorkspaceModel {
 
     this.selectedDocumentId = report.id;
     report.load(api, run.id, run.graph_id);
+    return true;
   }
 
   onForceParamsChange(change: Partial<ForceParams>): void {

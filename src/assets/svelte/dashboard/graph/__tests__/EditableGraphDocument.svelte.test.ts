@@ -91,7 +91,7 @@ describe("EditableGraphDocument", () => {
       const node = hostNode("node-1");
       doc.graph = makeGraph({ nodes: [node] });
       doc.selectNode(node.id);
-      expect(doc.selection).toBe(node);
+      expect(doc.selection).toStrictEqual(node);
     });
 
     it("selectEdge sets selection to edge kind", () => {

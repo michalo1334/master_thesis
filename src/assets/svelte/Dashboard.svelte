@@ -5,10 +5,9 @@
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
-  import TopologyPickerDialog from "./dashboard/workspace/TopologyPickerDialog.svelte";
+  import OptionPickerDialog from "./dashboard/ui/OptionPickerDialog.svelte";
   import Canvas from "./dashboard/graph/canvas/Canvas.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
-  import SimulationRunsModal from "./dashboard/simulation-report/SimulationRunsModal.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
@@ -47,14 +46,30 @@
     await model.showReport();
   }
 
-  async function handleTopologySelect(summary: GraphSummary): Promise<void> {
-    await wm.openGraph(api, summary);
+  function formatTimestamp(iso: string): string {
+    try {
+      return new Date(iso).toLocaleString();
+    } catch {
+      return iso;
+    }
   }
 
-  async function handleSimulationRunSelect(
-    run: SimulationRunSummary,
-  ): Promise<void> {
-    await model.selectSimulationRun(run);
+  function formatRuntime(milliseconds: number): string {
+    return milliseconds < 1000
+      ? `${milliseconds} ms`
+      : `${(milliseconds / 1000).toFixed(1)} s`;
+  }
+
+  async function handleTopologySelect([
+    summary,
+  ]: GraphSummary[]): Promise<boolean> {
+    return summary ? wm.openGraph(api, summary) : false;
+  }
+
+  async function handleSimulationRunSelect([
+    run,
+  ]: SimulationRunSummary[]): Promise<boolean> {
+    return run ? model.selectSimulationRun(run) : false;
   }
 </script>
 
@@ -89,20 +104,34 @@
 
   <Workspace model={wm} {documentTypes} {inspector} {content} />
 
-  <TopologyPickerDialog
+  <OptionPickerDialog
     open={wm.topologyPickerOpen}
-    summaries={wm.graphSummaries}
     onOpenChange={(open) => (wm.topologyPickerOpen = open)}
-    onSelect={handleTopologySelect}
+    items={wm.graphSummaries}
+    title="Open topology"
+    description="Select a saved network topology to open in the workspace."
+    getKey={(summary) => summary.id}
+    getTitle={(summary) => summary.title}
+    getDescription={(summary) =>
+      `${summary.nodeCount} node${summary.nodeCount !== 1 ? "s" : ""}, ${summary.edgeCount} edge${summary.edgeCount !== 1 ? "s" : ""}`}
+    emptyMessage="No saved topologies."
     status={wm.topologyPickerStatus}
+    onConfirm={handleTopologySelect}
   />
 
-  <SimulationRunsModal
+  <OptionPickerDialog
     open={wm.simulationRunsModalOpen}
-    runs={wm.simulationRuns}
     onOpenChange={(open) => (wm.simulationRunsModalOpen = open)}
-    onSelect={handleSimulationRunSelect}
+    items={wm.simulationRuns}
+    title="Simulation runs"
+    description="Select a completed simulation run to view its report."
+    getKey={(run) => run.id}
+    getTitle={(run) => run.graph_title}
+    getDescription={(run) =>
+      `${run.simulation_count} trials · ${run.iteration_count} iters · ${formatRuntime(run.runtime_ms)} · ${formatTimestamp(run.started_at)}`}
+    emptyMessage="No simulation runs found."
     status={wm.simulationRunsStatus}
+    onConfirm={handleSimulationRunSelect}
   />
 
   <StatusBar

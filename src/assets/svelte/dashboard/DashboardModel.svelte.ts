@@ -80,7 +80,7 @@ export class DashboardModel {
   }
 
   /** Delegate historical report selection to the workspace. */
-  async selectSimulationRun(run: SimulationRunSummary): Promise<void> {
-    await this.workspace.selectSimulationRun(this.api, run);
+  async selectSimulationRun(run: SimulationRunSummary): Promise<boolean> {
+    return this.workspace.selectSimulationRun(this.api, run);
   }
 }
