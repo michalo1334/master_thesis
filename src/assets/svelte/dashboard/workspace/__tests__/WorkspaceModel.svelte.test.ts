@@ -1,0 +1,342 @@
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { WorkspaceModel } from "../WorkspaceModel.svelte";
+import type {
+  GraphSummary,
+  LoadedGraph,
+  SimulationRunSummary,
+} from "../../contract";
+import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte";
+import type { DashboardApi } from "../../dashboard-api";
+
+function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
+  return {
+    id: "g1",
+    title: "Topology 1",
+    nodeCount: 3,
+    edgeCount: 2,
+    ...overrides,
+  };
+}
+
+function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+  return {
+    id: "g1",
+    title: "Graph",
+    lock_version: 1,
+    nodes: [],
+    edges: [],
+    ...overrides,
+  };
+}
+
+function makeSimulationRun(
+  overrides: Partial<SimulationRunSummary> = {},
+): SimulationRunSummary {
+  return {
+    id: "sim-1",
+    graph_id: "g1",
+    graph_title: "Topology 1",
+    iteration_count: 100,
+    runtime_ms: 1000,
+    seed: 1,
+    simulation_count: 10,
+    started_at: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+describe("WorkspaceModel", () => {
+  let model: WorkspaceModel;
+
+  beforeEach(() => {
+    model = new WorkspaceModel();
+  });
+
+  describe("initialization", () => {
+    it("starts with no documents", () => {
+      expect(model.documents.length).toBe(0);
+    });
+
+    it("has no selected document", () => {
+      expect(model.selectedDocumentId).toBeUndefined();
+    });
+
+    it("has no active document", () => {
+      expect(model.activeDocument).toBeUndefined();
+    });
+
+    it("stores graph summaries", () => {
+      const summaries = [makeGraphSummary({ id: "a" })];
+      const m = new WorkspaceModel(summaries);
+      expect(m.graphSummaries).toBe(summaries);
+      expect(m.graphSummaries.length).toBe(1);
+    });
+
+    it("defaults to empty summaries array", () => {
+      expect(model.graphSummaries).toEqual([]);
+    });
+  });
+
+  describe("handleCreateDocument", () => {
+    it("opens topology picker for graph type", () => {
+      model.handleCreateDocument("graph");
+      expect(model.topologyPickerOpen).toBe(true);
+      expect(model.topologyPickerStatus).toBe("");
+    });
+
+    it("no-ops for unknown type", () => {
+      model.handleCreateDocument("unknown");
+      expect(model.topologyPickerOpen).toBe(false);
+    });
+  });
+
+  describe("createGraphDocument", () => {
+    it("creates a graph document", () => {
+      const doc = model.createGraphDocument();
+      expect(model.documents.length).toBe(1);
+      expect(doc.kind).toBe("graph");
+      expect(model.selectedDocumentId).toBe(doc.id);
+    });
+  });
+
+  describe("closeDocument", () => {
+    it("closes a non-active document and keeps selection", () => {
+      model.createGraphDocument();
+      model.createGraphDocument();
+      const firstId = model.documents[0].id;
+      const secondId = model.documents[1].id;
+      model.closeDocument(firstId);
+      expect(model.documents.length).toBe(1);
+      expect(model.documents[0].id).toBe(secondId);
+      expect(model.selectedDocumentId).toBe(secondId);
+    });
+
+    it("selects prior tab when closing active document", () => {
+      model.createGraphDocument();
+      model.createGraphDocument();
+      model.createGraphDocument();
+      const docs = model.documents;
+      model.closeDocument(docs[2].id);
+      expect(model.documents.length).toBe(2);
+      expect(model.selectedDocumentId).toBe(docs[1].id);
+    });
+
+    it("clears selection when closing last document", () => {
+      model.createGraphDocument();
+      model.closeDocument(model.documents[0].id);
+      expect(model.documents.length).toBe(0);
+      expect(model.selectedDocumentId).toBeUndefined();
+    });
+
+    it("is a no-op for unknown ids", () => {
+      model.createGraphDocument();
+      model.closeDocument("nonexistent");
+      expect(model.documents.length).toBe(1);
+    });
+  });
+
+  describe("selectDocument", () => {
+    it("changes active document", () => {
+      model.createGraphDocument();
+      model.createGraphDocument();
+      model.selectDocument(model.documents[0].id);
+      expect(model.selectedDocumentId).toBe(model.documents[0].id);
+    });
+  });
+
+  describe("openLoadedGraph", () => {
+    it("creates a new graph document", async () => {
+      const graph = makeLoadedGraph({ id: "g1", title: "My Graph" });
+      const noopApi = {} as any;
+      const result = await model.openLoadedGraph(graph, noopApi);
+      expect(model.documents.length).toBe(1);
+      expect(model.documents[0].kind).toBe("graph");
+      expect(model.documents[0].title).toBe("My Graph");
+      expect(result).toBeDefined();
+    });
+
+    it("reuses a blank graph document", async () => {
+      const noopApi = {} as any;
+      model.createGraphDocument();
+      const blankId = model.documents[0].id;
+      const graph = makeLoadedGraph({ id: "g2", title: "Reused" });
+      const result = await model.openLoadedGraph(graph, noopApi);
+      expect(model.documents.length).toBe(1);
+      expect(model.documents[0].id).toBe(blankId);
+      expect(model.documents[0].title).toBe("Reused");
+      expect((result as EditableGraphDocument).loaded).toBe(true);
+    });
+
+    it("activates existing loaded document", async () => {
+      const noopApi = {} as any;
+      await model.openLoadedGraph(
+        makeLoadedGraph({ id: "g3", title: "First" }),
+        noopApi,
+      );
+      model.createGraphDocument();
+      const blankId = model.selectedDocumentId;
+      const result = await model.openLoadedGraph(
+        makeLoadedGraph({ id: "g3" }),
+        noopApi,
+      );
+      expect(model.documents.length).toBe(2);
+      expect(model.selectedDocumentId).not.toBe(blankId);
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe("createPendingReport", () => {
+    it("creates a pending simulation report", () => {
+      const report = model.createPendingReport({
+        graphId: "g1",
+        correlationId: "corr-1",
+        graphTitle: "Test",
+      });
+      expect(report.kind).toBe("simulation-report");
+      expect(report.status).toBe("pending");
+      expect(report.correlationId).toBe("corr-1");
+      expect(report.graphId).toBe("g1");
+    });
+
+    it("selects the new report", () => {
+      const report = model.createPendingReport({
+        graphId: "g1",
+        correlationId: "corr-1",
+        graphTitle: "Test",
+      });
+      expect(model.selectedDocumentId).toBe(report.id);
+    });
+
+    it("creates distinct reports for separate requests on the same graph", () => {
+      const first = model.createPendingReport({
+        graphId: "g1",
+        correlationId: "corr-1",
+        graphTitle: "Test",
+      });
+      const second = model.createPendingReport({
+        graphId: "g1",
+        correlationId: "corr-2",
+        graphTitle: "Test",
+      });
+      expect(model.documents.length).toBe(2);
+      expect(second.id).not.toBe(first.id);
+      expect(first.correlationId).toBe("corr-1");
+      expect(second.correlationId).toBe("corr-2");
+    });
+  });
+
+  describe("selectSimulationRun", () => {
+    const api = {
+      fetchSimulationReport: vi.fn().mockResolvedValue({ status: "not_found" }),
+    } as unknown as DashboardApi;
+
+    it("reuses a historical report only when its simulation ID matches", async () => {
+      const existing = model.createPendingReport({
+        graphId: "g1",
+        correlationId: "corr-old",
+        graphTitle: "Test",
+      });
+      existing.markReady("sim-old");
+
+      await model.selectSimulationRun(
+        api,
+        makeSimulationRun({ id: "sim-new" }),
+      );
+
+      expect(model.documents).toHaveLength(2);
+
+      await model.selectSimulationRun(
+        api,
+        makeSimulationRun({ id: "sim-old" }),
+      );
+
+      expect(model.documents).toHaveLength(2);
+      expect(model.selectedDocumentId).toBe(existing.id);
+    });
+  });
+
+  describe("showReport", () => {
+    it("ignores duplicate requests while simulation runs are loading", async () => {
+      const graph = model.createGraphDocument();
+      graph.replaceFromLoadedGraph(makeLoadedGraph());
+      const request = deferred<{ runs: SimulationRunSummary[] }>();
+      const api = {
+        fetchSimulationRuns: vi.fn().mockReturnValue(request.promise),
+      } as unknown as DashboardApi;
+
+      const first = model.showReport(api);
+      expect(model.isLoadingSimulationRuns).toBe(true);
+      const second = model.showReport(api);
+
+      expect(api.fetchSimulationRuns).toHaveBeenCalledTimes(1);
+
+      request.resolve({ runs: [] });
+      await Promise.all([first, second]);
+
+      expect(model.isLoadingSimulationRuns).toBe(false);
+      expect(model.simulationRunsStatus).toBe("No simulation runs found.");
+    });
+
+    it("shows a status and resets loading when simulation runs fail to load", async () => {
+      const graph = model.createGraphDocument();
+      graph.replaceFromLoadedGraph(makeLoadedGraph());
+      const api = {
+        fetchSimulationRuns: vi.fn().mockRejectedValue(new Error("offline")),
+      } as unknown as DashboardApi;
+
+      await model.showReport(api);
+
+      expect(model.isLoadingSimulationRuns).toBe(false);
+      expect(model.simulationRunsStatus).toBe(
+        "Failed to load simulation runs.",
+      );
+    });
+  });
+
+  describe("applyForceLayout", () => {
+    it("delegates to active graph synchronously", () => {
+      const doc = model.createGraphDocument();
+      const originalRev = doc.revision;
+      doc.replaceFromLoadedGraph(
+        makeLoadedGraph({
+          id: "g1",
+          nodes: [
+            {
+              id: "n1",
+              type: "Host",
+              data: { name: "h1" },
+              view_data: { x_pos: 0, y_pos: 0 },
+            },
+            {
+              id: "n2",
+              type: "Host",
+              data: { name: "h2" },
+              view_data: { x_pos: 100, y_pos: 100 },
+            },
+          ],
+          edges: [],
+        }),
+      );
+      const graphBefore = doc.graph;
+      model.applyForceLayout();
+      // Force layout alters node positions, so the graph reference should change
+      expect(doc.graph).not.toBe(graphBefore);
+      expect(doc.revision).toBeGreaterThan(originalRev);
+    });
+
+    it("no-ops without active graph", () => {
+      model.applyForceLayout();
+      expect(model.documents.length).toBe(0);
+    });
+  });
+});

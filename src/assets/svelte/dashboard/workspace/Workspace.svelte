@@ -1,15 +1,15 @@
 <script lang="ts">
   import { DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
-  import Icon from "../controls/Icon.svelte";
+  import Icon from "../ui/Icon.svelte";
   import type { IconName } from "../types";
-  import type {
-    WorkspaceDocument,
-    DocumentKind,
-  } from "./WorkspaceDocument.svelte";
+  import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
+  import type { WorkspaceModel } from "./WorkspaceModel.svelte";
+
+  export type { WorkspaceDocument };
 
   export interface WorkspaceDocumentType {
-    id: DocumentKind;
+    id: string;
     label: string;
     icon?: IconName;
   }
@@ -17,36 +17,30 @@
   export type WorkspaceOrientation = "horizontal" | "vertical";
 
   interface Props {
-    documents?: readonly WorkspaceDocument[];
-    activeDocumentId?: string;
+    model: WorkspaceModel;
     orientation?: WorkspaceOrientation;
-    onActiveDocumentChange?: (id: string) => void;
-    onCloseDocument?: (id: string) => void;
     documentTypes?: readonly WorkspaceDocumentType[];
-    onCreateDocument?: (typeId: DocumentKind) => void;
     inspector?: Snippet;
     content?: Snippet<[WorkspaceDocument]>;
   }
 
   let {
-    documents = [],
-    activeDocumentId = undefined,
+    model,
     orientation = "horizontal",
-    onActiveDocumentChange = () => {},
-    onCloseDocument = () => {},
     documentTypes = [],
-    onCreateDocument = () => {},
     inspector = undefined,
     content = undefined,
   }: Props = $props();
 
   let activeDocument = $derived(
-    documents.find((document) => document.id === activeDocumentId),
+    model.documents.find(
+      (document) => document.id === model.selectedDocumentId,
+    ),
   );
 
   function closeDocument(event: MouseEvent, id: string) {
     event.stopPropagation();
-    onCloseDocument(id);
+    model.closeDocument(id);
   }
 </script>
 
@@ -54,13 +48,13 @@
   <Tabs.Root
     class="dashboard-document"
     {orientation}
-    value={activeDocumentId}
-    onValueChange={onActiveDocumentChange}
+    value={model.selectedDocumentId}
+    onValueChange={(id) => model.selectDocument(id)}
     loop
   >
     <div class="dashboard-document-tabs-container">
       <Tabs.List class="dashboard-document-tabs" aria-label="Open documents">
-        {#each documents as document (document.id)}
+        {#each model.documents as document (document.id)}
           <div class="dashboard-document-item">
             <Tabs.Trigger class="dashboard-document-tab" value={document.id}>
               <span class="dashboard-document-dot" aria-hidden="true"></span>
@@ -70,7 +64,8 @@
               type="button"
               class="dashboard-document-close"
               aria-label={`Close ${document.title}`}
-              onclick={(event) => closeDocument(event, document.id)}>×</button
+              onclick={(event) => closeDocument(event, document.id)}
+              >&times;</button
             >
           </div>
         {/each}
@@ -92,7 +87,7 @@
           >
             {#each documentTypes as documentType (documentType.id)}
               <DropdownMenu.Item
-                onclick={() => onCreateDocument(documentType.id)}
+                onclick={() => model.handleCreateDocument(documentType.id)}
               >
                 {#if documentType.icon}
                   <Icon name={documentType.icon} size={16} />
@@ -111,7 +106,7 @@
       </Tabs.Content>
     {/if}
 
-    {#if documents.length === 0}
+    {#if model.documents.length === 0}
       <section class="dashboard-workspace-empty" aria-label="No open documents">
         <p>No documents opened</p>
       </section>

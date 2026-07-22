@@ -14,7 +14,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     ~H"""
     <Layouts.app flash={@flash} full_screen>
       <.svelte
-        name="Dashboard"
+        name="DashboardHost"
         id="dashboard"
         props={
           %{
@@ -34,7 +34,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       |> assign(:graph_summaries, Graphs.list_summaries())
 
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, "simulation_done")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
     end
 
     {:ok, socket}
@@ -104,28 +104,31 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("run_simulation", %{"graph_id" => graph_id}, socket)
-      when is_binary(graph_id) and byte_size(graph_id) > 0 do
-    Logger.info("run_simulation: loading graph #{graph_id}")
+  def handle_event(
+        "run_simulation_request",
+        %{"graph_id" => graph_id, "correlation_id" => correlation_id},
+        socket
+      )
+      when is_binary(graph_id) and byte_size(graph_id) > 0 and is_binary(correlation_id) and
+             byte_size(correlation_id) > 0 do
+    case load_simulation_graph(graph_id) do
+      {:ok, graph} ->
+        {:ok, _pid} = Simulations.run_async(graph, correlation_id)
+        {:reply, simulation_request_reply("accepted", graph_id, correlation_id, nil), socket}
 
-    case Graphs.load(graph_id) do
-      nil ->
-        Logger.warning("Cannot run simulation: graph #{graph_id} not found")
-
-      graph ->
-        Logger.info("run_simulation: graph loaded, node count: #{length(Graph.nodes(graph))}")
-        Simulations.run_async(graph)
+      {:error, reason} ->
+        {:reply, simulation_request_reply("rejected", graph_id, correlation_id, reason), socket}
     end
-
-    {:noreply, socket}
-  rescue
-    Ecto.Query.CastError ->
-      Logger.warning("run_simulation: invalid graph_id format #{inspect(graph_id)}")
-      {:noreply, socket}
   end
 
-  def handle_event("run_simulation", _params, socket) do
-    {:noreply, socket}
+  def handle_event("run_simulation_request", params, socket) do
+    {:reply,
+     simulation_request_reply(
+       "rejected",
+       Map.get(params, "graph_id"),
+       Map.get(params, "correlation_id"),
+       "invalid_request"
+     ), socket}
   end
 
   @impl true
@@ -176,15 +179,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_info({:simulation_done, multi_state_id, graph_id, msg}, socket) do
-    Logger.info("simulation_done: #{inspect(multi_state_id)} for graph #{graph_id}")
+  def handle_info({:simulation_completed, payload}, socket) do
+    {:noreply, push_event(socket, "simulation_completed", payload)}
+  end
 
-    {:noreply,
-     push_event(socket, "simulation_done", %{
-       id: multi_state_id,
-       graph_id: graph_id,
-       message: msg
-     })}
+  def handle_info({:simulation_failed, payload}, socket) do
+    {:noreply, push_event(socket, "simulation_failed", payload)}
   end
 
   defp graph_payload(graph) do
@@ -219,4 +219,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp type(module), do: module |> Module.split() |> List.last()
+
+  defp load_simulation_graph(graph_id) do
+    with {:ok, graph_id} <- Ecto.UUID.cast(graph_id),
+         graph when not is_nil(graph) <- Graphs.load(graph_id) do
+      {:ok, graph}
+    else
+      :error -> {:error, "invalid_graph_id"}
+      nil -> {:error, "graph_not_found"}
+    end
+  end
+
+  defp simulation_request_reply(status, graph_id, correlation_id, reason) do
+    %{
+      status: status,
+      graph_id: string_or_empty(graph_id),
+      correlation_id: string_or_empty(correlation_id),
+      reason: reason
+    }
+  end
+
+  defp string_or_empty(value) when is_binary(value), do: value
+  defp string_or_empty(_value), do: ""
 end

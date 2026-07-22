@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Avatar, DropdownMenu } from "bits-ui";
-  import Icon from "../controls/Icon.svelte";
+  import Icon from "../ui/Icon.svelte";
 
   interface Props {
     onSave: () => void;

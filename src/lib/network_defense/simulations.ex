@@ -25,7 +25,11 @@ defmodule NetworkDefense.Simulations do
     saved
   end
 
-  def run_async(graph) do
+  @simulation_events_topic "simulation_events"
+
+  def simulation_events_topic, do: @simulation_events_topic
+
+  def run_async(graph, correlation_id) do
     rules = default_rules()
 
     Task.start(fn ->
@@ -53,18 +57,20 @@ defmodule NetworkDefense.Simulations do
           {:ok, saved} ->
             Logger.info("simulation persisted: #{saved.id} for graph #{saved.graph_id}")
 
-            Phoenix.PubSub.broadcast(
-              NetworkDefense.PubSub,
-              "simulation_done",
-              {:simulation_done, saved.id, saved.graph_id, "Simulation done!"}
-            )
+            broadcast_simulation_completed(saved, correlation_id)
 
           {:error, reason} ->
             Logger.error("Failed to persist simulation: #{inspect(reason)}")
+            broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
         end
       rescue
         e ->
           Logger.error("Simulation task crashed: #{inspect(e)}")
+          broadcast_simulation_failed(graph.id, correlation_id, Exception.message(e))
+      catch
+        kind, reason ->
+          Logger.error("Simulation task exited: #{kind}: #{inspect(reason)}")
+          broadcast_simulation_failed(graph.id, correlation_id, "#{kind}: #{inspect(reason)}")
       end
     end)
   end
@@ -98,5 +104,31 @@ defmodule NetworkDefense.Simulations do
 
   defp default_rules do
     [%NetworkDefense.Rules.RemoteServiceExploitation{}]
+  end
+
+  defp broadcast_simulation_completed(simulation, correlation_id) do
+    Phoenix.PubSub.broadcast(
+      NetworkDefense.PubSub,
+      @simulation_events_topic,
+      {:simulation_completed,
+       %{
+         correlation_id: correlation_id,
+         graph_id: simulation.graph_id,
+         simulation_id: simulation.id
+       }}
+    )
+  end
+
+  defp broadcast_simulation_failed(graph_id, correlation_id, reason) do
+    Phoenix.PubSub.broadcast(
+      NetworkDefense.PubSub,
+      @simulation_events_topic,
+      {:simulation_failed,
+       %{
+         correlation_id: correlation_id,
+         graph_id: graph_id,
+         reason: reason
+       }}
+    )
   end
 end

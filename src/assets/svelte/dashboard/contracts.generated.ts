@@ -142,6 +142,18 @@ export interface ReportCharts {
   convergence: ChartSpec[];
 }
 
+export interface RunSimulationReply {
+  correlation_id: string;
+  graph_id: string;
+  reason?: string | null;
+  status: "accepted" | "rejected";
+}
+
+export interface RunSimulationRequest {
+  correlation_id: string;
+  graph_id: string;
+}
+
 export interface SaveGraphPayload {
   graph: GraphContract;
 }
@@ -149,6 +161,18 @@ export interface SaveGraphPayload {
 export interface SaveGraphReply {
   graph?: GraphContract | null;
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
+export interface SimulationCompletedEvent {
+  correlation_id: string;
+  graph_id: string;
+  simulation_id: string;
+}
+
+export interface SimulationFailedEvent {
+  correlation_id: string;
+  graph_id: string;
+  reason: string;
 }
 
 export interface SimulationRunSummary {

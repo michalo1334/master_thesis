@@ -11,12 +11,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Simulations
+  alias NetworkDefenseWeb.DashboardLive
 
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
   end
 
@@ -31,7 +33,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "open_graph", %{"graph_id" => graph.id})
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
     test "accepts a missing graph_id", %{conn: conn} do
@@ -41,7 +43,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "graph_id" => "00000000-0000-0000-0000-000000000000"
       })
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
     test "accepts an open request without graph_id", %{conn: conn} do
@@ -49,19 +51,42 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "open_graph", %{})
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
   end
 
-  describe "existing events" do
-    test "dashboard root is present after run_simulation", %{conn: conn} do
+  describe "simulation events" do
+    test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do
       graph = insert_graph("run-sim-test")
+      graph_id = graph.id
+      correlation_id = "request-123"
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-      render_hook(view, "run_simulation", %{"graph_id" => graph.id})
+      assert {:reply,
+              %{
+                status: "accepted",
+                graph_id: ^graph_id,
+                correlation_id: ^correlation_id,
+                reason: nil
+              }, _socket} =
+               DashboardLive.handle_event(
+                 "run_simulation_request",
+                 %{"graph_id" => graph_id, "correlation_id" => correlation_id},
+                 %Phoenix.LiveView.Socket{}
+               )
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert_receive {:simulation_completed,
+                      %{
+                        correlation_id: ^correlation_id,
+                        graph_id: ^graph_id,
+                        simulation_id: simulation_id
+                      }},
+                     5_000
+
+      assert is_binary(simulation_id)
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
     test "dashboard root is present after optimize_defense", %{conn: conn} do
@@ -69,15 +94,62 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "optimize_defense", %{"graph_id" => "topology-1"})
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
-    test "run_simulation is safely accepted without graph_id", %{conn: conn} do
+    test "rejects an invalid correlated simulation request" do
+      correlation_id = "request-456"
+
+      assert {:reply,
+              %{
+                status: "rejected",
+                graph_id: "not-a-uuid",
+                correlation_id: ^correlation_id,
+                reason: "invalid_graph_id"
+              }, _socket} =
+               DashboardLive.handle_event(
+                 "run_simulation_request",
+                 %{"graph_id" => "not-a-uuid", "correlation_id" => correlation_id},
+                 %Phoenix.LiveView.Socket{}
+               )
+    end
+
+    test "broadcasts a correlated failure when execution fails" do
+      graph = %{Graph.new("invalid graph") | nodes: [%Node{type: nil}]}
+      graph_id = graph.id
+      correlation_id = "request-789"
+
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+      assert {:ok, _pid} = Simulations.run_async(graph, correlation_id)
+
+      assert_receive {:simulation_failed,
+                      %{
+                        correlation_id: ^correlation_id,
+                        graph_id: ^graph_id,
+                        reason: reason
+                      }},
+                     5_000
+
+      assert is_binary(reason)
+    end
+
+    test "forwards simulation completion and failure events", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      render_hook(view, "run_simulation", %{})
+      completed = %{
+        correlation_id: "request-1",
+        graph_id: "graph-1",
+        simulation_id: "simulation-1"
+      }
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      send(view.pid, {:simulation_completed, completed})
+      assert_push_event(view, "simulation_completed", ^completed)
+
+      failed = %{correlation_id: "request-2", graph_id: "graph-2", reason: "persistence_failed"}
+
+      send(view.pid, {:simulation_failed, failed})
+      assert_push_event(view, "simulation_failed", ^failed)
     end
 
     test "optimize_defense is safely accepted without graph_id", %{conn: conn} do
@@ -85,7 +157,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "optimize_defense", %{})
 
-      assert has_element?(view, "#dashboard[data-name='Dashboard']")
+      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
   end
 
