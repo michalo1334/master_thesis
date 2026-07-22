@@ -3,6 +3,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.Data.RunsData do
 
   use NetworkDefenseWeb.Web.Contracts
 
+  embedded_schema do
+  end
+
   @type t :: %__MODULE__{}
-  defstruct []
+
+  def changeset(schema, attrs), do: cast(schema, attrs, [])
 end

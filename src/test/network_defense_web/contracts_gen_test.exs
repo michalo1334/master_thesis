@@ -23,5 +23,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface SimulationCompletedEvent"
     assert output =~ "simulation_id: string;"
     assert output =~ "export interface SimulationFailedEvent"
+    assert output =~ "export interface OptimizeDefensePayload"
   end
 end

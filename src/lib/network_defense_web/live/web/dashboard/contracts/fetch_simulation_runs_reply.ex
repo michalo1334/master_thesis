@@ -3,8 +3,17 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationRunsReply do
 
   use NetworkDefenseWeb.Web.Contracts
 
+  embedded_schema do
+    embeds_many :runs, NetworkDefenseWeb.Web.Contracts.SimulationRunSummary, on_replace: :delete
+  end
+
   @type t :: %__MODULE__{
           runs: [NetworkDefenseWeb.Web.Contracts.SimulationRunSummary.t()]
         }
-  defstruct [:runs]
+
+  def changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [])
+    |> cast_embed(:runs)
+  end
 end

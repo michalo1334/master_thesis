@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
+defmodule NetworkDefenseWeb.Web.Contracts.OptimizeDefensePayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Web.Contracts
@@ -7,9 +7,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
     field :graph_id, :string
   end
 
-  @type t :: %__MODULE__{
-          graph_id: String.t()
-        }
+  @type t :: %__MODULE__{graph_id: String.t()}
 
   def changeset(schema, attrs) do
     schema

@@ -3,11 +3,23 @@ defmodule NetworkDefenseWeb.Web.Contracts.KpiMetric do
 
   use NetworkDefenseWeb.Web.Contracts
 
+  embedded_schema do
+    field :label, :string
+    field :value, :string
+    field :detail, :string
+    field :tone, :string
+  end
+
   @type t :: %__MODULE__{
           label: String.t(),
           value: String.t(),
           detail: String.t(),
           tone: String.t()
         }
-  defstruct [:label, :value, :detail, :tone]
+
+  def changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:label, :value, :detail, :tone])
+    |> validate_required([:label, :value, :detail, :tone])
+  end
 end

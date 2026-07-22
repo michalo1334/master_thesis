@@ -136,6 +136,10 @@ export interface OpenGraphReply {
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
+export interface OptimizeDefensePayload {
+  graph_id: string;
+}
+
 export interface ReportCharts {
   action_stats: ChartSpec[];
   blast_radius_distribution: ChartSpec[];
@@ -152,6 +156,7 @@ export interface RunSimulationReply {
 export interface RunSimulationRequest {
   correlation_id: string;
   graph_id: string;
+  simulation_params: SimulationParams;
 }
 
 export interface SaveGraphPayload {
@@ -173,6 +178,11 @@ export interface SimulationFailedEvent {
   correlation_id: string;
   graph_id: string;
   reason: string;
+}
+
+export interface SimulationParams {
+  iterations_per_count: number;
+  monte_carlo_trials: number;
 }
 
 export interface SimulationRunSummary {

@@ -7,12 +7,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
-  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Simulations
   alias NetworkDefenseWeb.DashboardLive
+  alias NetworkDefenseWeb.Web.Contracts.SimulationParams
 
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
@@ -73,7 +74,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
               }, _socket} =
                DashboardLive.handle_event(
                  "run_simulation_request",
-                 %{"graph_id" => graph_id, "correlation_id" => correlation_id},
+                 %{
+                   "graph_id" => graph_id,
+                   "correlation_id" => correlation_id,
+                   "simulation_params" => %{
+                     "monte_carlo_trials" => 1,
+                     "iterations_per_count" => 1
+                   }
+                 },
                  %Phoenix.LiveView.Socket{}
                )
 
@@ -109,7 +117,29 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
               }, _socket} =
                DashboardLive.handle_event(
                  "run_simulation_request",
-                 %{"graph_id" => "not-a-uuid", "correlation_id" => correlation_id},
+                 %{
+                   "graph_id" => "not-a-uuid",
+                   "correlation_id" => correlation_id,
+                   "simulation_params" => %{
+                     "monte_carlo_trials" => 1,
+                     "iterations_per_count" => 1
+                   }
+                 },
+                 %Phoenix.LiveView.Socket{}
+               )
+    end
+
+    test "rejects a simulation request without valid parameters" do
+      assert {:reply,
+              %{
+                status: "rejected",
+                graph_id: "",
+                correlation_id: "",
+                reason: "invalid_request"
+              }, _socket} =
+               DashboardLive.handle_event(
+                 "run_simulation_request",
+                 %{},
                  %Phoenix.LiveView.Socket{}
                )
     end
@@ -121,7 +151,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-      assert {:ok, _pid} = Simulations.run_async(graph, correlation_id)
+      assert {:ok, _pid} =
+               Simulations.run_async(graph, correlation_id, %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_count: 1
+               })
 
       assert_receive {:simulation_failed,
                       %{
@@ -212,8 +246,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
       target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
-      assert source_node.view_data == %{"x_pos" => 120, "y_pos" => 240}
-      assert target_node.view_data == %{"x_pos" => 360, "y_pos" => 480}
+      assert source_node.view_data == %{"x_pos" => 120.0, "y_pos" => 240.0}
+      assert target_node.view_data == %{"x_pos" => 360.0, "y_pos" => 480.0}
     end
 
     test "does not replace a stale graph", %{conn: conn} do

@@ -3,8 +3,17 @@ defmodule NetworkDefenseWeb.Web.Contracts.Data.HostData do
 
   use NetworkDefenseWeb.Web.Contracts
 
+  embedded_schema do
+    field :name, :string
+  end
+
   @type t :: %__MODULE__{
           name: String.t()
         }
-  defstruct [:name]
+
+  def changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:name])
+    |> validate_required([:name])
+  end
 end
