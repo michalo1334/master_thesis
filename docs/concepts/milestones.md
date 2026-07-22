@@ -34,7 +34,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Action protocol + ExploitVulnerability action
 - [x] Attacker state tracking (footholds, attempted actions)
 - [x] Single and multi-run simulation (run/run_multiple)
-- [ ] Dashboard integration (trigger simulation from ribbon)
+- [x] Dashboard integration (trigger simulation from ribbon)
 - [ ] Simulation parameter configuration UI (seed, iteration count)
 
 ## 3. Analyze — Examine Results
@@ -43,7 +43,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] KPI cards component (KpiCards.svelte)
 - [x] Statistical chart component (StatisticalChart.svelte)
 - [ ] Blast radius heat map on graph nodes
-- [ ] Data pipeline: simulation results → dashboard UI
+- [x] Data pipeline: simulation results → dashboard UI
 - [ ] Compromised host/attack path inspection
 
 ## 4. Defend — Optimize & Apply Defenses
@@ -69,7 +69,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## 2. Simulate — Run Attack Simulation
 
-- [ ] Trigger simulation from dashboard
+- [x] Trigger simulation from dashboard
 - [ ] Configure simulation parameters via UI
 - [ ] Telemetry inside simulator (OTel spans)
 - [ ] Simulation progress indicator
