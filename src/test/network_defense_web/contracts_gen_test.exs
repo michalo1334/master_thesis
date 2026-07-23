@@ -6,7 +6,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   @dashboard_categories [:graph, :simulation, :optimization]
 
   test "renders contract types from typespecs and metadata" do
-    output = Registry.render_all(:all)
+    output = Registry.render_all()
 
     assert output =~ "export type Node = HostNode | ServiceNode | VulnerabilityNode;"
     assert output =~ "type: \"Host\";"
@@ -81,15 +81,11 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   end
 
   test "generated file is in sync with contracts" do
-    assert File.read!(Registry.output_path(:dashboard)) == Registry.render_all(:all)
+    assert File.read!(Registry.output_path()) == Registry.render_all()
   end
 
-  test "derives the generated file path from the category" do
-    assert Registry.output_path(:operations) ==
-             Path.join(File.cwd!(), "assets/svelte/operations/contracts.generated.ts")
-  end
-
-  test "rejects unsafe category paths" do
-    assert_raise ArgumentError, fn -> Registry.output_path("../operations") end
+  test "uses a global generated file" do
+    assert Registry.output_path() ==
+             Path.join(File.cwd!(), "assets/svelte/contracts.generated.ts")
   end
 end

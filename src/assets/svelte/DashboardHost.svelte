@@ -12,7 +12,7 @@
     SimulationFailedEvent,
     FetchSimulationRunsPayload,
     FetchSimulationRunsReply,
-  } from "./dashboard/contracts.generated";
+  } from "./contracts.generated";
 
   interface Props {
     live: Live;

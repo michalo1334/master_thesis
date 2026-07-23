@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ServiceNode } from "../../contracts.generated";
+  import type { ServiceNode } from "../../../contracts.generated";
   import Inspector from "../Inspector.svelte";
   import InspectorField from "../InspectorField.svelte";
 

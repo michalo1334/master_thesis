@@ -26,7 +26,7 @@ import type {
   KpiMetric,
   ReportCharts,
   ChartSpec,
-} from "./contracts.generated";
+} from "../contracts.generated";
 
 export type {
   HostData,
@@ -56,7 +56,7 @@ export type {
   KpiMetric,
   ReportCharts,
   ChartSpec,
-} from "./contracts.generated";
+} from "../contracts.generated";
 
 export type Id = string;
 export type Status =

@@ -11,7 +11,7 @@ import type {
   FetchSimulationRunsReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
-import type { SimulationParams } from "./contracts.generated";
+import type { SimulationParams } from "../contracts.generated";
 
 export type LiveServer = {
   pushEvent<TPayload extends object>(
