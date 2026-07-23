@@ -6,13 +6,13 @@
   import { createDashboardApi } from "./dashboard/dashboard-api";
   import type { LiveServer } from "./dashboard/dashboard-api";
   import Dashboard from "./Dashboard.svelte";
-  import type { GraphSummary } from "./dashboard/contract";
   import type {
+    GraphSummary,
+    FetchExperimentsPayload,
+    FetchExperimentsReply,
     SimulationCompletedEvent,
     SimulationFailedEvent,
-    FetchSimulationRunsPayload,
-    FetchSimulationRunsReply,
-  } from "./contracts.generated";
+  } from "./dashboard/contract";
 
   interface Props {
     live: Live;
@@ -21,15 +21,15 @@
 
   const { live, graphSummaries = [] }: Props = $props();
 
-  const fetchSimRuns = useEventReply<
-    FetchSimulationRunsReply,
-    FetchSimulationRunsPayload
-  >("fetch_simulation_runs");
+  const fetchExperiments = useEventReply<
+    FetchExperimentsReply,
+    FetchExperimentsPayload
+  >("fetch_experiments");
 
   const model = untrack(
     () =>
       new DashboardModel(
-        createDashboardApi(live as LiveServer, fetchSimRuns.execute),
+        createDashboardApi(live as LiveServer, fetchExperiments.execute),
         graphSummaries,
       ),
   );

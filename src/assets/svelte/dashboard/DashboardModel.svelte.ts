@@ -1,6 +1,11 @@
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import type { DashboardApi } from "./dashboard-api";
-import type { GraphSummary, SimulationRunSummary } from "./contract";
+import type {
+  GraphSummary,
+  SimulationCompletedEvent,
+  SimulationFailedEvent,
+  ExperimentSummary,
+} from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 
 export class DashboardModel {
@@ -23,11 +28,7 @@ export class DashboardModel {
   }
 
   /** Cross-model: route a server completion event to the matching report. */
-  onSimulationCompleted(payload: {
-    correlation_id: string;
-    graph_id: string;
-    simulation_id: string;
-  }): void {
+  onSimulationCompleted(payload: SimulationCompletedEvent): void {
     const report = this.workspace.documents.find(
       (d) =>
         d.kind === "simulation-report" &&
@@ -35,7 +36,7 @@ export class DashboardModel {
         d.graphId === payload.graph_id,
     ) as SimulationReportDocument | undefined;
     if (!report) return;
-    report.complete(this.api, payload.simulation_id, payload.graph_id);
+    report.complete(this.api, payload.experiment_id, payload.graph_id);
     if (this.workspace.selectedDocumentId === report.id) {
       report.markRead();
     } else {
@@ -44,11 +45,7 @@ export class DashboardModel {
   }
 
   /** Cross-model: route a server failure event to the matching report. */
-  onSimulationFailed(payload: {
-    correlation_id: string;
-    graph_id: string;
-    reason: string;
-  }): void {
+  onSimulationFailed(payload: SimulationFailedEvent): void {
     const report = this.workspace.documents.find(
       (d) =>
         d.kind === "simulation-report" &&
@@ -75,12 +72,12 @@ export class DashboardModel {
   }
 
   /** Delegate historical report picker opening to the workspace. */
-  async showReport(): Promise<void> {
-    await this.workspace.showReport(this.api);
+  async showExperiments(): Promise<void> {
+    await this.workspace.showExperiments(this.api);
   }
 
   /** Delegate historical report selection to the workspace. */
-  async selectSimulationRun(run: SimulationRunSummary): Promise<boolean> {
-    return this.workspace.selectSimulationRun(this.api, run);
+  async selectExperiment(experiment: ExperimentSummary): Promise<boolean> {
+    return this.workspace.selectExperiment(this.api, experiment);
   }
 }

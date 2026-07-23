@@ -11,7 +11,7 @@
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
-  import type { SimulationRunSummary } from "./dashboard/contract";
+  import type { ExperimentSummary } from "./dashboard/contract";
   import type { GraphSummary } from "./dashboard/contract";
 
   interface Props {
@@ -42,8 +42,8 @@
     await model.runActiveSimulation();
   }
 
-  async function handleShowReport(): Promise<void> {
-    await model.showReport();
+  async function handleShowExperiments(): Promise<void> {
+    await model.showExperiments();
   }
 
   function formatTimestamp(iso: string): string {
@@ -66,10 +66,10 @@
     return summary ? wm.openGraph(api, summary) : false;
   }
 
-  async function handleSimulationRunSelect([
-    run,
-  ]: SimulationRunSummary[]): Promise<boolean> {
-    return run ? model.selectSimulationRun(run) : false;
+  async function handleExperimentSelect([
+    experiment,
+  ]: ExperimentSummary[]): Promise<boolean> {
+    return experiment ? model.selectExperiment(experiment) : false;
   }
 </script>
 
@@ -82,12 +82,13 @@
   <DashboardRibbon
     hasActiveGraph={wm.hasActiveGraph}
     hasUnreadReport={wm.hasUnreadReport}
-    isLoadingSimulationRuns={wm.isLoadingSimulationRuns}
+    isLoadingExperiments={wm.isLoadingExperiments}
     forceParams={wm.forceParams}
     onForceParamsChange={(change) => wm.onForceParamsChange(change)}
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
-    onShowReport={handleShowReport}
+    onShowExperiments={handleShowExperiments}
+    onSimulationParamsChange={(change) => wm}
   />
 
   {#snippet inspector()}
@@ -120,18 +121,18 @@
   />
 
   <OptionPickerDialog
-    open={wm.simulationRunsModalOpen}
-    onOpenChange={(open) => (wm.simulationRunsModalOpen = open)}
-    items={wm.simulationRuns}
-    title="Simulation runs"
-    description="Select a completed simulation run to view its report."
-    getKey={(run) => run.id}
-    getTitle={(run) => run.graph_title}
-    getDescription={(run) =>
-      `${run.simulation_count} trials · ${run.iteration_count} iters · ${formatRuntime(run.runtime_ms)} · ${formatTimestamp(run.started_at)}`}
-    emptyMessage="No simulation runs found."
-    status={wm.simulationRunsStatus}
-    onConfirm={handleSimulationRunSelect}
+    open={wm.experimentsModalOpen}
+    onOpenChange={(open) => (wm.experimentsModalOpen = open)}
+    items={wm.experiments}
+    title="Experiments"
+    description="Select a completed experiment to view its report."
+    getKey={(experiment) => experiment.id}
+    getTitle={(experiment) => experiment.graph_title}
+    getDescription={(experiment) =>
+      `${experiment.run_count} runs · ${experiment.iteration_count} iters · ${formatRuntime(experiment.runtime_ms)} · ${formatTimestamp(experiment.started_at)}`}
+    emptyMessage="No experiments found."
+    status={wm.experimentsStatus}
+    onConfirm={handleExperimentSelect}
   />
 
   <StatusBar

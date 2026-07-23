@@ -1,47 +1,47 @@
 defmodule NetworkDefense.Simulation.Report do
   @moduledoc """
-  Pure computation of simulation report statistics from loaded MultiState data.
+  Pure computation of simulation report statistics from loaded Experiment data.
   """
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.State
-  alias NetworkDefense.Simulation.MultiState
+  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Graph.Graph
 
   @doc """
-  Returns `report_data` map from a fully loaded MultiState with preloaded
-  simulations and their iteration_steps (ordered by index ascending).
+  Returns `report_data` map from a fully loaded Experiment with preloaded runs
+  and their iteration steps (ordered by index ascending).
   """
-  def generate(%MultiState{} = multi_state) do
-    simulations = multi_state.simulations
-    final_counts = final_foothold_counts(simulations)
+  def generate(%Experiment{} = experiment) do
+    runs = experiment.runs
+    final_counts = final_foothold_counts(runs)
     stats = blast_radius_stats(final_counts)
 
     %{
-      multi_state_id: multi_state.id,
-      graph_id: multi_state.graph_id,
-      graph_title: graph_title(multi_state),
-      graph_version_at_sim: multi_state.lock_version,
-      simulation_count: length(simulations),
-      iteration_count: multi_state.iteration_count,
-      total_runtime_ms: multi_state.runtime_ms,
-      kpis: kpis(stats, simulations),
+      experiment_id: experiment.id,
+      graph_id: experiment.graph_id,
+      graph_title: graph_title(experiment),
+      graph_version_at_sim: experiment.lock_version,
+      run_count: length(runs),
+      iteration_count: experiment.iteration_count,
+      total_runtime_ms: experiment.runtime_ms,
+      kpis: kpis(stats, runs),
       charts: %{
         blast_radius_distribution: distribution_charts(final_counts, stats),
-        convergence: convergence_charts(simulations),
-        action_stats: action_charts(simulations)
+        convergence: convergence_charts(runs),
+        action_stats: action_charts(runs)
       }
     }
   end
 
-  defp graph_title(%MultiState{graph: %Graph{title: title}}), do: title
+  defp graph_title(%Experiment{graph: %Graph{title: title}}), do: title
   defp graph_title(_), do: "Unknown graph"
 
-  defp final_foothold_counts(simulations) do
-    simulations
-    |> Enum.map(fn sim ->
-      sim
-      |> State.current_attacker_state()
+  defp final_foothold_counts(runs) do
+    runs
+    |> Enum.map(fn run ->
+      run
+      |> Run.current_attacker_state()
       |> AttackerState.foothold_nodes()
       |> length()
     end)
@@ -74,13 +74,13 @@ defmodule NetworkDefense.Simulation.Report do
     Enum.at(sorted, idx)
   end
 
-  defp kpis(stats, simulations) do
-    total_hosts = total_host_count(List.first(simulations))
+  defp kpis(stats, runs) do
+    total_hosts = total_host_count(List.first(runs))
 
     [
       %{
         label: "Simulation runs",
-        value: Integer.to_string(length(simulations)),
+        value: Integer.to_string(length(runs)),
         detail: "Monte Carlo trials completed",
         tone: "neutral"
       },
@@ -100,7 +100,7 @@ defmodule NetworkDefense.Simulation.Report do
       %{
         label: "Blast radius variance",
         value: Float.to_string(stats.variance),
-        detail: "Spread across #{length(simulations)} runs",
+        detail: "Spread across #{length(runs)} runs",
         tone: "neutral"
       }
     ]
@@ -108,7 +108,7 @@ defmodule NetworkDefense.Simulation.Report do
 
   defp total_host_count(nil), do: 0
 
-  defp total_host_count(%State{graph: %Graph{} = graph}) do
+  defp total_host_count(%Run{graph: %Graph{} = graph}) do
     graph |> Graph.nodes() |> length()
   end
 
@@ -175,12 +175,12 @@ defmodule NetworkDefense.Simulation.Report do
     end)
   end
 
-  defp convergence_charts(simulations) do
+  defp convergence_charts(runs) do
     counts =
-      simulations
-      |> Enum.map(fn sim ->
-        sim
-        |> State.current_attacker_state()
+      runs
+      |> Enum.map(fn run ->
+        run
+        |> Run.current_attacker_state()
         |> AttackerState.foothold_nodes()
         |> length()
       end)
@@ -227,8 +227,8 @@ defmodule NetworkDefense.Simulation.Report do
     Enum.reverse(series)
   end
 
-  defp action_charts(simulations) do
-    action_counts = action_success_rates(simulations)
+  defp action_charts(runs) do
+    action_counts = action_success_rates(runs)
 
     if action_counts == [] do
       []
@@ -245,11 +245,11 @@ defmodule NetworkDefense.Simulation.Report do
     end
   end
 
-  defp action_success_rates(simulations) do
+  defp action_success_rates(runs) do
     iterations =
-      simulations
-      |> Enum.flat_map(fn sim ->
-        sim.iterations
+      runs
+      |> Enum.flat_map(fn run ->
+        run.iterations
       end)
       |> Enum.filter(fn iter -> iter.attempted_action != nil end)
 

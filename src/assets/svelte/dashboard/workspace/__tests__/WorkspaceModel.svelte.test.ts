@@ -3,7 +3,7 @@ import { WorkspaceModel } from "../WorkspaceModel.svelte";
 import type {
   GraphSummary,
   LoadedGraph,
-  SimulationRunSummary,
+  ExperimentSummary,
 } from "../../contract";
 import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
@@ -29,9 +29,9 @@ function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   };
 }
 
-function makeSimulationRun(
-  overrides: Partial<SimulationRunSummary> = {},
-): SimulationRunSummary {
+function makeExperiment(
+  overrides: Partial<ExperimentSummary> = {},
+): ExperimentSummary {
   return {
     id: "sim-1",
     graph_id: "g1",
@@ -39,7 +39,7 @@ function makeSimulationRun(
     iteration_count: 100,
     runtime_ms: 1000,
     seed: 1,
-    simulation_count: 10,
+    run_count: 10,
     started_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -235,12 +235,12 @@ describe("WorkspaceModel", () => {
     });
   });
 
-  describe("selectSimulationRun", () => {
+  describe("selectExperiment", () => {
     const api = {
       fetchSimulationReport: vi.fn().mockResolvedValue({ status: "not_found" }),
     } as unknown as DashboardApi;
 
-    it("reuses a historical report only when its simulation ID matches", async () => {
+    it("reuses a historical report only when its experiment ID matches", async () => {
       const existing = model.createPendingReport({
         graphId: "g1",
         correlationId: "corr-old",
@@ -248,58 +248,50 @@ describe("WorkspaceModel", () => {
       });
       existing.markReady("sim-old");
 
-      await model.selectSimulationRun(
-        api,
-        makeSimulationRun({ id: "sim-new" }),
-      );
+      await model.selectExperiment(api, makeExperiment({ id: "sim-new" }));
 
       expect(model.documents).toHaveLength(2);
 
-      await model.selectSimulationRun(
-        api,
-        makeSimulationRun({ id: "sim-old" }),
-      );
+      await model.selectExperiment(api, makeExperiment({ id: "sim-old" }));
 
       expect(model.documents).toHaveLength(2);
       expect(model.selectedDocumentId).toBe(existing.id);
     });
   });
 
-  describe("showReport", () => {
-    it("ignores duplicate requests while simulation runs are loading", async () => {
+  describe("showExperiments", () => {
+    it("ignores duplicate requests while experiments are loading", async () => {
       const graph = model.createGraphDocument();
       graph.replaceFromLoadedGraph(makeLoadedGraph());
-      const request = deferred<{ runs: SimulationRunSummary[] }>();
+      const request = deferred<{ experiments: ExperimentSummary[] }>();
       const api = {
-        fetchSimulationRuns: vi.fn().mockReturnValue(request.promise),
+        fetchExperiments: vi.fn().mockReturnValue(request.promise),
       } as unknown as DashboardApi;
 
-      const first = model.showReport(api);
-      expect(model.isLoadingSimulationRuns).toBe(true);
-      const second = model.showReport(api);
+      const first = model.showExperiments(api);
+      expect(model.isLoadingExperiments).toBe(true);
+      const second = model.showExperiments(api);
 
-      expect(api.fetchSimulationRuns).toHaveBeenCalledTimes(1);
+      expect(api.fetchExperiments).toHaveBeenCalledTimes(1);
 
-      request.resolve({ runs: [] });
+      request.resolve({ experiments: [] });
       await Promise.all([first, second]);
 
-      expect(model.isLoadingSimulationRuns).toBe(false);
-      expect(model.simulationRunsStatus).toBe("No simulation runs found.");
+      expect(model.isLoadingExperiments).toBe(false);
+      expect(model.experimentsStatus).toBe("No experiments found.");
     });
 
-    it("shows a status and resets loading when simulation runs fail to load", async () => {
+    it("shows a status and resets loading when experiments fail to load", async () => {
       const graph = model.createGraphDocument();
       graph.replaceFromLoadedGraph(makeLoadedGraph());
       const api = {
-        fetchSimulationRuns: vi.fn().mockRejectedValue(new Error("offline")),
+        fetchExperiments: vi.fn().mockRejectedValue(new Error("offline")),
       } as unknown as DashboardApi;
 
-      await model.showReport(api);
+      await model.showExperiments(api);
 
-      expect(model.isLoadingSimulationRuns).toBe(false);
-      expect(model.simulationRunsStatus).toBe(
-        "Failed to load simulation runs.",
-      );
+      expect(model.isLoadingExperiments).toBe(false);
+      expect(model.experimentsStatus).toBe("Failed to load experiments.");
     });
   });
 

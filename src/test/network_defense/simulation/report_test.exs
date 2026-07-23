@@ -2,19 +2,19 @@ defmodule NetworkDefense.Simulation.ReportTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.MultiState
+  alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Report
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Run
 
   test "generates a convergence chart for completed simulations" do
-    report = Report.generate(multi_state([simulation("source-host")]))
+    report = Report.generate(experiment([run("source-host")]))
 
     assert [%{id: "mean-convergence", option: %{series: [%{data: [1.0]}]}}] =
              report.charts.convergence
   end
 
   test "generates an empty convergence chart when no simulations were persisted" do
-    report = Report.generate(multi_state([]))
+    report = Report.generate(experiment([]))
 
     assert [
              %{
@@ -25,16 +25,16 @@ defmodule NetworkDefense.Simulation.ReportTest do
              report.charts.convergence
   end
 
-  defp multi_state(simulations) do
-    %MultiState{
-      id: "multi-state",
+  defp experiment(runs) do
+    %Experiment{
+      id: "experiment",
       graph_id: "graph",
       iteration_count: 1,
-      simulations: simulations
+      runs: runs
     }
   end
 
-  defp simulation(foothold) do
-    State.new(initial_attacker_state: AttackerState.new(foothold))
+  defp run(foothold) do
+    Run.new(initial_attacker_state: AttackerState.new(foothold))
   end
 end

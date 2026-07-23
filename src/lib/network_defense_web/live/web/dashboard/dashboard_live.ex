@@ -10,8 +10,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Web.Contracts.{
     FetchSimulationReportPayload,
     FetchSimulationReportReply,
-    FetchSimulationRunsPayload,
-    FetchSimulationRunsReply,
+    FetchExperimentsPayload,
+    FetchExperimentsReply,
     OpenGraphPayload,
     OpenGraphReply,
     OptimizeDefensePayload,
@@ -111,12 +111,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   def handle_event("fetch_simulation_report", params, socket) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
-        case Reports.load_for_report(request.multi_state_id) do
+        case Reports.load_for_report(request.experiment_id) do
           nil ->
             {:reply, %{status: "not_found"}, socket}
 
-          multi_state ->
-            {:ok, report} = FetchSimulationReportReply.validate(Report.generate(multi_state))
+          experiment ->
+            {:ok, report} = FetchSimulationReportReply.validate(Report.generate(experiment))
             {:reply, FetchSimulationReportReply.to_wire(report), socket}
         end
 
@@ -125,30 +125,30 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  def handle_event("fetch_simulation_runs", params, socket) do
-    case FetchSimulationRunsPayload.validate(params) do
+  def handle_event("fetch_experiments", params, socket) do
+    case FetchExperimentsPayload.validate(params) do
       {:ok, request} ->
-        runs =
+        experiments =
           request.graph_ids
-          |> Simulations.list_runs()
-          |> Enum.map(fn ms ->
+          |> Simulations.list_experiments()
+          |> Enum.map(fn experiment ->
             %{
-              id: ms.id,
-              graph_id: ms.graph_id,
-              graph_title: (ms.graph && ms.graph.title) || "Unknown",
-              seed: ms.seed,
-              simulation_count: ms.simulation_count || 0,
-              iteration_count: ms.iteration_count,
-              runtime_ms: ms.runtime_ms,
-              started_at: ms.inserted_at && DateTime.to_iso8601(ms.inserted_at)
+              id: experiment.id,
+              graph_id: experiment.graph_id,
+              graph_title: (experiment.graph && experiment.graph.title) || "Unknown",
+              seed: experiment.seed,
+              run_count: experiment.run_count || 0,
+              iteration_count: experiment.iteration_count,
+              runtime_ms: experiment.runtime_ms,
+              started_at: experiment.inserted_at && DateTime.to_iso8601(experiment.inserted_at)
             }
           end)
 
-        {:ok, reply} = FetchSimulationRunsReply.validate(%{runs: runs})
-        {:reply, FetchSimulationRunsReply.to_wire(reply), socket}
+        {:ok, reply} = FetchExperimentsReply.validate(%{experiments: experiments})
+        {:reply, FetchExperimentsReply.to_wire(reply), socket}
 
       {:error, _changeset} ->
-        {:reply, FetchSimulationRunsReply.to_wire(%FetchSimulationRunsReply{runs: []}), socket}
+        {:reply, FetchExperimentsReply.to_wire(%FetchExperimentsReply{experiments: []}), socket}
     end
   end
 

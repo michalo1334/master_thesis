@@ -23,7 +23,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "correlation_id: string;"
     assert output =~ "status: \"accepted\" | \"rejected\";"
     assert output =~ "export interface SimulationCompletedEvent"
-    assert output =~ "simulation_id: string;"
+    assert output =~ "experiment_id: string;"
     assert output =~ "export interface SimulationFailedEvent"
     assert output =~ "export interface OptimizeDefensePayload"
   end

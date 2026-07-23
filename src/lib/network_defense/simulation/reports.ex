@@ -4,35 +4,35 @@ defmodule NetworkDefense.Simulation.Reports do
   """
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.MultiState
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Run
 
   import Ecto.Query
 
   @doc """
-  Fully loads a MultiState with graph and all nested simulation data
+  Fully loads an Experiment with graph and all nested run data
   needed to compute a report.
   """
-  def load_for_report(multi_state_id) do
-    MultiState
-    |> Repo.get(multi_state_id)
+  def load_for_report(experiment_id) do
+    Experiment
+    |> Repo.get(experiment_id)
     |> case do
       nil -> nil
-      multi_state -> multi_state |> Repo.preload(:graph) |> load_simulations()
+      experiment -> experiment |> Repo.preload(:graph) |> load_runs()
     end
   end
 
-  defp load_simulations(multi_state) do
-    simulations =
-      State
-      |> where([s], s.multi_state_id == ^multi_state.id)
-      |> order_by([s], asc: :inserted_at)
+  defp load_runs(experiment) do
+    runs =
+      Run
+      |> where([run], run.experiment_id == ^experiment.id)
+      |> order_by([run], asc: :inserted_at)
       |> Repo.all()
       |> Repo.preload(:iterations)
-      |> Enum.map(fn sim ->
-        %{sim | iterations: Enum.sort_by(sim.iterations, & &1.index, :desc)}
+      |> Enum.map(fn run ->
+        %{run | iterations: Enum.sort_by(run.iterations, & &1.index, :desc)}
       end)
 
-    %{multi_state | simulations: simulations}
+    %{experiment | runs: runs}
   end
 end

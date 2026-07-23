@@ -94,7 +94,7 @@ export interface RunSimulationRequest {
 }
 
 export interface SimulationParams {
-  iterations_per_count: number;
+  iterations_per_run: number;
   monte_carlo_trials: number;
 }
 
@@ -106,29 +106,40 @@ export interface ChartSpec {
   title: string;
 }
 
-export interface FetchSimulationReportPayload {
+export interface ExperimentSummary {
   graph_id: string;
-  multi_state_id: string;
+  graph_title: string;
+  id: string;
+  iteration_count: number;
+  run_count: number;
+  runtime_ms: number;
+  seed: number;
+  started_at: string;
+}
+
+export interface FetchExperimentsPayload {
+  graph_ids: string[];
+}
+
+export interface FetchExperimentsReply {
+  experiments: ExperimentSummary[];
+}
+
+export interface FetchSimulationReportPayload {
+  experiment_id: string;
+  graph_id: string;
 }
 
 export interface FetchSimulationReportReply {
   charts: ReportCharts;
+  experiment_id: string;
   graph_id: string;
   graph_title: string;
   graph_version_at_sim: number;
   iteration_count: number;
   kpis: KpiMetric[];
-  multi_state_id: string;
-  simulation_count: number;
+  run_count: number;
   total_runtime_ms: number;
-}
-
-export interface FetchSimulationRunsPayload {
-  graph_ids: string[];
-}
-
-export interface FetchSimulationRunsReply {
-  runs: SimulationRunSummary[];
 }
 
 export interface KpiMetric {
@@ -179,23 +190,12 @@ export interface SaveGraphReply {
 
 export interface SimulationCompletedEvent {
   correlation_id: string;
+  experiment_id: string;
   graph_id: string;
-  simulation_id: string;
 }
 
 export interface SimulationFailedEvent {
   correlation_id: string;
   graph_id: string;
   reason: string;
-}
-
-export interface SimulationRunSummary {
-  graph_id: string;
-  graph_title: string;
-  id: string;
-  iteration_count: number;
-  runtime_ms: number;
-  seed: number;
-  simulation_count: number;
-  started_at: string;
 }

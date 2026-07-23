@@ -5,10 +5,10 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.MultiState
-  alias NetworkDefense.Simulation.MultiStates
+  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.Simulator
-  alias NetworkDefense.Simulation.States
+  alias NetworkDefense.Simulation.Runs
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   import Ecto.Query
@@ -17,13 +17,13 @@ defmodule NetworkDefense.Simulations do
 
   def run(opts \\ []) do
     state = Simulator.run(opts)
-    {:ok, saved} = States.insert(state)
+    {:ok, saved} = Runs.insert(state)
     saved
   end
 
-  def run_multiple(opts \\ []) do
-    {multi_state, _states} = Simulator.run_multiple(opts)
-    {:ok, saved} = MultiStates.insert(multi_state)
+  def run_experiment(opts \\ []) do
+    {experiment, _runs} = Simulator.run_experiment(opts)
+    {:ok, saved} = Experiments.insert(experiment)
     saved
   end
 
@@ -46,12 +46,12 @@ defmodule NetworkDefense.Simulations do
 
     Task.start(fn ->
       try do
-        {elapsed_us, {multi_state, states}} =
+        {elapsed_us, {experiment, runs}} =
           :timer.tc(fn ->
-            Simulator.run_multiple(
+            Simulator.run_experiment(
               graph: graph,
-              simulation_count: simulation_params.monte_carlo_trials,
-              iteration_count: simulation_params.iterations_per_count,
+              run_count: simulation_params.monte_carlo_trials,
+              iteration_count: simulation_params.iterations_per_run,
               initial_attacker_state: initial_attacker_state(graph),
               lock_version: graph.lock_version,
               rules: rules
@@ -60,16 +60,16 @@ defmodule NetworkDefense.Simulations do
 
         runtime_ms = div(elapsed_us, 1000)
 
-        multi_state = %{
-          multi_state
+        experiment = %{
+          experiment
           | runtime_ms: runtime_ms,
             lock_version: graph.lock_version,
-            simulation_count: length(states)
+            run_count: length(runs)
         }
 
-        case MultiStates.insert(multi_state) do
+        case Experiments.insert(experiment) do
           {:ok, saved} ->
-            Logger.info("simulation persisted: #{saved.id} for graph #{saved.graph_id}")
+            Logger.info("experiment persisted: #{saved.id} for graph #{saved.graph_id}")
 
             broadcast_simulation_completed(saved, correlation_id)
 
@@ -89,17 +89,17 @@ defmodule NetworkDefense.Simulations do
     end)
   end
 
-  def list_runs(graph_ids) when is_list(graph_ids) do
+  def list_experiments(graph_ids) when is_list(graph_ids) do
     query =
-      from ms in MultiState,
-        where: ms.graph_id in ^graph_ids,
+      from experiment in Experiment,
+        where: experiment.graph_id in ^graph_ids,
         order_by: [desc: :inserted_at],
         preload: [:graph]
 
     Repo.all(query)
   end
 
-  def list_runs(graph_ids), do: list_runs([graph_ids])
+  def list_experiments(graph_ids), do: list_experiments([graph_ids])
 
   defp initial_attacker_state(graph) do
     internet_host =
@@ -120,15 +120,15 @@ defmodule NetworkDefense.Simulations do
     [%NetworkDefense.Rules.RemoteServiceExploitation{}]
   end
 
-  defp broadcast_simulation_completed(simulation, correlation_id) do
+  defp broadcast_simulation_completed(experiment, correlation_id) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_completed,
        %{
          correlation_id: correlation_id,
-         graph_id: simulation.graph_id,
-         simulation_id: simulation.id
+         graph_id: experiment.graph_id,
+         experiment_id: experiment.id
        }}
     )
   end

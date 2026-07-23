@@ -4,11 +4,11 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
   use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
-    field :multi_state_id, :string
+    field :experiment_id, :string
     field :graph_id, :string
     field :graph_title, :string
     field :graph_version_at_sim, :integer
-    field :simulation_count, :integer
+    field :run_count, :integer
     field :iteration_count, :integer
     field :total_runtime_ms, :integer
     embeds_many :kpis, NetworkDefenseWeb.Web.Contracts.KpiMetric, on_replace: :delete
@@ -16,11 +16,11 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
   end
 
   @type t :: %__MODULE__{
-          multi_state_id: String.t(),
+          experiment_id: String.t(),
           graph_id: String.t(),
           graph_title: String.t(),
           graph_version_at_sim: integer(),
-          simulation_count: integer(),
+          run_count: integer(),
           iteration_count: integer(),
           total_runtime_ms: integer(),
           kpis: [NetworkDefenseWeb.Web.Contracts.KpiMetric.t()],
@@ -30,22 +30,22 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [
-      :multi_state_id,
+      :experiment_id,
       :graph_id,
       :graph_title,
       :graph_version_at_sim,
-      :simulation_count,
+      :run_count,
       :iteration_count,
       :total_runtime_ms
     ])
     |> cast_embed(:kpis, required: true)
     |> cast_embed(:charts, required: true)
     |> validate_required([
-      :multi_state_id,
+      :experiment_id,
       :graph_id,
       :graph_title,
       :graph_version_at_sim,
-      :simulation_count,
+      :run_count,
       :iteration_count,
       :total_runtime_ms
     ])

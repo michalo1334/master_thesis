@@ -5,7 +5,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
 
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Types.Action, as: ActionType
   alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
   alias NetworkDefense.Simulation.Types.Seed
@@ -15,7 +15,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
-          simulation_id: String.t() | nil,
+          run_id: String.t() | nil,
           index: non_neg_integer(),
           attempted_action: Action.t() | nil,
           success?: boolean(),
@@ -24,7 +24,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
         }
 
   schema "iteration_steps" do
-    belongs_to :simulation, State
+    belongs_to :run, Run
 
     field :index, :integer
     field :attempted_action, ActionType
@@ -38,10 +38,10 @@ defmodule NetworkDefense.Simulation.IterationStep do
   def changeset(step, attrs) do
     step
     |> cast(attrs, [:index, :attempted_action, :success?, :attacker_state, :seed])
-    |> validate_required([:simulation_id, :index, :success?, :attacker_state, :seed])
+    |> validate_required([:run_id, :index, :success?, :attacker_state, :seed])
     |> validate_number(:index, greater_than: 0)
-    |> foreign_key_constraint(:simulation_id)
-    |> unique_constraint([:simulation_id, :index])
+    |> foreign_key_constraint(:run_id)
+    |> unique_constraint([:run_id, :index])
   end
 
   def new(opts \\ []), do: struct!(__MODULE__, opts)

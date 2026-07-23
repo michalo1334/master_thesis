@@ -4,72 +4,71 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   Runs N successive iterations, with each iteration evaluating a set of rules and performing probalistically one selected action.
 
-  The entrypoint functions are run/2 and run_multiple/1.
+   The entrypoint functions are run/2 and run_experiment/1.
 
-  While run/2 performs single simulator run, run_multiple execute multiple ones in sequence, which enables to obtain more accurate blast radius statistics (mean, min, max, p95 etc.).
+   While run/2 performs a single run, run_experiment/1 executes multiple runs in sequence to produce blast-radius statistics.
   """
-  require Logger
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.MultiState
+  alias NetworkDefense.Simulation.Experiment
 
   @default_seed 0
-  @default_simulation_count 10
+  @default_run_count 10
 
   @doc """
-  Runs the simulation multiple times with supplied options.
+   Runs a Monte Carlo experiment with supplied options.
 
   Options:
-   - simulation_count - number of simulation runs
+    - run_count - number of simulation runs
    - seed - master seed from which child seeds are derived
    - graph - the network graph
    - initial_attacker_state - attacker starting position
    - iteration_count - iterations per run
    - rules - rule set to evaluate
 
-  Returns a tuple `{multi_state, states}` where `multi_state` is the parent
-  record linking all runs and `states` is the list of completed simulation runs.
+   Returns a tuple `{experiment, runs}` where `experiment` is the parent record
+   linking all completed runs.
   """
-  @spec run_multiple(keyword()) :: {MultiState.t(), list(State.t())}
-  def run_multiple(opts) do
+  @spec run_experiment(keyword()) :: {Experiment.t(), list(Run.t())}
+  def run_experiment(opts) do
     seed = Keyword.get(opts, :seed, @default_seed)
-    simulation_count = Keyword.get(opts, :simulation_count, @default_simulation_count)
+    run_count = Keyword.get(opts, :run_count, @default_run_count)
     iteration_count = Keyword.get(opts, :iteration_count, 1000)
     lock_version = Keyword.get(opts, :lock_version, 1)
 
-    multi_state =
-      MultiState.new(
+    experiment =
+      Experiment.new(
         seed: seed,
         iteration_count: iteration_count,
-        simulation_count: simulation_count,
+        run_count: run_count,
         lock_version: lock_version,
         graph: Keyword.get(opts, :graph),
         initial_attacker_state: Keyword.get(opts, :initial_attacker_state)
       )
 
-    states =
-      Enum.map(1..simulation_count, fn idx ->
+    runs =
+      Enum.map(1..run_count, fn idx ->
         run(
           opts
           |> Keyword.put(:seed, derive_child_seed(seed, idx))
-          |> Keyword.put(:multi_state_id, multi_state.id)
+          |> Keyword.put(:experiment_id, experiment.id)
         )
       end)
 
-    {%{multi_state | simulations: states}, states}
+    {%{experiment | runs: runs}, runs}
   end
 
   @doc """
-  Runs the simulation with supplied options. Returns final State struct after all iterations.
+   Runs one simulation. Returns the completed Run after all iterations.
 
   Options:
    - initial_state - the attacker initial state or none
    - iteration_count - n
    - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
-   - multi_state_id - optional parent MultiState id linking this run to a batch
+    - experiment_id - optional parent Experiment id linking this run to its experiment
   """
   def run(opts) do
     state_opts =
@@ -77,22 +76,22 @@ defmodule NetworkDefense.Simulation.Simulator do
       |> Keyword.take([:graph, :initial_attacker_state, :rules, :iteration_count])
       |> Keyword.put(:initial_seed, Keyword.get(opts, :seed, 0))
       |> then(fn base_opts ->
-        case Keyword.get(opts, :multi_state_id) do
+        case Keyword.get(opts, :experiment_id) do
           nil -> base_opts
-          id -> Keyword.put(base_opts, :multi_state_id, id)
+          id -> Keyword.put(base_opts, :experiment_id, id)
         end
       end)
 
-    run(State.new(state_opts), opts)
+    run(Run.new(state_opts), opts)
   end
 
-  def run(%State{iteration_count: iteration_count} = initial_state, _opts) do
+  def run(%Run{iteration_count: iteration_count} = initial_state, _opts) do
     Enum.reduce(1..iteration_count, initial_state, fn index, state ->
       perform_iteration(state, index)
     end)
   end
 
-  def perform_iteration(%State{} = state, index) do
+  def perform_iteration(%Run{} = state, index) do
     selected_action = get_possible_actions(state) |> select_action(state)
 
     if is_nil(selected_action) do
@@ -101,8 +100,8 @@ defmodule NetworkDefense.Simulation.Simulator do
       {success?, new_seed, new_attacker_state} =
         maybe_execute_action(
           selected_action,
-          State.current_seed(state),
-          State.current_attacker_state(state)
+          Run.current_seed(state),
+          Run.current_attacker_state(state)
         )
 
       next_iteration =
@@ -114,7 +113,7 @@ defmodule NetworkDefense.Simulation.Simulator do
           attacker_state: new_attacker_state
         )
 
-      state |> State.add_iteration_step(next_iteration)
+      state |> Run.add_iteration_step(next_iteration)
     end
   end
 
@@ -140,7 +139,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   Default is to select first one.
   """
-  @spec select_action(list(Action.t()), State.t()) :: Action.t() | nil
+  @spec select_action(list(Action.t()), Run.t()) :: Action.t() | nil
   def select_action([], _state), do: nil
 
   def select_action(actions, _state) do

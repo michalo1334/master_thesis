@@ -11,7 +11,7 @@ export class SimulationReportDocument {
     "pending",
   );
   hasUnread = $state(false);
-  simulationId = $state<string | null>(null);
+  experimentId = $state<string | null>(null);
   correlationId = $state<string | null>(null);
   reportData = $state<SimulationReportData | null>(null);
   errorReason = $state<string>("");
@@ -27,15 +27,15 @@ export class SimulationReportDocument {
   markPending(correlationId: string): void {
     this.loadToken += 1;
     this.correlationId = correlationId;
-    this.simulationId = null;
+    this.experimentId = null;
     this.status = "pending";
     this.reportData = null;
     this.errorReason = "";
   }
 
-  markReady(simulationId: string): void {
+  markReady(experimentId: string): void {
     this.loadToken += 1;
-    this.simulationId = simulationId;
+    this.experimentId = experimentId;
     this.status = "ready";
     this.reportData = null;
     this.errorReason = "";
@@ -61,23 +61,23 @@ export class SimulationReportDocument {
     this.status = "loaded";
   }
 
-  complete(api: DashboardApi, simulationId: string, graphId: string): void {
-    this.markReady(simulationId);
-    void this.load(api, simulationId, graphId);
+  complete(api: DashboardApi, experimentId: string, graphId: string): void {
+    this.markReady(experimentId);
+    void this.load(api, experimentId, graphId);
   }
 
   async load(
     api: DashboardApi,
-    simulationId: string,
+    experimentId: string,
     graphId: string,
   ): Promise<void> {
     const loadToken = ++this.loadToken;
-    this.simulationId = simulationId;
+    this.experimentId = experimentId;
     this.status = "loading";
     this.errorReason = "";
     try {
-      const reply = await api.fetchSimulationReport(simulationId, graphId);
-      if (!this.isCurrentLoad(loadToken, simulationId)) return;
+      const reply = await api.fetchSimulationReport(experimentId, graphId);
+      if (!this.isCurrentLoad(loadToken, experimentId)) return;
       if ("charts" in reply) {
         this.setReportData(reply);
       } else {
@@ -85,13 +85,13 @@ export class SimulationReportDocument {
         this.errorReason = reply.status || "Report not found.";
       }
     } catch {
-      if (!this.isCurrentLoad(loadToken, simulationId)) return;
+      if (!this.isCurrentLoad(loadToken, experimentId)) return;
       this.status = "error";
       this.errorReason = "Failed to load report.";
     }
   }
 
-  private isCurrentLoad(loadToken: number, simulationId: string): boolean {
-    return this.loadToken === loadToken && this.simulationId === simulationId;
+  private isCurrentLoad(loadToken: number, experimentId: string): boolean {
+    return this.loadToken === loadToken && this.experimentId === experimentId;
   }
 }

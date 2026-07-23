@@ -1,11 +1,7 @@
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type {
-  GraphSummary,
-  LoadedGraph,
-  SimulationRunSummary,
-} from "../contract";
+import type { GraphSummary, LoadedGraph, ExperimentSummary } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 
@@ -21,10 +17,10 @@ export class WorkspaceModel {
 
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
-  simulationRunsModalOpen = $state(false);
-  simulationRuns = $state<SimulationRunSummary[]>([]);
-  simulationRunsStatus = $state("");
-  isLoadingSimulationRuns = $state(false);
+  experimentsModalOpen = $state(false);
+  experiments = $state<ExperimentSummary[]>([]);
+  experimentsStatus = $state("");
+  isLoadingExperiments = $state(false);
 
   forceParams = $state<ForceParams>({ ...defaultForceParams });
   statusMessage = $state("");
@@ -164,8 +160,8 @@ export class WorkspaceModel {
     return report;
   }
 
-  async showReport(api: DashboardApi): Promise<void> {
-    if (this.isLoadingSimulationRuns) return;
+  async showExperiments(api: DashboardApi): Promise<void> {
+    if (this.isLoadingExperiments) return;
 
     const graphIds = this.documents
       .filter((d) => d.kind === "graph")
@@ -174,42 +170,45 @@ export class WorkspaceModel {
 
     if (graphIds.length === 0) return;
 
-    this.simulationRunsStatus = "";
-    this.simulationRunsModalOpen = true;
-    this.isLoadingSimulationRuns = true;
+    this.experimentsStatus = "";
+    this.experimentsModalOpen = true;
+    this.isLoadingExperiments = true;
     try {
-      const reply = await api.fetchSimulationRuns(graphIds);
-      this.simulationRuns = reply.runs;
-      if (reply.runs.length === 0) {
-        this.simulationRunsStatus = "No simulation runs found.";
+      const reply = await api.fetchExperiments(graphIds);
+      this.experiments = reply.experiments;
+      if (reply.experiments.length === 0) {
+        this.experimentsStatus = "No experiments found.";
       }
     } catch {
-      this.simulationRunsStatus = "Failed to load simulation runs.";
+      this.experimentsStatus = "Failed to load experiments.";
     } finally {
-      this.isLoadingSimulationRuns = false;
+      this.isLoadingExperiments = false;
     }
   }
 
-  async selectSimulationRun(
+  async selectExperiment(
     api: DashboardApi,
-    run: SimulationRunSummary,
+    experiment: ExperimentSummary,
   ): Promise<boolean> {
     const existing = this.documents.find(
-      (d) => d.kind === "simulation-report" && d.simulationId === run.id,
+      (d) => d.kind === "simulation-report" && d.experimentId === experiment.id,
     ) as SimulationReportDocument | undefined;
 
     let report: SimulationReportDocument;
     if (existing) {
       report = existing;
-      existing.markReady(run.id);
+      existing.markReady(experiment.id);
     } else {
-      report = new SimulationReportDocument(run.graph_title, run.graph_id);
-      report.markReady(run.id);
+      report = new SimulationReportDocument(
+        experiment.graph_title,
+        experiment.graph_id,
+      );
+      report.markReady(experiment.id);
       this.documents.push(report);
     }
 
     this.selectedDocumentId = report.id;
-    report.load(api, run.id, run.graph_id);
+    report.load(api, experiment.id, experiment.graph_id);
     return true;
   }
 

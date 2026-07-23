@@ -1,4 +1,4 @@
-import type { LoadedGraph } from "../contract";
+import type { LoadedGraph, SimulationParams } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
@@ -28,6 +28,10 @@ export class EditableGraphDocument {
   private _loadedGraphId = $state<string | null>(null);
   private _lockVersion = $state(0);
   private _title = $state("Untitled");
+  private _simulationParams = $state<SimulationParams>({
+    monte_carlo_trials: 1000,
+    iterations_per_run: 1000,
+  });
 
   revision = $state(0);
   isSaving = $state(false);
@@ -136,7 +140,11 @@ export class EditableGraphDocument {
   } | null> {
     if (!this.loadedGraphId) return null;
     const correlationId = crypto.randomUUID();
-    const reply = await api.runSimulation(this.loadedGraphId, correlationId);
+    const reply = await api.runSimulation(
+      this.loadedGraphId,
+      correlationId,
+      this._simulationParams,
+    );
     if (reply.status === "accepted") {
       return {
         graphId: reply.graph_id,

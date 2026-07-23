@@ -10,7 +10,7 @@ function makeMockApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),
     fetchSimulationReport: vi.fn().mockResolvedValue({ status: "ok" }),
-    fetchSimulationRuns: vi.fn(),
+    fetchExperiments: vi.fn(),
     ...overrides,
   };
 }
@@ -40,8 +40,8 @@ function makeReportReply(
     graph_version_at_sim: 1,
     iteration_count: 100,
     kpis: [],
-    multi_state_id: "sim-1",
-    simulation_count: 10,
+    experiment_id: "sim-1",
+    run_count: 10,
     total_runtime_ms: 500,
     ...overrides,
   };
@@ -134,9 +134,9 @@ describe("DashboardModel", () => {
           correlation_id: "corr-second",
         });
       vi.mocked(api.fetchSimulationReport)
-        .mockResolvedValueOnce(makeReportReply({ multi_state_id: "sim-first" }))
+        .mockResolvedValueOnce(makeReportReply({ experiment_id: "sim-first" }))
         .mockResolvedValueOnce(
-          makeReportReply({ multi_state_id: "sim-second" }),
+          makeReportReply({ experiment_id: "sim-second" }),
         );
 
       await model.runActiveSimulation();
@@ -151,17 +151,17 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-first",
         graph_id: "g1",
-        simulation_id: "sim-first",
+        experiment_id: "sim-first",
       });
       model.onSimulationCompleted({
         correlation_id: "corr-second",
         graph_id: "g1",
-        simulation_id: "sim-second",
+        experiment_id: "sim-second",
       });
       await flushMicrotasks();
 
-      expect(first.reportData?.multi_state_id).toBe("sim-first");
-      expect(second.reportData?.multi_state_id).toBe("sim-second");
+      expect(first.reportData?.experiment_id).toBe("sim-first");
+      expect(second.reportData?.experiment_id).toBe("sim-second");
     });
   });
 
@@ -179,13 +179,13 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-match",
         graph_id: "g1",
-        simulation_id: "sim-1",
+        experiment_id: "sim-1",
       });
 
       const report = findReport(model, "corr-match")!;
 
-      // Synchronous: complete() sets simulationId and status via load()
-      expect(report.simulationId).toBe("sim-1");
+      // Synchronous: complete() sets experimentId and status via load()
+      expect(report.experimentId).toBe("sim-1");
       expect(report.status).toBe("loading");
       expect(api.fetchSimulationReport).toHaveBeenCalledWith("sim-1", "g1");
 
@@ -207,7 +207,7 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-mismatch",
         graph_id: "g2",
-        simulation_id: "sim-2",
+        experiment_id: "sim-2",
       });
 
       expect(api.fetchSimulationReport).not.toHaveBeenCalled();
@@ -223,7 +223,7 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-match",
         graph_id: "g2",
-        simulation_id: "sim-2",
+        experiment_id: "sim-2",
       });
 
       expect(api.fetchSimulationReport).not.toHaveBeenCalled();
@@ -240,7 +240,7 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-active",
         graph_id: "g1",
-        simulation_id: "sim-active",
+        experiment_id: "sim-active",
       });
 
       expect(report.hasUnread).toBe(false);
@@ -257,7 +257,7 @@ describe("DashboardModel", () => {
       model.onSimulationCompleted({
         correlation_id: "corr-inactive",
         graph_id: "g1",
-        simulation_id: "sim-inactive",
+        experiment_id: "sim-inactive",
       });
 
       expect(report.hasUnread).toBe(true);

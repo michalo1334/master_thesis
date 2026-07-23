@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationRunsPayload do
+defmodule NetworkDefenseWeb.Web.Contracts.FetchExperimentsPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

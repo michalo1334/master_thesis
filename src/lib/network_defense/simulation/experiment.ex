@@ -1,11 +1,11 @@
-defmodule NetworkDefense.Simulation.MultiState do
+defmodule NetworkDefense.Simulation.Experiment do
   use Ecto.Schema
 
   import Ecto.Changeset
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -17,24 +17,24 @@ defmodule NetworkDefense.Simulation.MultiState do
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           seed: integer(),
           iteration_count: non_neg_integer(),
-          simulation_count: non_neg_integer(),
+          run_count: non_neg_integer(),
           initial_attacker_state: AttackerState.t(),
           lock_version: integer(),
           runtime_ms: integer(),
-          simulations: list(State.t()) | Ecto.Association.NotLoaded.t()
+          runs: list(Run.t()) | Ecto.Association.NotLoaded.t()
         }
 
-  schema "multi_states" do
+  schema "experiments" do
     belongs_to :graph, Graph
 
     field :seed, :integer
     field :iteration_count, :integer
-    field :simulation_count, :integer, default: 1
+    field :run_count, :integer, default: 1
     field :initial_attacker_state, AttackerStateType
     field :lock_version, :integer, default: 1
     field :runtime_ms, :integer, default: 0
 
-    has_many :simulations, State
+    has_many :runs, Run
 
     timestamps(type: :utc_datetime)
   end
@@ -44,7 +44,7 @@ defmodule NetworkDefense.Simulation.MultiState do
     |> cast(attrs, [
       :seed,
       :iteration_count,
-      :simulation_count,
+      :run_count,
       :initial_attacker_state,
       :lock_version,
       :runtime_ms

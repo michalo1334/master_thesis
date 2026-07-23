@@ -4,27 +4,30 @@
   import Ribbon from "../ribbon/Ribbon";
   import Slider from "../ui/Slider.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
+  import type { SimulationParams } from "../contract";
 
   interface Props {
     hasActiveGraph: boolean;
     hasUnreadReport: boolean;
-    isLoadingSimulationRuns: boolean;
+    isLoadingExperiments: boolean;
     forceParams: ForceParams;
     onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
     onRunSimulation: () => void;
-    onShowReport: () => void;
+    onShowExperiments: () => void;
+    onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
   }
 
   let {
     hasActiveGraph,
     hasUnreadReport,
-    isLoadingSimulationRuns,
+    isLoadingExperiments,
     forceParams,
     onForceParamsChange,
     onForceLayout,
     onRunSimulation,
-    onShowReport,
+    onShowExperiments,
+    onSimulationParamsChange,
   }: Props = $props();
 </script>
 
@@ -96,10 +99,32 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Analyze">
     <Ribbon.Section title="Attack model">
-      <Button onclick={(_) => onRunSimulation()}
+      <Button onclick={(_) => onRunSimulation()} disabled={!hasActiveGraph}
         ><Icon name="play" size={22} /><span>Simulate</span></Button
       >
-      <Button><Icon name="shield" size={22} /><span>Optimize</span></Button>
+      <Button disabled={!hasActiveGraph}
+        ><Icon name="shield" size={22} /><span>Optimize</span></Button
+      >
+    </Ribbon.Section>
+    <Ribbon.Section title="Simulation parameters">
+      <Slider
+        label="Monte Carlo trials"
+        min={1}
+        max={40000}
+        step={1000}
+        value={1000}
+        onchange={(v) => onSimulationParamsChange({ monte_carlo_trials: v })}
+        disabled={!hasActiveGraph}
+      />
+      <Slider
+        label="Iterations per simulation"
+        min={1}
+        max={40000}
+        step={1000}
+        value={1000}
+        onchange={(v) => onSimulationParamsChange({ iterations_per_run: v })}
+        disabled={!hasActiveGraph}
+      />
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="View">
@@ -111,8 +136,10 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Report">
     <Ribbon.Section title="Reports">
-      <Button disabled={isLoadingSimulationRuns} onclick={(_) => onShowReport()}
-        ><Icon name="shield" size={22} /><span>Show report</span></Button
+      <Button
+        disabled={isLoadingExperiments}
+        onclick={(_) => onShowExperiments()}
+        ><Icon name="shield" size={22} /><span>Show experiments</span></Button
       >
     </Ribbon.Section>
   </Ribbon.Tab>

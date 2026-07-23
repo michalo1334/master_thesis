@@ -7,11 +7,11 @@ import type {
   RunSimulationReply,
   FetchSimulationReportPayload,
   FetchSimulationReportReply,
-  FetchSimulationRunsPayload,
-  FetchSimulationRunsReply,
+  FetchExperimentsPayload,
+  FetchExperimentsReply,
+  SimulationParams,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
-import type { SimulationParams } from "../contracts.generated";
 
 export type LiveServer = {
   pushEvent<TPayload extends object>(
@@ -30,25 +30,25 @@ export interface DashboardApi {
     simulationParams: SimulationParams,
   ): Promise<RunSimulationReply>;
   fetchSimulationReport(
-    multiStateId: string,
+    experimentId: string,
     graphId: string,
   ): Promise<FetchSimulationReportReply | { status: string }>;
-  fetchSimulationRuns(graphIds: string[]): Promise<FetchSimulationRunsReply>;
+  fetchExperiments(graphIds: string[]): Promise<FetchExperimentsReply>;
 }
 
 /**
  * Create a typed Promise-based API facade over the LiveView connection.
  *
- * When `fetchSimulationRunsExecutor` is provided (from DashboardHost via
+ * When `fetchExperimentsExecutor` is provided (from DashboardHost via
  * useEventReply) it is used instead of the raw pushEvent wrapper.  All other
  * methods continue to use Promise wrappers so they remain safe for concurrent
  * calls.
  */
 export function createDashboardApi(
   live: LiveServer,
-  fetchSimulationRunsExecutor?: (
-    params: FetchSimulationRunsPayload,
-  ) => Promise<FetchSimulationRunsReply>,
+  fetchExperimentsExecutor?: (
+    params: FetchExperimentsPayload,
+  ) => Promise<FetchExperimentsReply>,
 ): DashboardApi {
   return {
     openGraph(graphId) {
@@ -86,27 +86,27 @@ export function createDashboardApi(
         );
       });
     },
-    fetchSimulationReport(multiStateId, graphId) {
+    fetchSimulationReport(experimentId, graphId) {
       return new Promise((resolve) => {
         live.pushEvent<FetchSimulationReportPayload>(
           "fetch_simulation_report",
-          { multi_state_id: multiStateId, graph_id: graphId },
+          { experiment_id: experimentId, graph_id: graphId },
           (reply) => {
             resolve(reply as FetchSimulationReportReply | { status: string });
           },
         );
       });
     },
-    fetchSimulationRuns(graphIds) {
-      if (fetchSimulationRunsExecutor) {
-        return fetchSimulationRunsExecutor({ graph_ids: graphIds });
+    fetchExperiments(graphIds) {
+      if (fetchExperimentsExecutor) {
+        return fetchExperimentsExecutor({ graph_ids: graphIds });
       }
       return new Promise((resolve) => {
-        live.pushEvent<FetchSimulationRunsPayload>(
-          "fetch_simulation_runs",
+        live.pushEvent<FetchExperimentsPayload>(
+          "fetch_experiments",
           { graph_ids: graphIds },
           (reply) => {
-            resolve(reply as FetchSimulationRunsReply);
+            resolve(reply as FetchExperimentsReply);
           },
         );
       });

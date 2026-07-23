@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.StatesTest do
+defmodule NetworkDefense.Simulation.RunsTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Actions.ExploitVulnerability
@@ -6,8 +6,8 @@ defmodule NetworkDefense.Simulation.StatesTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.States
-  alias NetworkDefense.Simulation.State
+  alias NetworkDefense.Simulation.Runs
+  alias NetworkDefense.Simulation.Run
 
   test "persists and reloads a simulation with its iteration steps" do
     graph = insert_graph()
@@ -15,8 +15,8 @@ defmodule NetworkDefense.Simulation.StatesTest do
     action = exploit_action()
     seed = :rand.seed_s(:exsss, {1, 2, 3})
 
-    state =
-      State.new(
+    run =
+      Run.new(
         graph: graph,
         initial_seed: 42,
         initial_attacker_state: attacker_state,
@@ -33,9 +33,9 @@ defmodule NetworkDefense.Simulation.StatesTest do
         ]
       )
 
-    assert {:ok, persisted} = States.insert(state)
+    assert {:ok, persisted} = Runs.insert(run)
 
-    loaded = States.load(persisted.id)
+    loaded = Runs.load(persisted.id)
 
     assert loaded.graph_id == graph.id
     assert loaded.initial_seed == 42
@@ -45,8 +45,8 @@ defmodule NetworkDefense.Simulation.StatesTest do
     assert step.attempted_action == action
     assert step.success?
     assert step.seed == seed
-    assert State.current_attacker_state(loaded) == step.attacker_state
-    assert State.current_seed(loaded) == seed
+    assert Run.current_attacker_state(loaded) == step.attacker_state
+    assert Run.current_seed(loaded) == seed
   end
 
   test "encodes attacker state as JSON-safe data" do

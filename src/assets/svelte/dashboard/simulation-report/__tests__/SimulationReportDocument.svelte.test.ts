@@ -17,8 +17,8 @@ function makeReport(
     graph_version_at_sim: 1,
     iteration_count: 100,
     kpis: [],
-    multi_state_id: "sim-1",
-    simulation_count: 10,
+    experiment_id: "sim-1",
+    run_count: 10,
     total_runtime_ms: 500,
     ...overrides,
   };
@@ -50,10 +50,10 @@ describe("SimulationReportDocument", () => {
     const secondLoad = document.load(api, "sim-second", "g1");
     second.resolve({ status: "not_found" });
     await secondLoad;
-    first.resolve(makeReport({ multi_state_id: "sim-first" }));
+    first.resolve(makeReport({ experiment_id: "sim-first" }));
     await firstLoad;
 
-    expect(document.simulationId).toBe("sim-second");
+    expect(document.experimentId).toBe("sim-second");
     expect(document.status).toBe("error");
     expect(document.errorReason).toBe("not_found");
     expect(document.reportData).toBeNull();
@@ -72,15 +72,15 @@ describe("SimulationReportDocument", () => {
 
     const firstLoad = document.load(api, "sim-first", "g1");
     const secondLoad = document.load(api, "sim-second", "g1");
-    second.resolve(makeReport({ multi_state_id: "sim-second" }));
+    second.resolve(makeReport({ experiment_id: "sim-second" }));
     await secondLoad;
     first.reject(new Error("offline"));
     await firstLoad;
 
-    expect(document.simulationId).toBe("sim-second");
+    expect(document.experimentId).toBe("sim-second");
     expect(document.status).toBe("loaded");
     expect(document.errorReason).toBe("");
-    expect(document.reportData?.multi_state_id).toBe("sim-second");
+    expect(document.reportData?.experiment_id).toBe("sim-second");
   });
 
   it("invalidates an in-flight load when a report becomes pending", async () => {
@@ -92,10 +92,10 @@ describe("SimulationReportDocument", () => {
 
     const load = document.load(api, "sim-first", "g1");
     document.markPending("corr-next");
-    request.resolve(makeReport({ multi_state_id: "sim-first" }));
+    request.resolve(makeReport({ experiment_id: "sim-first" }));
     await load;
 
-    expect(document.simulationId).toBeNull();
+    expect(document.experimentId).toBeNull();
     expect(document.status).toBe("pending");
     expect(document.reportData).toBeNull();
     expect(document.errorReason).toBe("");

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.State do
+defmodule NetworkDefense.Simulation.Run do
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -7,7 +7,7 @@ defmodule NetworkDefense.Simulation.State do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.MultiState
+  alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -22,20 +22,20 @@ defmodule NetworkDefense.Simulation.State do
           iteration_count: non_neg_integer(),
           rules: list(Rule.t()),
           iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t(),
-          multi_state_id: String.t() | nil,
-          multi_state: MultiState.t() | Ecto.Association.NotLoaded.t() | nil
+          experiment_id: String.t() | nil,
+          experiment: Experiment.t() | Ecto.Association.NotLoaded.t() | nil
         }
 
-  schema "simulations" do
+  schema "simulation_runs" do
     belongs_to :graph, Graph
-    belongs_to :multi_state, MultiState
+    belongs_to :experiment, Experiment
 
     field :initial_seed, :integer, default: 0
     field :initial_attacker_state, AttackerStateType
     field :iteration_count, :integer, default: 1000
     field :rules, :any, virtual: true, default: []
 
-    has_many :iterations, IterationStep, foreign_key: :simulation_id
+    has_many :iterations, IterationStep, foreign_key: :run_id
 
     timestamps(type: :utc_datetime)
   end
@@ -46,7 +46,7 @@ defmodule NetworkDefense.Simulation.State do
       :initial_seed,
       :initial_attacker_state,
       :iteration_count,
-      :multi_state_id
+      :experiment_id
     ])
     |> validate_required([:graph_id, :initial_seed, :initial_attacker_state, :iteration_count])
     |> validate_number(:initial_seed, greater_than_or_equal_to: 0)

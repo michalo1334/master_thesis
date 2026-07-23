@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationRunSummary do
+defmodule NetworkDefenseWeb.Web.Contracts.ExperimentSummary do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
@@ -8,7 +8,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationRunSummary do
     field :graph_id, :string
     field :graph_title, :string
     field :seed, :integer
-    field :simulation_count, :integer
+    field :run_count, :integer
     field :iteration_count, :integer
     field :runtime_ms, :integer
     field :started_at, :string
@@ -19,7 +19,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationRunSummary do
           graph_id: String.t(),
           graph_title: String.t(),
           seed: integer(),
-          simulation_count: integer(),
+          run_count: integer(),
           iteration_count: integer(),
           runtime_ms: integer(),
           started_at: String.t()
@@ -32,7 +32,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationRunSummary do
       :graph_id,
       :graph_title,
       :seed,
-      :simulation_count,
+      :run_count,
       :iteration_count,
       :runtime_ms,
       :started_at
@@ -42,7 +42,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationRunSummary do
       :graph_id,
       :graph_title,
       :seed,
-      :simulation_count,
+      :run_count,
       :iteration_count,
       :runtime_ms,
       :started_at

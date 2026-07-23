@@ -85,7 +85,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     attrs = %{
       "graph_id" => "graph-1",
       "correlation_id" => "request-1",
-      "simulation_params" => %{"monte_carlo_trials" => 0, "iterations_per_count" => 1}
+      "simulation_params" => %{"monte_carlo_trials" => 0, "iterations_per_run" => 1}
     }
 
     assert {:error, changeset} = RunSimulationRequest.validate(attrs)

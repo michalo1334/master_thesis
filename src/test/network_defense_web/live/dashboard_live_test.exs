@@ -80,7 +80,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      "correlation_id" => correlation_id,
                      "simulation_params" => %{
                        "monte_carlo_trials" => 1,
-                       "iterations_per_count" => 1
+                       "iterations_per_run" => 1
                      }
                    }
                  },
@@ -91,11 +91,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
-                        simulation_id: simulation_id
+                        experiment_id: experiment_id
                       }},
                      5_000
 
-      assert is_binary(simulation_id)
+      assert is_binary(experiment_id)
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
@@ -125,7 +125,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      "correlation_id" => correlation_id,
                      "simulation_params" => %{
                        "monte_carlo_trials" => 1,
-                       "iterations_per_count" => 1
+                       "iterations_per_run" => 1
                      }
                    }
                  },
@@ -158,7 +158,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert {:ok, _pid} =
                Simulations.run_async(graph, correlation_id, %SimulationParams{
                  monte_carlo_trials: 1,
-                 iterations_per_count: 1
+                 iterations_per_run: 1
                })
 
       assert_receive {:simulation_failed,
@@ -178,7 +178,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       completed = %{
         correlation_id: "request-1",
         graph_id: "graph-1",
-        simulation_id: "simulation-1"
+        experiment_id: "experiment-1"
       }
 
       send(view.pid, {:simulation_completed, completed})
