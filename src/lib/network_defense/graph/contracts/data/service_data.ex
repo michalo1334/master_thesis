@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Contracts.Data.ServiceData do
   @moduledoc false
 
-  use NetworkDefense.Contracts, dashboard: true
+  use NetworkDefense.Contracts, category: :dashboard
 
   @enum_values protocol: [:tcp, :udp]
 

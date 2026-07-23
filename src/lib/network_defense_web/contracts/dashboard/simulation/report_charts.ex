@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.ReportCharts do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefenseWeb.Contracts, category: :dashboard
 
   embedded_schema do
     embeds_many :blast_radius_distribution, NetworkDefenseWeb.Web.Contracts.ChartSpec,

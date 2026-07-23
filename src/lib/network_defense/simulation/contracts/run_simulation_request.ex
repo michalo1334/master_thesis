@@ -3,7 +3,7 @@ defmodule NetworkDefense.Simulation.Contracts.RunSimulationRequest do
 
   alias NetworkDefense.Simulation.Contracts.SimulationParams
 
-  use NetworkDefense.Contracts, dashboard: true
+  use NetworkDefense.Contracts, category: :dashboard
 
   embedded_schema do
     field :graph_id, :string

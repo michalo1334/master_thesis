@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefenseWeb.Contracts, category: :dashboard
 
   embedded_schema do
     field :graph_id, :string

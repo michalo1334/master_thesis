@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.RunSimulationPayload do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefenseWeb.Contracts, category: :dashboard
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 

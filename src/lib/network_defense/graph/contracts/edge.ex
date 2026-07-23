@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Contracts.Edge do
   @moduledoc false
 
-  use NetworkDefense.Contracts, dashboard: true
+  use NetworkDefense.Contracts, category: :dashboard
 
   alias NetworkDefense.Contracts
 

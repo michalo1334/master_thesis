@@ -2,7 +2,11 @@ defmodule NetworkDefense.Contracts do
   @moduledoc false
 
   defmacro __using__(options) do
-    dashboard? = Keyword.get(options, :dashboard, false)
+    category = Keyword.get(options, :category)
+
+    unless is_nil(category) or is_atom(category) do
+      raise ArgumentError, "contract category must be an atom"
+    end
 
     quote do
       use Ecto.Schema
@@ -12,7 +16,7 @@ defmodule NetworkDefense.Contracts do
       @primary_key false
 
       def __contract__, do: true
-      def dashboard_contract?, do: unquote(dashboard?)
+      def contract_category, do: unquote(category)
       def contract_meta, do: %{}
       defoverridable contract_meta: 0
 

@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.SimulationFailedEvent do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefenseWeb.Contracts, category: :dashboard
 
   embedded_schema do
     field :correlation_id, :string

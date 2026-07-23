@@ -18,7 +18,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   @graph_id "00000000-0000-0000-0000-000000000001"
 
   test "all dashboard contracts are embedded schemas with changesets" do
-    Registry.list_contract_modules()
+    Registry.list_contract_modules(:dashboard)
     |> Enum.each(fn contract ->
       assert contract.__schema__(:source) == nil
       assert function_exported?(contract, :changeset, 2)

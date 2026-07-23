@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Contracts.Node do
   @moduledoc false
 
-  use NetworkDefense.Contracts, dashboard: true
+  use NetworkDefense.Contracts, category: :dashboard
 
   alias NetworkDefense.Contracts
   alias NetworkDefense.Graph.Contracts.Data.{HostData, ServiceData, VulnerabilityData}

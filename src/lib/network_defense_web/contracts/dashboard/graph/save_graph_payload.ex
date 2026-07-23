@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.SaveGraphPayload do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefenseWeb.Contracts, category: :dashboard
 
   embedded_schema do
     embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update

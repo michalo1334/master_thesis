@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Contracts.Data.RunsData do
   @moduledoc false
 
-  use NetworkDefense.Contracts, dashboard: true
+  use NetworkDefense.Contracts, category: :dashboard
 
   embedded_schema do
   end
