@@ -2,9 +2,11 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   use ExUnit.Case, async: true
 
   alias Mix.Tasks.Gen.Contracts.Registry
-  alias NetworkDefenseWeb.Web.Contracts
+  alias NetworkDefenseWeb.Contracts
 
   alias NetworkDefenseWeb.Web.Contracts.{
+    GraphContract,
+    GraphMapper,
     RunSimulationRequest,
     SaveGraphPayload
   }
@@ -36,7 +38,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     }
 
     assert {:ok, payload} = SaveGraphPayload.validate(attrs)
-    assert payload.graph.nodes |> hd() |> Map.get(:data) == %{"name" => "internet"}
+    assert %{name: "internet"} = payload.graph.nodes |> hd() |> Map.fetch!(:data)
 
     assert %{
              "title" => "Test graph",
@@ -85,6 +87,38 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{simulation_params: %{monte_carlo_trials: ["must be greater than 0"]}} =
              errors_on(changeset)
+  end
+
+  test "maps validated graph contracts to graph replacement attributes" do
+    attrs = %{
+      "id" => "graph-1",
+      "title" => "Test graph",
+      "lock_version" => 1,
+      "nodes" => [
+        %{
+          "id" => "node-1",
+          "type" => "Host",
+          "data" => %{"name" => "internet"},
+          "view_data" => %{"x_pos" => 120, "y_pos" => 240}
+        }
+      ],
+      "edges" => []
+    }
+
+    assert {:ok, graph} = GraphContract.validate(attrs)
+
+    assert %{
+             "title" => "Test graph",
+             "nodes" => [
+               %{
+                 "id" => "node-1",
+                 "type" => "Host",
+                 "data" => %{"name" => "internet"},
+                 "view_data" => %{"x_pos" => 120.0, "y_pos" => 240.0}
+               }
+             ],
+             "edges" => []
+           } = GraphMapper.to_attrs(graph)
   end
 
   defp errors_on(changeset) do

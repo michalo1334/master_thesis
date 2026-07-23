@@ -25,4 +25,12 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface SimulationFailedEvent"
     assert output =~ "export interface OptimizeDefensePayload"
   end
+
+  test "discovers only dashboard contracts" do
+    assert Enum.all?(Registry.list_contract_modules(), fn module ->
+             module
+             |> Module.split()
+             |> Enum.take(3) == ["NetworkDefenseWeb", "Web", "Contracts"]
+           end)
+  end
 end

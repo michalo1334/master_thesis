@@ -1,19 +1,17 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
-  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Simulation.Report
   alias NetworkDefense.Simulation.Reports
   alias NetworkDefense.Simulations
-  alias NetworkDefenseWeb.Web.Contracts
 
   alias NetworkDefenseWeb.Web.Contracts.{
     FetchSimulationReportPayload,
     FetchSimulationReportReply,
     FetchSimulationRunsPayload,
     FetchSimulationRunsReply,
-    GraphContract,
+    GraphMapper,
     OpenGraphPayload,
     OpenGraphReply,
     OptimizeDefensePayload,
@@ -167,37 +165,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
   end
 
-  defp graph_contract(graph) do
-    GraphContract.validate(%{
-      id: graph.id,
-      title: graph.title,
-      lock_version: graph.lock_version,
-      nodes:
-        Enum.map(Graph.nodes(graph), fn node ->
-          %{
-            id: node.id,
-            type: type(node.type),
-            data: node.data,
-            view_data: %{
-              x_pos: Map.get(node.view_data, :x_pos) || Map.get(node.view_data, "x_pos"),
-              y_pos: Map.get(node.view_data, :y_pos) || Map.get(node.view_data, "y_pos"),
-              radius: Map.get(node.view_data, :radius) || Map.get(node.view_data, "radius")
-            }
-          }
-        end),
-      edges:
-        Enum.map(Graph.edges(graph), fn edge ->
-          %{
-            id: edge.id,
-            from_id: edge.from_id,
-            to_id: edge.to_id,
-            type: type(edge.type),
-            data: edge.data
-          }
-        end)
-    })
-  end
-
   defp open_graph(params) do
     case OpenGraphPayload.validate(params) do
       {:ok, request} -> graph_open_reply(Graphs.load(request.graph_id))
@@ -208,23 +175,23 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp graph_open_reply(nil), do: open_graph_reply("not_found")
 
   defp graph_open_reply(graph) do
-    case graph_contract(graph) do
-      {:ok, contract} -> open_graph_reply("ok", contract)
+    case GraphMapper.to_wire(graph) do
+      {:ok, wire_graph} -> open_graph_reply("ok", wire_graph)
       {:error, _changeset} -> open_graph_reply("unmapped_error")
     end
   end
 
   defp save_graph(graph, socket) do
-    case Graphs.replace(graph.id, graph.lock_version, graph_attrs(graph)) do
+    case Graphs.replace(graph.id, graph.lock_version, GraphMapper.to_attrs(graph)) do
       {:ok, %{graph: persisted}} -> save_graph_success(persisted, socket)
       {:error, reason} -> {:reply, save_graph_reply(save_error_status(reason)), socket}
     end
   end
 
   defp save_graph_success(persisted, socket) do
-    case graph_contract(persisted) do
-      {:ok, contract} ->
-        {:reply, save_graph_reply("ok", contract),
+    case GraphMapper.to_wire(persisted) do
+      {:ok, wire_graph} ->
+        {:reply, save_graph_reply("ok", wire_graph),
          assign(socket, :graph_summaries, Graphs.list_summaries())}
 
       {:error, _changeset} ->
@@ -237,8 +204,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp save_error_status(:invalid_graph), do: "invalid_graph"
   defp save_error_status(_reason), do: "unmapped_error"
 
-  defp type(module), do: module |> Module.split() |> List.last()
-
   defp load_simulation_graph(graph_id) do
     with {:ok, graph_id} <- Ecto.UUID.cast(graph_id),
          graph when not is_nil(graph) <- Graphs.load(graph_id) do
@@ -250,62 +215,28 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp simulation_request_reply(status, graph_id, correlation_id, reason) do
-    {:ok, reply} =
-      RunSimulationReply.validate(%{
-        status: status,
-        graph_id: string_or_empty(graph_id),
-        correlation_id: string_or_empty(correlation_id),
-        reason: reason
-      })
-
-    RunSimulationReply.to_wire(reply)
+    contract_reply(RunSimulationReply, %{
+      status: status,
+      graph_id: string_or_empty(graph_id),
+      correlation_id: string_or_empty(correlation_id),
+      reason: reason
+    })
   end
 
   defp string_or_empty(value) when is_binary(value), do: value
   defp string_or_empty(_value), do: ""
 
-  defp graph_attrs(graph) do
-    %{
-      "title" => graph.title,
-      "nodes" => Enum.map(graph.nodes, &node_attrs/1),
-      "edges" => Enum.map(graph.edges, &edge_attrs/1)
-    }
-  end
-
-  defp node_attrs(node) do
-    %{
-      "id" => node.id,
-      "type" => node.type,
-      "data" => Contracts.to_params(node.data),
-      "view_data" =>
-        node.view_data
-        |> Contracts.to_params()
-        |> Map.reject(fn {_key, value} -> is_nil(value) end)
-    }
-  end
-
-  defp edge_attrs(edge) do
-    %{
-      "id" => edge.id,
-      "from_id" => edge.from_id,
-      "to_id" => edge.to_id,
-      "type" => edge.type,
-      "data" => Contracts.to_params(edge.data)
-    }
-  end
-
   defp open_graph_reply(status, graph \\ nil) do
-    {:ok, reply} =
-      OpenGraphReply.validate(%{status: status, graph: graph && GraphContract.to_wire(graph)})
-
-    OpenGraphReply.to_wire(reply)
+    contract_reply(OpenGraphReply, %{status: status, graph: graph})
   end
 
   defp save_graph_reply(status, graph \\ nil) do
-    {:ok, reply} =
-      SaveGraphReply.validate(%{status: status, graph: graph && GraphContract.to_wire(graph)})
+    contract_reply(SaveGraphReply, %{status: status, graph: graph})
+  end
 
-    SaveGraphReply.to_wire(reply)
+  defp contract_reply(contract, attrs) do
+    {:ok, reply} = contract.validate(attrs)
+    contract.to_wire(reply)
   end
 
   defp push_contract_event(socket, event, contract, payload) do
