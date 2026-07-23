@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.RunSimulationReply do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :simulation
 
   @enum_values status: [:accepted, :rejected]
 

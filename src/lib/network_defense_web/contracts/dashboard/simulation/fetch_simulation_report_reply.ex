@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
     field :multi_state_id, :string

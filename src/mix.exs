@@ -108,7 +108,7 @@ defmodule NetworkDefense.MixProject do
       ],
       precommit: [
         "compile --warning-as-errors",
-        "gen.contracts dashboard",
+        "gen.contracts",
         "format --check-formatted",
         "cmd npm run format:check",
         "cmd npm run typecheck",

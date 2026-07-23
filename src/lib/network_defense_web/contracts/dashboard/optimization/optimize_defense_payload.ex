@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.OptimizeDefensePayload do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :optimization
 
   embedded_schema do
     field :graph_id, :string

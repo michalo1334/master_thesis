@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
   @moduledoc false
 
-  use NetworkDefense.Contracts, category: :dashboard
+  use NetworkDefense.Contracts, category: :simulation
 
   embedded_schema do
     field :monte_carlo_trials, :integer

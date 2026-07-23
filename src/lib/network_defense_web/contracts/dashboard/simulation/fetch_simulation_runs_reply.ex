@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationRunsReply do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
     embeds_many :runs, NetworkDefenseWeb.Web.Contracts.SimulationRunSummary, on_replace: :delete

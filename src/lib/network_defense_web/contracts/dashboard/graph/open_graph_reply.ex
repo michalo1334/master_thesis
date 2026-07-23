@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphReply do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :graph
 
   @enum_values status: [:ok, :stale, :not_found, :invalid_graph, :unmapped_error]
 

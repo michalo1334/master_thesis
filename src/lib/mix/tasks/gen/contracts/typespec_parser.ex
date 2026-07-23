@@ -18,6 +18,14 @@ defmodule Mix.Tasks.Gen.Contracts.TypespecParser do
     Mix.Tasks.Gen.Contracts.Renderer.union_modules(type_ast)
   end
 
+  def referenced_modules({:remote_type, _, [{:atom, _, module}, {:atom, _, :t}, _]}), do: [module]
+
+  def referenced_modules({:type, _, _type, arguments}) when is_list(arguments) do
+    Enum.flat_map(arguments, &referenced_modules/1)
+  end
+
+  def referenced_modules(_type_ast), do: []
+
   defp extract_fields({:type, _, :map, fields}) do
     Enum.map(fields, fn
       {:type, _, :map_field_exact, [{:atom, _, :__struct__}, _]} ->

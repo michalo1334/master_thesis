@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.Web.Contracts.KpiMetric do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts, category: :dashboard
+  use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
     field :label, :string

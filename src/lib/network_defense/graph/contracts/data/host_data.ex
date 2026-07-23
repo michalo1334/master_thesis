@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Contracts.Data.HostData do
   @moduledoc false
 
-  use NetworkDefense.Contracts, category: :dashboard
+  use NetworkDefense.Contracts, category: :graph
 
   embedded_schema do
     field :name, :string
