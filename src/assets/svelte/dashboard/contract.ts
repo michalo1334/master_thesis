@@ -1,11 +1,4 @@
 import type {
-  HostData,
-  ServiceData,
-  VulnerabilityData,
-  RunsData,
-  NetworkReachabilityData,
-  HasVulnerabilityData,
-  NodeViewData,
   Node,
   Edge,
   GraphContract as LoadedGraph,
@@ -64,18 +57,6 @@ export type Id = string;
 export type Status =
   "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 export type RequestCorrelationId = number;
-
-export type NodeDataByType = {
-  Host: HostData;
-  Service: ServiceData;
-  Vulnerability: VulnerabilityData;
-};
-
-export type EdgeDataByType = {
-  Runs: RunsData;
-  NetworkReachability: NetworkReachabilityData;
-  HasVulnerability: HasVulnerabilityData;
-};
 
 export type Selectable = Node | Edge;
 

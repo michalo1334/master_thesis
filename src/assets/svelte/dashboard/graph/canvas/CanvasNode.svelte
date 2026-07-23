@@ -1,8 +1,7 @@
 <script lang="ts">
   import type { Node } from "../../contract";
   import type { Point } from "./canvasState";
-  import { nodeInfoFor } from "./nodeInfoMappings";
-  import { nodeStyleFor } from "./nodeStyleMappings";
+  import { nodePresentation } from "../presentation/registry";
 
   interface Props {
     node: Node;
@@ -24,8 +23,11 @@
     onpointerdown,
   }: Props = $props();
 
-  let InfoComponent = $derived(nodeInfoFor(node));
-  let nodeStyle = $derived(nodeStyleFor(node));
+  let pres = $derived(nodePresentation(node.type));
+  let InfoComponent = $derived(pres?.info ?? null);
+  let nodeStyle = $derived(
+    pres ? { color: pres.color, component: pres.glyph } : null,
+  );
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== "Enter" && event.key !== " ") return;

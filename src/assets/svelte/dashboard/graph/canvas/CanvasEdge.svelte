@@ -2,7 +2,7 @@
   import { edgeEndpoints } from "./geometry";
   import { type Edge, type Node, type NodeViewData } from "../../contract";
   import type { Point } from "./canvasState";
-  import { edgeStyleFor } from "./edgeStyleMappings";
+  import { edgePresentation } from "../presentation/registry";
 
   interface Props {
     edge: Edge;
@@ -25,7 +25,7 @@
   }: Props = $props();
   const markerId = $props.id();
   let edgeType = $derived(edge.type);
-  let edgeStyle = $derived(edgeStyleFor(edge));
+  let edgeStyle = $derived(edgePresentation(edge.type));
   let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,

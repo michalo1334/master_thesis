@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Selectable } from "../contract";
-  import { inspectorFor } from "../graph/canvas/inspectorMappings";
+  import { inspectorFor } from "../graph/presentation/registry";
   import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 
