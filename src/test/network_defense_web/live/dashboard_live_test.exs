@@ -11,9 +11,9 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulations
   alias NetworkDefenseWeb.DashboardLive
-  alias NetworkDefenseWeb.Web.Contracts.SimulationParams
 
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
@@ -75,11 +75,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                DashboardLive.handle_event(
                  "run_simulation_request",
                  %{
-                   "graph_id" => graph_id,
-                   "correlation_id" => correlation_id,
-                   "simulation_params" => %{
-                     "monte_carlo_trials" => 1,
-                     "iterations_per_count" => 1
+                   "request" => %{
+                     "graph_id" => graph_id,
+                     "correlation_id" => correlation_id,
+                     "simulation_params" => %{
+                       "monte_carlo_trials" => 1,
+                       "iterations_per_count" => 1
+                     }
                    }
                  },
                  %Phoenix.LiveView.Socket{}
@@ -113,16 +115,18 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                 status: "rejected",
                 graph_id: "not-a-uuid",
                 correlation_id: ^correlation_id,
-                reason: "invalid_graph_id"
+                reason: "invalid_request"
               }, _socket} =
                DashboardLive.handle_event(
                  "run_simulation_request",
                  %{
-                   "graph_id" => "not-a-uuid",
-                   "correlation_id" => correlation_id,
-                   "simulation_params" => %{
-                     "monte_carlo_trials" => 1,
-                     "iterations_per_count" => 1
+                   "request" => %{
+                     "graph_id" => "not-a-uuid",
+                     "correlation_id" => correlation_id,
+                     "simulation_params" => %{
+                       "monte_carlo_trials" => 1,
+                       "iterations_per_count" => 1
+                     }
                    }
                  },
                  %Phoenix.LiveView.Socket{}
@@ -212,13 +216,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "nodes" => [
             %{
               "id" => source.id,
-              "type" => source.type,
+              "type" => "Host",
               "data" => source.data,
               "view_data" => %{"x_pos" => 120, "y_pos" => 240}
             },
             %{
               "id" => target.id,
-              "type" => target.type,
+              "type" => "Host",
               "data" => target.data,
               "view_data" => %{"x_pos" => 360, "y_pos" => 480}
             }
@@ -228,7 +232,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
               "id" => edge_id,
               "from_id" => source.id,
               "to_id" => target.id,
-              "type" => Atom.to_string(NetworkReachability),
+              "type" => "NetworkReachability",
               "data" => %{}
             }
           ]

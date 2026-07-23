@@ -1,6 +1,7 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
+  alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Simulation.Report
   alias NetworkDefense.Simulation.Reports
@@ -11,12 +12,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchSimulationReportReply,
     FetchSimulationRunsPayload,
     FetchSimulationRunsReply,
-    GraphMapper,
     OpenGraphPayload,
     OpenGraphReply,
     OptimizeDefensePayload,
     RunSimulationReply,
-    RunSimulationRequest,
+    RunSimulationPayload,
     SaveGraphPayload,
     SaveGraphReply,
     SimulationCompletedEvent,
@@ -72,13 +72,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   @impl true
   def handle_event("run_simulation_request", params, socket) do
-    case RunSimulationRequest.validate(params) do
-      {:ok, request} ->
-        case load_simulation_graph(request.graph_id) do
-          {:ok, graph} ->
-            {:ok, _pid} =
-              Simulations.run_async(graph, request.correlation_id, request.simulation_params)
-
+    case RunSimulationPayload.validate(params) do
+      {:ok, %{request: request}} ->
+        case Simulations.run_async(request) do
+          {:ok, _pid} ->
             {:reply,
              simulation_request_reply("accepted", request.graph_id, request.correlation_id, nil),
              socket}
@@ -97,8 +94,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
         {:reply,
          simulation_request_reply(
            "rejected",
-           Map.get(params, "graph_id"),
-           Map.get(params, "correlation_id"),
+           params |> Map.get("request", %{}) |> Map.get("graph_id"),
+           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
            "invalid_request"
          ), socket}
     end
@@ -168,28 +165,28 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp open_graph(params) do
     case OpenGraphPayload.validate(params) do
       {:ok, request} -> graph_open_reply(Graphs.load(request.graph_id))
-      {:error, _changeset} -> open_graph_reply("not_found")
+      {:error, _changeset} -> open_graph_reply("invalid_graph")
     end
   end
 
   defp graph_open_reply(nil), do: open_graph_reply("not_found")
 
   defp graph_open_reply(graph) do
-    case GraphMapper.to_wire(graph) do
+    case GraphContract.from_domain(graph) do
       {:ok, wire_graph} -> open_graph_reply("ok", wire_graph)
       {:error, _changeset} -> open_graph_reply("unmapped_error")
     end
   end
 
   defp save_graph(graph, socket) do
-    case Graphs.replace(graph.id, graph.lock_version, GraphMapper.to_attrs(graph)) do
+    case Graphs.replace(graph) do
       {:ok, %{graph: persisted}} -> save_graph_success(persisted, socket)
       {:error, reason} -> {:reply, save_graph_reply(save_error_status(reason)), socket}
     end
   end
 
   defp save_graph_success(persisted, socket) do
-    case GraphMapper.to_wire(persisted) do
+    case GraphContract.from_domain(persisted) do
       {:ok, wire_graph} ->
         {:reply, save_graph_reply("ok", wire_graph),
          assign(socket, :graph_summaries, Graphs.list_summaries())}
@@ -203,16 +200,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp save_error_status(:not_found), do: "not_found"
   defp save_error_status(:invalid_graph), do: "invalid_graph"
   defp save_error_status(_reason), do: "unmapped_error"
-
-  defp load_simulation_graph(graph_id) do
-    with {:ok, graph_id} <- Ecto.UUID.cast(graph_id),
-         graph when not is_nil(graph) <- Graphs.load(graph_id) do
-      {:ok, graph}
-    else
-      :error -> {:error, "invalid_graph_id"}
-      nil -> {:error, "graph_not_found"}
-    end
-  end
 
   defp simulation_request_reply(status, graph_id, correlation_id, reason) do
     contract_reply(RunSimulationReply, %{

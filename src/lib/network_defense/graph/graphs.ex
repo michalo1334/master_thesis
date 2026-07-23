@@ -9,6 +9,7 @@ defmodule NetworkDefense.Graph.Graphs do
 
   alias Ecto.Changeset
   alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.GraphDiff
   alias NetworkDefense.Graph.Node
@@ -110,6 +111,16 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def replace(_id, _expected_lock_version, _attrs), do: {:error, :invalid_graph}
 
+  def replace(%GraphContract{} = request) do
+    case GraphContract.to_replace_attrs(request) do
+      {:ok, %{id: id, lock_version: lock_version, attrs: attrs}} ->
+        replace(id, lock_version, attrs)
+
+      _error ->
+        {:error, :invalid_graph}
+    end
+  end
+
   defp hydrate_graph(%Graph{} = graph) do
     graph = Repo.preload(graph, [:nodes, :edges], force: true)
     Graph.hydrate(graph, graph.nodes, graph.edges)
@@ -192,7 +203,7 @@ defmodule NetworkDefense.Graph.Graphs do
       when is_map(data) and is_map(view_data) ->
         with {:ok, id} <- Ecto.UUID.cast(id) do
           %Node{id: id, graph_id: graph_id}
-          |> Node.changeset(%{type: resolve_type(type, :node), data: data, view_data: view_data})
+          |> Node.changeset(%{type: type, data: data, view_data: view_data})
           |> Changeset.apply_action(:insert)
         end
 
@@ -215,29 +226,13 @@ defmodule NetworkDefense.Graph.Graphs do
              {:ok, from_id} <- Ecto.UUID.cast(from_id),
              {:ok, to_id} <- Ecto.UUID.cast(to_id) do
           %Edge{id: id, graph_id: graph_id, from_id: from_id, to_id: to_id}
-          |> Edge.changeset(%{type: resolve_type(type, :edge), data: data})
+          |> Edge.changeset(%{type: type, data: data})
           |> Changeset.apply_action(:insert)
         end
 
       _attrs ->
         {:error, :invalid_edge}
     end)
-  end
-
-  defp resolve_type(type, :node), do: resolve_type(type, NetworkDefense.Nodes.Registry)
-  defp resolve_type(type, :edge), do: resolve_type(type, NetworkDefense.Relationships.Registry)
-
-  defp resolve_type(type, registry) do
-    case registry.module_for(type) do
-      nil ->
-        case registry.module_for_short(type) do
-          nil -> type
-          module -> Atom.to_string(module)
-        end
-
-      _module ->
-        type
-    end
   end
 
   defp map_candidates(attrs, mapper) do

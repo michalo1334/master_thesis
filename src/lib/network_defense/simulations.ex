@@ -3,11 +3,13 @@ defmodule NetworkDefense.Simulations do
   Public context module for working with simulation related aspects
   """
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.MultiState
   alias NetworkDefense.Simulation.MultiStates
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.States
+  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   import Ecto.Query
 
@@ -29,7 +31,17 @@ defmodule NetworkDefense.Simulations do
 
   def simulation_events_topic, do: @simulation_events_topic
 
-  def run_async(graph, correlation_id) do
+  def run_async(%RunSimulationRequest{} = request) do
+    with {:ok, graph_id} <- Ecto.UUID.cast(request.graph_id),
+         graph when not is_nil(graph) <- Graphs.load(graph_id) do
+      run_async(graph, request.correlation_id, request.simulation_params)
+    else
+      :error -> {:error, "invalid_graph_id"}
+      nil -> {:error, "graph_not_found"}
+    end
+  end
+
+  def run_async(graph, correlation_id, simulation_params) do
     rules = default_rules()
 
     Task.start(fn ->
@@ -38,6 +50,8 @@ defmodule NetworkDefense.Simulations do
           :timer.tc(fn ->
             Simulator.run_multiple(
               graph: graph,
+              simulation_count: simulation_params.monte_carlo_trials,
+              iteration_count: simulation_params.iterations_per_count,
               initial_attacker_state: initial_attacker_state(graph),
               lock_version: graph.lock_version,
               rules: rules

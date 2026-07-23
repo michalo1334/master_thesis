@@ -9,12 +9,12 @@ defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphReply do
 
   embedded_schema do
     field :status, :string
-    embeds_one :graph, NetworkDefenseWeb.Web.Contracts.GraphContract, on_replace: :update
+    embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          graph: NetworkDefenseWeb.Web.Contracts.GraphContract.t() | nil
+          graph: NetworkDefense.Graph.Contracts.GraphContract.t() | nil
         }
 
   def changeset(schema, attrs) do

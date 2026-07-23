@@ -1,7 +1,7 @@
-defmodule NetworkDefenseWeb.Web.Contracts.NodeViewData do
+defmodule NetworkDefense.Graph.Contracts.NodeViewData do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefense.Contracts, dashboard: true
 
   embedded_schema do
     field :x_pos, :float

@@ -26,11 +26,15 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface OptimizeDefensePayload"
   end
 
-  test "discovers only dashboard contracts" do
-    assert Enum.all?(Registry.list_contract_modules(), fn module ->
-             module
-             |> Module.split()
-             |> Enum.take(3) == ["NetworkDefenseWeb", "Web", "Contracts"]
-           end)
+  test "discovers core and web dashboard contracts" do
+    modules = Registry.list_contract_modules()
+
+    assert NetworkDefense.Graph.Contracts.GraphContract in modules
+    assert NetworkDefense.Simulation.Contracts.RunSimulationRequest in modules
+    assert NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply in modules
+  end
+
+  test "generated file is in sync with contracts" do
+    assert File.read!(Registry.output_path()) == Registry.render_all()
   end
 end

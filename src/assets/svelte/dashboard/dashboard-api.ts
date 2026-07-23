@@ -3,7 +3,7 @@ import type {
   OpenGraphReply,
   SaveGraphPayload,
   SaveGraphReply,
-  RunSimulationRequest,
+  RunSimulationPayload,
   RunSimulationReply,
   FetchSimulationReportPayload,
   FetchSimulationReportReply,
@@ -11,6 +11,7 @@ import type {
   FetchSimulationRunsReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
+import type { SimulationParams } from "./contracts.generated";
 
 export type LiveServer = {
   pushEvent<TPayload extends object>(
@@ -26,6 +27,7 @@ export interface DashboardApi {
   runSimulation(
     graphId: string,
     correlationId: string,
+    simulationParams: SimulationParams,
   ): Promise<RunSimulationReply>;
   fetchSimulationReport(
     multiStateId: string,
@@ -67,11 +69,17 @@ export function createDashboardApi(
         });
       });
     },
-    runSimulation(graphId, correlationId) {
+    runSimulation(graphId, correlationId, simulationParams) {
       return new Promise((resolve) => {
-        live.pushEvent<RunSimulationRequest>(
+        live.pushEvent<RunSimulationPayload>(
           "run_simulation_request",
-          { graph_id: graphId, correlation_id: correlationId },
+          {
+            request: {
+              graph_id: graphId,
+              correlation_id: correlationId,
+              simulation_params: simulationParams,
+            },
+          },
           (reply) => {
             resolve(reply as RunSimulationReply);
           },

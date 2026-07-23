@@ -1,7 +1,7 @@
-defmodule NetworkDefenseWeb.Web.Contracts.Data.NetworkReachabilityData do
+defmodule NetworkDefense.Graph.Contracts.Data.RunsData do
   @moduledoc false
 
-  use NetworkDefenseWeb.Contracts
+  use NetworkDefense.Contracts, dashboard: true
 
   embedded_schema do
   end
