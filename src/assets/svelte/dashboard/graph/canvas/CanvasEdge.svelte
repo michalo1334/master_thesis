@@ -2,6 +2,7 @@
   import { edgeEndpoints } from "./geometry";
   import { type Edge, type Node, type NodeViewData } from "../../contract";
   import type { Point } from "./canvasState";
+  import { edgeStyleFor } from "./edgeStyleMappings";
 
   interface Props {
     edge: Edge;
@@ -24,6 +25,7 @@
   }: Props = $props();
   const markerId = $props.id();
   let edgeType = $derived(edge.type);
+  let edgeStyle = $derived(edgeStyleFor(edge));
   let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,
@@ -41,7 +43,12 @@
   }
 </script>
 
-<g class={["canvas-edge", selected && "selected"]} data-graph-interactive>
+<g
+  class={["canvas-edge", selected && "selected"]}
+  style:--edge-color={edgeStyle?.color}
+  style:--edge-dash={edgeStyle?.dashArray ?? "none"}
+  data-graph-interactive
+>
   <defs>
     <marker
       id={markerId}
@@ -78,12 +85,13 @@
 <style>
   .canvas-edge-line {
     fill: none;
-    stroke: var(--ds-color-text-muted);
+    stroke: var(--edge-color, var(--ds-color-text-muted));
     stroke-width: 2;
+    stroke-dasharray: var(--edge-dash, none);
     pointer-events: none;
   }
   .canvas-edge-arrow {
-    fill: var(--ds-color-text-muted);
+    fill: var(--edge-color, var(--ds-color-text-muted));
   }
   .canvas-edge.selected .canvas-edge-line {
     stroke: var(--ds-color-focus);

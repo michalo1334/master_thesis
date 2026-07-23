@@ -2,6 +2,7 @@
   import type { Node } from "../../contract";
   import type { Point } from "./canvasState";
   import { nodeInfoFor } from "./nodeInfoMappings";
+  import { nodeStyleFor } from "./nodeStyleMappings";
 
   interface Props {
     node: Node;
@@ -24,6 +25,7 @@
   }: Props = $props();
 
   let InfoComponent = $derived(nodeInfoFor(node));
+  let nodeStyle = $derived(nodeStyleFor(node));
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -41,6 +43,7 @@
     dragging && "dragging",
   ]}
   transform={`translate(${position.x} ${position.y})`}
+  style:--node-color={nodeStyle?.color}
   tabindex="0"
   role="button"
   aria-pressed={selected}
@@ -52,7 +55,11 @@
 >
   <title>{node.type}</title>
   <rect class="canvas-node-card" width="120" height="72" rx="7" />
-  <circle class="canvas-node-glyph" cx="16" cy="18" r="6" />
+  {#if nodeStyle}
+    <nodeStyle.component />
+  {:else}
+    <circle class="canvas-node-glyph" cx="16" cy="18" r="6" />
+  {/if}
   {#if InfoComponent}
     <InfoComponent {node} />
   {:else}
@@ -70,7 +77,7 @@
   }
   .canvas-node-card {
     fill: var(--ds-color-paper);
-    stroke: var(--ds-color-text-faint);
+    stroke: var(--node-color, var(--ds-color-text-faint));
     stroke-width: 1.2;
     filter: drop-shadow(
       0 2px 2px color-mix(in srgb, var(--ds-color-nav) 16%, transparent)
@@ -94,7 +101,7 @@
   }
   .canvas-node-glyph {
     fill: var(--ds-color-accent-soft);
-    stroke: var(--ds-color-accent);
+    stroke: var(--node-color, var(--ds-color-accent));
     stroke-width: 1.5;
     pointer-events: none;
   }
