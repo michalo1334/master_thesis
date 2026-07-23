@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyForceLayout } from "./ForceLayout.svelte";
+import { applyForceLayout, resolveOwnership } from "./ForceLayout.svelte";
 import { defaultForceParams } from "./ForceLayout.types";
 import type { Node, Edge } from "../../contract";
 
@@ -31,131 +31,109 @@ function mkNode(id: string, type: NodeType): Node {
   }
 }
 
-function groupByType(nodes: Node[]): Map<string, Node[]> {
-  const map = new Map<string, Node[]>();
-  for (const n of nodes) {
-    const group = map.get(n.type) ?? [];
-    group.push(n);
-    map.set(n.type, group);
-  }
-  return map;
+function mkEdge(
+  id: string,
+  from_id: string,
+  to_id: string,
+  type: Edge["type"],
+): Edge {
+  return { id, from_id, to_id, type, data: {} } as Edge;
 }
 
-function avg(nodes: Node[], key: "x_pos" | "y_pos"): number {
-  return nodes.reduce((s, n) => s + n.view_data[key], 0) / nodes.length;
+function distance(a: Node, b: Node): number {
+  return Math.hypot(
+    a.view_data.x_pos - b.view_data.x_pos,
+    a.view_data.y_pos - b.view_data.y_pos,
+  );
 }
 
-function dist(
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
+describe("resolveOwnership", () => {
+  it("resolves nested ownership from valid typed edges", () => {
+    const nodes: Node[] = [
+      mkNode("h1", "Host"),
+      mkNode("s1", "Service"),
+      mkNode("v1", "Vulnerability"),
+    ];
+    const edges: Edge[] = [
+      mkEdge("runs", "h1", "s1", "Runs"),
+      mkEdge("has-vulnerability", "s1", "v1", "HasVulnerability"),
+    ];
 
-describe("applyForceLayout type clustering", () => {
-  it("separates nodes of different types into distinct clusters", () => {
+    expect(Object.fromEntries(resolveOwnership(nodes, edges))).toEqual({
+      s1: "h1",
+      v1: "s1",
+    });
+  });
+
+  it("ignores malformed, dangling, ambiguous, and orphan ownership edges", () => {
     const nodes: Node[] = [
       mkNode("h1", "Host"),
       mkNode("h2", "Host"),
       mkNode("s1", "Service"),
-      mkNode("s2", "Service"),
+      mkNode("s-ambiguous", "Service"),
+      mkNode("s-orphan", "Service"),
       mkNode("v1", "Vulnerability"),
       mkNode("v2", "Vulnerability"),
+      mkNode("v-orphan", "Vulnerability"),
     ];
     const edges: Edge[] = [
-      {
-        id: "e1",
-        from_id: "h1",
-        to_id: "s1",
-        type: "Runs",
-        data: {},
-      },
-      {
-        id: "e2",
-        from_id: "s1",
-        to_id: "v1",
-        type: "HasVulnerability",
-        data: {},
-      },
+      mkEdge("runs", "h1", "s1", "Runs"),
+      mkEdge("has-vulnerability", "s1", "v1", "HasVulnerability"),
+      mkEdge("ambiguous-first", "h1", "s-ambiguous", "Runs"),
+      mkEdge("ambiguous-second", "h2", "s-ambiguous", "Runs"),
+      mkEdge("malformed-runs", "s1", "v2", "Runs"),
+      mkEdge("malformed-vulnerability", "h1", "v2", "HasVulnerability"),
+      mkEdge("dangling", "missing-service", "v2", "HasVulnerability"),
     ];
 
-    applyForceLayout(nodes, edges, defaultForceParams);
+    expect(Object.fromEntries(resolveOwnership(nodes, edges))).toEqual({
+      s1: "h1",
+      v1: "s1",
+    });
 
-    const groups = groupByType(nodes);
-    const hosts = groups.get("Host")!;
-    const services = groups.get("Service")!;
-    const vulns = groups.get("Vulnerability")!;
-
-    // Verify all nodes got finite positions.
-    for (const n of nodes) {
-      expect(Number.isFinite(n.view_data.x_pos)).toBe(true);
-      expect(Number.isFinite(n.view_data.y_pos)).toBe(true);
-    }
-
-    // Cluster centers should be distinctly separated — with
-    // anchor radius=3*linkDistance, centroids are far apart.
-    const hCenter = { x: avg(hosts, "x_pos"), y: avg(hosts, "y_pos") };
-    const sCenter = { x: avg(services, "x_pos"), y: avg(services, "y_pos") };
-    const vCenter = { x: avg(vulns, "x_pos"), y: avg(vulns, "y_pos") };
-
-    const dHS = dist(hCenter, sCenter);
-    const dHV = dist(hCenter, vCenter);
-    const dSV = dist(sCenter, vCenter);
-
-    expect(dHS).toBeGreaterThan(defaultForceParams.linkDistance * 2);
-    expect(dHV).toBeGreaterThan(defaultForceParams.linkDistance * 2);
-    expect(dSV).toBeGreaterThan(defaultForceParams.linkDistance * 2);
-
-    // Same-type nodes must be materially tighter than every inter-type
-    // centroid gap — intra-cluster cohesion must exceed inter-cluster spacing.
-    function nodeSpread(nodes: Node[]): number {
-      return dist(
-        { x: nodes[0].view_data.x_pos, y: nodes[0].view_data.y_pos },
-        { x: nodes[1].view_data.x_pos, y: nodes[1].view_data.y_pos },
-      );
-    }
-
-    const hostSpread = nodeSpread(hosts);
-    const svcSpread = nodeSpread(services);
-    const vulnSpread = nodeSpread(vulns);
-
-    for (const intraSpread of [hostSpread, svcSpread, vulnSpread]) {
-      expect(intraSpread).toBeLessThan(dHS);
-      expect(intraSpread).toBeLessThan(dHV);
-      expect(intraSpread).toBeLessThan(dSV);
-    }
-  });
-
-  it("handles a single type without errors", () => {
-    const nodes: Node[] = [
-      mkNode("a", "Host"),
-      mkNode("b", "Host"),
-      mkNode("c", "Host"),
-    ];
-    const edges: Edge[] = [
-      {
-        id: "e1",
-        from_id: "a",
-        to_id: "b",
-        type: "Runs",
-        data: {},
-      },
-    ];
-
-    applyForceLayout(nodes, edges, defaultForceParams);
-
-    for (const n of nodes) {
-      expect(Number.isFinite(n.view_data.x_pos)).toBe(true);
-      expect(Number.isFinite(n.view_data.y_pos)).toBe(true);
-    }
-  });
-
-  it("returns immediately for empty node list", () => {
-    const nodes: Node[] = [];
-    const edges: Edge[] = [];
-    // Should not throw.
     expect(() =>
       applyForceLayout(nodes, edges, defaultForceParams),
     ).not.toThrow();
+  });
+
+  it("returns no ownership and does not lay out empty input", () => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    expect(Object.fromEntries(resolveOwnership(nodes, edges))).toEqual({});
+    expect(() =>
+      applyForceLayout(nodes, edges, defaultForceParams),
+    ).not.toThrow();
+  });
+});
+
+describe("applyForceLayout ownership clustering", () => {
+  it("keeps services and vulnerabilities with their owners", () => {
+    const h1 = mkNode("h1", "Host");
+    const h2 = mkNode("h2", "Host");
+    const s1 = mkNode("s1", "Service");
+    const s2 = mkNode("s2", "Service");
+    const v1 = mkNode("v1", "Vulnerability");
+    const v2 = mkNode("v2", "Vulnerability");
+    const nodes = [h1, h2, s1, s2, v1, v2];
+    const edges: Edge[] = [
+      mkEdge("runs-1", "h1", "s1", "Runs"),
+      mkEdge("runs-2", "h2", "s2", "Runs"),
+      mkEdge("vulnerability-1", "s1", "v1", "HasVulnerability"),
+      mkEdge("vulnerability-2", "s2", "v2", "HasVulnerability"),
+      mkEdge("reachability", "h1", "s2", "NetworkReachability"),
+    ];
+
+    applyForceLayout(nodes, edges, defaultForceParams);
+
+    for (const node of nodes) {
+      expect(Number.isFinite(node.view_data.x_pos)).toBe(true);
+      expect(Number.isFinite(node.view_data.y_pos)).toBe(true);
+    }
+
+    expect(distance(s1, h1)).toBeLessThan(distance(s1, h2));
+    expect(distance(s2, h2)).toBeLessThan(distance(s2, h1));
+    expect(distance(v1, s1)).toBeLessThan(distance(v1, s2));
+    expect(distance(v2, s2)).toBeLessThan(distance(v2, s1));
   });
 });

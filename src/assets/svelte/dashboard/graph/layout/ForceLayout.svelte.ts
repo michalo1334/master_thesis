@@ -4,21 +4,19 @@ import {
   forceManyBody,
   forceCenter,
   forceCollide,
-  forceX,
-  forceY,
 } from "d3-force";
 import type { SimulationNodeDatum, SimulationLinkDatum } from "d3-force";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { Node, Edge } from "../../contract";
 import type { ForceParams } from "./ForceLayout.types";
 
 interface SimNode extends SimulationNodeDatum {
   id: string;
-  type: string;
   radius: number;
 }
 
-/** Strength of type-based cluster attraction relative to other forces. */
-const CLUSTER_STRENGTH = 1.0;
+/** Strength of child attraction to its immediate owner. */
+const OWNERSHIP_STRENGTH = 1.0;
 
 interface SimLink extends SimulationLinkDatum<SimNode> {
   source: string | number | SimNode;
@@ -32,6 +30,80 @@ const DEFAULT_EDGE_DISTANCES: Record<string, number> = {
   HasVulnerability: 50,
 };
 
+/**
+ * Resolves each node's immediate owner from unambiguous, correctly typed edges.
+ * Nodes without exactly one valid parent have no ownership force.
+ */
+export function resolveOwnership(
+  nodes: readonly Node[],
+  edges: readonly Edge[],
+): Map<string, string> {
+  const nodesById = new SvelteMap(nodes.map((node) => [node.id, node]));
+  const parentIdsByChildId = new SvelteMap<string, Set<string>>();
+
+  for (const edge of edges) {
+    const parent = nodesById.get(edge.from_id);
+    const child = nodesById.get(edge.to_id);
+    const isValidOwnershipEdge =
+      (edge.type === "Runs" &&
+        parent?.type === "Host" &&
+        child?.type === "Service") ||
+      (edge.type === "HasVulnerability" &&
+        parent?.type === "Service" &&
+        child?.type === "Vulnerability");
+
+    if (!isValidOwnershipEdge || !parent || !child) continue;
+
+    const parentIds =
+      parentIdsByChildId.get(child.id) ?? new SvelteSet<string>();
+    parentIds.add(parent.id);
+    parentIdsByChildId.set(child.id, parentIds);
+  }
+
+  const ownership = new SvelteMap<string, string>();
+  for (const [childId, parentIds] of parentIdsByChildId) {
+    if (parentIds.size === 1)
+      ownership.set(childId, parentIds.values().next().value!);
+  }
+
+  return ownership;
+}
+
+function forceOwnership(
+  ownership: ReadonlyMap<string, string>,
+  nodesById: ReadonlyMap<string, SimNode>,
+): (alpha: number) => void {
+  return (alpha) => {
+    for (const [childId, parentId] of ownership) {
+      const child = nodesById.get(childId);
+      const parent = nodesById.get(parentId);
+      if (!child || !parent) continue;
+
+      child.vx =
+        (child.vx ?? 0) +
+        ((parent.x ?? 0) - (child.x ?? 0)) * OWNERSHIP_STRENGTH * alpha;
+      child.vy =
+        (child.vy ?? 0) +
+        ((parent.y ?? 0) - (child.y ?? 0)) * OWNERSHIP_STRENGTH * alpha;
+    }
+  };
+}
+
+function rootOwnerId(
+  nodeId: string,
+  ownership: ReadonlyMap<string, string>,
+): string {
+  let rootId = nodeId;
+  let parentId = ownership.get(rootId);
+
+  while (parentId) {
+    rootId = parentId;
+    parentId = ownership.get(rootId);
+  }
+
+  return rootId;
+}
+
 export function applyForceLayout(
   nodes: Node[],
   edges: Edge[],
@@ -41,17 +113,30 @@ export function applyForceLayout(
 
   const simNodes: SimNode[] = nodes.map((n) => ({
     id: n.id,
-    type: n.type,
     x: n.view_data.x_pos,
     y: n.view_data.y_pos,
     radius: n.view_data.radius ?? params.collisionRadius,
   }));
 
-  const simLinks: SimLink[] = edges.map((e) => ({
-    source: e.from_id,
-    target: e.to_id,
-    distance: DEFAULT_EDGE_DISTANCES[e.type] ?? params.linkDistance,
-  }));
+  const simNodesById = new SvelteMap(simNodes.map((node) => [node.id, node]));
+  const ownership = resolveOwnership(nodes, edges);
+  const simLinks: SimLink[] = edges
+    .filter(
+      (edge) => simNodesById.has(edge.from_id) && simNodesById.has(edge.to_id),
+    )
+    .map((edge) => {
+      const isReachability = edge.type === "NetworkReachability";
+      return {
+        source: isReachability
+          ? rootOwnerId(edge.from_id, ownership)
+          : edge.from_id,
+        target: isReachability
+          ? rootOwnerId(edge.to_id, ownership)
+          : edge.to_id,
+        distance: DEFAULT_EDGE_DISTANCES[edge.type] ?? params.linkDistance,
+      };
+    })
+    .filter((edge) => edge.source !== edge.target);
 
   const simulation = forceSimulation<SimNode>(simNodes)
     .force(
@@ -65,34 +150,8 @@ export function applyForceLayout(
     .force(
       "collide",
       forceCollide<SimNode>().radius((d) => d.radius),
-    );
-
-  // Type-based clustering: assign each unique node type a deterministic
-  // anchor position around the origin, then pull nodes toward their type anchor.
-  const types = [...new Set(nodes.map((n) => n.type))].sort();
-  const anchors = new Map<string, { cx: number; cy: number }>();
-
-  for (let i = 0; i < types.length; i++) {
-    const angle = (2 * Math.PI * i) / types.length;
-    anchors.set(types[i], {
-      cx: Math.cos(angle) * params.linkDistance * 3,
-      cy: Math.sin(angle) * params.linkDistance * 3,
-    });
-  }
-
-  simulation
-    .force(
-      "cluster_x",
-      forceX<SimNode>((d) => anchors.get(d.type)!.cx).strength(
-        CLUSTER_STRENGTH,
-      ),
     )
-    .force(
-      "cluster_y",
-      forceY<SimNode>((d) => anchors.get(d.type)!.cy).strength(
-        CLUSTER_STRENGTH,
-      ),
-    )
+    .force("ownership", forceOwnership(ownership, simNodesById))
     .alphaDecay(params.alphaDecay)
     .stop();
 
