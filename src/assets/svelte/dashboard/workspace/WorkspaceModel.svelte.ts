@@ -1,7 +1,12 @@
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { GraphSummary, LoadedGraph, ExperimentSummary } from "../contract";
+import type {
+  GraphSummary,
+  LoadedGraph,
+  ExperimentSummary,
+  SimulationParams,
+} from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 
@@ -23,6 +28,10 @@ export class WorkspaceModel {
   isLoadingExperiments = $state(false);
 
   forceParams = $state<ForceParams>({ ...defaultForceParams });
+  simulationParams = $state<SimulationParams>({
+    monte_carlo_trials: 1000,
+    iterations_per_run: 1000,
+  });
   statusMessage = $state("");
 
   constructor(graphSummaries: GraphSummary[] = []) {
@@ -214,6 +223,10 @@ export class WorkspaceModel {
 
   onForceParamsChange(change: Partial<ForceParams>): void {
     Object.assign(this.forceParams, change);
+  }
+
+  onSimulationParamsChange(change: Partial<SimulationParams>): void {
+    Object.assign(this.simulationParams, change);
   }
 
   applyForceLayout(): void {

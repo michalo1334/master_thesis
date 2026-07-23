@@ -88,7 +88,8 @@
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
     onShowExperiments={handleShowExperiments}
-    onSimulationParamsChange={(change) => wm}
+    onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
+    simulationParams={wm.simulationParams}
   />
 
   {#snippet inspector()}

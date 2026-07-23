@@ -16,6 +16,7 @@
     onRunSimulation: () => void;
     onShowExperiments: () => void;
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
+    simulationParams: SimulationParams;
   }
 
   let {
@@ -28,6 +29,7 @@
     onRunSimulation,
     onShowExperiments,
     onSimulationParamsChange,
+    simulationParams,
   }: Props = $props();
 </script>
 
@@ -112,7 +114,7 @@
         min={1}
         max={40000}
         step={1000}
-        value={1000}
+        value={simulationParams.monte_carlo_trials}
         onchange={(v) => onSimulationParamsChange({ monte_carlo_trials: v })}
         disabled={!hasActiveGraph}
       />
@@ -121,7 +123,7 @@
         min={1}
         max={40000}
         step={1000}
-        value={1000}
+        value={simulationParams.iterations_per_run}
         onchange={(v) => onSimulationParamsChange({ iterations_per_run: v })}
         disabled={!hasActiveGraph}
       />

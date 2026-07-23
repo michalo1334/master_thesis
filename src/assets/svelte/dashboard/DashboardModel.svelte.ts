@@ -21,7 +21,10 @@ export class DashboardModel {
   async runActiveSimulation(): Promise<void> {
     const doc = this.workspace.activeGraph;
     if (!doc) return;
-    const result = await doc.startSimulation(this.api);
+    const result = await doc.startSimulation(
+      this.api,
+      this.workspace.simulationParams,
+    );
     if (result) {
       this.workspace.createPendingReport(result);
     }
