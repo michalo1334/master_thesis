@@ -19,6 +19,10 @@ loki.source.file "network_defense" {
     },
   ]
   forward_to = [loki.process.network_defense.receiver]
+  file_watch {
+    min_poll_frequency = coalesce(sys.env("ALLOY_LOG_POLL_FREQUENCY"), "250ms")
+    max_poll_frequency = coalesce(sys.env("ALLOY_LOG_POLL_FREQUENCY"), "250ms")
+  }
 }
 
 loki.process "network_defense" {

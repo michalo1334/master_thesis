@@ -14,7 +14,7 @@ receivers:
 
 processors:
   batch:
-    timeout: 5s
+    timeout: ${env:OTEL_COLLECTOR_BATCH_TIMEOUT:-5s}
     send_batch_size: 1000
 
   # Resource attributes common to everything this app emits.

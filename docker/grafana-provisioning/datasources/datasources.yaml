@@ -39,3 +39,5 @@ datasources:
     uid: loki
     isDefault: false
     editable: false
+    jsonData:
+      maxLines: 2000

@@ -4,6 +4,14 @@
 #   docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
 
 services:
+  otel-collector:
+    environment:
+      OTEL_COLLECTOR_BATCH_TIMEOUT: 250ms
+
+  alloy:
+    environment:
+      ALLOY_LOG_POLL_FREQUENCY: 100ms
+
   network_defense:
     build:
       context: ../src

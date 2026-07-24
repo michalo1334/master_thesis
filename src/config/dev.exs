@@ -18,6 +18,9 @@ end
 
 config :live_svelte, ssr_module: LiveSvelte.SSR.ViteJS, vite_host: "http://localhost:5173"
 
+# Keep traces responsive while debugging without changing production batching.
+config :opentelemetry, bsp_scheduled_delay_ms: 250
+
 # Configure your database
 config :network_defense, NetworkDefense.Repo,
   username: System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") || "postgres",
