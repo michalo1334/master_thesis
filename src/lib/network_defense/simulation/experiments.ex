@@ -15,19 +15,52 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   def insert(%Experiment{runs: runs} = experiment) when is_list(runs) do
     Repo.transaction(fn ->
+      now = DateTime.truncate(DateTime.utc_now(), :second)
+
       experiment_record =
         experiment
         |> Map.put(:runs, [])
         |> then(&Experiment.changeset(&1, experiment_attrs(experiment)))
         |> insert_or_rollback(:experiment)
 
-      persisted_runs =
+      run_maps =
         Enum.map(runs, fn run ->
-          insert_run_with_iterations(run, experiment_record.id)
+          run
+          |> db_map(Run, %{experiment_id: experiment_record.id, inserted_at: now, updated_at: now})
         end)
 
-      %{experiment_record | runs: persisted_runs}
+      {run_count, nil} = Repo.insert_all(Run, run_maps, on_conflict: :nothing)
+      if run_count != length(runs), do: Repo.rollback(:run)
+
+      iteration_maps =
+        Enum.flat_map(runs, fn run ->
+          Enum.map(run.iterations, fn iteration ->
+            iteration
+            |> db_map(IterationStep, %{run_id: run.id, inserted_at: now, updated_at: now})
+          end)
+        end)
+
+      iteration_maps
+      |> Enum.chunk_every(10_000)
+      |> Enum.each(fn chunk ->
+        case Repo.insert_all(IterationStep, chunk, on_conflict: :nothing) do
+          {count, nil} when count == length(chunk) -> :ok
+          _ -> Repo.rollback(:iteration_step)
+        end
+      end)
+
+      %{experiment_record | runs: []}
     end)
+  end
+
+  defp db_map(%{} = struct, schema, additions) do
+    map =
+      struct |> Map.take(Map.keys(schema.__schema__(:dump))) |> Map.merge(additions)
+
+    case schema.__schema__(:autogenerate_id) do
+      {key, _, _} -> if is_nil(map[key]), do: Map.delete(map, key), else: map
+      nil -> map
+    end
   end
 
   def load(id) do
@@ -40,40 +73,12 @@ defmodule NetworkDefense.Simulation.Experiments do
     end
   end
 
-  defp insert_run_with_iterations(%Run{iterations: iterations} = run, experiment_id) do
-    run_attrs =
-      run
-      |> Map.take([:initial_seed, :initial_attacker_state, :iteration_count])
-      |> Map.put(:experiment_id, experiment_id)
-
-    persisted_run =
-      %Run{
-        graph_id: graph_id(run),
-        experiment_id: experiment_id
-      }
-      |> Run.changeset(run_attrs)
-      |> insert_or_rollback(:run)
-
-    iteration_records =
-      Enum.map(iterations, fn iteration ->
-        %IterationStep{run_id: persisted_run.id}
-        |> IterationStep.changeset(iteration_attrs(iteration))
-        |> insert_or_rollback(:iteration_step)
-      end)
-
-    %{persisted_run | iterations: iteration_records}
-  end
-
   defp insert_or_rollback(changeset, operation) do
     case Repo.insert(changeset) do
       {:ok, record} -> record
       {:error, changeset} -> Repo.rollback({operation, changeset})
     end
   end
-
-  defp graph_id(%Run{graph_id: graph_id}) when is_binary(graph_id), do: graph_id
-  defp graph_id(%Run{graph: %{id: graph_id}}) when is_binary(graph_id), do: graph_id
-  defp graph_id(_), do: nil
 
   defp experiment_attrs(experiment) do
     Map.take(experiment, [
@@ -84,10 +89,6 @@ defmodule NetworkDefense.Simulation.Experiments do
       :lock_version,
       :runtime_ms
     ])
-  end
-
-  defp iteration_attrs(iteration) do
-    Map.take(iteration, [:index, :attempted_action, :success?, :attacker_state, :seed])
   end
 
   defp runs_query do
