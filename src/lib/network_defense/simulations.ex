@@ -108,7 +108,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp parallel_map_fn(enum, fun) do
+  def parallel_map_fn(enum, fun) do
     Task.Supervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun,
       ordered: false,
       timeout: :infinity
@@ -127,7 +127,7 @@ defmodule NetworkDefense.Simulations do
 
   def list_experiments(graph_ids), do: list_experiments([graph_ids])
 
-  defp initial_attacker_state(graph) do
+  def initial_attacker_state(graph) do
     internet_host =
       graph
       |> NetworkDefense.Graph.Graph.nodes()
