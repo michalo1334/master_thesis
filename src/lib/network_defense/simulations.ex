@@ -8,85 +8,81 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.Simulator
-  alias NetworkDefense.Simulation.Runs
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   import Ecto.Query
 
   require Logger
 
-  def run(opts \\ []) do
-    state = Simulator.run(opts)
-    {:ok, saved} = Runs.insert(state)
-    saved
-  end
-
-  def run_experiment(opts \\ []) do
-    {experiment, _runs} = Simulator.run_experiment(opts)
-    {:ok, saved} = Experiments.insert(experiment)
-    saved
-  end
-
   @simulation_events_topic "simulation_events"
 
   def simulation_events_topic, do: @simulation_events_topic
 
   def run_async(%RunSimulationRequest{} = request) do
-    with {:ok, graph_id} <- Ecto.UUID.cast(request.graph_id),
-         graph when not is_nil(graph) <- Graphs.load(graph_id) do
-      run_async(graph, request.correlation_id, request.simulation_params)
-    else
-      :error -> {:error, "invalid_graph_id"}
-      nil -> {:error, "graph_not_found"}
+    case Graphs.load(request.graph_id) do
+      graph when not is_nil(graph) ->
+        run_async(graph, request.correlation_id, request.simulation_params)
+
+      nil ->
+        {:error, "graph_not_found"}
     end
   end
 
   def run_async(graph, correlation_id, simulation_params) do
+    Task.Supervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      do_run_async(graph, correlation_id, simulation_params, &parallel_map_fn/2)
+    end)
+  end
+
+  defp do_run_async(graph, correlation_id, simulation_params, map_fun) do
     rules = default_rules()
 
-    Task.start(fn ->
-      try do
-        {elapsed_us, {experiment, runs}} =
-          :timer.tc(fn ->
-            Simulator.run_experiment(
-              graph: graph,
-              run_count: simulation_params.monte_carlo_trials,
-              iteration_count: simulation_params.iterations_per_run,
-              initial_attacker_state: initial_attacker_state(graph),
-              lock_version: graph.lock_version,
-              rules: rules
-            )
-          end)
-
-        runtime_ms = div(elapsed_us, 1000)
-
-        experiment = %{
-          experiment
-          | runtime_ms: runtime_ms,
+    try do
+      {elapsed_us, {experiment, runs}} =
+        :timer.tc(fn ->
+          Simulator.run_experiment(
+            graph: graph,
+            run_count: simulation_params.monte_carlo_trials,
+            iteration_count: simulation_params.iterations_per_run,
+            initial_attacker_state: initial_attacker_state(graph),
             lock_version: graph.lock_version,
-            run_count: length(runs)
-        }
+            rules: rules,
+            map_fun: map_fun
+          )
+        end)
 
-        case Experiments.insert(experiment) do
-          {:ok, saved} ->
-            Logger.info("experiment persisted: #{saved.id} for graph #{saved.graph_id}")
+      runtime_ms = div(elapsed_us, 1000)
 
-            broadcast_simulation_completed(saved, correlation_id)
+      experiment = %{
+        experiment
+        | runtime_ms: runtime_ms,
+          lock_version: graph.lock_version,
+          run_count: length(runs)
+      }
 
-          {:error, reason} ->
-            Logger.error("Failed to persist simulation: #{inspect(reason)}")
-            broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
-        end
-      rescue
-        e ->
-          Logger.error("Simulation task crashed: #{inspect(e)}")
-          broadcast_simulation_failed(graph.id, correlation_id, Exception.message(e))
-      catch
-        kind, reason ->
-          Logger.error("Simulation task exited: #{kind}: #{inspect(reason)}")
-          broadcast_simulation_failed(graph.id, correlation_id, "#{kind}: #{inspect(reason)}")
+      case Experiments.insert(experiment) do
+        {:ok, saved} ->
+          Logger.info("experiment persisted: #{saved.id} for graph #{saved.graph_id}")
+
+          broadcast_simulation_completed(saved, correlation_id)
+
+        {:error, reason} ->
+          Logger.error("Failed to persist simulation: #{inspect(reason)}")
+          broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
       end
-    end)
+    rescue
+      e ->
+        Logger.error("Simulation task crashed: #{inspect(e)}")
+        broadcast_simulation_failed(graph.id, correlation_id, Exception.message(e))
+    catch
+      kind, reason ->
+        Logger.error("Simulation task exited: #{kind}: #{inspect(reason)}")
+        broadcast_simulation_failed(graph.id, correlation_id, "#{kind}: #{inspect(reason)}")
+    end
+  end
+
+  defp parallel_map_fn(enum, fun) do
+    Task.Supervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun)
   end
 
   def list_experiments(graph_ids) when is_list(graph_ids) do

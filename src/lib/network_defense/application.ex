@@ -31,6 +31,7 @@ defmodule NetworkDefense.Application do
     children =
       node_js_children ++
         [
+          {Task.Supervisor, name: NetworkDefense.TaskSupervisor},
           NetworkDefenseWeb.Telemetry,
           {Bandit,
            scheme: :http,

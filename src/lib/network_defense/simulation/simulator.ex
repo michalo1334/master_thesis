@@ -28,6 +28,7 @@ defmodule NetworkDefense.Simulation.Simulator do
    - initial_attacker_state - attacker starting position
    - iteration_count - iterations per run
    - rules - rule set to evaluate
+   - map_fn - mapping function that maps each run to its result
 
    Returns a tuple `{experiment, runs}` where `experiment` is the parent record
    linking all completed runs.
@@ -38,6 +39,7 @@ defmodule NetworkDefense.Simulation.Simulator do
     run_count = Keyword.get(opts, :run_count, @default_run_count)
     iteration_count = Keyword.get(opts, :iteration_count, 1000)
     lock_version = Keyword.get(opts, :lock_version, 1)
+    map_fn = Keyword.get(opts, :map_fn, &Enum.map/2)
 
     experiment =
       Experiment.new(
@@ -50,7 +52,7 @@ defmodule NetworkDefense.Simulation.Simulator do
       )
 
     runs =
-      Enum.map(1..run_count, fn idx ->
+      map_fn.(1..run_count, fn idx ->
         run(
           opts
           |> Keyword.put(:seed, derive_child_seed(seed, idx))
