@@ -14,8 +14,8 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Seed, as: Seed
 
-  @default_seed 0
   @default_run_count 10
 
   @doc """
@@ -35,7 +35,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   """
   @spec run_experiment(keyword()) :: {Experiment.t(), list(Run.t())}
   def run_experiment(opts) do
-    seed = Keyword.get(opts, :seed, @default_seed)
+    seed = Keyword.get(opts, :seed)
     run_count = Keyword.get(opts, :run_count, @default_run_count)
     iteration_count = Keyword.get(opts, :iteration_count, 1000)
     lock_version = Keyword.get(opts, :lock_version, 1)
@@ -55,7 +55,7 @@ defmodule NetworkDefense.Simulation.Simulator do
       map_fn.(1..run_count, fn idx ->
         run(
           opts
-          |> Keyword.put(:seed, derive_child_seed(seed, idx))
+          |> Keyword.put(:seed, Seed.child_seed(seed, idx))
           |> Keyword.put(:experiment_id, experiment.id)
         )
       end)
@@ -124,7 +124,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   end
 
   def maybe_execute_action(action, seed, attacker_state) do
-    seed = seed_state(seed)
+    seed = Seed.seed_state(seed)
     {sample, new_seed} = :rand.uniform_s(seed)
 
     new_attacker_state = AttackerState.mark_attempted(attacker_state, Action.key(action))
@@ -146,27 +146,5 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   def select_action(actions, _state) do
     hd(actions)
-  end
-
-  defp derive_child_seed(parent_seed, index) when is_integer(parent_seed) and is_integer(index) do
-    <<child_seed::unsigned-64, _::binary>> =
-      :crypto.hash(
-        :sha256,
-        :erlang.term_to_binary(parent_seed + index)
-      )
-
-    rem(child_seed, 9_223_372_036_854_775_807)
-  end
-
-  defp seed_part(value), do: rem(value, 2_147_483_646) + 1
-
-  defp seed_state(seed) when is_integer(seed), do: integer_to_seed_state(seed)
-  defp seed_state(seed), do: seed
-
-  defp integer_to_seed_state(seed) do
-    <<first::unsigned-32, second::unsigned-32, third::unsigned-32, _::binary>> =
-      :crypto.hash(:sha256, :erlang.term_to_binary(seed))
-
-    :rand.seed_s(:exsss, {seed_part(first), seed_part(second), seed_part(third)})
   end
 end

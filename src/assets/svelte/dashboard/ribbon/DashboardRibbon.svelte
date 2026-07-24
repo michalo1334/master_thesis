@@ -5,6 +5,8 @@
   import Slider from "../ui/Slider.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type { SimulationParams } from "../contract";
+  import Checkbox from "../ui/Checkbox.svelte";
+  import NumberInput from "../ui/NumberInput.svelte";
 
   interface Props {
     hasActiveGraph: boolean;
@@ -31,6 +33,8 @@
     onSimulationParamsChange,
     simulationParams,
   }: Props = $props();
+
+  let doRandomSeed = $state(false);
 </script>
 
 <Ribbon
@@ -127,6 +131,18 @@
         onchange={(v) => onSimulationParamsChange({ iterations_per_run: v })}
         disabled={!hasActiveGraph}
       />
+      <div class="dashboard-seed-group">
+        <NumberInput
+          label="Seed"
+          disabled={doRandomSeed}
+          onchange={(v) => onSimulationParamsChange({ seed: v })}
+        />
+        <Checkbox
+          label="Random"
+          bind:checked={doRandomSeed}
+          onchange={(v) => onSimulationParamsChange({ generate_seed: v })}
+        />
+      </div>
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="View">
@@ -146,3 +162,11 @@
     </Ribbon.Section>
   </Ribbon.Tab>
 </Ribbon>
+
+<style>
+  .dashboard-seed-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+</style>

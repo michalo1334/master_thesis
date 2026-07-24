@@ -8,6 +8,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.Simulator
+  alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   import Ecto.Query
@@ -43,6 +44,13 @@ defmodule NetworkDefense.Simulations do
     run_count = simulation_params.monte_carlo_trials
     iteration_count = simulation_params.iterations_per_run
 
+    seed =
+      if simulation_params.generate_seed do
+        Seed.random()
+      else
+        simulation_params.seed
+      end
+
     Tracer.with_span "simulation.run",
       attributes: %{
         "graph.id": graph.id,
@@ -59,6 +67,7 @@ defmodule NetworkDefense.Simulations do
                   graph: graph,
                   run_count: run_count,
                   iteration_count: iteration_count,
+                  seed: seed,
                   initial_attacker_state: initial_attacker_state(graph),
                   lock_version: graph.lock_version,
                   rules: rules,

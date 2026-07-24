@@ -31,6 +31,8 @@ export class WorkspaceModel {
   simulationParams = $state<SimulationParams>({
     monte_carlo_trials: 1000,
     iterations_per_run: 1000,
+    generate_seed: false,
+    seed: 0,
   });
   statusMessage = $state("");
 

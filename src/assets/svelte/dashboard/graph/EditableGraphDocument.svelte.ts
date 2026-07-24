@@ -1,4 +1,4 @@
-import type { LoadedGraph } from "../contract";
+import type { LoadedGraph, SimulationParams } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
@@ -131,10 +131,7 @@ export class EditableGraphDocument {
 
   async startSimulation(
     api: DashboardApi,
-    params: {
-      monte_carlo_trials: number;
-      iterations_per_run: number;
-    },
+    params: SimulationParams,
   ): Promise<{
     graphId: string;
     correlationId: string;

@@ -94,8 +94,10 @@ export interface RunSimulationRequest {
 }
 
 export interface SimulationParams {
+  generate_seed: boolean;
   iterations_per_run: number;
   monte_carlo_trials: number;
+  seed: number;
 }
 
 export interface ChartSpec {
