@@ -11,6 +11,7 @@ defmodule NetworkDefense.Application do
     OpentelemetryBandit.setup()
     OpentelemetryPhoenix.setup(adapter: :bandit)
     OpentelemetryEcto.setup([:network_defense, :repo])
+    NetworkDefense.Observability.attach()
 
     # Registers the :file_log handler from `config :network_defense, :logger`
     # (set in runtime.exs). Returns {:error, _} if the path is not writable;

@@ -49,7 +49,7 @@ if enable_file_log do
     {:handler, :file_log, :logger_std_h,
      %{
        level: level,
-       formatter: {LoggerJSON.Formatters.Basic, metadata: :all},
+       formatter: {NetworkDefense.Observability.LoggerFormatter, metadata: :all},
        config: %{
          file: ~c"#{log_file}",
          filesync_repeat_interval: 5000,

@@ -34,7 +34,13 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
 
 # Structured JSON logging via logger_json (emitted to stdout).
 # Grafana Alloy tails the container stdout and pushes to Loki.
-config :logger, :default_handler, formatter: {LoggerJSON.Formatters.Basic, metadata: :all}
+config :logger, handle_sasl_reports: true
+
+config :logger, :default_handler,
+  formatter: {NetworkDefense.Observability.LoggerFormatter, metadata: :all}
+
+# Ecto telemetry remains active when the default text query logger is disabled.
+config :network_defense, NetworkDefense.Repo, log: false
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
