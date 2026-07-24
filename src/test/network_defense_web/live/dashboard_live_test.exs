@@ -80,7 +80,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      "correlation_id" => correlation_id,
                      "simulation_params" => %{
                        "monte_carlo_trials" => 1,
-                       "iterations_per_run" => 1
+                       "iterations_per_run" => 1,
+                       "generate_seed" => true
                      }
                    }
                  },
@@ -105,6 +106,34 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "optimize_defense", %{"graph_id" => "topology-1"})
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
+    end
+
+    test "rejects a simulation request with nil seed and generate_seed false" do
+      graph = insert_graph("nil-seed-test")
+      graph_id = graph.id
+      correlation_id = "request-nil-seed"
+
+      assert {:reply,
+              %{
+                status: "rejected",
+                graph_id: ^graph_id,
+                correlation_id: ^correlation_id,
+                reason: "invalid_request"
+              }, _socket} =
+               DashboardLive.handle_event(
+                 "run_simulation_request",
+                 %{
+                   "request" => %{
+                     "graph_id" => graph_id,
+                     "correlation_id" => correlation_id,
+                     "simulation_params" => %{
+                       "monte_carlo_trials" => 1,
+                       "iterations_per_run" => 1
+                     }
+                   }
+                 },
+                 %Phoenix.LiveView.Socket{}
+               )
     end
 
     test "rejects an invalid correlated simulation request" do

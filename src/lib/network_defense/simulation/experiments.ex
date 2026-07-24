@@ -32,22 +32,11 @@ defmodule NetworkDefense.Simulation.Experiments do
       {run_count, nil} = Repo.insert_all(Run, run_maps, on_conflict: :nothing)
       if run_count != length(runs), do: Repo.rollback(:run)
 
-      iteration_maps =
-        Enum.flat_map(runs, fn run ->
-          Enum.map(run.iterations, fn iteration ->
-            iteration
-            |> db_map(IterationStep, %{run_id: run.id, inserted_at: now, updated_at: now})
-          end)
-        end)
+      iteration_maps = iteration_step_maps(runs, now)
 
       iteration_maps
       |> Enum.chunk_every(10_000)
-      |> Enum.each(fn chunk ->
-        case Repo.insert_all(IterationStep, chunk, on_conflict: :nothing) do
-          {count, nil} when count == length(chunk) -> :ok
-          _ -> Repo.rollback(:iteration_step)
-        end
-      end)
+      |> Enum.each(&insert_iteration_chunk/1)
 
       %{experiment_record | runs: []}
     end)
@@ -78,6 +67,22 @@ defmodule NetworkDefense.Simulation.Experiments do
       {:ok, record} -> record
       {:error, changeset} -> Repo.rollback({operation, changeset})
     end
+  end
+
+  defp insert_iteration_chunk(chunk) do
+    case Repo.insert_all(IterationStep, chunk, on_conflict: :nothing) do
+      {count, nil} when count == length(chunk) -> :ok
+      _ -> Repo.rollback(:iteration_step)
+    end
+  end
+
+  defp iteration_step_maps(runs, now) do
+    Enum.flat_map(runs, fn run ->
+      Enum.map(run.iterations, fn iteration ->
+        iteration
+        |> db_map(IterationStep, %{run_id: run.id, inserted_at: now, updated_at: now})
+      end)
+    end)
   end
 
   defp experiment_attrs(experiment) do

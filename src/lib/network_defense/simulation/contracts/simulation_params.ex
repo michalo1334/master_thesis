@@ -19,21 +19,26 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
         }
 
   def changeset(schema, attrs) do
-    changeset =
-      schema
-      |> cast(attrs, [:monte_carlo_trials, :iterations_per_run, :seed, :generate_seed],
-        default_values: [generate_seed: false]
-      )
-      |> validate_required([:monte_carlo_trials, :iterations_per_run, :generate_seed])
-      |> validate_number(:monte_carlo_trials, greater_than: 0)
-      |> validate_number(:iterations_per_run, greater_than: 0)
+    schema
+    |> cast(attrs, [:monte_carlo_trials, :iterations_per_run, :seed, :generate_seed],
+      default_values: [generate_seed: false]
+    )
+    |> validate_required([:monte_carlo_trials, :iterations_per_run, :generate_seed])
+    |> validate_number(:monte_carlo_trials, greater_than: 0)
+    |> validate_number(:iterations_per_run, greater_than: 0)
+    |> validate_seed_present_unless_generated()
+  end
 
-    changeset
-    |> validate_change(:seed, fn :seed, seed ->
-      case {Changeset.get_field(changeset, :generate_seed), seed} do
-        {false, nil} -> [seed: "cannot be nil when :generate_seed is false"]
-        _ -> []
-      end
-    end)
+  defp validate_seed_present_unless_generated(changeset) do
+    generate_seed = Changeset.get_field(changeset, :generate_seed)
+    seed = Changeset.get_field(changeset, :seed)
+
+    case {generate_seed, seed} do
+      {false, nil} ->
+        Changeset.add_error(changeset, :seed, "cannot be nil when :generate_seed is false")
+
+      _ ->
+        changeset
+    end
   end
 end
