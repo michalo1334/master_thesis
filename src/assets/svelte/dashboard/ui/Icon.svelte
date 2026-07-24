@@ -15,6 +15,7 @@
     play: "hero-play",
     graph: "hero-share",
     "chevron-right": "hero-chevron-right",
+    "chevron-down": "hero-chevron-down",
     plus: "hero-plus",
     "squares-2x2": "hero-squares-2x2",
   };

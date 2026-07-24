@@ -6,6 +6,7 @@
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import OptionPickerDialog from "./dashboard/ui/OptionPickerDialog.svelte";
+  import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
   import Canvas from "./dashboard/graph/canvas/Canvas.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
@@ -30,6 +31,15 @@
     { id: "simulation-report", label: "Report", icon: "shield" },
   ];
 
+  const optimizationOptions: readonly SplitButtonOption[] = [
+    { id: "greedy", icon: "cursor", title: "Greedy" },
+    { id: "mincut", icon: "link", title: "Min-cut" },
+    { id: "random", icon: "squares-2x2", title: "Random" },
+    { id: "hybrid", icon: "graph", title: "Hybrid" },
+  ];
+
+  let activeOptimizationId = $state<string>(optimizationOptions[0].id);
+
   async function handleSave(): Promise<void> {
     await model.saveActiveGraph();
   }
@@ -44,6 +54,10 @@
 
   async function handleShowExperiments(): Promise<void> {
     await model.showExperiments();
+  }
+
+  function handleOptimize(strategyId: string): void {
+    activeOptimizationId = strategyId;
   }
 
   function formatTimestamp(iso: string): string {
@@ -88,6 +102,9 @@
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
     onShowExperiments={handleShowExperiments}
+    onOptimize={handleOptimize}
+    {optimizationOptions}
+    {activeOptimizationId}
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
   />

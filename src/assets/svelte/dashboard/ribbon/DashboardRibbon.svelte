@@ -3,6 +3,9 @@
   import Icon from "../ui/Icon.svelte";
   import Ribbon from "../ribbon/Ribbon";
   import Slider from "../ui/Slider.svelte";
+  import SplitButton, {
+    type SplitButtonOption,
+  } from "../ui/SplitButton.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type { SimulationParams } from "../contract";
   import Checkbox from "../ui/Checkbox.svelte";
@@ -17,6 +20,9 @@
     onForceLayout: () => void;
     onRunSimulation: () => void;
     onShowExperiments: () => void;
+    onOptimize: (strategyId: string) => void;
+    optimizationOptions: readonly SplitButtonOption[];
+    activeOptimizationId: string;
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
   }
@@ -30,6 +36,9 @@
     onForceLayout,
     onRunSimulation,
     onShowExperiments,
+    onOptimize,
+    optimizationOptions,
+    activeOptimizationId,
     onSimulationParamsChange,
     simulationParams,
   }: Props = $props();
@@ -108,9 +117,13 @@
       <Button onclick={(_) => onRunSimulation()} disabled={!hasActiveGraph}
         ><Icon name="play" size={22} /><span>Simulate</span></Button
       >
-      <Button disabled={!hasActiveGraph}
-        ><Icon name="shield" size={22} /><span>Optimize</span></Button
-      >
+      <SplitButton
+        options={optimizationOptions}
+        activeId={activeOptimizationId}
+        disabled={!hasActiveGraph}
+        ariaLabel="Optimize"
+        onSelect={onOptimize}
+      />
     </Ribbon.Section>
     <Ribbon.Section title="Simulation parameters">
       <Slider
