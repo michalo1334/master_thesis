@@ -13,6 +13,9 @@ defmodule NetworkDefense.Simulation.Experiments do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Run
 
+  # Ecto may add binds beyond the values present in each input map.
+  @max_bind_parameters 45_000
+
   def insert(%Experiment{runs: runs} = experiment) when is_list(runs) do
     Repo.transaction(fn ->
       now = DateTime.truncate(DateTime.utc_now(), :second)
@@ -29,14 +32,12 @@ defmodule NetworkDefense.Simulation.Experiments do
           |> db_map(Run, %{experiment_id: experiment_record.id, inserted_at: now, updated_at: now})
         end)
 
-      {run_count, nil} = Repo.insert_all(Run, run_maps, on_conflict: :nothing)
+      run_count = insert_all(Run, run_maps, :run)
       if run_count != length(runs), do: Repo.rollback(:run)
 
       iteration_maps = iteration_step_maps(runs, now)
 
-      iteration_maps
-      |> Enum.chunk_every(10_000)
-      |> Enum.each(&insert_iteration_chunk/1)
+      insert_all(IterationStep, iteration_maps, :iteration_step)
 
       %{experiment_record | runs: []}
     end)
@@ -69,11 +70,23 @@ defmodule NetworkDefense.Simulation.Experiments do
     end
   end
 
-  defp insert_iteration_chunk(chunk) do
-    case Repo.insert_all(IterationStep, chunk, on_conflict: :nothing) do
-      {count, nil} when count == length(chunk) -> :ok
-      _ -> Repo.rollback(:iteration_step)
-    end
+  defp insert_all(_schema, [], _operation), do: 0
+
+  defp insert_all(schema, rows, operation) do
+    rows
+    |> Enum.chunk_every(rows_per_insert(rows))
+    |> Enum.reduce(0, fn chunk, inserted_count ->
+      case Repo.insert_all(schema, chunk, on_conflict: :nothing) do
+        {count, nil} when count == length(chunk) -> inserted_count + count
+        _ -> Repo.rollback(operation)
+      end
+    end)
+  end
+
+  defp rows_per_insert([row | _rows]) do
+    row
+    |> map_size()
+    |> then(&max(1, div(@max_bind_parameters, &1)))
   end
 
   defp iteration_step_maps(runs, now) do
