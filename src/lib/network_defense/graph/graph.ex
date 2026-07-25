@@ -2,17 +2,14 @@ defmodule NetworkDefense.Graph.Graph do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.Domain.Adapter
-  alias NetworkDefense.Graph.Domain.{Edge, Node}
-  alias NetworkDefense.Graph.Edge, as: PersistedEdge
-  alias NetworkDefense.Graph.Node, as: PersistedNode
+  alias NetworkDefense.Graph.{Edge, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
-    has_many :nodes, PersistedNode
-    has_many :edges, PersistedEdge
+    has_many :nodes, Node
+    has_many :edges, Edge
     field :adjacency_list, :map, virtual: true, default: %{}
     field :lock_version, :integer, default: 1
     field :title, :string
@@ -45,9 +42,9 @@ defmodule NetworkDefense.Graph.Graph do
     graph = %{graph | nodes: [], edges: [], adjacency_list: %{}}
 
     graph =
-      Enum.reduce(nodes, graph, fn node, graph -> put_node(graph, Adapter.hydrate_node!(node)) end)
+      Enum.reduce(nodes, graph, fn node, graph -> put_node(graph, Node.hydrate!(node)) end)
 
-    Enum.reduce(edges, graph, fn edge, graph -> put_edge(graph, Adapter.hydrate_edge!(edge)) end)
+    Enum.reduce(edges, graph, fn edge, graph -> put_edge(graph, Edge.hydrate!(edge)) end)
   end
 
   def nodes(graph), do: loaded_nodes(graph.nodes)
@@ -63,8 +60,8 @@ defmodule NetworkDefense.Graph.Graph do
   def node(graph, node_id), do: Enum.find(nodes(graph), &(&1.id == node_id))
   def edge(graph, edge_id), do: Enum.find(edges(graph), &(&1.id == edge_id))
 
-  def persisted_nodes(graph), do: Enum.map(nodes(graph), &Adapter.persist_node/1)
-  def persisted_edges(graph), do: Enum.map(edges(graph), &Adapter.persist_edge/1)
+  def persisted_nodes(graph), do: Enum.map(nodes(graph), &Node.persist/1)
+  def persisted_edges(graph), do: Enum.map(edges(graph), &Edge.persist/1)
 
   def outgoing(graph, node_id) do
     graph.adjacency_list
@@ -78,13 +75,13 @@ defmodule NetworkDefense.Graph.Graph do
     |> Map.fetch!(:incoming)
   end
 
-  def add_node(graph, %Node{} = node), do: put_node(graph, node)
-  def add_node(graph, %PersistedNode{} = node), do: put_node(graph, Adapter.hydrate_node!(node))
+  def add_node(graph, %Node{} = node), do: put_node(graph, Node.hydrate!(node))
 
   def add_node(graph, attrs) when is_map(attrs),
-    do: add_node(graph, PersistedNode.new(graph.id, attrs))
+    do: add_node(graph, Node.new(graph.id, attrs))
 
   def update_node(graph, %Node{} = updated_node) do
+    updated_node = Node.hydrate!(updated_node)
     node!(graph, updated_node.id)
 
     if updated_node.graph_id != graph.id do
@@ -100,21 +97,14 @@ defmodule NetworkDefense.Graph.Graph do
     }
   end
 
-  def update_node(graph, %PersistedNode{} = updated_node),
-    do: update_node(graph, Adapter.hydrate_node!(updated_node))
-
-  def add_edge(graph, %Edge{} = edge), do: put_edge(graph, edge)
-  def add_edge(graph, %PersistedEdge{} = edge), do: put_edge(graph, Adapter.hydrate_edge!(edge))
+  def add_edge(graph, %Edge{} = edge), do: put_edge(graph, Edge.hydrate!(edge))
 
   def add_edge(graph, %Node{} = from, %Node{} = to, attrs) when is_map(attrs) do
-    add_edge(graph, PersistedEdge.new(graph.id, from.id, to.id, attrs))
-  end
-
-  def add_edge(graph, %PersistedNode{} = from, %PersistedNode{} = to, attrs) when is_map(attrs) do
-    add_edge(graph, node!(graph, from.id), node!(graph, to.id), attrs)
+    add_edge(graph, Edge.new(graph.id, from.id, to.id, attrs))
   end
 
   def update_edge(graph, %Edge{} = updated_edge) do
+    updated_edge = Edge.hydrate!(updated_edge)
     edge!(graph, updated_edge.id)
 
     adjacency_list =
@@ -130,9 +120,6 @@ defmodule NetworkDefense.Graph.Graph do
 
     %{graph | adjacency_list: adjacency_list}
   end
-
-  def update_edge(graph, %PersistedEdge{} = updated_edge),
-    do: update_edge(graph, Adapter.hydrate_edge!(updated_edge))
 
   def remove_node_by_id(graph, node_id) do
     nodes = Enum.reject(nodes(graph), &(&1.id == node_id))

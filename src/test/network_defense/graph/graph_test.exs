@@ -234,6 +234,40 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
   end
 
+  describe "runtime hydration" do
+    test "round-trips persisted nodes and edges through typed runtime values" do
+      persisted_node = %Node{
+        id: Ecto.UUID.generate(),
+        graph_id: Ecto.UUID.generate(),
+        type: Atom.to_string(Host),
+        data: %{"name" => "host"},
+        view_data: nil
+      }
+
+      assert {:ok, %Node{type: Host, data: %Host{name: "host"}} = node} =
+               Node.hydrate(persisted_node)
+
+      assert node.view_data == %{x_pos: 0, y_pos: 0, radius: nil}
+
+      assert %Node{type: "Elixir.NetworkDefense.Nodes.Host", data: %{"name" => "host"}} =
+               Node.persist(node)
+
+      persisted_edge = %Edge{
+        id: Ecto.UUID.generate(),
+        graph_id: persisted_node.graph_id,
+        from_id: persisted_node.id,
+        to_id: Ecto.UUID.generate(),
+        type: Atom.to_string(Runs),
+        data: %{}
+      }
+
+      assert {:ok, %Edge{type: Runs, data: %Runs{}} = edge} = Edge.hydrate(persisted_edge)
+
+      assert %Edge{type: "Elixir.NetworkDefense.Relationships.Runs", data: %{}} =
+               Edge.persist(edge)
+    end
+  end
+
   describe "in-memory updates" do
     test "builds nodes and edges with UUIDs" do
       graph = Graph.new("test-graph")

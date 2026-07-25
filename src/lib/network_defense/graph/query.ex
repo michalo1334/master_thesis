@@ -3,8 +3,7 @@ defmodule NetworkDefense.Graph.Query do
   A small, Cypher-like DSL for matching typed graph paths and joins.
   """
 
-  alias NetworkDefense.Graph.Domain.Edge
-  alias NetworkDefense.Graph.Domain.Node
+  alias NetworkDefense.Graph.{Edge, Node}
   alias NetworkDefense.Graph.Graph
 
   def match(%Graph{} = graph, %{start: start, hops: hops} = pattern) when is_list(hops) do

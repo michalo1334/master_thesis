@@ -4,7 +4,7 @@ defmodule NetworkDefense.Graph.Contracts.Node do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Domain.Adapter
+  alias NetworkDefense.Graph.Node, as: GraphNode
 
   alias NetworkDefense.Graph.Contracts.Data.{
     CredentialData,
@@ -82,7 +82,7 @@ defmodule NetworkDefense.Graph.Contracts.Node do
 
   def from_domain(node) do
     with {:ok, {tag, data_contract}} <- variant_for_domain(node.type),
-         {:ok, data} <- data_contract.validate(Adapter.data_params(node.data)),
+         {:ok, data} <- data_contract.validate(GraphNode.data_params(node.data)),
          {:ok, view_data} <- NodeViewData.validate(Contracts.to_params(node.view_data)) do
       validate(%{
         id: node.id,
