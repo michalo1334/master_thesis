@@ -26,6 +26,7 @@ services:
       PHX_HOST: ${PHX_HOST:-localhost}
       PHX_IP: ${PHX_IP:-0.0.0.0}
       PORT: ${PORT:-4000}
+      NPM_CONFIG_NODE_OPTIONS: ${NPM_CONFIG_NODE_OPTIONS:---inspect=0.0.0.0:9229}
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
       LOG_FILE_PATH: ${LOG_FILE_PATH:-/var/log/network_defense/network_defense.jsonl}
       LOG_FILE_LEVEL: ${LOG_FILE_LEVEL:-debug}
@@ -35,6 +36,7 @@ services:
       - "4000:4000"
       - "4001:4001"
       - "5173:5173"
+      - "9229:9229"
     volumes:
       - network-defense-logs:/var/log/network_defense
       - ../src/lib:/app/lib

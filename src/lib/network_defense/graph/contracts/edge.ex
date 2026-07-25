@@ -4,11 +4,14 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
+  alias NetworkDefense.Graph.Domain.Adapter
 
   alias NetworkDefense.Graph.Contracts.Data.{
+    AuthenticatesToData,
     HasVulnerabilityData,
     NetworkReachabilityData,
-    RunsData
+    RunsData,
+    StoresCredentialData
   }
 
   @discriminant [
@@ -17,7 +20,9 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     variants: [
       Runs: RunsData,
       NetworkReachability: NetworkReachabilityData,
-      HasVulnerability: HasVulnerabilityData
+      HasVulnerability: HasVulnerabilityData,
+      StoresCredential: StoresCredentialData,
+      AuthenticatesTo: AuthenticatesToData
     ]
   ]
 
@@ -27,7 +32,9 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     Runs: {RunsData, NetworkDefense.Relationships.Runs},
     NetworkReachability:
       {NetworkReachabilityData, NetworkDefense.Relationships.NetworkReachability},
-    HasVulnerability: {HasVulnerabilityData, NetworkDefense.Relationships.HasVulnerability}
+    HasVulnerability: {HasVulnerabilityData, NetworkDefense.Relationships.HasVulnerability},
+    StoresCredential: {StoresCredentialData, NetworkDefense.Relationships.StoresCredential},
+    AuthenticatesTo: {AuthenticatesToData, NetworkDefense.Relationships.AuthenticatesTo}
   ]
 
   @variants_by_domain Map.new(@variants, fn {tag, {data_contract, domain_type}} ->
@@ -51,6 +58,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
             RunsData.t()
             | NetworkReachabilityData.t()
             | HasVulnerabilityData.t()
+            | StoresCredentialData.t()
+            | AuthenticatesToData.t()
         }
 
   def changeset(schema, attrs) do
@@ -75,7 +84,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
 
   def from_domain(edge) do
     with {:ok, {tag, data_contract}} <- variant_for_domain(edge.type),
-         {:ok, data} <- data_contract.validate(edge.data || %{}) do
+         {:ok, data} <- data_contract.validate(Adapter.data_params(edge.data)) do
       validate(%{
         id: edge.id,
         from_id: edge.from_id,
@@ -110,13 +119,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
 
   defp variant_for(_type), do: :error
 
-  defp variant_for_domain(type) when is_binary(type) do
-    type
-    |> String.to_existing_atom()
-    |> then(&Map.fetch(@variants_by_domain, &1))
-  rescue
-    ArgumentError -> :error
-  end
+  defp variant_for_domain(type) when is_atom(type), do: Map.fetch(@variants_by_domain, type)
 
   defp variant_for_domain(_type), do: :error
 end

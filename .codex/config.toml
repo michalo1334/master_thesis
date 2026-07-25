@@ -10,4 +10,5 @@ model = "gpt-5.6"
 
 # Skills
 [[skills.config]]
+enabled = true
 path = ".opencode/skills/grilling/playwright-cli/SKILL.md"

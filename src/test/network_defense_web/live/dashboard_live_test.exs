@@ -8,6 +8,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
@@ -27,7 +28,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "accepts an existing graph", %{conn: conn} do
       graph = insert_graph("dwg-001")
       source = insert_node(graph, "origin")
-      target = insert_node(graph, "dest")
+      target = insert_service(graph, "dest")
       insert_edge(source, target)
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
@@ -60,6 +61,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do
       graph = insert_graph("run-sim-test")
       graph_id = graph.id
+      foothold = insert_node(graph, "entry-host")
       correlation_id = "request-123"
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
@@ -81,6 +83,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      "simulation_params" => %{
                        "monte_carlo_trials" => 1,
                        "iterations_per_run" => 1,
+                       "initial_foothold_node_id" => foothold.id,
                        "generate_seed" => true
                      }
                    }
@@ -187,7 +190,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert {:ok, _pid} =
                Simulations.run_async(graph, correlation_id, %SimulationParams{
                  monte_carlo_trials: 1,
-                 iterations_per_run: 1
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: "invalid"
                })
 
       assert_receive {:simulation_failed,
@@ -232,7 +236,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "persists graph edges and node view_data", %{conn: conn} do
       graph = insert_graph("save-graph")
       source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
+      target = insert_service(graph, "target")
       edge_id = Ecto.UUID.generate()
 
       {:ok, view, _html} = live(conn, ~p"/dashboard")
@@ -251,7 +255,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             },
             %{
               "id" => target.id,
-              "type" => "Host",
+              "type" => "Service",
               "data" => target.data,
               "view_data" => %{"x_pos" => 360, "y_pos" => 480}
             }
@@ -262,7 +266,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
               "from_id" => source.id,
               "to_id" => target.id,
               "type" => "NetworkReachability",
-              "data" => %{}
+              "data" => %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
             }
           ]
         }
@@ -273,14 +277,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert [%{from_id: source_id, to_id: target_id, type: type}] = Graph.edges(saved_graph)
       assert source_id == source.id
       assert target_id == target.id
-      assert type == Atom.to_string(NetworkReachability)
+      assert type == NetworkReachability
       assert saved_graph.title == "saved graph"
       assert saved_graph.lock_version == 2
 
       source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
       target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
-      assert source_node.view_data == %{"x_pos" => 120.0, "y_pos" => 240.0}
-      assert target_node.view_data == %{"x_pos" => 360.0, "y_pos" => 480.0}
+      assert source_node.view_data.x_pos == 120.0
+      assert source_node.view_data.y_pos == 240.0
+      assert target_node.view_data.x_pos == 360.0
+      assert target_node.view_data.y_pos == 480.0
     end
 
     test "does not replace a stale graph", %{conn: conn} do
@@ -318,9 +324,19 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     |> Repo.insert!()
   end
 
+  defp insert_service(graph, name) do
+    %Node{graph_id: graph.id}
+    |> Node.changeset(%{
+      type: Atom.to_string(Service),
+      data: %{"name" => name, "protocol" => "tcp", "port" => 443},
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    })
+    |> Repo.insert!()
+  end
+
   defp insert_edge(source, target) do
     %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
-    |> Edge.changeset(%{type: Atom.to_string(Runs)})
+    |> Edge.changeset(%{type: Atom.to_string(Runs), data: %{}})
     |> Repo.insert!()
   end
 end

@@ -4,7 +4,15 @@ defmodule NetworkDefense.Graph.Contracts.Node do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Contracts.Data.{HostData, ServiceData, VulnerabilityData}
+  alias NetworkDefense.Graph.Domain.Adapter
+
+  alias NetworkDefense.Graph.Contracts.Data.{
+    CredentialData,
+    HostData,
+    ServiceData,
+    VulnerabilityData
+  }
+
   alias NetworkDefense.Graph.Contracts.NodeViewData
 
   @discriminant [
@@ -13,7 +21,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
     variants: [
       Host: HostData,
       Service: ServiceData,
-      Vulnerability: VulnerabilityData
+      Vulnerability: VulnerabilityData,
+      Credential: CredentialData
     ]
   ]
 
@@ -22,7 +31,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
   @variants [
     Host: {HostData, NetworkDefense.Nodes.Host},
     Service: {ServiceData, NetworkDefense.Nodes.Service},
-    Vulnerability: {VulnerabilityData, NetworkDefense.Nodes.Vulnerability}
+    Vulnerability: {VulnerabilityData, NetworkDefense.Nodes.Vulnerability},
+    Credential: {CredentialData, NetworkDefense.Nodes.Credential}
   ]
 
   @variants_by_domain Map.new(@variants, fn {tag, {data_contract, domain_type}} ->
@@ -42,7 +52,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
           data:
             HostData.t()
             | ServiceData.t()
-            | VulnerabilityData.t(),
+            | VulnerabilityData.t()
+            | CredentialData.t(),
           view_data: NodeViewData.t()
         }
 
@@ -71,8 +82,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
 
   def from_domain(node) do
     with {:ok, {tag, data_contract}} <- variant_for_domain(node.type),
-         {:ok, data} <- data_contract.validate(node.data),
-         {:ok, view_data} <- NodeViewData.validate(node.view_data) do
+         {:ok, data} <- data_contract.validate(Adapter.data_params(node.data)),
+         {:ok, view_data} <- NodeViewData.validate(Contracts.to_params(node.view_data)) do
       validate(%{
         id: node.id,
         type: Atom.to_string(tag),
@@ -106,13 +117,7 @@ defmodule NetworkDefense.Graph.Contracts.Node do
 
   defp variant_for(_type), do: :error
 
-  defp variant_for_domain(type) when is_binary(type) do
-    type
-    |> String.to_existing_atom()
-    |> then(&Map.fetch(@variants_by_domain, &1))
-  rescue
-    ArgumentError -> :error
-  end
+  defp variant_for_domain(type) when is_atom(type), do: Map.fetch(@variants_by_domain, type)
 
   defp variant_for_domain(_type), do: :error
 end

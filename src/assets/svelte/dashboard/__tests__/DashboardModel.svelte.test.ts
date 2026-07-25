@@ -26,6 +26,15 @@ function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   };
 }
 
+function hostNode(id: string) {
+  return {
+    id,
+    type: "Host" as const,
+    data: { name: id },
+    view_data: { x_pos: 0, y_pos: 0 },
+  };
+}
+
 function makeReportReply(
   overrides: Partial<FetchSimulationReportReply> = {},
 ): FetchSimulationReportReply {
@@ -71,7 +80,11 @@ describe("DashboardModel", () => {
 
   describe("runActiveSimulation", () => {
     it("creates a pending report keyed by correlation ID when simulation is accepted", async () => {
-      const graph = makeLoadedGraph({ id: "g1", title: "Topology" });
+      const graph = makeLoadedGraph({
+        id: "g1",
+        title: "Topology",
+        nodes: [hostNode("host-1")],
+      });
       await model.workspace.openLoadedGraph(graph, api);
 
       vi.mocked(api.runSimulation).mockResolvedValue({
@@ -88,6 +101,11 @@ describe("DashboardModel", () => {
       expect(report!.correlationId).toBe("corr-123");
       expect(report!.graphId).toBe("g1");
       expect(report!.status).toBe("pending");
+      expect(api.runSimulation).toHaveBeenCalledWith(
+        "g1",
+        expect.any(String),
+        expect.objectContaining({ initial_foothold_node_id: "host-1" }),
+      );
     });
 
     it("no-ops when no active graph exists", async () => {

@@ -4,6 +4,7 @@ model = "opencode-go/minimax-m3"
 model_reasoning_effort = "low"
 
 [[skills.config]]
+enabled = true
 path = ".opencode/skills/grilling/playwright-cli/SKILL.md"
 
 developer_instructions = """

@@ -8,14 +8,24 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   test "renders contract types from typespecs and metadata" do
     output = Registry.render_all()
 
-    assert output =~ "export type Node = HostNode | ServiceNode | VulnerabilityNode;"
+    assert output =~
+             "export type Node = HostNode | ServiceNode | VulnerabilityNode | CredentialNode;"
+
     assert output =~ "type: \"Host\";"
     assert output =~ "data: HostData;"
 
     assert output =~
-             "export type Edge = RunsEdge | NetworkReachabilityEdge | HasVulnerabilityEdge;"
+             """
+             export type Edge =
+               | RunsEdge
+               | NetworkReachabilityEdge
+               | HasVulnerabilityEdge
+               | StoresCredentialEdge
+               | AuthenticatesToEdge;
+             """
 
     assert output =~ "protocol: \"tcp\" | \"udp\";"
+    assert output =~ "protocol: \"tcp\" | \"udp\" | \"any\";"
     assert output =~ "version?: string | null;"
     assert output =~ "nodes: Node[];"
     assert output =~ "graph?: GraphContract | null;"
@@ -76,7 +86,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
              MapSet.new([
                NetworkDefense.Graph.Contracts.Data.HostData,
                NetworkDefense.Graph.Contracts.Data.ServiceData,
-               NetworkDefense.Graph.Contracts.Data.VulnerabilityData
+               NetworkDefense.Graph.Contracts.Data.VulnerabilityData,
+               NetworkDefense.Graph.Contracts.Data.CredentialData
              ])
   end
 

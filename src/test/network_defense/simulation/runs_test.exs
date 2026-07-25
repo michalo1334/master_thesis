@@ -72,7 +72,9 @@ defmodule NetworkDefense.Simulation.RunsTest do
       target_host: %Node{id: "target-host"},
       service: %Node{id: "service"},
       vulnerability_node: %Node{id: "vulnerability"},
-      success_probability: 0.5
+      success_probability: 0.5,
+      required_privilege: :none,
+      granted_privilege: :user
     }
   end
 end

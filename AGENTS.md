@@ -59,20 +59,9 @@ Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
 | `opencode-go/deepseek-v4-pro` | `svelte-file-editor` | Heavier Svelte editing with doc lookups |
 | `opencode-go/minimax-m3` | `visual-verifier` | Cheap browser-based visual checks |
 
-### Codex CLI
+## Post Completion Check of tasks
 
-Equivalent agents in `.codex/agents/`. From Codex, invoke opencode headlessly:
-
-```bash
-# Run opencode with a specific agent and model
-opencode run --agent svelte-file-editor --model opencode-go/deepseek-v4-pro "refactor this component"
-
-# Pipe Codex output into opencode for deeper analysis
-codex exec "analyze this error" | opencode run --agent visual-verifier --auto "verify the fix"
-
-# Attach to running opencode server for faster cold starts
-opencode run --attach http://localhost:4096 "review this PR"
-```
+ALWAYS, THIS IS NOT NEGOTABLIE, POST CHECK your results. Fix? test it, query the db, check logs, check if the fix didn't broke anything else and actually worked.
 
 ## Project tracking
 

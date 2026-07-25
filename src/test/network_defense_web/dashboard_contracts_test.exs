@@ -7,10 +7,19 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability, Runs}
+
+  alias NetworkDefense.Relationships.{
+    AuthenticatesTo,
+    HasVulnerability,
+    NetworkReachability,
+    Runs,
+    StoresCredential
+  }
+
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   alias NetworkDefenseWeb.Web.Contracts.SaveGraphPayload
@@ -179,6 +188,13 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
           "exploit_probability" => 0.4
         },
         view_data: %{"x_pos" => 70, "y_pos" => 80}
+      },
+      %Node{
+        id: "credential",
+        graph_id: graph.id,
+        type: Atom.to_string(Credential),
+        data: %{"identifier" => "key-1", "credential_type" => "ssh_key"},
+        view_data: %{"x_pos" => 100, "y_pos" => 110}
       }
     ]
 
@@ -197,7 +213,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         from_id: "host",
         to_id: "service",
         type: Atom.to_string(NetworkReachability),
-        data: %{}
+        data: %{"protocol" => "any"}
       },
       %Edge{
         id: "vulnerable",
@@ -205,7 +221,23 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         from_id: "service",
         to_id: "vulnerability",
         type: Atom.to_string(HasVulnerability),
-        data: %{}
+        data: %{"required_privilege" => "none", "granted_privilege" => "user"}
+      },
+      %Edge{
+        id: "stores",
+        graph_id: graph.id,
+        from_id: "host",
+        to_id: "credential",
+        type: Atom.to_string(StoresCredential),
+        data: %{"required_privilege" => "user"}
+      },
+      %Edge{
+        id: "auth",
+        graph_id: graph.id,
+        from_id: "credential",
+        to_id: "service",
+        type: Atom.to_string(AuthenticatesTo),
+        data: %{"granted_privilege" => "administrator"}
       }
     ]
 
@@ -213,13 +245,19 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert {:ok, wire} = GraphContract.from_domain(graph)
 
-    assert ["Host", "Service", "Vulnerability"] =
+    assert ["Credential", "Host", "Service", "Vulnerability"] =
              wire
              |> Map.fetch!(:nodes)
              |> Enum.map(&Map.fetch!(&1, :type))
              |> Enum.sort()
 
-    assert ["HasVulnerability", "NetworkReachability", "Runs"] =
+    assert [
+             "AuthenticatesTo",
+             "HasVulnerability",
+             "NetworkReachability",
+             "Runs",
+             "StoresCredential"
+           ] =
              wire
              |> Map.fetch!(:edges)
              |> Enum.map(&Map.fetch!(&1, :type))
@@ -237,14 +275,17 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              Enum.sort([
                Atom.to_string(Host),
                Atom.to_string(Service),
-               Atom.to_string(Vulnerability)
+               Atom.to_string(Vulnerability),
+               Atom.to_string(Credential)
              ])
 
     assert Enum.sort(Enum.map(attrs["edges"], & &1["type"])) ==
              Enum.sort([
                Atom.to_string(HasVulnerability),
                Atom.to_string(NetworkReachability),
-               Atom.to_string(Runs)
+               Atom.to_string(Runs),
+               Atom.to_string(StoresCredential),
+               Atom.to_string(AuthenticatesTo)
              ])
   end
 

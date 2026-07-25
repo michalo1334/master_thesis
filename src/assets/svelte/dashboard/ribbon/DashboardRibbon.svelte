@@ -10,6 +10,7 @@
   import type { SimulationParams } from "../contract";
   import Checkbox from "../ui/Checkbox.svelte";
   import NumberInput from "../ui/NumberInput.svelte";
+  import Select from "../ui/Select.svelte";
 
   interface Props {
     hasActiveGraph: boolean;
@@ -25,6 +26,7 @@
     activeOptimizationId: string;
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
+    footholdHosts: readonly { id: string; name: string }[];
   }
 
   let {
@@ -41,6 +43,7 @@
     activeOptimizationId,
     onSimulationParamsChange,
     simulationParams,
+    footholdHosts,
   }: Props = $props();
 
   let doRandomSeed = $state(false);
@@ -114,7 +117,9 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Analyze">
     <Ribbon.Section title="Attack model">
-      <Button onclick={(_) => onRunSimulation()} disabled={!hasActiveGraph}
+      <Button
+        onclick={onRunSimulation}
+        disabled={!hasActiveGraph || footholdHosts.length === 0}
         ><Icon name="play" size={22} /><span>Simulate</span></Button
       >
       <SplitButton
@@ -126,6 +131,19 @@
       />
     </Ribbon.Section>
     <Ribbon.Section title="Simulation parameters">
+      <Select
+        label="Initial foothold"
+        value={simulationParams.initial_foothold_node_id}
+        disabled={!hasActiveGraph || footholdHosts.length === 0}
+        onchange={(event) =>
+          onSimulationParamsChange({
+            initial_foothold_node_id: event.currentTarget.value,
+          })}
+      >
+        {#each footholdHosts as host (host.id)}
+          <option value={host.id}>{host.name}</option>
+        {/each}
+      </Select>
       <Slider
         label="Monte Carlo trials"
         min={1}

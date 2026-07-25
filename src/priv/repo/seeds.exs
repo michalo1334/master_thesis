@@ -5,12 +5,15 @@
 alias NetworkDefense.Graph.Graph
 alias NetworkDefense.Graph.Graphs
 alias NetworkDefense.Graph.Node
+alias NetworkDefense.Nodes.Credential
 alias NetworkDefense.Nodes.Host
 alias NetworkDefense.Nodes.Service
 alias NetworkDefense.Nodes.Vulnerability
+alias NetworkDefense.Relationships.AuthenticatesTo
 alias NetworkDefense.Relationships.HasVulnerability
 alias NetworkDefense.Relationships.NetworkReachability
 alias NetworkDefense.Relationships.Runs
+alias NetworkDefense.Relationships.StoresCredential
 
 type_id = &Atom.to_string/1
 
@@ -58,40 +61,66 @@ vulnerability_specs = [
   {"api-http2-dos", "CVE-2023-44487", 7.5, 0.25}
 ]
 
-reachability_specs = [
-  {"internet", :host, "edge-fw-01"},
-  {"internet", :service, "vpn"},
-  {"edge-fw-01", :service, "vpn"},
-  {"edge-fw-01", :service, "web-01"},
-  {"edge-fw-01", :service, "web-02"},
-  {"vpn-01", :service, "bastion"},
-  {"bastion-01", :service, "idp"},
-  {"bastion-01", :service, "git"},
-  {"web-01", :service, "app-01"},
-  {"web-02", :service, "app-02"},
-  {"app-01", :service, "worker"},
-  {"app-02", :service, "worker"},
-  {"app-01", :service, "db-primary"},
-  {"app-02", :service, "db-primary"},
-  {"worker-01", :service, "db-replica"},
-  {"worker-01", :service, "files"},
-  {"git-01", :service, "files"},
-  {"monitoring-01", :service, "app-01"},
-  {"monitoring-01", :service, "app-02"},
-  {"monitoring-01", :service, "db-primary"},
-  {"db-01", :service, "db-replica"}
+credential_specs = [
+  {"ssh-key-bastion", "bastion-admin-key", "ssh_key"},
+  {"ssh-key-git", "git-deploy-key", "ssh_key"},
+  {"db-password", "db-readonly-password", "password"}
 ]
 
+# NetworkReachability Host -> Service edges only
+reachability_specs = [
+  {"internet", "vpn"},
+  {"edge-fw-01", "vpn"},
+  {"edge-fw-01", "web-01"},
+  {"edge-fw-01", "web-02"},
+  {"vpn-01", "bastion"},
+  {"bastion-01", "idp"},
+  {"bastion-01", "git"},
+  {"web-01", "app-01"},
+  {"web-02", "app-02"},
+  {"app-01", "worker"},
+  {"app-02", "worker"},
+  {"app-01", "db-primary"},
+  {"app-02", "db-primary"},
+  {"worker-01", "db-replica"},
+  {"worker-01", "files"},
+  {"git-01", "files"},
+  {"monitoring-01", "app-01"},
+  {"monitoring-01", "app-02"},
+  {"monitoring-01", "db-primary"},
+  {"db-01", "db-replica"}
+]
+
+# HasVulnerability Service -> Vulnerability with privilege defaults
 vulnerability_assignments = [
-  {"web-01", "nginx-path-traversal"},
-  {"web-02", "nginx-path-traversal"},
-  {"vpn", "vpn-arbitrary-file-read"},
-  {"bastion", "bastion-ssh-command-execution"},
-  {"idp", "identity-service-rce"},
-  {"git", "git-command-execution"},
-  {"db-primary", "postgres-privilege-escalation"},
-  {"app-01", "api-http2-dos"},
-  {"app-02", "api-http2-dos"}
+  {"web-01", "nginx-path-traversal", "none", "user"},
+  {"web-02", "nginx-path-traversal", "none", "user"},
+  {"vpn", "vpn-arbitrary-file-read", "none", "user"},
+  {"bastion", "bastion-ssh-command-execution", "user", "administrator"},
+  {"idp", "identity-service-rce", "user", "administrator"},
+  {"git", "git-command-execution", "user", "administrator"},
+  {"db-primary", "postgres-privilege-escalation", "user", "administrator"},
+  {"app-01", "api-http2-dos", "none", "user"},
+  {"app-02", "api-http2-dos", "none", "user"}
+]
+
+# Local Host -> Vulnerability escalation example
+local_vulnerability_assignments = [
+  {"worker-01", "postgres-privilege-escalation", "user", "administrator"}
+]
+
+# StoresCredential: Host -> Credential
+stores_credential_specs = [
+  {"bastion-01", "ssh-key-bastion", "user"},
+  {"git-01", "ssh-key-git", "user"},
+  {"db-01", "db-password", "user"}
+]
+
+# AuthenticatesTo: Credential -> Service
+authenticates_to_specs = [
+  {"ssh-key-bastion", "bastion", "administrator"},
+  {"ssh-key-git", "git", "administrator"},
+  {"db-password", "db-primary", "user"}
 ]
 
 new_node = fn graph, type, data ->
@@ -141,29 +170,94 @@ graph = Graph.new("Enterprise Network")
      Map.put(vulnerabilities, vulnerability_id, vulnerability)}
   end)
 
-graph =
-  Enum.reduce(reachability_specs, graph, fn {source_host_name, target_kind, target_id}, graph ->
-    target =
-      case target_kind do
-        :host -> Map.fetch!(hosts, target_id)
-        :service -> Map.fetch!(services, target_id)
-      end
+{graph, credentials} =
+  Enum.reduce(credential_specs, {graph, %{}}, fn {credential_id, identifier, credential_type},
+                                                 {graph, credentials} ->
+    credential =
+      new_node.(graph, Credential, %{
+        "identifier" => identifier,
+        "credential_type" => credential_type
+      })
 
+    {Graph.add_node(graph, credential), Map.put(credentials, credential_id, credential)}
+  end)
+
+# NetworkReachability Host -> Service edges only
+graph =
+  Enum.reduce(reachability_specs, graph, fn {source_host_name, target_service_id}, graph ->
     Graph.add_edge(
       graph,
       Map.fetch!(hosts, source_host_name),
-      target,
+      Map.fetch!(services, target_service_id),
       %{type: type_id.(NetworkReachability), data: %{}}
     )
   end)
 
+# HasVulnerability Service -> Vulnerability
 graph =
-  Enum.reduce(vulnerability_assignments, graph, fn {service_id, vulnerability_id}, graph ->
+  Enum.reduce(vulnerability_assignments, graph, fn {service_id, vulnerability_id, required_priv,
+                                                    granted_priv},
+                                                   graph ->
     Graph.add_edge(
       graph,
       Map.fetch!(services, service_id),
       Map.fetch!(vulnerabilities, vulnerability_id),
-      %{type: type_id.(HasVulnerability), data: %{}}
+      %{
+        type: type_id.(HasVulnerability),
+        data: %{
+          "required_privilege" => required_priv,
+          "granted_privilege" => granted_priv
+        }
+      }
+    )
+  end)
+
+# Local Host -> Vulnerability escalation
+graph =
+  Enum.reduce(local_vulnerability_assignments, graph, fn {host_name, vulnerability_id,
+                                                          required_priv, granted_priv},
+                                                         graph ->
+    Graph.add_edge(
+      graph,
+      Map.fetch!(hosts, host_name),
+      Map.fetch!(vulnerabilities, vulnerability_id),
+      %{
+        type: type_id.(HasVulnerability),
+        data: %{
+          "required_privilege" => required_priv,
+          "granted_privilege" => granted_priv
+        }
+      }
+    )
+  end)
+
+# StoresCredential: Host -> Credential
+graph =
+  Enum.reduce(stores_credential_specs, graph, fn {host_name, credential_id, required_priv},
+                                                 graph ->
+    Graph.add_edge(
+      graph,
+      Map.fetch!(hosts, host_name),
+      Map.fetch!(credentials, credential_id),
+      %{
+        type: type_id.(StoresCredential),
+        data: %{"required_privilege" => required_priv}
+      }
+    )
+  end)
+
+# AuthenticatesTo: Credential -> Service
+graph =
+  Enum.reduce(authenticates_to_specs, graph, fn {credential_id, service_id, granted_priv},
+                                                graph ->
+    Graph.add_edge(
+      graph,
+      Map.fetch!(credentials, credential_id),
+      Map.fetch!(services, service_id),
+      %{
+        type: type_id.(AuthenticatesTo),
+        data: %{"granted_privilege" => granted_priv}
+      }
     )
   end)
 

@@ -35,7 +35,14 @@ defmodule NetworkDefense.Simulations do
 
     Task.Supervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       OpenTelemetry.Ctx.attach(ctx)
-      do_run_async(graph, correlation_id, simulation_params, &parallel_map_fn/2)
+
+      try do
+        do_run_async(graph, correlation_id, simulation_params, &parallel_map_fn/2)
+      rescue
+        error ->
+          Logger.error("Simulation failed: #{Exception.message(error)}")
+          broadcast_simulation_failed(graph.id, correlation_id, Exception.message(error))
+      end
     end)
   end
 
@@ -43,6 +50,9 @@ defmodule NetworkDefense.Simulations do
     rules = default_rules()
     run_count = simulation_params.monte_carlo_trials
     iteration_count = simulation_params.iterations_per_run
+
+    initial_attacker_state =
+      initial_attacker_state(graph, simulation_params.initial_foothold_node_id)
 
     seed =
       if simulation_params.generate_seed do
@@ -58,61 +68,48 @@ defmodule NetworkDefense.Simulations do
         "simulation.run_count": run_count,
         "simulation.iteration_count": iteration_count
       } do
-      try do
-        {elapsed_us, {experiment, runs}} =
-          Tracer.with_span "simulation.compute" do
-            :timer.tc(fn ->
-              {experiment, runs} =
-                Simulator.run_experiment(
-                  graph: graph,
-                  run_count: run_count,
-                  iteration_count: iteration_count,
-                  seed: seed,
-                  initial_attacker_state: initial_attacker_state(graph),
-                  lock_version: graph.lock_version,
-                  rules: rules,
-                  map_fun: map_fun
-                )
+      {elapsed_us, {experiment, runs}} =
+        Tracer.with_span "simulation.compute" do
+          :timer.tc(fn ->
+            {experiment, runs} =
+              Simulator.run_experiment(
+                graph: graph,
+                run_count: run_count,
+                iteration_count: iteration_count,
+                seed: seed,
+                initial_attacker_state: initial_attacker_state,
+                lock_version: graph.lock_version,
+                rules: rules,
+                map_fun: map_fun
+              )
 
-              {experiment, Enum.to_list(runs)}
-            end)
-            |> then(fn {us, result} ->
-              Tracer.set_attributes(%{duration_ms: div(us, 1000)})
-              {us, result}
-            end)
-          end
-
-        runtime_ms = div(elapsed_us, 1000)
-
-        experiment = %{
-          experiment
-          | runtime_ms: runtime_ms,
-            lock_version: graph.lock_version,
-            run_count: run_count,
-            runs: runs
-        }
-
-        case Experiments.insert(experiment) do
-          {:ok, saved} ->
-            Tracer.set_status(OpenTelemetry.status(:ok))
-            broadcast_simulation_completed(saved, correlation_id)
-
-          {:error, reason} ->
-            Tracer.set_status(OpenTelemetry.status(:error, inspect(reason)))
-            Logger.error("Failed to persist simulation: #{inspect(reason)}")
-            broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
+            {experiment, Enum.to_list(runs)}
+          end)
+          |> then(fn {us, result} ->
+            Tracer.set_attributes(%{duration_ms: div(us, 1000)})
+            {us, result}
+          end)
         end
-      rescue
-        e ->
-          Tracer.set_status(OpenTelemetry.status(:error, Exception.message(e)))
-          Tracer.record_exception(e, __STACKTRACE__)
-          Logger.error("Simulation task crashed: #{inspect(e)}")
-          broadcast_simulation_failed(graph.id, correlation_id, Exception.message(e))
-      catch
-        kind, reason ->
-          Tracer.set_status(OpenTelemetry.status(:error, "#{kind}: #{inspect(reason)}"))
-          Logger.error("Simulation task exited: #{kind}: #{inspect(reason)}")
-          broadcast_simulation_failed(graph.id, correlation_id, "#{kind}: #{inspect(reason)}")
+
+      runtime_ms = div(elapsed_us, 1000)
+
+      experiment = %{
+        experiment
+        | runtime_ms: runtime_ms,
+          lock_version: graph.lock_version,
+          run_count: run_count,
+          runs: runs
+      }
+
+      case Experiments.insert(experiment) do
+        {:ok, saved} ->
+          Tracer.set_status(OpenTelemetry.status(:ok))
+          broadcast_simulation_completed(saved, correlation_id)
+
+        {:error, reason} ->
+          Tracer.set_status(OpenTelemetry.status(:error, inspect(reason)))
+          Logger.error("Failed to persist simulation: #{inspect(reason)}")
+          broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
       end
     end
   end
@@ -136,23 +133,20 @@ defmodule NetworkDefense.Simulations do
 
   def list_experiments(graph_ids), do: list_experiments([graph_ids])
 
-  def initial_attacker_state(graph) do
-    internet_host =
-      graph
-      |> NetworkDefense.Graph.Graph.nodes()
-      |> Enum.find(fn node ->
-        short_type = node.type |> Module.split() |> List.last()
-        short_type == "Host" and Map.get(node.data, "name") == "internet"
-      end)
-
-    case internet_host do
-      nil -> AttackerState.new("internet")
-      host -> AttackerState.new(host.id)
+  def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
+    case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
+      %{type: NetworkDefense.Nodes.Host} -> AttackerState.new(foothold_id)
+      _ -> raise ArgumentError, "initial foothold must identify a host in the graph"
     end
   end
 
   defp default_rules do
-    [%NetworkDefense.Rules.RemoteServiceExploitation{}]
+    [
+      %NetworkDefense.Rules.RemoteServiceExploitation{},
+      %NetworkDefense.Rules.LocalVulnerabilityExploitation{},
+      %NetworkDefense.Rules.AcquireCredentialRule{},
+      %NetworkDefense.Rules.ReuseCredentialRule{}
+    ]
   end
 
   defp broadcast_simulation_completed(experiment, correlation_id) do

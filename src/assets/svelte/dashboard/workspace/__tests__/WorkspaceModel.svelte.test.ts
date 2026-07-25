@@ -29,6 +29,15 @@ function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   };
 }
 
+function hostNode(id: string, name = id) {
+  return {
+    id,
+    type: "Host" as const,
+    data: { name },
+    view_data: { x_pos: 0, y_pos: 0 },
+  };
+}
+
 function makeExperiment(
   overrides: Partial<ExperimentSummary> = {},
 ): ExperimentSummary {
@@ -163,6 +172,20 @@ describe("WorkspaceModel", () => {
       expect(model.documents[0].kind).toBe("graph");
       expect(model.documents[0].title).toBe("My Graph");
       expect(result).toBeDefined();
+    });
+
+    it("defaults the initial foothold to the first host", async () => {
+      const graph = makeLoadedGraph({
+        nodes: [hostNode("host-1", "Gateway"), hostNode("host-2", "API")],
+      });
+
+      await model.openLoadedGraph(graph, {} as DashboardApi);
+
+      expect(model.activeFootholdHosts).toEqual([
+        { id: "host-1", name: "Gateway" },
+        { id: "host-2", name: "API" },
+      ]);
+      expect(model.simulationParams.initial_foothold_node_id).toBe("host-1");
     });
 
     it("reuses a blank graph document", async () => {

@@ -43,11 +43,11 @@ defmodule NetworkDefense.Graph.QueryTest do
                ]
              })
 
-    assert match.foothold == foothold
-    assert match.target_host == reachable_host
-    assert match.runs == runs
-    assert match.to == service
-    assert match.vuln == vulnerability
+    assert match.foothold == Graph.node(graph, foothold.id)
+    assert match.target_host == Graph.node(graph, reachable_host.id)
+    assert match.runs == Graph.edge(graph, runs.id)
+    assert match.to == Graph.node(graph, service.id)
+    assert match.vuln == Graph.node(graph, vulnerability.id)
     refute Map.has_key?(match, nil)
   end
 
@@ -57,8 +57,37 @@ defmodule NetworkDefense.Graph.QueryTest do
     Enum.reduce(edges, graph, &Graph.add_edge(&2, &1))
   end
 
-  defp node(id, type) do
-    %Node{id: id, graph_id: "graph", type: NodeRegistry.type_for(type), data: %{}}
+  defp node(id, Host) do
+    %Node{id: id, graph_id: "graph", type: NodeRegistry.type_for(Host), data: %{"name" => id}}
+  end
+
+  defp node(id, Service) do
+    %Node{
+      id: id,
+      graph_id: "graph",
+      type: NodeRegistry.type_for(Service),
+      data: %{"name" => id, "protocol" => "tcp", "port" => 443}
+    }
+  end
+
+  defp node(id, Vulnerability) do
+    %Node{
+      id: id,
+      graph_id: "graph",
+      type: NodeRegistry.type_for(Vulnerability),
+      data: %{"identifier" => id, "cvss_score" => 7.0, "exploit_probability" => 0.5}
+    }
+  end
+
+  defp edge(id, from, to, HasVulnerability) do
+    %Edge{
+      id: id,
+      graph_id: "graph",
+      from_id: from.id,
+      to_id: to.id,
+      type: RelationshipRegistry.type_for(HasVulnerability),
+      data: %{"required_privilege" => "none", "granted_privilege" => "user"}
+    }
   end
 
   defp edge(id, from, to, type) do

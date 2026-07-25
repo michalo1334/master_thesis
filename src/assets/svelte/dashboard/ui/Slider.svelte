@@ -21,22 +21,65 @@
     onchange,
   }: Props = $props();
 
-  const labelId = $props.id();
+  const id = $props.id();
+  const labelId = `${id}-label`;
+  const inputId = `${id}-input`;
+  let sliderSteps = $derived(getSliderSteps(value));
+
+  function getSliderSteps(currentValue: number) {
+    const firstStep = Math.ceil(min / step);
+    const lastStep = Math.floor(max / step);
+    const steps = [min];
+
+    for (let index = firstStep; index <= lastStep; index++) {
+      steps.push(roundToStepPrecision(index * step));
+    }
+
+    if (isValidManualValue(currentValue)) {
+      steps.push(currentValue);
+    }
+
+    return [...new Set(steps)];
+  }
+
+  function roundToStepPrecision(nextValue: number) {
+    const precision = step.toString().split(".")[1]?.length ?? 0;
+    return Number(nextValue.toFixed(precision));
+  }
 
   function handleValueCommit(v: number) {
     onchange?.(v);
   }
+
+  function isValidManualValue(nextValue: number) {
+    return Number.isFinite(nextValue) && nextValue >= min && nextValue <= max;
+  }
+
+  function handleManualValueCommit(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const nextValue = input.valueAsNumber;
+
+    if (!isValidManualValue(nextValue)) {
+      input.value = value === undefined ? "" : String(value);
+      return;
+    }
+
+    value = nextValue;
+    onchange?.(nextValue);
+  }
 </script>
 
 <div class="dashboard-slider" class:disabled>
-  <span class="dashboard-slider-label" id={labelId}>{label}</span>
+  <label class="dashboard-slider-label" for={inputId} id={labelId}
+    >{label}</label
+  >
   <div class="dashboard-slider-controls">
     <Slider.Root
       type="single"
       bind:value
       {min}
       {max}
-      {step}
+      step={sliderSteps}
       {disabled}
       onValueCommit={handleValueCommit}
       aria-labelledby={labelId}
@@ -47,7 +90,17 @@
       </span>
       <Slider.Thumb index={0} class="ds-slider-thumb" />
     </Slider.Root>
-    <output class="dashboard-slider-value">{value}</output>
+    <input
+      class="dashboard-slider-value"
+      id={inputId}
+      type="number"
+      {value}
+      {min}
+      {max}
+      step="any"
+      {disabled}
+      onchange={handleManualValueCommit}
+    />
   </div>
 </div>
 
@@ -75,11 +128,31 @@
 
   .dashboard-slider-value {
     flex: none;
-    min-width: 2rem;
+    width: 3.5rem;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    appearance: textfield;
     text-align: right;
     color: var(--ds-color-text);
     font-size: var(--ds-text-xs);
     font-variant-numeric: tabular-nums;
+  }
+
+  .dashboard-slider-value::-webkit-inner-spin-button,
+  .dashboard-slider-value::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+
+  .dashboard-slider-value:focus-visible {
+    outline: 2px solid var(--ds-color-focus);
+    outline-offset: 2px;
+  }
+
+  .dashboard-slider-value:disabled {
+    cursor: default;
   }
 
   .dashboard-slider.disabled {

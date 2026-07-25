@@ -14,6 +14,7 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
 
     fields = Enum.reject(context.fields, fn {name, _type} -> name in [field, data_field] end)
     variant_names = Enum.map(variants, fn {tag, _module} -> "#{tag}#{context.ts_name}" end)
+    type_declaration = union_declaration(context.ts_name, variant_names)
 
     interfaces =
       Enum.map(variants, fn {tag, module} ->
@@ -30,8 +31,7 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
         "export interface #{tag}#{context.ts_name} {\n#{Enum.join(properties, "\n")}\n}"
       end)
 
-    {:emit,
-     "export type #{context.ts_name} = #{Enum.join(variant_names, " | ")};\n\n#{Enum.join(interfaces, "\n\n")}"}
+    {:emit, "#{type_declaration}\n\n#{Enum.join(interfaces, "\n\n")}"}
   end
 
   def render(_context), do: :skip
@@ -47,5 +47,21 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
 
   defp remote_type(module) do
     {:remote_type, 0, [{:atom, 0, module}, {:atom, 0, :t}, []]}
+  end
+
+  defp union_declaration(name, variants) do
+    joined = Enum.join(variants, " | ")
+    single_line = "export type #{name} = #{joined};"
+
+    cond do
+      String.length(single_line) <= 80 ->
+        single_line
+
+      String.length("  #{joined};") <= 80 ->
+        "export type #{name} =\n  #{joined};"
+
+      true ->
+        "export type #{name} =\n  | #{Enum.join(variants, "\n  | ")};"
+    end
   end
 end

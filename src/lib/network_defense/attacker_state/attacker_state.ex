@@ -5,13 +5,57 @@ defmodule NetworkDefense.AttackerState.AttackerState do
 
   @type t :: %__MODULE__{}
 
-  defstruct footholds: MapSet.new(), attempted_actions: MapSet.new()
+  defstruct footholds: MapSet.new(),
+            attempted_actions: MapSet.new(),
+            privileges: %{},
+            credentials: MapSet.new()
 
-  def new(initial_foothold_id), do: %__MODULE__{footholds: MapSet.new([initial_foothold_id])}
+  @privilege_order %{none: 0, user: 1, administrator: 2}
+
+  def new(initial_foothold_id, privilege \\ :user) do
+    %__MODULE__{
+      footholds: MapSet.new([initial_foothold_id]),
+      privileges: %{initial_foothold_id => privilege},
+      credentials: MapSet.new()
+    }
+  end
 
   def foothold_nodes(state), do: MapSet.to_list(state.footholds)
 
-  def add_foothold(state, host_id), do: %{state | footholds: MapSet.put(state.footholds, host_id)}
+  def add_foothold(state, host_id) do
+    add_foothold(state, host_id, :user)
+  end
+
+  def add_foothold(state, host_id, privilege) do
+    current_privilege = Map.get(state.privileges, host_id, :none)
+
+    if privilege_order(privilege) > privilege_order(current_privilege) do
+      %{
+        state
+        | footholds: MapSet.put(state.footholds, host_id),
+          privileges: Map.put(state.privileges, host_id, privilege)
+      }
+    else
+      %{state | footholds: MapSet.put(state.footholds, host_id)}
+    end
+  end
+
+  def privilege_for(state, host_id) do
+    Map.get(state.privileges, host_id, :none)
+  end
+
+  def has_privilege?(state, host_id, required) do
+    current = privilege_for(state, host_id)
+    privilege_order(current) >= privilege_order(required)
+  end
+
+  def add_credential(state, credential_id) do
+    %{state | credentials: MapSet.put(state.credentials, credential_id)}
+  end
+
+  def has_credential?(state, credential_id) do
+    MapSet.member?(state.credentials, credential_id)
+  end
 
   def attempted?(state, action_key), do: MapSet.member?(state.attempted_actions, action_key)
 
@@ -22,24 +66,56 @@ defmodule NetworkDefense.AttackerState.AttackerState do
   def to_map(%__MODULE__{} = state) do
     %{
       "footholds" => MapSet.to_list(state.footholds),
+      "privileges" =>
+        Map.new(state.privileges, fn {host_id, privilege} ->
+          {host_id, Atom.to_string(privilege)}
+        end),
+      "credentials" => MapSet.to_list(state.credentials),
       "attempted_actions" =>
         state.attempted_actions
         |> Enum.map(&encode_action_key/1)
     }
   end
 
-  def from_map(%{"footholds" => footholds, "attempted_actions" => attempted_actions})
+  def from_map(%{"footholds" => footholds, "attempted_actions" => attempted_actions} = map)
       when is_list(footholds) and is_list(attempted_actions) do
     with {:ok, attempted_actions} <- decode_action_keys(attempted_actions) do
       {:ok,
        %__MODULE__{
          footholds: MapSet.new(footholds),
-         attempted_actions: MapSet.new(attempted_actions)
+         attempted_actions: MapSet.new(attempted_actions),
+         privileges: privileges_from(map, footholds),
+         credentials: credentials_from(map)
        }}
     end
   end
 
   def from_map(_), do: :error
+
+  defp privilege_order(privilege) when is_atom(privilege),
+    do: Map.get(@privilege_order, privilege, 0)
+
+  defp privilege_order(privilege) when is_binary(privilege),
+    do: privilege |> normalize_privilege() |> privilege_order()
+
+  defp normalize_privilege(privilege) when privilege in [:none, :user, :administrator],
+    do: privilege
+
+  defp normalize_privilege("none"), do: :none
+  defp normalize_privilege("user"), do: :user
+  defp normalize_privilege("administrator"), do: :administrator
+  defp normalize_privilege(_), do: :none
+
+  defp privileges_from(%{"privileges" => privileges}, _footholds) when is_map(privileges) do
+    Map.new(privileges, fn {host_id, privilege} -> {host_id, normalize_privilege(privilege)} end)
+  end
+
+  defp privileges_from(_map, footholds), do: Map.new(footholds, &{&1, :user})
+
+  defp credentials_from(%{"credentials" => credentials}) when is_list(credentials),
+    do: MapSet.new(credentials)
+
+  defp credentials_from(_map), do: MapSet.new()
 
   defp decode_action_keys(action_keys) do
     Enum.reduce_while(action_keys, {:ok, []}, fn

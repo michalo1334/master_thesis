@@ -86,4 +86,4 @@ EXPOSE 5173
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # start with hot-reload (source code is mounted as a volume at runtime)
-CMD ["sh", "-c", "mix deps.get && mix phx.server"]
+CMD ["sh", "-c", "mix deps.get && iex -S mix phx.server"]

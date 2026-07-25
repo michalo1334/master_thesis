@@ -2,20 +2,25 @@ defmodule NetworkDefense.Graph.Graph do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.Edge
-  alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Graph.Domain.Adapter
+  alias NetworkDefense.Graph.Domain.{Edge, Node}
+  alias NetworkDefense.Graph.Edge, as: PersistedEdge
+  alias NetworkDefense.Graph.Node, as: PersistedNode
+  alias NetworkDefense.Graph.SemanticConnectivity
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
-    has_many :nodes, Node
-    has_many :edges, Edge
+    has_many :nodes, PersistedNode
+    has_many :edges, PersistedEdge
     field :adjacency_list, :map, virtual: true, default: %{}
     field :lock_version, :integer, default: 1
     field :title, :string
 
     timestamps(type: :utc_datetime)
   end
+
+  @type t :: %__MODULE__{}
 
   @doc false
   def changeset(graph, attrs) do
@@ -38,8 +43,11 @@ defmodule NetworkDefense.Graph.Graph do
 
   def hydrate(graph, nodes, edges) do
     graph = %{graph | nodes: [], edges: [], adjacency_list: %{}}
-    graph = Enum.reduce(nodes, graph, &put_node(&2, &1))
-    Enum.reduce(edges, graph, &put_edge(&2, &1))
+
+    graph =
+      Enum.reduce(nodes, graph, fn node, graph -> put_node(graph, Adapter.hydrate_node!(node)) end)
+
+    Enum.reduce(edges, graph, fn edge, graph -> put_edge(graph, Adapter.hydrate_edge!(edge)) end)
   end
 
   def nodes(graph), do: loaded_nodes(graph.nodes)
@@ -55,6 +63,9 @@ defmodule NetworkDefense.Graph.Graph do
   def node(graph, node_id), do: Enum.find(nodes(graph), &(&1.id == node_id))
   def edge(graph, edge_id), do: Enum.find(edges(graph), &(&1.id == edge_id))
 
+  def persisted_nodes(graph), do: Enum.map(nodes(graph), &Adapter.persist_node/1)
+  def persisted_edges(graph), do: Enum.map(edges(graph), &Adapter.persist_edge/1)
+
   def outgoing(graph, node_id) do
     graph.adjacency_list
     |> Map.get(node_id, empty_adjacency())
@@ -68,7 +79,10 @@ defmodule NetworkDefense.Graph.Graph do
   end
 
   def add_node(graph, %Node{} = node), do: put_node(graph, node)
-  def add_node(graph, attrs) when is_map(attrs), do: add_node(graph, Node.new(graph.id, attrs))
+  def add_node(graph, %PersistedNode{} = node), do: put_node(graph, Adapter.hydrate_node!(node))
+
+  def add_node(graph, attrs) when is_map(attrs),
+    do: add_node(graph, PersistedNode.new(graph.id, attrs))
 
   def update_node(graph, %Node{} = updated_node) do
     node!(graph, updated_node.id)
@@ -86,10 +100,18 @@ defmodule NetworkDefense.Graph.Graph do
     }
   end
 
+  def update_node(graph, %PersistedNode{} = updated_node),
+    do: update_node(graph, Adapter.hydrate_node!(updated_node))
+
   def add_edge(graph, %Edge{} = edge), do: put_edge(graph, edge)
+  def add_edge(graph, %PersistedEdge{} = edge), do: put_edge(graph, Adapter.hydrate_edge!(edge))
 
   def add_edge(graph, %Node{} = from, %Node{} = to, attrs) when is_map(attrs) do
-    add_edge(graph, Edge.new(graph.id, from.id, to.id, attrs))
+    add_edge(graph, PersistedEdge.new(graph.id, from.id, to.id, attrs))
+  end
+
+  def add_edge(graph, %PersistedNode{} = from, %PersistedNode{} = to, attrs) when is_map(attrs) do
+    add_edge(graph, node!(graph, from.id), node!(graph, to.id), attrs)
   end
 
   def update_edge(graph, %Edge{} = updated_edge) do
@@ -108,6 +130,9 @@ defmodule NetworkDefense.Graph.Graph do
 
     %{graph | adjacency_list: adjacency_list}
   end
+
+  def update_edge(graph, %PersistedEdge{} = updated_edge),
+    do: update_edge(graph, Adapter.hydrate_edge!(updated_edge))
 
   def remove_node_by_id(graph, node_id) do
     nodes = Enum.reject(nodes(graph), &(&1.id == node_id))
@@ -164,6 +189,13 @@ defmodule NetworkDefense.Graph.Graph do
     unless edge.graph_id == graph.id and Map.has_key?(graph.adjacency_list, edge.from_id) and
              Map.has_key?(graph.adjacency_list, edge.to_id) do
       raise ArgumentError, "edge endpoints must belong to graph"
+    end
+
+    from_node = node(graph, edge.from_id)
+    to_node = node(graph, edge.to_id)
+
+    unless SemanticConnectivity.valid?(edge.type, from_node.type, to_node.type) do
+      raise ArgumentError, "edge type #{edge.type} not valid for its endpoint types"
     end
 
     adjacency_list = graph.adjacency_list |> add_outgoing_edge(edge) |> add_incoming_edge(edge)

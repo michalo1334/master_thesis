@@ -13,6 +13,7 @@ defmodule NetworkDefense.Graph.Graphs do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.GraphDiff
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Repo
 
   def insert(%Graph{} = graph) do
@@ -25,8 +26,8 @@ defmodule NetworkDefense.Graph.Graphs do
         |> Graph.changeset(%{})
         |> insert_or_rollback(:graph)
 
-      insert_nodes(Graph.nodes(graph))
-      insert_edges(Graph.edges(graph))
+      insert_nodes(Graph.persisted_nodes(graph))
+      insert_edges(Graph.persisted_edges(graph))
 
       hydrate_graph(persisted_graph)
     end)
@@ -162,8 +163,8 @@ defmodule NetworkDefense.Graph.Graphs do
 
     Repo.delete_all(from(edge in Edge, where: edge.graph_id == ^persisted.id))
     Repo.delete_all(from(node in Node, where: node.graph_id == ^persisted.id))
-    insert_nodes(Graph.nodes(candidate))
-    insert_edges(Graph.edges(candidate))
+    insert_nodes(Graph.persisted_nodes(candidate))
+    insert_edges(Graph.persisted_edges(candidate))
 
     %{graph: hydrate_graph(updated_graph), diff: diff}
   end
@@ -256,13 +257,39 @@ defmodule NetworkDefense.Graph.Graphs do
 
   defp valid_endpoints(edges, nodes) do
     node_ids = MapSet.new(nodes, & &1.id)
+    nodes_by_id = Map.new(nodes, &{&1.id, &1})
 
-    if Enum.all?(
-         edges,
-         &(MapSet.member?(node_ids, &1.from_id) and MapSet.member?(node_ids, &1.to_id))
-       ),
-       do: :ok,
-       else: {:error, :invalid_endpoints}
+    generic_ok? =
+      Enum.all?(
+        edges,
+        &(MapSet.member?(node_ids, &1.from_id) and MapSet.member?(node_ids, &1.to_id))
+      )
+
+    case generic_ok? do
+      true -> valid_semantic_endpoints(edges, nodes_by_id)
+      false -> {:error, :invalid_endpoints}
+    end
+  end
+
+  defp valid_semantic_endpoints(edges, nodes_by_id) do
+    endpoints_valid? =
+      Enum.all?(edges, fn edge ->
+        from_node = Map.get(nodes_by_id, edge.from_id)
+        to_node = Map.get(nodes_by_id, edge.to_id)
+
+        with relationship_type when not is_nil(relationship_type) <-
+               NetworkDefense.Relationships.Registry.module_for(edge.type),
+             from_type when not is_nil(from_type) <-
+               NetworkDefense.Nodes.Registry.module_for(from_node.type),
+             to_type when not is_nil(to_type) <-
+               NetworkDefense.Nodes.Registry.module_for(to_node.type) do
+          SemanticConnectivity.valid?(relationship_type, from_type, to_type)
+        else
+          _ -> false
+        end
+      end)
+
+    if endpoints_valid?, do: :ok, else: {:error, :invalid_graph}
   end
 
   defp insert_nodes(nodes),

@@ -4,9 +4,11 @@ model = "gpt-5.6"
 model_reasoning_effort = "high"
 
 [[skills.config]]
+enabled = true
 path = ".opencode/skills/svelte-code-writer/SKILL.md"
 
 [[skills.config]]
+enabled = true
 path = ".opencode/skills/svelte-core-bestpractices/SKILL.md"
 
 developer_instructions = """

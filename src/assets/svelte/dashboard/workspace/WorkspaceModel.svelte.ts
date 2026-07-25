@@ -13,6 +13,11 @@ import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 export type WorkspaceDocument =
   EditableGraphDocument | SimulationReportDocument;
 
+export interface FootholdHost {
+  id: string;
+  name: string;
+}
+
 export class WorkspaceModel {
   /** Topologies available to open, owned by workspace so the picker has them. */
   graphSummaries: GraphSummary[];
@@ -29,6 +34,7 @@ export class WorkspaceModel {
 
   forceParams = $state<ForceParams>({ ...defaultForceParams });
   simulationParams = $state<SimulationParams>({
+    initial_foothold_node_id: "",
     monte_carlo_trials: 1000,
     iterations_per_run: 1000,
     generate_seed: false,
@@ -60,6 +66,15 @@ export class WorkspaceModel {
     return this.activeDocument?.kind === "graph";
   }
 
+  get activeFootholdHosts(): FootholdHost[] {
+    const graph = this.activeGraph?.graph;
+    if (!graph) return [];
+
+    return graph.nodes.flatMap((node) =>
+      node.type === "Host" ? [{ id: node.id, name: node.data.name }] : [],
+    );
+  }
+
   createGraphDocument(title?: string): EditableGraphDocument {
     const doc = new EditableGraphDocument();
     this.documents.push(doc);
@@ -70,6 +85,7 @@ export class WorkspaceModel {
   selectDocument(id: string): void {
     this.selectedDocumentId = id;
     const doc = this.activeDocument;
+    this.ensureInitialFoothold(doc);
     if (doc?.kind === "simulation-report") {
       doc.markRead();
     }
@@ -100,6 +116,7 @@ export class WorkspaceModel {
     ) as EditableGraphDocument | undefined;
     if (existing) {
       this.selectedDocumentId = existing.id;
+      this.ensureInitialFoothold(existing);
       return undefined;
     }
 
@@ -110,6 +127,7 @@ export class WorkspaceModel {
     if (blankDoc) {
       blankDoc.replaceFromLoadedGraph(graph);
       this.selectedDocumentId = blankDoc.id;
+      this.ensureInitialFoothold(blankDoc);
       return blankDoc;
     }
 
@@ -117,6 +135,7 @@ export class WorkspaceModel {
     doc.replaceFromLoadedGraph(graph);
     this.documents.push(doc);
     this.selectedDocumentId = doc.id;
+    this.ensureInitialFoothold(doc);
     return doc;
   }
 
@@ -229,6 +248,19 @@ export class WorkspaceModel {
 
   onSimulationParamsChange(change: Partial<SimulationParams>): void {
     Object.assign(this.simulationParams, change);
+  }
+
+  private ensureInitialFoothold(document: WorkspaceDocument | undefined): void {
+    if (document?.kind !== "graph") return;
+
+    const hosts = document.graph.nodes.filter((node) => node.type === "Host");
+    if (
+      !hosts.some(
+        (host) => host.id === this.simulationParams.initial_foothold_node_id,
+      )
+    ) {
+      this.simulationParams.initial_foothold_node_id = hosts[0]?.id ?? "";
+    }
   }
 
   applyForceLayout(): void {

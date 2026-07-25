@@ -2,8 +2,14 @@ import { describe, it, expect } from "vitest";
 import { nodePresentation, edgePresentation, inspectorFor } from "../registry";
 import type { Node, Edge } from "../../../../contracts.generated";
 
-const nodeTypes = ["Host", "Service", "Vulnerability"] as const;
-const edgeTypes = ["Runs", "NetworkReachability", "HasVulnerability"] as const;
+const nodeTypes = ["Host", "Service", "Vulnerability", "Credential"] as const;
+const edgeTypes = [
+  "Runs",
+  "NetworkReachability",
+  "HasVulnerability",
+  "StoresCredential",
+  "AuthenticatesTo",
+] as const;
 
 describe("presentation registry", () => {
   describe("nodePresentation", () => {

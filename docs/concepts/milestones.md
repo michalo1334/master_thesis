@@ -48,7 +48,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## 4. Defend — Optimize & Apply Defenses
 
-- [ ] Optimizer core stub (empty file)
+- [x] Optimizer core stub (empty file)
 - [ ] Patch vulnerability action stub
 - [ ] Block reachability action stub
 
@@ -70,17 +70,17 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 ## 2. Simulate — Run Attack Simulation
 
 - [x] Trigger simulation from dashboard
-- [ ] Configure simulation parameters via UI
-- [ ] Telemetry inside simulator (OTel spans)
+- [x] Configure simulation parameters via UI
+- [x] Telemetry inside simulator (OTel spans)
 - [ ] Simulation progress indicator
 
 ## 3. Analyze — Examine Results
 
 - [ ] Blast radius heat map (node coloring by compromise probability)
-- [ ] Data pipeline: connect simulation output to dashboard
+- [x] Data pipeline: connect simulation output to dashboard
 - [ ] Compromised host list (which hosts reached, how often)
 - [ ] Attack path visualization (highlighted edges)
-- [ ] Simulation report with KPIs + charts
+- [x] Simulation report with KPIs + charts
 
 ## 4. Defend — Optimize & Apply Defenses
 
@@ -90,7 +90,8 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 ## 5. Verify — Re-simulate After Defense
 
 - [ ] Re-simulation after applying/hypothesizing a defense
-- [ ] Before/after comparison UI (side-by-side KPIs)
+- [ ] Before/after comparison UI (side-by-side KPIs/overlayed same stats)
+- [ ] Composite action - Run & optimize modal with options
 
 ## 6. Report — Export Results
 

@@ -88,35 +88,45 @@ defmodule NetworkDefense.Simulation.Simulator do
   end
 
   def run(%Run{iteration_count: iteration_count} = initial_state, _opts) do
-    Enum.reduce(1..iteration_count, initial_state, fn index, state ->
-      perform_iteration(state, index)
-    end)
+    do_run(initial_state, 1, iteration_count)
   end
 
-  def perform_iteration(%Run{} = state, index) do
-    selected_action = get_possible_actions(state) |> select_action(state)
+  defp do_run(state, index, max_index) when index > max_index, do: state
 
-    if is_nil(selected_action) do
+  defp do_run(state, index, max_index) do
+    actions = get_possible_actions(state)
+
+    if actions == [] do
       state
     else
-      {success?, new_seed, new_attacker_state} =
-        maybe_execute_action(
-          selected_action,
-          Run.current_seed(state),
-          Run.current_attacker_state(state)
-        )
+      sorted_actions = sort_actions(actions)
 
-      next_iteration =
-        IterationStep.new(
-          index: index,
-          attempted_action: selected_action,
-          success?: success?,
-          seed: new_seed,
-          attacker_state: new_attacker_state
-        )
+      {new_state, _seed} =
+        Enum.reduce(sorted_actions, {state, Run.current_seed(state)}, fn action,
+                                                                         {state_acc, current_seed} ->
+          perform_action(state_acc, index, current_seed, action)
+        end)
 
-      state |> Run.add_iteration_step(next_iteration)
+      do_run(new_state, index + 1, max_index)
     end
+  end
+
+  defp perform_action(state, _round_index, current_seed, action) do
+    {success?, new_seed, new_attacker_state} =
+      maybe_execute_action(action, current_seed, Run.current_attacker_state(state))
+
+    iteration =
+      IterationStep.new(
+        # IterationStep has a unique run/index constraint, so each attempted action
+        # receives its own persisted sequence number within a simulation round.
+        index: length(state.iterations) + 1,
+        attempted_action: action,
+        success?: success?,
+        seed: new_seed,
+        attacker_state: new_attacker_state
+      )
+
+    {state |> Run.add_iteration_step(iteration), new_seed}
   end
 
   def get_possible_actions(state) do
@@ -136,15 +146,9 @@ defmodule NetworkDefense.Simulation.Simulator do
     end
   end
 
-  @doc """
-  Select action to execute for the given iteration.
-
-  Default is to select first one.
-  """
-  @spec select_action(list(Action.t()), Run.t()) :: Action.t() | nil
-  def select_action([], _state), do: nil
-
-  def select_action(actions, _state) do
-    hd(actions)
+  defp sort_actions(actions) do
+    Enum.sort_by(actions, fn action ->
+      action |> Action.key() |> inspect()
+    end)
   end
 end

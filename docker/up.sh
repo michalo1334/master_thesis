@@ -43,11 +43,16 @@ case "${1:-}" in
     $COMPOSE -f docker/docker-compose.dev.yml up -d
     ;;
   logs)
-    if [ -n "${2:-}" ]; then
-      $COMPOSE -f docker/docker-compose.dev.yml logs -f "$2"
-    else
-      $COMPOSE -f docker/docker-compose.dev.yml logs -f
-    fi
+    svc=""
+    tail=""
+    for arg in "${@:2}"; do
+      if [[ "$arg" == --tail=* ]]; then
+        tail="$arg"
+      else
+        svc="$arg"
+      fi
+    done
+    $COMPOSE -f docker/docker-compose.dev.yml logs -f $tail $svc
     ;;
   down)
     $COMPOSE -f docker/docker-compose.dev.yml down

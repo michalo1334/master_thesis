@@ -107,6 +107,7 @@
     {activeOptimizationId}
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
+    footholdHosts={wm.activeFootholdHosts}
   />
 
   {#snippet inspector()}

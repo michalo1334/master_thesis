@@ -9,7 +9,7 @@ import type {
   RunSimulationRequest,
   RunSimulationPayload,
   RunSimulationReply,
-  SimulationParams,
+  SimulationParams as GeneratedSimulationParams,
   FetchSimulationReportPayload,
   FetchSimulationReportReply,
   SimulationCompletedEvent,
@@ -29,6 +29,14 @@ export type {
   RunsData,
   NetworkReachabilityData,
   HasVulnerabilityData,
+  CredentialData,
+  StoresCredentialData,
+  AuthenticatesToData,
+  CredentialNode,
+  NetworkReachabilityEdge,
+  HasVulnerabilityEdge,
+  StoresCredentialEdge,
+  AuthenticatesToEdge,
   NodeViewData,
   Node,
   Edge,
@@ -40,7 +48,6 @@ export type {
   RunSimulationRequest,
   RunSimulationPayload,
   RunSimulationReply,
-  SimulationParams,
   FetchSimulationReportPayload,
   FetchSimulationReportReply,
   SimulationCompletedEvent,
@@ -52,6 +59,10 @@ export type {
   ReportCharts,
   ChartSpec,
 } from "../contracts.generated";
+
+export type SimulationParams = GeneratedSimulationParams & {
+  initial_foothold_node_id: string;
+};
 
 export type Id = string;
 export type Status =

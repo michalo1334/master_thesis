@@ -3,11 +3,9 @@ defmodule NetworkDefense.Graph.Query do
   A small, Cypher-like DSL for matching typed graph paths and joins.
   """
 
-  alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.Domain.Edge
+  alias NetworkDefense.Graph.Domain.Node
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Nodes.Registry, as: NodeRegistry
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
   def match(%Graph{} = graph, %{start: start, hops: hops} = pattern) when is_list(hops) do
     joins = Map.get(pattern, :joins, [])
@@ -74,20 +72,20 @@ defmodule NetworkDefense.Graph.Query do
   end
 
   defp matches?(%Node{} = node, matcher) do
-    matches_type?(node, node.type, NodeRegistry, matcher)
+    matches_type?(node, node.type, matcher)
   end
 
   defp matches?(%Edge{} = edge, matcher) do
-    matches_type?(edge, edge.type, RelationshipRegistry, matcher)
+    matches_type?(edge, edge.type, matcher)
   end
 
-  defp matches_type?(_value, stored_type, registry, {_variable, type}) do
-    stored_type == type_id!(registry, type)
+  defp matches_type?(_value, stored_type, {_variable, type}) do
+    stored_type == type
   end
 
-  defp matches_type?(value, stored_type, registry, {_variable, type, predicate})
+  defp matches_type?(value, stored_type, {_variable, type, predicate})
        when is_function(predicate, 1) do
-    stored_type == type_id!(registry, type) and predicate.(value)
+    stored_type == type and predicate.(value)
   end
 
   defp new_row(matcher, node) do
@@ -115,12 +113,5 @@ defmodule NetworkDefense.Graph.Query do
 
   defp binding_compatible?(row, {variable, _type, _predicate}, value) do
     Map.get(row.bindings, variable, value) == value
-  end
-
-  defp type_id!(registry, module) do
-    case registry.type_for(module) do
-      nil -> raise ArgumentError, "unregistered graph type: #{inspect(module)}"
-      type -> type
-    end
   end
 end

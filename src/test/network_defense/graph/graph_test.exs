@@ -51,7 +51,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       delete_all_graphs()
       graph = insert_graph()
       source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
+      target = insert_service(graph, "target")
       insert_edge(source, target)
 
       summaries = Graphs.list_summaries()
@@ -69,7 +69,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       graph2 = insert_graph()
 
       source1 = insert_node(graph1, "s1")
-      target1 = insert_node(graph1, "t1")
+      target1 = insert_service(graph1, "t1")
       insert_edge(source1, target1)
 
       insert_node(graph2, "s2")
@@ -104,9 +104,16 @@ defmodule NetworkDefense.Graph.GraphTest do
           "exploit_probability" => 0.8
         })
 
-      reachability_edge = build_edge(graph, source_host, service, NetworkReachability)
+      reachability_edge =
+        build_edge(graph, source_host, service, NetworkReachability, %{"protocol" => "any"})
+
       runs_edge = build_edge(graph, target_host, service, Runs)
-      vulnerability_edge = build_edge(graph, service, vulnerability, HasVulnerability)
+
+      vulnerability_edge =
+        build_edge(graph, service, vulnerability, HasVulnerability, %{
+          "required_privilege" => "none",
+          "granted_privilege" => "user"
+        })
 
       graph =
         graph
@@ -156,7 +163,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "loads all nodes and builds a directed adjacency list" do
       graph = insert_graph()
       source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
+      target = insert_service(graph, "target")
       isolated = insert_node(graph, "isolated")
       edge = insert_edge(source, target)
 
@@ -231,7 +238,13 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "builds nodes and edges with UUIDs" do
       graph = Graph.new("test-graph")
       graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "source"}})
-      graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "target"}})
+
+      graph =
+        Graph.add_node(graph, %{
+          type: Atom.to_string(Service),
+          data: %{"name" => "target", "protocol" => "tcp", "port" => 443}
+        })
+
       [source, target] = graph.nodes
 
       graph = Graph.add_edge(graph, source, target, %{type: Atom.to_string(Runs), data: %{}})
@@ -247,7 +260,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "add and remove operations maintain the adjacency list" do
       graph = insert_graph()
       source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
+      target = insert_service(graph, "target")
       edge = insert_edge(source, target)
 
       graph =
@@ -300,15 +313,17 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "replaces the complete graph and increments its lock version" do
       graph = insert_graph()
       source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
-      removed = insert_node(graph, "removed")
+      target = insert_service(graph, "target")
+      removed = insert_service(graph, "removed")
       old_edge = insert_edge(source, removed)
       edge_id = Ecto.UUID.generate()
 
       attrs = %{
         "title" => "replaced graph",
         "nodes" => [node_attrs(source), node_attrs(target)],
-        "edges" => [edge_attrs(edge_id, source.id, target.id, NetworkReachability)]
+        "edges" => [
+          edge_attrs(edge_id, source.id, target.id, NetworkReachability, %{"protocol" => "any"})
+        ]
       }
 
       assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
@@ -321,12 +336,11 @@ defmodule NetworkDefense.Graph.GraphTest do
 
       assert source_id == source.id
       assert target_id == target.id
-      assert type == Atom.to_string(NetworkReachability)
+      assert type == NetworkReachability
 
       for node <- saved.nodes do
-        assert %{"x_pos" => x, "y_pos" => y} = node.view_data
-        assert is_number(x)
-        assert is_number(y)
+        assert is_number(node.view_data.x_pos)
+        assert is_number(node.view_data.y_pos)
       end
 
       assert diff.nodes.removed == [removed.id]
@@ -427,7 +441,8 @@ defmodule NetworkDefense.Graph.GraphTest do
       refute GraphDiff.empty?(diff)
 
       [saved_node] = saved.nodes
-      assert saved_node.view_data == new_view_data
+      assert saved_node.view_data.x_pos == new_view_data["x_pos"]
+      assert saved_node.view_data.y_pos == new_view_data["y_pos"]
     end
   end
 
@@ -449,7 +464,10 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "reports changed node and edge fields" do
       graph = Graph.new("graph")
       source = build_node(graph, Host, %{"name" => "source"})
-      target = build_node(graph, Host, %{"name" => "target"})
+
+      target =
+        build_node(graph, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
+
       edge = build_edge(graph, source, target, Runs)
 
       previous = graph |> Graph.add_node(source) |> Graph.add_node(target) |> Graph.add_edge(edge)
@@ -462,7 +480,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       diff = GraphDiff.compare(previous, candidate)
 
       assert diff.nodes.changed == [%{id: source.id, fields: [:data]}]
-      assert diff.edges.changed == [%{id: edge.id, fields: [:type]}]
+      assert diff.edges.changed == [%{id: edge.id, fields: [:type, :data]}]
     end
   end
 
@@ -511,9 +529,19 @@ defmodule NetworkDefense.Graph.GraphTest do
     |> Repo.insert!()
   end
 
+  defp insert_service(graph, name) do
+    %Node{graph_id: graph.id}
+    |> Node.changeset(%{
+      type: Atom.to_string(Service),
+      data: %{"name" => name, "protocol" => "tcp", "port" => 443},
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    })
+    |> Repo.insert!()
+  end
+
   defp insert_edge(source, target) do
     %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
-    |> Edge.changeset(%{type: Atom.to_string(Runs)})
+    |> Edge.changeset(%{type: Atom.to_string(Runs), data: %{}})
     |> Repo.insert!()
   end
 
@@ -521,13 +549,13 @@ defmodule NetworkDefense.Graph.GraphTest do
     %{"id" => node.id, "type" => node.type, "data" => node.data, "view_data" => node.view_data}
   end
 
-  defp edge_attrs(id, from_id, to_id, type) do
+  defp edge_attrs(id, from_id, to_id, type, data \\ %{}) do
     %{
       "id" => id,
       "from_id" => from_id,
       "to_id" => to_id,
       "type" => Atom.to_string(type),
-      "data" => %{}
+      "data" => data
     }
   end
 
@@ -547,14 +575,14 @@ defmodule NetworkDefense.Graph.GraphTest do
     }
   end
 
-  defp build_edge(graph, from, to, type) do
+  defp build_edge(graph, from, to, type, data \\ %{}) do
     %Edge{
       id: Ecto.UUID.generate(),
       graph_id: graph.id,
       from_id: from.id,
       to_id: to.id,
       type: Atom.to_string(type),
-      data: %{}
+      data: data
     }
   end
 end
