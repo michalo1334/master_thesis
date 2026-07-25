@@ -37,7 +37,12 @@ defmodule NetworkDefense.Observability.LogValue do
       when is_pid(value) or is_port(value) or is_reference(value) or is_function(value),
       do: inspect(value)
 
-  def normalize(%{__struct__: _} = value), do: value |> Map.from_struct() |> normalize()
+  def normalize(%{__struct__: struct} = value) do
+    value
+    |> Map.from_struct()
+    |> Map.put("__struct__", Atom.to_string(struct))
+    |> normalize()
+  end
 
   def normalize(value) when is_map(value) do
     Map.new(value, fn {key, nested_value} -> {normalize_key(key), normalize(nested_value)} end)

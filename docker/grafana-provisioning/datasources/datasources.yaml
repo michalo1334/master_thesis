@@ -12,13 +12,13 @@ datasources:
       httpMethod: GET
       tracesToLogsV2:
         datasourceUid: loki
-        spanStartTimeShift: -1h
-        spanEndTimeShift: 1h
+        spanStartTimeShift: -2s
+        spanEndTimeShift: 2s
         tags:
           - key: 'service.name'
-            value: 'network_defense'
-          - key: 'app'
-            value: 'network_defense'
+            value: 'service_name'
+        filterByTraceID: true
+        filterBySpanID: false
       serviceMap:
         datasourceUid: prometheus
       nodeGraph:
@@ -41,3 +41,10 @@ datasources:
     editable: false
     jsonData:
       maxLines: 2000
+      derivedFields:
+        - name: TraceID
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: View trace

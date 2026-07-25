@@ -23,9 +23,6 @@ processors:
       - key: service.name
         value: network_defense
         action: insert
-      - key: service.version
-        value: dev
-        action: upsert
 
   memory_limiter:
     check_interval: 1s

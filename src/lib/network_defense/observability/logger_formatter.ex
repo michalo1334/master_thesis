@@ -6,90 +6,65 @@ defmodule NetworkDefense.Observability.LoggerFormatter do
   alias LoggerJSON.Formatters.Basic
   alias NetworkDefense.Observability.LogValue
 
+  # LoggerJSON needs these values in their OTP representation while formatting.
+  @formatter_metadata_keys [
+    :conn,
+    :crash_reason,
+    :otel_span_id,
+    :otel_trace_id,
+    :report_cb,
+    :time
+  ]
+
   @impl true
   def new(opts \\ []), do: {__MODULE__, opts}
 
   @impl true
-  def format(%{msg: {:report, %{label: label, report: report}}, meta: meta} = event, config) do
+  def format(%{msg: {:report, report}, meta: meta} = event, config) do
     if otp_report?(meta) do
-      structured_report = label |> format_otp_report(report, meta) |> LogValue.normalize()
-
       event
-      |> Map.put(:msg, {:report, structured_report})
-      |> Map.put(:meta, meta |> Map.delete(:report_cb) |> Map.put(:otp_report, structured_report))
+      |> Map.put(:msg, {:string, "OTP report"})
+      |> Map.put(
+        :meta,
+        meta
+        |> Map.drop([:crash_reason, :report_cb])
+        |> Map.put(:event, "otp.report")
+        |> Map.put(:otp_report, normalized_otp_report(report, meta))
+        |> normalize_metadata()
+      )
       |> Basic.format(config)
     else
-      Basic.format(event, config)
+      event
+      |> Map.put(:meta, normalize_metadata(meta))
+      |> Basic.format(config)
     end
   end
 
-  def format(%{msg: {:report, %{label: label} = report}, meta: meta} = event, config) do
-    if otp_report?(meta) do
-      structured_report = label |> format_otp_report(report, meta) |> LogValue.normalize()
-
-      event
-      |> Map.put(:msg, {:report, structured_report})
-      |> Map.put(:meta, meta |> Map.delete(:report_cb) |> Map.put(:otp_report, structured_report))
-      |> Basic.format(config)
-    else
-      Basic.format(event, config)
-    end
+  def format(%{meta: meta} = event, config) do
+    event
+    |> Map.put(:meta, normalize_metadata(meta))
+    |> Basic.format(config)
   end
-
-  def format(event, config), do: Basic.format(event, config)
 
   defp otp_report?(%{domain: [:otp | _]}), do: true
   defp otp_report?(%{domain: [:supervisor_report | _]}), do: true
   defp otp_report?(_meta), do: false
 
-  defp format_otp_report({:gen_server, :terminate}, report, meta) do
-    report = Map.delete(report, :elixir_translation)
-
+  defp normalized_otp_report(report, meta) do
     %{
-      event: "otp.gen_server.terminate",
-      process: report_value(report, :name),
-      process_label: report_value(report, :process_label),
-      last_message: report_value(report, :last_message),
-      state: report_value(report, :state),
-      client_info: report_value(report, :client_info),
-      error: format_error(report_value(report, :reason), Map.get(meta, :crash_reason)),
+      crash_reason: Map.get(meta, :crash_reason),
       report: report
     }
+    |> LogValue.normalize()
   end
 
-  defp format_otp_report(label, report, meta) do
-    report = if is_map(report), do: Map.delete(report, :elixir_translation), else: report
-
-    %{
-      event: "otp.report",
-      label: label,
-      error: format_error(report_value(report, :reason), Map.get(meta, :crash_reason)),
-      report: report
-    }
+  defp normalize_metadata(meta) do
+    Map.new(meta, fn {key, value} ->
+      if key in @formatter_metadata_keys do
+        {key, value}
+      else
+        {key, LogValue.normalize(value)}
+      end
+    end)
   end
-
-  defp format_error(reason, {exception, stacktrace}) when is_exception(exception) do
-    %{
-      kind: "error",
-      type: Atom.to_string(exception.__struct__),
-      reason: Exception.message(exception),
-      stacktrace: Exception.format_stacktrace(stacktrace),
-      original_reason: reason
-    }
-  end
-
-  defp format_error(reason, {kind, stacktrace})
-       when kind in [:throw, :exit] and is_list(stacktrace) do
-    %{
-      kind: Atom.to_string(kind),
-      reason: reason,
-      stacktrace: Exception.format_stacktrace(stacktrace)
-    }
-  end
-
-  defp format_error(reason, _crash_reason), do: %{reason: reason}
-
-  defp report_value(report, key) when is_map(report), do: Map.get(report, key)
-  defp report_value(report, key) when is_list(report), do: Keyword.get(report, key)
-  defp report_value(_report, _key), do: nil
 end

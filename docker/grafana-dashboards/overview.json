@@ -72,7 +72,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(network_defense_simulator_runs[1h]))",
+          "expr": "sum(increase(network_defense_simulator_runs_total[1h]))",
           "refId": "A"
         }
       ],
@@ -130,7 +130,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(increase(network_defense_optimizer_runs[1h]))",
+          "expr": "sum(increase(network_defense_optimizer_runs_total[1h]))",
           "refId": "A"
         }
       ],
@@ -189,7 +189,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(network_defense_simulator_duration_sum[1h])) / sum(rate(network_defense_simulator_duration_count[1h]))",
+          "expr": "sum(rate(network_defense_simulator_duration_seconds_sum[1h])) / sum(rate(network_defense_simulator_duration_seconds_count[1h]))",
           "refId": "A"
         }
       ],
@@ -278,7 +278,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.50, sum(rate(network_defense_simulator_duration_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(network_defense_simulator_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p50",
           "refId": "A"
         },
@@ -287,7 +287,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum(rate(network_defense_simulator_duration_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(network_defense_simulator_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p95",
           "refId": "B"
         },
@@ -296,7 +296,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "histogram_quantile(0.99, sum(rate(network_defense_simulator_duration_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(network_defense_simulator_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -366,7 +366,7 @@
             "uid": "tempo"
           },
           "limit": 20,
-          "query": "{ name =~ \".*(increment|simulation|optimizer).*\"}",
+          "query": "{ name =~ \".*(simulation|optimizer).*\"}",
           "queryType": "traceql",
           "refId": "A",
           "tableType": "traces"

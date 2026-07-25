@@ -91,12 +91,11 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def replace(id, expected_lock_version, attrs)
       when is_binary(id) and is_integer(expected_lock_version) and is_map(attrs) do
-    Logger.debug(%{
-      graph_replace: :entry,
-      id: id,
-      lock_version: expected_lock_version,
-      attrs: attrs
-    })
+    # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
+    Logger.debug("Graph replacement started",
+      event: "graph.replace.started",
+      graph: %{id: id, lock_version: expected_lock_version, attrs: attrs}
+    )
 
     result =
       with {:ok, id} <- Ecto.UUID.cast(id),
@@ -106,7 +105,8 @@ defmodule NetworkDefense.Graph.Graphs do
         error -> error
       end
 
-    Logger.debug(%{graph_replace: :result, result: inspect(result)})
+    # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
+    Logger.debug("Graph replacement completed", event: "graph.replace.completed", result: result)
     result
   end
 
@@ -191,7 +191,8 @@ defmodule NetworkDefense.Graph.Graphs do
       {:ok, Graph.hydrate(graph, nodes, edges)}
     else
       error ->
-        Logger.debug(%{candidate_graph: :failed, error: inspect(error)})
+        # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
+        Logger.debug("Graph candidate invalid", event: "graph.candidate.invalid", error: error)
         {:error, :invalid_graph}
     end
   end

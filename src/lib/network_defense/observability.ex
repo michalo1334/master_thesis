@@ -33,7 +33,7 @@ defmodule NetworkDefense.Observability do
 
     # LoggerJSON emits all metadata; Credo's check only recognizes the legacy console formatter config.
     # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
-    Logger.debug(details, ecto: details)
+    Logger.debug("Ecto query", event: "ecto.query", ecto: details)
   end
 
   def handle_live_view_handle_event(_event, _measurements, metadata, _config) do
@@ -48,7 +48,7 @@ defmodule NetworkDefense.Observability do
 
     # LoggerJSON emits all metadata; Credo's check only recognizes the legacy console formatter config.
     # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
-    Logger.debug(details, live_view: details)
+    Logger.debug("LiveView event", event: "live_view.handle_event", live_view: details)
   end
 
   defp attach_once(name, event, handler) do

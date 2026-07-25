@@ -47,13 +47,8 @@ config :phoenix, :json_library, Jason
 
 # OpenTelemetry defaults. Override in env-specific configs.
 config :opentelemetry,
-  resource: %{service: %{name: System.get_env("OTEL_SERVICE_NAME", "network_defense")}},
   span_processor: :batch,
   traces_exporter: :otlp
-
-config :opentelemetry_exporter,
-  otlp_protocol: :http_protobuf,
-  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

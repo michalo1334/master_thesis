@@ -10,6 +10,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
+  alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   import Ecto.Query
 
@@ -31,11 +32,7 @@ defmodule NetworkDefense.Simulations do
   end
 
   def run_async(graph, correlation_id, simulation_params) do
-    ctx = OpenTelemetry.Ctx.get_current()
-
-    Task.Supervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      OpenTelemetry.Ctx.attach(ctx)
-
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       try do
         do_run_async(graph, correlation_id, simulation_params, &parallel_map_fn/2)
       rescue
@@ -93,6 +90,12 @@ defmodule NetworkDefense.Simulations do
 
       runtime_ms = div(elapsed_us, 1000)
 
+      :telemetry.execute(
+        [:network_defense, :simulator, :run],
+        %{duration: System.convert_time_unit(elapsed_us, :microsecond, :native)},
+        %{}
+      )
+
       experiment = %{
         experiment
         | runtime_ms: runtime_ms,
@@ -115,7 +118,7 @@ defmodule NetworkDefense.Simulations do
   end
 
   def parallel_map_fn(enum, fun) do
-    Task.Supervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun,
+    TaskSupervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun,
       ordered: false,
       timeout: :infinity
     )

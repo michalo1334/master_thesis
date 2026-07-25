@@ -1,5 +1,17 @@
 import Config
 
+config :opentelemetry,
+  resource: %{
+    service: %{
+      name: System.get_env("OTEL_SERVICE_NAME", "network_defense"),
+      version: System.get_env("OTEL_SERVICE_VERSION", "unknown")
+    }
+  }
+
+config :opentelemetry_exporter,
+  otlp_protocol: :http_protobuf,
+  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
