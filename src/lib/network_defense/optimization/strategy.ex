@@ -9,6 +9,7 @@ defprotocol NetworkDefense.Optimization.Strategy do
 
   @type t :: __MODULE__
 
+  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.Graph.Graph
@@ -16,6 +17,9 @@ defprotocol NetworkDefense.Optimization.Strategy do
   @spec name(t()) :: String.t()
   def name(strategy)
 
-  @spec rank(t(), Graph.t(), Budget.t()) :: list(Action.t())
-  def rank(strategy, graph, budget)
+  @doc """
+  The rank function
+  """
+  @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [Action.t()]
+  def rank(strategy, action_types, graph, budget)
 end

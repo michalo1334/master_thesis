@@ -13,7 +13,7 @@ defmodule NetworkDefense.Optimization.NullStrategy do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Null strategy"
 
-    @spec rank(Strategy.t(), Graph.t(), Budget.t()) :: list(Action.t())
-    def rank(_strategy, _graph, _budget), do: []
+    @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: list(Action.t())
+    def rank(_strategy, _action_types, _graph, _budget), do: []
   end
 end
