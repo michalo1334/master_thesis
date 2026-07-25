@@ -24,7 +24,7 @@ defmodule NetworkDefense.Observability do
         event: "ecto.query",
         repository: inspect(metadata.repo),
         query: metadata.query,
-        parameters: metadata.params,
+        parameters: Map.get(metadata, :cast_params) || metadata.params,
         source: metadata.source,
         result: query_result(metadata.result),
         timings_us: timings(measurements)

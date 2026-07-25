@@ -157,6 +157,31 @@ defmodule NetworkDefense.ObservabilityTest do
     refute Map.has_key?(entry["metadata"]["ecto"], "stacktrace")
   end
 
+  test "uses Ecto cast parameters when available" do
+    Observability.handle_ecto_query(
+      [:network_defense, :repo, :query],
+      %{query_time: 1_000},
+      %{
+        repo: NetworkDefense.Repo,
+        query: "SELECT * FROM graphs WHERE id = $1",
+        params: [<<0, 255>>],
+        cast_params: ["00000000-0000-0000-0000-0000000000ff"],
+        source: "graphs",
+        result: {:ok, %{num_rows: 1}}
+      },
+      nil
+    )
+
+    entry =
+      fn event -> Map.has_key?(event.meta, :ecto) end
+      |> receive_log_event()
+      |> format_event()
+
+    assert entry["metadata"]["ecto"]["parameters"] == [
+             "00000000-0000-0000-0000-0000000000ff"
+           ]
+  end
+
   test "emits a LiveView event as structured metadata" do
     Observability.handle_live_view_handle_event(
       [:phoenix, :live_view, :handle_event, :start],
