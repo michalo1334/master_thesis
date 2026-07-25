@@ -123,8 +123,8 @@ defmodule NetworkDefense.ObservabilityTest do
     assert scrape =~ "# TYPE network_defense_simulator_duration_seconds histogram"
   end
 
-  test "emits an Ecto query as structured metadata" do
-    Observability.handle_ecto_query(
+  test "emits Ecto telemetry as normalized structured metadata" do
+    Observability.handle_telemetry_event(
       [:network_defense, :repo, :query],
       %{query_time: 1_000, queue_time: 2_000, decode_time: 3_000, total_time: 6_000},
       %{
@@ -141,49 +141,25 @@ defmodule NetworkDefense.ObservabilityTest do
     )
 
     entry =
-      fn event -> Map.has_key?(event.meta, :ecto) end
+      fn event -> Map.has_key?(event.meta, :telemetry) end
       |> receive_log_event()
       |> format_event()
 
-    assert entry["message"] == "Ecto query"
-    assert entry["metadata"]["event"] == "ecto.query"
-    assert entry["metadata"]["ecto"]["query"] == "SELECT * FROM nodes WHERE id = $1"
+    assert entry["message"] == "Telemetry event"
+    assert entry["metadata"]["event"] == "telemetry.event"
+    assert entry["metadata"]["telemetry"]["event"] == "network_defense.repo.query"
+    assert entry["metadata"]["telemetry"]["measurements"]["query_time"] == 1_000
 
-    assert entry["metadata"]["ecto"]["parameters"] == [
+    assert entry["metadata"]["telemetry"]["metadata"]["params"] == [
              "node-1",
              %{"encoding" => "base64", "value" => "AP8="}
            ]
 
-    refute Map.has_key?(entry["metadata"]["ecto"], "stacktrace")
+    assert entry["metadata"]["telemetry"]["metadata"]["stacktrace"]
   end
 
-  test "uses Ecto cast parameters when available" do
-    Observability.handle_ecto_query(
-      [:network_defense, :repo, :query],
-      %{query_time: 1_000},
-      %{
-        repo: NetworkDefense.Repo,
-        query: "SELECT * FROM graphs WHERE id = $1",
-        params: [<<0, 255>>],
-        cast_params: ["00000000-0000-0000-0000-0000000000ff"],
-        source: "graphs",
-        result: {:ok, %{num_rows: 1}}
-      },
-      nil
-    )
-
-    entry =
-      fn event -> Map.has_key?(event.meta, :ecto) end
-      |> receive_log_event()
-      |> format_event()
-
-    assert entry["metadata"]["ecto"]["parameters"] == [
-             "00000000-0000-0000-0000-0000000000ff"
-           ]
-  end
-
-  test "emits a LiveView event as structured metadata" do
-    Observability.handle_live_view_handle_event(
+  test "emits LiveView telemetry as normalized structured metadata" do
+    Observability.handle_telemetry_event(
       [:phoenix, :live_view, :handle_event, :start],
       %{},
       %{
@@ -195,15 +171,16 @@ defmodule NetworkDefense.ObservabilityTest do
     )
 
     entry =
-      fn event -> Map.has_key?(event.meta, :live_view) end
+      fn event -> Map.has_key?(event.meta, :telemetry) end
       |> receive_log_event()
       |> format_event()
 
-    assert entry["message"] == "LiveView event"
-    assert entry["metadata"]["event"] == "live_view.handle_event"
+    assert entry["metadata"]["telemetry"]["event"] == "phoenix.live_view.handle_event.start"
+    assert entry["metadata"]["telemetry"]["metadata"]["event"] == "run_simulation_request"
 
-    assert entry["metadata"]["live_view"]["event"] == "live_view.handle_event"
-    assert entry["metadata"]["live_view"]["name"] == "run_simulation_request"
+    assert entry["metadata"]["telemetry"]["metadata"]["params"] == %{
+             "request" => %{"run_count" => 1000}
+           }
   end
 
   defp receive_log_event(predicate) do
