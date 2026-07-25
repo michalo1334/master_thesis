@@ -56,6 +56,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   describe "simulation events" do
+    test "returns not_found for an invalid report request", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_simulation_report", %{})
+
+      assert_reply(view, %{status: "not_found"})
+    end
+
     test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do
       graph = insert_graph("run-sim-test")
       graph_id = graph.id
@@ -94,14 +102,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      5_000
 
       assert is_binary(experiment_id)
-      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
-    end
-
-    test "dashboard root is present after optimize_defense", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      render_hook(view, "optimize_defense", %{"graph_id" => "topology-1"})
-
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
@@ -184,14 +184,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       send(view.pid, {:simulation_failed, failed})
       assert_push_event(view, "simulation_failed", ^failed)
-    end
-
-    test "optimize_defense is safely accepted without graph_id", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      render_hook(view, "optimize_defense", %{})
-
-      assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
   end
 

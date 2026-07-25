@@ -3,7 +3,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
   alias Mix.Tasks.Gen.Contracts.{Registry, TypespecParser}
 
-  @dashboard_categories [:graph, :simulation, :optimization]
+  @dashboard_categories [:graph, :simulation]
 
   test "renders contract types from typespecs and metadata" do
     output = Registry.render_all()
@@ -35,7 +35,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface SimulationCompletedEvent"
     assert output =~ "experiment_id: string;"
     assert output =~ "export interface SimulationFailedEvent"
-    assert output =~ "export interface OptimizeDefensePayload"
   end
 
   test "discovers contracts for multiple categories" do
@@ -48,9 +47,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
     assert NetworkDefense.Simulation.Contracts.RunSimulationRequest.contract_category() ==
              :simulation
-
-    assert NetworkDefenseWeb.Web.Contracts.OptimizeDefensePayload.contract_category() ==
-             :optimization
 
     assert Registry.list_contract_modules(:operations) == []
   end

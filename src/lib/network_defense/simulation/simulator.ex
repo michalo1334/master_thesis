@@ -137,7 +137,7 @@ defmodule NetworkDefense.Simulation.Simulator do
     seed = Seed.seed_state(seed)
     {sample, new_seed} = :rand.uniform_s(seed)
 
-    new_attacker_state = AttackerState.mark_attempted(attacker_state, Action.key(action))
+    new_attacker_state = AttackerState.mark_attempted(attacker_state, action)
 
     if sample <= Action.probability(action) do
       {true, new_seed, Action.execute(action, new_attacker_state)}
@@ -146,9 +146,5 @@ defmodule NetworkDefense.Simulation.Simulator do
     end
   end
 
-  defp sort_actions(actions) do
-    Enum.sort_by(actions, fn action ->
-      action |> Action.key() |> inspect()
-    end)
-  end
+  defp sort_actions(actions), do: Enum.sort(actions)
 end

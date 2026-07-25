@@ -14,10 +14,5 @@ defmodule NetworkDefense.Actions.ReuseCredential do
     end
 
     def probability(_action), do: 1.0
-
-    def key(action),
-      do:
-        {:reuse_credential, action.credential.id, action.source_host.id, action.target_host.id,
-         action.service.id, action.granted_privilege}
   end
 end

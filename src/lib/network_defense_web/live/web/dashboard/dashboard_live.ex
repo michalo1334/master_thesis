@@ -14,7 +14,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchExperimentsReply,
     OpenGraphPayload,
     OpenGraphReply,
-    OptimizeDefensePayload,
     RunSimulationReply,
     RunSimulationPayload,
     SaveGraphPayload,
@@ -102,27 +101,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("optimize_defense", params, socket) do
-    _ = OptimizeDefensePayload.validate(params)
-    {:noreply, socket}
-  end
-
-  @impl true
   def handle_event("fetch_simulation_report", params, socket) do
-    case FetchSimulationReportPayload.validate(params) do
-      {:ok, request} ->
-        case Reports.load_for_report(request.experiment_id) do
-          nil ->
-            {:reply, %{status: "not_found"}, socket}
-
-          experiment ->
-            {:ok, report} = FetchSimulationReportReply.validate(Report.generate(experiment))
-            {:reply, FetchSimulationReportReply.to_wire(report), socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply, %{status: "not_found"}, socket}
-    end
+    {:reply, fetch_simulation_report(params), socket}
   end
 
   def handle_event("fetch_experiments", params, socket) do
@@ -160,6 +140,21 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:simulation_failed, payload}, socket) do
     {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
+  end
+
+  defp fetch_simulation_report(params) do
+    case FetchSimulationReportPayload.validate(params) do
+      {:ok, request} ->
+        with %{} = experiment <- Reports.load_for_report(request.experiment_id),
+             {:ok, report} <- FetchSimulationReportReply.validate(Report.generate(experiment)) do
+          FetchSimulationReportReply.to_wire(report)
+        else
+          _ -> %{status: "not_found"}
+        end
+
+      {:error, _changeset} ->
+        %{status: "not_found"}
+    end
   end
 
   defp open_graph(params) do

@@ -8,7 +8,6 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
   defstruct []
 
   defimpl Rule, for: __MODULE__ do
-    alias NetworkDefense.Actions.Action
     alias NetworkDefense.Actions.AcquireCredential
     alias NetworkDefense.AttackerState.AttackerState
     alias NetworkDefense.Graph.Query
@@ -32,7 +31,7 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
       })
       |> Enum.filter(&privilege_held?(&1, attacker_state))
       |> Enum.map(&action_for_match/1)
-      |> Enum.reject(&AttackerState.attempted?(attacker_state, Action.key(&1)))
+      |> Enum.reject(&AttackerState.attempted?(attacker_state, &1))
     end
 
     defp privilege_held?(match, attacker_state) do

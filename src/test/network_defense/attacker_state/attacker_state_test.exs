@@ -1,7 +1,9 @@
 defmodule NetworkDefense.AttackerState.AttackerStateTest do
   use ExUnit.Case, async: true
 
+  alias NetworkDefense.Actions.AcquireCredential
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Graph.Node
 
   describe "new/2" do
     test "creates state with default user privilege" do
@@ -64,41 +66,12 @@ defmodule NetworkDefense.AttackerState.AttackerStateTest do
     end
   end
 
-  describe "to_map/from_map roundtrip" do
-    test "roundtrips all fields" do
-      state =
-        AttackerState.new("host-1", :administrator)
-        |> AttackerState.add_foothold("host-2", :user)
-        |> AttackerState.add_credential("cred-1")
-        |> AttackerState.mark_attempted({:test, "key"})
+  describe "attempted actions" do
+    test "tracks complete action structs" do
+      action = %AcquireCredential{credential: %Node{id: "cred-1"}, host: %Node{id: "host-1"}}
+      state = AttackerState.new("host-1") |> AttackerState.mark_attempted(action)
 
-      map = AttackerState.to_map(state)
-      {:ok, restored} = AttackerState.from_map(map)
-
-      assert AttackerState.foothold_nodes(restored) |> Enum.sort() == ["host-1", "host-2"]
-      assert AttackerState.privilege_for(restored, "host-1") == :administrator
-      assert AttackerState.privilege_for(restored, "host-2") == :user
-      assert AttackerState.has_credential?(restored, "cred-1")
-      assert AttackerState.attempted?(restored, {:test, "key"})
-    end
-
-    test "legacy state map derives user privileges for footholds and empty credentials" do
-      legacy_map = %{
-        "footholds" => ["host-1", "host-2"],
-        "attempted_actions" => []
-      }
-
-      {:ok, state} = AttackerState.from_map(legacy_map)
-      assert AttackerState.privilege_for(state, "host-1") == :user
-      assert AttackerState.privilege_for(state, "host-2") == :user
-      refute AttackerState.has_credential?(state, "anything")
-    end
-
-    test "rejects invalid maps" do
-      assert AttackerState.from_map(%{}) == :error
-
-      assert AttackerState.from_map(%{"footholds" => "not_a_list", "attempted_actions" => []}) ==
-               :error
+      assert AttackerState.attempted?(state, action)
     end
   end
 end

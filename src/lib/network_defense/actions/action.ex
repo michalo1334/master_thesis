@@ -15,7 +15,4 @@ defprotocol NetworkDefense.Actions.Action do
 
   @spec probability(t()) :: float()
   def probability(action)
-
-  @spec key(t()) :: term()
-  def key(action)
 end

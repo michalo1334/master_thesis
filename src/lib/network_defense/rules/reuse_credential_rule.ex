@@ -9,7 +9,6 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
   defstruct []
 
   defimpl Rule, for: __MODULE__ do
-    alias NetworkDefense.Actions.Action
     alias NetworkDefense.Actions.ReuseCredential
     alias NetworkDefense.AttackerState.AttackerState
     alias NetworkDefense.Graph.Query
@@ -60,7 +59,7 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
           }
         end)
       end)
-      |> Enum.reject(&AttackerState.attempted?(attacker_state, Action.key(&1)))
+      |> Enum.reject(&AttackerState.attempted?(attacker_state, &1))
     end
 
     defp reachability_matches?(match) do

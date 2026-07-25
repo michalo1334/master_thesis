@@ -1,7 +1,6 @@
 defmodule NetworkDefense.Simulation.SimulatorExtTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.Credential
@@ -66,51 +65,6 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
 
     # No iterations should have been created since there are no paths
     assert Run.current_iteration(result) == nil
-  end
-
-  test "actions are sorted deterministically by inspect of their key" do
-    {graph, source_host, _target_host, _service, _vulnerability} = vulnerable_service_graph()
-
-    attacker_state = AttackerState.new(source_host.id)
-
-    simulation =
-      Run.new(
-        graph: graph,
-        initial_attacker_state: attacker_state,
-        rules: [%RemoteServiceExploitation{}]
-      )
-
-    actions = Simulator.get_possible_actions(simulation)
-    assert actions != []
-
-    keys = Enum.map(actions, &Action.key/1)
-    string_keys = Enum.map(keys, &inspect/1)
-    assert string_keys == Enum.sort(string_keys)
-  end
-
-  defp vulnerable_service_graph do
-    source_host = node("source", Host, %{"name" => "internet"})
-    target_host = node("target", Host, %{"name" => "web-01"})
-    service = node("service", Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
-
-    vulnerability =
-      node("vulnerability", Vulnerability, %{
-        "identifier" => "CVE-2024-0001",
-        "cvss_score" => 7.5,
-        "exploit_probability" => 1.0
-      })
-
-    graph =
-      graph([source_host, target_host, service, vulnerability], [
-        edge("reachable", source_host, service, NetworkReachability, %{}),
-        edge("runs", target_host, service, Runs),
-        edge("vulnerability", service, vulnerability, HasVulnerability, %{
-          "required_privilege" => "none",
-          "granted_privilege" => "user"
-        })
-      ])
-
-    {graph, source_host, target_host, service, vulnerability}
   end
 
   defp full_exploit_graph do

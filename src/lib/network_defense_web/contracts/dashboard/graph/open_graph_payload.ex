@@ -16,15 +16,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
     |> cast(attrs, [:graph_id])
     |> validate_required([:graph_id])
     |> validate_length(:graph_id, min: 1)
-    |> validate_uuid(:graph_id)
-  end
-
-  defp validate_uuid(changeset, field) do
-    validate_change(changeset, field, fn ^field, value ->
-      case Ecto.UUID.cast(value) do
-        {:ok, _uuid} -> []
-        :error -> [{field, "is invalid"}]
-      end
-    end)
+    |> Contracts.validate_uuid(:graph_id)
   end
 end

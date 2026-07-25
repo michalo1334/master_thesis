@@ -14,7 +14,5 @@ defmodule NetworkDefense.Actions.AcquireCredential do
     end
 
     def probability(_action), do: 1.0
-
-    def key(action), do: {:acquire_credential, action.credential.id, action.host.id}
   end
 end

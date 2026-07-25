@@ -209,10 +209,6 @@ export interface OpenGraphReply {
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
-export interface OptimizeDefensePayload {
-  graph_id: string;
-}
-
 export interface ReportCharts {
   action_stats: ChartSpec[];
   blast_radius_distribution: ChartSpec[];

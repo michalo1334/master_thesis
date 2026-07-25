@@ -8,6 +8,7 @@ defmodule NetworkDefense.Simulation.RunsTest do
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Runs
   alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
 
   test "persists and reloads a simulation with its iteration steps" do
     graph = insert_graph()
@@ -26,8 +27,7 @@ defmodule NetworkDefense.Simulation.RunsTest do
             index: 1,
             attempted_action: action,
             success?: true,
-            attacker_state:
-              AttackerState.mark_attempted(attacker_state, {"source-host", "vulnerability"}),
+            attacker_state: AttackerState.mark_attempted(attacker_state, action),
             seed: seed
           )
         ]
@@ -47,17 +47,20 @@ defmodule NetworkDefense.Simulation.RunsTest do
     assert step.seed == seed
     assert Run.current_attacker_state(loaded) == step.attacker_state
     assert Run.current_seed(loaded) == seed
+    refute AttackerState.attempted?(step.attacker_state, action)
   end
 
-  test "encodes attacker state as JSON-safe data" do
+  test "does not persist attempted actions" do
+    action = exploit_action()
+
     state =
       AttackerState.new("source-host")
-      |> AttackerState.mark_attempted({"source-host", "vulnerability"})
+      |> AttackerState.mark_attempted(action)
 
-    assert %{
-             "footholds" => ["source-host"],
-             "attempted_actions" => [_]
-           } = state |> Jason.encode!() |> Jason.decode!()
+    assert {:ok, snapshot} = AttackerStateType.dump(state)
+    refute Map.has_key?(snapshot, "attempted_actions")
+    assert {:ok, restored} = AttackerStateType.load(snapshot)
+    refute AttackerState.attempted?(restored, action)
   end
 
   test "reports an invalid experiment association" do
