@@ -23,16 +23,7 @@ defmodule NetworkDefense.Simulation.Contracts.RunSimulationRequest do
     |> cast_embed(:simulation_params, required: true)
     |> validate_required([:graph_id, :correlation_id])
     |> validate_length(:graph_id, min: 1)
-    |> validate_uuid(:graph_id)
+    |> Contracts.validate_uuid(:graph_id)
     |> validate_length(:correlation_id, min: 1)
-  end
-
-  defp validate_uuid(changeset, field) do
-    validate_change(changeset, field, fn ^field, value ->
-      case Ecto.UUID.cast(value) do
-        {:ok, _uuid} -> []
-        :error -> [{field, "is invalid"}]
-      end
-    end)
   end
 end

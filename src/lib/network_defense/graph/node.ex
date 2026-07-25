@@ -7,7 +7,7 @@ defmodule NetworkDefense.Graph.Node do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.{Data, Graph}
   alias NetworkDefense.Nodes.Registry
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -42,7 +42,7 @@ defmodule NetworkDefense.Graph.Node do
 
   def hydrate(%__MODULE__{} = node) do
     with type when not is_nil(type) <- Registry.module_for(node.type),
-         {:ok, data} <- load_data(type, node.data),
+         {:ok, data} <- Data.load(type, node.data),
          {:ok, view_data} <- normalize_view_data(node.view_data) do
       {:ok, %{node | type: type, data: data, view_data: view_data}}
     else
@@ -61,17 +61,9 @@ defmodule NetworkDefense.Graph.Node do
     %{
       node
       | type: Registry.type_for(node.type),
-        data: data_params(node.data),
+        data: Data.to_params(node.data),
         view_data: view_data_params(node.view_data)
     }
-  end
-
-  def data_params(data) when is_struct(data) do
-    data
-    |> Map.from_struct()
-    |> Map.drop([:__meta__])
-    |> Map.new(fn {key, value} -> {Atom.to_string(key), data_value(value)} end)
-    |> Map.reject(fn {_key, value} -> is_nil(value) end)
   end
 
   def position(%__MODULE__{view_data: %{x_pos: x_pos, y_pos: y_pos}}),
@@ -114,13 +106,6 @@ defmodule NetworkDefense.Graph.Node do
 
   defp schema_for(type), do: Registry.module_for(type)
 
-  defp load_data(schema, data) do
-    schema
-    |> struct()
-    |> schema.changeset(data || %{})
-    |> apply_action(:validate)
-  end
-
   defp normalize_view_data(%{"x_pos" => x_pos, "y_pos" => y_pos} = view_data)
        when is_number(x_pos) and is_number(y_pos),
        do: {:ok, %{x_pos: x_pos, y_pos: y_pos, radius: Map.get(view_data, "radius")}}
@@ -132,8 +117,4 @@ defmodule NetworkDefense.Graph.Node do
     %{"x_pos" => x_pos, "y_pos" => y_pos, "radius" => radius}
     |> Map.reject(fn {_key, value} -> is_nil(value) end)
   end
-
-  defp data_value(nil), do: nil
-  defp data_value(value) when is_atom(value), do: Atom.to_string(value)
-  defp data_value(value), do: value
 end

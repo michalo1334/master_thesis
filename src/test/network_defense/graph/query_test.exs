@@ -1,7 +1,6 @@
 defmodule NetworkDefense.Graph.QueryTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
@@ -11,8 +10,9 @@ defmodule NetworkDefense.Graph.QueryTest do
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Relationships.HasVulnerability
   alias NetworkDefense.Relationships.NetworkReachability
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Relationships.Runs
+
+  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 2]
 
   test "matches the remote service exploitation path and returns bound domain objects" do
     foothold = node("foothold", Host)
@@ -22,7 +22,12 @@ defmodule NetworkDefense.Graph.QueryTest do
 
     reachability = edge("reachability", foothold, service, NetworkReachability)
     runs = edge("runs", reachable_host, service, Runs)
-    has_vulnerability = edge("has-vulnerability", service, vulnerability, HasVulnerability)
+
+    has_vulnerability =
+      edge("has-vulnerability", service, vulnerability, HasVulnerability, %{
+        "required_privilege" => "none",
+        "granted_privilege" => "user"
+      })
 
     graph =
       graph([foothold, reachable_host, service, vulnerability], [
@@ -51,12 +56,6 @@ defmodule NetworkDefense.Graph.QueryTest do
     refute Map.has_key?(match, nil)
   end
 
-  defp graph(nodes, edges) do
-    graph = %Graph{id: "graph", nodes: [], adjacency_list: %{}}
-    graph = Enum.reduce(nodes, graph, &Graph.add_node(&2, &1))
-    Enum.reduce(edges, graph, &Graph.add_edge(&2, &1))
-  end
-
   defp node(id, Host) do
     %Node{id: id, graph_id: "graph", type: NodeRegistry.type_for(Host), data: %{"name" => id}}
   end
@@ -76,28 +75,6 @@ defmodule NetworkDefense.Graph.QueryTest do
       graph_id: "graph",
       type: NodeRegistry.type_for(Vulnerability),
       data: %{"identifier" => id, "cvss_score" => 7.0, "exploit_probability" => 0.5}
-    }
-  end
-
-  defp edge(id, from, to, HasVulnerability) do
-    %Edge{
-      id: id,
-      graph_id: "graph",
-      from_id: from.id,
-      to_id: to.id,
-      type: RelationshipRegistry.type_for(HasVulnerability),
-      data: %{"required_privilege" => "none", "granted_privilege" => "user"}
-    }
-  end
-
-  defp edge(id, from, to, type) do
-    %Edge{
-      id: id,
-      graph_id: "graph",
-      from_id: from.id,
-      to_id: to.id,
-      type: RelationshipRegistry.type_for(type),
-      data: %{}
     }
   end
 end

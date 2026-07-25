@@ -52,6 +52,7 @@ defmodule NetworkDefense.Simulation.Run do
     |> validate_number(:initial_seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)
     |> foreign_key_constraint(:graph_id)
+    |> foreign_key_constraint(:experiment_id)
   end
 
   def new(opts \\ []) do

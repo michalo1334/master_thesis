@@ -9,6 +9,8 @@ defmodule NetworkDefense.Graph.ContractsTest do
     StoresCredentialData
   }
 
+  alias NetworkDefense.Graph.Contracts.GraphContract
+
   describe "CredentialData" do
     test "validates credential data" do
       assert {:ok, _} =
@@ -103,5 +105,50 @@ defmodule NetworkDefense.Graph.ContractsTest do
                  "port_end" => 80
                })
     end
+  end
+
+  describe "GraphContract" do
+    test "rejects invalid nested identifiers" do
+      params = graph_params()
+
+      invalid_params = [
+        put_in(params, ["nodes", Access.at(0), "id"], "invalid"),
+        put_in(params, ["edges", Access.at(0), "id"], "invalid"),
+        put_in(params, ["edges", Access.at(0), "from_id"], "invalid"),
+        put_in(params, ["edges", Access.at(0), "to_id"], "invalid")
+      ]
+
+      Enum.each(invalid_params, fn invalid_params ->
+        assert {:error, _changeset} = GraphContract.validate(invalid_params)
+      end)
+    end
+  end
+
+  defp graph_params do
+    node_id = Ecto.UUID.generate()
+    target_id = Ecto.UUID.generate()
+
+    %{
+      "id" => Ecto.UUID.generate(),
+      "title" => "Graph",
+      "lock_version" => 1,
+      "nodes" => [
+        %{
+          "id" => node_id,
+          "type" => "Host",
+          "data" => %{"name" => "host"},
+          "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+        }
+      ],
+      "edges" => [
+        %{
+          "id" => Ecto.UUID.generate(),
+          "from_id" => node_id,
+          "to_id" => target_id,
+          "type" => "Runs",
+          "data" => %{}
+        }
+      ]
+    }
   end
 end

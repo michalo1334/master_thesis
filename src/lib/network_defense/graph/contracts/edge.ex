@@ -4,7 +4,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Edge, as: GraphEdge
+  alias NetworkDefense.Graph.Data
 
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
@@ -66,6 +66,9 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     schema
     |> cast(attrs, [:id, :from_id, :to_id, :type, :data])
     |> validate_required([:id, :from_id, :to_id, :type, :data])
+    |> Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:from_id)
+    |> Contracts.validate_uuid(:to_id)
     |> validate_data()
   end
 
@@ -84,7 +87,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
 
   def from_domain(edge) do
     with {:ok, {tag, data_contract}} <- variant_for_domain(edge.type),
-         {:ok, data} <- data_contract.validate(GraphEdge.data_params(edge.data)) do
+         {:ok, data} <- data_contract.validate(Data.to_params(edge.data)) do
       validate(%{
         id: edge.id,
         from_id: edge.from_id,

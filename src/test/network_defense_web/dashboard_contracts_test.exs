@@ -25,6 +25,15 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefenseWeb.Web.Contracts.SaveGraphPayload
 
   @graph_id "00000000-0000-0000-0000-000000000001"
+  @host_id "00000000-0000-0000-0000-000000000002"
+  @service_id "00000000-0000-0000-0000-000000000003"
+  @vulnerability_id "00000000-0000-0000-0000-000000000004"
+  @credential_id "00000000-0000-0000-0000-000000000005"
+  @runs_edge_id "00000000-0000-0000-0000-000000000006"
+  @reachability_edge_id "00000000-0000-0000-0000-000000000007"
+  @vulnerability_edge_id "00000000-0000-0000-0000-000000000008"
+  @stores_edge_id "00000000-0000-0000-0000-000000000009"
+  @auth_edge_id "00000000-0000-0000-0000-000000000010"
   test "all dashboard contracts are embedded schemas with changesets" do
     Registry.list_contract_modules(:all)
     |> Enum.each(fn contract ->
@@ -41,7 +50,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         "lock_version" => 1,
         "nodes" => [
           %{
-            "id" => "node-1",
+            "id" => @host_id,
             "type" => "Host",
             "data" => %{"name" => "internet"},
             "view_data" => %{"x_pos" => 120, "y_pos" => 240}
@@ -58,7 +67,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              "title" => "Test graph",
              "nodes" => [
                %{
-                 "id" => "node-1",
+                 "id" => @host_id,
                  "type" => "Host",
                  "data" => %{"name" => "internet"},
                  "view_data" => %{"x_pos" => 120.0, "y_pos" => 240.0, "radius" => nil}
@@ -76,7 +85,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         "lock_version" => 1,
         "nodes" => [
           %{
-            "id" => "node-1",
+            "id" => @host_id,
             "type" => "Service",
             "data" => %{"name" => "dns", "protocol" => "icmp", "port" => 53},
             "view_data" => %{"x_pos" => 0, "y_pos" => 0}
@@ -110,7 +119,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       "lock_version" => 1,
       "nodes" => [
         %{
-          "id" => "node-1",
+          "id" => @host_id,
           "type" => "Host",
           "data" => %{"name" => "internet"},
           "view_data" => %{"x_pos" => 120, "y_pos" => 240}
@@ -125,7 +134,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                 "title" => "Test graph",
                 "nodes" => [
                   %{
-                    "id" => "node-1",
+                    "id" => @host_id,
                     "type" => type,
                     "data" => %{"name" => "internet"},
                     "view_data" => %{"x_pos" => 120.0, "y_pos" => 240.0}
@@ -147,7 +156,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                  "lock_version" => 1,
                  "nodes" => [
                    %{
-                     "id" => "node-1",
+                     "id" => @host_id,
                      "type" => type,
                      "data" => %{"name" => "internet"},
                      "view_data" => %{"x_pos" => 0, "y_pos" => 0}
@@ -165,21 +174,21 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     nodes = [
       %Node{
-        id: "host",
+        id: @host_id,
         graph_id: graph.id,
         type: Atom.to_string(Host),
         data: %{"name" => "internet"},
         view_data: %{"x_pos" => 10, "y_pos" => 20, "radius" => 30}
       },
       %Node{
-        id: "service",
+        id: @service_id,
         graph_id: graph.id,
         type: Atom.to_string(Service),
         data: %{"name" => "dns", "protocol" => "udp", "port" => 53},
         view_data: %{"x_pos" => 40, "y_pos" => 50}
       },
       %Node{
-        id: "vulnerability",
+        id: @vulnerability_id,
         graph_id: graph.id,
         type: Atom.to_string(Vulnerability),
         data: %{
@@ -190,7 +199,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         view_data: %{"x_pos" => 70, "y_pos" => 80}
       },
       %Node{
-        id: "credential",
+        id: @credential_id,
         graph_id: graph.id,
         type: Atom.to_string(Credential),
         data: %{"identifier" => "key-1", "credential_type" => "ssh_key"},
@@ -200,42 +209,42 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     edges = [
       %Edge{
-        id: "runs",
+        id: @runs_edge_id,
         graph_id: graph.id,
-        from_id: "host",
-        to_id: "service",
+        from_id: @host_id,
+        to_id: @service_id,
         type: Atom.to_string(Runs),
         data: %{}
       },
       %Edge{
-        id: "reachable",
+        id: @reachability_edge_id,
         graph_id: graph.id,
-        from_id: "host",
-        to_id: "service",
+        from_id: @host_id,
+        to_id: @service_id,
         type: Atom.to_string(NetworkReachability),
         data: %{"protocol" => "any"}
       },
       %Edge{
-        id: "vulnerable",
+        id: @vulnerability_edge_id,
         graph_id: graph.id,
-        from_id: "service",
-        to_id: "vulnerability",
+        from_id: @service_id,
+        to_id: @vulnerability_id,
         type: Atom.to_string(HasVulnerability),
         data: %{"required_privilege" => "none", "granted_privilege" => "user"}
       },
       %Edge{
-        id: "stores",
+        id: @stores_edge_id,
         graph_id: graph.id,
-        from_id: "host",
-        to_id: "credential",
+        from_id: @host_id,
+        to_id: @credential_id,
         type: Atom.to_string(StoresCredential),
         data: %{"required_privilege" => "user"}
       },
       %Edge{
-        id: "auth",
+        id: @auth_edge_id,
         graph_id: graph.id,
-        from_id: "credential",
-        to_id: "service",
+        from_id: @credential_id,
+        to_id: @service_id,
         type: Atom.to_string(AuthenticatesTo),
         data: %{"granted_privilege" => "administrator"}
       }
@@ -266,7 +275,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     assert %{radius: 30.0} =
              wire
              |> Map.fetch!(:nodes)
-             |> Enum.find(&(Map.fetch!(&1, :id) == "host"))
+             |> Enum.find(&(Map.fetch!(&1, :id) == @host_id))
              |> Map.fetch!(:view_data)
 
     assert {:ok, %{attrs: attrs}} = GraphContract.from_params(wire)

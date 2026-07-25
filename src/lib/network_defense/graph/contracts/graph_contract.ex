@@ -28,7 +28,7 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
     |> cast_embed(:nodes)
     |> cast_embed(:edges)
     |> validate_required([:id, :title, :lock_version])
-    |> validate_uuid(:id)
+    |> Contracts.validate_uuid(:id)
     |> validate_length(:title, min: 1)
   end
 
@@ -78,14 +78,5 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
       {:ok, mapped} -> {:ok, Enum.reverse(mapped)}
       error -> error
     end
-  end
-
-  defp validate_uuid(changeset, field) do
-    validate_change(changeset, field, fn ^field, value ->
-      case Ecto.UUID.cast(value) do
-        {:ok, _uuid} -> []
-        :error -> [{field, "is invalid"}]
-      end
-    end)
   end
 end

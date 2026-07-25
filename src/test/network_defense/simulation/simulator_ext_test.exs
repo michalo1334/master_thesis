@@ -3,18 +3,14 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
 
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
-  alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Relationships.AuthenticatesTo
   alias NetworkDefense.Relationships.HasVulnerability
   alias NetworkDefense.Relationships.NetworkReachability
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.StoresCredential
   alias NetworkDefense.Rules.RemoteServiceExploitation
@@ -23,6 +19,8 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
   alias NetworkDefense.Rules.ReuseCredentialRule
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator
+
+  import NetworkDefense.GraphFixtures
 
   test "batch simulation runs all unique eligible actions each round" do
     {graph, source_host, target_host, _service, _vuln} = full_exploit_graph()
@@ -147,36 +145,5 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
       ])
 
     {graph, source_host, target_host, service, vulnerability}
-  end
-
-  defp graph(nodes, edges) do
-    graph = %Graph{id: "graph", nodes: [], adjacency_list: %{}}
-    graph = Enum.reduce(nodes, graph, &Graph.add_node(&2, &1))
-    Enum.reduce(edges, graph, &Graph.add_edge(&2, &1))
-  end
-
-  defp node(id, type, data) do
-    %Node{id: id, graph_id: "graph", type: NodeRegistry.type_for(type), data: data}
-  end
-
-  defp edge(id, from, to, type, extra_data \\ %{}) do
-    %Edge{
-      id: id,
-      graph_id: "graph",
-      from_id: from.id,
-      to_id: to.id,
-      type: RelationshipRegistry.type_for(type),
-      data: extra_data
-    }
-  end
-
-  defp build_node(graph, type, data) do
-    %Node{
-      id: Ecto.UUID.generate(),
-      graph_id: graph.id,
-      type: NodeRegistry.type_for(type),
-      data: data,
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    }
   end
 end

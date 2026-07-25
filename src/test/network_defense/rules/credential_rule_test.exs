@@ -3,18 +3,13 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
 
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.Edge
-  alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
-  alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Relationships.AuthenticatesTo
   alias NetworkDefense.Relationships.HasVulnerability
   alias NetworkDefense.Relationships.NetworkReachability
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.StoresCredential
   alias NetworkDefense.Rules.AcquireCredentialRule
@@ -23,6 +18,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
   alias NetworkDefense.Rules.RemoteServiceExploitation
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Run
+
+  import NetworkDefense.GraphFixtures
 
   describe "AcquireCredentialRule" do
     test "acquires credential from host with required privilege" do
@@ -167,7 +164,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
 
   describe "RemoteServiceExploitation protocol matching" do
     test "matches when reachability protocol matches service" do
-      {graph, source_host, target_host, service, vulnerability} = vulnerable_service_graph("tcp")
+      {graph, source_host, _target_host, service, _vulnerability} =
+        vulnerable_service_graph("tcp")
 
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
@@ -177,7 +175,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
     end
 
     test "matches when reachability protocol is any" do
-      {graph, source_host, target_host, service, vulnerability} = vulnerable_service_graph("any")
+      {graph, source_host, _target_host, service, _vulnerability} =
+        vulnerable_service_graph("any")
 
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
@@ -187,7 +186,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
     end
 
     test "does not match when protocol differs" do
-      {graph, source_host, target_host, service, vulnerability} = vulnerable_service_graph("udp")
+      {graph, source_host, _target_host, _service, _vulnerability} =
+        vulnerable_service_graph("udp")
 
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
@@ -235,26 +235,5 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       ])
 
     {graph, host, credential}
-  end
-
-  defp graph(nodes, edges) do
-    graph = %Graph{id: "graph", nodes: [], adjacency_list: %{}}
-    graph = Enum.reduce(nodes, graph, &Graph.add_node(&2, &1))
-    Enum.reduce(edges, graph, &Graph.add_edge(&2, &1))
-  end
-
-  defp node(id, type, data) do
-    %Node{id: id, graph_id: "graph", type: NodeRegistry.type_for(type), data: data}
-  end
-
-  defp edge(id, from, to, type, extra_data \\ %{}) do
-    %Edge{
-      id: id,
-      graph_id: "graph",
-      from_id: from.id,
-      to_id: to.id,
-      type: RelationshipRegistry.type_for(type),
-      data: extra_data
-    }
   end
 end

@@ -60,6 +60,22 @@ defmodule NetworkDefense.Simulation.RunsTest do
            } = state |> Jason.encode!() |> Jason.decode!()
   end
 
+  test "reports an invalid experiment association" do
+    graph = insert_graph()
+
+    changeset =
+      %Run{graph_id: graph.id}
+      |> Run.changeset(%{
+        initial_seed: 1,
+        initial_attacker_state: AttackerState.new("source-host"),
+        iteration_count: 1,
+        experiment_id: Ecto.UUID.generate()
+      })
+
+    assert {:error, changeset} = Repo.insert(changeset)
+    assert "does not exist" in errors_on(changeset).experiment_id
+  end
+
   defp insert_graph do
     %Graph{id: Ecto.UUID.generate()}
     |> Graph.changeset(%{title: "Simulation graph"})

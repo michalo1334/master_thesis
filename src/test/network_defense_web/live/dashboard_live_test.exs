@@ -12,13 +12,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulations
-  alias NetworkDefenseWeb.DashboardLive
 
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
@@ -31,7 +29,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       target = insert_service(graph, "dest")
       insert_edge(source, target)
 
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{"graph_id" => graph.id})
 
@@ -39,7 +37,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
 
     test "accepts a missing graph_id", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{
         "graph_id" => "00000000-0000-0000-0000-000000000000"
@@ -49,7 +47,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
 
     test "accepts an open request without graph_id", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{})
 
@@ -64,32 +62,28 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       foothold = insert_node(graph, "entry-host")
       correlation_id = "request-123"
 
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-      assert {:reply,
-              %{
-                status: "accepted",
-                graph_id: ^graph_id,
-                correlation_id: ^correlation_id,
-                reason: nil
-              }, _socket} =
-               DashboardLive.handle_event(
-                 "run_simulation_request",
-                 %{
-                   "request" => %{
-                     "graph_id" => graph_id,
-                     "correlation_id" => correlation_id,
-                     "simulation_params" => %{
-                       "monte_carlo_trials" => 1,
-                       "iterations_per_run" => 1,
-                       "initial_foothold_node_id" => foothold.id,
-                       "generate_seed" => true
-                     }
-                   }
-                 },
-                 %Phoenix.LiveView.Socket{}
-               )
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_id" => graph_id,
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1,
+            "initial_foothold_node_id" => foothold.id,
+            "generate_seed" => true
+          }
+        }
+      })
+
+      assert_reply(view, %{
+        status: "accepted",
+        graph_id: ^graph_id,
+        correlation_id: ^correlation_id,
+        reason: nil
+      })
 
       assert_receive {:simulation_completed,
                       %{
@@ -104,109 +98,78 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
 
     test "dashboard root is present after optimize_defense", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "optimize_defense", %{"graph_id" => "topology-1"})
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
-    test "rejects a simulation request with nil seed and generate_seed false" do
+    test "rejects a simulation request with nil seed and generate_seed false", %{conn: conn} do
       graph = insert_graph("nil-seed-test")
       graph_id = graph.id
       correlation_id = "request-nil-seed"
 
-      assert {:reply,
-              %{
-                status: "rejected",
-                graph_id: ^graph_id,
-                correlation_id: ^correlation_id,
-                reason: "invalid_request"
-              }, _socket} =
-               DashboardLive.handle_event(
-                 "run_simulation_request",
-                 %{
-                   "request" => %{
-                     "graph_id" => graph_id,
-                     "correlation_id" => correlation_id,
-                     "simulation_params" => %{
-                       "monte_carlo_trials" => 1,
-                       "iterations_per_run" => 1
-                     }
-                   }
-                 },
-                 %Phoenix.LiveView.Socket{}
-               )
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_id" => graph_id,
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1
+          }
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: ^graph_id,
+        correlation_id: ^correlation_id,
+        reason: "invalid_request"
+      })
     end
 
-    test "rejects an invalid correlated simulation request" do
+    test "rejects an invalid correlated simulation request", %{conn: conn} do
       correlation_id = "request-456"
 
-      assert {:reply,
-              %{
-                status: "rejected",
-                graph_id: "not-a-uuid",
-                correlation_id: ^correlation_id,
-                reason: "invalid_request"
-              }, _socket} =
-               DashboardLive.handle_event(
-                 "run_simulation_request",
-                 %{
-                   "request" => %{
-                     "graph_id" => "not-a-uuid",
-                     "correlation_id" => correlation_id,
-                     "simulation_params" => %{
-                       "monte_carlo_trials" => 1,
-                       "iterations_per_run" => 1
-                     }
-                   }
-                 },
-                 %Phoenix.LiveView.Socket{}
-               )
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_id" => "not-a-uuid",
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1
+          }
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: "not-a-uuid",
+        correlation_id: ^correlation_id,
+        reason: "invalid_request"
+      })
     end
 
-    test "rejects a simulation request without valid parameters" do
-      assert {:reply,
-              %{
-                status: "rejected",
-                graph_id: "",
-                correlation_id: "",
-                reason: "invalid_request"
-              }, _socket} =
-               DashboardLive.handle_event(
-                 "run_simulation_request",
-                 %{},
-                 %Phoenix.LiveView.Socket{}
-               )
-    end
+    test "rejects a simulation request without valid parameters", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
 
-    test "broadcasts a correlated failure when execution fails" do
-      graph = %{Graph.new("invalid graph") | nodes: [%Node{type: nil}]}
-      graph_id = graph.id
-      correlation_id = "request-789"
+      render_hook(view, "run_simulation_request", %{})
 
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
-
-      assert {:ok, _pid} =
-               Simulations.run_async(graph, correlation_id, %SimulationParams{
-                 monte_carlo_trials: 1,
-                 iterations_per_run: 1,
-                 initial_foothold_node_id: "invalid"
-               })
-
-      assert_receive {:simulation_failed,
-                      %{
-                        correlation_id: ^correlation_id,
-                        graph_id: ^graph_id,
-                        reason: reason
-                      }},
-                     5_000
-
-      assert is_binary(reason)
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: "",
+        correlation_id: "",
+        reason: "invalid_request"
+      })
     end
 
     test "forwards simulation completion and failure events", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       completed = %{
         correlation_id: "request-1",
@@ -224,7 +187,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
 
     test "optimize_defense is safely accepted without graph_id", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "optimize_defense", %{})
 
@@ -239,7 +202,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       target = insert_service(graph, "target")
       edge_id = Ecto.UUID.generate()
 
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "save_graph", %{
         "graph" => %{
@@ -292,7 +255,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "does not replace a stale graph", %{conn: conn} do
       graph = insert_graph("stale-graph")
 
-      {:ok, view, _html} = live(conn, ~p"/dashboard")
+      {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "save_graph", %{
         "graph" => %{

@@ -3,7 +3,7 @@ defmodule NetworkDefense.Graph.Edge do
   import Ecto.Changeset
 
   alias NetworkDefense.Relationships.Registry
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.{Data, Graph}
   alias NetworkDefense.Graph.Node
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -45,7 +45,7 @@ defmodule NetworkDefense.Graph.Edge do
 
   def hydrate(%__MODULE__{} = edge) do
     with type when not is_nil(type) <- Registry.module_for(edge.type),
-         {:ok, data} <- load_data(type, edge.data) do
+         {:ok, data} <- Data.load(type, edge.data) do
       {:ok, %{edge | type: type, data: data}}
     else
       _ -> :error
@@ -60,15 +60,7 @@ defmodule NetworkDefense.Graph.Edge do
   end
 
   def persist(%__MODULE__{} = edge) do
-    %{edge | type: Registry.type_for(edge.type), data: data_params(edge.data)}
-  end
-
-  def data_params(data) when is_struct(data) do
-    data
-    |> Map.from_struct()
-    |> Map.drop([:__meta__])
-    |> Map.new(fn {key, value} -> {Atom.to_string(key), data_value(value)} end)
-    |> Map.reject(fn {_key, value} -> is_nil(value) end)
+    %{edge | type: Registry.type_for(edge.type), data: Data.to_params(edge.data)}
   end
 
   defp validate_dynamic_data(changeset) do
@@ -91,15 +83,4 @@ defmodule NetworkDefense.Graph.Edge do
   end
 
   defp schema_for(type), do: Registry.module_for(type)
-
-  defp load_data(schema, data) do
-    schema
-    |> struct()
-    |> schema.changeset(data || %{})
-    |> apply_action(:validate)
-  end
-
-  defp data_value(nil), do: nil
-  defp data_value(value) when is_atom(value), do: Atom.to_string(value)
-  defp data_value(value), do: value
 end

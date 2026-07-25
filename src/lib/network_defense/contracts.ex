@@ -51,4 +51,13 @@ defmodule NetworkDefense.Contracts do
 
   def to_params(list) when is_list(list), do: Enum.map(list, &to_params/1)
   def to_params(value), do: value
+
+  def validate_uuid(changeset, field) do
+    Ecto.Changeset.validate_change(changeset, field, fn ^field, value ->
+      case Ecto.UUID.cast(value) do
+        {:ok, _uuid} -> []
+        :error -> [{field, "is invalid"}]
+      end
+    end)
+  end
 end
