@@ -16,8 +16,6 @@ export class SimulationReportDocument {
   reportData = $state<SimulationReportData | null>(null);
   errorReason = $state<string>("");
 
-  private loadToken = 0;
-
   constructor(graphTitle: string, graphId: string) {
     this.id = crypto.randomUUID();
     this.title = `Report for ${graphTitle}`;
@@ -25,7 +23,6 @@ export class SimulationReportDocument {
   }
 
   markPending(correlationId: string): void {
-    this.loadToken += 1;
     this.correlationId = correlationId;
     this.experimentId = null;
     this.status = "pending";
@@ -34,7 +31,6 @@ export class SimulationReportDocument {
   }
 
   markReady(experimentId: string): void {
-    this.loadToken += 1;
     this.experimentId = experimentId;
     this.status = "ready";
     this.reportData = null;
@@ -42,7 +38,6 @@ export class SimulationReportDocument {
   }
 
   markError(reason: string): void {
-    this.loadToken += 1;
     this.status = "error";
     this.errorReason = reason;
   }
@@ -56,6 +51,7 @@ export class SimulationReportDocument {
   }
 
   setReportData(data: SimulationReportData): void {
+    if (data.experiment_id !== this.experimentId) return;
     this.reportData = data;
     this.title = `Report for ${data.graph_title}`;
     this.status = "loaded";
@@ -63,35 +59,13 @@ export class SimulationReportDocument {
 
   complete(api: DashboardApi, experimentId: string, graphId: string): void {
     this.markReady(experimentId);
-    void this.load(api, experimentId, graphId);
+    this.load(api, experimentId, graphId);
   }
 
-  async load(
-    api: DashboardApi,
-    experimentId: string,
-    graphId: string,
-  ): Promise<void> {
-    const loadToken = ++this.loadToken;
+  load(api: DashboardApi, experimentId: string, graphId: string): void {
     this.experimentId = experimentId;
     this.status = "loading";
     this.errorReason = "";
-    try {
-      const reply = await api.fetchSimulationReport(experimentId, graphId);
-      if (!this.isCurrentLoad(loadToken, experimentId)) return;
-      if ("charts" in reply) {
-        this.setReportData(reply);
-      } else {
-        this.status = "error";
-        this.errorReason = reply.status || "Report not found.";
-      }
-    } catch {
-      if (!this.isCurrentLoad(loadToken, experimentId)) return;
-      this.status = "error";
-      this.errorReason = "Failed to load report.";
-    }
-  }
-
-  private isCurrentLoad(loadToken: number, experimentId: string): boolean {
-    return this.loadToken === loadToken && this.experimentId === experimentId;
+    api.requestSimulationReport(experimentId, graphId);
   }
 }

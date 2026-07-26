@@ -24,80 +24,42 @@ function makeReport(
   };
 }
 
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
 describe("SimulationReportDocument", () => {
-  it("does not let an earlier successful load overwrite a newer error", async () => {
-    const first = deferred<FetchSimulationReportReply | { status: string }>();
-    const second = deferred<FetchSimulationReportReply | { status: string }>();
+  it("requests a report without awaiting its LiveView reply", () => {
     const api = {
-      fetchSimulationReport: vi
-        .fn()
-        .mockReturnValueOnce(first.promise)
-        .mockReturnValueOnce(second.promise),
+      requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
     const document = new SimulationReportDocument("Topology", "g1");
 
-    const firstLoad = document.load(api, "sim-first", "g1");
-    const secondLoad = document.load(api, "sim-second", "g1");
-    second.resolve({ status: "not_found" });
-    await secondLoad;
-    first.resolve(makeReport({ experiment_id: "sim-first" }));
-    await firstLoad;
+    document.load(api, "sim-1", "g1");
 
-    expect(document.experimentId).toBe("sim-second");
-    expect(document.status).toBe("error");
-    expect(document.errorReason).toBe("not_found");
+    expect(document.status).toBe("loading");
+    expect(api.requestSimulationReport).toHaveBeenCalledWith("sim-1", "g1");
+  });
+
+  it("applies a report only for the active experiment", () => {
+    const api = {
+      requestSimulationReport: vi.fn(),
+    } as unknown as DashboardApi;
+    const document = new SimulationReportDocument("Topology", "g1");
+
+    document.load(api, "sim-current", "g1");
+    document.setReportData(makeReport({ experiment_id: "sim-stale" }));
+
+    expect(document.status).toBe("loading");
     expect(document.reportData).toBeNull();
   });
 
-  it("does not let an earlier rejected load overwrite a newer report", async () => {
-    const first = deferred<FetchSimulationReportReply | { status: string }>();
-    const second = deferred<FetchSimulationReportReply | { status: string }>();
+  it("loads a matching report received through the LiveView event", () => {
     const api = {
-      fetchSimulationReport: vi
-        .fn()
-        .mockReturnValueOnce(first.promise)
-        .mockReturnValueOnce(second.promise),
+      requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
     const document = new SimulationReportDocument("Topology", "g1");
 
-    const firstLoad = document.load(api, "sim-first", "g1");
-    const secondLoad = document.load(api, "sim-second", "g1");
-    second.resolve(makeReport({ experiment_id: "sim-second" }));
-    await secondLoad;
-    first.reject(new Error("offline"));
-    await firstLoad;
+    document.load(api, "sim-1", "g1");
+    document.setReportData(makeReport());
 
-    expect(document.experimentId).toBe("sim-second");
     expect(document.status).toBe("loaded");
-    expect(document.errorReason).toBe("");
-    expect(document.reportData?.experiment_id).toBe("sim-second");
-  });
-
-  it("invalidates an in-flight load when a report becomes pending", async () => {
-    const request = deferred<FetchSimulationReportReply | { status: string }>();
-    const api = {
-      fetchSimulationReport: vi.fn().mockReturnValue(request.promise),
-    } as unknown as DashboardApi;
-    const document = new SimulationReportDocument("Topology", "g1");
-
-    const load = document.load(api, "sim-first", "g1");
-    document.markPending("corr-next");
-    request.resolve(makeReport({ experiment_id: "sim-first" }));
-    await load;
-
-    expect(document.experimentId).toBeNull();
-    expect(document.status).toBe("pending");
-    expect(document.reportData).toBeNull();
-    expect(document.errorReason).toBe("");
+    expect(document.reportData?.experiment_id).toBe("sim-1");
   });
 });

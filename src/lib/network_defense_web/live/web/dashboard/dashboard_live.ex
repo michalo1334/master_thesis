@@ -6,6 +6,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Simulation.Report
   alias NetworkDefense.Simulation.Reports
   alias NetworkDefense.Simulations
+  alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   alias NetworkDefenseWeb.Web.Contracts.{
     FetchSimulationReportPayload,
@@ -102,7 +103,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   @impl true
   def handle_event("fetch_simulation_report", params, socket) do
-    {:reply, fetch_simulation_report(params), socket}
+    case FetchSimulationReportPayload.validate(params) do
+      {:ok, request} ->
+        case start_report_fetch(request, params, self()) do
+          {:ok, _pid} -> {:reply, %{status: "processing"}, socket}
+          {:error, _reason} -> {:reply, %{status: "unavailable"}, socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, %{status: "invalid_params"}, socket}
+    end
   end
 
   def handle_event("fetch_experiments", params, socket) do
@@ -142,6 +152,21 @@ defmodule NetworkDefenseWeb.DashboardLive do
     {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
   end
 
+  def handle_info({:report_result, experiment_id, graph_id, result}, socket) do
+    socket =
+      if is_map(result) and result[:charts] do
+        push_event(socket, "simulation_report_ready", result)
+      else
+        push_event(socket, "simulation_report_error", %{
+          experiment_id: experiment_id,
+          graph_id: graph_id,
+          reason: (is_map(result) && result[:status]) || "unknown_error"
+        })
+      end
+
+    {:noreply, socket}
+  end
+
   defp fetch_simulation_report(params) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
@@ -155,6 +180,21 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         %{status: "not_found"}
     end
+  end
+
+  defp start_report_fetch(request, params, owner) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      send(
+        owner,
+        {:report_result, request.experiment_id, request.graph_id, report_result(params)}
+      )
+    end)
+  end
+
+  defp report_result(params) do
+    fetch_simulation_report(params)
+  rescue
+    e -> %{status: "crash: #{Exception.message(e)}"}
   end
 
   defp open_graph(params) do

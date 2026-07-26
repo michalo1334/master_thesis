@@ -150,12 +150,11 @@ defmodule NetworkDefense.ObservabilityTest do
     assert entry["metadata"]["telemetry"]["event"] == "network_defense.repo.query"
     assert entry["metadata"]["telemetry"]["measurements"]["query_time"] == 1_000
 
-    assert entry["metadata"]["telemetry"]["metadata"]["params"] == [
-             "node-1",
-             %{"encoding" => "base64", "value" => "AP8="}
-           ]
-
-    assert entry["metadata"]["telemetry"]["metadata"]["stacktrace"]
+    assert entry["metadata"]["telemetry"]["metadata"] == %{
+             "query" => "SELECT * FROM nodes WHERE id = $1",
+             "repo" => "Elixir.NetworkDefense.Repo",
+             "source" => "nodes"
+           }
   end
 
   test "emits LiveView telemetry as normalized structured metadata" do

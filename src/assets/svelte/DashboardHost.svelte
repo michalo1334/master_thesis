@@ -12,7 +12,9 @@
     FetchExperimentsReply,
     SimulationCompletedEvent,
     SimulationFailedEvent,
+    FetchSimulationReportReply,
   } from "./dashboard/contract";
+  import type { SimulationReportErrorEvent } from "./dashboard/contract";
 
   interface Props {
     live: Live;
@@ -40,6 +42,14 @@
 
   useLiveEvent("simulation_failed", (payload: unknown) => {
     model.onSimulationFailed(payload as SimulationFailedEvent);
+  });
+
+  useLiveEvent("simulation_report_ready", (payload: unknown) => {
+    model.onSimulationReportReady(payload as FetchSimulationReportReply);
+  });
+
+  useLiveEvent("simulation_report_error", (payload: unknown) => {
+    model.onSimulationReportError(payload as SimulationReportErrorEvent);
   });
 </script>
 

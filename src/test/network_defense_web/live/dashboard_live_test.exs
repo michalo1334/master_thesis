@@ -56,12 +56,12 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   describe "simulation events" do
-    test "returns not_found for an invalid report request", %{conn: conn} do
+    test "returns invalid_params for an invalid report request", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "fetch_simulation_report", %{})
 
-      assert_reply(view, %{status: "not_found"})
+      assert_reply(view, %{status: "invalid_params"})
     end
 
     test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do

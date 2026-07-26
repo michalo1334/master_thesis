@@ -79,3 +79,9 @@ export interface GraphSummary {
 }
 
 export type SimulationReportData = FetchSimulationReportReply;
+
+export interface SimulationReportErrorEvent {
+  experiment_id: string;
+  graph_id: string;
+  reason: string;
+}

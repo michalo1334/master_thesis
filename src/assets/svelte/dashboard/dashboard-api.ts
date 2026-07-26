@@ -6,7 +6,6 @@ import type {
   RunSimulationPayload,
   RunSimulationReply,
   FetchSimulationReportPayload,
-  FetchSimulationReportReply,
   FetchExperimentsPayload,
   FetchExperimentsReply,
   SimulationParams,
@@ -29,10 +28,7 @@ export interface DashboardApi {
     correlationId: string,
     simulationParams: SimulationParams,
   ): Promise<RunSimulationReply>;
-  fetchSimulationReport(
-    experimentId: string,
-    graphId: string,
-  ): Promise<FetchSimulationReportReply | { status: string }>;
+  requestSimulationReport(experimentId: string, graphId: string): void;
   fetchExperiments(graphIds: string[]): Promise<FetchExperimentsReply>;
 }
 
@@ -86,15 +82,10 @@ export function createDashboardApi(
         );
       });
     },
-    fetchSimulationReport(experimentId, graphId) {
-      return new Promise((resolve) => {
-        live.pushEvent<FetchSimulationReportPayload>(
-          "fetch_simulation_report",
-          { experiment_id: experimentId, graph_id: graphId },
-          (reply) => {
-            resolve(reply as FetchSimulationReportReply | { status: string });
-          },
-        );
+    requestSimulationReport(experimentId, graphId) {
+      live.pushEvent<FetchSimulationReportPayload>("fetch_simulation_report", {
+        experiment_id: experimentId,
+        graph_id: graphId,
       });
     },
     fetchExperiments(graphIds) {

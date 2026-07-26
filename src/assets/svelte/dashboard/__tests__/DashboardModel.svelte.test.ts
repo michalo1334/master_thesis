@@ -9,7 +9,7 @@ function makeMockApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
     openGraph: vi.fn(),
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),
-    fetchSimulationReport: vi.fn().mockResolvedValue({ status: "ok" }),
+    requestSimulationReport: vi.fn(),
     fetchExperiments: vi.fn(),
     ...overrides,
   };
@@ -54,10 +54,6 @@ function makeReportReply(
     total_runtime_ms: 500,
     ...overrides,
   };
-}
-
-function flushMicrotasks(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 function findReport(
@@ -151,12 +147,6 @@ describe("DashboardModel", () => {
           graph_id: "g1",
           correlation_id: "corr-second",
         });
-      vi.mocked(api.fetchSimulationReport)
-        .mockResolvedValueOnce(makeReportReply({ experiment_id: "sim-first" }))
-        .mockResolvedValueOnce(
-          makeReportReply({ experiment_id: "sim-second" }),
-        );
-
       await model.runActiveSimulation();
       model.workspace.selectDocument(model.workspace.documents[0].id);
       await model.runActiveSimulation();
@@ -176,7 +166,12 @@ describe("DashboardModel", () => {
         graph_id: "g1",
         experiment_id: "sim-second",
       });
-      await flushMicrotasks();
+      model.onSimulationReportReady(
+        makeReportReply({ experiment_id: "sim-first" }),
+      );
+      model.onSimulationReportReady(
+        makeReportReply({ experiment_id: "sim-second" }),
+      );
 
       expect(first.reportData?.experiment_id).toBe("sim-first");
       expect(second.reportData?.experiment_id).toBe("sim-second");
@@ -184,10 +179,7 @@ describe("DashboardModel", () => {
   });
 
   describe("onSimulationCompleted", () => {
-    it("loads report via mocked DashboardApi for matching correlation ID", async () => {
-      const reply = makeReportReply({ graph_title: "Loaded Report" });
-      vi.mocked(api.fetchSimulationReport).mockResolvedValue(reply);
-
+    it("requests a report for matching correlation ID", () => {
       model.workspace.createPendingReport({
         graphId: "g1",
         correlationId: "corr-match",
@@ -205,14 +197,7 @@ describe("DashboardModel", () => {
       // Synchronous: complete() sets experimentId and status via load()
       expect(report.experimentId).toBe("sim-1");
       expect(report.status).toBe("loading");
-      expect(api.fetchSimulationReport).toHaveBeenCalledWith("sim-1", "g1");
-
-      // Wait for async load to finish
-      await flushMicrotasks();
-
-      expect(report.status).toBe("loaded");
-      expect(report.reportData).not.toBeNull();
-      expect(report.title).toBe("Report for Loaded Report");
+      expect(api.requestSimulationReport).toHaveBeenCalledWith("sim-1", "g1");
     });
 
     it("ignores mismatched completion event", () => {
@@ -228,7 +213,7 @@ describe("DashboardModel", () => {
         experiment_id: "sim-2",
       });
 
-      expect(api.fetchSimulationReport).not.toHaveBeenCalled();
+      expect(api.requestSimulationReport).not.toHaveBeenCalled();
     });
 
     it("ignores a completion with a matching correlation ID for another graph", () => {
@@ -244,7 +229,7 @@ describe("DashboardModel", () => {
         experiment_id: "sim-2",
       });
 
-      expect(api.fetchSimulationReport).not.toHaveBeenCalled();
+      expect(api.requestSimulationReport).not.toHaveBeenCalled();
     });
 
     it("keeps an active report read when it completes", () => {

@@ -18,7 +18,15 @@ defmodule NetworkDefense.Observability do
     )
   end
 
+  def handle_telemetry_event(@ecto_query_event = event, measurements, metadata, _config) do
+    log_telemetry(event, measurements, Map.take(metadata, [:query, :repo, :source]))
+  end
+
   def handle_telemetry_event(event, measurements, metadata, _config) do
+    log_telemetry(event, measurements, metadata)
+  end
+
+  defp log_telemetry(event, measurements, metadata) do
     details =
       %{
         event: Enum.join(event, "."),

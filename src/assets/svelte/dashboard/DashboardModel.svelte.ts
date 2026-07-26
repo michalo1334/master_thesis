@@ -5,7 +5,9 @@ import type {
   SimulationCompletedEvent,
   SimulationFailedEvent,
   ExperimentSummary,
+  FetchSimulationReportReply,
 } from "./contract";
+import type { SimulationReportErrorEvent } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 
 export class DashboardModel {
@@ -62,6 +64,26 @@ export class DashboardModel {
     } else {
       report.markUnread();
     }
+  }
+
+  onSimulationReportReady(payload: FetchSimulationReportReply): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        d.experimentId === payload.experiment_id,
+    ) as SimulationReportDocument | undefined;
+    if (!report) return;
+    report.setReportData(payload);
+  }
+
+  onSimulationReportError(payload: SimulationReportErrorEvent): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        d.experimentId === payload.experiment_id,
+    ) as SimulationReportDocument | undefined;
+    if (!report) return;
+    report.markError(payload.reason);
   }
 
   /** Delegate saving to the workspace. */

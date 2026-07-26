@@ -260,7 +260,7 @@ describe("WorkspaceModel", () => {
 
   describe("selectExperiment", () => {
     const api = {
-      fetchSimulationReport: vi.fn().mockResolvedValue({ status: "not_found" }),
+      requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
 
     it("reuses a historical report only when its experiment ID matches", async () => {
