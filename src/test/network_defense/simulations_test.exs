@@ -6,7 +6,7 @@ defmodule NetworkDefense.SimulationsTest do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Report
+  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulations
 
@@ -58,13 +58,11 @@ defmodule NetworkDefense.SimulationsTest do
 
     report = Simulations.get_report(experiment.id)
 
-    assert %Report{
+    assert %SimulationReport{
              graph_title: "Simulation graph",
              run_count: 1,
-             charts: %Report.Charts{
-               convergence: [
-                 %Report.Chart{id: "mean-convergence", option: %{series: [%{data: [1.0]}]}}
-               ]
+             charts: %SimulationReport.Charts{
+               convergence: [%{run: 1, mean_blast_radius: 1.0}]
              }
            } = report
 

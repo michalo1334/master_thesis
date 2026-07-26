@@ -149,14 +149,6 @@ export interface SimulationParams {
   seed: number;
 }
 
-export interface ChartSpec {
-  aria_label: string;
-  id: string;
-  option: unknown;
-  takeaway: string;
-  title: string;
-}
-
 export interface ExperimentSummary {
   graph_id: string;
   graph_title: string;
@@ -182,22 +174,15 @@ export interface FetchSimulationReportPayload {
 }
 
 export interface FetchSimulationReportReply {
-  charts: ReportCharts;
+  charts: SimulationReportCharts;
   experiment_id: string;
   graph_id: string;
   graph_title: string;
   graph_version_at_sim: number;
   iteration_count: number;
-  kpis: KpiMetric[];
   run_count: number;
+  summary: SimulationReportSummary;
   total_runtime_ms: number;
-}
-
-export interface KpiMetric {
-  detail: string;
-  label: string;
-  tone: string;
-  value: string;
 }
 
 export interface OpenGraphPayload {
@@ -207,12 +192,6 @@ export interface OpenGraphPayload {
 export interface OpenGraphReply {
   graph?: GraphContract | null;
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-export interface ReportCharts {
-  action_stats: ChartSpec[];
-  blast_radius_distribution: ChartSpec[];
-  convergence: ChartSpec[];
 }
 
 export interface RunSimulationPayload {
@@ -245,4 +224,44 @@ export interface SimulationFailedEvent {
   correlation_id: string;
   graph_id: string;
   reason: string;
+}
+
+export interface SimulationReportActionSuccess {
+  action_type: string;
+  attempts: number;
+  successes: number;
+}
+
+export interface SimulationReportCdfPoint {
+  compromised_hosts: number;
+  cumulative_probability: number;
+}
+
+export interface SimulationReportCharts {
+  action_success: SimulationReportActionSuccess[];
+  cdf: SimulationReportCdfPoint[];
+  convergence: SimulationReportConvergencePoint[];
+  histogram: SimulationReportHistogramBucket[];
+}
+
+export interface SimulationReportConvergencePoint {
+  mean_blast_radius: number;
+  run: number;
+}
+
+export interface SimulationReportHistogramBucket {
+  count: number;
+  lower_bound: number;
+  upper_bound: number;
+}
+
+export interface SimulationReportSummary {
+  blast_radius_p95: number;
+  blast_radius_p99: number;
+  blast_radius_variance: number;
+  expected_blast_radius: number;
+  host_count: number;
+  max_blast_radius: number;
+  median_blast_radius: number;
+  min_blast_radius: number;
 }

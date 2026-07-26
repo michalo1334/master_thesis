@@ -3,7 +3,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
-  alias NetworkDefense.Simulation.Report
+  alias NetworkDefense.Simulation.SimulationReport
 
   embedded_schema do
     field :experiment_id, :string
@@ -13,8 +13,12 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     field :run_count, :integer
     field :iteration_count, :integer
     field :total_runtime_ms, :integer
-    embeds_many :kpis, NetworkDefenseWeb.Web.Contracts.KpiMetric, on_replace: :delete
-    embeds_one :charts, NetworkDefenseWeb.Web.Contracts.ReportCharts, on_replace: :update
+
+    embeds_one :summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
+      on_replace: :update
+
+    embeds_one :charts, NetworkDefenseWeb.Web.Contracts.SimulationReportCharts,
+      on_replace: :update
   end
 
   @type t :: %__MODULE__{
@@ -25,8 +29,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           run_count: integer(),
           iteration_count: integer(),
           total_runtime_ms: integer(),
-          kpis: [NetworkDefenseWeb.Web.Contracts.KpiMetric.t()],
-          charts: NetworkDefenseWeb.Web.Contracts.ReportCharts.t()
+          summary: NetworkDefenseWeb.Web.Contracts.SimulationReportSummary.t(),
+          charts: NetworkDefenseWeb.Web.Contracts.SimulationReportCharts.t()
         }
 
   def changeset(schema, attrs) do
@@ -40,7 +44,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :iteration_count,
       :total_runtime_ms
     ])
-    |> cast_embed(:kpis, required: true)
+    |> cast_embed(:summary, required: true)
     |> cast_embed(:charts, required: true)
     |> validate_required([
       :experiment_id,
@@ -53,8 +57,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     ])
   end
 
-  @spec from_domain(Report.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def from_domain(%Report{} = report) do
+  @spec from_domain(SimulationReport.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def from_domain(%SimulationReport{} = report) do
     report
     |> Contracts.to_wire()
     |> validate()

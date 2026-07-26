@@ -1,6 +1,13 @@
-<script lang="ts">
-  import type { KpiMetric } from "../contract";
+<script module lang="ts">
+  export interface KpiMetric {
+    label: string;
+    value: string;
+    detail: string;
+    tone: "neutral" | "positive" | "warning";
+  }
+</script>
 
+<script lang="ts">
   interface Props {
     metrics: readonly KpiMetric[];
   }
@@ -8,10 +15,7 @@
   let { metrics }: Props = $props();
 </script>
 
-<section
-  class="statistics-kpis"
-  aria-label="Simulation key performance indicators"
->
+<section class="statistics-kpis" aria-label="Key performance indicators">
   {#each metrics as metric (metric.label)}
     <article class={`statistics-kpi statistics-kpi-${metric.tone}`}>
       <p class="statistics-kpi-label">{metric.label}</p>

@@ -17,9 +17,6 @@ import type {
   ExperimentSummary,
   FetchExperimentsPayload,
   FetchExperimentsReply,
-  KpiMetric,
-  ReportCharts,
-  ChartSpec,
 } from "../contracts.generated";
 
 export type {
@@ -55,9 +52,6 @@ export type {
   ExperimentSummary,
   FetchExperimentsPayload,
   FetchExperimentsReply,
-  KpiMetric,
-  ReportCharts,
-  ChartSpec,
 } from "../contracts.generated";
 
 export type SimulationParams = GeneratedSimulationParams & {

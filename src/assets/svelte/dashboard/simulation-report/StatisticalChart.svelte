@@ -2,27 +2,25 @@
   import { Chart } from "svelte-echarts";
   import type { EChartsOption } from "echarts";
   import { init } from "./echarts";
-  import type { ChartSpec } from "../contract";
 
   interface Props {
-    chart: ChartSpec;
+    id: string;
+    title: string;
+    takeaway: string;
+    ariaLabel: string;
+    option: EChartsOption;
   }
 
-  let { chart }: Props = $props();
+  let { id, title, takeaway, ariaLabel, option }: Props = $props();
 </script>
 
-<article class="statistical-chart" aria-labelledby={`${chart.id}-title`}>
+<article class="statistical-chart" aria-labelledby={`${id}-title`}>
   <header>
-    <h3 id={`${chart.id}-title`}>{chart.title}</h3>
-    <p>{chart.takeaway}</p>
+    <h3 id={`${id}-title`}>{title}</h3>
+    <p>{takeaway}</p>
   </header>
   <div class="statistical-chart-canvas">
-    <Chart
-      {init}
-      options={chart.option as EChartsOption}
-      tabindex={0}
-      aria-label={chart.aria_label}
-    />
+    <Chart {init} options={option} tabindex={0} aria-label={ariaLabel} />
   </div>
 </article>
 

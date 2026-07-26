@@ -2,24 +2,19 @@
   import type { SimulationReportDocument } from "./SimulationReportDocument.svelte";
   import KpiCards from "./KpiCards.svelte";
   import StatisticalChart from "./StatisticalChart.svelte";
-  import type { KpiMetric, ChartSpec } from "../contract";
+  import { formatSimulationReportKpis } from "./simulation-report";
+  import {
+    actionSuccessOptions,
+    cdfOptions,
+    convergenceOptions,
+    histogramOptions,
+  } from "./chart-options";
 
   interface Props {
     document: SimulationReportDocument;
   }
 
   let { document }: Props = $props();
-
-  const distributionCharts = $derived(
-    document.reportData?.charts?.blast_radius_distribution ?? [],
-  );
-  const convergenceCharts = $derived(
-    document.reportData?.charts?.convergence ?? [],
-  );
-  const actionCharts = $derived(
-    document.reportData?.charts?.action_stats ?? [],
-  );
-  const kpis = $derived(document.reportData?.kpis ?? []);
 </script>
 
 <article class="simulation-report" aria-labelledby="simulation-report-title">
@@ -52,43 +47,68 @@
       </p>
     </section>
   {:else if document.status === "loaded" && document.reportData}
-    <KpiCards metrics={kpis} />
+    <KpiCards
+      metrics={formatSimulationReportKpis(
+        document.reportData.summary,
+        document.reportData.run_count,
+      )}
+    />
 
-    {#if distributionCharts.length > 0}
+    <section
+      class="simulation-report-section"
+      aria-labelledby="distribution-title"
+    >
+      <h2 id="distribution-title">Blast-radius distribution</h2>
+      <div class="simulation-report-chart-grid">
+        <StatisticalChart
+          id="blast-radius-histogram"
+          title="Blast-radius histogram"
+          takeaway="Shows how often each blast-radius range occurred."
+          ariaLabel="Histogram of simulation runs by compromised-host range"
+          option={histogramOptions(document.reportData.charts.histogram)}
+        />
+        <StatisticalChart
+          id="blast-radius-cdf"
+          title="Cumulative distribution"
+          takeaway="Shows the chance that a run stays at or below each blast radius."
+          ariaLabel="Cumulative probability by compromised-host count"
+          option={cdfOptions(document.reportData.charts.cdf)}
+        />
+      </div>
+    </section>
+
+    <section
+      class="simulation-report-section"
+      aria-labelledby="convergence-title"
+    >
+      <h2 id="convergence-title">Monte Carlo convergence</h2>
+      <div class="simulation-report-chart-grid">
+        <StatisticalChart
+          id="blast-radius-convergence"
+          title="Running mean blast radius"
+          takeaway="Shows whether the mean blast radius has stabilized across runs."
+          ariaLabel="Running mean blast radius by simulation run"
+          option={convergenceOptions(document.reportData.charts.convergence)}
+        />
+      </div>
+    </section>
+
+    {#if document.reportData.charts.action_success.length > 0}
       <section
         class="simulation-report-section"
-        aria-label="Distribution charts"
+        aria-labelledby="actions-title"
       >
-        <h2>Blast-radius distribution</h2>
+        <h2 id="actions-title">Attack action statistics</h2>
         <div class="simulation-report-chart-grid">
-          {#each distributionCharts as chart (chart.id)}
-            <StatisticalChart {chart} />
-          {/each}
-        </div>
-      </section>
-    {/if}
-
-    {#if convergenceCharts.length > 0}
-      <section
-        class="simulation-report-section"
-        aria-label="Convergence charts"
-      >
-        <h2>Monte Carlo convergence</h2>
-        <div class="simulation-report-chart-grid">
-          {#each convergenceCharts as chart (chart.id)}
-            <StatisticalChart {chart} />
-          {/each}
-        </div>
-      </section>
-    {/if}
-
-    {#if actionCharts.length > 0}
-      <section class="simulation-report-section" aria-label="Action statistics">
-        <h2>Attack action statistics</h2>
-        <div class="simulation-report-chart-grid">
-          {#each actionCharts as chart (chart.id)}
-            <StatisticalChart {chart} />
-          {/each}
+          <StatisticalChart
+            id="action-success"
+            title="Action success"
+            takeaway="Compares attempted actions with successful actions by type."
+            ariaLabel="Attempts and successful actions by attack action type"
+            option={actionSuccessOptions(
+              document.reportData.charts.action_success,
+            )}
+          />
         </div>
       </section>
     {/if}

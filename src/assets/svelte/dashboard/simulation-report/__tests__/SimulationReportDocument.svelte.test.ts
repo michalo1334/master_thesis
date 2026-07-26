@@ -8,15 +8,25 @@ function makeReport(
 ): FetchSimulationReportReply {
   return {
     charts: {
-      action_stats: [],
-      blast_radius_distribution: [],
+      action_success: [],
+      cdf: [],
       convergence: [],
+      histogram: [],
     },
     graph_id: "g1",
     graph_title: "Topology",
     graph_version_at_sim: 1,
     iteration_count: 100,
-    kpis: [],
+    summary: {
+      expected_blast_radius: 2,
+      median_blast_radius: 2,
+      blast_radius_p95: 4,
+      blast_radius_p99: 5,
+      min_blast_radius: 1,
+      max_blast_radius: 5,
+      blast_radius_variance: 1.2,
+      host_count: 8,
+    },
     experiment_id: "sim-1",
     run_count: 10,
     total_runtime_ms: 500,
