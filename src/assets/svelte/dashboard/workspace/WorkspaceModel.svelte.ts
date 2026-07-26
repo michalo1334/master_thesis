@@ -194,14 +194,21 @@ export class WorkspaceModel {
     if (this.isLoadingExperiments) return;
 
     const graphIds = this.documents
-      .filter((d) => d.kind === "graph")
-      .map((d) => (d as EditableGraphDocument).loadedGraphId!)
-      .filter(Boolean);
-
-    if (graphIds.length === 0) return;
+      .flatMap((document) =>
+        document.kind === "graph" && document.loadedGraphId
+          ? [document.loadedGraphId]
+          : [],
+      )
+      .filter((id, index, ids) => ids.indexOf(id) === index);
 
     this.experimentsStatus = "";
     this.experimentsModalOpen = true;
+    if (graphIds.length === 0) {
+      this.experiments = [];
+      this.experimentsStatus = "No experiments found.";
+      return;
+    }
+
     this.isLoadingExperiments = true;
     try {
       const reply = await api.fetchExperiments(graphIds);

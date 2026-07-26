@@ -283,6 +283,46 @@ describe("WorkspaceModel", () => {
   });
 
   describe("showExperiments", () => {
+    it("fetches unique IDs from open loaded graph tabs only", async () => {
+      model = new WorkspaceModel([
+        makeGraphSummary({ id: "g1" }),
+        makeGraphSummary({ id: "g2" }),
+        makeGraphSummary({ id: "closed" }),
+      ]);
+      const first = model.createGraphDocument();
+      first.replaceFromLoadedGraph(makeLoadedGraph({ id: "g1" }));
+      const second = model.createGraphDocument();
+      second.replaceFromLoadedGraph(makeLoadedGraph({ id: "g2" }));
+      const duplicate = model.createGraphDocument();
+      duplicate.replaceFromLoadedGraph(makeLoadedGraph({ id: "g1" }));
+      const closed = model.createGraphDocument();
+      closed.replaceFromLoadedGraph(makeLoadedGraph({ id: "closed" }));
+      model.closeDocument(closed.id);
+      const api = {
+        fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
+      } as unknown as DashboardApi;
+
+      await model.showExperiments(api);
+
+      expect(api.fetchExperiments).toHaveBeenCalledWith(["g1", "g2"]);
+    });
+
+    it("shows the empty state without fetching when no loaded graph tabs are open", async () => {
+      model = new WorkspaceModel([makeGraphSummary()]);
+      const graph = model.createGraphDocument();
+      graph.replaceFromLoadedGraph(makeLoadedGraph());
+      model.closeDocument(graph.id);
+      const api = {
+        fetchExperiments: vi.fn(),
+      } as unknown as DashboardApi;
+
+      await model.showExperiments(api);
+
+      expect(model.experimentsModalOpen).toBe(true);
+      expect(model.experimentsStatus).toBe("No experiments found.");
+      expect(api.fetchExperiments).not.toHaveBeenCalled();
+    });
+
     it("ignores duplicate requests while experiments are loading", async () => {
       const graph = model.createGraphDocument();
       graph.replaceFromLoadedGraph(makeLoadedGraph());

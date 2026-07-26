@@ -69,9 +69,38 @@ defmodule NetworkDefense.SimulationsTest do
     assert Simulations.get_report(Ecto.UUID.generate()) == nil
   end
 
+  test "lists experiments most recent first" do
+    graph = insert_graph()
+    attacker_state = AttackerState.new("source-host")
+
+    older = insert_experiment(graph.id, attacker_state, ~U[2026-01-01 12:00:00Z])
+    newer = insert_experiment(graph.id, attacker_state, ~U[2026-01-01 12:01:00Z])
+    newer_id = newer.id
+    older_id = older.id
+
+    assert [^newer_id, ^older_id] =
+             graph.id
+             |> Simulations.list_experiments()
+             |> Enum.map(& &1.id)
+  end
+
   defp insert_graph do
     %Graph{}
     |> Graph.changeset(%{title: "Simulation graph"})
+    |> Repo.insert!()
+  end
+
+  defp insert_experiment(graph_id, attacker_state, inserted_at) do
+    %Experiment{
+      graph_id: graph_id,
+      inserted_at: inserted_at,
+      updated_at: inserted_at
+    }
+    |> Experiment.changeset(%{
+      seed: 1,
+      iteration_count: 1,
+      initial_attacker_state: attacker_state
+    })
     |> Repo.insert!()
   end
 

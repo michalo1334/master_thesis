@@ -396,7 +396,11 @@
 
   {#if showPagination}
     <div class="filterable-table-pagination">
-      <Pagination.Root count={filteredCount} {perPage} bind:page={pageIndex}>
+      <Pagination.Root
+        count={filteredCount}
+        {perPage}
+        bind:page={() => pageIndex + 1, (page) => (pageIndex = page - 1)}
+      >
         {#snippet children({ pages, currentPage })}
           <Pagination.PrevButton class="filterable-table-page-button">
             ‹

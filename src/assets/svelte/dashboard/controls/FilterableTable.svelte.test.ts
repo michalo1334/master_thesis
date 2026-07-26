@@ -264,12 +264,12 @@ describe("FilterableTable", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
-  it("paginates rows when count exceeds perPage", () => {
-    const manyItems: Item[] = Array.from({ length: 20 }, (_, i) => ({
-      id: `item-${i}`,
-      title: `Item ${i}`,
-      description: `Desc ${i}`,
-      count: i,
+  it("shows the first page and navigates to the second page", async () => {
+    const manyItems: Item[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `item-${i + 1}`,
+      title: `Item ${i + 1}`,
+      description: `Desc ${i + 1}`,
+      count: i + 1,
     }));
 
     render(TypedFilterableTable, {
@@ -283,8 +283,17 @@ describe("FilterableTable", () => {
       },
     });
 
-    expect(screen.getByText("Item 0")).toBeInTheDocument();
-    expect(screen.queryByText("Item 9")).not.toBeInTheDocument();
+    for (let i = 1; i <= 5; i++) {
+      expect(screen.getByText(`Item ${i}`)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Item 6")).not.toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+
+    for (let i = 6; i <= 10; i++) {
+      expect(screen.getByText(`Item ${i}`)).toBeInTheDocument();
+    }
+    expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
   });
 
   it("reserves per-page rows without exposing spacers to assistive technology", async () => {
