@@ -4,20 +4,46 @@ defmodule NetworkDefense.Simulation.Report do
   """
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Report.{Chart, Charts, Kpi}
+  alias NetworkDefense.Simulation.Run
+
+  @type t :: %__MODULE__{
+          experiment_id: String.t(),
+          graph_id: String.t(),
+          graph_title: String.t(),
+          graph_version_at_sim: integer(),
+          run_count: non_neg_integer(),
+          iteration_count: non_neg_integer(),
+          total_runtime_ms: non_neg_integer(),
+          kpis: [Kpi.t()],
+          charts: Charts.t()
+        }
+
+  defstruct [
+    :experiment_id,
+    :graph_id,
+    :graph_title,
+    :graph_version_at_sim,
+    :run_count,
+    :iteration_count,
+    :total_runtime_ms,
+    kpis: [],
+    charts: %Charts{}
+  ]
 
   @doc """
-  Returns `report_data` map from a fully loaded Experiment with preloaded runs
-  and their iteration steps (ordered by index ascending).
+  Returns a report from a fully loaded Experiment with preloaded runs
+  and their iteration steps (ordered by index descending).
   """
+  @spec generate(Experiment.t()) :: t()
   def generate(%Experiment{} = experiment) do
     runs = experiment.runs
     final_counts = final_foothold_counts(runs)
     stats = blast_radius_stats(final_counts)
 
-    %{
+    %__MODULE__{
       experiment_id: experiment.id,
       graph_id: experiment.graph_id,
       graph_title: graph_title(experiment),
@@ -26,7 +52,7 @@ defmodule NetworkDefense.Simulation.Report do
       iteration_count: experiment.iteration_count,
       total_runtime_ms: experiment.runtime_ms,
       kpis: kpis(stats, runs),
-      charts: %{
+      charts: %Charts{
         blast_radius_distribution: distribution_charts(final_counts, stats),
         convergence: convergence_charts(runs),
         action_stats: action_charts(runs)
@@ -78,26 +104,26 @@ defmodule NetworkDefense.Simulation.Report do
     total_hosts = total_host_count(List.first(runs))
 
     [
-      %{
+      %Kpi{
         label: "Simulation runs",
         value: Integer.to_string(length(runs)),
         detail: "Monte Carlo trials completed",
         tone: "neutral"
       },
-      %{
+      %Kpi{
         label: "Expected blast radius",
         value: "#{Float.to_string(stats.mean)} hosts",
         detail: "Median: #{stats.median} compromised hosts",
         tone:
           if(total_hosts > 0 and stats.mean / total_hosts > 0.5, do: "warning", else: "neutral")
       },
-      %{
+      %Kpi{
         label: "Blast radius p95",
         value: "#{stats.p95} hosts",
         detail: "95th percentile worst-case",
         tone: "warning"
       },
-      %{
+      %Kpi{
         label: "Blast radius variance",
         value: Float.to_string(stats.variance),
         detail: "Spread across #{length(runs)} runs",
@@ -119,14 +145,14 @@ defmodule NetworkDefense.Simulation.Report do
     cdf = cdf_series(Enum.sort(counts))
 
     [
-      %{
+      %Chart{
         id: "blast-radius-histogram",
         title: "Observed blast-radius distribution",
         takeaway: "Outcomes concentrate around #{stats.median} compromised hosts.",
         aria_label: "Histogram of compromised hosts across simulation runs.",
         option: histogram_option(buckets)
       },
-      %{
+      %Chart{
         id: "cumulative-distribution",
         title: "Cumulative blast-radius distribution",
         takeaway: "Most simulated attacks compromise #{stats.p95} or fewer hosts.",
@@ -194,7 +220,7 @@ defmodule NetworkDefense.Simulation.Report do
       end
 
     [
-      %{
+      %Chart{
         id: "mean-convergence",
         title: "Monte Carlo convergence",
         takeaway: takeaway,
@@ -234,7 +260,7 @@ defmodule NetworkDefense.Simulation.Report do
       []
     else
       [
-        %{
+        %Chart{
           id: "action-success-rate",
           title: "Attack action success rate",
           takeaway: "Action success rates by type across all simulation runs.",

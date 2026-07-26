@@ -3,8 +3,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Simulation.Report
-  alias NetworkDefense.Simulation.Reports
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -170,8 +168,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp fetch_simulation_report(params) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
-        with %{} = experiment <- Reports.load_for_report(request.experiment_id),
-             {:ok, report} <- FetchSimulationReportReply.validate(Report.generate(experiment)) do
+        with %{} = report <- Simulations.get_report(request.experiment_id),
+             {:ok, report} <- FetchSimulationReportReply.from_domain(report) do
           FetchSimulationReportReply.to_wire(report)
         else
           _ -> %{status: "not_found"}

@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
+  alias NetworkDefense.Simulation.Report
+
   embedded_schema do
     field :experiment_id, :string
     field :graph_id, :string
@@ -49,5 +51,12 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :iteration_count,
       :total_runtime_ms
     ])
+  end
+
+  @spec from_domain(Report.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def from_domain(%Report{} = report) do
+    report
+    |> Contracts.to_wire()
+    |> validate()
   end
 end

@@ -1,8 +1,13 @@
 defmodule NetworkDefense.SimulationsTest do
-  use ExUnit.Case, async: true
+  use NetworkDefense.DataCase, async: true
 
+  alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Node}
+  alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Contracts.SimulationParams
+  alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.Report
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulations
 
   test "broadcasts a correlated failure when execution fails" do
@@ -24,5 +29,62 @@ defmodule NetworkDefense.SimulationsTest do
 
     assert graph_id == graph.id
     assert reason =~ "initial foothold must identify a host"
+  end
+
+  test "gets a typed report for a persisted experiment" do
+    attacker_state = AttackerState.new("source-host")
+    graph = insert_graph()
+
+    experiment =
+      %Experiment{graph_id: graph.id}
+      |> Experiment.changeset(%{
+        seed: 1,
+        iteration_count: 2,
+        initial_attacker_state: attacker_state
+      })
+      |> Repo.insert!()
+
+    run =
+      %Run{graph_id: graph.id, experiment_id: experiment.id}
+      |> Run.changeset(%{
+        initial_seed: 1,
+        iteration_count: 2,
+        initial_attacker_state: attacker_state
+      })
+      |> Repo.insert!()
+
+    insert_iteration(run, attacker_state, 1)
+    insert_iteration(run, attacker_state, 2)
+
+    report = Simulations.get_report(experiment.id)
+
+    assert %Report{
+             graph_title: "Simulation graph",
+             run_count: 1,
+             charts: %Report.Charts{
+               convergence: [
+                 %Report.Chart{id: "mean-convergence", option: %{series: [%{data: [1.0]}]}}
+               ]
+             }
+           } = report
+
+    assert Simulations.get_report(Ecto.UUID.generate()) == nil
+  end
+
+  defp insert_graph do
+    %Graph{}
+    |> Graph.changeset(%{title: "Simulation graph"})
+    |> Repo.insert!()
+  end
+
+  defp insert_iteration(run, attacker_state, index) do
+    %IterationStep{run_id: run.id}
+    |> IterationStep.changeset(%{
+      index: index,
+      success?: true,
+      attacker_state: attacker_state,
+      seed: :rand.seed_s(:exsss, {1, 2, index})
+    })
+    |> Repo.insert!()
   end
 end

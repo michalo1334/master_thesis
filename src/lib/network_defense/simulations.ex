@@ -7,6 +7,8 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefense.Simulation.Report
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
@@ -136,10 +138,44 @@ defmodule NetworkDefense.Simulations do
 
   def list_experiments(graph_ids), do: list_experiments([graph_ids])
 
+  @doc """
+  Returns a generated report for an experiment, or `nil` when it does not exist.
+  """
+  @spec get_report(String.t()) :: Report.t() | nil
+  def get_report(experiment_id) do
+    case load_for_report(experiment_id) do
+      nil -> nil
+      experiment -> Report.generate(experiment)
+    end
+  end
+
   def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
     case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
       %{type: NetworkDefense.Nodes.Host} -> AttackerState.new(foothold_id)
       _ -> raise ArgumentError, "initial foothold must identify a host in the graph"
+    end
+  end
+
+  defp load_report_runs(experiment) do
+    runs =
+      Run
+      |> where([run], run.experiment_id == ^experiment.id)
+      |> order_by([run], asc: :inserted_at)
+      |> Repo.all()
+      |> Repo.preload(:iterations)
+      |> Enum.map(fn run ->
+        %{run | iterations: Enum.sort_by(run.iterations, & &1.index, :desc)}
+      end)
+
+    %{experiment | runs: runs}
+  end
+
+  defp load_for_report(experiment_id) do
+    Experiment
+    |> Repo.get(experiment_id)
+    |> case do
+      nil -> nil
+      experiment -> experiment |> Repo.preload(:graph) |> load_report_runs()
     end
   end
 
