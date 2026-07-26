@@ -34,7 +34,7 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
           %{via: {:reachability, NetworkReachability}, to: {:service, Service}}
         ],
         joins: [
-          %{from: {:target_host, Host}, via: {nil, Runs}, to: {:service, Service}}
+          %{from: {:target_host, Host}, via: {:runs, Runs}, to: {:service, Service}}
         ]
       })
       |> Enum.filter(&reachability_matches?/1)
@@ -50,16 +50,18 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
         |> Enum.map(fn cred_match ->
           authenticates_to = cred_match.authenticates_to.data
 
-          %ReuseCredential{
-            credential: cred_match.credential,
-            source_host: match.source_host,
-            target_host: match.target_host,
-            service: match.service,
-            granted_privilege: authenticates_to.granted_privilege
-          }
+          {%ReuseCredential{
+             credential: cred_match.credential,
+             source_host: match.source_host,
+             target_host: match.target_host,
+             service: match.service,
+             granted_privilege: authenticates_to.granted_privilege
+           }, [match.reachability.id, match.runs.id, cred_match.authenticates_to.id]}
         end)
       end)
-      |> Enum.reject(&AttackerState.attempted?(attacker_state, &1))
+      |> Enum.reject(fn {action, _edge_ids} ->
+        AttackerState.attempted?(attacker_state, action)
+      end)
     end
 
     defp reachability_matches?(match) do

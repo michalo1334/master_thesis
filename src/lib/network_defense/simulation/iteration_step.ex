@@ -19,6 +19,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
           index: non_neg_integer(),
           attempted_action: Action.t() | nil,
           success?: boolean(),
+          successful_edge_ids: [String.t()] | nil,
           attacker_state: AttackerState.t(),
           seed: tuple()
         }
@@ -29,6 +30,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
     field :index, :integer
     field :attempted_action, ActionType
     field :success?, :boolean, source: :success
+    field :successful_edge_ids, {:array, :binary_id}
     field :attacker_state, AttackerStateType
     field :seed, Seed
 
@@ -37,7 +39,14 @@ defmodule NetworkDefense.Simulation.IterationStep do
 
   def changeset(step, attrs) do
     step
-    |> cast(attrs, [:index, :attempted_action, :success?, :attacker_state, :seed])
+    |> cast(attrs, [
+      :index,
+      :attempted_action,
+      :success?,
+      :successful_edge_ids,
+      :attacker_state,
+      :seed
+    ])
     |> validate_required([:run_id, :index, :success?, :attacker_state, :seed])
     |> validate_number(:index, greater_than: 0)
     |> foreign_key_constraint(:run_id)

@@ -15,13 +15,21 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
 
     embeds_many :action_success, NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess,
       on_replace: :delete
+
+    embeds_many :host_compromise, NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise,
+      on_replace: :delete
+
+    embeds_many :edge_traversal, NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal,
+      on_replace: :delete
   end
 
   @type t :: %__MODULE__{
           histogram: [NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket.t()],
           cdf: [NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint.t()],
           convergence: [NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint.t()],
-          action_success: [NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess.t()]
+          action_success: [NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess.t()],
+          host_compromise: [NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise.t()],
+          edge_traversal: [NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal.t()]
         }
 
   def changeset(schema, attrs) do
@@ -31,5 +39,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
     |> cast_embed(:cdf)
     |> cast_embed(:convergence)
     |> cast_embed(:action_success)
+    |> cast_embed(:host_compromise)
+    |> cast_embed(:edge_traversal)
   end
 end

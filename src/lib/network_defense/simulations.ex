@@ -174,8 +174,11 @@ defmodule NetworkDefense.Simulations do
     Experiment
     |> Repo.get(experiment_id)
     |> case do
-      nil -> nil
-      experiment -> experiment |> Repo.preload(:graph) |> load_report_runs()
+      nil ->
+        nil
+
+      experiment ->
+        experiment |> Map.put(:graph, Graphs.load(experiment.graph_id)) |> load_report_runs()
     end
   end
 

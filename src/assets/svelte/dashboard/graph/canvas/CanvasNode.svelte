@@ -2,6 +2,7 @@
   import type { Node } from "../../contract";
   import type { Point } from "./canvasState";
   import { nodePresentation } from "../presentation/registry";
+  import type { CanvasNodeAppearance } from "./appearance";
 
   interface Props {
     node: Node;
@@ -9,8 +10,9 @@
     selected: boolean;
     source: boolean;
     dragging: boolean;
-    onclick: (event: MouseEvent) => void;
-    onpointerdown: (event: PointerEvent) => void;
+    appearance?: CanvasNodeAppearance;
+    onclick?: (event: MouseEvent) => void;
+    onpointerdown?: (event: PointerEvent) => void;
   }
 
   let {
@@ -19,6 +21,7 @@
     selected,
     source,
     dragging,
+    appearance = undefined,
     onclick,
     onpointerdown,
   }: Props = $props();
@@ -30,7 +33,7 @@
   );
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if (!onclick || (event.key !== "Enter" && event.key !== " ")) return;
 
     event.preventDefault();
     onclick(event as unknown as MouseEvent);
@@ -46,11 +49,16 @@
   ]}
   transform={`translate(${position.x} ${position.y})`}
   style:--node-color={nodeStyle?.color}
-  tabindex="0"
+  style:--node-card-fill={appearance?.cardFill}
+  style:--node-card-opacity={appearance?.cardOpacity}
+  style:--node-card-stroke={appearance?.cardStroke}
+  style:--node-card-stroke-width={appearance?.cardStrokeWidth}
+  tabindex={onclick ? 0 : undefined}
   role="button"
-  aria-pressed={selected}
+  aria-disabled={onclick ? undefined : true}
+  aria-pressed={onclick ? selected : undefined}
   aria-label={`${node.type}${selected ? ", selected" : ""}${source ? ", connection source" : ""}`}
-  data-graph-interactive
+  data-graph-interactive={onclick || onpointerdown ? true : undefined}
   {onclick}
   {onpointerdown}
   onkeydown={handleKeydown}
@@ -72,15 +80,22 @@
 
 <style>
   .canvas-node {
+    cursor: default;
+  }
+  .canvas-node[data-graph-interactive] {
     cursor: pointer;
   }
   .canvas-node.dragging {
     cursor: grabbing;
   }
   .canvas-node-card {
-    fill: var(--ds-color-paper);
-    stroke: var(--node-color, var(--ds-color-text-faint));
-    stroke-width: 1.2;
+    fill: var(--node-card-fill, var(--ds-color-paper));
+    fill-opacity: var(--node-card-opacity, 1);
+    stroke: var(
+      --node-card-stroke,
+      var(--node-color, var(--ds-color-text-faint))
+    );
+    stroke-width: var(--node-card-stroke-width, 1.2);
     filter: drop-shadow(
       0 2px 2px color-mix(in srgb, var(--ds-color-nav) 16%, transparent)
     );

@@ -11,7 +11,16 @@ function makeReport(
       action_success: [],
       cdf: [],
       convergence: [],
+      edge_traversal: [],
       histogram: [],
+      host_compromise: [],
+    },
+    graph: {
+      id: "g1",
+      title: "Topology",
+      lock_version: 1,
+      nodes: [],
+      edges: [],
     },
     graph_id: "g1",
     graph_title: "Topology",
@@ -71,5 +80,33 @@ describe("SimulationReportDocument", () => {
 
     expect(document.status).toBe("loaded");
     expect(document.reportData?.experiment_id).toBe("sim-1");
+  });
+
+  it("keeps heatmap selection local and clears it with a new layout", () => {
+    const document = new SimulationReportDocument("Topology", "g1");
+
+    document.markReady("sim-1");
+    document.selectHeatmapNode("node-1");
+    expect(document.heatmapSelectedNodeId).toBe("node-1");
+    expect(document.heatmapSelectedEdgeId).toBeUndefined();
+
+    document.selectHeatmapEdge("edge-1");
+    expect(document.heatmapSelectedNodeId).toBeUndefined();
+    expect(document.heatmapSelectedEdgeId).toBe("edge-1");
+
+    document.setReportData(makeReport());
+
+    expect(document.heatmapSelectedNodeId).toBeUndefined();
+    expect(document.heatmapSelectedEdgeId).toBeUndefined();
+  });
+
+  it("explains when the topology changed after a simulation", () => {
+    const document = new SimulationReportDocument("Topology", "g1");
+
+    document.markError("graph_version_mismatch");
+
+    expect(document.errorReason).toBe(
+      "The topology changed after this simulation ran. Run the simulation again.",
+    );
   });
 });

@@ -3,6 +3,7 @@
   import { type Edge, type Node, type NodeViewData } from "../../contract";
   import type { Point } from "./canvasState";
   import { edgePresentation } from "../presentation/registry";
+  import type { CanvasEdgeAppearance } from "./appearance";
 
   interface Props {
     edge: Edge;
@@ -11,7 +12,8 @@
     sourcePosition: Point;
     targetPosition: Point;
     selected: boolean;
-    onclick: (event: MouseEvent) => void;
+    appearance?: CanvasEdgeAppearance;
+    onclick?: (event: MouseEvent) => void;
   }
 
   let {
@@ -21,6 +23,7 @@
     sourcePosition,
     targetPosition,
     selected,
+    appearance = undefined,
     onclick,
   }: Props = $props();
   const markerId = $props.id();
@@ -36,7 +39,7 @@
   });
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key !== "Enter" && event.key !== " ") return;
+    if (!onclick || (event.key !== "Enter" && event.key !== " ")) return;
 
     event.preventDefault();
     onclick(event as unknown as MouseEvent);
@@ -47,7 +50,10 @@
   class={["canvas-edge", selected && "selected"]}
   style:--edge-color={edgeStyle?.color}
   style:--edge-dash={edgeStyle?.dashArray ?? "none"}
-  data-graph-interactive
+  style:--edge-opacity={appearance?.opacity}
+  style:--edge-stroke={appearance?.stroke}
+  style:--edge-stroke-width={appearance?.strokeWidth}
+  data-graph-interactive={onclick ? true : undefined}
 >
   <defs>
     <marker
@@ -65,9 +71,10 @@
   <path
     class="canvas-edge-hit-target"
     d={path}
-    tabindex="0"
+    tabindex={onclick ? 0 : undefined}
     role="button"
-    aria-pressed={selected}
+    aria-disabled={onclick ? undefined : true}
+    aria-pressed={onclick ? selected : undefined}
     aria-label={`${edgeType} relationship from TODO to TODO}${selected ? ", selected" : ""}`}
     {onclick}
     onkeydown={handleKeydown}
@@ -85,13 +92,15 @@
 <style>
   .canvas-edge-line {
     fill: none;
-    stroke: var(--edge-color, var(--ds-color-text-muted));
-    stroke-width: 2;
+    stroke: var(--edge-stroke, var(--edge-color, var(--ds-color-text-muted)));
+    stroke-opacity: var(--edge-opacity, 1);
+    stroke-width: var(--edge-stroke-width, 2);
     stroke-dasharray: var(--edge-dash, none);
     pointer-events: none;
   }
   .canvas-edge-arrow {
-    fill: var(--edge-color, var(--ds-color-text-muted));
+    fill: var(--edge-stroke, var(--edge-color, var(--ds-color-text-muted)));
+    fill-opacity: var(--edge-opacity, 1);
   }
   .canvas-edge.selected .canvas-edge-line {
     stroke: var(--ds-color-focus);
@@ -104,6 +113,9 @@
     fill: none;
     stroke: transparent;
     stroke-width: 16;
+    cursor: default;
+  }
+  .canvas-edge[data-graph-interactive] .canvas-edge-hit-target {
     cursor: pointer;
   }
   .canvas-edge-hit-target:focus {

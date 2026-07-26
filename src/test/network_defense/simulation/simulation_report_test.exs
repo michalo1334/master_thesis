@@ -2,11 +2,16 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.{Graph, Node}
+  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Nodes.{Host, Service}
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
   alias NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply
+
+  import NetworkDefense.GraphFixtures
 
   test "generates grouped raw report data for completed simulations" do
     report = SimulationReport.generate(experiment([run("source-host")]))
@@ -32,27 +37,60 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   end
 
   test "maps a typed report to the web contract" do
+    graph = Graph.new("Test graph")
+
     assert {:ok,
             %FetchSimulationReportReply{
               summary: %{expected_blast_radius: 1.0},
               charts: %{convergence: [%{run: 1, mean_blast_radius: 1.0}]}
             }} =
-             experiment([run("source-host")])
+             experiment([run("source-host")], graph)
              |> SimulationReport.generate()
-             |> FetchSimulationReportReply.from_domain()
+             |> FetchSimulationReportReply.from_domain(graph)
   end
 
-  defp experiment(runs) do
+  test "aggregates host compromise and successful edge traversal by run" do
+    source = node("source-host", Host, %{"name" => "source"})
+    service = node("service", Service, %{"name" => "ssh", "port" => 22, "protocol" => "tcp"})
+
+    graph =
+      graph([source, service], [edge("reach", source, service, NetworkReachability)])
+
+    report =
+      [run("source-host", ["reach"]), run("source-host")]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    assert report.charts.host_compromise == [
+             %{host_id: "source-host", compromise_probability: 1.0}
+           ]
+
+    assert report.charts.edge_traversal == [
+             %{edge_id: "reach", traversal_probability: 0.5}
+           ]
+  end
+
+  defp experiment(runs, graph \\ %Graph{title: "Test graph", nodes: [%{}, %{}, %{}]}) do
     %Experiment{
       id: "experiment",
       graph_id: "graph",
-      graph: %Graph{title: "Test graph", nodes: [%Node{}, %Node{}, %Node{}]},
+      graph: graph,
       iteration_count: 1,
       runs: runs
     }
   end
 
-  defp run(foothold) do
-    Run.new(initial_attacker_state: AttackerState.new(foothold))
+  defp run(foothold, successful_edge_ids \\ nil) do
+    state = AttackerState.new(foothold)
+
+    Run.new(
+      initial_attacker_state: state,
+      iterations:
+        if successful_edge_ids do
+          [IterationStep.new(attacker_state: state, successful_edge_ids: successful_edge_ids)]
+        else
+          []
+        end
+    )
   end
 end

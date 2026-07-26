@@ -3,6 +3,8 @@ defmodule NetworkDefense.SimulationsTest do
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Node}
+  alias NetworkDefense.Nodes.{Host, Service}
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulation.IterationStep
@@ -32,8 +34,11 @@ defmodule NetworkDefense.SimulationsTest do
   end
 
   test "gets a typed report for a persisted experiment" do
-    attacker_state = AttackerState.new("source-host")
     graph = insert_graph()
+    source = insert_host(graph, "source-host")
+    service = insert_service(graph, "ssh")
+    insert_reachability(source, service)
+    attacker_state = AttackerState.new(source.id)
 
     experiment =
       %Experiment{graph_id: graph.id}
@@ -66,6 +71,9 @@ defmodule NetworkDefense.SimulationsTest do
              }
            } = report
 
+    assert length(Graph.nodes(report.graph)) == 2
+    assert length(Graph.edges(report.graph)) == 1
+
     assert Simulations.get_report(Ecto.UUID.generate()) == nil
   end
 
@@ -87,6 +95,35 @@ defmodule NetworkDefense.SimulationsTest do
   defp insert_graph do
     %Graph{}
     |> Graph.changeset(%{title: "Simulation graph"})
+    |> Repo.insert!()
+  end
+
+  defp insert_host(graph, name) do
+    %Node{graph_id: graph.id}
+    |> Node.changeset(%{
+      type: Atom.to_string(Host),
+      data: %{"name" => name},
+      view_data: %{"x_pos" => 0, "y_pos" => 0}
+    })
+    |> Repo.insert!()
+  end
+
+  defp insert_service(graph, name) do
+    %Node{graph_id: graph.id}
+    |> Node.changeset(%{
+      type: Atom.to_string(Service),
+      data: %{"name" => name, "protocol" => "tcp", "port" => 22},
+      view_data: %{"x_pos" => 120, "y_pos" => 0}
+    })
+    |> Repo.insert!()
+  end
+
+  defp insert_reachability(source, target) do
+    %NetworkDefense.Graph.Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
+    |> NetworkDefense.Graph.Edge.changeset(%{
+      type: Atom.to_string(NetworkReachability),
+      data: %{"protocol" => "tcp", "port_start" => 22, "port_end" => 22}
+    })
     |> Repo.insert!()
   end
 

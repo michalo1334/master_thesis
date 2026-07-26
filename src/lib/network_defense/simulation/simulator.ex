@@ -102,16 +102,16 @@ defmodule NetworkDefense.Simulation.Simulator do
       sorted_actions = sort_actions(actions)
 
       {new_state, _seed} =
-        Enum.reduce(sorted_actions, {state, Run.current_seed(state)}, fn action,
+        Enum.reduce(sorted_actions, {state, Run.current_seed(state)}, fn candidate,
                                                                          {state_acc, current_seed} ->
-          perform_action(state_acc, index, current_seed, action)
+          perform_action(state_acc, index, current_seed, candidate)
         end)
 
       do_run(new_state, index + 1, max_index)
     end
   end
 
-  defp perform_action(state, _round_index, current_seed, action) do
+  defp perform_action(state, _round_index, current_seed, {action, edge_ids}) do
     {success?, new_seed, new_attacker_state} =
       maybe_execute_action(action, current_seed, Run.current_attacker_state(state))
 
@@ -122,6 +122,7 @@ defmodule NetworkDefense.Simulation.Simulator do
         index: length(state.iterations) + 1,
         attempted_action: action,
         success?: success?,
+        successful_edge_ids: if(success?, do: edge_ids),
         seed: new_seed,
         attacker_state: new_attacker_state
       )
@@ -146,5 +147,5 @@ defmodule NetworkDefense.Simulation.Simulator do
     end
   end
 
-  defp sort_actions(actions), do: Enum.sort(actions)
+  defp sort_actions(actions), do: Enum.sort_by(actions, &elem(&1, 0))
 end

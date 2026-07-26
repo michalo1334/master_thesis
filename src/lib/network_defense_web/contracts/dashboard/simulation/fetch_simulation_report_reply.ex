@@ -4,6 +4,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
   use NetworkDefenseWeb.Contracts, category: :simulation
 
   alias NetworkDefense.Simulation.SimulationReport
+  alias NetworkDefense.Graph.Contracts.GraphContract
 
   embedded_schema do
     field :experiment_id, :string
@@ -13,6 +14,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     field :run_count, :integer
     field :iteration_count, :integer
     field :total_runtime_ms, :integer
+
+    embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
 
     embeds_one :summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
       on_replace: :update
@@ -29,6 +32,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           run_count: integer(),
           iteration_count: integer(),
           total_runtime_ms: integer(),
+          graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
           summary: NetworkDefenseWeb.Web.Contracts.SimulationReportSummary.t(),
           charts: NetworkDefenseWeb.Web.Contracts.SimulationReportCharts.t()
         }
@@ -44,6 +48,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :iteration_count,
       :total_runtime_ms
     ])
+    |> cast_embed(:graph, required: true)
     |> cast_embed(:summary, required: true)
     |> cast_embed(:charts, required: true)
     |> validate_required([
@@ -57,10 +62,14 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     ])
   end
 
-  @spec from_domain(SimulationReport.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def from_domain(%SimulationReport{} = report) do
-    report
-    |> Contracts.to_wire()
-    |> validate()
+  @spec from_domain(SimulationReport.t(), NetworkDefense.Graph.Graph.t()) ::
+          {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def from_domain(%SimulationReport{} = report, graph) do
+    with {:ok, wire_graph} <- GraphContract.from_domain(graph) do
+      report
+      |> Contracts.to_wire()
+      |> Map.put(:graph, wire_graph)
+      |> validate()
+    end
   end
 end

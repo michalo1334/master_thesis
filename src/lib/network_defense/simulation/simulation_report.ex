@@ -13,6 +13,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
           experiment_id: String.t(),
           graph_id: String.t(),
           graph_title: String.t(),
+          graph: Graph.t(),
           graph_version_at_sim: integer(),
           run_count: non_neg_integer(),
           iteration_count: non_neg_integer(),
@@ -25,6 +26,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     :experiment_id,
     :graph_id,
     :graph_title,
+    :graph,
     :graph_version_at_sim,
     :run_count,
     :iteration_count,
@@ -47,6 +49,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       experiment_id: experiment.id,
       graph_id: experiment.graph_id,
       graph_title: graph_title(experiment),
+      graph: experiment.graph,
       graph_version_at_sim: experiment.lock_version,
       run_count: length(runs),
       iteration_count: experiment.iteration_count,
@@ -56,7 +59,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
         histogram: histogram_buckets(final_counts),
         cdf: cdf_series(Enum.sort(final_counts)),
         convergence: convergence_series(final_counts),
-        action_success: action_successes(runs)
+        action_success: action_successes(runs),
+        host_compromise: host_compromise_probabilities(runs, experiment.graph),
+        edge_traversal: edge_traversal_probabilities(runs, experiment.graph)
       }
     }
   end
@@ -115,10 +120,10 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   end
 
   defp total_host_count(%Graph{} = graph) do
-    graph |> Graph.nodes() |> length()
+    graph
+    |> Graph.nodes()
+    |> length()
   end
-
-  defp total_host_count(_), do: 0
 
   defp histogram_buckets(counts) do
     {min_val, max_val} = if counts == [], do: {0, 1}, else: {Enum.min(counts), Enum.max(counts)}
@@ -201,6 +206,59 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       }
     end)
     |> Enum.sort_by(& &1.action_type)
+  end
+
+  defp host_compromise_probabilities(runs, %Graph{} = graph) do
+    host_ids =
+      graph
+      |> Graph.nodes()
+      |> Enum.filter(&match?(%{type: NetworkDefense.Nodes.Host}, &1))
+      |> Enum.map(& &1.id)
+
+    probabilities_for_runs(
+      host_ids,
+      runs,
+      fn run ->
+        run
+        |> Run.current_attacker_state()
+        |> AttackerState.foothold_nodes()
+      end,
+      :host_id,
+      :compromise_probability
+    )
+  end
+
+  defp edge_traversal_probabilities(runs, %Graph{} = graph) do
+    edge_ids = graph |> Graph.edges() |> Enum.map(& &1.id)
+
+    probabilities_for_runs(
+      edge_ids,
+      runs,
+      fn run ->
+        run.iterations
+        |> Enum.flat_map(&(&1.successful_edge_ids || []))
+      end,
+      :edge_id,
+      :traversal_probability
+    )
+  end
+
+  defp probabilities_for_runs(ids, runs, values_for_run, id_key, probability_key) do
+    counts =
+      Enum.reduce(runs, Map.new(ids, &{&1, 0}), fn run, counts ->
+        run
+        |> values_for_run.()
+        |> MapSet.new()
+        |> Enum.reduce(counts, fn id, counts ->
+          Map.update(counts, id, 0, &(&1 + 1))
+        end)
+      end)
+
+    total = length(runs)
+
+    Enum.map(ids, fn id ->
+      %{id_key => id, probability_key => if(total == 0, do: 0.0, else: counts[id] / total)}
+    end)
   end
 
   defp action_type_label(action) do

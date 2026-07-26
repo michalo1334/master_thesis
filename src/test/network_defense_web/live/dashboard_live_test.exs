@@ -64,6 +64,53 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "invalid_params"})
     end
 
+    test "reports a topology version mismatch", %{conn: conn} do
+      graph = insert_graph("versioned-report")
+      graph_id = graph.id
+      foothold = insert_node(graph, "entry-host")
+      correlation_id = "versioned-report-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_id" => graph_id,
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1,
+            "initial_foothold_node_id" => foothold.id,
+            "generate_seed" => true
+          }
+        }
+      })
+
+      assert_receive {:simulation_completed,
+                      %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
+                     5_000
+
+      assert {:ok, _} =
+               Graphs.replace(graph_id, graph.lock_version, %{
+                 "title" => "changed topology",
+                 "nodes" => [],
+                 "edges" => []
+               })
+
+      render_hook(view, "fetch_simulation_report", %{
+        "experiment_id" => experiment_id,
+        "graph_id" => graph_id
+      })
+
+      assert_reply(view, %{status: "processing"})
+
+      assert_push_event(view, "simulation_report_error", %{
+        experiment_id: ^experiment_id,
+        graph_id: ^graph_id,
+        reason: "graph_version_mismatch"
+      })
+    end
+
     test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do
       graph = insert_graph("run-sim-test")
       graph_id = graph.id

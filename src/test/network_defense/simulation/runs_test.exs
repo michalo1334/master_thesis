@@ -15,6 +15,7 @@ defmodule NetworkDefense.Simulation.RunsTest do
     attacker_state = AttackerState.new("source-host")
     action = exploit_action()
     seed = :rand.seed_s(:exsss, {1, 2, 3})
+    edge_ids = [Ecto.UUID.generate(), Ecto.UUID.generate()]
 
     run =
       Run.new(
@@ -27,6 +28,7 @@ defmodule NetworkDefense.Simulation.RunsTest do
             index: 1,
             attempted_action: action,
             success?: true,
+            successful_edge_ids: edge_ids,
             attacker_state: AttackerState.mark_attempted(attacker_state, action),
             seed: seed
           )
@@ -44,6 +46,7 @@ defmodule NetworkDefense.Simulation.RunsTest do
     assert step.index == 1
     assert step.attempted_action == action
     assert step.success?
+    assert step.successful_edge_ids == edge_ids
     assert step.seed == seed
     assert Run.current_attacker_state(loaded) == step.attacker_state
     assert Run.current_seed(loaded) == seed

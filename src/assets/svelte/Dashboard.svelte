@@ -7,7 +7,7 @@
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import OptionPickerDialog from "./dashboard/ui/OptionPickerDialog.svelte";
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
-  import Canvas from "./dashboard/graph/canvas/Canvas.svelte";
+  import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
@@ -159,7 +159,7 @@
 
   {#snippet content(document: WorkspaceDocument)}
     {#if document.kind === "graph"}
-      <Canvas doc={document as EditableGraphDocument} />
+      <EditableCanvas document={document as EditableGraphDocument} />
     {:else if document.kind === "simulation-report"}
       <SimulationReport document={document as SimulationReportDocument} />
     {/if}

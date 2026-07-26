@@ -56,7 +56,14 @@ defmodule NetworkDefense.Simulation.Runs do
   end
 
   defp iteration_attrs(iteration) do
-    Map.take(iteration, [:index, :attempted_action, :success?, :attacker_state, :seed])
+    Map.take(iteration, [
+      :index,
+      :attempted_action,
+      :success?,
+      :successful_edge_ids,
+      :attacker_state,
+      :seed
+    ])
   end
 
   defp iteration_query do

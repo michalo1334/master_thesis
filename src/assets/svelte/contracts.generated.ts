@@ -176,6 +176,7 @@ export interface FetchSimulationReportPayload {
 export interface FetchSimulationReportReply {
   charts: SimulationReportCharts;
   experiment_id: string;
+  graph: GraphContract;
   graph_id: string;
   graph_title: string;
   graph_version_at_sim: number;
@@ -241,7 +242,9 @@ export interface SimulationReportCharts {
   action_success: SimulationReportActionSuccess[];
   cdf: SimulationReportCdfPoint[];
   convergence: SimulationReportConvergencePoint[];
+  edge_traversal: SimulationReportEdgeTraversal[];
   histogram: SimulationReportHistogramBucket[];
+  host_compromise: SimulationReportHostCompromise[];
 }
 
 export interface SimulationReportConvergencePoint {
@@ -249,10 +252,20 @@ export interface SimulationReportConvergencePoint {
   run: number;
 }
 
+export interface SimulationReportEdgeTraversal {
+  edge_id: string;
+  traversal_probability: number;
+}
+
 export interface SimulationReportHistogramBucket {
   count: number;
   lower_bound: number;
   upper_bound: number;
+}
+
+export interface SimulationReportHostCompromise {
+  compromise_probability: number;
+  host_id: string;
 }
 
 export interface SimulationReportSummary {

@@ -168,15 +168,35 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp fetch_simulation_report(params) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
-        with %{} = report <- Simulations.get_report(request.experiment_id),
-             {:ok, report} <- FetchSimulationReportReply.from_domain(report) do
-          FetchSimulationReportReply.to_wire(report)
-        else
-          _ -> %{status: "not_found"}
-        end
+        fetch_report(request)
 
       {:error, _changeset} ->
         %{status: "not_found"}
+    end
+  end
+
+  defp fetch_report(request) do
+    case Simulations.get_report(request.experiment_id) do
+      %NetworkDefense.Simulation.SimulationReport{} = report ->
+        if report_matches_graph?(report, request.graph_id) do
+          simulation_report_reply(report)
+        else
+          %{status: "graph_version_mismatch"}
+        end
+
+      _ ->
+        %{status: "not_found"}
+    end
+  end
+
+  defp report_matches_graph?(report, graph_id) do
+    report.graph_id == graph_id and report.graph.lock_version == report.graph_version_at_sim
+  end
+
+  defp simulation_report_reply(report) do
+    case FetchSimulationReportReply.from_domain(report, report.graph) do
+      {:ok, reply} -> FetchSimulationReportReply.to_wire(reply)
+      {:error, _changeset} -> %{status: "not_found"}
     end
   end
 

@@ -7,14 +7,16 @@
   import { computeFitState } from "./fitView";
   import type { Edge, Node } from "../../contract";
   import type { LoadedGraph } from "../../contract";
+  import type {
+    CanvasEdgeAppearance,
+    CanvasNodeAppearance,
+  } from "./appearance";
   import {
     type DragState,
     type NodeDragState,
     type CanvasState,
     type Point,
   } from "./canvasState";
-  import type { CanvasSelection } from "../EditableGraphDocument.svelte";
-  import type { EditableGraphDocument } from "../EditableGraphDocument.svelte";
 
   const MIN_ZOOM = 25;
   const MAX_ZOOM = 200;
@@ -23,14 +25,35 @@
   const DRAG_THRESHOLD = 4;
 
   interface Props {
-    doc: EditableGraphDocument;
+    graph: LoadedGraph;
+    fitVersion?: number;
+    selectedNodeId?: string;
+    selectedEdgeId?: string;
+    nodeAppearance?: (node: Node) => CanvasNodeAppearance | undefined;
+    edgeAppearance?: (edge: Edge) => CanvasEdgeAppearance | undefined;
+    onGraphChange?: (graph: LoadedGraph) => void;
+    onSelectNode?: (nodeId: string) => void;
+    onSelectEdge?: (edgeId: string) => void;
+    onClearSelection?: () => void;
+    ariaLabel?: string;
   }
 
-  let { doc }: Props = $props();
+  let {
+    graph,
+    fitVersion = 0,
+    selectedNodeId = undefined,
+    selectedEdgeId = undefined,
+    nodeAppearance = undefined,
+    edgeAppearance = undefined,
+    onGraphChange = undefined,
+    onSelectNode = undefined,
+    onSelectEdge = undefined,
+    onClearSelection = undefined,
+    ariaLabel = "Network topology canvas",
+  }: Props = $props();
   const canvasPreviewArrowId = $props.id();
 
-  let graph = $derived(doc.graph);
-  let selection = $derived(doc.canvasSelection);
+  let editable = $derived(Boolean(onGraphChange));
   let viewport = $state({ width: 0, height: 0 });
   let pointerGraphPosition = $state<Point>();
   let didPan = $state(false);
@@ -62,7 +85,7 @@
   }
 
   function updateGraph(change: Partial<LoadedGraph>) {
-    doc.graph = { ...graph, ...change };
+    onGraphChange?.({ ...graph, ...change });
   }
 
   function clampZoom(value: number) {
@@ -97,7 +120,7 @@
   }
 
   $effect(() => {
-    if (doc.revision > 0) {
+    if (fitVersion > 0) {
       untrack(() => fitGraphToView());
     }
   });
@@ -139,7 +162,7 @@
   }
 
   function startNodeDrag(node: Node, event: PointerEvent) {
-    if (event.button !== 0 || !event.isPrimary) return;
+    if (!editable || event.button !== 0 || !event.isPrimary) return;
 
     event.stopPropagation();
     const element = event.currentTarget as SVGGElement;
@@ -229,7 +252,7 @@
   }
 
   function handleBlankCanvasClick(_event: MouseEvent) {
-    doc.clearSelection();
+    onClearSelection?.();
   }
 
   function handleNodeClick(node: Node, event: MouseEvent) {
@@ -238,12 +261,12 @@
       suppressNodeClick = false;
       return;
     }
-    doc.selectNode(node.id);
+    onSelectNode?.(node.id);
   }
 
   function handleEdgeClick(edge: Edge, event: MouseEvent) {
     event.stopPropagation();
-    doc.selectEdge(edge.id);
+    onSelectEdge?.(edge.id);
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -284,7 +307,7 @@
   }
 </script>
 
-<section class="canvas-shell" aria-label="Network topology canvas">
+<section class="canvas-shell" aria-label={ariaLabel}>
   <ContextMenu.Root>
     <ContextMenu.Trigger class="canvas-context-menu-trigger">
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -292,7 +315,7 @@
         class="canvas-surface"
         role="application"
         tabindex="0"
-        aria-label="Network topology canvas. Drag blank space to pan or drag nodes to reposition them. Right-click to open viewport actions. Use the mouse wheel or keyboard to zoom."
+        aria-label={`${ariaLabel}. Drag blank space to pan${editable ? " or drag nodes to reposition them" : ""}. Right-click to open viewport actions. Use the mouse wheel or keyboard to zoom.`}
         style:--grid-offset-x={`${canvasState.pan.x}px`}
         style:--grid-offset-y={`${canvasState.pan.y}px`}
         style:--minor-grid-size={`${gridSize}px`}
@@ -331,16 +354,20 @@
               {@const target = graph.nodes.find(
                 (node) => node.id === edge.to_id,
               )}
-              {#if source && target}<CanvasEdge
+              {#if source && target}
+                <CanvasEdge
                   {edge}
                   {source}
                   {target}
                   sourcePosition={nodePosition(source)}
                   targetPosition={nodePosition(target)}
-                  selected={selection.kind === "edge" &&
-                    selection.edgeId === edge.id}
-                  onclick={(event) => handleEdgeClick(edge, event)}
-                />{/if}
+                  selected={selectedEdgeId === edge.id}
+                  appearance={edgeAppearance?.(edge)}
+                  onclick={onSelectEdge
+                    ? (event) => handleEdgeClick(edge, event)
+                    : undefined}
+                />
+              {/if}
             {/each}
             {#if canvasState.connectMode && connectionSource && pointerGraphPosition}
               {@const sourcePosition = nodeCenter(
@@ -356,12 +383,16 @@
               <CanvasNode
                 {node}
                 position={nodePosition(node)}
-                selected={selection.kind === "node" &&
-                  selection.nodeId === node.id}
+                selected={selectedNodeId === node.id}
                 source={canvasState.connectionSourceId === node.id}
                 dragging={nodeDragState?.nodeId === node.id}
-                onpointerdown={(event) => startNodeDrag(node, event)}
-                onclick={(event) => handleNodeClick(node, event)}
+                appearance={nodeAppearance?.(node)}
+                onpointerdown={editable
+                  ? (event) => startNodeDrag(node, event)
+                  : undefined}
+                onclick={onSelectNode
+                  ? (event) => handleNodeClick(node, event)
+                  : undefined}
               />
             {/each}
           </g>
