@@ -1,7 +1,7 @@
 <script lang="ts" generics="Item">
   import { Dialog } from "bits-ui";
   import OptionPickerDialogContent from "./OptionPickerDialogContent.svelte";
-  import type { FilterableTableColumn } from "../controls/FilterableTable.svelte";
+  import type { FilterableTableColumn } from "../controls/FilterableTable.types";
 
   interface Props {
     open: boolean;

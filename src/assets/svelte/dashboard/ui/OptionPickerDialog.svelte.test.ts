@@ -6,7 +6,9 @@ import {
   screen,
   waitFor,
 } from "@testing-library/svelte";
+import type { Component } from "svelte";
 import OptionPickerDialog from "./OptionPickerDialog.svelte";
+import type { FilterableTableColumn } from "../controls/FilterableTable.types";
 
 interface Option {
   id: string;
@@ -15,7 +17,12 @@ interface Option {
   disabled?: boolean;
 }
 
-const OptionPicker = OptionPickerDialog as typeof OptionPickerDialog<Option>;
+const OptionPicker = OptionPickerDialog as unknown as Component<
+  { items: Option[]; columns: FilterableTableColumn<Option>[] } & Record<
+    string,
+    unknown
+  >
+>;
 
 const options: Option[] = [
   { id: "alpha", title: "Alpha", description: "First option" },

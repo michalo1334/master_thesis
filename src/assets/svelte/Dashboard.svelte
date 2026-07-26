@@ -15,7 +15,7 @@
   import type { ExperimentSummary } from "./dashboard/contract";
   import type { GraphSummary } from "./dashboard/contract";
   import { formatRuntime, formatTimestamp } from "./dashboard/format";
-  import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.svelte";
+  import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.types";
 
   interface Props {
     model: DashboardModel;

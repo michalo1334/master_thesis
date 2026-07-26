@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
+import type { Component } from "svelte";
 import FilterableTable from "./FilterableTable.svelte";
-import type { FilterableTableColumn } from "./FilterableTable.svelte";
+import type { FilterableTableColumn } from "./FilterableTable.types";
 
 interface Item {
   id: string;
@@ -11,7 +12,12 @@ interface Item {
   disabled?: boolean;
 }
 
-const TypedFilterableTable = FilterableTable as typeof FilterableTable<Item>;
+const TypedFilterableTable = FilterableTable as unknown as Component<
+  { items: Item[]; columns: FilterableTableColumn<Item>[] } & Record<
+    string,
+    unknown
+  >
+>;
 
 const items: Item[] = [
   { id: "alpha", title: "Alpha", description: "First", count: 1 },

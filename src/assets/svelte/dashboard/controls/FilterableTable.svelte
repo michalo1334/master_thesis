@@ -1,13 +1,3 @@
-<script module lang="ts">
-  export interface FilterableTableColumn<Item> {
-    key: string;
-    header: string;
-    getValue: (item: Item) => string;
-    filterable?: boolean;
-    align?: "start" | "end";
-  }
-</script>
-
 <script lang="ts" generics="Item">
   import {
     createTable,
@@ -17,12 +7,14 @@
   } from "@tanstack/table-core";
   import type {
     ColumnDef,
+    FilterFnOption,
     RowSelectionState,
     Table,
     TableState,
   } from "@tanstack/table-core";
   import { Checkbox, Pagination, RadioGroup } from "bits-ui";
   import { untrack } from "svelte";
+  import type { FilterableTableColumn } from "./FilterableTable.types";
 
   interface Props {
     items: readonly Item[];
@@ -65,7 +57,9 @@
       id: c.key,
       accessorFn: (item: Item) => c.getValue(item),
       header: c.header,
-      filterFn: c.filterable ? ("includesString" as const) : "auto",
+      filterFn: (c.filterable
+        ? "includesString"
+        : "auto") as FilterFnOption<Item>,
       enableGlobalFilter: c.filterable ?? false,
     })),
   );
