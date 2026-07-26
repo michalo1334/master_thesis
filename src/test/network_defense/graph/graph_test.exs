@@ -150,6 +150,71 @@ defmodule NetworkDefense.Graph.GraphTest do
     end
   end
 
+  describe "clone/1" do
+    test "creates an independent optimization graph with remapped edge endpoints" do
+      source = Graph.new("source")
+      host = build_node(source, Host, %{"name" => "source-host"})
+
+      service =
+        build_node(source, Service, %{
+          "name" => "source-service",
+          "protocol" => "tcp",
+          "port" => 443
+        })
+
+      edge = build_edge(source, host, service, NetworkReachability, %{"protocol" => "any"})
+
+      source = source |> Graph.add_node(host) |> Graph.add_node(service) |> Graph.add_edge(edge)
+      clone = Graph.clone(source)
+
+      assert clone.id != source.id
+      assert clone.parent_id == source.id
+      assert clone.source == :optimization
+      assert clone.title == source.title
+
+      assert MapSet.disjoint?(
+               MapSet.new(Enum.map(source.nodes, & &1.id)),
+               MapSet.new(Enum.map(clone.nodes, & &1.id))
+             )
+
+      assert MapSet.disjoint?(
+               MapSet.new(Enum.map(Graph.edges(source), & &1.id)),
+               MapSet.new(Enum.map(Graph.edges(clone), & &1.id))
+             )
+
+      [cloned_host, cloned_service] = clone.nodes
+      [cloned_edge] = Graph.edges(clone)
+
+      host = Node.hydrate!(host)
+      service = Node.hydrate!(service)
+      edge = Edge.hydrate!(edge)
+
+      assert {cloned_host.type, cloned_host.data, cloned_host.view_data} ==
+               {host.type, host.data, host.view_data}
+
+      assert {cloned_service.type, cloned_service.data, cloned_service.view_data} ==
+               {service.type, service.data, service.view_data}
+
+      assert {cloned_edge.type, cloned_edge.data, cloned_edge.from_id, cloned_edge.to_id} ==
+               {edge.type, edge.data, cloned_host.id, cloned_service.id}
+
+      assert Graph.edges(Graph.remove_edge_by_id(clone, cloned_edge.id)) == []
+      assert [^edge] = Graph.edges(source)
+    end
+
+    test "persists its lineage and survives deletion of its parent" do
+      source = insert_graph()
+      source = Graphs.load!(source.id)
+      clone = Graph.clone(source)
+
+      assert {:ok, clone} = Graphs.insert(clone)
+
+      Repo.delete!(source)
+
+      assert %{parent_id: nil, source: :optimization} = Graphs.load!(clone.id)
+    end
+  end
+
   describe "load/1" do
     test "loads an empty graph" do
       graph = insert_graph()

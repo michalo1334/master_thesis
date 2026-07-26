@@ -8,10 +8,12 @@ defmodule NetworkDefense.Graph.Graph do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
+    belongs_to :parent, __MODULE__
     has_many :nodes, Node
     has_many :edges, Edge
     field :adjacency_list, :map, virtual: true, default: %{}
     field :lock_version, :integer, default: 1
+    field :source, Ecto.Enum, values: [:optimization]
     field :title, :string
 
     timestamps(type: :utc_datetime)
@@ -25,6 +27,7 @@ defmodule NetworkDefense.Graph.Graph do
     |> cast(attrs, [:title])
     |> validate_required([:title])
     |> validate_length(:title, min: 1)
+    |> foreign_key_constraint(:parent_id)
   end
 
   def new(title) when is_binary(title) and byte_size(title) > 0 do
@@ -36,6 +39,30 @@ defmodule NetworkDefense.Graph.Graph do
       adjacency_list: %{},
       lock_version: 1
     }
+  end
+
+  def clone(%__MODULE__{} = graph) do
+    {clone, node_ids} =
+      Enum.reduce(
+        nodes(graph),
+        {%{new(graph.title) | parent_id: graph.id, source: :optimization}, %{}},
+        fn node, {clone, node_ids} ->
+          cloned_node =
+            Node.new(clone.id, %{type: node.type, data: node.data, view_data: node.view_data})
+
+          {add_node(clone, cloned_node), Map.put(node_ids, node.id, cloned_node.id)}
+        end
+      )
+
+    Enum.reduce(edges(graph), clone, fn edge, clone ->
+      clone
+      |> add_edge(
+        Edge.new(clone.id, node_ids[edge.from_id], node_ids[edge.to_id], %{
+          type: edge.type,
+          data: edge.data
+        })
+      )
+    end)
   end
 
   def hydrate(graph, nodes, edges) do
