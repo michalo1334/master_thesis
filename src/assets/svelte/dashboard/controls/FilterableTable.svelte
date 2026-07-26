@@ -106,7 +106,9 @@
     },
     enableRowSelection: (row) =>
       selectionMode !== "none" && !disabled && !isDisabled?.(row.original),
-    enableMultiRowSelection: selectionMode === "multiple",
+    get enableMultiRowSelection() {
+      return selectionMode === "multiple";
+    },
     getRowId: (item: Item, index: number) => getKey(item) || String(index),
   });
 
