@@ -51,14 +51,6 @@ To discuss with user
 
 Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
 
-## Models
-
-| Model ID | Used by | Purpose |
-|----------|---------|---------|
-| `opencode-go/deepseek-v4-flash` | `explorer_fast` | Fast, cheap codebase exploration |
-| `opencode-go/deepseek-v4-pro` | `svelte-file-editor` | Heavier Svelte editing with doc lookups |
-| `opencode-go/minimax-m3` | `visual-verifier` | Cheap browser-based visual checks |
-
 ## Post Completion Check of tasks
 
 ALWAYS, THIS IS NOT NEGOTABLIE, POST CHECK your results. Fix? test it, query the db, check logs, check if the fix didn't broke anything else and actually worked.

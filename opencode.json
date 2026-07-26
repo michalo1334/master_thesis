@@ -13,5 +13,6 @@
     }
   },
   "instructions": [".opencode/instructions/opencode-agents.md"],
-  "permission": "allow"
+  "permission": "allow",
+  "plugin": ["@dietrichgebert/ponytail"] 
 }

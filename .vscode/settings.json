@@ -1,4 +1,6 @@
 {
   "elixirLS.projectDir": "./src",
+  "elixirLS.elixirPath": "/home/michalo/.local/share/elixir/bin/elixir",
+  "elixir.credo.executePath": "/home/michalo/.local/share/elixir/bin",
   "svelte.enable-ts-plugin": true
 }

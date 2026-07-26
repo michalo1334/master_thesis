@@ -4,6 +4,7 @@ mode: subagent
 model: opencode-go/deepseek-v4-flash
 temperature: 0.3
 permission:
+  bash: allow
   read: allow
   glob: allow
   grep: allow
