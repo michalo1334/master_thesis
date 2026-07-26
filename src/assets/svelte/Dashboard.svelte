@@ -14,6 +14,8 @@
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
   import type { ExperimentSummary } from "./dashboard/contract";
   import type { GraphSummary } from "./dashboard/contract";
+  import { formatRuntime, formatTimestamp } from "./dashboard/format";
+  import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.svelte";
 
   interface Props {
     model: DashboardModel;
@@ -40,6 +42,61 @@
 
   let activeOptimizationId = $state<string>(optimizationOptions[0].id);
 
+  const topologyColumns: FilterableTableColumn<GraphSummary>[] = [
+    {
+      key: "title",
+      header: "Name",
+      getValue: (summary) => summary.title,
+      filterable: true,
+    },
+    {
+      key: "nodes",
+      header: "Nodes",
+      getValue: (summary) => String(summary.nodeCount),
+      align: "end",
+    },
+    {
+      key: "edges",
+      header: "Edges",
+      getValue: (summary) => String(summary.edgeCount),
+      align: "end",
+    },
+  ];
+
+  const experimentColumns: FilterableTableColumn<ExperimentSummary>[] = [
+    {
+      key: "title",
+      header: "Graph",
+      getValue: (experiment) => experiment.graph_title,
+      filterable: true,
+    },
+    {
+      key: "runs",
+      header: "Runs",
+      getValue: (experiment) => String(experiment.run_count),
+      align: "end",
+    },
+    {
+      key: "iters",
+      header: "Iters",
+      getValue: (experiment) => String(experiment.iteration_count),
+      align: "end",
+    },
+    {
+      key: "runtime",
+      header: "Runtime",
+      getValue: (experiment) => formatRuntime(experiment.runtime_ms),
+      align: "end",
+      filterable: true,
+    },
+    {
+      key: "started",
+      header: "Started",
+      getValue: (experiment) => formatTimestamp(experiment.started_at),
+      align: "end",
+    },
+  ];
+
   async function handleSave(): Promise<void> {
     await model.saveActiveGraph();
   }
@@ -58,20 +115,6 @@
 
   function handleOptimize(strategyId: string): void {
     activeOptimizationId = strategyId;
-  }
-
-  function formatTimestamp(iso: string): string {
-    try {
-      return new Date(iso).toLocaleString();
-    } catch {
-      return iso;
-    }
-  }
-
-  function formatRuntime(milliseconds: number): string {
-    return milliseconds < 1000
-      ? `${milliseconds} ms`
-      : `${(milliseconds / 1000).toFixed(1)} s`;
   }
 
   async function handleTopologySelect([
@@ -131,10 +174,10 @@
     title="Open topology"
     description="Select a saved network topology to open in the workspace."
     getKey={(summary) => summary.id}
-    getTitle={(summary) => summary.title}
-    getDescription={(summary) =>
-      `${summary.nodeCount} node${summary.nodeCount !== 1 ? "s" : ""}, ${summary.edgeCount} edge${summary.edgeCount !== 1 ? "s" : ""}`}
+    columns={topologyColumns}
+    searchPlaceholder="Search topologies…"
     emptyMessage="No saved topologies."
+    noMatchMessage="No topologies match your search."
     status={wm.topologyPickerStatus}
     onConfirm={handleTopologySelect}
   />
@@ -146,10 +189,10 @@
     title="Experiments"
     description="Select a completed experiment to view its report."
     getKey={(experiment) => experiment.id}
-    getTitle={(experiment) => experiment.graph_title}
-    getDescription={(experiment) =>
-      `${experiment.run_count} runs · ${experiment.iteration_count} iters · ${formatRuntime(experiment.runtime_ms)} · ${formatTimestamp(experiment.started_at)}`}
+    columns={experimentColumns}
+    searchPlaceholder="Search experiments…"
     emptyMessage="No experiments found."
+    noMatchMessage="No experiments match your search."
     status={wm.experimentsStatus}
     onConfirm={handleExperimentSelect}
   />

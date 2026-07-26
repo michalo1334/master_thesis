@@ -1,18 +1,22 @@
 <script lang="ts" generics="Item">
-  import { Checkbox, Dialog, RadioGroup } from "bits-ui";
+  import { Dialog } from "bits-ui";
+  import FilterableTable from "../controls/FilterableTable.svelte";
+  import type { FilterableTableColumn } from "../controls/FilterableTable.svelte";
 
   interface Props {
     items: readonly Item[];
     title: string;
     description?: string;
     getKey: (item: Item) => string;
-    getTitle: (item: Item) => string;
-    getDescription?: (item: Item) => string | undefined;
+    columns: readonly FilterableTableColumn<Item>[];
+    searchPlaceholder?: string;
+    perPage?: number;
     isDisabled?: (item: Item) => boolean;
     mode: "single" | "multiple";
     initialSelection: readonly string[];
     minSelections: number;
     emptyMessage: string;
+    noMatchMessage: string;
     status: string;
     onConfirm: (items: Item[]) => boolean | Promise<boolean>;
     onClose: () => void;
@@ -23,13 +27,15 @@
     title,
     description = undefined,
     getKey,
-    getTitle,
-    getDescription = undefined,
+    columns,
+    searchPlaceholder = "Search…",
+    perPage = 8,
     isDisabled = undefined,
     mode,
     initialSelection,
     minSelections,
     emptyMessage,
+    noMatchMessage,
     status,
     onConfirm,
     onClose,
@@ -37,8 +43,20 @@
 
   let isConfirming = $state(false);
   let confirmationError = $state("");
-  let content = $state<HTMLDivElement | null>(null);
-  let draftKeys = $state(getValidInitialSelection() ?? []);
+  let draftKeys = $state<string[]>([]);
+  let initialSeeded = $state(false);
+
+  $effect(() => {
+    if (initialSeeded) return;
+    initialSeeded = true;
+    const enabledKeys = new Set(
+      items.filter((item) => !isDisabled?.(item)).map((item) => getKey(item)),
+    );
+    const valid = [...new Set(initialSelection)].filter((key) =>
+      enabledKeys.has(key),
+    );
+    draftKeys = mode === "single" ? valid.slice(0, 1) : valid;
+  });
 
   const selectedItems = $derived(
     items.filter((item) => draftKeys.includes(getKey(item))),
@@ -47,42 +65,6 @@
   const canConfirm = $derived(
     !isConfirming && selectedItems.length >= minSelections,
   );
-
-  function getValidInitialSelection(): string[] | undefined {
-    const enabledKeys = new Set(
-      items.filter((item) => !isDisabled?.(item)).map((item) => getKey(item)),
-    );
-    const keys = [...new Set(initialSelection)].filter((key) =>
-      enabledKeys.has(key),
-    );
-
-    return mode === "single" ? keys.slice(0, 1) : keys;
-  }
-
-  function getSingleSelection(): string {
-    return draftKeys[0] ?? "";
-  }
-
-  function setSingleSelection(key: string): void {
-    draftKeys = key ? [key] : [];
-  }
-
-  function getMultipleSelection(): string[] {
-    return draftKeys;
-  }
-
-  function setMultipleSelection(keys: string[]): void {
-    draftKeys = keys;
-  }
-
-  function focusFirstSelectable(event: Event): void {
-    event.preventDefault();
-    content
-      ?.querySelector<HTMLButtonElement>(
-        "[data-option-picker-option]:not(:disabled)",
-      )
-      ?.focus();
-  }
 
   async function handleConfirm(): Promise<void> {
     if (!canConfirm) return;
@@ -107,70 +89,27 @@
 
 <Dialog.Portal>
   <Dialog.Overlay class="option-picker-overlay" />
-  <Dialog.Content
-    bind:ref={content}
-    class="option-picker-dialog"
-    onOpenAutoFocus={focusFirstSelectable}
-  >
+  <Dialog.Content class="option-picker-dialog">
     <Dialog.Title>{title}</Dialog.Title>
     {#if description}
       <Dialog.Description>{description}</Dialog.Description>
     {/if}
 
-    <div class="option-picker-list" aria-label={title}>
-      {#if items.length === 0}
-        <p class="option-picker-empty">{emptyMessage}</p>
-      {:else if mode === "single"}
-        <RadioGroup.Root
-          bind:value={getSingleSelection, setSingleSelection}
-          aria-label={title}
-        >
-          {#each items as item (getKey(item))}
-            {@const disabled = isDisabled?.(item) ?? false}
-            <RadioGroup.Item
-              class="option-picker-row"
-              data-option-picker-option
-              value={getKey(item)}
-              disabled={disabled || isConfirming}
-            >
-              <span class="option-picker-control" aria-hidden="true"></span>
-              <span class="option-picker-item">
-                <span class="option-picker-item-title">{getTitle(item)}</span>
-                {#if getDescription?.(item)}
-                  <span class="option-picker-item-description">
-                    {getDescription(item)}
-                  </span>
-                {/if}
-              </span>
-            </RadioGroup.Item>
-          {/each}
-        </RadioGroup.Root>
-      {:else}
-        <Checkbox.Group
-          bind:value={getMultipleSelection, setMultipleSelection}
-          aria-label={title}
-        >
-          {#each items as item (getKey(item))}
-            {@const disabled = isDisabled?.(item) ?? false}
-            <Checkbox.Root
-              class="option-picker-row"
-              data-option-picker-option
-              value={getKey(item)}
-              disabled={disabled || isConfirming}
-            >
-              <span class="option-picker-control" aria-hidden="true"></span>
-              <span class="option-picker-item">
-                <span class="option-picker-item-title">{getTitle(item)}</span>
-                {#if getDescription?.(item)}
-                  <span class="option-picker-item-description">
-                    {getDescription(item)}
-                  </span>
-                {/if}
-              </span>
-            </Checkbox.Root>
-          {/each}
-        </Checkbox.Group>
-      {/if}
+    <div class="option-picker-body">
+      <FilterableTable
+        {items}
+        {columns}
+        {getKey}
+        selectionMode={mode}
+        bind:selectedKeys={draftKeys}
+        initialSelectedKeys={initialSelection}
+        {isDisabled}
+        {perPage}
+        {searchPlaceholder}
+        {emptyMessage}
+        {noMatchMessage}
+        disabled={isConfirming}
+      />
     </div>
 
     {#if displayStatus}
@@ -209,7 +148,7 @@
     z-index: 201;
     top: 50%;
     left: 50%;
-    width: min(36rem, calc(100vw - 2rem));
+    width: min(40rem, calc(100vw - 2rem));
     max-height: min(40rem, calc(100dvh - 2rem));
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto auto;
@@ -232,92 +171,9 @@
     color: var(--ds-color-text-secondary);
   }
 
-  .option-picker-list {
+  .option-picker-body {
     min-height: 0;
     margin-top: var(--ds-space-4);
-    overflow-y: auto;
-  }
-
-  :global(.option-picker-list [data-radio-group-root]),
-  :global(.option-picker-list [data-checkbox-group]) {
-    display: grid;
-    gap: var(--ds-space-2);
-  }
-
-  :global(.option-picker-row) {
-    width: 100%;
-    min-height: var(--ds-control-height);
-    padding: var(--ds-space-3);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-surface);
-    color: inherit;
-    text-align: left;
-    display: flex;
-    align-items: flex-start;
-    gap: var(--ds-space-3);
-  }
-
-  :global(.option-picker-row:not(:disabled):hover) {
-    border-color: var(--ds-color-focus);
-    background: var(--ds-color-accent-soft);
-  }
-
-  :global(.option-picker-row:disabled) {
-    cursor: not-allowed;
-    color: var(--ds-color-text-faint);
-    opacity: 0.65;
-  }
-
-  .option-picker-control {
-    width: 1.125rem;
-    height: 1.125rem;
-    flex: none;
-    margin-top: 0.125rem;
-    border: 1px solid var(--ds-color-border);
-    background: var(--ds-color-paper);
-  }
-
-  :global(.option-picker-row[data-radio-group-item]) .option-picker-control {
-    border-radius: 50%;
-  }
-
-  :global(.option-picker-row[data-checkbox-root]) .option-picker-control {
-    border-radius: var(--ds-radius-sm);
-  }
-
-  :global(.option-picker-row[data-state="checked"]) .option-picker-control {
-    border-color: var(--ds-color-accent);
-    background: var(--ds-color-accent);
-    box-shadow: inset 0 0 0 0.25rem var(--ds-color-paper);
-  }
-
-  :global(.option-picker-row[data-checkbox-root][data-state="checked"])
-    .option-picker-control {
-    box-shadow: inset 0 0 0 0.25rem var(--ds-color-accent);
-  }
-
-  .option-picker-item {
-    display: grid;
-    min-width: 0;
-    gap: var(--ds-space-1);
-  }
-
-  .option-picker-item-title {
-    font-weight: 600;
-  }
-
-  .option-picker-item-description {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .option-picker-empty {
-    margin: 0;
-    padding: var(--ds-space-4);
-    color: var(--ds-color-text-secondary);
-    text-align: center;
   }
 
   .option-picker-status {

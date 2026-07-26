@@ -1,6 +1,7 @@
 <script lang="ts" generics="Item">
   import { Dialog } from "bits-ui";
   import OptionPickerDialogContent from "./OptionPickerDialogContent.svelte";
+  import type { FilterableTableColumn } from "../controls/FilterableTable.svelte";
 
   interface Props {
     open: boolean;
@@ -9,13 +10,15 @@
     title: string;
     description?: string;
     getKey: (item: Item) => string;
-    getTitle: (item: Item) => string;
-    getDescription?: (item: Item) => string | undefined;
+    columns: readonly FilterableTableColumn<Item>[];
+    searchPlaceholder?: string;
+    perPage?: number;
     isDisabled?: (item: Item) => boolean;
     mode?: "single" | "multiple";
     initialSelection?: readonly string[];
     minSelections?: number;
     emptyMessage: string;
+    noMatchMessage?: string;
     status?: string;
     onConfirm: (items: Item[]) => boolean | Promise<boolean>;
   }
@@ -27,13 +30,15 @@
     title,
     description = undefined,
     getKey,
-    getTitle,
-    getDescription = undefined,
+    columns,
+    searchPlaceholder = "Search…",
+    perPage = 8,
     isDisabled = undefined,
     mode = "single",
     initialSelection = [],
     minSelections = 1,
     emptyMessage,
+    noMatchMessage = "No matches.",
     status = "",
     onConfirm,
   }: Props = $props();
@@ -46,13 +51,15 @@
       {title}
       {description}
       {getKey}
-      {getTitle}
-      {getDescription}
+      {columns}
+      {searchPlaceholder}
+      {perPage}
       {isDisabled}
       {mode}
       {initialSelection}
       {minSelections}
       {emptyMessage}
+      {noMatchMessage}
       {status}
       {onConfirm}
       onClose={() => onOpenChange(false)}

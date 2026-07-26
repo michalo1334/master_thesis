@@ -46,10 +46,24 @@ function renderDialog(overrides: Partial<Record<string, unknown>> = {}) {
       title: "Choose options",
       description: "Choose one or more options.",
       getKey: (option: Option) => option.id,
-      getTitle: (option: Option) => option.title,
-      getDescription: (option: Option) => option.description,
-      isDisabled: (option: Option) => option.disabled ?? false,
+      columns: [
+        {
+          key: "title",
+          header: "Name",
+          getValue: (option: Option) => option.title,
+          filterable: true,
+        },
+        {
+          key: "description",
+          header: "Description",
+          getValue: (option: Option) => option.description ?? "",
+          filterable: true,
+        },
+      ],
+      searchPlaceholder: "Search options…",
       emptyMessage: "No options.",
+      noMatchMessage: "No options match.",
+      isDisabled: (option: Option) => option.disabled ?? false,
       onConfirm,
       ...overrides,
     },
@@ -64,8 +78,8 @@ describe("OptionPickerDialog", () => {
   it("uses radios for single selection and confirms the selected item", async () => {
     const { onConfirm, onOpenChange } = renderDialog();
 
-    const alpha = screen.getByRole("radio", { name: /alpha/i });
-    const beta = screen.getByRole("radio", { name: /beta/i });
+    const alpha = screen.getByRole("radio", { name: "Select alpha" });
+    const beta = screen.getByRole("radio", { name: "Select beta" });
     expect(screen.getByText("First option")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Select" })).toBeDisabled();
 
@@ -82,8 +96,12 @@ describe("OptionPickerDialog", () => {
   it("uses checkboxes and returns multi-selection in source order", async () => {
     const { onConfirm } = renderDialog({ mode: "multiple" });
 
-    await fireEvent.click(screen.getByRole("checkbox", { name: /beta/i }));
-    await fireEvent.click(screen.getByRole("checkbox", { name: /alpha/i }));
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Select beta" }),
+    );
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Select alpha" }),
+    );
     await fireEvent.click(screen.getByRole("button", { name: "Select (2)" }));
 
     await waitFor(() =>
@@ -94,7 +112,7 @@ describe("OptionPickerDialog", () => {
   it("does not permit disabled options to be selected", async () => {
     renderDialog({ mode: "multiple" });
 
-    const gamma = screen.getByRole("checkbox", { name: /gamma/i });
+    const gamma = screen.getByRole("checkbox", { name: "Select gamma" });
     expect(gamma).toBeDisabled();
 
     await fireEvent.click(gamma);
@@ -105,7 +123,7 @@ describe("OptionPickerDialog", () => {
   it("discards a draft selection when cancelled", async () => {
     const { onConfirm, onOpenChange } = renderDialog();
 
-    await fireEvent.click(screen.getByRole("radio", { name: /alpha/i }));
+    await fireEvent.click(screen.getByRole("radio", { name: "Select alpha" }));
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(onConfirm).not.toHaveBeenCalled();
@@ -118,10 +136,14 @@ describe("OptionPickerDialog", () => {
     const select = screen.getByRole("button", { name: "Select (0)" });
     expect(select).toBeDisabled();
 
-    await fireEvent.click(screen.getByRole("checkbox", { name: /alpha/i }));
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Select alpha" }),
+    );
     expect(screen.getByRole("button", { name: "Select (1)" })).toBeDisabled();
 
-    await fireEvent.click(screen.getByRole("checkbox", { name: /beta/i }));
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Select beta" }),
+    );
     expect(screen.getByRole("button", { name: "Select (2)" })).toBeEnabled();
   });
 
@@ -131,8 +153,12 @@ describe("OptionPickerDialog", () => {
       initialSelection: ["alpha", "gamma", "missing"],
     });
 
-    expect(screen.getByRole("checkbox", { name: /alpha/i })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /gamma/i })).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Select alpha" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Select gamma" }),
+    ).not.toBeChecked();
   });
 
   it("remains open when confirmation reports an expected failure", async () => {
@@ -141,7 +167,7 @@ describe("OptionPickerDialog", () => {
       onConfirm: vi.fn().mockResolvedValue(false),
     });
 
-    await fireEvent.click(screen.getByRole("radio", { name: /alpha/i }));
+    await fireEvent.click(screen.getByRole("radio", { name: "Select alpha" }));
     await fireEvent.click(screen.getByRole("button", { name: "Select" }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalled());
@@ -154,17 +180,17 @@ describe("OptionPickerDialog", () => {
     const onConfirm = vi.fn().mockReturnValue(confirmation.promise);
     renderDialog({ onConfirm });
 
-    await fireEvent.click(screen.getByRole("radio", { name: /alpha/i }));
+    await fireEvent.click(screen.getByRole("radio", { name: "Select alpha" }));
     await fireEvent.click(screen.getByRole("button", { name: "Select" }));
 
     await waitFor(() => expect(onConfirm).toHaveBeenCalled());
-    expect(screen.getByRole("radio", { name: /alpha/i })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Select alpha" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Select" })).toBeDisabled();
 
     confirmation.resolve(false);
     await waitFor(() =>
-      expect(screen.getByRole("radio", { name: /alpha/i })).toBeEnabled(),
+      expect(screen.getByRole("radio", { name: "Select alpha" })).toBeEnabled(),
     );
   });
 
@@ -173,7 +199,7 @@ describe("OptionPickerDialog", () => {
       onConfirm: vi.fn().mockRejectedValue(new Error("offline")),
     });
 
-    await fireEvent.click(screen.getByRole("radio", { name: /alpha/i }));
+    await fireEvent.click(screen.getByRole("radio", { name: "Select alpha" }));
     await fireEvent.click(screen.getByRole("button", { name: "Select" }));
 
     expect(
@@ -188,5 +214,19 @@ describe("OptionPickerDialog", () => {
 
     expect(screen.getByText("No options.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Select" })).toBeDisabled();
+  });
+
+  it("filters the table by the search input", async () => {
+    renderDialog();
+
+    const search = screen.getByRole("searchbox");
+    await fireEvent.input(search, { target: { value: "second" } });
+
+    expect(
+      screen.getByRole("radio", { name: "Select beta" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "Select alpha" }),
+    ).not.toBeInTheDocument();
   });
 });
