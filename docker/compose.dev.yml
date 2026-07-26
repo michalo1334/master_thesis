@@ -87,3 +87,9 @@ services:
 volumes:
   network-defense-build:
   network-defense-deps:
+
+secrets:
+  postgres-password:
+    environment: POSTGRES_PASSWORD
+  postgres-exporter-password:
+    environment: POSTGRES_PASSWORD

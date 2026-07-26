@@ -85,5 +85,7 @@ secrets:
     file: ${LIVE_VIEW_SIGNING_SALT_FILE:?set LIVE_VIEW_SIGNING_SALT_FILE}
   postgres-password:
     file: ${POSTGRES_PASSWORD_FILE:?set POSTGRES_PASSWORD_FILE}
+  postgres-exporter-password:
+    file: ${POSTGRES_EXPORTER_PASSWORD_FILE:?set POSTGRES_EXPORTER_PASSWORD_FILE}
   grafana-admin-password:
     file: ${GRAFANA_PASSWORD_FILE:?set GRAFANA_PASSWORD_FILE}
