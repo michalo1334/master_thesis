@@ -114,6 +114,35 @@ defmodule NetworkDefenseWeb.Telemetry do
         measurement: :total,
         unit: :byte
       ),
+      last_value("vm.cpu.utilization.percent",
+        event_name: [:vm, :cpu],
+        measurement: :utilization
+      ),
+      last_value("vm.cpu.per_core.percent",
+        event_name: [:vm, :cpu, :per_core],
+        measurement: :utilization,
+        tags: [:core]
+      ),
+      last_value("vm.memory.processes.bytes",
+        event_name: [:vm, :memory],
+        measurement: :processes,
+        unit: :byte
+      ),
+      last_value("vm.memory.ets.bytes",
+        event_name: [:vm, :memory],
+        measurement: :ets,
+        unit: :byte
+      ),
+      last_value("vm.memory.binary.bytes",
+        event_name: [:vm, :memory],
+        measurement: :binary,
+        unit: :byte
+      ),
+      last_value("vm.memory.system.bytes",
+        event_name: [:vm, :memory],
+        measurement: :system,
+        unit: :byte
+      ),
       last_value("vm.total_run_queue_lengths.total"),
       last_value("vm.total_run_queue_lengths.cpu"),
       last_value("vm.total_run_queue_lengths.io")
@@ -121,6 +150,24 @@ defmodule NetworkDefenseWeb.Telemetry do
   end
 
   defp periodic_measurements do
-    []
+    [
+      {__MODULE__, :emit_cpu, []}
+    ]
+  end
+
+  @doc false
+  def emit_cpu do
+    case :cpu_sup.util([:per_cpu]) do
+      cores when is_list(cores) and cores != [] ->
+        for {core_id, busy, _non_busy, _extra} <- cores do
+          :telemetry.execute([:vm, :cpu, :per_core], %{utilization: busy}, %{core: core_id})
+        end
+
+        avg = Enum.reduce(cores, 0.0, fn {_id, busy, _, _}, acc -> acc + busy end) / length(cores)
+        :telemetry.execute([:vm, :cpu], %{utilization: avg}, %{})
+
+      _ ->
+        :ok
+    end
   end
 end

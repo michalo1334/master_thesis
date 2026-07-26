@@ -5,7 +5,7 @@ defmodule NetworkDefense.MixProject do
     [
       app: :network_defense,
       version: "0.1.0",
-      elixir: "~> 1.17",
+      elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       releases: [
@@ -27,7 +27,7 @@ defmodule NetworkDefense.MixProject do
   def application do
     [
       mod: {NetworkDefense.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :os_mon]
     ]
   end
 
@@ -46,6 +46,7 @@ defmodule NetworkDefense.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:live_debugger, "~> 1.0", only: [:dev]},
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

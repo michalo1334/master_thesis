@@ -15,6 +15,12 @@ scrape_configs:
         labels:
           component: collector
 
+  - job_name: network_defense
+    static_configs:
+      - targets: ["network_defense:4001"]
+        labels:
+          component: app
+
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
