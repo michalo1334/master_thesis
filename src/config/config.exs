@@ -22,6 +22,13 @@ config :network_defense,
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
 # Configures the endpoint
+live_view_signing_salt =
+  if config_env() == :prod do
+    nil
+  else
+    System.get_env("LIVE_VIEW_SIGNING_SALT") || "dev-only-signing-salt"
+  end
+
 config :network_defense, NetworkDefenseWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
@@ -30,10 +37,10 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
     layout: false
   ],
   pubsub_server: NetworkDefense.PubSub,
-  live_view: [signing_salt: System.get_env("LIVE_VIEW_SIGNING_SALT") || "32w8i9Ge"]
+  live_view: [signing_salt: live_view_signing_salt]
 
-# Structured JSON logging via logger_json (emitted to stdout).
-# Grafana Alloy tails the container stdout and pushes to Loki.
+# Structured JSON logging stays on stdout for `docker logs` and local consoles.
+# The Grafana adapter optionally tails the separate file handler from runtime.exs.
 config :logger, handle_sasl_reports: true
 
 config :logger, :default_handler,
@@ -47,8 +54,7 @@ config :phoenix, :json_library, Jason
 
 # OpenTelemetry defaults. Override in env-specific configs.
 config :opentelemetry,
-  span_processor: :batch,
-  traces_exporter: :otlp
+  span_processor: :batch
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

@@ -1,32 +1,19 @@
 # Infrastructure
 
-This document describes what tech stack is used for infrastructure provisioning and explains configuration for common enviroments (dev, prod)
+Docker Compose assembles adapters around the application. The application depends only on a database URL, Phoenix secret, optional OTLP endpoint, and optional log-file path.
 
-# Overview
+| File | Purpose |
+| --- | --- |
+| `compose.app.yml` | Application contract and readiness check. |
+| `compose.postgres.yml` | Local PostgreSQL adapter. |
+| `compose.observability.grafana.yml` | Grafana, Loki, Tempo, Prometheus, Alloy, and OTEL Collector adapter. |
+| `compose.tools.yml` | Developer-only pgAdmin profile. |
+| `compose.dev.yml` | Local credentials, source mounts, and loopback ports. |
+| `compose.prod.yml` | Private-demo deployment, file-based secrets, and migration job. |
 
-All IaC lives in `docker/` directory.
+`./docker/up.sh dev` assembles the complete development stack. `./docker/up.sh infra` starts its dependencies while the app runs on the host. Both commands use `src/.env` for local values.
 
-Docker file for building Elixir application along with Node.js packages is in `src/` directory.
-
-Docker file for development (`Dockerfile.dev`) builds application in development mode with hot reloaded enabled and polling mode for source changes.
-
-Docker Compose is used for provisioning entire infrastructure, both in dev and production environment.
-
-Input values are passed via environment variables.
-
-Secrets are passed via files, mounted as volume. Currently secrets are also passed as env variables for simplicity (only dev env)
-
-The following components are common to all environments.
-
- - `postgres` - PostgresSQL 18 for storage
- - `network_defense` - Elixir application along with frontend
- - `otel-collector` - OpenTelemetry collector for fetching & dispatching metrics and traces
- - `loki` - Grafana Loki for structured logs. Stored **locally** as mounted volume
- - `tempo` - Grafana Tempo for trace data. Stored **locally** as mounted volume
- - `prometheus` - Prometheus for metrics data. Stored **locally** as mounted volume
- - `alloy` - tails the Elixir `:logger` file output and ships to Loki
-
-See `docker-compose.*.yml` files
+Production combines the application, PostgreSQL, observability, and production overlays. Start it with `PROD_ENV_FILE=/path/to/deployment.env ./docker/up.sh prod`. The environment file requires `APP_IMAGE`, `PHX_HOST`, `POSTGRES_USER`, `POSTGRES_DB`, `GRAFANA_USER`, and paths in `DATABASE_URL_FILE`, `SECRET_KEY_BASE_FILE`, `LIVE_VIEW_SIGNING_SALT_FILE`, `POSTGRES_PASSWORD_FILE`, and `GRAFANA_PASSWORD_FILE`. Secret files must be readable only by the deployment user.
 
 ## Logging pipeline
 
@@ -36,16 +23,13 @@ Why a file and not the container stdio: the stdio stream mixes `Logger.*` output
 
 Native OpenTelemetry log export (push OTLP `LogRecord`s to the collector) is the eventual target. The Erlang/Elixir SDK exposes the logs signal only through the `opentelemetry_experimental` app (still non-GA upstream, latest 0.6.x). This file-based path is the stable interim: when the logs signal is promoted to the stable SDK, switch the handler to `:otel_log_handler` and add a `logs` pipeline to the collector config.
 
-## Dev environment
+## Development
 
-`up.sh` script for convenience
+- `./docker/up.sh dev` starts the complete stack.
+- `./docker/up.sh logs [service]` tails logs.
+- `./docker/up.sh down` stops the stack.
+- `./docker/up.sh down-all` also removes volumes.
 
-- `up.sh dev` - full stack
-- `up.sh logs` - tails docker logs from all containers
-` -up.sh logs -f <container name>` - logs from selected container
+## Private Demo Deployment
 
-Environment variables & secrets (temp) stored in `.env` file
-
-## Production environment
-
-Not set up yet.
+The migration service runs the release migration command before the app starts. The app exposes `/healthz` for process liveness and `/readyz` for database readiness. App and Grafana ports bind to loopback by default; set the documented bind-address variables only when an external reverse proxy is in place.

@@ -51,6 +51,7 @@ RUN mkdir config
 COPY config/config.exs config/${MIX_ENV}.exs config/
 RUN mix deps.compile
 
+COPY package.json package-lock.json ./
 RUN mix assets.setup
 
 COPY priv priv

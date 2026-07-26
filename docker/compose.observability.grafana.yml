@@ -1,0 +1,79 @@
+# Grafana observability adapter. The application only sends OTLP to the
+# collector and writes an optional structured log file.
+services:
+  network_defense:
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      LOG_FILE_PATH: /var/log/network_defense/network_defense.jsonl
+    volumes:
+      - network-defense-logs:/var/log/network_defense
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      - tempo
+      - prometheus
+
+  tempo:
+    image: grafana/tempo:2.5.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.retention.time=7d
+      - --web.enable-lifecycle
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+
+  loki:
+    image: grafana/loki:3.3.2
+    user: "0:0"
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.17.1
+    command:
+      [
+        "run",
+        "--server.http.listen-addr=0.0.0.0:12345",
+        "--storage.path=/var/lib/alloy/data",
+        "/etc/alloy/config.alloy"
+      ]
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - network-defense-logs:/var/log/network_defense:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning:ro
+      - ./grafana-dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - tempo
+      - prometheus
+      - loki
+      - alloy
+
+volumes:
+  tempo-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
+  alloy-data:
+  network-defense-logs:

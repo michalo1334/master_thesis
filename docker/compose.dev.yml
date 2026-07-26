@@ -1,0 +1,89 @@
+# Development: app source mounts, local credentials, and loopback-only ports.
+services:
+  network_defense:
+    build:
+      context: ../src
+      dockerfile: Dockerfile.dev
+    image: network_defense:dev
+    env_file: ../src/.env
+    environment:
+      MIX_BUILD_PATH: /app/_build_docker
+      REPO_HOSTNAME: postgres
+      REPO_PORT: "5432"
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PHX_IP: 0.0.0.0
+      PORT: "4000"
+      NPM_CONFIG_NODE_OPTIONS: ${NPM_CONFIG_NODE_OPTIONS:---inspect=0.0.0.0:9229}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-network_defense}
+      LOG_FILE_LEVEL: ${LOG_FILE_LEVEL:-debug}
+    stdin_open: true
+    tty: true
+    ports:
+      - "127.0.0.1:4000:4000"
+      - "127.0.0.1:4001:4001"
+      - "127.0.0.1:5173:5173"
+      - "127.0.0.1:9229:9229"
+    volumes:
+      - ../src/lib:/app/lib
+      - ../src/priv:/app/priv
+      - ../src/test:/app/test
+      - ../src/config:/app/config
+      - ../src/assets/js:/app/assets/js
+      - ../src/assets/css:/app/assets/css
+      - ../src/assets/svelte:/app/assets/svelte
+      - ../src/assets/vendor:/app/assets/vendor
+      - ../src/assets/vite.config.mjs:/app/assets/vite.config.mjs
+      - network-defense-build:/app/_build_docker
+      - network-defense-deps:/app/deps
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  otel-collector:
+    ports:
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8889:8889"
+
+  tempo:
+    ports:
+      - "127.0.0.1:3200:3200"
+
+  prometheus:
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  loki:
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  alloy:
+    ports:
+      - "127.0.0.1:12345:12345"
+
+  grafana:
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:?set GRAFANA_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?set GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: ${GRAFANA_ALLOW_SIGN_UP:-false}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-false}
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ORG_ROLE:-Viewer}
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  pgadmin:
+    ports:
+      - "127.0.0.1:5050:80"
+
+volumes:
+  network-defense-build:
+  network-defense-deps:

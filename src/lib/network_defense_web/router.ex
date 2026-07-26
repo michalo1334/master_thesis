@@ -15,6 +15,11 @@ defmodule NetworkDefenseWeb.Router do
   end
 
   scope "/", NetworkDefenseWeb do
+    get "/healthz", HealthController, :live
+    get "/readyz", HealthController, :ready
+  end
+
+  scope "/", NetworkDefenseWeb do
     pipe_through :browser
     live "/dashboard", DashboardLive
 

@@ -26,7 +26,7 @@ config :network_defense, NetworkDefense.Repo,
   username: System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") || "postgres",
   password: System.get_env("REPO_PASSWORD") || System.get_env("POSTGRES_PASSWORD") || "postgres",
   hostname: System.get_env("REPO_HOSTNAME") || "localhost",
-  port: String.to_integer(System.get_env("REPO_PORT") || "5432"),
+  port: String.to_integer(System.get_env("REPO_PORT") || "5433"),
   database:
     System.get_env("REPO_DATABASE") || System.get_env("POSTGRES_DB") || "network_defense_dev",
   stacktrace: true,

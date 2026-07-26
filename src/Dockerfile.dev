@@ -7,7 +7,7 @@
 # hot-reload, bind-mounted source changes, and interactive debugging.
 #
 # Usage:
-#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.dev.yml up -d
+#   ./docker/up.sh dev
 
 ARG ELIXIR_VERSION=1.20.2
 ARG OTP_VERSION=29.0.3

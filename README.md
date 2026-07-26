@@ -88,7 +88,7 @@ Evaluation metrics may include:
 # Quick start
 
 ```bash
-# Start infrastructure services and run the application locally
+# Start PostgreSQL, pgAdmin, and the observability stack; run the application locally
 ./docker/up.sh infra
 
 cd src

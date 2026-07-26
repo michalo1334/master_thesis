@@ -8,9 +8,17 @@ config :opentelemetry,
     }
   }
 
-config :opentelemetry_exporter,
-  otlp_protocol: :http_protobuf,
-  otlp_endpoint: System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318")
+case System.get_env("OTEL_EXPORTER_OTLP_ENDPOINT") do
+  endpoint when is_binary(endpoint) and endpoint != "" ->
+    config :opentelemetry, traces_exporter: :otlp
+
+    config :opentelemetry_exporter,
+      otlp_protocol: :http_protobuf,
+      otlp_endpoint: endpoint
+
+  _ ->
+    config :opentelemetry, traces_exporter: :none
+end
 
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
@@ -103,6 +111,7 @@ if config_env() == :prod do
     socket_options: maybe_ipv6
 
   secret_key_base = read_secret.("SECRET_KEY_BASE")
+  live_view_signing_salt = read_secret.("LIVE_VIEW_SIGNING_SALT")
 
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")
@@ -120,6 +129,7 @@ if config_env() == :prod do
       port: port
     ],
     secret_key_base: secret_key_base,
+    live_view: [signing_salt: live_view_signing_salt],
     cache_static_manifest_latest: PhoenixVite.cache_static_manifest_latest(:network_defense)
 
   # ## SSL Support
