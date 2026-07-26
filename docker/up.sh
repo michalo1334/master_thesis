@@ -61,11 +61,7 @@ case "${1:-}" in
     echo "pgAdmin: http://localhost:5050"
     ;;
   dev)
-    if ! docker image inspect network_defense:dev &>/dev/null; then
-      echo "Image network_defense:dev not found, building..."
-      dev_compose build
-    fi
-    dev_compose up -d
+    dev_compose up -d --build
     ;;
   prod)
     prod_compose up -d

@@ -175,6 +175,7 @@
     return table.getFilteredRowModel().rows.length;
   });
   const totalCount = $derived(items.length);
+  const hasStatus = $derived(totalCount === 0 || filteredCount === 0);
   const showPagination = $derived(filteredCount > perPage);
 
   const visibleRows = $derived.by(() => {
@@ -229,18 +230,44 @@
     </span>
   </div>
 
+  {#snippet spacerRows(columnCount: number)}
+    {#each { length: Math.max(0, perPage - visibleRows.length) }}
+      <tr aria-hidden="true">
+        {#if selectionMode !== "none"}
+          <td class="filterable-table-select">
+            <button
+              type="button"
+              class="filterable-table-control filterable-table-spacer-control"
+              disabled
+              aria-hidden="true"
+            ></button>
+          </td>
+          <td colspan={columnCount - 1}>&nbsp;</td>
+        {:else}
+          <td colspan={columnCount}>&nbsp;</td>
+        {/if}
+      </tr>
+    {/each}
+  {/snippet}
+
   <div class="filterable-table-scroll">
-    {#if totalCount === 0}
-      <p class="filterable-table-message">{emptyMessage}</p>
-    {:else if filteredCount === 0}
-      <p class="filterable-table-message">{noMatchMessage}</p>
-    {:else if selectionMode === "single"}
+    {#if hasStatus}
+      <p class="filterable-table-message" role="status">
+        {totalCount === 0 ? emptyMessage : noMatchMessage}
+      </p>
+    {/if}
+
+    {#if selectionMode === "single"}
       <RadioGroup.Root
         class="filterable-table-root"
         value={Object.keys(rowSelection).find((k) => rowSelection[k]) ?? ""}
         onValueChange={setSingleKey}
+        aria-hidden={hasStatus || undefined}
       >
-        <table class="filterable-table-table">
+        <table
+          class="filterable-table-table"
+          aria-hidden={hasStatus || undefined}
+        >
           <thead>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
@@ -252,30 +279,33 @@
             </tr>
           </thead>
           <tbody>
-            {#each visibleRows as row (row.id)}
-              {@const rowDisabled = isDisabled?.(row.original) ?? false}
-              <tr
-                data-selected={row.getIsSelected() || undefined}
-                data-disabled={rowDisabled || undefined}
-              >
-                <td class="filterable-table-select">
-                  <RadioGroup.Item
-                    class="filterable-table-control"
-                    value={row.id}
-                    disabled={rowDisabled || disabled}
-                    aria-label={`Select ${row.id}`}
-                  >
-                    <span class="filterable-table-radio" aria-hidden="true"
-                    ></span>
-                  </RadioGroup.Item>
-                </td>
-                {#each columns as col (col.key)}
-                  <td class:filterable-table-align-end={col.align === "end"}>
-                    {row.getValue<string>(col.key)}
+            {#if !hasStatus}
+              {#each visibleRows as row (row.id)}
+                {@const rowDisabled = isDisabled?.(row.original) ?? false}
+                <tr
+                  data-selected={row.getIsSelected() || undefined}
+                  data-disabled={rowDisabled || undefined}
+                >
+                  <td class="filterable-table-select">
+                    <RadioGroup.Item
+                      class="filterable-table-control"
+                      value={row.id}
+                      disabled={rowDisabled || disabled}
+                      aria-label={`Select ${row.id}`}
+                    >
+                      <span class="filterable-table-radio" aria-hidden="true"
+                      ></span>
+                    </RadioGroup.Item>
                   </td>
-                {/each}
-              </tr>
-            {/each}
+                  {#each columns as col (col.key)}
+                    <td class:filterable-table-align-end={col.align === "end"}>
+                      {row.getValue<string>(col.key)}
+                    </td>
+                  {/each}
+                </tr>
+              {/each}
+            {/if}
+            {@render spacerRows(columns.length + 1)}
           </tbody>
         </table>
       </RadioGroup.Root>
@@ -284,8 +314,12 @@
         class="filterable-table-root"
         value={Object.keys(rowSelection).filter((k) => rowSelection[k])}
         onValueChange={setMultiKeys}
+        aria-hidden={hasStatus || undefined}
       >
-        <table class="filterable-table-table">
+        <table
+          class="filterable-table-table"
+          aria-hidden={hasStatus || undefined}
+        >
           <thead>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
@@ -297,35 +331,41 @@
             </tr>
           </thead>
           <tbody>
-            {#each visibleRows as row (row.id)}
-              {@const rowDisabled = isDisabled?.(row.original) ?? false}
-              <tr
-                data-selected={row.getIsSelected() || undefined}
-                data-disabled={rowDisabled || undefined}
-              >
-                <td class="filterable-table-select">
-                  <Checkbox.Root
-                    class="filterable-table-control"
-                    value={row.id}
-                    disabled={rowDisabled || disabled}
-                    aria-label={`Select ${row.id}`}
-                  >
-                    <span class="filterable-table-checkbox" aria-hidden="true"
-                    ></span>
-                  </Checkbox.Root>
-                </td>
-                {#each columns as col (col.key)}
-                  <td class:filterable-table-align-end={col.align === "end"}>
-                    {row.getValue<string>(col.key)}
+            {#if !hasStatus}
+              {#each visibleRows as row (row.id)}
+                {@const rowDisabled = isDisabled?.(row.original) ?? false}
+                <tr
+                  data-selected={row.getIsSelected() || undefined}
+                  data-disabled={rowDisabled || undefined}
+                >
+                  <td class="filterable-table-select">
+                    <Checkbox.Root
+                      class="filterable-table-control"
+                      value={row.id}
+                      disabled={rowDisabled || disabled}
+                      aria-label={`Select ${row.id}`}
+                    >
+                      <span class="filterable-table-checkbox" aria-hidden="true"
+                      ></span>
+                    </Checkbox.Root>
                   </td>
-                {/each}
-              </tr>
-            {/each}
+                  {#each columns as col (col.key)}
+                    <td class:filterable-table-align-end={col.align === "end"}>
+                      {row.getValue<string>(col.key)}
+                    </td>
+                  {/each}
+                </tr>
+              {/each}
+            {/if}
+            {@render spacerRows(columns.length + 1)}
           </tbody>
         </table>
       </Checkbox.Group>
     {:else}
-      <table class="filterable-table-table">
+      <table
+        class="filterable-table-table"
+        aria-hidden={hasStatus || undefined}
+      >
         <thead>
           <tr>
             {#each columns as col (col.key)}
@@ -336,16 +376,19 @@
           </tr>
         </thead>
         <tbody>
-          {#each visibleRows as row (row.id)}
-            {@const rowDisabled = isDisabled?.(row.original) ?? false}
-            <tr data-disabled={rowDisabled || undefined}>
-              {#each columns as col (col.key)}
-                <td class:filterable-table-align-end={col.align === "end"}>
-                  {row.getValue<string>(col.key)}
-                </td>
-              {/each}
-            </tr>
-          {/each}
+          {#if !hasStatus}
+            {#each visibleRows as row (row.id)}
+              {@const rowDisabled = isDisabled?.(row.original) ?? false}
+              <tr data-disabled={rowDisabled || undefined}>
+                {#each columns as col (col.key)}
+                  <td class:filterable-table-align-end={col.align === "end"}>
+                    {row.getValue<string>(col.key)}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          {/if}
+          {@render spacerRows(columns.length)}
         </tbody>
       </table>
     {/if}
@@ -431,6 +474,7 @@
   }
 
   .filterable-table-scroll {
+    position: relative;
     min-height: 0;
     overflow: auto;
     border: 1px solid var(--ds-color-border-soft);
@@ -439,10 +483,16 @@
   }
 
   .filterable-table-message {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: grid;
+    place-items: center;
     margin: 0;
     padding: var(--ds-space-4);
     color: var(--ds-color-text-secondary);
     text-align: center;
+    pointer-events: none;
   }
 
   .filterable-table-table {
@@ -540,6 +590,10 @@
   :global(.filterable-table-control:focus-visible) {
     outline: 2px solid var(--ds-color-focus);
     outline-offset: 2px;
+  }
+
+  .filterable-table-spacer-control {
+    visibility: hidden;
   }
 
   .filterable-table-pagination {

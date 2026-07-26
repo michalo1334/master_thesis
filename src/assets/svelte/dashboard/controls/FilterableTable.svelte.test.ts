@@ -203,26 +203,43 @@ describe("FilterableTable", () => {
     }
   });
 
-  it("shows the empty message when items is empty", () => {
-    render(TypedFilterableTable, {
+  it("retains the single-selection table footprint for empty items", () => {
+    const { container } = render(TypedFilterableTable, {
       props: {
         items: [],
         columns,
         getKey: (i: Item) => i.id,
+        perPage: 5,
+        selectionMode: "single",
         emptyMessage: "Nothing here",
         noMatchMessage: "No match",
       },
     });
 
-    expect(screen.getByText("Nothing here")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Nothing here");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(container.querySelector("table")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(container.querySelectorAll("thead th")).toHaveLength(
+      columns.length + 1,
+    );
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(
+      container.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(5);
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
-  it("shows the no-match message when filter yields zero", async () => {
-    render(TypedFilterableTable, {
+  it("retains the multiple-selection table footprint for no matches", async () => {
+    const { container } = render(TypedFilterableTable, {
       props: {
         items,
         columns,
         getKey: (i: Item) => i.id,
+        perPage: 4,
+        selectionMode: "multiple",
         emptyMessage: "Nothing here",
         noMatchMessage: "No matches",
       },
@@ -231,7 +248,20 @@ describe("FilterableTable", () => {
     const search = screen.getByRole("searchbox");
     await fireEvent.input(search, { target: { value: "nothingmatches" } });
 
-    expect(screen.getByText("No matches")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("No matches");
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(container.querySelector("table")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
+    expect(container.querySelectorAll("thead th")).toHaveLength(
+      columns.length + 1,
+    );
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(4);
+    expect(
+      container.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(4);
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
   it("paginates rows when count exceeds perPage", () => {
@@ -255,6 +285,63 @@ describe("FilterableTable", () => {
 
     expect(screen.getByText("Item 0")).toBeInTheDocument();
     expect(screen.queryByText("Item 9")).not.toBeInTheDocument();
+  });
+
+  it("reserves per-page rows without exposing spacers to assistive technology", async () => {
+    const { container } = render(TypedFilterableTable, {
+      props: {
+        items,
+        columns,
+        getKey: (i: Item) => i.id,
+        perPage: 5,
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+      },
+    });
+
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(
+      container.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(2);
+    expect(
+      container.querySelectorAll(".filterable-table-spacer-control"),
+    ).toHaveLength(0);
+    expect(screen.getAllByRole("row")).toHaveLength(4);
+
+    await fireEvent.input(screen.getByRole("searchbox"), {
+      target: { value: "alpha" },
+    });
+
+    expect(container.querySelectorAll("tbody tr")).toHaveLength(5);
+    expect(
+      container.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(4);
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("uses hidden control-sized spacers in selection mode", () => {
+    const { container } = render(TypedFilterableTable, {
+      props: {
+        items,
+        columns,
+        getKey: (i: Item) => i.id,
+        perPage: 5,
+        selectionMode: "multiple",
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+      },
+    });
+
+    const spacers = container.querySelectorAll('tbody tr[aria-hidden="true"]');
+    expect(spacers).toHaveLength(2);
+    for (const spacer of spacers) {
+      const control = spacer.querySelector(".filterable-table-spacer-control");
+      expect(control).toHaveAttribute("aria-hidden", "true");
+      expect(control?.tagName).toBe("BUTTON");
+      expect(control).toBeDisabled();
+    }
+    expect(screen.getAllByRole("checkbox")).toHaveLength(items.length);
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("marks disabled items and disables their selection control", () => {
