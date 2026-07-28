@@ -31,9 +31,6 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
       })
       |> Enum.filter(&privilege_held?(&1, attacker_state))
       |> Enum.map(&action_for_match/1)
-      |> Enum.reject(fn {action, _edge_ids} ->
-        AttackerState.attempted?(attacker_state, action)
-      end)
     end
 
     defp privilege_held?(match, attacker_state) do
@@ -47,10 +44,11 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
     end
 
     defp action_for_match(match) do
-      {%AcquireCredential{
-         credential: match.credential,
-         host: match.host
-       }, [match.stores_credential.id]}
+      %AcquireCredential{
+        credential_id: match.credential.id,
+        host_id: match.host.id,
+        supporting_edge_ids: [match.stores_credential.id]
+      }
     end
   end
 end

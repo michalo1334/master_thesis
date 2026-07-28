@@ -8,7 +8,6 @@ defmodule NetworkDefense.Simulation.Run do
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Types.AttackerState, as: AttackerStateType
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -17,9 +16,8 @@ defmodule NetworkDefense.Simulation.Run do
           id: String.t() | nil,
           graph_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
-          initial_seed: integer(),
+          seed: integer(),
           initial_attacker_state: AttackerState.t(),
-          iteration_count: non_neg_integer(),
           rules: list(Rule.t()),
           iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t(),
           experiment_id: String.t() | nil,
@@ -30,9 +28,8 @@ defmodule NetworkDefense.Simulation.Run do
     belongs_to :graph, Graph
     belongs_to :experiment, Experiment
 
-    field :initial_seed, :integer, default: 0
-    field :initial_attacker_state, AttackerStateType
-    field :iteration_count, :integer, default: 1000
+    field :seed, :integer
+    embeds_one :initial_attacker_state, AttackerState, on_replace: :update
     field :rules, :any, virtual: true, default: []
 
     has_many :iterations, IterationStep, foreign_key: :run_id
@@ -41,37 +38,39 @@ defmodule NetworkDefense.Simulation.Run do
   end
 
   def changeset(state, attrs) do
-    state
-    |> cast(attrs, [
-      :initial_seed,
-      :initial_attacker_state,
-      :iteration_count,
-      :experiment_id
-    ])
-    |> validate_required([:graph_id, :initial_seed, :initial_attacker_state, :iteration_count])
-    |> validate_number(:initial_seed, greater_than_or_equal_to: 0)
-    |> validate_number(:iteration_count, greater_than: 0)
+    changeset =
+      state
+      |> cast(attrs, [:seed, :experiment_id])
+
+    changeset =
+      case Map.get(attrs, :initial_attacker_state) do
+        %AttackerState{} = attacker_state ->
+          put_embed(changeset, :initial_attacker_state, attacker_state)
+
+        _ ->
+          changeset
+      end
+
+    changeset
+    |> validate_required([:graph_id, :seed, :initial_attacker_state])
+    |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:graph_id)
     |> foreign_key_constraint(:experiment_id)
   end
 
-  def new(opts \\ []) do
-    state =
-      struct!(
-        __MODULE__,
-        Keyword.merge(
-          [
-            id: Ecto.UUID.generate(),
-            initial_seed: 0,
-            iteration_count: 1000,
-            iterations: [],
-            rules: []
-          ],
-          opts
-        )
-      )
+  def new(attrs) do
+    attrs = Map.new(attrs)
 
-    %{state | graph_id: state.graph_id || graph_id(state.graph)}
+    %__MODULE__{
+      id: Ecto.UUID.generate(),
+      graph_id: Map.get(attrs, :graph_id) || graph_id(Map.get(attrs, :graph)),
+      graph: Map.get(attrs, :graph),
+      seed: Map.get(attrs, :seed, 0),
+      initial_attacker_state: Map.fetch!(attrs, :initial_attacker_state),
+      rules: Map.get(attrs, :rules, []),
+      iterations: Map.get(attrs, :iterations, []),
+      experiment_id: Map.get(attrs, :experiment_id)
+    }
   end
 
   def current_iteration(%__MODULE__{iterations: []}), do: nil
@@ -84,12 +83,7 @@ defmodule NetworkDefense.Simulation.Run do
     end
   end
 
-  def current_seed(%__MODULE__{} = state) do
-    case current_iteration(state) do
-      nil -> state.initial_seed
-      iteration -> iteration.seed
-    end
-  end
+  def current_seed(%__MODULE__{seed: seed}), do: seed
 
   def add_iteration_step(
         %__MODULE__{iterations: iterations} = state,

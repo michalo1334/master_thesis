@@ -25,7 +25,7 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
       attacker_state = Run.current_attacker_state(state)
       graph = state.graph
       foothold_ids = MapSet.new(AttackerState.foothold_nodes(attacker_state))
-      creds = attacker_state.credentials
+      creds = MapSet.new(attacker_state.credential_ids)
 
       graph
       |> Query.match(%{
@@ -50,17 +50,19 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
         |> Enum.map(fn cred_match ->
           authenticates_to = cred_match.authenticates_to.data
 
-          {%ReuseCredential{
-             credential: cred_match.credential,
-             source_host: match.source_host,
-             target_host: match.target_host,
-             service: match.service,
-             granted_privilege: authenticates_to.granted_privilege
-           }, [match.reachability.id, match.runs.id, cred_match.authenticates_to.id]}
+          %ReuseCredential{
+            credential_id: cred_match.credential.id,
+            source_host_id: match.source_host.id,
+            target_host_id: match.target_host.id,
+            service_id: match.service.id,
+            granted_privilege: authenticates_to.granted_privilege,
+            supporting_edge_ids: [
+              match.reachability.id,
+              match.runs.id,
+              cred_match.authenticates_to.id
+            ]
+          }
         end)
-      end)
-      |> Enum.reject(fn {action, _edge_ids} ->
-        AttackerState.attempted?(attacker_state, action)
       end)
     end
 

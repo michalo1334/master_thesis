@@ -47,11 +47,33 @@ defmodule NetworkDefense.Simulation.Experiments do
     map =
       struct |> Map.take(Map.keys(schema.__schema__(:dump))) |> Map.merge(additions)
 
-    case schema.__schema__(:autogenerate_id) do
-      {key, _, _} -> if is_nil(map[key]), do: Map.delete(map, key), else: map
-      nil -> map
-    end
+    map = dump_embeds(map, schema)
+
+    map =
+      Map.new(map, fn {field, value} ->
+        {schema.__schema__(:field_source, field), dump_uuid(field, value)}
+      end)
+
+    {key, _, _} = schema.__schema__(:autogenerate_id)
+    if is_nil(map[key]), do: Map.delete(map, key), else: map
   end
+
+  defp dump_embeds(map, Run) do
+    Map.update!(map, :initial_attacker_state, &Ecto.embedded_dump(&1, :json))
+  end
+
+  defp dump_embeds(map, IterationStep) do
+    map
+    |> Map.update!(:attempted_action, &Ecto.embedded_dump(&1, :json))
+    |> Map.update!(:attacker_state, &Ecto.embedded_dump(&1, :json))
+  end
+
+  defp dump_uuid(_field, nil), do: nil
+
+  defp dump_uuid(field, value) when field in [:id, :graph_id, :experiment_id, :run_id],
+    do: Ecto.UUID.dump!(value)
+
+  defp dump_uuid(_field, value), do: value
 
   def load(id) do
     case Repo.get(Experiment, id) do
@@ -76,7 +98,7 @@ defmodule NetworkDefense.Simulation.Experiments do
     rows
     |> Enum.chunk_every(rows_per_insert(rows))
     |> Enum.reduce(0, fn chunk, inserted_count ->
-      case Repo.insert_all(schema, chunk, on_conflict: :nothing) do
+      case Repo.insert_all(schema.__schema__(:source), chunk, on_conflict: :nothing) do
         {count, nil} when count == length(chunk) -> inserted_count + count
         _ -> Repo.rollback(operation)
       end
@@ -100,10 +122,9 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   defp experiment_attrs(experiment) do
     Map.take(experiment, [
-      :seed,
+      :master_seed,
       :iteration_count,
-      :run_count,
-      :initial_attacker_state,
+      :max_attempts,
       :lock_version,
       :runtime_ms
     ])
@@ -111,7 +132,7 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   defp runs_query do
     from(run in Run,
-      order_by: [asc: run.initial_seed],
+      order_by: [asc: run.seed],
       preload: [iterations: ^iteration_order()]
     )
   end

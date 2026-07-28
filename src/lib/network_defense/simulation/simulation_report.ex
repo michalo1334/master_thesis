@@ -4,6 +4,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   """
 
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Actions.AttemptedAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.SimulationReport.Charts
@@ -196,7 +197,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
 
     iterations
     |> Enum.group_by(fn iter ->
-      action_type_label(iter.attempted_action)
+      iter.attempted_action |> AttemptedAction.action() |> action_type_label()
     end)
     |> Enum.map(fn {action_type, group} ->
       %{
@@ -236,7 +237,12 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       runs,
       fn run ->
         run.iterations
-        |> Enum.flat_map(&(&1.successful_edge_ids || []))
+        |> Enum.filter(& &1.success?)
+        |> Enum.flat_map(fn iteration ->
+          iteration.attempted_action
+          |> AttemptedAction.action()
+          |> Map.get(:supporting_edge_ids, [])
+        end)
       end,
       :edge_id,
       :traversal_probability

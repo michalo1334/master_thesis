@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Simulation.ExperimentsTest do
   use NetworkDefense.DataCase, async: true
 
+  alias NetworkDefense.Actions.AttemptedAction
+  alias NetworkDefense.Actions.ExploitVulnerability
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Repo
@@ -12,21 +14,27 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
   test "splits large iteration inserts below PostgreSQL's bind limit" do
     graph = insert_graph()
     attacker_state = AttackerState.new("source-host")
-    seed = :rand.seed_s(:exsss, {1, 2, 3})
+
+    action =
+      %ExploitVulnerability{
+        source_host_id: "source",
+        supporting_edge_ids: []
+      }
+
+    attempted_action = AttemptedAction.new(action)
 
     run =
       Run.new(
         graph: graph,
-        initial_seed: 42,
+        seed: 42,
         initial_attacker_state: attacker_state,
-        iteration_count: 10_000,
         iterations:
           Enum.map(1..10_000, fn index ->
             IterationStep.new(
               index: index,
               success?: true,
-              attacker_state: attacker_state,
-              seed: seed
+              attempted_action: attempted_action,
+              attacker_state: attacker_state
             )
           end)
       )
@@ -34,10 +42,9 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
     experiment =
       Experiment.new(
         graph: graph,
-        seed: 42,
+        master_seed: 42,
         iteration_count: 10_000,
-        run_count: 1,
-        initial_attacker_state: attacker_state,
+        max_attempts: 1,
         runs: [run]
       )
 

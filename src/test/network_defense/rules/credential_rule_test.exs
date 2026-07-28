@@ -27,9 +27,9 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       attacker_state = AttackerState.new(host.id, :user)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
-      assert [{action, edge_ids}] = Rule.evaluate(%AcquireCredentialRule{}, simulation)
-      assert action.credential.id == credential.id
-      assert edge_ids == ["stores"]
+      assert [action] = Rule.evaluate(%AcquireCredentialRule{}, simulation)
+      assert action.credential_id == credential.id
+      assert action.supporting_edge_ids == ["stores"]
 
       result = Action.execute(action, attacker_state)
       assert AttackerState.has_credential?(result, credential.id)
@@ -79,11 +79,11 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
 
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
-      assert [{action, edge_ids}] = Rule.evaluate(%ReuseCredentialRule{}, simulation)
-      assert action.credential.id == credential.id
-      assert action.target_host.id == target_host.id
+      assert [action] = Rule.evaluate(%ReuseCredentialRule{}, simulation)
+      assert action.credential_id == credential.id
+      assert action.target_host_id == target_host.id
       assert action.granted_privilege == :administrator
-      assert MapSet.new(edge_ids) == MapSet.new(["reach", "runs", "auth"])
+      assert MapSet.new(action.supporting_edge_ids) == MapSet.new(["reach", "runs", "auth"])
 
       result = Action.execute(action, attacker_state)
       assert target_host.id in AttackerState.foothold_nodes(result)
@@ -130,10 +130,10 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       attacker_state = AttackerState.new(host.id, :user)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
-      assert [{action, edge_ids}] = Rule.evaluate(%LocalVulnerabilityExploitation{}, simulation)
-      assert action.vulnerability_node.id == vuln.id
+      assert [action] = Rule.evaluate(%LocalVulnerabilityExploitation{}, simulation)
+      assert action.vulnerability_node_id == vuln.id
       assert action.granted_privilege == :administrator
-      assert edge_ids == ["hv"]
+      assert action.supporting_edge_ids == ["hv"]
 
       result = Action.execute(action, attacker_state)
       assert host.id in AttackerState.foothold_nodes(result)
@@ -173,8 +173,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
-      assert [{action, _edge_ids}] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
-      assert action.service.id == service.id
+      assert [action] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
+      assert action.service_id == service.id
     end
 
     test "matches when reachability protocol is any" do
@@ -184,8 +184,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
-      assert [{action, _edge_ids}] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
-      assert action.service.id == service.id
+      assert [action] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
+      assert action.service_id == service.id
     end
 
     test "does not match when protocol differs" do

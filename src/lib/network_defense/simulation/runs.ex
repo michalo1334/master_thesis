@@ -12,8 +12,7 @@ defmodule NetworkDefense.Simulation.Runs do
   def insert(%Run{} = run) do
     Repo.transaction(fn ->
       persisted_run =
-        %Run{graph_id: graph_id(run)}
-        |> Run.changeset(run_attrs(run))
+        %{run | graph: nil, rules: [], iterations: []}
         |> insert_or_rollback(:run)
 
       iterations = Enum.map(run.iterations, &insert_iteration(&1, persisted_run.id))
@@ -35,8 +34,7 @@ defmodule NetworkDefense.Simulation.Runs do
   end
 
   defp insert_iteration(iteration, run_id) do
-    %IterationStep{run_id: run_id}
-    |> IterationStep.changeset(iteration_attrs(iteration))
+    %{iteration | run_id: run_id}
     |> insert_or_rollback(:iteration_step)
   end
 
@@ -45,25 +43,6 @@ defmodule NetworkDefense.Simulation.Runs do
       {:ok, record} -> record
       {:error, changeset} -> Repo.rollback({operation, changeset})
     end
-  end
-
-  defp graph_id(%Run{graph_id: graph_id}) when is_binary(graph_id), do: graph_id
-  defp graph_id(%Run{graph: %{id: graph_id}}) when is_binary(graph_id), do: graph_id
-  defp graph_id(_), do: nil
-
-  defp run_attrs(run) do
-    Map.take(run, [:initial_seed, :initial_attacker_state, :iteration_count])
-  end
-
-  defp iteration_attrs(iteration) do
-    Map.take(iteration, [
-      :index,
-      :attempted_action,
-      :success?,
-      :successful_edge_ids,
-      :attacker_state,
-      :seed
-    ])
   end
 
   defp iteration_query do

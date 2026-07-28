@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Simulation.SimulationReportTest do
   use ExUnit.Case, async: true
 
+  alias NetworkDefense.Actions.AttemptedAction
+  alias NetworkDefense.Actions.ExploitVulnerability
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.{Host, Service}
@@ -80,14 +82,27 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
     }
   end
 
-  defp run(foothold, successful_edge_ids \\ nil) do
+  defp run(foothold, supporting_edge_ids \\ nil) do
     state = AttackerState.new(foothold)
 
     Run.new(
+      seed: 0,
       initial_attacker_state: state,
       iterations:
-        if successful_edge_ids do
-          [IterationStep.new(attacker_state: state, successful_edge_ids: successful_edge_ids)]
+        if supporting_edge_ids do
+          action = %ExploitVulnerability{
+            source_host_id: foothold,
+            supporting_edge_ids: supporting_edge_ids
+          }
+
+          [
+            IterationStep.new(
+              index: 1,
+              success?: true,
+              attempted_action: AttemptedAction.new(action),
+              attacker_state: state
+            )
+          ]
         else
           []
         end

@@ -3,6 +3,6 @@ defprotocol NetworkDefense.Rules.Rule do
   Represents a condition that produces candidate actions (see `Action`) for simulator to perform
   """
   @spec evaluate(t(), NetworkDefense.Simulation.Run.t()) ::
-          list({NetworkDefense.Actions.Action.t(), [String.t()]})
-  def evaluate(rule, simulation_state)
+          list(NetworkDefense.Actions.Action.t())
+  def evaluate(rule, run_state)
 end

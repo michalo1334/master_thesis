@@ -72,17 +72,18 @@ defmodule NetworkDefense.Simulations do
           :timer.tc(fn ->
             {experiment, runs} =
               Simulator.run_experiment(
-                graph: graph,
+                graph,
+                initial_attacker_state,
                 run_count: run_count,
                 iteration_count: iteration_count,
                 seed: seed,
-                initial_attacker_state: initial_attacker_state,
                 lock_version: graph.lock_version,
                 rules: rules,
-                map_fun: map_fun
+                max_attempts: simulation_params.max_attempts,
+                map_fn: map_fun
               )
 
-            {experiment, Enum.to_list(runs)}
+            {experiment, runs}
           end)
           |> then(fn {us, result} ->
             Tracer.set_attributes(%{duration_ms: div(us, 1000)})
@@ -102,7 +103,6 @@ defmodule NetworkDefense.Simulations do
         experiment
         | runtime_ms: runtime_ms,
           lock_version: graph.lock_version,
-          run_count: run_count,
           runs: runs
       }
 

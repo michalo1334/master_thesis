@@ -4,9 +4,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
   Runs N successive iterations, with each iteration evaluating a set of rules and performing probalistically one selected action.
 
-   The entrypoint functions are run/2 and run_experiment/1.
-
-   While run/2 performs a single run, run_experiment/1 executes multiple runs in sequence to produce blast-radius statistics.
+   The entrypoint function executes multiple runs to produce blast-radius statistics.
   """
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
@@ -16,136 +14,130 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Seed, as: Seed
 
-  @default_run_count 10
-
   @doc """
-   Runs a Monte Carlo experiment with supplied options.
+   Runs a Monte Carlo experiment against graph with supplied options.
 
   Options:
-    - run_count - number of simulation runs
+   - run_count - number of simulation runs
    - seed - master seed from which child seeds are derived
-   - graph - the network graph
-   - initial_attacker_state - attacker starting position
    - iteration_count - iterations per run
    - rules - rule set to evaluate
+   - max_attempts - maximum number of attempts per action
    - map_fn - mapping function that maps each run to its result
 
    Returns a tuple `{experiment, runs}` where `experiment` is the parent record
    linking all completed runs.
   """
-  @spec run_experiment(keyword()) :: {Experiment.t(), list(Run.t())}
-  def run_experiment(opts) do
+  @spec run_experiment(term(), term(), keyword()) :: {Experiment.t(), list(Run.t())}
+  def run_experiment(graph, initial_attacker_state, opts) do
     seed = Keyword.get(opts, :seed)
-    run_count = Keyword.get(opts, :run_count, @default_run_count)
-    iteration_count = Keyword.get(opts, :iteration_count, 1000)
+    run_count = Keyword.get(opts, :run_count)
+    iteration_count = Keyword.get(opts, :iteration_count)
     lock_version = Keyword.get(opts, :lock_version, 1)
     map_fn = Keyword.get(opts, :map_fn, &Enum.map/2)
+    max_attempts = Keyword.get(opts, :max_attempts, 1)
 
     experiment =
       Experiment.new(
-        seed: seed,
+        graph_id: graph.id,
+        master_seed: seed,
         iteration_count: iteration_count,
-        run_count: run_count,
         lock_version: lock_version,
-        graph: Keyword.get(opts, :graph),
-        initial_attacker_state: Keyword.get(opts, :initial_attacker_state)
+        max_attempts: max_attempts
       )
 
     runs =
-      map_fn.(1..run_count, fn idx ->
-        run(
-          opts
-          |> Keyword.put(:seed, Seed.child_seed(seed, idx))
-          |> Keyword.put(:experiment_id, experiment.id)
-        )
+      map_fn.(1..run_count, &run_single(graph, initial_attacker_state, experiment, opts, &1))
+      |> Enum.map(fn
+        {:ok, run} -> run
+        run -> run
       end)
 
     {%{experiment | runs: runs}, runs}
   end
 
-  @doc """
-   Runs one simulation. Returns the completed Run after all iterations.
+  def run_single(graph, initial_attacker_state, experiment, opts, index) do
+    seed = Seed.child_seed(experiment.master_seed, index)
 
-  Options:
-   - initial_state - the attacker initial state or none
-   - iteration_count - n
-   - seed - seed that is used during any probabilistic action e.g. selecting or sampling action execution/skip outcome. Provides determinism and simulation reproducability
-    - experiment_id - optional parent Experiment id linking this run to its experiment
-  """
-  def run(opts) do
-    state_opts =
-      opts
-      |> Keyword.take([:graph, :initial_attacker_state, :rules, :iteration_count])
-      |> Keyword.put(:initial_seed, Keyword.get(opts, :seed, 0))
-      |> then(fn base_opts ->
-        case Keyword.get(opts, :experiment_id) do
-          nil -> base_opts
-          id -> Keyword.put(base_opts, :experiment_id, id)
-        end
-      end)
-
-    run(Run.new(state_opts), opts)
-  end
-
-  def run(%Run{iteration_count: iteration_count} = initial_state, _opts) do
-    do_run(initial_state, 1, iteration_count)
-  end
-
-  defp do_run(state, index, max_index) when index > max_index, do: state
-
-  defp do_run(state, index, max_index) do
-    actions = get_possible_actions(state)
-
-    if actions == [] do
-      state
-    else
-      sorted_actions = sort_actions(actions)
-
-      {new_state, _seed} =
-        Enum.reduce(sorted_actions, {state, Run.current_seed(state)}, fn candidate,
-                                                                         {state_acc, current_seed} ->
-          perform_action(state_acc, index, current_seed, candidate)
-        end)
-
-      do_run(new_state, index + 1, max_index)
-    end
-  end
-
-  defp perform_action(state, _round_index, current_seed, {action, edge_ids}) do
-    {success?, new_seed, new_attacker_state} =
-      maybe_execute_action(action, current_seed, Run.current_attacker_state(state))
-
-    iteration =
-      IterationStep.new(
-        # IterationStep has a unique run/index constraint, so each attempted action
-        # receives its own persisted sequence number within a simulation round.
-        index: length(state.iterations) + 1,
-        attempted_action: action,
-        success?: success?,
-        successful_edge_ids: if(success?, do: edge_ids),
-        seed: new_seed,
-        attacker_state: new_attacker_state
+    run =
+      Run.new(
+        graph: graph,
+        seed: seed,
+        initial_attacker_state: initial_attacker_state,
+        rules: Keyword.fetch!(opts, :rules),
+        experiment_id: experiment.id
       )
 
-    {state |> Run.add_iteration_step(iteration), new_seed}
+    do_run_iteration(experiment, run, Seed.integer_to_state(seed), 1)
+  end
+
+  defp do_run_iteration(%Experiment{iteration_count: max_index}, run_state, _random_state, index)
+       when index > max_index,
+       do: run_state
+
+  defp do_run_iteration(experiment, run_state, random_state, index) do
+    case get_possible_actions(run_state)
+         |> Enum.filter(
+           &AttackerState.can_attempt?(
+             Run.current_attacker_state(run_state),
+             &1,
+             experiment.max_attempts
+           )
+         )
+         |> sort_actions() do
+      [] ->
+        run_state
+
+      actions ->
+        {action, random_state} = select_action(actions, random_state)
+
+        {success?, random_state, attacker_state} =
+          maybe_execute_action(
+            action,
+            Run.current_attacker_state(run_state),
+            random_state,
+            experiment.max_attempts
+          )
+
+        attempted_action = AttackerState.attempted_action(attacker_state, action)
+
+        iteration =
+          IterationStep.new(
+            index: index,
+            attempted_action: attempted_action,
+            success?: success?,
+            attacker_state: attacker_state
+          )
+
+        do_run_iteration(
+          experiment,
+          Run.add_iteration_step(run_state, iteration),
+          random_state,
+          index + 1
+        )
+    end
   end
 
   def get_possible_actions(state) do
     state.rules |> Enum.flat_map(&Rule.evaluate(&1, state))
   end
 
-  def maybe_execute_action(action, seed, attacker_state) do
-    seed = Seed.seed_state(seed)
-    {sample, new_seed} = :rand.uniform_s(seed)
+  def maybe_execute_action(action, attacker_state, random_state, max_attempts) do
+    {sample, random_state} = :rand.uniform_s(random_state)
 
-    new_attacker_state = AttackerState.mark_attempted(attacker_state, action)
+    attacker_state = AttackerState.mark_attempted(attacker_state, action, max_attempts)
 
     if sample <= Action.probability(action) do
-      {true, new_seed, Action.execute(action, new_attacker_state)}
+      {true, random_state, Action.execute(action, attacker_state)}
     else
-      {false, new_seed, new_attacker_state}
+      {false, random_state, attacker_state}
     end
   end
 
-  defp sort_actions(actions), do: Enum.sort_by(actions, &elem(&1, 0))
+  defp select_action(actions, random_state) do
+    {index, random_state} = :rand.uniform_s(length(actions), random_state)
+    {Enum.at(actions, index - 1), random_state}
+  end
+
+  defp sort_actions(actions), do: Enum.sort(actions)
 end

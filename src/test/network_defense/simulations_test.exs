@@ -43,17 +43,16 @@ defmodule NetworkDefense.SimulationsTest do
     experiment =
       %Experiment{graph_id: graph.id}
       |> Experiment.changeset(%{
-        seed: 1,
+        master_seed: 1,
         iteration_count: 2,
-        initial_attacker_state: attacker_state
+        max_attempts: 1
       })
       |> Repo.insert!()
 
     run =
       %Run{graph_id: graph.id, experiment_id: experiment.id}
       |> Run.changeset(%{
-        initial_seed: 1,
-        iteration_count: 2,
+        seed: 1,
         initial_attacker_state: attacker_state
       })
       |> Repo.insert!()
@@ -127,27 +126,32 @@ defmodule NetworkDefense.SimulationsTest do
     |> Repo.insert!()
   end
 
-  defp insert_experiment(graph_id, attacker_state, inserted_at) do
+  defp insert_experiment(graph_id, _attacker_state, inserted_at) do
     %Experiment{
       graph_id: graph_id,
       inserted_at: inserted_at,
       updated_at: inserted_at
     }
     |> Experiment.changeset(%{
-      seed: 1,
+      master_seed: 1,
       iteration_count: 1,
-      initial_attacker_state: attacker_state
+      max_attempts: 1
     })
     |> Repo.insert!()
   end
 
   defp insert_iteration(run, attacker_state, index) do
+    action = %NetworkDefense.Actions.ExploitVulnerability{
+      source_host_id: "source",
+      supporting_edge_ids: []
+    }
+
     %IterationStep{run_id: run.id}
     |> IterationStep.changeset(%{
       index: index,
       success?: true,
-      attacker_state: attacker_state,
-      seed: :rand.seed_s(:exsss, {1, 2, index})
+      attempted_action: NetworkDefense.Actions.AttemptedAction.new(action),
+      attacker_state: attacker_state
     })
     |> Repo.insert!()
   end

@@ -145,6 +145,7 @@ export interface SimulationParams {
   generate_seed: boolean;
   initial_foothold_node_id: string;
   iterations_per_run: number;
+  max_attempts: number;
   monte_carlo_trials: number;
   seed: number;
 }

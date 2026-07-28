@@ -6,6 +6,7 @@
 
 alias NetworkDefense.Graph.Graph
 alias NetworkDefense.Graph.Node
+alias NetworkDefense.AttackerState.AttackerState
 alias NetworkDefense.Nodes.Host
 alias NetworkDefense.Nodes.Service
 alias NetworkDefense.Nodes.Vulnerability
@@ -13,7 +14,6 @@ alias NetworkDefense.Relationships.HasVulnerability
 alias NetworkDefense.Relationships.NetworkReachability
 alias NetworkDefense.Relationships.Runs
 alias NetworkDefense.Simulation.Simulator
-alias NetworkDefense.Simulations
 alias NetworkDefense.Rules.RemoteServiceExploitation
 
 {:ok, bench_sup} = Task.Supervisor.start_link(name: :bench_sup)
@@ -132,26 +132,27 @@ run_count = 500
 iteration_count = 500
 
 opts = [
-  graph: graph,
   run_count: run_count,
   iteration_count: iteration_count,
-  initial_attacker_state: Simulations.initial_attacker_state(graph),
+  seed: 0,
   rules: [%RemoteServiceExploitation{}]
 ]
+
+initial_attacker_state = AttackerState.new(Map.fetch!(hosts, "internet").id)
 
 IO.puts("Run count: #{run_count}, Iterations per run: #{iteration_count}")
 
 IO.puts("\n=== Sequential (Enum.map) ===")
 {seq_us, _seq_result} =
   :timer.tc(fn ->
-    Simulator.run_experiment(Keyword.put(opts, :map_fn, &Enum.map/2))
+    Simulator.run_experiment(graph, initial_attacker_state, Keyword.put(opts, :map_fn, &Enum.map/2))
   end)
 IO.puts("Wall time: #{div(seq_us, 1000)} ms")
 
 IO.puts("\n=== Parallel (async_stream) ===")
 {par_us, _par_result} =
   :timer.tc(fn ->
-    Simulator.run_experiment(Keyword.put(opts, :map_fn, parallel_map_fn))
+    Simulator.run_experiment(graph, initial_attacker_state, Keyword.put(opts, :map_fn, parallel_map_fn))
   end)
 IO.puts("Wall time: #{div(par_us, 1000)} ms")
 

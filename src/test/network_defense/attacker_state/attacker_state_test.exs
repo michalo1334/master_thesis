@@ -3,7 +3,6 @@ defmodule NetworkDefense.AttackerState.AttackerStateTest do
 
   alias NetworkDefense.Actions.AcquireCredential
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.Node
 
   describe "new/2" do
     test "creates state with default user privilege" do
@@ -68,8 +67,8 @@ defmodule NetworkDefense.AttackerState.AttackerStateTest do
 
   describe "attempted actions" do
     test "tracks complete action structs" do
-      action = %AcquireCredential{credential: %Node{id: "cred-1"}, host: %Node{id: "host-1"}}
-      state = AttackerState.new("host-1") |> AttackerState.mark_attempted(action)
+      action = %AcquireCredential{credential_id: "cred-1", host_id: "host-1"}
+      state = AttackerState.new("host-1") |> AttackerState.mark_attempted(action, 2)
 
       assert AttackerState.attempted?(state, action)
     end

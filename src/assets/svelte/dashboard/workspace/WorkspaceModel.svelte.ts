@@ -37,6 +37,7 @@ export class WorkspaceModel {
     initial_foothold_node_id: "",
     monte_carlo_trials: 1000,
     iterations_per_run: 1000,
+    max_attempts: 1,
     generate_seed: false,
     seed: 0,
   });

@@ -10,6 +10,7 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
     field :initial_foothold_node_id, :string
     field :seed, :integer
     field :generate_seed, :boolean, default: false
+    field :max_attempts, :integer, default: 1
   end
 
   @type t :: %__MODULE__{
@@ -17,7 +18,8 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
           iterations_per_run: integer(),
           initial_foothold_node_id: String.t(),
           seed: integer(),
-          generate_seed: boolean()
+          generate_seed: boolean(),
+          max_attempts: pos_integer()
         }
 
   def changeset(schema, attrs) do
@@ -29,18 +31,21 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
         :iterations_per_run,
         :initial_foothold_node_id,
         :seed,
-        :generate_seed
+        :generate_seed,
+        :max_attempts
       ],
-      default_values: [generate_seed: false]
+      default_values: [generate_seed: false, max_attempts: 1]
     )
     |> validate_required([
       :monte_carlo_trials,
       :iterations_per_run,
       :initial_foothold_node_id,
-      :generate_seed
+      :generate_seed,
+      :max_attempts
     ])
     |> validate_number(:monte_carlo_trials, greater_than: 0)
     |> validate_number(:iterations_per_run, greater_than: 0)
+    |> validate_number(:max_attempts, greater_than: 0)
     |> validate_seed_present_unless_generated()
   end
 

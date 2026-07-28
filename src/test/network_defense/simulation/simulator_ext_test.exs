@@ -21,7 +21,7 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
 
   import NetworkDefense.GraphFixtures
 
-  test "batch simulation runs all unique eligible actions each round" do
+  test "simulation progresses by selecting one random action per iteration" do
     {graph, source_host, target_host, _service, _vuln} = full_exploit_graph()
     attacker_state = AttackerState.new(source_host.id, :administrator)
 
@@ -32,17 +32,18 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
       %ReuseCredentialRule{}
     ]
 
-    result =
-      Simulator.run(
-        graph: graph,
-        initial_attacker_state: attacker_state,
+    {_experiment, runs} =
+      Simulator.run_experiment(
+        graph,
+        attacker_state,
         rules: rules,
         iteration_count: 5,
-        seed: 42
+        seed: 42,
+        run_count: 1
       )
 
+    result = hd(runs)
     final_state = Run.current_attacker_state(result)
-    # Should have progressed past the initial host
     footholds = AttackerState.foothold_nodes(final_state)
     assert target_host.id in footholds
   end
@@ -54,17 +55,17 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
 
     attacker_state = AttackerState.new(host.id)
 
-    result =
-      Simulator.run(
-        graph: graph,
-        initial_attacker_state: attacker_state,
+    {_experiment, runs} =
+      Simulator.run_experiment(
+        graph,
+        attacker_state,
         rules: [%RemoteServiceExploitation{}],
         iteration_count: 100,
-        seed: 42
+        seed: 42,
+        run_count: 1
       )
 
-    # No iterations should have been created since there are no paths
-    assert Run.current_iteration(result) == nil
+    assert Run.current_iteration(hd(runs)) == nil
   end
 
   defp full_exploit_graph do
