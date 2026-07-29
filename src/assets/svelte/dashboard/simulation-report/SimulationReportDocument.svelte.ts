@@ -26,6 +26,8 @@ export class SimulationReportDocument {
   heatmapSelectedNodeId = $state<string>();
   heatmapSelectedEdgeId = $state<string>();
   errorReason = $state<string>("");
+  completedRuns = $state(0);
+  totalRuns = $state(0);
 
   constructor(graphTitle: string, graphId: string) {
     this.id = crypto.randomUUID();
@@ -41,6 +43,8 @@ export class SimulationReportDocument {
     this.heatmapGraph = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
+    this.completedRuns = 0;
+    this.totalRuns = 0;
   }
 
   markReady(experimentId: string): void {
@@ -50,6 +54,14 @@ export class SimulationReportDocument {
     this.heatmapGraph = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
+    this.completedRuns = 0;
+    this.totalRuns = 0;
+  }
+
+  setProgress(completedRuns: number, totalRuns: number): void {
+    if (this.status !== "pending") return;
+    this.completedRuns = completedRuns;
+    this.totalRuns = totalRuns;
   }
 
   markError(reason: string): void {

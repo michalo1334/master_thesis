@@ -6,6 +6,7 @@ import type {
   OptimizationFailedEvent,
   SimulationCompletedEvent,
   SimulationFailedEvent,
+  SimulationProgressEvent,
   ExperimentSummary,
   FetchSimulationReportReply,
 } from "./contract";
@@ -139,6 +140,17 @@ export class DashboardModel {
     } else {
       report.markUnread();
     }
+  }
+
+  onSimulationProgress(payload: SimulationProgressEvent): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        d.correlationId === payload.correlation_id &&
+        d.graphId === payload.graph_id,
+    ) as SimulationReportDocument | undefined;
+    if (!report) return;
+    report.setProgress(payload.completed_runs, payload.total_runs);
   }
 
   onSimulationReportReady(payload: FetchSimulationReportReply): void {

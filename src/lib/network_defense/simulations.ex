@@ -60,6 +60,16 @@ defmodule NetworkDefense.Simulations do
         simulation_params.seed
       end
 
+    progress_callback = fn completed, total ->
+      pct = floor(completed / total * 100)
+      last_pct = Process.get(:sim_progress_last_pct, -1)
+
+      if pct > last_pct do
+        Process.put(:sim_progress_last_pct, pct)
+        broadcast_simulation_progress(graph.id, correlation_id, completed, total)
+      end
+    end
+
     Tracer.with_span "simulation.run",
       attributes: %{
         "graph.id": graph.id,
@@ -80,7 +90,8 @@ defmodule NetworkDefense.Simulations do
                 lock_version: graph.lock_version,
                 rules: rules,
                 max_attempts: simulation_params.max_attempts,
-                map_fn: map_fun
+                map_fn: map_fun,
+                progress_callback: progress_callback
               )
 
             {experiment, runs}
@@ -200,6 +211,20 @@ defmodule NetworkDefense.Simulations do
          correlation_id: correlation_id,
          graph_id: experiment.graph_id,
          experiment_id: experiment.id
+       }}
+    )
+  end
+
+  defp broadcast_simulation_progress(graph_id, correlation_id, completed_runs, total_runs) do
+    Phoenix.PubSub.broadcast(
+      NetworkDefense.PubSub,
+      @simulation_events_topic,
+      {:simulation_progress,
+       %{
+         correlation_id: correlation_id,
+         graph_id: graph_id,
+         completed_runs: completed_runs,
+         total_runs: total_runs
        }}
     )
   end

@@ -276,6 +276,13 @@ export interface SimulationFailedEvent {
   reason: string;
 }
 
+export interface SimulationProgressEvent {
+  completed_runs: number;
+  correlation_id: string;
+  graph_id: string;
+  total_runs: number;
+}
+
 export interface SimulationReportActionSuccess {
   action_type: string;
   attempts: number;

@@ -14,6 +14,7 @@
     OptimizationFailedEvent,
     SimulationCompletedEvent,
     SimulationFailedEvent,
+    SimulationProgressEvent,
     FetchSimulationReportReply,
   } from "./dashboard/contract";
   import type { SimulationReportErrorEvent } from "./dashboard/contract";
@@ -44,6 +45,10 @@
 
   useLiveEvent("simulation_failed", (payload: unknown) => {
     model.onSimulationFailed(payload as SimulationFailedEvent);
+  });
+
+  useLiveEvent("simulation_progress", (payload: unknown) => {
+    model.onSimulationProgress(payload as SimulationProgressEvent);
   });
 
   useLiveEvent("optimization_completed", (payload: unknown) => {

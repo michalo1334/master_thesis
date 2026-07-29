@@ -33,9 +33,26 @@
   </header>
 
   {#if document.status === "pending"}
-    <section class="simulation-report-waiting" aria-label="Simulation pending">
-      <div class="simulation-report-spinner" aria-hidden="true"></div>
-      <p>Simulation requested, waiting for results...</p>
+    <section
+      class="simulation-report-waiting"
+      aria-label="Simulation pending"
+      aria-live="polite"
+    >
+      {#if document.completedRuns > 0}
+        <div class="simulation-report-progress">
+          <progress
+            max={document.totalRuns}
+            value={document.completedRuns}
+            aria-label="Monte Carlo trials completed"
+          ></progress>
+          <span class="simulation-report-progress-label">
+            {document.completedRuns} of {document.totalRuns} runs completed
+          </span>
+        </div>
+      {:else}
+        <div class="simulation-report-spinner" aria-hidden="true"></div>
+        <p>Simulation requested, waiting for results...</p>
+      {/if}
     </section>
   {:else if document.status === "loading"}
     <section class="simulation-report-waiting" aria-label="Loading report">
@@ -258,6 +275,41 @@
     border-top-color: var(--ds-color-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+  }
+
+  .simulation-report-progress {
+    display: grid;
+    gap: var(--ds-space-2);
+    justify-items: center;
+    width: 18rem;
+  }
+
+  .simulation-report-progress progress {
+    width: 100%;
+    height: 0.5rem;
+    border: 0;
+    border-radius: var(--ds-radius-sm);
+    overflow: hidden;
+  }
+
+  .simulation-report-progress progress::-webkit-progress-bar {
+    background: var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+  }
+
+  .simulation-report-progress progress::-webkit-progress-value {
+    background: var(--ds-color-accent);
+    border-radius: var(--ds-radius-sm);
+  }
+
+  .simulation-report-progress progress::-moz-progress-bar {
+    background: var(--ds-color-accent);
+    border-radius: var(--ds-radius-sm);
+  }
+
+  .simulation-report-progress-label {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-sm);
   }
 
   :global(.simulation-report-tabs) {

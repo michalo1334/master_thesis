@@ -6,6 +6,8 @@ defmodule NetworkDefense.Simulation.Simulator do
 
    The entrypoint function executes multiple runs to produce blast-radius statistics.
   """
+  require OpenTelemetry.Tracer, as: Tracer
+
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
@@ -15,7 +17,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.Simulation.Seed, as: Seed
 
   @doc """
-   Runs a Monte Carlo experiment against graph with supplied options.
+  Runs a Monte Carlo experiment against graph with supplied options.
 
   Options:
    - run_count - number of simulation runs
@@ -24,6 +26,8 @@ defmodule NetworkDefense.Simulation.Simulator do
    - rules - rule set to evaluate
    - max_attempts - maximum number of attempts per action
    - map_fn - mapping function that maps each run to its result
+   - progress_callback - optional fn/2 called after each completed run as `callback(completed, total)`
+
 
    Returns a tuple `{experiment, runs}` where `experiment` is the parent record
    linking all completed runs.
@@ -36,6 +40,7 @@ defmodule NetworkDefense.Simulation.Simulator do
     lock_version = Keyword.get(opts, :lock_version, 1)
     map_fn = Keyword.get(opts, :map_fn, &Enum.map/2)
     max_attempts = Keyword.get(opts, :max_attempts, 1)
+    progress_callback = Keyword.get(opts, :progress_callback)
 
     experiment =
       Experiment.new(
@@ -47,10 +52,22 @@ defmodule NetworkDefense.Simulation.Simulator do
       )
 
     runs =
-      map_fn.(1..run_count, &run_single(graph, initial_attacker_state, experiment, opts, &1))
+      1..run_count
+      |> map_fn.(fn index ->
+        Tracer.with_span "simulation.trial",
+          attributes: %{"trial.index": index} do
+          run_single(graph, initial_attacker_state, experiment, opts, index)
+        end
+      end)
+      |> Enum.with_index(1)
       |> Enum.map(fn
-        {:ok, run} -> run
-        run -> run
+        {{:ok, run}, completed} ->
+          if progress_callback, do: progress_callback.(completed, run_count)
+          run
+
+        {run, completed} ->
+          if progress_callback, do: progress_callback.(completed, run_count)
+          run
       end)
 
     {%{experiment | runs: runs}, runs}

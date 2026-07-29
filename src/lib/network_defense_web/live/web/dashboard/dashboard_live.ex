@@ -23,7 +23,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SaveGraphPayload,
     SaveGraphReply,
     SimulationCompletedEvent,
-    SimulationFailedEvent
+    SimulationFailedEvent,
+    SimulationProgressEvent
   }
 
   @impl true
@@ -189,6 +190,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:simulation_failed, payload}, socket) do
     {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
+  end
+
+  def handle_info({:simulation_progress, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "simulation_progress", SimulationProgressEvent, payload)}
   end
 
   def handle_info({:optimization_completed, payload}, socket) do
