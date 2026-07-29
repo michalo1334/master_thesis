@@ -100,7 +100,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       vulnerability =
         build_node(graph, Vulnerability, %{
           "identifier" => "CVE-2024-0001",
-          "cvss_score" => 7.5,
+          "cvss" => cvss(),
           "exploit_probability" => 0.8
         })
 
@@ -682,6 +682,19 @@ defmodule NetworkDefense.Graph.GraphTest do
       to_id: to.id,
       type: Atom.to_string(type),
       data: data
+    }
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
     }
   end
 end

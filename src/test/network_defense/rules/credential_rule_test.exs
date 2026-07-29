@@ -115,7 +115,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       vuln =
         node("vuln", Vulnerability, %{
           "identifier" => "CVE-0001",
-          "cvss_score" => 7.5,
+          "cvss" => cvss(),
           "exploit_probability" => 1.0
         })
 
@@ -146,7 +146,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       vuln =
         node("vuln", Vulnerability, %{
           "identifier" => "CVE-0001",
-          "cvss_score" => 7.5,
+          "cvss" => cvss(),
           "exploit_probability" => 1.0
         })
 
@@ -207,7 +207,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
     vulnerability =
       node("vulnerability", Vulnerability, %{
         "identifier" => "CVE-2024-0001",
-        "cvss_score" => 7.5,
+        "cvss" => cvss(),
         "exploit_probability" => 1.0
       })
 
@@ -224,6 +224,19 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
       ])
 
     {graph, source_host, target_host, service, vulnerability}
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
+    }
   end
 
   defp credential_graph do

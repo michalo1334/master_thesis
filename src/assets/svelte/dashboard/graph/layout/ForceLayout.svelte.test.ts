@@ -25,7 +25,20 @@ function mkNode(id: string, type: NodeType): Node {
       return {
         id,
         type,
-        data: { identifier: id, cvss_score: 0, exploit_probability: 0 },
+        data: {
+          identifier: id,
+          cvss: {
+            attack_vector: "network",
+            attack_complexity: "low",
+            privileges_required: "none",
+            user_interaction: "none",
+            scope: "unchanged",
+            confidentiality_impact: "high",
+            integrity_impact: "high",
+            availability_impact: "high",
+          },
+          exploit_probability: 0,
+        },
         view_data: { x_pos: 0, y_pos: 0 },
       };
   }

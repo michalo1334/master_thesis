@@ -26,6 +26,19 @@ end
 
 type_id = &Atom.to_string/1
 
+cvss = fn confidentiality_impact, integrity_impact, availability_impact, scope ->
+  %{
+    "attack_vector" => "network",
+    "attack_complexity" => "low",
+    "privileges_required" => "none",
+    "user_interaction" => "none",
+    "scope" => scope,
+    "confidentiality_impact" => confidentiality_impact,
+    "integrity_impact" => integrity_impact,
+    "availability_impact" => availability_impact
+  }
+end
+
 host_names = ["internet", "edge-fw-01", "vpn-01", "web-01", "web-02"]
 
 service_specs = [
@@ -35,8 +48,8 @@ service_specs = [
 ]
 
 vulnerability_specs = [
-  {"nginx-path-traversal", "CVE-2021-41773", 7.5, 0.45},
-  {"vpn-arbitrary-file-read", "CVE-2019-11510", 10.0, 0.8}
+  {"nginx-path-traversal", "CVE-2021-41773", cvss.("high", "none", "none", "unchanged"), 0.45},
+  {"vpn-arbitrary-file-read", "CVE-2019-11510", cvss.("high", "high", "high", "changed"), 0.8}
 ]
 
 reachability_specs = [
@@ -85,13 +98,13 @@ graph = Graph.new("Benchmark Graph")
   end)
 
 {graph, vulnerabilities} =
-  Enum.reduce(vulnerability_specs, {graph, %{}}, fn {vulnerability_id, identifier, cvss_score,
-                                                     exploit_probability},
-                                                    {graph, vulnerabilities} ->
+  Enum.reduce(vulnerability_specs, {graph, %{}}, fn {vulnerability_id, identifier, cvss_data,
+                                                      exploit_probability},
+                                                     {graph, vulnerabilities} ->
     vulnerability =
       new_node.(graph, Vulnerability, %{
         "identifier" => identifier,
-        "cvss_score" => cvss_score,
+        "cvss" => cvss_data,
         "exploit_probability" => exploit_probability
       })
 

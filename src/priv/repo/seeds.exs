@@ -21,6 +21,19 @@ alias NetworkDefense.Simulation.Seed
 
 type_id = &Atom.to_string/1
 
+cvss = fn confidentiality_impact, integrity_impact, availability_impact, scope ->
+  %{
+    "attack_vector" => "network",
+    "attack_complexity" => "low",
+    "privileges_required" => "none",
+    "user_interaction" => "none",
+    "scope" => scope,
+    "confidentiality_impact" => confidentiality_impact,
+    "integrity_impact" => integrity_impact,
+    "availability_impact" => availability_impact
+  }
+end
+
 host_names = [
   "internet",
   "edge-fw-01",
@@ -56,13 +69,15 @@ service_specs = [
 ]
 
 vulnerability_specs = [
-  {"nginx-path-traversal", "CVE-2021-41773", 7.5, 0.45},
-  {"vpn-arbitrary-file-read", "CVE-2019-11510", 10.0, 0.8},
-  {"identity-service-rce", "CVE-2021-44228", 10.0, 0.7},
-  {"git-command-execution", "CVE-2022-24765", 7.8, 0.35},
-  {"bastion-ssh-command-execution", "CVE-2024-6387", 8.1, 0.9},
-  {"postgres-privilege-escalation", "CVE-2019-9193", 8.8, 0.3},
-  {"api-http2-dos", "CVE-2023-44487", 7.5, 0.25}
+  {"nginx-path-traversal", "CVE-2021-41773", cvss.("high", "none", "none", "unchanged"), 0.45},
+  {"vpn-arbitrary-file-read", "CVE-2019-11510", cvss.("high", "high", "high", "changed"), 0.8},
+  {"identity-service-rce", "CVE-2021-44228", cvss.("high", "high", "high", "changed"), 0.7},
+  {"git-command-execution", "CVE-2022-24765", cvss.("high", "low", "low", "unchanged"), 0.35},
+  {"bastion-ssh-command-execution", "CVE-2024-6387", cvss.("high", "high", "low", "unchanged"),
+   0.9},
+  {"postgres-privilege-escalation", "CVE-2019-9193", cvss.("high", "high", "high", "unchanged"),
+   0.3},
+  {"api-http2-dos", "CVE-2023-44487", cvss.("none", "none", "high", "unchanged"), 0.25}
 ]
 
 credential_specs = [
@@ -160,13 +175,13 @@ graph = Graph.new("Enterprise Network")
   end)
 
 {graph, vulnerabilities} =
-  Enum.reduce(vulnerability_specs, {graph, %{}}, fn {vulnerability_id, identifier, cvss_score,
+  Enum.reduce(vulnerability_specs, {graph, %{}}, fn {vulnerability_id, identifier, cvss_data,
                                                      exploit_probability},
                                                     {graph, vulnerabilities} ->
     vulnerability =
       new_node.(graph, Vulnerability, %{
         "identifier" => identifier,
-        "cvss_score" => cvss_score,
+        "cvss" => cvss_data,
         "exploit_probability" => exploit_probability
       })
 
@@ -350,13 +365,23 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
       {performance_graph, random_state} =
         Enum.reduce(1..vulnerability_count, {performance_graph, random_state}, fn index,
                                                                                   {graph, state} ->
-          {cvss_tenths, state} = :rand.uniform_s(70, state)
+          {confidentiality_index, state} = :rand.uniform_s(3, state)
+          {integrity_index, state} = :rand.uniform_s(3, state)
+          {availability_index, state} = :rand.uniform_s(3, state)
           {probability_tenths, state} = :rand.uniform_s(9, state)
+
+          impact = fn index -> Enum.at(["none", "low", "high"], index - 1) end
 
           vulnerability =
             new_node.(graph, Vulnerability, %{
               "identifier" => "PERF-#{index}",
-              "cvss_score" => (30 + cvss_tenths) / 10,
+              "cvss" =>
+                cvss.(
+                  impact.(confidentiality_index),
+                  impact.(integrity_index),
+                  impact.(availability_index),
+                  "unchanged"
+                ),
               "exploit_probability" => probability_tenths / 10
             })
 

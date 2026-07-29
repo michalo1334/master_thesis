@@ -20,5 +20,11 @@ defmodule NetworkDefense.Graph.Data do
 
   defp value_param(nil), do: nil
   defp value_param(value) when is_atom(value), do: Atom.to_string(value)
+  defp value_param(value) when is_struct(value), do: to_params(value)
+
+  defp value_param(value) when is_map(value),
+    do: Map.new(value, fn {key, value} -> {key, value_param(value)} end)
+
+  defp value_param(value) when is_list(value), do: Enum.map(value, &value_param/1)
   defp value_param(value), do: value
 end

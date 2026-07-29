@@ -10,6 +10,17 @@ export interface CredentialData {
   identifier: string;
 }
 
+export interface CvssData {
+  attack_complexity: string;
+  attack_vector: string;
+  availability_impact: string;
+  confidentiality_impact: string;
+  integrity_impact: string;
+  privileges_required: string;
+  scope: string;
+  user_interaction: string;
+}
+
 export interface HasVulnerabilityData {
   granted_privilege: "user" | "administrator";
   required_privilege: "none" | "user" | "administrator";
@@ -39,7 +50,7 @@ export interface StoresCredentialData {
 }
 
 export interface VulnerabilityData {
-  cvss_score: number;
+  cvss: CvssData;
   exploit_probability: number;
   identifier: string;
 }

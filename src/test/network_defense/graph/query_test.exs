@@ -74,7 +74,20 @@ defmodule NetworkDefense.Graph.QueryTest do
       id: id,
       graph_id: "graph",
       type: NodeRegistry.type_for(Vulnerability),
-      data: %{"identifier" => id, "cvss_score" => 7.0, "exploit_probability" => 0.5}
+      data: %{"identifier" => id, "cvss" => cvss(), "exploit_probability" => 0.5}
+    }
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
     }
   end
 end

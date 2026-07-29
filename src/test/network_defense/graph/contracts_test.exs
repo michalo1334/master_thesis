@@ -4,6 +4,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
     CredentialData,
+    CvssData,
     HasVulnerabilityData,
     NetworkReachabilityData,
     StoresCredentialData
@@ -70,6 +71,17 @@ defmodule NetworkDefense.Graph.ContractsTest do
                  "required_privilege" => "admin",
                  "granted_privilege" => "user"
                })
+    end
+  end
+
+  describe "CvssData" do
+    test "validates all CVSS v3.1 base metrics" do
+      assert {:ok, _} = CvssData.validate(cvss())
+
+      assert {:error, _} =
+               CvssData.validate(Map.put(cvss(), "attack_vector", "internet"))
+
+      assert {:error, _} = CvssData.validate(Map.delete(cvss(), "scope"))
     end
   end
 
@@ -149,6 +161,19 @@ defmodule NetworkDefense.Graph.ContractsTest do
           "data" => %{}
         }
       ]
+    }
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
     }
   end
 end

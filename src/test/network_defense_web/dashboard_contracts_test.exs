@@ -193,7 +193,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         type: Atom.to_string(Vulnerability),
         data: %{
           "identifier" => "CVE-2026-0001",
-          "cvss_score" => 7.5,
+          "cvss" => cvss(),
           "exploit_probability" => 0.4
         },
         view_data: %{"x_pos" => 70, "y_pos" => 80}
@@ -304,5 +304,18 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
+    }
   end
 end

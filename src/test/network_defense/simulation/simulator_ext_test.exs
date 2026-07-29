@@ -92,7 +92,7 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
     vulnerability =
       node("vulnerability", Vulnerability, %{
         "identifier" => "CVE-2024-0001",
-        "cvss_score" => 7.5,
+        "cvss" => cvss(),
         "exploit_probability" => 1.0
       })
 
@@ -126,7 +126,7 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
     vulnerability =
       node("vulnerability", Vulnerability, %{
         "identifier" => "CVE-2024-0001",
-        "cvss_score" => 7.5,
+        "cvss" => cvss(),
         "exploit_probability" => 1.0
       })
 
@@ -163,5 +163,18 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
         attacker_state: iteration.attacker_state
       }
     end)
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
+    }
   end
 end

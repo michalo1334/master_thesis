@@ -17,7 +17,6 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
   alias NetworkDefense.Relationships.HasVulnerability
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
-  alias NetworkDefense.Relationships.Runs
 
   describe "BlockReachability" do
     test "removes one edge" do
@@ -122,7 +121,7 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
     vuln =
       node("vuln", Vulnerability, %{
         "identifier" => "CVE-0001",
-        "cvss_score" => 5.0,
+        "cvss" => cvss(),
         "exploit_probability" => 0.5
       })
 
@@ -176,5 +175,18 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
 
   defp find_node(graph, type) do
     Enum.find(Graph.nodes(graph), &(&1.type == type))
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
+    }
   end
 end

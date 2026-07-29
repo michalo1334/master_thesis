@@ -1,7 +1,6 @@
 defmodule NetworkDefense.Graph.SemanticEndpointTest do
   use NetworkDefense.DataCase, async: true
 
-  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
@@ -224,9 +223,22 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
   defp insert_vuln_node(graph, identifier) do
     insert_node(graph, Vulnerability, %{
       "identifier" => identifier,
-      "cvss_score" => 5.0,
+      "cvss" => cvss(),
       "exploit_probability" => 0.5
     })
+  end
+
+  defp cvss do
+    %{
+      "attack_vector" => "network",
+      "attack_complexity" => "low",
+      "privileges_required" => "none",
+      "user_interaction" => "none",
+      "scope" => "unchanged",
+      "confidentiality_impact" => "high",
+      "integrity_impact" => "none",
+      "availability_impact" => "none"
+    }
   end
 
   defp insert_cred_node(graph, identifier, cred_type) do
