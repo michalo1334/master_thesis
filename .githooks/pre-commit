@@ -10,4 +10,5 @@ if [ ! -d "$application_root/node_modules" ]; then
 fi
 
 cd "$application_root"
+export PATH="$HOME/.local/share/elixir/bin:$PATH"
 mix precommit
