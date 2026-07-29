@@ -2,6 +2,8 @@ import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import type { DashboardApi } from "./dashboard-api";
 import type {
   GraphSummary,
+  OptimizationCompletedEvent,
+  OptimizationFailedEvent,
   SimulationCompletedEvent,
   SimulationFailedEvent,
   ExperimentSummary,
@@ -29,6 +31,79 @@ export class DashboardModel {
     );
     if (result) {
       this.workspace.createPendingReport(result);
+    }
+  }
+
+  async runActiveOptimization(): Promise<void> {
+    const doc = this.workspace.activeGraph;
+    if (!doc || this.workspace.isOptimizationPending || !doc.loadedGraphId) {
+      return;
+    }
+
+    const correlationId = crypto.randomUUID();
+    if (
+      !this.workspace.beginOptimization({
+        graphId: doc.loadedGraphId,
+        correlationId,
+      })
+    ) {
+      return;
+    }
+
+    const params = this.workspace.optimizationParams;
+    try {
+      const reply = await doc.startOptimization(
+        this.api,
+        params.strategy === "simulation_informed"
+          ? {
+              ...params,
+              simulation_params: { ...this.workspace.simulationParams },
+            }
+          : { ...params },
+        correlationId,
+      );
+      if (!reply) {
+        this.workspace.cancelOptimization(correlationId);
+      } else if (reply.status === "accepted") {
+        this.workspace.confirmOptimization({
+          graphId: reply.graph_id,
+          correlationId: reply.correlation_id,
+        });
+      } else {
+        this.workspace.cancelOptimization(correlationId);
+        this.workspace.statusMessage = reply.reason || "Optimization rejected.";
+      }
+    } catch {
+      this.workspace.cancelOptimization(correlationId);
+      this.workspace.statusMessage = "Optimization failed.";
+    }
+  }
+
+  async onOptimizationCompleted(
+    payload: OptimizationCompletedEvent,
+  ): Promise<void> {
+    if (
+      !this.workspace.finishOptimization(
+        payload.correlation_id,
+        payload.graph_id,
+      )
+    ) {
+      return;
+    }
+    await this.workspace.openOptimizationResult(
+      this.api,
+      payload.optimized_graph_id,
+    );
+  }
+
+  onOptimizationFailed(payload: OptimizationFailedEvent): void {
+    if (
+      this.workspace.finishOptimization(
+        payload.correlation_id,
+        payload.graph_id,
+      )
+    ) {
+      this.workspace.statusMessage = payload.reason;
     }
   }
 

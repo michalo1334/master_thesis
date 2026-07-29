@@ -9,6 +9,7 @@ function makeMockApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
     openGraph: vi.fn(),
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),
+    runOptimization: vi.fn(),
     requestSimulationReport: vi.fn(),
     fetchExperiments: vi.fn(),
     ...overrides,
@@ -188,6 +189,111 @@ describe("DashboardModel", () => {
 
       expect(first.reportData?.experiment_id).toBe("sim-first");
       expect(second.reportData?.experiment_id).toBe("sim-second");
+    });
+  });
+
+  describe("runActiveOptimization", () => {
+    it("submits simulation parameters only for the simulation-informed strategy", async () => {
+      await model.workspace.openLoadedGraph(
+        makeLoadedGraph({ nodes: [hostNode("host-1")] }),
+        api,
+      );
+      model.workspace.onOptimizationParamsChange({
+        strategy: "simulation_informed",
+        budget: 25,
+      });
+      vi.mocked(api.runOptimization).mockResolvedValue({
+        status: "accepted",
+        graph_id: "g1",
+        correlation_id: "corr-optimization",
+      });
+
+      await model.runActiveOptimization();
+
+      expect(api.runOptimization).toHaveBeenCalledWith(
+        "g1",
+        expect.any(String),
+        expect.objectContaining({
+          strategy: "simulation_informed",
+          budget: 25,
+          simulation_params: expect.objectContaining({
+            initial_foothold_node_id: "host-1",
+          }),
+        }),
+      );
+      expect(model.workspace.optimizationPending).toEqual({
+        graphId: "g1",
+        correlationId: "corr-optimization",
+      });
+    });
+
+    it("allows only one optimization request while one is pending", async () => {
+      await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
+      let resolve!: (value: {
+        status: "accepted";
+        graph_id: string;
+        correlation_id: string;
+      }) => void;
+      vi.mocked(api.runOptimization).mockReturnValue(
+        new Promise((res) => {
+          resolve = res;
+        }),
+      );
+
+      const first = model.runActiveOptimization();
+      const second = model.runActiveOptimization();
+
+      expect(model.workspace.isOptimizationPending).toBe(true);
+      expect(api.runOptimization).toHaveBeenCalledTimes(1);
+
+      resolve({
+        status: "accepted",
+        graph_id: "g1",
+        correlation_id: model.workspace.optimizationPending!.correlationId,
+      });
+      await Promise.all([first, second]);
+    });
+  });
+
+  describe("optimization events", () => {
+    it("opens the optimized graph after a matching completion event", async () => {
+      await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
+      vi.mocked(api.runOptimization).mockResolvedValue({
+        status: "accepted",
+        graph_id: "g1",
+        correlation_id: "corr-optimization",
+      });
+      vi.mocked(api.openGraph).mockResolvedValue({
+        status: "ok",
+        graph: makeLoadedGraph({ id: "optimized-g1", title: "Optimized" }),
+      });
+
+      await model.runActiveOptimization();
+      await model.onOptimizationCompleted({
+        correlation_id: "corr-optimization",
+        graph_id: "g1",
+        optimized_graph_id: "optimized-g1",
+      });
+
+      expect(model.workspace.optimizationPending).toBeNull();
+      expect(api.openGraph).toHaveBeenCalledWith("optimized-g1");
+      expect(model.workspace.activeGraph?.loadedGraphId).toBe("optimized-g1");
+    });
+
+    it("clears a matching pending optimization and reports its failure", async () => {
+      model.workspace.beginOptimization({
+        graphId: "g1",
+        correlationId: "corr-optimization",
+      });
+
+      model.onOptimizationFailed({
+        correlation_id: "corr-optimization",
+        graph_id: "g1",
+        reason: "No eligible defenses.",
+      });
+
+      expect(model.workspace.optimizationPending).toBeNull();
+      expect(model.workspace.statusMessage).toBe("No eligible defenses.");
     });
   });
 

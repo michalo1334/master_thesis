@@ -34,13 +34,13 @@
   ];
 
   const optimizationOptions: readonly SplitButtonOption[] = [
-    { id: "greedy", icon: "cursor", title: "Greedy" },
-    { id: "mincut", icon: "link", title: "Min-cut" },
-    { id: "random", icon: "squares-2x2", title: "Random" },
-    { id: "hybrid", icon: "graph", title: "Hybrid" },
+    { id: "cvss", icon: "shield", title: "CVSS" },
+    {
+      id: "simulation_informed",
+      icon: "graph",
+      title: "Simulation-informed",
+    },
   ];
-
-  let activeOptimizationId = $state<string>(optimizationOptions[0].id);
 
   const topologyColumns: FilterableTableColumn<GraphSummary>[] = [
     {
@@ -114,7 +114,9 @@
   }
 
   function handleOptimize(strategyId: string): void {
-    activeOptimizationId = strategyId;
+    if (strategyId !== "cvss" && strategyId !== "simulation_informed") return;
+    wm.onOptimizationParamsChange({ strategy: strategyId });
+    void model.runActiveOptimization();
   }
 
   async function handleTopologySelect([
@@ -140,6 +142,7 @@
     hasActiveGraph={wm.hasActiveGraph}
     hasUnreadReport={wm.hasUnreadReport}
     isLoadingExperiments={wm.isLoadingExperiments}
+    isOptimizationPending={wm.isOptimizationPending}
     forceParams={wm.forceParams}
     onForceParamsChange={(change) => wm.onForceParamsChange(change)}
     onForceLayout={handleForceLayout}
@@ -147,7 +150,10 @@
     onShowExperiments={handleShowExperiments}
     onOptimize={handleOptimize}
     {optimizationOptions}
-    {activeOptimizationId}
+    activeOptimizationId={wm.optimizationParams.strategy}
+    optimizationParams={wm.optimizationParams}
+    onOptimizationParamsChange={(change) =>
+      wm.onOptimizationParamsChange(change)}
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
     footholdHosts={wm.activeFootholdHosts}

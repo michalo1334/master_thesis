@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
 import type { LoadedGraph } from "../../contract";
+import type { DashboardApi } from "../../dashboard-api";
 
 function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
@@ -148,6 +149,38 @@ describe("EditableGraphDocument", () => {
       doc.replaceFromSaveReply(updated);
       expect(doc.lockVersion).toBe(2);
       expect(doc.title).toBe("V2");
+    });
+  });
+
+  describe("startOptimization", () => {
+    it("forwards the loaded graph, correlation ID, and parameters", async () => {
+      doc.replaceFromLoadedGraph(makeGraph({ id: "g1" }));
+      const api = {
+        runOptimization: vi.fn().mockResolvedValue({
+          status: "accepted",
+          graph_id: "g1",
+          correlation_id: "corr-1",
+        }),
+      } as unknown as DashboardApi;
+
+      await doc.startOptimization(
+        api,
+        { strategy: "cvss", budget: 3 },
+        "corr-1",
+      );
+
+      expect(api.runOptimization).toHaveBeenCalledWith("g1", "corr-1", {
+        strategy: "cvss",
+        budget: 3,
+      });
+    });
+
+    it("does not call the API for an unloaded graph", async () => {
+      const api = { runOptimization: vi.fn() } as unknown as DashboardApi;
+
+      await doc.startOptimization(api, { strategy: "cvss", budget: 3 });
+
+      expect(api.runOptimization).not.toHaveBeenCalled();
     });
   });
 

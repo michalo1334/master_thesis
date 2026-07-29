@@ -9,6 +9,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
+  alias NetworkDefense.Optimizations
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
@@ -231,6 +232,115 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       send(view.pid, {:simulation_failed, failed})
       assert_push_event(view, "simulation_failed", ^failed)
+    end
+  end
+
+  describe "optimization events" do
+    test "accepts an optimization request and persists an optimized graph", %{conn: conn} do
+      graph = insert_graph("optimize-test")
+      insert_node(graph, "entry-host")
+      correlation_id = "optimization-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+        }
+      })
+
+      assert_reply(view, %{
+        status: "accepted",
+        graph_id: graph_id,
+        correlation_id: ^correlation_id,
+        reason: nil
+      })
+
+      assert graph_id == graph.id
+
+      assert_receive {:optimization_completed,
+                      %{
+                        correlation_id: ^correlation_id,
+                        graph_id: ^graph_id,
+                        optimized_graph_id: optimized_graph_id
+                      }},
+                     5_000
+
+      assert %{id: ^optimized_graph_id, parent_id: ^graph_id, source: :optimization} =
+               Graphs.load(optimized_graph_id)
+    end
+
+    test "rejects invalid optimization parameters", %{conn: conn} do
+      graph = insert_graph("invalid-optimization")
+      correlation_id = "invalid-optimization-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 0}
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: graph_id,
+        correlation_id: ^correlation_id,
+        reason: "invalid_request"
+      })
+
+      assert graph_id == graph.id
+    end
+
+    test "requires simulation parameters for simulation-informed optimization", %{conn: conn} do
+      graph = insert_graph("simulation-informed-optimization")
+      correlation_id = "simulation-informed-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "simulation_informed", "budget" => 1}
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: graph_id,
+        correlation_id: ^correlation_id,
+        reason: "invalid_request"
+      })
+
+      assert graph_id == graph.id
+    end
+
+    test "forwards optimization completion and failure events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      completed = %{
+        correlation_id: "optimization-1",
+        graph_id: "graph-1",
+        optimized_graph_id: "optimized-1"
+      }
+
+      send(view.pid, {:optimization_completed, completed})
+      assert_push_event(view, "optimization_completed", ^completed)
+
+      failed = %{
+        correlation_id: "optimization-2",
+        graph_id: "graph-2",
+        reason: "optimization_failed"
+      }
+
+      send(view.pid, {:optimization_failed, failed})
+      assert_push_event(view, "optimization_failed", ^failed)
     end
   end
 

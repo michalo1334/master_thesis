@@ -11,7 +11,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
 
   require OpenTelemetry.Tracer, as: Tracer
 
-  @spec apply(Graph, Strategy.t(), Budget.t()) :: Graph
+  @spec apply(Graph.t(), term(), Budget.t()) :: Graph.t()
   def apply(graph, strategy, budget) do
     Tracer.with_span "optimizer.apply" do
       {elapsed_us, optimized_graph} =

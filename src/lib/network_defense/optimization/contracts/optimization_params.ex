@@ -1,0 +1,43 @@
+defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
+  @moduledoc false
+
+  alias Ecto.Changeset
+  alias NetworkDefense.Simulation.Contracts.SimulationParams
+
+  use NetworkDefense.Contracts, category: :optimization
+
+  @enum_values strategy: [:cvss, :simulation_informed]
+
+  def contract_meta, do: %{enum_values: @enum_values}
+
+  embedded_schema do
+    field :strategy, :string
+    field :budget, :integer
+    embeds_one :simulation_params, SimulationParams, on_replace: :update
+  end
+
+  @type t :: %__MODULE__{
+          strategy: String.t(),
+          budget: pos_integer(),
+          simulation_params: SimulationParams.t() | nil
+        }
+
+  def changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:strategy, :budget])
+    |> cast_embed(:simulation_params)
+    |> validate_required([:strategy, :budget])
+    |> validate_inclusion(:strategy, ["cvss", "simulation_informed"])
+    |> validate_number(:budget, greater_than: 0)
+    |> require_simulation_params()
+  end
+
+  defp require_simulation_params(changeset) do
+    if Changeset.get_field(changeset, :strategy) == "simulation_informed" and
+         is_nil(Changeset.get_field(changeset, :simulation_params)) do
+      Changeset.add_error(changeset, :simulation_params, "is required")
+    else
+      changeset
+    end
+  end
+end

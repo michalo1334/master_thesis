@@ -5,6 +5,7 @@ import type {
   GraphSummary,
   LoadedGraph,
   ExperimentSummary,
+  OptimizationParams,
   SimulationParams,
 } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
@@ -16,6 +17,11 @@ export type WorkspaceDocument =
 export interface FootholdHost {
   id: string;
   name: string;
+}
+
+export interface OptimizationPending {
+  graphId: string;
+  correlationId: string;
 }
 
 export class WorkspaceModel {
@@ -41,6 +47,11 @@ export class WorkspaceModel {
     generate_seed: false,
     seed: 0,
   });
+  optimizationParams = $state<OptimizationParams>({
+    strategy: "cvss",
+    budget: 1,
+  });
+  optimizationPending = $state<OptimizationPending | null>(null);
   statusMessage = $state("");
 
   constructor(graphSummaries: GraphSummary[] = []) {
@@ -65,6 +76,10 @@ export class WorkspaceModel {
 
   get hasActiveGraph(): boolean {
     return this.activeDocument?.kind === "graph";
+  }
+
+  get isOptimizationPending(): boolean {
+    return this.optimizationPending !== null;
   }
 
   get activeFootholdHosts(): FootholdHost[] {
@@ -156,6 +171,25 @@ export class WorkspaceModel {
       return false;
     } catch {
       this.topologyPickerStatus = "Failed to open topology.";
+      return false;
+    }
+  }
+
+  async openOptimizationResult(
+    api: DashboardApi,
+    graphId: string,
+  ): Promise<boolean> {
+    try {
+      const reply = await api.openGraph(graphId);
+      if (reply.status !== "ok" || !reply.graph) {
+        this.statusMessage = "Failed to open optimized graph.";
+        return false;
+      }
+      await this.openLoadedGraph(reply.graph, api);
+      this.statusMessage = "Optimization completed.";
+      return true;
+    } catch {
+      this.statusMessage = "Failed to open optimized graph.";
       return false;
     }
   }
@@ -256,6 +290,39 @@ export class WorkspaceModel {
 
   onSimulationParamsChange(change: Partial<SimulationParams>): void {
     Object.assign(this.simulationParams, change);
+  }
+
+  onOptimizationParamsChange(change: Partial<OptimizationParams>): void {
+    Object.assign(this.optimizationParams, change);
+  }
+
+  beginOptimization(pending: OptimizationPending): boolean {
+    if (this.optimizationPending) return false;
+    this.optimizationPending = pending;
+    return true;
+  }
+
+  confirmOptimization(pending: OptimizationPending): void {
+    this.optimizationPending = pending;
+  }
+
+  finishOptimization(correlationId: string, graphId: string): boolean {
+    const pending = this.optimizationPending;
+    if (
+      !pending ||
+      pending.correlationId !== correlationId ||
+      pending.graphId !== graphId
+    ) {
+      return false;
+    }
+    this.optimizationPending = null;
+    return true;
+  }
+
+  cancelOptimization(correlationId: string): void {
+    if (this.optimizationPending?.correlationId === correlationId) {
+      this.optimizationPending = null;
+    }
   }
 
   private ensureInitialFoothold(document: WorkspaceDocument | undefined): void {

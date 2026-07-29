@@ -182,7 +182,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp default_rules do
+  def default_rules do
     [
       %NetworkDefense.Rules.RemoteServiceExploitation{},
       %NetworkDefense.Rules.LocalVulnerabilityExploitation{},

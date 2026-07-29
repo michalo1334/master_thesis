@@ -146,6 +146,18 @@ export interface NodeViewData {
   y_pos: number;
 }
 
+export interface OptimizationParams {
+  budget: number;
+  simulation_params?: SimulationParams | null;
+  strategy: "cvss" | "simulation_informed";
+}
+
+export interface RunOptimizationRequest {
+  correlation_id: string;
+  graph_id: string;
+  optimization_params: OptimizationParams;
+}
+
 export interface RunSimulationRequest {
   correlation_id: string;
   graph_id: string;
@@ -205,6 +217,29 @@ export interface OpenGraphPayload {
 export interface OpenGraphReply {
   graph?: GraphContract | null;
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
+export interface OptimizationCompletedEvent {
+  correlation_id: string;
+  graph_id: string;
+  optimized_graph_id: string;
+}
+
+export interface OptimizationFailedEvent {
+  correlation_id: string;
+  graph_id: string;
+  reason: string;
+}
+
+export interface RunOptimizationPayload {
+  request: RunOptimizationRequest;
+}
+
+export interface RunOptimizationReply {
+  correlation_id: string;
+  graph_id: string;
+  reason?: string | null;
+  status: "accepted" | "rejected";
 }
 
 export interface RunSimulationPayload {

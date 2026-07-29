@@ -7,7 +7,7 @@
     type SplitButtonOption,
   } from "../ui/SplitButton.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
-  import type { SimulationParams } from "../contract";
+  import type { OptimizationParams, SimulationParams } from "../contract";
   import Checkbox from "../ui/Checkbox.svelte";
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";
@@ -24,6 +24,9 @@
     onOptimize: (strategyId: string) => void;
     optimizationOptions: readonly SplitButtonOption[];
     activeOptimizationId: string;
+    optimizationParams: OptimizationParams;
+    onOptimizationParamsChange: (change: Partial<OptimizationParams>) => void;
+    isOptimizationPending: boolean;
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
@@ -41,6 +44,9 @@
     onOptimize,
     optimizationOptions,
     activeOptimizationId,
+    optimizationParams,
+    onOptimizationParamsChange,
+    isOptimizationPending,
     onSimulationParamsChange,
     simulationParams,
     footholdHosts,
@@ -77,7 +83,7 @@
         max={-10}
         value={forceParams.repulsion}
         onchange={(v) => onForceParamsChange({ repulsion: v })}
-        disabled={!hasActiveGraph}
+        disabled={!hasActiveGraph || isOptimizationPending}
       />
       <Slider
         label="Link dist."
@@ -125,9 +131,18 @@
       <SplitButton
         options={optimizationOptions}
         activeId={activeOptimizationId}
-        disabled={!hasActiveGraph}
+        disabled={!hasActiveGraph || isOptimizationPending}
         ariaLabel="Optimize"
         onSelect={onOptimize}
+      />
+    </Ribbon.Section>
+    <Ribbon.Section title="Optimization parameters">
+      <NumberInput
+        label="Budget"
+        value={optimizationParams.budget}
+        min={1}
+        disabled={!hasActiveGraph || isOptimizationPending}
+        onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
     </Ribbon.Section>
     <Ribbon.Section title="Simulation parameters">

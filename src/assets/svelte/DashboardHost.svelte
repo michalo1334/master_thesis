@@ -10,6 +10,8 @@
     GraphSummary,
     FetchExperimentsPayload,
     FetchExperimentsReply,
+    OptimizationCompletedEvent,
+    OptimizationFailedEvent,
     SimulationCompletedEvent,
     SimulationFailedEvent,
     FetchSimulationReportReply,
@@ -42,6 +44,14 @@
 
   useLiveEvent("simulation_failed", (payload: unknown) => {
     model.onSimulationFailed(payload as SimulationFailedEvent);
+  });
+
+  useLiveEvent("optimization_completed", (payload: unknown) => {
+    void model.onOptimizationCompleted(payload as OptimizationCompletedEvent);
+  });
+
+  useLiveEvent("optimization_failed", (payload: unknown) => {
+    model.onOptimizationFailed(payload as OptimizationFailedEvent);
   });
 
   useLiveEvent("simulation_report_ready", (payload: unknown) => {

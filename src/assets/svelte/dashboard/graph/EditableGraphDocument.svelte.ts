@@ -1,4 +1,9 @@
-import type { LoadedGraph, SimulationParams } from "../contract";
+import type {
+  LoadedGraph,
+  OptimizationParams,
+  RunOptimizationReply,
+  SimulationParams,
+} from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
@@ -152,6 +157,15 @@ export class EditableGraphDocument {
       };
     }
     return null;
+  }
+
+  async startOptimization(
+    api: DashboardApi,
+    params: OptimizationParams,
+    correlationId: string = crypto.randomUUID(),
+  ): Promise<RunOptimizationReply | null> {
+    if (!this.loadedGraphId) return null;
+    return api.runOptimization(this.loadedGraphId, correlationId, params);
   }
 
   applyForceLayout(params: ForceParams): void {

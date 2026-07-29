@@ -3,6 +3,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -13,6 +14,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchExperimentsReply,
     OpenGraphPayload,
     OpenGraphReply,
+    OptimizationCompletedEvent,
+    OptimizationFailedEvent,
+    RunOptimizationPayload,
+    RunOptimizationReply,
     RunSimulationReply,
     RunSimulationPayload,
     SaveGraphPayload,
@@ -47,6 +52,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
     end
 
     {:ok, socket}
@@ -91,6 +97,41 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         {:reply,
          simulation_request_reply(
+           "rejected",
+           params |> Map.get("request", %{}) |> Map.get("graph_id"),
+           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+           "invalid_request"
+         ), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("run_optimization_request", params, socket) do
+    case RunOptimizationPayload.validate(params) do
+      {:ok, %{request: request}} ->
+        case Optimizations.run_async(request) do
+          {:ok, _pid} ->
+            {:reply,
+             optimization_request_reply(
+               "accepted",
+               request.graph_id,
+               request.correlation_id,
+               nil
+             ), socket}
+
+          {:error, reason} ->
+            {:reply,
+             optimization_request_reply(
+               "rejected",
+               request.graph_id,
+               request.correlation_id,
+               reason
+             ), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply,
+         optimization_request_reply(
            "rejected",
            params |> Map.get("request", %{}) |> Map.get("graph_id"),
            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
@@ -148,6 +189,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:simulation_failed, payload}, socket) do
     {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
+  end
+
+  def handle_info({:optimization_completed, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "optimization_completed", OptimizationCompletedEvent, payload)}
+  end
+
+  def handle_info({:optimization_failed, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "optimization_failed", OptimizationFailedEvent, payload)}
   end
 
   def handle_info({:report_result, experiment_id, graph_id, result}, socket) do
@@ -256,6 +307,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp simulation_request_reply(status, graph_id, correlation_id, reason) do
     contract_reply(RunSimulationReply, %{
+      status: status,
+      graph_id: string_or_empty(graph_id),
+      correlation_id: string_or_empty(correlation_id),
+      reason: reason
+    })
+  end
+
+  defp optimization_request_reply(status, graph_id, correlation_id, reason) do
+    contract_reply(RunOptimizationReply, %{
       status: status,
       graph_id: string_or_empty(graph_id),
       correlation_id: string_or_empty(correlation_id),

@@ -8,6 +8,8 @@ import type {
   FetchSimulationReportPayload,
   FetchExperimentsPayload,
   FetchExperimentsReply,
+  OptimizationParams,
+  RunOptimizationReply,
   SimulationParams,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
@@ -28,6 +30,11 @@ export interface DashboardApi {
     correlationId: string,
     simulationParams: SimulationParams,
   ): Promise<RunSimulationReply>;
+  runOptimization(
+    graphId: string,
+    correlationId: string,
+    optimizationParams: OptimizationParams,
+  ): Promise<RunOptimizationReply>;
   requestSimulationReport(experimentId: string, graphId: string): void;
   fetchExperiments(graphIds: string[]): Promise<FetchExperimentsReply>;
 }
@@ -78,6 +85,23 @@ export function createDashboardApi(
           },
           (reply) => {
             resolve(reply as RunSimulationReply);
+          },
+        );
+      });
+    },
+    runOptimization(graphId, correlationId, optimizationParams) {
+      return new Promise((resolve) => {
+        live.pushEvent(
+          "run_optimization_request",
+          {
+            request: {
+              graph_id: graphId,
+              correlation_id: correlationId,
+              optimization_params: optimizationParams,
+            },
+          },
+          (reply) => {
+            resolve(reply as RunOptimizationReply);
           },
         );
       });
