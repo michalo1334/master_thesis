@@ -21,9 +21,7 @@ defmodule NetworkDefenseWeb.Router do
 
   scope "/", NetworkDefenseWeb do
     pipe_through :browser
-    live "/dashboard", DashboardLive
-
-    get "/", PageController, :home
+    live "/", DashboardLive
   end
 
   # Other scopes may use custom stacks.
