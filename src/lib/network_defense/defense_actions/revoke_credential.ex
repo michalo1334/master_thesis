@@ -2,18 +2,20 @@ defmodule NetworkDefense.DefenseActions.RevokeCredential do
   @moduledoc false
 
   alias NetworkDefense.DefenseActions.DefenseAction
-  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.Node
 
   defstruct [:credential_id, cost: 1]
 
   defimpl DefenseAction, for: __MODULE__ do
-    alias NetworkDefense.Relationships.AuthenticatesTo
-    def target(action), do: {Edge, action.credential_id}
+    alias NetworkDefense.Nodes.Credential
+    def target(action), do: {Node, action.credential_id}
+
+    def with_target_id(action, target_id), do: %{action | credential_id: target_id}
 
     def cost(action), do: action.cost
 
-    def eligible_types(_action), do: [AuthenticatesTo]
+    def eligible_types(_action), do: [Credential]
 
     def apply(action, graph) do
       # Remove ALL AuthenticatesTo edges outgoing from this credential

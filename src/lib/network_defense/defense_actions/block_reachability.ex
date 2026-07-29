@@ -10,6 +10,7 @@ defmodule NetworkDefense.DefenseActions.BlockReachability do
   defimpl DefenseAction, for: __MODULE__ do
     alias NetworkDefense.Relationships.NetworkReachability
     def target(action), do: {Edge, action.edge_id}
+    def with_target_id(action, target_id), do: %{action | edge_id: target_id}
 
     def cost(action), do: action.cost
 

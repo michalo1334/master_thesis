@@ -27,6 +27,9 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
       action = %BlockReachability{edge_id: edge.id}
       assert DefenseAction.cost(action) == 1
 
+      assert %BlockReachability{edge_id: "replacement"} =
+               DefenseAction.with_target_id(action, "replacement")
+
       new_graph = DefenseAction.apply(action, graph)
       assert Graph.edges(new_graph) == []
     end
@@ -46,6 +49,9 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
 
       action = %PatchVulnerability{edge_id: edge.id}
       assert DefenseAction.cost(action) == 1
+
+      assert %PatchVulnerability{edge_id: "replacement"} =
+               DefenseAction.with_target_id(action, "replacement")
 
       new_graph = DefenseAction.apply(action, graph)
 
@@ -75,6 +81,9 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
 
       action = %RevokeCredential{credential_id: cred.id}
       assert DefenseAction.cost(action) == 1
+
+      assert %RevokeCredential{credential_id: "replacement"} =
+               DefenseAction.with_target_id(action, "replacement")
 
       new_graph = DefenseAction.apply(action, graph)
 

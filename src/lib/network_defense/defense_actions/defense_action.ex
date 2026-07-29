@@ -20,6 +20,14 @@ defprotocol NetworkDefense.DefenseActions.DefenseAction do
   @spec target(t()) :: target()
   def target(action)
 
+  @doc """
+  Return new struct with new target ID.
+
+  Warning: no validation is performed whether the target id is of correct type!
+  """
+  @spec with_target_id(t(), target_id()) :: t()
+  def with_target_id(action, target_id)
+
   @spec cost(t()) :: non_neg_integer()
   def cost(action)
 

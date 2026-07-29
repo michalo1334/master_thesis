@@ -18,15 +18,20 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
 
     @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
     def rank(_strategy, action_types, graph, _budget) do
-      # Select random action type from passed list
-      action_type = Enum.random(action_types)
+      candidates =
+        Enum.flat_map(action_types, fn action_type ->
+          action = struct!(action_type)
+          eligible_types = DefenseAction.eligible_types(action)
 
-      applicable_types = DefenseAction.eligible_types(action_type)
+          (Graph.nodes(graph) ++ Graph.edges(graph))
+          |> Enum.filter(&(&1.type in eligible_types))
+          |> Enum.map(&DefenseAction.with_target_id(action, &1.id))
+        end)
 
-      # If it's applicable to node types, get all nodes of this type
-      applicable_nodes =
-        Graph.nodes(graph)
-        |> Enum.filter(fn each -> Enum.member?(applicable_types, each.type) end)
+      case candidates do
+        [] -> []
+        candidates -> [Enum.random(candidates)]
+      end
     end
   end
 end
