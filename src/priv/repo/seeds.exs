@@ -2,6 +2,8 @@
 #
 #     mix run priv/repo/seeds.exs
 #
+import Ecto.Query, only: [from: 2]
+
 alias NetworkDefense.Graph.Graph
 alias NetworkDefense.Graph.Graphs
 alias NetworkDefense.Graph.Node
@@ -14,6 +16,8 @@ alias NetworkDefense.Relationships.HasVulnerability
 alias NetworkDefense.Relationships.NetworkReachability
 alias NetworkDefense.Relationships.Runs
 alias NetworkDefense.Relationships.StoresCredential
+alias NetworkDefense.Repo
+alias NetworkDefense.Simulation.Seed
 
 type_id = &Atom.to_string/1
 
@@ -269,13 +273,163 @@ graph =
   |> Enum.with_index()
   |> Enum.reduce(graph, fn {node, index}, graph ->
     view_data = %{
-      "x_pos" => 80 + rem(index, column_count) * 200,
-      "y_pos" => 80 + div(index, column_count) * 120
+      x_pos: 80 + rem(index, column_count) * 200,
+      y_pos: 80 + div(index, column_count) * 120,
+      radius: nil
     }
 
     Graph.update_node(graph, %{node | view_data: view_data})
   end)
 
-{:ok, _graph} = Graphs.insert(graph)
+case Repo.exists?(from(stored_graph in Graph, where: stored_graph.title == ^graph.title)) do
+  false ->
+    {:ok, _graph} = Graphs.insert(graph)
+    IO.puts("Seeded enterprise graph #{graph.id} with #{length(host_names)} hosts")
 
-IO.puts("Seeded enterprise graph #{graph.id} with #{length(host_names)} hosts")
+  true ->
+    IO.puts("#{graph.title} already exists")
+end
+
+Enum.each([500, 1_000, 2_000], fn node_count ->
+  performance_title = "Performance Topology (#{node_count} nodes)"
+
+  case Repo.exists?(from(stored_graph in Graph, where: stored_graph.title == ^performance_title)) do
+    false ->
+      host_count = div(node_count * 2, 5)
+      service_count = host_count
+      vulnerability_count = div(node_count, 5)
+      performance_seed = node_count
+      performance_host_names = ["internet" | Enum.map(1..(host_count - 1), &"host-#{&1}")]
+
+      service_templates = [
+        {"http", "tcp", 80, "2.4.0"},
+        {"https", "tcp", 443, "1.22.0"},
+        {"ssh", "tcp", 22, "9.0"},
+        {"database", "tcp", 5432, "15.0"},
+        {"dns", "udp", 53, "9.18.0"}
+      ]
+
+      performance_graph = Graph.new(performance_title)
+
+      {performance_graph, performance_hosts} =
+        Enum.reduce(performance_host_names, {performance_graph, %{}}, fn host_name,
+                                                                         {graph, hosts} ->
+          host = new_node.(graph, Host, %{"name" => host_name})
+          {Graph.add_node(graph, host), Map.put(hosts, host_name, host)}
+        end)
+
+      {performance_graph, performance_services, random_state} =
+        Enum.reduce(
+          1..service_count,
+          {performance_graph, [], Seed.integer_to_state(performance_seed)},
+          fn index, {graph, services, state} ->
+            {template_index, state} = :rand.uniform_s(length(service_templates), state)
+            {name, protocol, port, version} = Enum.at(service_templates, template_index - 1)
+
+            service =
+              new_node.(graph, Service, %{
+                "name" => "#{name}-#{index}",
+                "protocol" => protocol,
+                "port" => port,
+                "version" => version
+              })
+
+            host = Map.fetch!(performance_hosts, Enum.at(performance_host_names, index - 1))
+
+            graph =
+              graph
+              |> Graph.add_node(service)
+              |> Graph.add_edge(host, service, %{type: type_id.(Runs), data: %{}})
+
+            {graph, [service | services], state}
+          end
+        )
+
+      performance_services = Enum.reverse(performance_services)
+
+      {performance_graph, random_state} =
+        Enum.reduce(1..vulnerability_count, {performance_graph, random_state}, fn index,
+                                                                                  {graph, state} ->
+          {cvss_tenths, state} = :rand.uniform_s(70, state)
+          {probability_tenths, state} = :rand.uniform_s(9, state)
+
+          vulnerability =
+            new_node.(graph, Vulnerability, %{
+              "identifier" => "PERF-#{index}",
+              "cvss_score" => (30 + cvss_tenths) / 10,
+              "exploit_probability" => probability_tenths / 10
+            })
+
+          graph =
+            graph
+            |> Graph.add_node(vulnerability)
+            |> Graph.add_edge(Enum.at(performance_services, index - 1), vulnerability, %{
+              type: type_id.(HasVulnerability),
+              data: %{"required_privilege" => "none", "granted_privilege" => "user"}
+            })
+
+          {graph, state}
+        end)
+
+      {performance_graph, _random_state} =
+        Enum.reduce(performance_host_names, {performance_graph, random_state}, fn host_name,
+                                                                                  {graph, state} ->
+          Enum.reduce(1..3, {graph, state}, fn _, {graph, state} ->
+            {service_index, state} = :rand.uniform_s(vulnerability_count, state)
+            service = Enum.at(performance_services, service_index - 1)
+
+            graph =
+              Graph.add_edge(graph, Map.fetch!(performance_hosts, host_name), service, %{
+                type: type_id.(NetworkReachability),
+                data: %{"protocol" => "any"}
+              })
+
+            {graph, state}
+          end)
+        end)
+
+      performance_nodes = Graph.nodes(performance_graph)
+
+      performance_column_count =
+        performance_nodes |> length() |> :math.sqrt() |> Float.ceil() |> trunc()
+
+      performance_graph =
+        performance_nodes
+        |> Enum.with_index()
+        |> Enum.reduce(performance_graph, fn {node, index}, graph ->
+          Graph.update_node(graph, %{
+            node
+            | view_data: %{
+                x_pos: 80 + rem(index, performance_column_count) * 200,
+                y_pos: 80 + div(index, performance_column_count) * 120,
+                radius: nil
+              }
+          })
+        end)
+
+      unless length(Graph.nodes(performance_graph)) == node_count do
+        raise "performance topology must contain #{node_count} nodes"
+      end
+
+      edge_count = service_count + vulnerability_count + host_count * 3
+
+      unless length(Graph.edges(performance_graph)) == edge_count do
+        raise "performance topology must contain #{edge_count} edges"
+      end
+
+      {:ok, persisted_performance_graph} = Graphs.insert(performance_graph)
+
+      unless length(Graph.nodes(persisted_performance_graph)) == node_count do
+        raise "persisted performance topology must contain #{node_count} nodes"
+      end
+
+      unless length(Graph.edges(persisted_performance_graph)) == edge_count do
+        raise "persisted performance topology must contain #{edge_count} edges"
+      end
+
+      IO.puts("Seeded #{performance_title} with seed #{performance_seed}")
+
+    true ->
+      IO.puts("#{performance_title} already exists")
+  end
+end)
