@@ -5,6 +5,8 @@ defmodule NetworkDefense.Graph.Graph do
   alias NetworkDefense.Graph.{Edge, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
 
+  @tag_values [:original, :optimization]
+
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
@@ -14,6 +16,7 @@ defmodule NetworkDefense.Graph.Graph do
     field :adjacency_list, :map, virtual: true, default: %{}
     field :lock_version, :integer, default: 1
     field :source, Ecto.Enum, values: [:optimization]
+    field :tags, {:array, Ecto.Enum}, values: @tag_values, default: [:original]
     field :title, :string
 
     timestamps(type: :utc_datetime)
@@ -45,7 +48,10 @@ defmodule NetworkDefense.Graph.Graph do
     {clone, node_ids} =
       Enum.reduce(
         nodes(graph),
-        {%{new(graph.title) | parent_id: graph.id, source: :optimization}, %{}},
+        {
+          %{new(graph.title) | parent_id: graph.id, source: :optimization, tags: [:optimization]},
+          %{}
+        },
         fn node, {clone, node_ids} ->
           cloned_node =
             Node.new(clone.id, %{type: node.type, data: node.data, view_data: node.view_data})

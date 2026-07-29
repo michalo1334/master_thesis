@@ -269,7 +269,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       }},
                      5_000
 
-      assert %{id: ^optimized_graph_id, parent_id: ^graph_id, source: :optimization} =
+      assert %{
+               id: ^optimized_graph_id,
+               parent_id: ^graph_id,
+               source: :optimization,
+               tags: [:optimization],
+               title: "optimize-test (optimized with CVSS strategy)"
+             } =
                Graphs.load(optimized_graph_id)
     end
 

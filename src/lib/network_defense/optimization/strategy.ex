@@ -7,7 +7,7 @@ defprotocol NetworkDefense.Optimization.Strategy do
   Strategies return only ranked candidate defense actions, which are then picked up by the optimizer to evaluate. This keeps budget tracking exlusive to the optimizer
   """
 
-  @type t :: __MODULE__
+  @type t :: struct()
 
   alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Optimization.Budget

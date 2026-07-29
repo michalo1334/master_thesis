@@ -19,6 +19,8 @@ function makeReport(
       id: "g1",
       title: "Topology",
       lock_version: 1,
+      parent_id: null,
+      tags: ["original"],
       nodes: [],
       edges: [],
     },

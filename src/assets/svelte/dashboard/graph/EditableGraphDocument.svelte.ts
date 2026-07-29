@@ -18,6 +18,8 @@ function blankGraph(title: string): LoadedGraph {
     id: crypto.randomUUID(),
     title,
     lock_version: 0,
+    parent_id: null,
+    tags: ["original"],
     nodes: [],
     edges: [],
   };

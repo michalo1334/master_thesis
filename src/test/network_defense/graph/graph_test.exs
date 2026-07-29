@@ -17,6 +17,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     test "creates a graph with the given title" do
       graph = Graph.new("My Topology")
       assert graph.title == "My Topology"
+      assert graph.tags == [:original]
       assert {:ok, _} = Ecto.UUID.cast(graph.id)
     end
   end
@@ -59,6 +60,8 @@ defmodule NetworkDefense.Graph.GraphTest do
       assert [summary] = summaries
       assert summary.id == graph.id
       assert summary.title == "test-graph"
+      assert summary.parentId == nil
+      assert summary.tags == ["original"]
       assert summary.nodeCount == 2
       assert summary.edgeCount == 1
     end
@@ -170,6 +173,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       assert clone.id != source.id
       assert clone.parent_id == source.id
       assert clone.source == :optimization
+      assert clone.tags == [:optimization]
       assert clone.title == source.title
 
       assert MapSet.disjoint?(
@@ -211,7 +215,8 @@ defmodule NetworkDefense.Graph.GraphTest do
 
       Repo.delete!(source)
 
-      assert %{parent_id: nil, source: :optimization} = Graphs.load!(clone.id)
+      assert %{parent_id: nil, source: :optimization, tags: [:optimization]} =
+               Graphs.load!(clone.id)
     end
   end
 

@@ -52,13 +52,18 @@ defmodule NetworkDefense.Graph.Graphs do
     graphs =
       Graph
       |> order_by([graph], asc: graph.title)
-      |> select([graph], {graph.id, graph.title})
+      |> select([graph], %{
+        id: graph.id,
+        title: graph.title,
+        parent_id: graph.parent_id,
+        tags: graph.tags
+      })
       |> Repo.all()
 
     if graphs == [] do
       []
     else
-      graph_ids = Enum.map(graphs, &elem(&1, 0))
+      graph_ids = Enum.map(graphs, & &1.id)
 
       node_counts =
         from(n in Node,
@@ -78,12 +83,14 @@ defmodule NetworkDefense.Graph.Graphs do
         |> Repo.all()
         |> Map.new()
 
-      Enum.map(graphs, fn {id, title} ->
+      Enum.map(graphs, fn graph ->
         %{
-          id: id,
-          title: title,
-          nodeCount: Map.get(node_counts, id, 0),
-          edgeCount: Map.get(edge_counts, id, 0)
+          id: graph.id,
+          title: graph.title,
+          parentId: graph.parent_id,
+          tags: Enum.map(graph.tags, &Atom.to_string/1),
+          nodeCount: Map.get(node_counts, graph.id, 0),
+          edgeCount: Map.get(edge_counts, graph.id, 0)
         }
       end)
     end

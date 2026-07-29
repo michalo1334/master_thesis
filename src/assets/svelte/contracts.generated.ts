@@ -107,6 +107,8 @@ export interface GraphContract {
   id: string;
   lock_version: number;
   nodes: Node[];
+  parent_id?: string | null;
+  tags: string[];
   title: string;
 }
 

@@ -25,8 +25,8 @@ export interface OptimizationPending {
 }
 
 export class WorkspaceModel {
-  /** Topologies available to open, owned by workspace so the picker has them. */
-  graphSummaries: GraphSummary[];
+  /** Graphs available to open, owned by workspace so the picker has them. */
+  graphSummaries = $state.raw<GraphSummary[]>([]);
 
   documents = $state<WorkspaceDocument[]>([]);
   selectedDocumentId = $state<string | undefined>();
@@ -56,6 +56,24 @@ export class WorkspaceModel {
 
   constructor(graphSummaries: GraphSummary[] = []) {
     this.graphSummaries = graphSummaries;
+  }
+
+  upsertGraphSummary(graph: LoadedGraph): void {
+    const summary: GraphSummary = {
+      id: graph.id,
+      title: graph.title,
+      parentId: graph.parent_id ?? null,
+      tags: graph.tags,
+      nodeCount: graph.nodes.length,
+      edgeCount: graph.edges.length,
+    };
+    const index = this.graphSummaries.findIndex(({ id }) => id === graph.id);
+    this.graphSummaries =
+      index === -1
+        ? [...this.graphSummaries, summary]
+        : this.graphSummaries.map((item, itemIndex) =>
+            itemIndex === index ? summary : item,
+          );
   }
 
   get activeDocument(): WorkspaceDocument | undefined {
@@ -127,6 +145,7 @@ export class WorkspaceModel {
     graph: LoadedGraph,
     api: DashboardApi,
   ): Promise<EditableGraphDocument | undefined> {
+    this.upsertGraphSummary(graph);
     const existing = this.documents.find(
       (d) => d.kind === "graph" && d.loadedGraphId === graph.id,
     ) as EditableGraphDocument | undefined;

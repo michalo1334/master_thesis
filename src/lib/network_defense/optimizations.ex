@@ -9,6 +9,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.Optimizer
   alias NetworkDefense.Optimization.SimulationInformedStrategy
+  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
@@ -29,9 +30,11 @@ defmodule NetworkDefense.Optimizations do
   defp start_optimization(graph, request) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       try do
+        strategy = strategy_for(graph, request)
+
         graph
-        |> Optimizer.apply(strategy(graph, request), request.optimization_params.budget)
-        |> clone_optimized_graph()
+        |> Optimizer.apply(strategy, request.optimization_params.budget)
+        |> clone_optimized_graph(strategy)
         |> persist_and_broadcast(graph, request)
       rescue
         error ->
@@ -41,10 +44,13 @@ defmodule NetworkDefense.Optimizations do
     end)
   end
 
-  defp strategy(_graph, %RunOptimizationRequest{optimization_params: %{strategy: "cvss"}}),
+  defp strategy_for(_graph, %RunOptimizationRequest{optimization_params: %{strategy: "cvss"}}),
     do: %CvssStrategy{}
 
-  defp strategy(graph, %RunOptimizationRequest{optimization_params: params}) do
+  defp strategy_for(
+         graph,
+         %RunOptimizationRequest{optimization_params: %{strategy: "simulation_informed"} = params}
+       ) do
     simulation_params = params.simulation_params
 
     %SimulationInformedStrategy{
@@ -61,8 +67,8 @@ defmodule NetworkDefense.Optimizations do
   defp simulation_seed(%{generate_seed: true}), do: Seed.random()
   defp simulation_seed(%{seed: seed}), do: seed
 
-  defp clone_optimized_graph(%Graph{} = graph) do
-    Graph.clone(%{graph | title: graph.title || "Optimized graph"})
+  defp clone_optimized_graph(%Graph{} = graph, strategy) do
+    Graph.clone(%{graph | title: "#{graph.title} (optimized with #{Strategy.name(strategy)})"})
   end
 
   defp persist_and_broadcast(optimized_graph, graph, request) do

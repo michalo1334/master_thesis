@@ -6,6 +6,7 @@
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import OptionPickerDialog from "./dashboard/ui/OptionPickerDialog.svelte";
+  import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
   import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
@@ -39,27 +40,6 @@
       id: "simulation_informed",
       icon: "graph",
       title: "Simulation-informed",
-    },
-  ];
-
-  const topologyColumns: FilterableTableColumn<GraphSummary>[] = [
-    {
-      key: "title",
-      header: "Name",
-      getValue: (summary) => summary.title,
-      filterable: true,
-    },
-    {
-      key: "nodes",
-      header: "Nodes",
-      getValue: (summary) => String(summary.nodeCount),
-      align: "end",
-    },
-    {
-      key: "edges",
-      header: "Edges",
-      getValue: (summary) => String(summary.edgeCount),
-      align: "end",
     },
   ];
 
@@ -119,10 +99,8 @@
     void model.runActiveOptimization();
   }
 
-  async function handleTopologySelect([
-    summary,
-  ]: GraphSummary[]): Promise<boolean> {
-    return summary ? wm.openGraph(api, summary) : false;
+  async function handleTopologySelect(summary: GraphSummary): Promise<boolean> {
+    return wm.openGraph(api, summary);
   }
 
   async function handleExperimentSelect([
@@ -160,7 +138,10 @@
   />
 
   {#snippet inspector()}
-    <DashboardInspector document={wm.activeDocument} />
+    <DashboardInspector
+      document={wm.activeDocument}
+      summaries={wm.graphSummaries}
+    />
   {/snippet}
 
   {#snippet content(document: WorkspaceDocument)}
@@ -173,19 +154,12 @@
 
   <Workspace model={wm} {documentTypes} {inspector} {content} />
 
-  <OptionPickerDialog
+  <GraphTreePickerDialog
     open={wm.topologyPickerOpen}
     onOpenChange={(open) => (wm.topologyPickerOpen = open)}
-    items={wm.graphSummaries}
-    title="Open topology"
-    description="Select a saved network topology to open in the workspace."
-    getKey={(summary) => summary.id}
-    columns={topologyColumns}
-    searchPlaceholder="Search topologies…"
-    emptyMessage="No saved topologies."
-    noMatchMessage="No topologies match your search."
+    summaries={wm.graphSummaries}
     status={wm.topologyPickerStatus}
-    onConfirm={handleTopologySelect}
+    onSelect={handleTopologySelect}
   />
 
   <OptionPickerDialog

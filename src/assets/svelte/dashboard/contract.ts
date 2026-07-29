@@ -1,7 +1,7 @@
 import type {
   Node,
   Edge,
-  GraphContract as LoadedGraph,
+  GraphContract,
   OpenGraphPayload,
   OpenGraphReply,
   SaveGraphPayload,
@@ -41,7 +41,6 @@ export type {
   NodeViewData,
   Node,
   Edge,
-  GraphContract as LoadedGraph,
   OpenGraphPayload,
   OpenGraphReply,
   SaveGraphPayload,
@@ -62,6 +61,8 @@ export type {
   FetchExperimentsReply,
 } from "../contracts.generated";
 
+export type LoadedGraph = GraphContract;
+
 export type SimulationParams = GeneratedSimulationParams & {
   initial_foothold_node_id: string;
 };
@@ -78,6 +79,8 @@ export interface GraphSummary {
   title: string;
   nodeCount: number;
   edgeCount: number;
+  parentId: string | null;
+  tags: string[];
 }
 
 export type SimulationReportData = FetchSimulationReportReply;

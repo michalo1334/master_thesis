@@ -10,6 +10,8 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
     field :id, :string
     field :title, :string
     field :lock_version, :integer
+    field :parent_id, :string
+    field :tags, {:array, :string}, default: []
     embeds_many :nodes, Node, on_replace: :delete
     embeds_many :edges, Edge, on_replace: :delete
   end
@@ -19,7 +21,9 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
           title: String.t(),
           nodes: [Node.t()],
           edges: [Edge.t()],
-          lock_version: integer()
+          lock_version: integer(),
+          parent_id: String.t() | nil,
+          tags: [String.t()]
         }
 
   def changeset(schema, attrs) do
@@ -62,7 +66,11 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
              nodes: Enum.map(nodes, &Node.to_wire/1),
              edges: Enum.map(edges, &Edge.to_wire/1)
            }) do
-      {:ok, to_wire(contract)}
+      {:ok,
+       contract
+       |> Map.put(:parent_id, graph.parent_id)
+       |> Map.put(:tags, Enum.map(graph.tags, &Atom.to_string/1))
+       |> to_wire()}
     end
   end
 

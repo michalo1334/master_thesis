@@ -254,6 +254,9 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert {:ok, wire} = GraphContract.from_domain(graph)
 
+    assert wire.parent_id == nil
+    assert wire.tags == ["original"]
+
     assert ["Credential", "Host", "Service", "Vulnerability"] =
              wire
              |> Map.fetch!(:nodes)
@@ -279,6 +282,9 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              |> Map.fetch!(:view_data)
 
     assert {:ok, %{attrs: attrs}} = GraphContract.from_params(wire)
+
+    refute Map.has_key?(attrs, "parent_id")
+    refute Map.has_key?(attrs, "tags")
 
     assert Enum.sort(Enum.map(attrs["nodes"], & &1["type"])) ==
              Enum.sort([

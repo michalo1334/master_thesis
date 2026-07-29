@@ -8,6 +8,8 @@ function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
     id: "g1",
     title: "Graph",
     lock_version: 1,
+    parent_id: null,
+    tags: ["original"],
     nodes: [],
     edges: [],
     ...overrides,

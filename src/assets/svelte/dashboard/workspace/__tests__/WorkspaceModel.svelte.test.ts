@@ -14,6 +14,8 @@ function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
     title: "Topology 1",
     nodeCount: 3,
     edgeCount: 2,
+    parentId: null,
+    tags: ["original"],
     ...overrides,
   };
 }
@@ -23,6 +25,8 @@ function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
     id: "g1",
     title: "Graph",
     lock_version: 1,
+    parent_id: null,
+    tags: ["original"],
     nodes: [],
     edges: [],
     ...overrides,
@@ -215,6 +219,40 @@ describe("WorkspaceModel", () => {
       expect(model.documents.length).toBe(2);
       expect(model.selectedDocumentId).not.toBe(blankId);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("upsertGraphSummary", () => {
+    it("adds a loaded graph summary and replaces an existing summary", () => {
+      model = new WorkspaceModel([makeGraphSummary({ title: "Stale" })]);
+
+      model.upsertGraphSummary(
+        makeLoadedGraph({
+          title: "Optimized",
+          parent_id: "parent-1",
+          tags: ["optimization"],
+          nodes: [hostNode("host-1")],
+          edges: [],
+        }),
+      );
+
+      expect(model.graphSummaries).toEqual([
+        {
+          id: "g1",
+          title: "Optimized",
+          parentId: "parent-1",
+          tags: ["optimization"],
+          nodeCount: 1,
+          edgeCount: 0,
+        },
+      ]);
+    });
+
+    it("adds a summary when the loaded graph is new", () => {
+      model.upsertGraphSummary(makeLoadedGraph({ id: "g2" }));
+
+      expect(model.graphSummaries).toHaveLength(1);
+      expect(model.graphSummaries[0]?.id).toBe("g2");
     });
   });
 
