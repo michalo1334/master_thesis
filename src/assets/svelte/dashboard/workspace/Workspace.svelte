@@ -3,6 +3,7 @@
   import type { Snippet } from "svelte";
   import Icon from "../ui/Icon.svelte";
   import type { IconName } from "../types";
+  import DocumentOutline from "./DocumentOutline.svelte";
   import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
   import type { WorkspaceModel } from "./WorkspaceModel.svelte";
 
@@ -37,6 +38,7 @@
       (document) => document.id === model.selectedDocumentId,
     ),
   );
+  let outlineCollapsed = $state(false);
 
   function closeDocument(event: MouseEvent, id: string) {
     event.stopPropagation();
@@ -44,7 +46,21 @@
   }
 </script>
 
-<main class={["dashboard-workspace", "dashboard-workspace-with-inspector"]}>
+<main
+  class={[
+    "dashboard-workspace",
+    "dashboard-workspace-with-inspector",
+    { "dashboard-workspace-outline-collapsed": outlineCollapsed },
+  ]}
+>
+  <DocumentOutline
+    documents={model.documents}
+    selectedDocumentId={model.selectedDocumentId}
+    onSelectDocument={(id) => model.selectDocument(id)}
+    collapsed={outlineCollapsed}
+    onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
+  />
+
   <Tabs.Root
     class="dashboard-document"
     {orientation}
@@ -380,6 +396,34 @@
         grid-column: auto;
         grid-row: 2;
       }
+    }
+  }
+
+  @media (min-width: 75em) {
+    .dashboard-workspace {
+      grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    }
+    .dashboard-workspace-with-inspector {
+      grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) var(
+          --ds-inspector-width
+        );
+    }
+    .dashboard-workspace-outline-collapsed {
+      grid-template-columns: 3rem minmax(0, 1fr);
+    }
+    .dashboard-workspace-with-inspector.dashboard-workspace-outline-collapsed {
+      grid-template-columns: 3rem minmax(0, 1fr) var(--ds-inspector-width);
+    }
+    :global(.dashboard-document),
+    :global(.dashboard-document[data-orientation="vertical"]) {
+      grid-column: 2;
+      grid-row: 1;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr);
+    }
+    .dashboard-workspace :global(.dashboard-inspector) {
+      grid-column: 3;
+      grid-row: 1;
     }
   }
 </style>

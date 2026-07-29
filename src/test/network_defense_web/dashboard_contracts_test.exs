@@ -22,9 +22,10 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
-  alias NetworkDefenseWeb.Web.Contracts.SaveGraphPayload
+  alias NetworkDefenseWeb.Web.Contracts.{OpenGraphReply, SaveGraphPayload}
 
   @graph_id "00000000-0000-0000-0000-000000000001"
+  @parent_graph_id "00000000-0000-0000-0000-000000000011"
   @host_id "00000000-0000-0000-0000-000000000002"
   @service_id "00000000-0000-0000-0000-000000000003"
   @vulnerability_id "00000000-0000-0000-0000-000000000004"
@@ -302,6 +303,19 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                Atom.to_string(StoresCredential),
                Atom.to_string(AuthenticatesTo)
              ])
+  end
+
+  test "preserves graph lineage through an open graph reply" do
+    graph =
+      Graph.new("Child graph")
+      |> Map.put(:parent_id, @parent_graph_id)
+      |> Map.put(:tags, [:optimization])
+
+    assert {:ok, wire_graph} = GraphContract.from_domain(graph)
+    assert {:ok, reply} = OpenGraphReply.validate(%{status: "ok", graph: wire_graph})
+
+    assert %{graph: %{parent_id: @parent_graph_id, tags: ["optimization"]}} =
+             OpenGraphReply.to_wire(reply)
   end
 
   defp errors_on(changeset) do

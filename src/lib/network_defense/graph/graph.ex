@@ -29,8 +29,19 @@ defmodule NetworkDefense.Graph.Graph do
     graph
     |> cast(attrs, [:title])
     |> validate_required([:title])
-    |> validate_length(:title, min: 1)
+    |> validate_length(:title, min: 1, max: 255)
     |> foreign_key_constraint(:parent_id)
+  end
+
+  def insert_changeset(%__MODULE__{} = graph) do
+    %__MODULE__{
+      id: graph.id,
+      lock_version: graph.lock_version,
+      parent_id: graph.parent_id,
+      source: graph.source,
+      tags: graph.tags
+    }
+    |> changeset(%{title: graph.title})
   end
 
   def new(title) when is_binary(title) and byte_size(title) > 0 do

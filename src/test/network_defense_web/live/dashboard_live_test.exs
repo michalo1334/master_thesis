@@ -279,6 +279,38 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                Graphs.load(optimized_graph_id)
     end
 
+    test "reports a friendly error when an optimized title is too long", %{conn: conn} do
+      graph = insert_graph(String.duplicate("x", 255))
+      graph_id = graph.id
+      correlation_id = "optimization-title-too-long"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+        }
+      })
+
+      assert_reply(view, %{
+        status: "accepted",
+        graph_id: ^graph_id,
+        correlation_id: ^correlation_id,
+        reason: nil
+      })
+
+      assert_receive {:optimization_failed,
+                      %{
+                        correlation_id: ^correlation_id,
+                        graph_id: ^graph_id,
+                        reason: "Title should be at most 255 character(s)"
+                      }},
+                     5_000
+    end
+
     test "rejects invalid optimization parameters", %{conn: conn} do
       graph = insert_graph("invalid-optimization")
       correlation_id = "invalid-optimization-request"

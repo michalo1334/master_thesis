@@ -3,6 +3,7 @@ defmodule NetworkDefense.Optimizations do
   Public context module for working with optimization related aspects
   """
 
+  alias Ecto.Changeset
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
@@ -86,9 +87,23 @@ defmodule NetworkDefense.Optimizations do
         )
 
       {:error, reason} ->
-        broadcast_failed(graph.id, request.correlation_id, inspect(reason))
+        broadcast_failed(graph.id, request.correlation_id, persistence_error(reason))
     end
   end
+
+  defp persistence_error({:graph, changeset}) do
+    changeset
+    |> Changeset.traverse_errors(fn {message, options} ->
+      Enum.reduce(options, message, fn {key, value}, message ->
+        String.replace(message, "%{#{key}}", to_string(value))
+      end)
+    end)
+    |> Enum.map_join(", ", fn {field, messages} ->
+      "#{field |> Atom.to_string() |> String.capitalize()} #{Enum.join(messages, ", ")}"
+    end)
+  end
+
+  defp persistence_error(reason), do: inspect(reason)
 
   defp broadcast_failed(graph_id, correlation_id, reason) do
     Phoenix.PubSub.broadcast(

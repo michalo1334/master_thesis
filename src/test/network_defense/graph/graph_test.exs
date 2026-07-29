@@ -39,6 +39,13 @@ defmodule NetworkDefense.Graph.GraphTest do
       changeset = Graph.changeset(%Graph{}, %{title: "Valid Graph"})
       assert changeset.valid?
     end
+
+    test "limits titles to the database length" do
+      changeset = Graph.changeset(%Graph{}, %{title: String.duplicate("x", 256)})
+
+      refute changeset.valid?
+      assert "should be at most 255 character(s)" in errors_on(changeset).title
+    end
   end
 
   describe "list_summaries/0" do
@@ -92,6 +99,13 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   describe "persistence" do
+    test "rejects a graph whose title exceeds the database length" do
+      graph = Graph.new(String.duplicate("x", 256))
+
+      assert {:error, {:graph, changeset}} = Graphs.insert(graph)
+      assert "should be at most 255 character(s)" in errors_on(changeset).title
+    end
+
     test "creates and loads a graph with typed nodes and edges" do
       graph = Graph.new("test-graph")
       source_host = build_node(graph, Host, %{"name" => "internet"})

@@ -28,11 +28,12 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:id, :title, :lock_version])
+    |> cast(attrs, [:id, :title, :lock_version, :parent_id, :tags])
     |> cast_embed(:nodes)
     |> cast_embed(:edges)
     |> validate_required([:id, :title, :lock_version])
     |> Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:parent_id)
     |> validate_length(:title, min: 1)
   end
 

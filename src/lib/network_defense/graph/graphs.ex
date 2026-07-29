@@ -20,10 +20,7 @@ defmodule NetworkDefense.Graph.Graphs do
     Repo.transaction(fn ->
       persisted_graph =
         graph
-        |> Map.put(:nodes, [])
-        |> Map.put(:edges, [])
-        |> Map.put(:adjacency_list, %{})
-        |> Graph.changeset(%{})
+        |> Graph.insert_changeset()
         |> insert_or_rollback(:graph)
 
       insert_nodes(Graph.persisted_nodes(graph))
