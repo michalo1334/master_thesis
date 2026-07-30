@@ -12,9 +12,9 @@ function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   return {
     id: "g1",
     title: "Topology 1",
-    nodeCount: 3,
-    edgeCount: 2,
-    parentId: null,
+    node_count: 3,
+    edge_count: 2,
+    parent_id: null,
     tags: ["original"],
     ...overrides,
   };
@@ -165,6 +165,22 @@ describe("WorkspaceModel", () => {
       model.selectDocument(model.documents[0].id);
       expect(model.selectedDocumentId).toBe(model.documents[0].id);
     });
+
+    it("marks an optimization report as read", () => {
+      const report = model.createPendingOptimizationReport({
+        graphId: "g1",
+        graphTitle: "Test",
+        correlationId: "corr-optimization",
+        strategy: "cvss",
+        budget: 1,
+      });
+      report.markUnread();
+
+      model.createGraphDocument();
+      model.selectDocument(report.id);
+
+      expect(report.hasUnread).toBe(false);
+    });
   });
 
   describe("openLoadedGraph", () => {
@@ -240,10 +256,10 @@ describe("WorkspaceModel", () => {
         {
           id: "g1",
           title: "Optimized",
-          parentId: "parent-1",
+          parent_id: "parent-1",
           tags: ["optimization"],
-          nodeCount: 1,
-          edgeCount: 0,
+          node_count: 1,
+          edge_count: 0,
         },
       ]);
     });
@@ -293,6 +309,28 @@ describe("WorkspaceModel", () => {
       expect(second.id).not.toBe(first.id);
       expect(first.correlationId).toBe("corr-1");
       expect(second.correlationId).toBe("corr-2");
+    });
+  });
+
+  describe("createPendingOptimizationReport", () => {
+    const info = {
+      graphId: "g1",
+      graphTitle: "Test",
+      correlationId: "corr-optimization",
+      strategy: "cvss" as const,
+      budget: 1,
+    };
+
+    it("selects a newly created report and an existing matching report", () => {
+      const report = model.createPendingOptimizationReport(info);
+      expect(model.selectedDocumentId).toBe(report.id);
+
+      model.createGraphDocument();
+
+      const existing = model.createPendingOptimizationReport(info);
+
+      expect(existing).toBe(report);
+      expect(model.selectedDocumentId).toBe(report.id);
     });
   });
 

@@ -216,6 +216,15 @@ export interface FetchSimulationReportReply {
   total_runtime_ms: number;
 }
 
+export interface GraphSummary {
+  edge_count: number;
+  id: string;
+  node_count: number;
+  parent_id?: string | null;
+  tags: string[];
+  title: string;
+}
+
 export interface OpenGraphPayload {
   graph_id: string;
 }
@@ -225,16 +234,45 @@ export interface OpenGraphReply {
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
+export interface OptimizationAction {
+  cost: number;
+  cvss_score?: number | null;
+  id: string;
+  kind: string;
+  label: string;
+}
+
 export interface OptimizationCompletedEvent {
   correlation_id: string;
   graph_id: string;
   optimized_graph_id: string;
+  report: OptimizationReport;
 }
 
 export interface OptimizationFailedEvent {
   correlation_id: string;
   graph_id: string;
   reason: string;
+}
+
+export interface OptimizationProgressEvent {
+  completed_steps: number;
+  correlation_id: string;
+  graph_id: string;
+  phase: string;
+  total_steps: number;
+}
+
+export interface OptimizationReport {
+  actions: OptimizationAction[];
+  requested_budget: number;
+  runtime_ms: number;
+  strategy:
+    | "cvss"
+    | "simulation_informed"
+    | "topology_segmentation"
+    | "simulated_annealing";
+  used_budget: number;
 }
 
 export interface RunOptimizationPayload {
@@ -315,6 +353,12 @@ export interface SimulationReportConvergencePoint {
 export interface SimulationReportEdgeTraversal {
   edge_id: string;
   traversal_probability: number;
+}
+
+export interface SimulationReportErrorEvent {
+  experiment_id: string;
+  graph_id: string;
+  reason: string;
 }
 
 export interface SimulationReportHistogramBucket {

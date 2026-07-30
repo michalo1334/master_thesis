@@ -10,14 +10,15 @@
     GraphSummary,
     FetchExperimentsPayload,
     FetchExperimentsReply,
-    OptimizationCompletedEvent,
-    OptimizationFailedEvent,
     SimulationCompletedEvent,
     SimulationFailedEvent,
     SimulationProgressEvent,
     FetchSimulationReportReply,
+    OptimizationCompletedEvent,
+    OptimizationFailedEvent,
+    OptimizationProgressEvent,
+    SimulationReportErrorEvent,
   } from "./dashboard/contract";
-  import type { SimulationReportErrorEvent } from "./dashboard/contract";
 
   interface Props {
     live: Live;
@@ -52,11 +53,15 @@
   });
 
   useLiveEvent("optimization_completed", (payload: unknown) => {
-    void model.onOptimizationCompleted(payload as OptimizationCompletedEvent);
+    model.onOptimizationCompleted(payload as OptimizationCompletedEvent);
   });
 
   useLiveEvent("optimization_failed", (payload: unknown) => {
     model.onOptimizationFailed(payload as OptimizationFailedEvent);
+  });
+
+  useLiveEvent("optimization_progress", (payload: unknown) => {
+    model.onOptimizationProgress(payload as OptimizationProgressEvent);
   });
 
   useLiveEvent("simulation_report_ready", (payload: unknown) => {

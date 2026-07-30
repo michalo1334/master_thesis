@@ -209,11 +209,13 @@ describe("DashboardModel", () => {
         strategy,
         budget: 25,
       });
-      vi.mocked(api.runOptimization).mockResolvedValue({
-        status: "accepted",
-        graph_id: "g1",
-        correlation_id: "corr-optimization",
-      });
+      vi.mocked(api.runOptimization).mockImplementation(
+        async (_graphId, correlationId) => ({
+          status: "accepted",
+          graph_id: "g1",
+          correlation_id: correlationId,
+        }),
+      );
 
       await model.runActiveOptimization();
 
@@ -228,79 +230,235 @@ describe("DashboardModel", () => {
           }),
         }),
       );
-      expect(model.workspace.optimizationPending).toEqual({
-        graphId: "g1",
-        correlationId: "corr-optimization",
-      });
+      const correlationId = vi.mocked(api.runOptimization).mock.calls[0]![1];
+      expect(
+        model.workspace.findOptimizationReport(correlationId, "g1"),
+      ).toMatchObject({ correlationId, graphId: "g1", status: "pending" });
     });
 
-    it("allows only one optimization request while one is pending", async () => {
+    it("snapshots parameters and creates the report before the reply", async () => {
+      await model.workspace.openLoadedGraph(
+        makeLoadedGraph({ nodes: [hostNode("host-1")] }),
+        api,
+      );
+      model.workspace.onOptimizationParamsChange({
+        budget: 25,
+        simulation_params: { monte_carlo_trials: 100 },
+      });
+
+      let resolve!: () => void;
+      vi.mocked(api.runOptimization).mockImplementation(
+        (_graphId, correlationId) =>
+          new Promise((complete) => {
+            resolve = () =>
+              complete({
+                status: "accepted",
+                graph_id: "g1",
+                correlation_id: correlationId,
+              });
+          }),
+      );
+
+      const optimization = model.runActiveOptimization();
+      const correlationId = vi.mocked(api.runOptimization).mock.calls[0]![1];
+      const submitted = vi.mocked(api.runOptimization).mock.calls[0]![2];
+      const report = model.workspace.findOptimizationReport(
+        correlationId,
+        "g1",
+      );
+
+      expect(report?.status).toBe("pending");
+      model.workspace.onOptimizationParamsChange({
+        budget: 50,
+        simulation_params: { monte_carlo_trials: 200 },
+      });
+      expect(submitted).toMatchObject({
+        budget: 25,
+        simulation_params: { monte_carlo_trials: 100 },
+      });
+
+      resolve();
+      await optimization;
+    });
+
+    it("routes concurrent optimization events to reports by correlation ID", async () => {
       await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
-      let resolve!: (value: {
-        status: "accepted";
-        graph_id: string;
-        correlation_id: string;
-      }) => void;
-      vi.mocked(api.runOptimization).mockReturnValue(
-        new Promise((res) => {
-          resolve = res;
+      const graphDocumentId = model.workspace.activeGraph!.id;
+      let resolveFirst!: () => void;
+      let resolveSecond!: () => void;
+      vi.mocked(api.runOptimization)
+        .mockImplementationOnce(
+          (_graphId, correlationId) =>
+            new Promise((complete) => {
+              resolveFirst = () =>
+                complete({
+                  status: "accepted",
+                  graph_id: "g1",
+                  correlation_id: correlationId,
+                });
+            }),
+        )
+        .mockImplementationOnce(
+          (_graphId, correlationId) =>
+            new Promise((complete) => {
+              resolveSecond = () =>
+                complete({
+                  status: "accepted",
+                  graph_id: "g1",
+                  correlation_id: correlationId,
+                });
+            }),
+        );
+
+      const first = model.runActiveOptimization();
+      model.workspace.selectDocument(graphDocumentId);
+      const second = model.runActiveOptimization();
+
+      expect(api.runOptimization).toHaveBeenCalledTimes(2);
+      const firstCorrelationId = vi.mocked(api.runOptimization).mock
+        .calls[0]![1];
+      const secondCorrelationId = vi.mocked(api.runOptimization).mock
+        .calls[1]![1];
+      const firstReport = model.workspace.findOptimizationReport(
+        firstCorrelationId,
+        "g1",
+      )!;
+      const secondReport = model.workspace.findOptimizationReport(
+        secondCorrelationId,
+        "g1",
+      )!;
+      expect(firstReport.id).not.toBe(secondReport.id);
+      expect(firstReport.status).toBe("pending");
+      expect(secondReport.status).toBe("pending");
+
+      resolveFirst();
+      await first;
+      resolveSecond();
+      await second;
+
+      model.onOptimizationProgress({
+        correlation_id: firstCorrelationId,
+        graph_id: "g1",
+        completed_steps: 2,
+        total_steps: 4,
+        phase: "evaluating",
+      });
+      model.onOptimizationFailed({
+        correlation_id: secondCorrelationId,
+        graph_id: "g1",
+        reason: "No eligible defenses.",
+      });
+      model.onOptimizationCompleted({
+        correlation_id: firstCorrelationId,
+        graph_id: "g1",
+        optimized_graph_id: "optimized-g1",
+        report: {
+          strategy: "cvss",
+          requested_budget: 1,
+          used_budget: 1,
+          runtime_ms: 12,
+          actions: [],
+        },
+      });
+
+      expect(firstReport.completedSteps).toBe(2);
+      expect(firstReport.status).toBe("completed");
+      expect(secondReport.status).toBe("error");
+      expect(secondReport.errorReason).toBe("No eligible defenses.");
+    });
+
+    it("keeps rejected reports as errors", async () => {
+      await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
+      vi.mocked(api.runOptimization).mockImplementation(
+        async (_graphId, correlationId) => ({
+          status: "rejected",
+          graph_id: "g1",
+          correlation_id: correlationId,
+          reason: "Server busy",
         }),
       );
 
-      const first = model.runActiveOptimization();
-      const second = model.runActiveOptimization();
+      await model.runActiveOptimization();
 
-      expect(model.workspace.isOptimizationPending).toBe(true);
-      expect(api.runOptimization).toHaveBeenCalledTimes(1);
+      const report = model.workspace.documents.find(
+        (document) => document.kind === "optimization-report",
+      );
+      expect(report?.status).toBe("error");
+      expect(report?.errorReason).toBe("Server busy");
+    });
 
-      resolve({
-        status: "accepted",
-        graph_id: "g1",
-        correlation_id: model.workspace.optimizationPending!.correlationId,
-      });
-      await Promise.all([first, second]);
+    it("keeps network-failed reports as errors", async () => {
+      await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
+      vi.mocked(api.runOptimization).mockRejectedValue(new Error("offline"));
+
+      await model.runActiveOptimization();
+
+      const report = model.workspace.documents.find(
+        (document) => document.kind === "optimization-report",
+      );
+      expect(report?.status).toBe("error");
+      expect(report?.errorReason).toBe("Optimization failed.");
     });
   });
 
   describe("optimization events", () => {
-    it("opens the optimized graph after a matching completion event", async () => {
+    it("keeps the optimized graph closed until the report callback opens it", async () => {
       await model.workspace.openLoadedGraph(makeLoadedGraph(), api);
-      vi.mocked(api.runOptimization).mockResolvedValue({
-        status: "accepted",
-        graph_id: "g1",
-        correlation_id: "corr-optimization",
-      });
+      vi.mocked(api.runOptimization).mockImplementation(
+        async (_graphId, correlationId) => ({
+          status: "accepted",
+          graph_id: "g1",
+          correlation_id: correlationId,
+        }),
+      );
       vi.mocked(api.openGraph).mockResolvedValue({
         status: "ok",
         graph: makeLoadedGraph({ id: "optimized-g1", title: "Optimized" }),
       });
 
       await model.runActiveOptimization();
-      await model.onOptimizationCompleted({
-        correlation_id: "corr-optimization",
+      const correlationId = vi.mocked(api.runOptimization).mock.calls[0]![1];
+      model.onOptimizationCompleted({
+        correlation_id: correlationId,
         graph_id: "g1",
         optimized_graph_id: "optimized-g1",
+        report: {
+          strategy: "cvss",
+          requested_budget: 1,
+          used_budget: 1,
+          runtime_ms: 12,
+          actions: [],
+        },
       });
 
-      expect(model.workspace.optimizationPending).toBeNull();
+      const report = model.workspace.findOptimizationReport(
+        correlationId,
+        "g1",
+      )!;
+      expect(api.openGraph).not.toHaveBeenCalled();
+
+      await report.openOptimizedGraph?.();
+
       expect(api.openGraph).toHaveBeenCalledWith("optimized-g1");
       expect(model.workspace.activeGraph?.loadedGraphId).toBe("optimized-g1");
     });
 
-    it("clears a matching pending optimization and reports its failure", async () => {
-      model.workspace.beginOptimization({
+    it("reports a matching optimization failure", async () => {
+      const report = model.workspace.createPendingOptimizationReport({
         graphId: "g1",
         correlationId: "corr-optimization",
+        graphTitle: "Topology",
+        strategy: "cvss",
+        budget: 1,
       });
-
       model.onOptimizationFailed({
         correlation_id: "corr-optimization",
         graph_id: "g1",
         reason: "No eligible defenses.",
       });
 
-      expect(model.workspace.optimizationPending).toBeNull();
-      expect(model.workspace.statusMessage).toBe("No eligible defenses.");
+      expect(report.status).toBe("error");
+      expect(report.errorReason).toBe("No eligible defenses.");
     });
   });
 

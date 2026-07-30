@@ -39,10 +39,6 @@
   const visibleRows = $derived.by(() => flattenTree(tree, expandedGraphIds));
   const displayStatus = $derived(status || selectionError);
 
-  $effect(() => {
-    if (!open) collapseAllGraphs();
-  });
-
   function buildTree(summaries: readonly GraphSummary[]): TreeNode[] {
     const nodes = new Map<string, TreeNode>(
       summaries.map((summary): [string, TreeNode] => [
@@ -53,8 +49,8 @@
     const roots: TreeNode[] = [];
 
     for (const node of nodes.values()) {
-      const parent = node.summary.parentId
-        ? nodes.get(node.summary.parentId)
+      const parent = node.summary.parent_id
+        ? nodes.get(node.summary.parent_id)
         : undefined;
       if (parent && parent !== node) parent.children.push(node);
       else roots.push(node);
@@ -111,6 +107,11 @@
     expandedGraphIds.clear();
   }
 
+  function handleOpenChange(nextOpen: boolean): void {
+    if (!nextOpen) collapseAllGraphs();
+    onOpenChange(nextOpen);
+  }
+
   async function select(summary: GraphSummary): Promise<void> {
     if (isSelecting) return;
 
@@ -126,7 +127,7 @@
   }
 </script>
 
-<Dialog.Root {open} {onOpenChange}>
+<Dialog.Root {open} onOpenChange={handleOpenChange}>
   {#if open}
     <Dialog.Portal>
       <Dialog.Overlay class="graph-tree-picker-overlay" />
@@ -205,9 +206,11 @@
                         <span class="graph-tree-tag">{tag}</span>
                       {/each}
                     </td>
-                    <td class="graph-tree-align-end">{row.summary.nodeCount}</td
+                    <td class="graph-tree-align-end"
+                      >{row.summary.node_count}</td
                     >
-                    <td class="graph-tree-align-end">{row.summary.edgeCount}</td
+                    <td class="graph-tree-align-end"
+                      >{row.summary.edge_count}</td
                     >
                   </tr>
                 {/each}

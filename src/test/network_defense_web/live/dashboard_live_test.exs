@@ -277,9 +277,18 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
-                        optimized_graph_id: optimized_graph_id
+                        optimized_graph_id: optimized_graph_id,
+                        report: %{
+                          strategy: "cvss",
+                          requested_budget: 1,
+                          used_budget: 0,
+                          runtime_ms: runtime_ms,
+                          actions: []
+                        }
                       }},
                      5_000
+
+      assert runtime_ms >= 0
 
       assert %{
                id: ^optimized_graph_id,
@@ -387,13 +396,62 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert graph_id == graph.id
     end
 
+    test "rejects a foothold that is not a host in the graph", %{conn: conn} do
+      graph = insert_graph("invalid-foothold-optimization")
+      correlation_id = "invalid-foothold-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{
+            "strategy" => "topology_segmentation",
+            "budget" => 1,
+            "simulation_params" => %{
+              "monte_carlo_trials" => 1,
+              "iterations_per_run" => 1,
+              "initial_foothold_node_id" => Ecto.UUID.generate(),
+              "generate_seed" => true,
+              "max_attempts" => 1
+            }
+          }
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_id: graph_id,
+        correlation_id: ^correlation_id,
+        reason: "initial foothold must identify a host in the graph"
+      })
+
+      assert graph_id == graph.id
+    end
+
     test "forwards optimization completion and failure events", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       completed = %{
         correlation_id: "optimization-1",
         graph_id: "graph-1",
-        optimized_graph_id: "optimized-1"
+        optimized_graph_id: "optimized-1",
+        report: %{
+          strategy: "cvss",
+          requested_budget: 1,
+          used_budget: 1,
+          runtime_ms: 1,
+          actions: [
+            %{
+              id: "patch-1",
+              label: "Patch CVE-1",
+              kind: "Vulnerability patch",
+              cost: 1,
+              cvss_score: nil
+            }
+          ]
+        }
       }
 
       send(view.pid, {:optimization_completed, completed})
@@ -408,6 +466,17 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       send(view.pid, {:optimization_failed, failed})
       assert_push_event(view, "optimization_failed", ^failed)
       assert has_element?(view, "#flash-error[role='alert']")
+
+      progress = %{
+        correlation_id: "optimization-3",
+        graph_id: "graph-3",
+        completed_steps: 1,
+        total_steps: 2,
+        phase: "Applied defense 1 of 2"
+      }
+
+      send(view.pid, {:optimization_progress, progress})
+      assert_push_event(view, "optimization_progress", ^progress)
     end
   end
 

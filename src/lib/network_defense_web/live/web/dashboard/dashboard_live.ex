@@ -14,8 +14,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchExperimentsReply,
     OpenGraphPayload,
     OpenGraphReply,
+    GraphSummary,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
+    OptimizationProgressEvent,
     RunOptimizationPayload,
     RunOptimizationReply,
     RunSimulationReply,
@@ -24,7 +26,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SaveGraphReply,
     SimulationCompletedEvent,
     SimulationFailedEvent,
-    SimulationProgressEvent
+    SimulationProgressEvent,
+    SimulationReportErrorEvent
   }
 
   @impl true
@@ -49,7 +52,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(:graph_summaries, Graphs.list_summaries())
+      |> assign(:graph_summaries, graph_summaries())
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
@@ -220,15 +223,20 @@ defmodule NetworkDefenseWeb.DashboardLive do
      )}
   end
 
+  def handle_info({:optimization_progress, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "optimization_progress", OptimizationProgressEvent, payload)}
+  end
+
   def handle_info({:report_result, experiment_id, graph_id, result}, socket) do
     socket =
       if is_map(result) and result[:charts] do
         push_event(socket, "simulation_report_ready", result)
       else
-        push_event(socket, "simulation_report_error", %{
+        push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
           experiment_id: experiment_id,
           graph_id: graph_id,
-          reason: (is_map(result) && result[:status]) || "unknown_error"
+          reason: to_string((is_map(result) && result[:status]) || "unknown_error")
         })
       end
 
@@ -312,7 +320,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     case GraphContract.from_domain(persisted) do
       {:ok, wire_graph} ->
         {:reply, save_graph_reply("ok", wire_graph),
-         assign(socket, :graph_summaries, Graphs.list_summaries())}
+         assign(socket, :graph_summaries, graph_summaries())}
 
       {:error, _changeset} ->
         {:reply, save_graph_reply("unmapped_error"), socket}
@@ -323,6 +331,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp save_error_status(:not_found), do: "not_found"
   defp save_error_status(:invalid_graph), do: "invalid_graph"
   defp save_error_status(_reason), do: "unmapped_error"
+
+  defp graph_summaries do
+    Graphs.list_summaries()
+    |> Enum.flat_map(fn summary ->
+      case GraphSummary.from_domain(summary) do
+        {:ok, graph_summary} -> [GraphSummary.to_wire(graph_summary)]
+        {:error, _changeset} -> []
+      end
+    end)
+  end
 
   defp simulation_request_reply(status, graph_id, correlation_id, reason) do
     contract_reply(RunSimulationReply, %{

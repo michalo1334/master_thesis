@@ -59,7 +59,7 @@ defmodule NetworkDefense.Simulation.Simulator do
           run_single(graph, initial_attacker_state, experiment, opts, index)
         end
       end)
-      |> Enum.with_index(1)
+      |> Stream.with_index(1)
       |> Enum.map(fn
         {{:ok, run}, completed} ->
           if progress_callback, do: progress_callback.(completed, run_count)

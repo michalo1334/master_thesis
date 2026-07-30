@@ -27,15 +27,22 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         }
 
   def new(graph, %{simulation_params: simulation_params}) do
-    %__MODULE__{
-      initial_attacker_state:
-        Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
-      rules: Simulations.default_rules(),
-      run_count: simulation_params.monte_carlo_trials,
-      iteration_count: simulation_params.iterations_per_run,
-      seed: simulation_seed(simulation_params),
-      max_attempts: simulation_params.max_attempts
-    }
+    with :ok <-
+           Simulations.validate_initial_foothold(
+             graph,
+             simulation_params.initial_foothold_node_id
+           ) do
+      {:ok,
+       %__MODULE__{
+         initial_attacker_state:
+           Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
+         rules: Simulations.default_rules(),
+         run_count: simulation_params.monte_carlo_trials,
+         iteration_count: simulation_params.iterations_per_run,
+         seed: simulation_seed(simulation_params),
+         max_attempts: simulation_params.max_attempts
+       }}
+    end
   end
 
   defp simulation_seed(%{generate_seed: true}), do: Seed.random()

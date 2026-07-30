@@ -4,14 +4,16 @@ import type {
   GraphSummary,
   OptimizationCompletedEvent,
   OptimizationFailedEvent,
+  OptimizationProgressEvent,
   SimulationCompletedEvent,
   SimulationFailedEvent,
   SimulationProgressEvent,
   ExperimentSummary,
   FetchSimulationReportReply,
+  SimulationReportErrorEvent,
 } from "./contract";
-import type { SimulationReportErrorEvent } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
+import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
@@ -37,73 +39,76 @@ export class DashboardModel {
 
   async runActiveOptimization(): Promise<void> {
     const doc = this.workspace.activeGraph;
-    if (!doc || this.workspace.isOptimizationPending || !doc.loadedGraphId) {
+    if (!doc || !doc.loadedGraphId) {
       return;
     }
 
+    const params = $state.snapshot(this.workspace.optimizationParams);
     const correlationId = crypto.randomUUID();
-    if (
-      !this.workspace.beginOptimization({
-        graphId: doc.loadedGraphId,
-        correlationId,
-      })
-    ) {
-      return;
-    }
+    const report = this.workspace.createPendingOptimizationReport({
+      graphId: doc.loadedGraphId,
+      graphTitle: doc.title,
+      correlationId,
+      strategy: params.strategy,
+      budget: params.budget,
+    });
 
-    const params = this.workspace.optimizationParams;
     try {
       const reply = await doc.startOptimization(
         this.api,
-        {
-          ...params,
-          simulation_params: { ...this.workspace.simulationParams },
-        },
+        params,
         correlationId,
       );
       if (!reply) {
-        this.workspace.cancelOptimization(correlationId);
-      } else if (reply.status === "accepted") {
-        this.workspace.confirmOptimization({
-          graphId: reply.graph_id,
-          correlationId: reply.correlation_id,
-        });
-      } else {
-        this.workspace.cancelOptimization(correlationId);
-        this.workspace.statusMessage = reply.reason || "Optimization rejected.";
+        report.markError("Optimization failed.");
+        this.markOptimizationReportReadState(report);
+      } else if (reply.status === "rejected") {
+        report.markError(reply.reason || "Optimization rejected.");
+        this.markOptimizationReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
       }
     } catch {
-      this.workspace.cancelOptimization(correlationId);
-      this.workspace.statusMessage = "Optimization failed.";
+      report.markError("Optimization failed.");
+      this.markOptimizationReportReadState(report);
+      this.workspace.statusMessage = report.errorReason;
     }
   }
 
-  async onOptimizationCompleted(
-    payload: OptimizationCompletedEvent,
-  ): Promise<void> {
-    if (
-      !this.workspace.finishOptimization(
-        payload.correlation_id,
-        payload.graph_id,
-      )
-    ) {
-      return;
-    }
-    await this.workspace.openOptimizationResult(
-      this.api,
-      payload.optimized_graph_id,
+  onOptimizationCompleted(payload: OptimizationCompletedEvent): void {
+    const report = this.workspace.findOptimizationReport(
+      payload.correlation_id,
+      payload.graph_id,
     );
+    if (!report) return;
+    report.complete(payload, () =>
+      this.workspace.openOptimizationResult(
+        this.api,
+        payload.optimized_graph_id,
+      ),
+    );
+    this.markOptimizationReportReadState(report);
   }
 
   onOptimizationFailed(payload: OptimizationFailedEvent): void {
-    if (
-      this.workspace.finishOptimization(
-        payload.correlation_id,
-        payload.graph_id,
-      )
-    ) {
-      this.workspace.statusMessage = payload.reason;
-    }
+    const report = this.workspace.findOptimizationReport(
+      payload.correlation_id,
+      payload.graph_id,
+    );
+    if (!report) return;
+    report.markError(payload.reason);
+    this.markOptimizationReportReadState(report);
+  }
+
+  onOptimizationProgress(payload: OptimizationProgressEvent): void {
+    const report = this.workspace.findOptimizationReport(
+      payload.correlation_id,
+      payload.graph_id,
+    );
+    report?.setProgress(
+      payload.completed_steps,
+      payload.total_steps,
+      payload.phase,
+    );
   }
 
   /** Cross-model: route a server completion event to the matching report. */
@@ -189,5 +194,15 @@ export class DashboardModel {
   /** Delegate historical report selection to the workspace. */
   async selectExperiment(experiment: ExperimentSummary): Promise<boolean> {
     return this.workspace.selectExperiment(this.api, experiment);
+  }
+
+  private markOptimizationReportReadState(
+    report: OptimizationReportDocument,
+  ): void {
+    if (this.workspace.selectedDocumentId === report.id) {
+      report.markRead();
+    } else {
+      report.markUnread();
+    }
   }
 }

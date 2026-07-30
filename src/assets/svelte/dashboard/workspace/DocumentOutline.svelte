@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "../ui/Icon.svelte";
-  import type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
+  import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   interface DocumentOutlineRow {
@@ -48,7 +48,7 @@
         const siblings = children.get(parent.id) ?? [];
         siblings.push(document);
         children.set(parent.id, siblings);
-      } else if (document.kind === "simulation-report") {
+      } else if (isReport(document)) {
         fallbackReports.push(document);
       } else {
         roots.push(document);
@@ -78,7 +78,7 @@
     document: WorkspaceDocument,
     graphsByLoadedId: ReadonlyMap<string, WorkspaceDocument>,
   ): WorkspaceDocument | undefined {
-    if (document.kind === "simulation-report") {
+    if (isReport(document)) {
       return graphsByLoadedId.get(document.graphId);
     }
 

@@ -9,6 +9,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.Optimizer
+  alias NetworkDefense.Optimization.Report
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.Strategy
@@ -35,32 +36,51 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp start_optimization(graph, request) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      try do
-        strategy = strategy_for(graph, request)
+    with {:ok, strategy} <- strategy_for(graph, request) do
+      TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+        try do
+          {runtime_us, result} =
+            :timer.tc(fn ->
+              Optimizer.apply(graph, strategy, request.optimization_params.budget, fn completed,
+                                                                                      total,
+                                                                                      phase ->
+                broadcast_progress(graph.id, request.correlation_id, completed, total, phase)
+              end)
+            end)
 
-        graph
-        |> Optimizer.apply(strategy, request.optimization_params.budget)
-        |> clone_optimized_graph(strategy)
-        |> persist_and_broadcast(graph, request)
-      rescue
-        error ->
-          Logger.error("Optimization failed: #{Exception.message(error)}")
-          broadcast_failed(graph.id, request.correlation_id, Exception.message(error))
-      end
-    end)
+          optimized_graph = clone_optimized_graph(result.graph, strategy)
+
+          report =
+            Report.build(
+              graph,
+              request.optimization_params.strategy,
+              request.optimization_params.budget,
+              result,
+              runtime_us
+            )
+
+          persist_and_broadcast(optimized_graph, graph, request, report)
+        rescue
+          error ->
+            Logger.error("Optimization failed: #{Exception.message(error)}")
+            broadcast_failed(graph.id, request.correlation_id, Exception.message(error))
+        end
+      end)
+    end
   end
 
   defp strategy_for(graph, %RunOptimizationRequest{optimization_params: params}) do
-    strategy_module = Map.fetch!(@strategy_modules, params.strategy)
-    strategy_module.new(graph, params)
+    case Map.fetch(@strategy_modules, params.strategy) do
+      {:ok, strategy_module} -> strategy_module.new(graph, params)
+      :error -> {:error, "unknown_strategy"}
+    end
   end
 
   defp clone_optimized_graph(%Graph{} = graph, strategy) do
     Graph.clone(%{graph | title: "#{graph.title} (optimized with #{Strategy.name(strategy)})"})
   end
 
-  defp persist_and_broadcast(optimized_graph, graph, request) do
+  defp persist_and_broadcast(optimized_graph, graph, request, report) do
     case Graphs.insert(optimized_graph) do
       {:ok, persisted_graph} ->
         Phoenix.PubSub.broadcast(
@@ -70,7 +90,8 @@ defmodule NetworkDefense.Optimizations do
            %{
              correlation_id: request.correlation_id,
              graph_id: graph.id,
-             optimized_graph_id: persisted_graph.id
+             optimized_graph_id: persisted_graph.id,
+             report: report
            }}
         )
 
@@ -99,6 +120,21 @@ defmodule NetworkDefense.Optimizations do
       @optimization_events_topic,
       {:optimization_failed,
        %{correlation_id: correlation_id, graph_id: graph_id, reason: reason}}
+    )
+  end
+
+  defp broadcast_progress(graph_id, correlation_id, completed_steps, total_steps, phase) do
+    Phoenix.PubSub.broadcast(
+      NetworkDefense.PubSub,
+      @optimization_events_topic,
+      {:optimization_progress,
+       %{
+         correlation_id: correlation_id,
+         graph_id: graph_id,
+         completed_steps: completed_steps,
+         total_steps: total_steps,
+         phase: phase
+       }}
     )
   end
 end

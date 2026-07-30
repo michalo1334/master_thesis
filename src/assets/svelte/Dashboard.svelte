@@ -10,14 +10,16 @@
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
   import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
+  import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
+  import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
   import type {
     ExperimentSummary,
+    GraphSummary,
     OptimizationParams,
   } from "./dashboard/contract";
-  import type { GraphSummary } from "./dashboard/contract";
   import { formatRuntime, formatTimestamp } from "./dashboard/format";
   import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.types";
 
@@ -37,7 +39,6 @@
 
   const documentTypes: readonly DocType[] = [
     { id: "graph", label: "Graph", icon: "graph" },
-    { id: "simulation-report", label: "Report", icon: "shield" },
   ];
 
   const optimizationOptions: readonly OptimizationOption[] = [
@@ -135,7 +136,6 @@
     hasActiveGraph={wm.hasActiveGraph}
     hasUnreadReport={wm.hasUnreadReport}
     isLoadingExperiments={wm.isLoadingExperiments}
-    isOptimizationPending={wm.isOptimizationPending}
     forceParams={wm.forceParams}
     onForceParamsChange={(change) => wm.onForceParamsChange(change)}
     onForceLayout={handleForceLayout}
@@ -164,6 +164,8 @@
       <EditableCanvas document={document as EditableGraphDocument} />
     {:else if document.kind === "simulation-report"}
       <SimulationReport document={document as SimulationReportDocument} />
+    {:else if document.kind === "optimization-report"}
+      <OptimizationReport document={document as OptimizationReportDocument} />
     {/if}
   {/snippet}
 

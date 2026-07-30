@@ -82,6 +82,18 @@ describe("SplitButton", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("keeps the menu available when only the active option is disabled", async () => {
+    const { onSelect } = renderSplitButton({ activeId: "gamma" });
+
+    expect(screen.getByRole("button", { name: "Gamma" })).toBeDisabled();
+    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    await fireEvent.click(
+      await screen.findByRole("menuitem", { name: /Alpha/ }),
+    );
+
+    expect(onSelect).toHaveBeenCalledWith("alpha");
+  });
+
   it("renders in the small variant with the same behaviour", async () => {
     const { onSelect } = renderSplitButton({
       activeId: "beta",

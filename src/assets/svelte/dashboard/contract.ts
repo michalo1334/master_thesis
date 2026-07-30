@@ -9,7 +9,11 @@ import type {
   RunSimulationRequest,
   RunSimulationPayload,
   RunSimulationReply,
-  OptimizationParams,
+  OptimizationAction,
+  OptimizationParams as GeneratedOptimizationParams,
+  OptimizationReport,
+  OptimizationCompletedEvent,
+  OptimizationProgressEvent,
   RunOptimizationReply,
   SimulationParams as GeneratedSimulationParams,
   FetchSimulationReportPayload,
@@ -17,7 +21,6 @@ import type {
   SimulationCompletedEvent,
   SimulationFailedEvent,
   SimulationProgressEvent,
-  OptimizationCompletedEvent,
   OptimizationFailedEvent,
   ExperimentSummary,
   FetchExperimentsPayload,
@@ -49,46 +52,33 @@ export type {
   RunSimulationRequest,
   RunSimulationPayload,
   RunSimulationReply,
-  OptimizationParams,
+  OptimizationAction,
+  OptimizationReport,
+  OptimizationCompletedEvent,
+  OptimizationProgressEvent,
+  OptimizationFailedEvent,
   RunOptimizationReply,
   FetchSimulationReportPayload,
   FetchSimulationReportReply,
   SimulationCompletedEvent,
   SimulationFailedEvent,
   SimulationProgressEvent,
-  OptimizationCompletedEvent,
-  OptimizationFailedEvent,
   ExperimentSummary,
   FetchExperimentsPayload,
   FetchExperimentsReply,
+  GraphSummary,
+  SimulationReportErrorEvent,
 } from "../contracts.generated";
 
 export type LoadedGraph = GraphContract;
 
-export type SimulationParams = GeneratedSimulationParams & {
-  initial_foothold_node_id: string;
-};
+export type SimulationParams = GeneratedSimulationParams;
 
-export type Id = string;
-export type Status =
-  "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
-export type RequestCorrelationId = number;
+export type OptimizationStrategy = GeneratedOptimizationParams["strategy"];
+
+/** Optimization runs own their simulation settings; standalone runs keep theirs. */
+export type OptimizationParams = GeneratedOptimizationParams;
 
 export type Selectable = Node | Edge;
 
-export interface GraphSummary {
-  id: Id;
-  title: string;
-  nodeCount: number;
-  edgeCount: number;
-  parentId: string | null;
-  tags: string[];
-}
-
 export type SimulationReportData = FetchSimulationReportReply;
-
-export interface SimulationReportErrorEvent {
-  experiment_id: string;
-  graph_id: string;
-  reason: string;
-}

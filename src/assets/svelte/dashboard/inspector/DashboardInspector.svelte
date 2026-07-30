@@ -3,10 +3,13 @@
   import { inspectorFor } from "../graph/presentation/registry";
   import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
+  import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
   import GraphInspector from "./graph/GraphInspector.svelte";
 
   export type WorkspaceDocument =
-    EditableGraphDocument | SimulationReportDocument;
+    | EditableGraphDocument
+    | SimulationReportDocument
+    | OptimizationReportDocument;
 
   interface Props {
     document: WorkspaceDocument | undefined;

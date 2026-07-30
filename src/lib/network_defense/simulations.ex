@@ -161,9 +161,16 @@ defmodule NetworkDefense.Simulations do
   end
 
   def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
+    case validate_initial_foothold(graph, foothold_id) do
+      :ok -> AttackerState.new(foothold_id)
+      {:error, reason} -> raise ArgumentError, reason
+    end
+  end
+
+  def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
     case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
-      %{type: NetworkDefense.Nodes.Host} -> AttackerState.new(foothold_id)
-      _ -> raise ArgumentError, "initial foothold must identify a host in the graph"
+      %{type: NetworkDefense.Nodes.Host} -> :ok
+      _ -> {:error, "initial foothold must identify a host in the graph"}
     end
   end
 

@@ -12,45 +12,45 @@ import type { GraphSummary } from "../contract";
 const root: GraphSummary = {
   id: "root",
   title: "Root graph",
-  nodeCount: 1,
-  edgeCount: 0,
-  parentId: null,
+  node_count: 1,
+  edge_count: 0,
+  parent_id: null,
   tags: [],
 };
 
 const child: GraphSummary = {
   id: "child",
   title: "Child graph",
-  nodeCount: 2,
-  edgeCount: 1,
-  parentId: root.id,
+  node_count: 2,
+  edge_count: 1,
+  parent_id: root.id,
   tags: [],
 };
 
 const grandchild: GraphSummary = {
   id: "grandchild",
   title: "Grandchild graph",
-  nodeCount: 3,
-  edgeCount: 2,
-  parentId: child.id,
+  node_count: 3,
+  edge_count: 2,
+  parent_id: child.id,
   tags: [],
 };
 
 const sibling: GraphSummary = {
   id: "sibling",
   title: "Sibling graph",
-  nodeCount: 1,
-  edgeCount: 0,
-  parentId: null,
+  node_count: 1,
+  edge_count: 0,
+  parent_id: null,
   tags: [],
 };
 
 const siblingChild: GraphSummary = {
   id: "sibling-child",
   title: "Sibling child graph",
-  nodeCount: 1,
-  edgeCount: 0,
-  parentId: sibling.id,
+  node_count: 1,
+  edge_count: 0,
+  parent_id: sibling.id,
   tags: [],
 };
 

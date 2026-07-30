@@ -32,12 +32,10 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
     |> cast(attrs, [:strategy, :budget])
     |> cast_embed(:simulation_params)
     |> validate_required([:strategy, :budget])
-    |> validate_inclusion(:strategy, [
-      "cvss",
-      "simulation_informed",
-      "topology_segmentation",
-      "simulated_annealing"
-    ])
+    |> validate_inclusion(
+      :strategy,
+      @enum_values |> Keyword.fetch!(:strategy) |> Enum.map(&Atom.to_string/1)
+    )
     |> validate_number(:budget, greater_than: 0)
     |> require_simulation_params()
   end

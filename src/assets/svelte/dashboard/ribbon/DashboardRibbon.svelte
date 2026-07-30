@@ -8,6 +8,7 @@
   } from "../ui/SplitButton.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type { OptimizationParams, SimulationParams } from "../contract";
+  import type { OptimizationParamsChange } from "../workspace/WorkspaceModel.svelte";
   import Checkbox from "../ui/Checkbox.svelte";
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";
@@ -28,9 +29,10 @@
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
     optimizationOptions: readonly OptimizationOption[];
     activeOptimizationId: OptimizationParams["strategy"];
-    optimizationParams: OptimizationParams;
-    onOptimizationParamsChange: (change: Partial<OptimizationParams>) => void;
-    isOptimizationPending: boolean;
+    optimizationParams: OptimizationParams & {
+      simulation_params: SimulationParams;
+    };
+    onOptimizationParamsChange: (change: OptimizationParamsChange) => void;
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
@@ -50,17 +52,24 @@
     activeOptimizationId,
     optimizationParams,
     onOptimizationParamsChange,
-    isOptimizationPending,
     onSimulationParamsChange,
     simulationParams,
     footholdHosts,
   }: Props = $props();
 
-  let doRandomSeed = $state(false);
+  let availableOptimizationOptions = $derived(
+    footholdHosts.length === 0
+      ? optimizationOptions.map((option) =>
+          option.id === "cvss" ? option : { ...option, disabled: true },
+        )
+      : optimizationOptions,
+  );
 
   function handleOptimizationSelect(id: string): void {
-    const option = optimizationOptions.find((option) => option.id === id);
-    if (option) onOptimize(option.id);
+    const option = availableOptimizationOptions.find(
+      (option) => option.id === id,
+    );
+    if (option && !option.disabled) onOptimize(option.id);
   }
 </script>
 
@@ -96,7 +105,7 @@
         max={-10}
         value={forceParams.repulsion}
         onchange={(v) => onForceParamsChange({ repulsion: v })}
-        disabled={!hasActiveGraph || isOptimizationPending}
+        disabled={!hasActiveGraph}
       />
       <Slider
         label="Link dist."
@@ -142,9 +151,9 @@
         ><Icon name="play" size={22} /><span>Simulate</span></RibbonButton
       >
       <SplitButton
-        options={optimizationOptions}
+        options={availableOptimizationOptions}
         activeId={activeOptimizationId}
-        disabled={!hasActiveGraph || isOptimizationPending}
+        disabled={!hasActiveGraph}
         ariaLabel="Optimize"
         onSelect={handleOptimizationSelect}
       />
@@ -154,11 +163,81 @@
         label="Budget"
         value={optimizationParams.budget}
         min={1}
-        disabled={!hasActiveGraph || isOptimizationPending}
+        disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
     </Ribbon.Section>
-    <Ribbon.Section title="Simulation parameters">
+    {#if activeOptimizationId !== "cvss"}
+      <Ribbon.Section title="Optimization simulation">
+        <Select
+          label="Initial foothold"
+          value={optimizationParams.simulation_params.initial_foothold_node_id}
+          disabled={!hasActiveGraph || footholdHosts.length === 0}
+          onchange={(event) =>
+            onOptimizationParamsChange({
+              simulation_params: {
+                initial_foothold_node_id: event.currentTarget.value,
+              },
+            })}
+        >
+          {#each footholdHosts as host (host.id)}
+            <option value={host.id}>{host.name}</option>
+          {/each}
+        </Select>
+        <Slider
+          label="Monte Carlo trials"
+          min={1}
+          max={40000}
+          step={1000}
+          value={optimizationParams.simulation_params.monte_carlo_trials}
+          onchange={(monte_carlo_trials) =>
+            onOptimizationParamsChange({
+              simulation_params: { monte_carlo_trials },
+            })}
+          disabled={!hasActiveGraph}
+        />
+        <Slider
+          label="Iterations per simulation"
+          min={1}
+          max={40000}
+          step={1000}
+          value={optimizationParams.simulation_params.iterations_per_run}
+          onchange={(iterations_per_run) =>
+            onOptimizationParamsChange({
+              simulation_params: { iterations_per_run },
+            })}
+          disabled={!hasActiveGraph}
+        />
+        <NumberInput
+          label="Maximum attempts"
+          value={optimizationParams.simulation_params.max_attempts}
+          min={1}
+          disabled={!hasActiveGraph}
+          onchange={(max_attempts) =>
+            onOptimizationParamsChange({
+              simulation_params: { max_attempts },
+            })}
+        />
+        <div class="dashboard-seed-group">
+          <NumberInput
+            label="Seed"
+            value={optimizationParams.simulation_params.seed}
+            disabled={optimizationParams.simulation_params.generate_seed}
+            onchange={(seed) =>
+              onOptimizationParamsChange({ simulation_params: { seed } })}
+          />
+          <Checkbox
+            label="Random"
+            checked={optimizationParams.simulation_params.generate_seed}
+            onchange={(generate_seed) =>
+              onOptimizationParamsChange({
+                simulation_params: { generate_seed },
+              })}
+          />
+        </div>
+      </Ribbon.Section>
+    {/if}
+    <Ribbon.Section title="Standalone simulation">
       <Select
         label="Initial foothold"
         value={simulationParams.initial_foothold_node_id}
@@ -193,12 +272,13 @@
       <div class="dashboard-seed-group">
         <NumberInput
           label="Seed"
-          disabled={doRandomSeed}
+          value={simulationParams.seed}
+          disabled={simulationParams.generate_seed}
           onchange={(v) => onSimulationParamsChange({ seed: v })}
         />
         <Checkbox
           label="Random"
-          bind:checked={doRandomSeed}
+          checked={simulationParams.generate_seed}
           onchange={(v) => onSimulationParamsChange({ generate_seed: v })}
         />
       </div>

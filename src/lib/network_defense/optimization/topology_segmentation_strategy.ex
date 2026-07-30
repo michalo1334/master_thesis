@@ -9,8 +9,13 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   defstruct [:initial_foothold_node_id]
 
   def new(graph, %{simulation_params: simulation_params}) do
-    _ = Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id)
-    %__MODULE__{initial_foothold_node_id: simulation_params.initial_foothold_node_id}
+    with :ok <-
+           Simulations.validate_initial_foothold(
+             graph,
+             simulation_params.initial_foothold_node_id
+           ) do
+      {:ok, %__MODULE__{initial_foothold_node_id: simulation_params.initial_foothold_node_id}}
+    end
   end
 
   defimpl Strategy, for: __MODULE__ do

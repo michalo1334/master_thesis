@@ -1,5 +1,6 @@
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
+import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
   GraphSummary,
@@ -7,22 +8,26 @@ import type {
   ExperimentSummary,
   OptimizationParams,
   SimulationParams,
+  OptimizationStrategy,
 } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
+import { isReport } from "./WorkspaceDocument.svelte";
 
 export type WorkspaceDocument =
-  EditableGraphDocument | SimulationReportDocument;
+  EditableGraphDocument | SimulationReportDocument | OptimizationReportDocument;
 
 export interface FootholdHost {
   id: string;
   name: string;
 }
 
-export interface OptimizationPending {
-  graphId: string;
-  correlationId: string;
-}
+export type OptimizationParamsChange = Omit<
+  Partial<OptimizationParams>,
+  "simulation_params"
+> & {
+  simulation_params?: Partial<SimulationParams>;
+};
 
 export class WorkspaceModel {
   /** Graphs available to open, owned by workspace so the picker has them. */
@@ -47,11 +52,20 @@ export class WorkspaceModel {
     generate_seed: false,
     seed: 0,
   });
-  optimizationParams = $state<OptimizationParams>({
+  optimizationParams = $state<
+    OptimizationParams & { simulation_params: SimulationParams }
+  >({
     strategy: "cvss",
     budget: 1,
+    simulation_params: {
+      initial_foothold_node_id: "",
+      monte_carlo_trials: 1000,
+      iterations_per_run: 1000,
+      max_attempts: 1,
+      generate_seed: false,
+      seed: 0,
+    },
   });
-  optimizationPending = $state<OptimizationPending | null>(null);
   statusMessage = $state("");
 
   constructor(graphSummaries: GraphSummary[] = []) {
@@ -62,10 +76,10 @@ export class WorkspaceModel {
     const summary: GraphSummary = {
       id: graph.id,
       title: graph.title,
-      parentId: graph.parent_id ?? null,
+      parent_id: graph.parent_id ?? null,
       tags: graph.tags,
-      nodeCount: graph.nodes.length,
-      edgeCount: graph.edges.length,
+      node_count: graph.nodes.length,
+      edge_count: graph.edges.length,
     };
     const index = this.graphSummaries.findIndex(({ id }) => id === graph.id);
     this.graphSummaries =
@@ -87,17 +101,11 @@ export class WorkspaceModel {
   }
 
   get hasUnreadReport(): boolean {
-    return this.documents.some(
-      (d) => d.kind === "simulation-report" && d.hasUnread,
-    );
+    return this.documents.some((d) => isReport(d) && d.hasUnread);
   }
 
   get hasActiveGraph(): boolean {
     return this.activeDocument?.kind === "graph";
-  }
-
-  get isOptimizationPending(): boolean {
-    return this.optimizationPending !== null;
   }
 
   get activeFootholdHosts(): FootholdHost[] {
@@ -120,7 +128,7 @@ export class WorkspaceModel {
     this.selectedDocumentId = id;
     const doc = this.activeDocument;
     this.ensureInitialFoothold(doc);
-    if (doc?.kind === "simulation-report") {
+    if (doc && isReport(doc)) {
       doc.markRead();
     }
   }
@@ -244,6 +252,41 @@ export class WorkspaceModel {
     return report;
   }
 
+  createPendingOptimizationReport(info: {
+    graphId: string;
+    graphTitle: string;
+    correlationId: string;
+    strategy: OptimizationStrategy;
+    budget: number;
+  }): OptimizationReportDocument {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "optimization-report" &&
+        document.correlationId === info.correlationId,
+    ) as OptimizationReportDocument | undefined;
+    if (existing) {
+      this.selectedDocumentId = existing.id;
+      return existing;
+    }
+
+    const report = new OptimizationReportDocument(info);
+    this.documents.push(report);
+    this.selectedDocumentId = report.id;
+    return report;
+  }
+
+  findOptimizationReport(
+    correlationId: string,
+    graphId: string,
+  ): OptimizationReportDocument | undefined {
+    return this.documents.find(
+      (document) =>
+        document.kind === "optimization-report" &&
+        document.correlationId === correlationId &&
+        document.graphId === graphId,
+    ) as OptimizationReportDocument | undefined;
+  }
+
   async showExperiments(api: DashboardApi): Promise<void> {
     if (this.isLoadingExperiments) return;
 
@@ -311,37 +354,17 @@ export class WorkspaceModel {
     Object.assign(this.simulationParams, change);
   }
 
-  onOptimizationParamsChange(change: Partial<OptimizationParams>): void {
-    Object.assign(this.optimizationParams, change);
-  }
-
-  beginOptimization(pending: OptimizationPending): boolean {
-    if (this.optimizationPending) return false;
-    this.optimizationPending = pending;
-    return true;
-  }
-
-  confirmOptimization(pending: OptimizationPending): void {
-    this.optimizationPending = pending;
-  }
-
-  finishOptimization(correlationId: string, graphId: string): boolean {
-    const pending = this.optimizationPending;
-    if (
-      !pending ||
-      pending.correlationId !== correlationId ||
-      pending.graphId !== graphId
-    ) {
-      return false;
-    }
-    this.optimizationPending = null;
-    return true;
-  }
-
-  cancelOptimization(correlationId: string): void {
-    if (this.optimizationPending?.correlationId === correlationId) {
-      this.optimizationPending = null;
-    }
+  onOptimizationParamsChange(change: OptimizationParamsChange): void {
+    const simulationParams = change.simulation_params
+      ? {
+          ...this.optimizationParams.simulation_params,
+          ...change.simulation_params,
+        }
+      : this.optimizationParams.simulation_params;
+    Object.assign(this.optimizationParams, {
+      ...change,
+      simulation_params: simulationParams,
+    });
   }
 
   private ensureInitialFoothold(document: WorkspaceDocument | undefined): void {
@@ -354,6 +377,16 @@ export class WorkspaceModel {
       )
     ) {
       this.simulationParams.initial_foothold_node_id = hosts[0]?.id ?? "";
+    }
+    if (
+      !hosts.some(
+        (host) =>
+          host.id ===
+          this.optimizationParams.simulation_params.initial_foothold_node_id,
+      )
+    ) {
+      this.optimizationParams.simulation_params.initial_foothold_node_id =
+        hosts[0]?.id ?? "";
     }
   }
 

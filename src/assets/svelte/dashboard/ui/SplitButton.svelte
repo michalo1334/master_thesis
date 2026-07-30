@@ -37,7 +37,7 @@
   let iconSize = $derived(variant === "small" ? 18 : 22);
 
   function handleMainClick() {
-    if (disabled) return;
+    if (disabled || activeOption.disabled) return;
     onSelect(activeOption.id);
   }
 </script>
@@ -54,7 +54,7 @@
       type="button"
       class="dashboard-split-button-main"
       onclick={handleMainClick}
-      {disabled}
+      disabled={disabled || activeOption.disabled}
       aria-label={ariaLabel}
       title={activeOption.title}
     >
