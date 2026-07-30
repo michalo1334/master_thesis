@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Button from "../ui/Button.svelte";
+  import RibbonButton from "../ui/RibbonButton.svelte";
   import Icon from "../ui/Icon.svelte";
   import Ribbon from "../ribbon/Ribbon";
   import Slider from "../ui/Slider.svelte";
@@ -65,15 +65,19 @@
 >
   <Ribbon.Tab title="Home">
     <Ribbon.Section title="Tools">
-      <Button><Icon name="cursor" size={22} /><span>Select</span></Button>
-      <Button><Icon name="link" size={22} /><span>Connect</span></Button>
+      <RibbonButton
+        ><Icon name="cursor" size={22} /><span>Select</span></RibbonButton
+      >
+      <RibbonButton
+        ><Icon name="link" size={22} /><span>Connect</span></RibbonButton
+      >
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="Layout">
     <Ribbon.Section title="Layout">
-      <Button disabled={!hasActiveGraph} onclick={onForceLayout}
+      <RibbonButton disabled={!hasActiveGraph} onclick={onForceLayout}
         ><Icon name="squares-2x2" size={22} /><span>Force-directed</span
-        ></Button
+        ></RibbonButton
       >
     </Ribbon.Section>
     <Ribbon.Section title="Parameters">
@@ -123,10 +127,10 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Analyze">
     <Ribbon.Section title="Attack model">
-      <Button
+      <RibbonButton
         onclick={onRunSimulation}
         disabled={!hasActiveGraph || footholdHosts.length === 0}
-        ><Icon name="play" size={22} /><span>Simulate</span></Button
+        ><Icon name="play" size={22} /><span>Simulate</span></RibbonButton
       >
       <SplitButton
         options={optimizationOptions}
@@ -193,17 +197,19 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="View">
     <Ribbon.Section title="Workspace">
-      <Button
-        ><Icon name="chevron-right" size={22} /><span>Inspector</span></Button
+      <RibbonButton
+        ><Icon name="chevron-right" size={22} /><span>Inspector</span
+        ></RibbonButton
       >
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="Report">
     <Ribbon.Section title="Reports">
-      <Button
+      <RibbonButton
         disabled={isLoadingExperiments}
         onclick={(_) => onShowExperiments()}
-        ><Icon name="shield" size={22} /><span>Show experiments</span></Button
+        ><Icon name="shield" size={22} /><span>Show experiments</span
+        ></RibbonButton
       >
     </Ribbon.Section>
   </Ribbon.Tab>

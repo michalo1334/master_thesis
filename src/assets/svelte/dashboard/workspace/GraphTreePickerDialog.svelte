@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { Dialog } from "bits-ui";
+  import { Button, Dialog } from "bits-ui";
+  import { SvelteSet } from "svelte/reactivity";
+  import Icon from "../ui/Icon.svelte";
   import type { GraphSummary } from "../contract";
 
   interface Props {
@@ -18,6 +20,7 @@
   interface TreeRow {
     summary: GraphSummary;
     depth: number;
+    hasChildren: boolean;
   }
 
   let {
@@ -30,10 +33,15 @@
 
   let isSelecting = $state(false);
   let selectionError = $state("");
+  const expandedGraphIds = new SvelteSet<string>();
 
   const tree = $derived.by(() => buildTree(summaries));
-  const rows = $derived.by(() => flattenTree(tree));
+  const visibleRows = $derived.by(() => flattenTree(tree, expandedGraphIds));
   const displayStatus = $derived(status || selectionError);
+
+  $effect(() => {
+    if (!open) collapseAllGraphs();
+  });
 
   function buildTree(summaries: readonly GraphSummary[]): TreeNode[] {
     const nodes = new Map<string, TreeNode>(
@@ -61,18 +69,46 @@
     return sortNodes(roots);
   }
 
-  function flattenTree(nodes: readonly TreeNode[]): TreeRow[] {
+  function flattenTree(
+    nodes: readonly TreeNode[],
+    expanded: ReadonlySet<string>,
+  ): TreeRow[] {
     const rows: TreeRow[] = [];
 
     const visit = (items: readonly TreeNode[], depth: number): void => {
       for (const node of items) {
-        rows.push({ summary: node.summary, depth });
-        visit(node.children, depth + 1);
+        rows.push({
+          summary: node.summary,
+          depth,
+          hasChildren: node.children.length > 0,
+        });
+        if (expanded.has(node.summary.id)) visit(node.children, depth + 1);
       }
     };
 
     visit(nodes, 0);
     return rows;
+  }
+
+  function toggleGraph(graphId: string): void {
+    if (expandedGraphIds.has(graphId)) expandedGraphIds.delete(graphId);
+    else expandedGraphIds.add(graphId);
+  }
+
+  function expandAllGraphs(): void {
+    const visit = (nodes: readonly TreeNode[]): void => {
+      for (const node of nodes) {
+        if (node.children.length) expandedGraphIds.add(node.summary.id);
+        visit(node.children);
+      }
+    };
+
+    expandedGraphIds.clear();
+    visit(tree);
+  }
+
+  function collapseAllGraphs(): void {
+    expandedGraphIds.clear();
   }
 
   async function select(summary: GraphSummary): Promise<void> {
@@ -101,7 +137,23 @@
         </Dialog.Description>
 
         <div class="graph-tree-picker-body">
-          {#if rows.length}
+          {#if summaries.length}
+            <div class="graph-tree-toolbar">
+              <Button.Root
+                type="button"
+                onclick={expandAllGraphs}
+                disabled={isSelecting}
+              >
+                Expand all
+              </Button.Root>
+              <Button.Root
+                type="button"
+                onclick={collapseAllGraphs}
+                disabled={isSelecting}
+              >
+                Collapse all
+              </Button.Root>
+            </div>
             <table class="graph-tree-picker-table">
               <thead>
                 <tr>
@@ -112,22 +164,41 @@
                 </tr>
               </thead>
               <tbody>
-                {#each rows as row (row.summary.id)}
+                {#each visibleRows as row (row.summary.id)}
                   <tr
                     data-depth={row.depth}
                     data-disabled={isSelecting || undefined}
                   >
                     <td class="graph-tree-graph">
-                      <button
-                        type="button"
-                        class="graph-tree-row"
-                        disabled={isSelecting}
-                        style:--depth={row.depth}
-                        onclick={() => select(row.summary)}
-                      >
-                        <span class="graph-tree-title">{row.summary.title}</span
+                      <div class="graph-tree-row" style:--depth={row.depth}>
+                        {#if row.hasChildren}
+                          <Button.Root
+                            type="button"
+                            class="graph-tree-toggle"
+                            aria-label={`${expandedGraphIds.has(row.summary.id) ? "Collapse" : "Expand"} ${row.summary.title}`}
+                            aria-expanded={expandedGraphIds.has(row.summary.id)}
+                            disabled={isSelecting}
+                            onclick={() => toggleGraph(row.summary.id)}
+                          >
+                            <Icon
+                              name={expandedGraphIds.has(row.summary.id)
+                                ? "chevron-down"
+                                : "chevron-right"}
+                              size={18}
+                            />
+                          </Button.Root>
+                        {/if}
+                        <button
+                          type="button"
+                          class="graph-tree-select"
+                          disabled={isSelecting}
+                          onclick={() => select(row.summary)}
                         >
-                      </button>
+                          <span class="graph-tree-title"
+                            >{row.summary.title}</span
+                          >
+                        </button>
+                      </div>
                     </td>
                     <td class="graph-tree-tags">
                       {#each row.summary.tags as tag (tag)}
@@ -213,6 +284,26 @@
     font-size: var(--ds-text-sm);
   }
 
+  .graph-tree-toolbar {
+    display: flex;
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-2);
+    border-bottom: 1px solid var(--ds-color-border-soft);
+  }
+
+  .graph-tree-toolbar :global(button),
+  :global(.graph-tree-toggle) {
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-surface);
+    color: inherit;
+  }
+
+  .graph-tree-toolbar :global(button) {
+    min-height: var(--ds-control-height);
+    padding: 0.375rem 0.75rem;
+  }
+
   .graph-tree-picker-table th {
     position: sticky;
     top: 0;
@@ -256,25 +347,42 @@
   .graph-tree-row {
     --indent-step: 1.5rem;
 
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
     min-height: var(--ds-control-height);
-    padding: var(--ds-space-2) var(--ds-space-3);
     padding-inline-start: calc(
       var(--ds-space-3) + var(--depth, 0) * var(--indent-step)
     );
+  }
+
+  :global(.graph-tree-toggle) {
+    display: grid;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    place-items: center;
+  }
+
+  .graph-tree-select {
+    width: 100%;
+    min-height: var(--ds-control-height);
+    padding: var(--ds-space-2) var(--ds-space-3);
     border: 0;
     background: transparent;
     color: inherit;
     text-align: left;
   }
 
-  .graph-tree-row:focus-visible {
+  :global(.graph-tree-toggle:focus-visible),
+  .graph-tree-select:focus-visible {
     outline: 2px solid var(--ds-color-focus);
     outline-offset: -2px;
   }
 
-  .graph-tree-row:disabled {
+  .graph-tree-select:disabled,
+  :global(.graph-tree-toggle:disabled),
+  .graph-tree-toolbar :global(button:disabled) {
     cursor: default;
     color: var(--ds-color-text-faint);
   }
