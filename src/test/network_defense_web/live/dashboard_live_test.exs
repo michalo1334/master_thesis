@@ -21,6 +21,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
+
+    test "renders hidden recovery flashes", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#client-error[hidden][phx-disconnected][phx-connected]")
+      assert has_element?(view, "#server-error[hidden][phx-disconnected][phx-connected]")
+    end
   end
 
   describe "open_graph" do
@@ -141,6 +148,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         reason: nil
       })
 
+      assert has_element?(view, "#flash-info[role='alert']")
+
       assert_receive {:simulation_completed,
                       %{
                         correlation_id: ^correlation_id,
@@ -232,6 +241,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       send(view.pid, {:simulation_failed, failed})
       assert_push_event(view, "simulation_failed", ^failed)
+      assert has_element?(view, "#flash-error[role='alert']")
     end
   end
 
@@ -258,6 +268,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: ^correlation_id,
         reason: nil
       })
+
+      assert has_element?(view, "#flash-info[role='alert']")
 
       assert graph_id == graph.id
 
@@ -379,6 +391,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       send(view.pid, {:optimization_failed, failed})
       assert_push_event(view, "optimization_failed", ^failed)
+      assert has_element?(view, "#flash-error[role='alert']")
     end
   end
 

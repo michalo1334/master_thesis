@@ -83,7 +83,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:ok, _pid} ->
             {:reply,
              simulation_request_reply("accepted", request.graph_id, request.correlation_id, nil),
-             socket}
+             put_flash(socket, :info, "Simulation started.")}
 
           {:error, reason} ->
             {:reply,
@@ -118,7 +118,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
                request.graph_id,
                request.correlation_id,
                nil
-             ), socket}
+             ), put_flash(socket, :info, "Optimization started.")}
 
           {:error, reason} ->
             {:reply,
@@ -189,7 +189,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   def handle_info({:simulation_failed, payload}, socket) do
-    {:noreply, push_contract_event(socket, "simulation_failed", SimulationFailedEvent, payload)}
+    {:noreply,
+     push_failure_event(
+       socket,
+       "simulation_failed",
+       SimulationFailedEvent,
+       "Simulation failed",
+       payload
+     )}
   end
 
   def handle_info({:simulation_progress, payload}, socket) do
@@ -204,7 +211,13 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:optimization_failed, payload}, socket) do
     {:noreply,
-     push_contract_event(socket, "optimization_failed", OptimizationFailedEvent, payload)}
+     push_failure_event(
+       socket,
+       "optimization_failed",
+       OptimizationFailedEvent,
+       "Optimization failed",
+       payload
+     )}
   end
 
   def handle_info({:report_result, experiment_id, graph_id, result}, socket) do
@@ -349,6 +362,18 @@ defmodule NetworkDefenseWeb.DashboardLive do
     case contract.validate(payload) do
       {:ok, event_payload} -> push_event(socket, event, contract.to_wire(event_payload))
       {:error, _changeset} -> socket
+    end
+  end
+
+  defp push_failure_event(socket, event, contract, message, payload) do
+    case contract.validate(payload) do
+      {:ok, event_payload} ->
+        socket
+        |> push_event(event, contract.to_wire(event_payload))
+        |> put_flash(:error, "#{message}: #{event_payload.reason}")
+
+      {:error, _changeset} ->
+        socket
     end
   end
 end
