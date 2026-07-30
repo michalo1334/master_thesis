@@ -30,17 +30,21 @@ defmodule NetworkDefense.Optimization.Optimizer do
   defp do_optimize(graph, strategy, budget) do
     default_actions = [BlockReachability, PatchVulnerability, RevokeCredential]
 
-    Enum.reduce_while(1..budget, graph, fn budget, graph ->
-      # Select one that does not reduce budget below 0
+    1..budget
+    |> Enum.reduce_while({graph, budget}, fn _step, {graph, remaining_budget} ->
       candidate_actions =
-        Strategy.rank(strategy, default_actions, graph, budget)
-        |> Enum.reject(fn each -> budget - DefenseAction.cost(each) < 0 end)
+        Strategy.rank(strategy, default_actions, graph, remaining_budget)
+        |> Enum.reject(fn action -> DefenseAction.cost(action) > remaining_budget end)
 
-      # Apply first one
       case candidate_actions do
-        [] -> {:halt, graph}
-        [h | _] -> {:cont, DefenseAction.apply(h, graph)}
+        [] ->
+          {:halt, {graph, remaining_budget}}
+
+        [action | _] ->
+          optimized_graph = DefenseAction.apply(action, graph)
+          {:cont, {optimized_graph, remaining_budget - DefenseAction.cost(action)}}
       end
     end)
+    |> elem(0)
   end
 end

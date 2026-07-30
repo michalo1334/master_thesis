@@ -5,8 +5,9 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.{Budget, Strategy}
-  alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Simulation.Simulator
+  alias NetworkDefense.Optimization.SimulationObjective
+  alias NetworkDefense.Simulation.Seed
+  alias NetworkDefense.Simulations
 
   defstruct [
     :initial_attacker_state,
@@ -26,6 +27,21 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           max_attempts: pos_integer()
         }
 
+  def new(graph, %{simulation_params: simulation_params}) do
+    %__MODULE__{
+      initial_attacker_state:
+        Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
+      rules: Simulations.default_rules(),
+      run_count: simulation_params.monte_carlo_trials,
+      iteration_count: simulation_params.iterations_per_run,
+      seed: simulation_seed(simulation_params),
+      max_attempts: simulation_params.max_attempts
+    }
+  end
+
+  defp simulation_seed(%{generate_seed: true}), do: Seed.random()
+  defp simulation_seed(%{seed: seed}), do: seed
+
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Simulation-informed greedy strategy"
@@ -39,13 +55,17 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           []
 
         _ ->
-          baseline = expected_blast_radius(graph, strategy)
+          baseline = SimulationObjective.expected_blast_radius(graph, strategy)
 
           # ponytail: evaluate every candidate directly; add pruning or parallelism only after profiling.
           candidates
           |> Enum.map(fn action ->
             reduction =
-              baseline - expected_blast_radius(DefenseAction.apply(action, graph), strategy)
+              baseline -
+                SimulationObjective.expected_blast_radius(
+                  DefenseAction.apply(action, graph),
+                  strategy
+                )
 
             {action, reduction / DefenseAction.cost(action)}
           end)
@@ -63,25 +83,6 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
         |> Enum.filter(&(&1.type in eligible_types))
         |> Enum.map(&DefenseAction.with_target_id(action, &1.id))
       end)
-    end
-
-    defp expected_blast_radius(graph, strategy) do
-      {_experiment, runs} =
-        Simulator.run_experiment(
-          graph,
-          strategy.initial_attacker_state,
-          run_count: strategy.run_count,
-          iteration_count: strategy.iteration_count,
-          seed: strategy.seed,
-          rules: strategy.rules,
-          max_attempts: strategy.max_attempts
-        )
-
-      runs
-      |> Enum.map(fn run ->
-        run |> Run.current_attacker_state() |> AttackerState.foothold_nodes() |> length()
-      end)
-      |> then(&(Enum.sum(&1) / length(&1)))
     end
 
     defp target_id(action), do: action |> DefenseAction.target() |> elem(1)

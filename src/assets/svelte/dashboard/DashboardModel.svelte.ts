@@ -55,12 +55,10 @@ export class DashboardModel {
     try {
       const reply = await doc.startOptimization(
         this.api,
-        params.strategy === "simulation_informed"
-          ? {
-              ...params,
-              simulation_params: { ...this.workspace.simulationParams },
-            }
-          : { ...params },
+        {
+          ...params,
+          simulation_params: { ...this.workspace.simulationParams },
+        },
         correlationId,
       );
       if (!reply) {

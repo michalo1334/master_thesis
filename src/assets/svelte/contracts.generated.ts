@@ -151,7 +151,11 @@ export interface NodeViewData {
 export interface OptimizationParams {
   budget: number;
   simulation_params?: SimulationParams | null;
-  strategy: "cvss" | "simulation_informed";
+  strategy:
+    | "cvss"
+    | "simulation_informed"
+    | "topology_segmentation"
+    | "simulated_annealing";
 }
 
 export interface RunOptimizationRequest {

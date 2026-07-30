@@ -12,6 +12,10 @@
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";
 
+  type OptimizationOption = SplitButtonOption & {
+    id: OptimizationParams["strategy"];
+  };
+
   interface Props {
     hasActiveGraph: boolean;
     hasUnreadReport: boolean;
@@ -21,9 +25,9 @@
     onForceLayout: () => void;
     onRunSimulation: () => void;
     onShowExperiments: () => void;
-    onOptimize: (strategyId: string) => void;
-    optimizationOptions: readonly SplitButtonOption[];
-    activeOptimizationId: string;
+    onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
+    optimizationOptions: readonly OptimizationOption[];
+    activeOptimizationId: OptimizationParams["strategy"];
     optimizationParams: OptimizationParams;
     onOptimizationParamsChange: (change: Partial<OptimizationParams>) => void;
     isOptimizationPending: boolean;
@@ -53,6 +57,11 @@
   }: Props = $props();
 
   let doRandomSeed = $state(false);
+
+  function handleOptimizationSelect(id: string): void {
+    const option = optimizationOptions.find((option) => option.id === id);
+    if (option) onOptimize(option.id);
+  }
 </script>
 
 <Ribbon
@@ -137,7 +146,7 @@
         activeId={activeOptimizationId}
         disabled={!hasActiveGraph || isOptimizationPending}
         ariaLabel="Optimize"
-        onSelect={onOptimize}
+        onSelect={handleOptimizationSelect}
       />
     </Ribbon.Section>
     <Ribbon.Section title="Optimization parameters">

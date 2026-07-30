@@ -6,7 +6,12 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
 
   use NetworkDefense.Contracts, category: :optimization
 
-  @enum_values strategy: [:cvss, :simulation_informed]
+  @enum_values strategy: [
+                 :cvss,
+                 :simulation_informed,
+                 :topology_segmentation,
+                 :simulated_annealing
+               ]
 
   def contract_meta, do: %{enum_values: @enum_values}
 
@@ -27,13 +32,22 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
     |> cast(attrs, [:strategy, :budget])
     |> cast_embed(:simulation_params)
     |> validate_required([:strategy, :budget])
-    |> validate_inclusion(:strategy, ["cvss", "simulation_informed"])
+    |> validate_inclusion(:strategy, [
+      "cvss",
+      "simulation_informed",
+      "topology_segmentation",
+      "simulated_annealing"
+    ])
     |> validate_number(:budget, greater_than: 0)
     |> require_simulation_params()
   end
 
   defp require_simulation_params(changeset) do
-    if Changeset.get_field(changeset, :strategy) == "simulation_informed" and
+    if Changeset.get_field(changeset, :strategy) in [
+         "simulation_informed",
+         "topology_segmentation",
+         "simulated_annealing"
+       ] and
          is_nil(Changeset.get_field(changeset, :simulation_params)) do
       Changeset.add_error(changeset, :simulation_params, "is required")
     else

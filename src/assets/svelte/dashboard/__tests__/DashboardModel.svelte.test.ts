@@ -195,13 +195,18 @@ describe("DashboardModel", () => {
   });
 
   describe("runActiveOptimization", () => {
-    it("submits simulation parameters only for the simulation-informed strategy", async () => {
+    it.each([
+      "cvss",
+      "simulation_informed",
+      "topology_segmentation",
+      "simulated_annealing",
+    ] as const)("submits simulation parameters for %s", async (strategy) => {
       await model.workspace.openLoadedGraph(
         makeLoadedGraph({ nodes: [hostNode("host-1")] }),
         api,
       );
       model.workspace.onOptimizationParamsChange({
-        strategy: "simulation_informed",
+        strategy,
         budget: 25,
       });
       vi.mocked(api.runOptimization).mockResolvedValue({
@@ -216,7 +221,7 @@ describe("DashboardModel", () => {
         "g1",
         expect.any(String),
         expect.objectContaining({
-          strategy: "simulation_informed",
+          strategy,
           budget: 25,
           simulation_params: expect.objectContaining({
             initial_foothold_node_id: "host-1",

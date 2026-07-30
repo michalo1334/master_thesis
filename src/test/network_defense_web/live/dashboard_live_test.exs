@@ -291,6 +291,22 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                Graphs.load(optimized_graph_id)
     end
 
+    test "accepts topology segmentation optimization", %{conn: conn} do
+      assert_strategy_optimization(
+        conn,
+        "topology_segmentation",
+        "Topology segmentation strategy"
+      )
+    end
+
+    test "accepts simulated annealing optimization", %{conn: conn} do
+      assert_strategy_optimization(
+        conn,
+        "simulated_annealing",
+        "Simulation-informed simulated annealing strategy"
+      )
+    end
+
     test "reports a friendly error when an optimized title is too long", %{conn: conn} do
       graph = insert_graph(String.duplicate("x", 255))
       graph_id = graph.id
@@ -475,6 +491,45 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     %Graph{}
     |> Graph.changeset(%{title: title})
     |> Repo.insert!()
+  end
+
+  defp assert_strategy_optimization(conn, strategy, strategy_name) do
+    graph = insert_graph("#{strategy}-test")
+    foothold = insert_node(graph, "entry-host")
+    correlation_id = "#{strategy}-request"
+
+    {:ok, view, _html} = live(conn, ~p"/")
+    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+    render_hook(view, "run_optimization_request", %{
+      "request" => %{
+        "graph_id" => graph.id,
+        "correlation_id" => correlation_id,
+        "optimization_params" => %{
+          "strategy" => strategy,
+          "budget" => 1,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1,
+            "initial_foothold_node_id" => foothold.id,
+            "generate_seed" => true,
+            "max_attempts" => 1
+          }
+        }
+      }
+    })
+
+    assert_reply(view, %{status: "accepted", correlation_id: ^correlation_id})
+
+    assert_receive {:optimization_completed,
+                    %{
+                      correlation_id: ^correlation_id,
+                      optimized_graph_id: optimized_graph_id
+                    }},
+                   5_000
+
+    expected_title = "#{strategy}-test (optimized with #{strategy_name})"
+    assert %{title: ^expected_title} = Graphs.load(optimized_graph_id)
   end
 
   defp insert_node(graph, name) do

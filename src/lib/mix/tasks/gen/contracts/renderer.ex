@@ -27,7 +27,8 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
   def property(field, type, override \\ nil) do
     optional = if override || !optional?(type), do: "", else: "?"
     ts_type = override || type(type)
-    "  #{field}#{optional}: #{ts_type};"
+    separator = if String.starts_with?(ts_type, "\n"), do: "", else: " "
+    "  #{field}#{optional}:#{separator}#{ts_type};"
   end
 
   def type({:atom, _, nil}), do: "null"

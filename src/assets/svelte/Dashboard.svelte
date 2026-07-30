@@ -13,7 +13,10 @@
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
-  import type { ExperimentSummary } from "./dashboard/contract";
+  import type {
+    ExperimentSummary,
+    OptimizationParams,
+  } from "./dashboard/contract";
   import type { GraphSummary } from "./dashboard/contract";
   import { formatRuntime, formatTimestamp } from "./dashboard/format";
   import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.types";
@@ -28,18 +31,31 @@
   const api = $derived(model.api);
 
   type DocType = { id: string; label: string; icon: "graph" | "shield" };
+  type OptimizationOption = SplitButtonOption & {
+    id: OptimizationParams["strategy"];
+  };
 
   const documentTypes: readonly DocType[] = [
     { id: "graph", label: "Graph", icon: "graph" },
     { id: "simulation-report", label: "Report", icon: "shield" },
   ];
 
-  const optimizationOptions: readonly SplitButtonOption[] = [
+  const optimizationOptions: readonly OptimizationOption[] = [
     { id: "cvss", icon: "shield", title: "CVSS" },
     {
       id: "simulation_informed",
       icon: "graph",
       title: "Simulation-informed",
+    },
+    {
+      id: "topology_segmentation",
+      icon: "graph",
+      title: "Topology segmentation",
+    },
+    {
+      id: "simulated_annealing",
+      icon: "shield",
+      title: "Simulated annealing",
     },
   ];
 
@@ -93,8 +109,7 @@
     await model.showExperiments();
   }
 
-  function handleOptimize(strategyId: string): void {
-    if (strategyId !== "cvss" && strategyId !== "simulation_informed") return;
+  function handleOptimize(strategyId: OptimizationParams["strategy"]): void {
     wm.onOptimizationParamsChange({ strategy: strategyId });
     void model.runActiveOptimization();
   }

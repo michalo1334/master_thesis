@@ -9,6 +9,8 @@ defmodule NetworkDefense.Optimization.CvssStrategy do
 
   defstruct []
 
+  def new(_graph, _params), do: %__MODULE__{}
+
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "CVSS strategy"

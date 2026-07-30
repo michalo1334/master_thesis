@@ -9,15 +9,21 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.Optimizer
+  alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.Strategy
-  alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Simulations
+  alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   require Logger
 
   @optimization_events_topic "optimization_events"
+  @strategy_modules %{
+    "cvss" => CvssStrategy,
+    "simulation_informed" => SimulationInformedStrategy,
+    "topology_segmentation" => TopologySegmentationStrategy,
+    "simulated_annealing" => SimulatedAnnealingStrategy
+  }
 
   def optimization_events_topic, do: @optimization_events_topic
 
@@ -45,28 +51,10 @@ defmodule NetworkDefense.Optimizations do
     end)
   end
 
-  defp strategy_for(_graph, %RunOptimizationRequest{optimization_params: %{strategy: "cvss"}}),
-    do: %CvssStrategy{}
-
-  defp strategy_for(
-         graph,
-         %RunOptimizationRequest{optimization_params: %{strategy: "simulation_informed"} = params}
-       ) do
-    simulation_params = params.simulation_params
-
-    %SimulationInformedStrategy{
-      initial_attacker_state:
-        Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
-      rules: Simulations.default_rules(),
-      run_count: simulation_params.monte_carlo_trials,
-      iteration_count: simulation_params.iterations_per_run,
-      seed: simulation_seed(simulation_params),
-      max_attempts: simulation_params.max_attempts
-    }
+  defp strategy_for(graph, %RunOptimizationRequest{optimization_params: params}) do
+    strategy_module = Map.fetch!(@strategy_modules, params.strategy)
+    strategy_module.new(graph, params)
   end
-
-  defp simulation_seed(%{generate_seed: true}), do: Seed.random()
-  defp simulation_seed(%{seed: seed}), do: seed
 
   defp clone_optimized_graph(%Graph{} = graph, strategy) do
     Graph.clone(%{graph | title: "#{graph.title} (optimized with #{Strategy.name(strategy)})"})
