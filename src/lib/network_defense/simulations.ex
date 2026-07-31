@@ -20,85 +20,92 @@ defmodule NetworkDefense.Simulations do
   require OpenTelemetry.Tracer, as: Tracer
 
   @simulation_events_topic "simulation_events"
+  @trial_batch_size 100
 
   def simulation_events_topic, do: @simulation_events_topic
 
   def run_async(%RunSimulationRequest{} = request) do
     case Graphs.load(request.graph_id) do
-      graph when not is_nil(graph) ->
-        run_async(graph, request.correlation_id, request.simulation_params)
-
-      nil ->
-        {:error, "graph_not_found"}
+      nil -> {:error, "graph_not_found"}
+      graph -> run_async(graph, request.correlation_id, request.simulation_params)
     end
   end
 
   def run_async(graph, correlation_id, simulation_params) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      try do
-        do_run_async(graph, correlation_id, simulation_params, &parallel_map_fn/2)
-      rescue
-        error ->
-          Logger.error("Simulation failed: #{Exception.message(error)}")
-          broadcast_simulation_failed(graph.id, correlation_id, Exception.message(error))
-      end
-    end)
+    with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
+         {:ok, experiment} <- create_experiment(graph, simulation_params) do
+      start_async(graph, correlation_id, experiment)
+    else
+      {:error, reason} ->
+        TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+          broadcast_simulation_failed(graph.id, correlation_id, to_string(reason))
+        end)
+    end
   end
 
-  defp do_run_async(graph, correlation_id, simulation_params, map_fun) do
-    rules = default_rules()
-    run_count = simulation_params.monte_carlo_trials
-    iteration_count = simulation_params.iterations_per_run
-
-    initial_attacker_state =
-      initial_attacker_state(graph, simulation_params.initial_foothold_node_id)
-
-    seed =
-      if simulation_params.generate_seed do
-        Seed.random()
-      else
-        simulation_params.seed
-      end
-
-    progress_callback = fn completed, total ->
-      pct = floor(completed / total * 100)
-      last_pct = Process.get(:sim_progress_last_pct, -1)
-
-      if pct > last_pct do
-        Process.put(:sim_progress_last_pct, pct)
-        broadcast_simulation_progress(graph.id, correlation_id, completed, total)
-      end
+  def resume_async(experiment_id, correlation_id) do
+    with {:ok, experiment} <- Experiments.resume(experiment_id),
+         graph when not is_nil(graph) <- Graphs.load(experiment.graph_id),
+         :ok <- verify_graph_version(graph, experiment) do
+      start_async(graph, correlation_id, experiment)
+    else
+      nil -> {:error, "graph_not_found"}
+      {:error, reason} -> {:error, inspect(reason)}
     end
+  end
 
+  defp start_async(graph, correlation_id, experiment) do
+    case TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+           try do
+             do_run_async(graph, correlation_id, experiment)
+           rescue
+             error ->
+               Experiments.fail(experiment.id)
+               Logger.error("Simulation failed: #{Exception.message(error)}")
+               broadcast_simulation_failed(graph.id, correlation_id, Exception.message(error))
+           end
+         end) do
+      {:ok, _pid} = started ->
+        started
+
+      {:error, _reason} = error ->
+        Experiments.fail(experiment.id)
+        error
+    end
+  end
+
+  defp do_run_async(graph, correlation_id, experiment) do
     Tracer.with_span "simulation.run",
       attributes: %{
         "graph.id": graph.id,
         "correlation.id": correlation_id,
-        "simulation.run_count": run_count,
-        "simulation.iteration_count": iteration_count
+        "simulation.run_count": experiment.total_trials,
+        "simulation.iteration_count": experiment.iteration_count
       } do
-      {elapsed_us, {experiment, runs}} =
+      experiment = run_batches(graph, correlation_id, experiment)
+      Tracer.set_status(OpenTelemetry.status(:ok))
+      broadcast_simulation_completed(experiment, correlation_id)
+    end
+  end
+
+  defp run_batches(graph, correlation_id, experiment) do
+    initial_attacker_state = initial_attacker_state(graph, experiment.initial_foothold_node_id)
+
+    (experiment.completed_trials + 1)..experiment.total_trials
+    |> Stream.chunk_every(@trial_batch_size)
+    |> Enum.reduce(experiment, fn trial_indexes, experiment ->
+      {elapsed_us, runs} =
         Tracer.with_span "simulation.compute" do
           :timer.tc(fn ->
-            {experiment, runs} =
-              Simulator.run_experiment(
-                graph,
-                initial_attacker_state,
-                run_count: run_count,
-                iteration_count: iteration_count,
-                seed: seed,
-                lock_version: graph.lock_version,
-                rules: rules,
-                max_attempts: simulation_params.max_attempts,
-                map_fn: map_fun,
-                progress_callback: progress_callback
-              )
-
-            {experiment, runs}
-          end)
-          |> then(fn {us, result} ->
-            Tracer.set_attributes(%{duration_ms: div(us, 1000)})
-            {us, result}
+            Simulator.run_batch(
+              experiment,
+              graph,
+              initial_attacker_state,
+              trial_indexes,
+              rules: default_rules(),
+              max_attempts: experiment.max_attempts,
+              map_fn: &parallel_map_fn/2
+            )
           end)
         end
 
@@ -110,24 +117,50 @@ defmodule NetworkDefense.Simulations do
         %{}
       )
 
-      experiment = %{
-        experiment
-        | runtime_ms: runtime_ms,
-          lock_version: graph.lock_version,
-          runs: runs
-      }
-
-      case Experiments.insert(experiment) do
+      case Experiments.append_batch(experiment, runs, runtime_ms) do
         {:ok, saved} ->
-          Tracer.set_status(OpenTelemetry.status(:ok))
-          broadcast_simulation_completed(saved, correlation_id)
+          broadcast_simulation_progress(
+            graph.id,
+            correlation_id,
+            saved.completed_trials,
+            saved.total_trials
+          )
+
+          saved
 
         {:error, reason} ->
-          Tracer.set_status(OpenTelemetry.status(:error, inspect(reason)))
-          Logger.error("Failed to persist simulation: #{inspect(reason)}")
-          broadcast_simulation_failed(graph.id, correlation_id, inspect(reason))
+          raise "Failed to persist simulation batch: #{inspect(reason)}"
       end
+    end)
+    |> complete_experiment()
+  end
+
+  defp complete_experiment(experiment) do
+    case Experiments.complete(experiment) do
+      {:ok, completed} -> completed
+      {:error, reason} -> raise "Failed to complete simulation: #{inspect(reason)}"
     end
+  end
+
+  defp create_experiment(graph, simulation_params) do
+    seed = if simulation_params.generate_seed, do: Seed.random(), else: simulation_params.seed
+
+    Experiment.new(
+      graph_id: graph.id,
+      master_seed: seed,
+      iteration_count: simulation_params.iterations_per_run,
+      max_attempts: simulation_params.max_attempts,
+      lock_version: graph.lock_version,
+      total_trials: simulation_params.monte_carlo_trials,
+      initial_foothold_node_id: simulation_params.initial_foothold_node_id
+    )
+    |> Experiments.create()
+  end
+
+  defp verify_graph_version(graph, experiment) do
+    if graph.lock_version == experiment.lock_version,
+      do: :ok,
+      else: {:error, :graph_version_mismatch}
   end
 
   def parallel_map_fn(enum, fun) do
@@ -141,6 +174,7 @@ defmodule NetworkDefense.Simulations do
     query =
       from experiment in Experiment,
         where: experiment.graph_id in ^graph_ids,
+        where: experiment.status == "completed",
         order_by: [desc: :inserted_at],
         preload: [:graph]
 
@@ -178,7 +212,7 @@ defmodule NetworkDefense.Simulations do
     runs =
       Run
       |> where([run], run.experiment_id == ^experiment.id)
-      |> order_by([run], asc: :inserted_at)
+      |> order_by([run], asc: :trial_index)
       |> Repo.all()
       |> Repo.preload(:iterations)
       |> Enum.map(fn run ->
@@ -190,6 +224,7 @@ defmodule NetworkDefense.Simulations do
 
   defp load_for_report(experiment_id) do
     Experiment
+    |> where([experiment], experiment.status == "completed")
     |> Repo.get(experiment_id)
     |> case do
       nil ->

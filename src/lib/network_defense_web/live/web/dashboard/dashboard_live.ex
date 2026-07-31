@@ -211,7 +211,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
               graph_id: experiment.graph_id,
               graph_title: (experiment.graph && experiment.graph.title) || "Unknown",
               seed: experiment.seed,
-              run_count: experiment.run_count || 0,
+              run_count: experiment.completed_trials,
               iteration_count: experiment.iteration_count,
               runtime_ms: experiment.runtime_ms,
               started_at: experiment.inserted_at && DateTime.to_iso8601(experiment.inserted_at)

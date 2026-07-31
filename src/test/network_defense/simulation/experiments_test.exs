@@ -11,7 +11,7 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Run
 
-  test "splits large iteration inserts below PostgreSQL's bind limit" do
+  test "streams large iteration inserts in bounded batches" do
     graph = insert_graph()
     attacker_state = AttackerState.new("source-host")
 
@@ -52,9 +52,52 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
     assert Repo.aggregate(IterationStep, :count) == 10_000
   end
 
+  test "persists committed batches and resumes a failed experiment" do
+    graph = insert_graph()
+    attacker_state = AttackerState.new("source-host")
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 42,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 2,
+        initial_foothold_node_id: Ecto.UUID.generate()
+      )
+
+    assert {:ok, experiment} = Experiments.create(experiment)
+
+    assert {:ok, experiment} =
+             Experiments.append_batch(experiment, [run(graph, experiment, 1, attacker_state)], 3)
+
+    assert %{completed_trials: 1, runtime_ms: 3, status: "running"} = experiment
+
+    assert {:ok, %{status: "failed"}} = Experiments.fail(experiment.id)
+    assert {:ok, experiment} = Experiments.resume(experiment.id)
+
+    assert {:ok, experiment} =
+             Experiments.append_batch(experiment, [run(graph, experiment, 2, attacker_state)], 4)
+
+    assert {:ok, %{status: "completed", completed_trials: 2, runtime_ms: 7}} =
+             Experiments.complete(experiment)
+
+    assert Repo.aggregate(Run, :count) == 2
+  end
+
   defp insert_graph do
     %Graph{id: Ecto.UUID.generate()}
     |> Graph.changeset(%{title: "Simulation graph"})
     |> Repo.insert!()
+  end
+
+  defp run(graph, experiment, trial_index, attacker_state) do
+    Run.new(
+      graph: graph,
+      experiment_id: experiment.id,
+      trial_index: trial_index,
+      seed: trial_index,
+      initial_attacker_state: attacker_state
+    )
   end
 end

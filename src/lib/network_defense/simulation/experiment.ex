@@ -19,6 +19,10 @@ defmodule NetworkDefense.Simulation.Experiment do
           max_attempts: pos_integer(),
           lock_version: integer(),
           runtime_ms: integer(),
+          total_trials: pos_integer(),
+          completed_trials: non_neg_integer(),
+          status: String.t(),
+          initial_foothold_node_id: String.t() | nil,
           runs: list(Run.t()) | Ecto.Association.NotLoaded.t()
         }
 
@@ -30,6 +34,10 @@ defmodule NetworkDefense.Simulation.Experiment do
     field :max_attempts, :integer, default: 1
     field :lock_version, :integer, default: 1
     field :runtime_ms, :integer, default: 0
+    field :total_trials, :integer, default: 0
+    field :completed_trials, :integer, default: 0
+    field :status, :string, default: "completed"
+    field :initial_foothold_node_id, :binary_id
 
     has_many :runs, Run
 
@@ -43,12 +51,27 @@ defmodule NetworkDefense.Simulation.Experiment do
       :iteration_count,
       :max_attempts,
       :lock_version,
-      :runtime_ms
+      :runtime_ms,
+      :total_trials,
+      :completed_trials,
+      :status,
+      :initial_foothold_node_id
     ])
-    |> validate_required([:graph_id, :master_seed, :iteration_count, :max_attempts])
+    |> validate_required([
+      :graph_id,
+      :master_seed,
+      :iteration_count,
+      :max_attempts,
+      :total_trials,
+      :completed_trials,
+      :status
+    ])
     |> validate_number(:master_seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)
     |> validate_number(:max_attempts, greater_than: 0)
+    |> validate_number(:total_trials, greater_than: 0)
+    |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:status, ["running", "failed", "completed"])
     |> foreign_key_constraint(:graph_id)
   end
 
@@ -64,6 +87,10 @@ defmodule NetworkDefense.Simulation.Experiment do
       max_attempts: Map.get(attrs, :max_attempts, 1),
       lock_version: Map.get(attrs, :lock_version, 1),
       runtime_ms: Map.get(attrs, :runtime_ms, 0),
+      total_trials: Map.get(attrs, :total_trials, length(Map.get(attrs, :runs, []))),
+      completed_trials: Map.get(attrs, :completed_trials, 0),
+      status: Map.get(attrs, :status, "running"),
+      initial_foothold_node_id: Map.get(attrs, :initial_foothold_node_id),
       runs: Map.get(attrs, :runs, [])
     }
   end

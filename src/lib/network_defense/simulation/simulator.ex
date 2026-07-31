@@ -38,9 +38,7 @@ defmodule NetworkDefense.Simulation.Simulator do
     run_count = Keyword.get(opts, :run_count)
     iteration_count = Keyword.get(opts, :iteration_count)
     lock_version = Keyword.get(opts, :lock_version, 1)
-    map_fn = Keyword.get(opts, :map_fn, &Enum.map/2)
     max_attempts = Keyword.get(opts, :max_attempts, 1)
-    progress_callback = Keyword.get(opts, :progress_callback)
 
     experiment =
       Experiment.new(
@@ -48,29 +46,31 @@ defmodule NetworkDefense.Simulation.Simulator do
         master_seed: seed,
         iteration_count: iteration_count,
         lock_version: lock_version,
-        max_attempts: max_attempts
+        max_attempts: max_attempts,
+        total_trials: run_count
       )
 
-    runs =
-      1..run_count
-      |> map_fn.(fn index ->
-        Tracer.with_span "simulation.trial",
-          attributes: %{"trial.index": index} do
-          run_single(graph, initial_attacker_state, experiment, opts, index)
-        end
-      end)
-      |> Stream.with_index(1)
-      |> Enum.map(fn
-        {{:ok, run}, completed} ->
-          if progress_callback, do: progress_callback.(completed, run_count)
-          run
-
-        {run, completed} ->
-          if progress_callback, do: progress_callback.(completed, run_count)
-          run
-      end)
+    runs = run_batch(experiment, graph, initial_attacker_state, 1..run_count, opts)
 
     {%{experiment | runs: runs}, runs}
+  end
+
+  @doc false
+  @spec run_batch(Experiment.t(), term(), term(), Enumerable.t(), keyword()) :: list(Run.t())
+  def run_batch(experiment, graph, initial_attacker_state, trial_indexes, opts) do
+    map_fn = Keyword.get(opts, :map_fn, &Enum.map/2)
+
+    trial_indexes
+    |> map_fn.(fn index ->
+      Tracer.with_span "simulation.trial",
+        attributes: %{"trial.index": index} do
+        run_single(graph, initial_attacker_state, experiment, opts, index)
+      end
+    end)
+    |> Enum.map(fn
+      {:ok, run} -> run
+      run -> run
+    end)
   end
 
   def run_single(graph, initial_attacker_state, experiment, opts, index) do
@@ -80,6 +80,7 @@ defmodule NetworkDefense.Simulation.Simulator do
       Run.new(
         graph: graph,
         seed: seed,
+        trial_index: index,
         initial_attacker_state: initial_attacker_state,
         rules: Keyword.fetch!(opts, :rules),
         experiment_id: experiment.id

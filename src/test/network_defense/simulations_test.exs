@@ -45,7 +45,8 @@ defmodule NetworkDefense.SimulationsTest do
       |> Experiment.changeset(%{
         master_seed: 1,
         iteration_count: 2,
-        max_attempts: 1
+        max_attempts: 1,
+        total_trials: 1
       })
       |> Repo.insert!()
 
@@ -135,7 +136,8 @@ defmodule NetworkDefense.SimulationsTest do
     |> Experiment.changeset(%{
       master_seed: 1,
       iteration_count: 1,
-      max_attempts: 1
+      max_attempts: 1,
+      total_trials: 1
     })
     |> Repo.insert!()
   end

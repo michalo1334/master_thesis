@@ -13,6 +13,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
 
   describe "mount" do
@@ -224,6 +225,35 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert is_binary(experiment_id)
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
+    end
+
+    test "commits a simulation across trial batches", %{conn: conn} do
+      graph = insert_graph("batched-simulation")
+      foothold = insert_node(graph, "entry-host")
+      correlation_id = "batched-simulation-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_id" => graph.id,
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 101,
+            "iterations_per_run" => 1,
+            "initial_foothold_node_id" => foothold.id,
+            "generate_seed" => true
+          }
+        }
+      })
+
+      assert_receive {:simulation_completed,
+                      %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
+                     5_000
+
+      assert %{status: "completed", total_trials: 101, completed_trials: 101} =
+               Experiments.get(experiment_id)
     end
 
     test "rejects a simulation request with nil seed and generate_seed false", %{conn: conn} do

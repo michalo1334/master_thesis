@@ -15,33 +15,125 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   # Ecto may add binds beyond the values present in each input map.
   @max_bind_parameters 45_000
+  @iteration_batch_size 500
 
   def insert(%Experiment{runs: runs} = experiment) when is_list(runs) do
-    Repo.transaction(fn ->
-      now = DateTime.truncate(DateTime.utc_now(), :second)
+    runtime_ms = experiment.runtime_ms
+    experiment = %{experiment | runtime_ms: 0}
 
-      experiment_record =
-        experiment
-        |> Map.put(:runs, [])
-        |> then(&Experiment.changeset(&1, experiment_attrs(experiment)))
-        |> insert_or_rollback(:experiment)
-
-      run_maps =
-        Enum.map(runs, fn run ->
-          run
-          |> db_map(Run, %{experiment_id: experiment_record.id, inserted_at: now, updated_at: now})
-        end)
-
-      run_count = insert_all(Run, run_maps, :run)
-      if run_count != length(runs), do: Repo.rollback(:run)
-
-      iteration_maps = iteration_step_maps(runs, now)
-
-      insert_all(IterationStep, iteration_maps, :iteration_step)
-
-      %{experiment_record | runs: []}
-    end)
+    with {:ok, experiment} <- create(experiment),
+         {:ok, experiment} <- append_batch(experiment, runs, runtime_ms) do
+      complete(experiment)
+    end
   end
+
+  def create(%Experiment{} = experiment) do
+    experiment
+    |> Map.put(:runs, [])
+    |> then(&Experiment.changeset(&1, experiment_attrs(experiment)))
+    |> Repo.insert(timeout: :infinity)
+  end
+
+  def append_batch(%Experiment{} = experiment, runs, runtime_ms) when is_list(runs) do
+    Repo.transaction(
+      fn ->
+        experiment = lock!(experiment.id)
+
+        if experiment.status != "running" do
+          Repo.rollback(:not_running)
+        end
+
+        if experiment.completed_trials + length(runs) > experiment.total_trials do
+          Repo.rollback(:too_many_trials)
+        end
+
+        now = DateTime.truncate(DateTime.utc_now(), :second)
+
+        run_maps =
+          Enum.map(runs, fn run ->
+            run
+            |> db_map(Run, %{
+              experiment_id: experiment.id,
+              inserted_at: now,
+              updated_at: now
+            })
+          end)
+
+        run_count = insert_all(Run, run_maps, :run)
+        if run_count != length(runs), do: Repo.rollback(:run)
+
+        insert_iteration_steps(runs, now)
+
+        experiment
+        |> Experiment.changeset(%{
+          completed_trials: experiment.completed_trials + length(runs),
+          runtime_ms: experiment.runtime_ms + runtime_ms
+        })
+        |> update_or_rollback(:experiment)
+      end,
+      timeout: :infinity
+    )
+  end
+
+  def complete(%Experiment{} = experiment) do
+    Repo.transaction(
+      fn ->
+        experiment = lock!(experiment.id)
+
+        if experiment.completed_trials != experiment.total_trials do
+          Repo.rollback(:incomplete)
+        end
+
+        experiment
+        |> Experiment.changeset(%{status: "completed"})
+        |> update_or_rollback(:experiment)
+      end,
+      timeout: :infinity
+    )
+  end
+
+  def fail(experiment_id) do
+    Repo.get(Experiment, experiment_id)
+    |> case do
+      %Experiment{status: "running"} = experiment ->
+        experiment
+        |> Experiment.changeset(%{status: "failed"})
+        |> Repo.update(timeout: :infinity)
+
+      _ ->
+        :ok
+    end
+  end
+
+  def resume(experiment_id) do
+    Repo.transaction(
+      fn ->
+        experiment = lock!(experiment_id)
+
+        cond do
+          is_nil(experiment) ->
+            Repo.rollback(:not_found)
+
+          is_nil(experiment.initial_foothold_node_id) ->
+            Repo.rollback(:not_resumable)
+
+          experiment.status == "completed" ->
+            Repo.rollback(:completed)
+
+          experiment.completed_trials == experiment.total_trials ->
+            Repo.rollback(:completed)
+
+          true ->
+            experiment
+            |> Experiment.changeset(%{status: "running"})
+            |> update_or_rollback(:experiment)
+        end
+      end,
+      timeout: :infinity
+    )
+  end
+
+  def get(id), do: Repo.get(Experiment, id)
 
   defp db_map(%{} = struct, schema, additions) do
     map =
@@ -85,8 +177,8 @@ defmodule NetworkDefense.Simulation.Experiments do
     end
   end
 
-  defp insert_or_rollback(changeset, operation) do
-    case Repo.insert(changeset) do
+  defp update_or_rollback(changeset, operation) do
+    case Repo.update(changeset, timeout: :infinity) do
       {:ok, record} -> record
       {:error, changeset} -> Repo.rollback({operation, changeset})
     end
@@ -98,7 +190,10 @@ defmodule NetworkDefense.Simulation.Experiments do
     rows
     |> Enum.chunk_every(rows_per_insert(rows))
     |> Enum.reduce(0, fn chunk, inserted_count ->
-      case Repo.insert_all(schema.__schema__(:source), chunk, on_conflict: :nothing) do
+      case Repo.insert_all(schema.__schema__(:source), chunk,
+             on_conflict: :nothing,
+             timeout: :infinity
+           ) do
         {count, nil} when count == length(chunk) -> inserted_count + count
         _ -> Repo.rollback(operation)
       end
@@ -111,12 +206,15 @@ defmodule NetworkDefense.Simulation.Experiments do
     |> then(&max(1, div(@max_bind_parameters, &1)))
   end
 
-  defp iteration_step_maps(runs, now) do
-    Enum.flat_map(runs, fn run ->
-      Enum.map(run.iterations, fn iteration ->
-        iteration
-        |> db_map(IterationStep, %{run_id: run.id, inserted_at: now, updated_at: now})
-      end)
+  defp insert_iteration_steps(runs, now) do
+    runs
+    |> Stream.flat_map(fn run -> Stream.map(run.iterations, &{run.id, &1}) end)
+    |> Stream.map(fn {run_id, iteration} ->
+      db_map(iteration, IterationStep, %{run_id: run_id, inserted_at: now, updated_at: now})
+    end)
+    |> Stream.chunk_every(@iteration_batch_size)
+    |> Enum.reduce(0, fn batch, inserted_count ->
+      inserted_count + insert_all(IterationStep, batch, :iteration_step)
     end)
   end
 
@@ -126,13 +224,22 @@ defmodule NetworkDefense.Simulation.Experiments do
       :iteration_count,
       :max_attempts,
       :lock_version,
-      :runtime_ms
+      :runtime_ms,
+      :total_trials,
+      :completed_trials,
+      :status,
+      :initial_foothold_node_id
     ])
+  end
+
+  defp lock!(id) do
+    from(experiment in Experiment, where: experiment.id == ^id, lock: "FOR UPDATE")
+    |> Repo.one()
   end
 
   defp runs_query do
     from(run in Run,
-      order_by: [asc: run.seed],
+      order_by: [asc: run.trial_index],
       preload: [iterations: ^iteration_order()]
     )
   end
