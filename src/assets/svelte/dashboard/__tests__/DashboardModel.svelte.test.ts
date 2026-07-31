@@ -12,6 +12,9 @@ function makeMockApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
     runOptimization: vi.fn(),
     requestSimulationReport: vi.fn(),
     fetchExperiments: vi.fn(),
+    fetchGraphConnectivity: vi.fn(),
+    createNodeDraft: vi.fn(),
+    createConnectionDraft: vi.fn(),
     ...overrides,
   };
 }

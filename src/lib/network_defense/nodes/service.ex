@@ -11,6 +11,8 @@ defmodule NetworkDefense.Nodes.Service do
     field :version, :string
   end
 
+  def default_data, do: %{name: "New service", protocol: "tcp", port: 80, version: nil}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:name, :protocol, :port, :version])

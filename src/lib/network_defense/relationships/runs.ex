@@ -7,6 +7,8 @@ defmodule NetworkDefense.Relationships.Runs do
   embedded_schema do
   end
 
+  def default_data, do: %{}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [])

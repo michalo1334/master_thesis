@@ -161,7 +161,7 @@
 
   {#snippet content(document: WorkspaceDocument)}
     {#if document.kind === "graph"}
-      <EditableCanvas document={document as EditableGraphDocument} />
+      <EditableCanvas document={document as EditableGraphDocument} {api} />
     {:else if document.kind === "simulation-report"}
       <SimulationReport document={document as SimulationReportDocument} />
     {:else if document.kind === "optimization-report"}

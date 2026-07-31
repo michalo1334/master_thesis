@@ -1,5 +1,7 @@
 import type {
+  Edge,
   LoadedGraph,
+  Node,
   OptimizationParams,
   RunOptimizationReply,
   SimulationParams,
@@ -12,6 +14,12 @@ export type CanvasSelection =
   | { kind: "none" }
   | { kind: "node"; nodeId: string }
   | { kind: "edge"; edgeId: string };
+
+export interface ConnectionOption {
+  relationshipType: Edge["type"];
+  source: { id: string; type: Node["type"]; isFrom: boolean };
+  target: { id?: string; type: Node["type"] };
+}
 
 function blankGraph(title: string): LoadedGraph {
   return {
@@ -97,6 +105,68 @@ export class EditableGraphDocument {
 
   clearSelection(): void {
     this._selection = { kind: "none" };
+  }
+
+  addNode(node: Node): void {
+    this.graph = { ...this.graph, nodes: [...this.graph.nodes, node] };
+    this.selectNode(node.id);
+  }
+
+  createConnection(edge: Edge, node?: Node): void {
+    this.graph = {
+      ...this.graph,
+      nodes: node ? [...this.graph.nodes, node] : this.graph.nodes,
+      edges: [...this.graph.edges, edge],
+    };
+    if (node) this.selectNode(node.id);
+    else this.selectEdge(edge.id);
+  }
+
+  deleteSelection(): void {
+    const selection = this._selection;
+    if (selection.kind === "node") {
+      this.graph = {
+        ...this.graph,
+        nodes: this.graph.nodes.filter((node) => node.id !== selection.nodeId),
+        edges: this.graph.edges.filter(
+          (edge) =>
+            edge.from_id !== selection.nodeId &&
+            edge.to_id !== selection.nodeId,
+        ),
+      };
+    } else if (selection.kind === "edge") {
+      this.graph = {
+        ...this.graph,
+        edges: this.graph.edges.filter((edge) => edge.id !== selection.edgeId),
+      };
+    }
+  }
+
+  updateSelection(selectable: Node | Edge): void {
+    const selection = this._selection;
+    if (
+      selection.kind === "node" &&
+      selectable.id === selection.nodeId &&
+      "view_data" in selectable
+    ) {
+      this.graph = {
+        ...this.graph,
+        nodes: this.graph.nodes.map((node) =>
+          node.id === selectable.id ? selectable : node,
+        ),
+      };
+    } else if (
+      selection.kind === "edge" &&
+      selectable.id === selection.edgeId &&
+      !("view_data" in selectable)
+    ) {
+      this.graph = {
+        ...this.graph,
+        edges: this.graph.edges.map((edge) =>
+          edge.id === selectable.id ? selectable : edge,
+        ),
+      };
+    }
   }
 
   replaceFromLoadedGraph(graph: LoadedGraph): void {

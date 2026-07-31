@@ -8,6 +8,8 @@ defmodule NetworkDefense.Relationships.AuthenticatesTo do
     field :granted_privilege, Ecto.Enum, values: [:user, :administrator]
   end
 
+  def default_data, do: %{granted_privilege: "user"}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:granted_privilege])

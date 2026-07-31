@@ -2,6 +2,7 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
   @moduledoc false
 
   alias NetworkDefense.Nodes.{Credential, Host, Service, Vulnerability}
+  alias NetworkDefense.Nodes.Registry, as: NodeRegistry
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
@@ -10,6 +11,8 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     Runs,
     StoresCredential
   }
+
+  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
   @allowed_endpoints %{
     Runs => [{Host, Service}],
@@ -24,4 +27,15 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
       do: Map.get(@allowed_endpoints, relationship_type, []) |> Enum.member?({from_type, to_type})
 
   def valid?(_relationship_type, _from_type, _to_type), do: false
+
+  def rules do
+    for {relationship, endpoints} <- @allowed_endpoints,
+        {from, to} <- endpoints do
+      %{
+        relationship_type: RelationshipRegistry.contract_type_for(relationship),
+        from_type: NodeRegistry.contract_type_for(from),
+        to_type: NodeRegistry.contract_type_for(to)
+      }
+    end
+  end
 end

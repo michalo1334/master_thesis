@@ -8,6 +8,8 @@ defmodule NetworkDefense.Relationships.StoresCredential do
     field :required_privilege, Ecto.Enum, values: [:user, :administrator]
   end
 
+  def default_data, do: %{required_privilege: "user"}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:required_privilege])

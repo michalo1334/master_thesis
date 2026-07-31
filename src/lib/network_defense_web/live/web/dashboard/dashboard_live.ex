@@ -2,7 +2,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Graph.{Edge, Graphs, Node}
+  alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
@@ -12,6 +13,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchSimulationReportReply,
     FetchExperimentsPayload,
     FetchExperimentsReply,
+    CreateConnectionDraftPayload,
+    CreateConnectionDraftReply,
+    CreateNodeDraftPayload,
+    CreateNodeDraftReply,
+    GraphConnectivityReply,
     OpenGraphPayload,
     OpenGraphReply,
     GraphSummary,
@@ -76,6 +82,41 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         {:reply, save_graph_reply("invalid_graph"), socket}
     end
+  end
+
+  @impl true
+  def handle_event("fetch_graph_connectivity", _params, socket) do
+    {:reply, graph_connectivity_reply(), socket}
+  end
+
+  @impl true
+  def handle_event("create_node_draft", params, socket) do
+    reply =
+      with {:ok, payload} <- CreateNodeDraftPayload.validate(params),
+           {:ok, node} <-
+             Node.draft(payload.node_type, %{x_pos: payload.x_pos, y_pos: payload.y_pos}) do
+        node_draft_reply("ok", node)
+      else
+        _ -> node_draft_reply("invalid")
+      end
+
+    {:reply, reply, socket}
+  end
+
+  @impl true
+  def handle_event("create_connection_draft", params, socket) do
+    reply =
+      with {:ok, payload} <- CreateConnectionDraftPayload.validate(params),
+           {:ok, node, target} <- connection_target(payload),
+           source = %{id: payload.source_id, type: payload.source_type},
+           {from, to} <- if(payload.source_is_from, do: {source, target}, else: {target, source}),
+           {:ok, edge} <- Edge.draft(payload.relationship_type, from, to) do
+        connection_draft_reply("ok", node, edge)
+      else
+        _ -> connection_draft_reply("invalid")
+      end
+
+    {:reply, reply, socket}
   end
 
   @impl true
@@ -369,6 +410,28 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp save_graph_reply(status, graph \\ nil) do
     contract_reply(SaveGraphReply, %{status: status, graph: graph})
+  end
+
+  defp graph_connectivity_reply do
+    contract_reply(GraphConnectivityReply, %{rules: SemanticConnectivity.rules()})
+  end
+
+  defp node_draft_reply(status, node \\ nil) do
+    contract_reply(CreateNodeDraftReply, %{status: status, node: node})
+  end
+
+  defp connection_draft_reply(status, node \\ nil, edge \\ nil) do
+    contract_reply(CreateConnectionDraftReply, %{status: status, node: node, edge: edge})
+  end
+
+  defp connection_target(%{target_id: target_id, target_type: target_type})
+       when is_binary(target_id) and is_binary(target_type),
+       do: {:ok, nil, %{id: target_id, type: target_type}}
+
+  defp connection_target(%{new_node_type: type, x_pos: x_pos, y_pos: y_pos}) do
+    with {:ok, node} <- Node.draft(type, %{x_pos: x_pos, y_pos: y_pos}) do
+      {:ok, node, %{id: node.id, type: node.type}}
+    end
   end
 
   defp contract_reply(contract, attrs) do

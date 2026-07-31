@@ -8,6 +8,7 @@ defmodule NetworkDefense.Graph.Node do
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.{Data, Graph}
+  alias NetworkDefense.Graph.Contracts.Node, as: NodeContract
   alias NetworkDefense.Nodes.Registry
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -37,6 +38,24 @@ defmodule NetworkDefense.Graph.Node do
     |> Map.merge(%{id: Ecto.UUID.generate(), graph_id: graph_id})
     |> then(&struct!(__MODULE__, &1))
   end
+
+  def draft(type, %{x_pos: x_pos, y_pos: y_pos})
+      when is_binary(type) and is_number(x_pos) and is_number(y_pos) do
+    with module when not is_nil(module) <- Registry.module_for_contract(type),
+         {:ok, node} <-
+           NodeContract.validate(%{
+             id: Ecto.UUID.generate(),
+             type: type,
+             data: module.default_data(),
+             view_data: %{x_pos: x_pos, y_pos: y_pos}
+           }) do
+      {:ok, NodeContract.to_wire(node)}
+    else
+      _ -> :error
+    end
+  end
+
+  def draft(_type, _position), do: :error
 
   def hydrate(%__MODULE__{type: type} = node) when is_atom(type), do: {:ok, node}
 

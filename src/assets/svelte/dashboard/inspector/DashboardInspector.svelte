@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { GraphSummary, LoadedGraph, Selectable } from "../contract";
-  import { inspectorFor } from "../graph/presentation/registry";
   import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
   import GraphInspector from "./graph/GraphInspector.svelte";
+  import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
 
   export type WorkspaceDocument =
     | EditableGraphDocument
@@ -33,16 +33,13 @@
       : undefined;
     return { kind: "graph", graph: document.graph, parentTitle };
   });
-
-  let InspectorComponent = $derived(
-    selection?.kind === "selectable"
-      ? inspectorFor(selection.selectable)
-      : undefined,
-  );
 </script>
 
 {#if selection?.kind === "graph"}
   <GraphInspector graph={selection.graph} parentTitle={selection.parentTitle} />
-{:else if selection?.kind === "selectable" && InspectorComponent}
-  <InspectorComponent selectable={selection.selectable} />
+{:else if selection?.kind === "selectable" && document?.kind === "graph"}
+  <EditableSelectionInspector
+    selectable={selection.selectable}
+    onUpdate={(selectable) => document.updateSelection(selectable)}
+  />
 {/if}

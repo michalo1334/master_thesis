@@ -4,6 +4,7 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
@@ -200,7 +201,17 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
       graph =
         Graph.add_edge(graph, host, svc, %{type: Atom.to_string(NetworkReachability), data: %{}})
 
-      assert length(Graph.edges(graph)) == 1
+      assert [_] = Graph.edges(graph)
+    end
+  end
+
+  describe "connectivity rules" do
+    test "publishes the same directed relationships used for validation" do
+      assert %{relationship_type: "Runs", from_type: "Host", to_type: "Service"} in SemanticConnectivity.rules()
+
+      assert %{relationship_type: "AuthenticatesTo", from_type: "Credential", to_type: "Service"} in SemanticConnectivity.rules()
+
+      refute %{relationship_type: "Runs", from_type: "Service", to_type: "Host"} in SemanticConnectivity.rules()
     end
   end
 

@@ -179,6 +179,40 @@ export interface SimulationParams {
   seed: number;
 }
 
+export interface CreateConnectionDraftPayload {
+  new_node_type?: string | null;
+  relationship_type:
+    | "Runs"
+    | "NetworkReachability"
+    | "HasVulnerability"
+    | "StoresCredential"
+    | "AuthenticatesTo";
+  source_id: string;
+  source_is_from: boolean;
+  source_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  target_id?: string | null;
+  target_type?: string | null;
+  x_pos?: number | null;
+  y_pos?: number | null;
+}
+
+export interface CreateConnectionDraftReply {
+  edge?: Edge | null;
+  node?: Node | null;
+  status: "ok" | "invalid";
+}
+
+export interface CreateNodeDraftPayload {
+  node_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  x_pos: number;
+  y_pos: number;
+}
+
+export interface CreateNodeDraftReply {
+  node?: Node | null;
+  status: "ok" | "invalid";
+}
+
 export interface ExperimentSummary {
   graph_id: string;
   graph_title: string;
@@ -214,6 +248,21 @@ export interface FetchSimulationReportReply {
   run_count: number;
   summary: SimulationReportSummary;
   total_runtime_ms: number;
+}
+
+export interface GraphConnectivityReply {
+  rules: GraphConnectivityRule[];
+}
+
+export interface GraphConnectivityRule {
+  from_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  relationship_type:
+    | "Runs"
+    | "NetworkReachability"
+    | "HasVulnerability"
+    | "StoresCredential"
+    | "AuthenticatesTo";
+  to_type: "Host" | "Service" | "Vulnerability" | "Credential";
 }
 
 export interface GraphSummary {

@@ -76,7 +76,7 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
           &(&1.type == AuthenticatesTo)
         )
 
-      assert length(auth_edges_before) == 2
+      assert [_, _] = auth_edges_before
 
       action = %RevokeCredential{credential_id: cred.id}
       assert DefenseAction.cost(action) == 1

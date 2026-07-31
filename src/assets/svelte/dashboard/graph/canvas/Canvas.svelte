@@ -5,8 +5,12 @@
   import CanvasNode from "./CanvasNode.svelte";
   import { nodeCenter } from "./geometry";
   import { computeFitState } from "./fitView";
-  import type { Edge, Node } from "../../contract";
-  import type { LoadedGraph } from "../../contract";
+  import type {
+    Edge,
+    GraphConnectivityRule,
+    LoadedGraph,
+    Node,
+  } from "../../contract";
   import type {
     CanvasEdgeAppearance,
     CanvasNodeAppearance,
@@ -23,6 +27,7 @@
   const ZOOM_STEP = 10;
   const PAN_STEP = 40;
   const DRAG_THRESHOLD = 4;
+  const nodeTypes = ["Host", "Service", "Vulnerability", "Credential"] as const;
 
   interface Props {
     graph: LoadedGraph;
@@ -35,6 +40,14 @@
     onSelectNode?: (nodeId: string) => void;
     onSelectEdge?: (edgeId: string) => void;
     onClearSelection?: () => void;
+    connectionRules?: readonly GraphConnectivityRule[];
+    onCreateConnection?: (
+      sourceNodeId: string,
+      targetNodeId: string | undefined,
+      position: Point,
+    ) => void;
+    onAddNode?: (type: Node["type"], position: Point) => void;
+    onDeleteSelection?: () => void;
     ariaLabel?: string;
   }
 
@@ -49,6 +62,10 @@
     onSelectNode = undefined,
     onSelectEdge = undefined,
     onClearSelection = undefined,
+    connectionRules = [],
+    onCreateConnection = undefined,
+    onAddNode = undefined,
+    onDeleteSelection = undefined,
     ariaLabel = "Network topology canvas",
   }: Props = $props();
   const canvasPreviewArrowId = $props.id();
@@ -56,6 +73,7 @@
   let editable = $derived(Boolean(onGraphChange));
   let viewport = $state({ width: 0, height: 0 });
   let pointerGraphPosition = $state<Point>();
+  let canvasContextPosition = $state<Point>();
   let didPan = $state(false);
   let suppressNodeClick = $state(false);
 
@@ -67,6 +85,10 @@
   });
   let dragState = $state<DragState>();
   let nodeDragState = $state<NodeDragState>();
+  let connectionDragState = $state<{
+    pointerId: number;
+    element: SVGCircleElement;
+  }>();
 
   let gridSize = $derived(20 * (canvasState.zoom / 100));
   let worldTransform = $derived(
@@ -126,8 +148,7 @@
   });
 
   function graphPosition(event: PointerEvent | MouseEvent): Point {
-    const surface = event.currentTarget as HTMLElement;
-    const bounds = surface.getBoundingClientRect();
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const scale = canvasState.zoom / 100;
     return {
       x: (event.clientX - bounds.left - canvasState.pan.x) / scale,
@@ -178,6 +199,26 @@
     };
   }
 
+  function startConnection(node: Node, event: PointerEvent) {
+    if (!onCreateConnection || event.button !== 0 || !event.isPrimary) return;
+
+    event.stopPropagation();
+    const element = event.currentTarget as SVGCircleElement;
+    element.setPointerCapture(event.pointerId);
+    updateCanvasState({ connectMode: true, connectionSourceId: node.id });
+    connectionDragState = { pointerId: event.pointerId, element };
+  }
+
+  function nodeAt(position: Point): Node | undefined {
+    return graph.nodes.find(
+      (node) =>
+        position.x >= node.view_data.x_pos &&
+        position.x <= node.view_data.x_pos + 120 &&
+        position.y >= node.view_data.y_pos &&
+        position.y <= node.view_data.y_pos + 72,
+    );
+  }
+
   function handlePointerMove(event: PointerEvent) {
     pointerGraphPosition = graphPosition(event);
     if (nodeDragState?.pointerId === event.pointerId) {
@@ -224,6 +265,24 @@
       surface.releasePointerCapture(event.pointerId);
   }
 
+  function endConnection(event: PointerEvent, create: boolean) {
+    if (
+      !connectionDragState ||
+      connectionDragState.pointerId !== event.pointerId
+    )
+      return;
+
+    const position = graphPosition(event);
+    if (connectionDragState.element.hasPointerCapture(event.pointerId))
+      connectionDragState.element.releasePointerCapture(event.pointerId);
+    const sourceNodeId = canvasState.connectionSourceId;
+    updateCanvasState({ connectMode: false, connectionSourceId: undefined });
+    connectionDragState = undefined;
+    pointerGraphPosition = undefined;
+    if (create && sourceNodeId)
+      onCreateConnection?.(sourceNodeId, nodeAt(position)?.id, position);
+  }
+
   function endNodeDrag(event: PointerEvent) {
     if (!nodeDragState || nodeDragState.pointerId !== event.pointerId) return;
     if (nodeDragState.element.hasPointerCapture(event.pointerId))
@@ -234,6 +293,8 @@
   }
 
   function handlePointerUp(event: PointerEvent) {
+    if (connectionDragState?.pointerId === event.pointerId)
+      return endConnection(event, true);
     if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
     if (!dragState || dragState.pointerId !== event.pointerId) return;
     releasePointer(event);
@@ -241,6 +302,8 @@
   }
 
   function cancelPan(event: PointerEvent) {
+    if (connectionDragState?.pointerId === event.pointerId)
+      return endConnection(event, false);
     if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
     releasePointer(event);
     dragState = undefined;
@@ -255,6 +318,16 @@
     onClearSelection?.();
   }
 
+  function handleCanvasContextMenu(event: MouseEvent) {
+    if (isGraphInteractive(event.target)) return;
+    canvasContextPosition = graphPosition(event);
+    onClearSelection?.();
+  }
+
+  function addNode(type: Node["type"]) {
+    if (canvasContextPosition) onAddNode?.(type, canvasContextPosition);
+  }
+
   function handleNodeClick(node: Node, event: MouseEvent) {
     event.stopPropagation();
     if (suppressNodeClick) {
@@ -267,6 +340,37 @@
   function handleEdgeClick(edge: Edge, event: MouseEvent) {
     event.stopPropagation();
     onSelectEdge?.(edge.id);
+  }
+
+  function handleNodeContextMenu(node: Node, event: MouseEvent) {
+    event.stopPropagation();
+    onSelectNode?.(node.id);
+  }
+
+  function handleEdgeContextMenu(edge: Edge, event: MouseEvent) {
+    event.stopPropagation();
+    onSelectEdge?.(edge.id);
+  }
+
+  function connectionDirection(
+    target: Node,
+  ): "forward" | "reverse" | "both" | undefined {
+    if (!connectionSource || connectionSource.id === target.id)
+      return undefined;
+    const forward = connectionRules.some(
+      (rule) =>
+        rule.from_type === connectionSource.type &&
+        rule.to_type === target.type,
+    );
+    const reverse = connectionRules.some(
+      (rule) =>
+        rule.from_type === target.type &&
+        rule.to_type === connectionSource.type,
+    );
+    if (forward && reverse) return "both";
+    if (forward) return "forward";
+    if (reverse) return "reverse";
+    return undefined;
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -309,7 +413,10 @@
 
 <section class="canvas-shell" aria-label={ariaLabel}>
   <ContextMenu.Root>
-    <ContextMenu.Trigger class="canvas-context-menu-trigger">
+    <ContextMenu.Trigger
+      class="canvas-context-menu-trigger"
+      oncontextmenu={handleCanvasContextMenu}
+    >
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div
         class="canvas-surface"
@@ -366,6 +473,15 @@
                   onclick={onSelectEdge
                     ? (event) => handleEdgeClick(edge, event)
                     : undefined}
+                  oncontextmenu={onSelectEdge
+                    ? (event) => handleEdgeContextMenu(edge, event)
+                    : undefined}
+                  onDelete={onDeleteSelection
+                    ? () => {
+                        onSelectEdge?.(edge.id);
+                        onDeleteSelection();
+                      }
+                    : undefined}
                 />
               {/if}
             {/each}
@@ -385,13 +501,26 @@
                 position={nodePosition(node)}
                 selected={selectedNodeId === node.id}
                 source={canvasState.connectionSourceId === node.id}
+                connectionDirection={connectionDirection(node)}
                 dragging={nodeDragState?.nodeId === node.id}
                 appearance={nodeAppearance?.(node)}
                 onpointerdown={editable
                   ? (event) => startNodeDrag(node, event)
                   : undefined}
+                onconnectorpointerdown={onCreateConnection
+                  ? (event) => startConnection(node, event)
+                  : undefined}
                 onclick={onSelectNode
                   ? (event) => handleNodeClick(node, event)
+                  : undefined}
+                oncontextmenu={onSelectNode
+                  ? (event) => handleNodeContextMenu(node, event)
+                  : undefined}
+                onDelete={onDeleteSelection
+                  ? () => {
+                      onSelectNode?.(node.id);
+                      onDeleteSelection();
+                    }
                   : undefined}
               />
             {/each}
@@ -407,23 +536,44 @@
       >
         <ContextMenu.Item
           class="dashboard-menu-item"
-          onclick={() => setZoom(canvasState.zoom + ZOOM_STEP)}
+          onSelect={() => setZoom(canvasState.zoom + ZOOM_STEP)}
           >Zoom in</ContextMenu.Item
         >
         <ContextMenu.Item
           class="dashboard-menu-item"
-          onclick={() => setZoom(canvasState.zoom - ZOOM_STEP)}
+          onSelect={() => setZoom(canvasState.zoom - ZOOM_STEP)}
           >Zoom out</ContextMenu.Item
         >
-        <ContextMenu.Item class="dashboard-menu-item" onclick={resetView}
+        <ContextMenu.Item class="dashboard-menu-item" onSelect={resetView}
           >Reset view</ContextMenu.Item
         >
+        {#if onAddNode}
+          <ContextMenu.Separator class="dashboard-menu-separator" />
+          <ContextMenu.Sub>
+            <ContextMenu.SubTrigger class="dashboard-menu-item"
+              >Add</ContextMenu.SubTrigger
+            >
+            <ContextMenu.Portal>
+              <ContextMenu.SubContent
+                class="dashboard-menu-content"
+                sideOffset={6}
+              >
+                {#each nodeTypes as type (type)}
+                  <ContextMenu.Item
+                    class="dashboard-menu-item"
+                    onSelect={() => addNode(type)}>{type}</ContextMenu.Item
+                  >
+                {/each}
+              </ContextMenu.SubContent>
+            </ContextMenu.Portal>
+          </ContextMenu.Sub>
+        {/if}
       </ContextMenu.Content></ContextMenu.Portal
     >
   </ContextMenu.Root>
   <p class="canvas-hint">
-    Drag blank space to pan. Right-click to open actions. Scroll or use the
-    controls to zoom.
+    Drag blank space to pan. Drag a node to reposition it. Drag a node dot to
+    create a connection. Right-click to open actions.
   </p>
   <div class="canvas-controls" aria-label="Canvas zoom controls">
     <button
@@ -513,6 +663,11 @@
   }
   .canvas-preview-arrow {
     fill: var(--ds-color-preview-edge);
+  }
+  :global(.dashboard-menu-separator) {
+    height: 1px;
+    margin: var(--ds-space-1) 0;
+    background: var(--ds-color-border-soft);
   }
   .canvas-hint,
   .canvas-controls {

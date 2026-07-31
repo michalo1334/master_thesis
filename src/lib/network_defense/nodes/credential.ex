@@ -9,6 +9,8 @@ defmodule NetworkDefense.Nodes.Credential do
     field :credential_type, Ecto.Enum, values: [:password, :ssh_key, :token]
   end
 
+  def default_data, do: %{identifier: "New credential", credential_type: "password"}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:identifier, :credential_type])

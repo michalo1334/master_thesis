@@ -30,6 +30,70 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
+  describe "fetch_graph_connectivity" do
+    test "returns backend semantic connectivity rules", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_connectivity", %{})
+
+      assert_reply(view, %{rules: rules})
+
+      assert %{from_type: "Host", relationship_type: "Runs", to_type: "Service"} in rules
+    end
+  end
+
+  describe "graph drafts" do
+    test "returns a validated node draft", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "create_node_draft", %{
+        "node_type" => "Host",
+        "x_pos" => 30,
+        "y_pos" => 40
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        node: %{type: "Host", data: %{name: "New host"}, view_data: %{x_pos: 30.0, y_pos: 40.0}}
+      })
+    end
+
+    test "returns a reverse-directed connection draft", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      service_id = Ecto.UUID.generate()
+      host_id = Ecto.UUID.generate()
+
+      render_hook(view, "create_connection_draft", %{
+        "relationship_type" => "Runs",
+        "source_id" => service_id,
+        "source_type" => "Service",
+        "source_is_from" => false,
+        "target_id" => host_id,
+        "target_type" => "Host"
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        edge: %{type: "Runs", from_id: ^host_id, to_id: ^service_id, data: %{}}
+      })
+    end
+
+    test "rejects an invalid connection draft", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "create_connection_draft", %{
+        "relationship_type" => "Runs",
+        "source_id" => Ecto.UUID.generate(),
+        "source_type" => "Service",
+        "source_is_from" => true,
+        "target_id" => Ecto.UUID.generate(),
+        "target_type" => "Host"
+      })
+
+      assert_reply(view, %{status: "invalid", edge: nil, node: nil})
+    end
+  end
+
   describe "open_graph" do
     test "accepts an existing graph", %{conn: conn} do
       graph = insert_graph("dwg-001")

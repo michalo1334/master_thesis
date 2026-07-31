@@ -13,6 +13,8 @@ defmodule NetworkDefense.Relationships.NetworkReachability do
     field :port_end, :integer
   end
 
+  def default_data, do: %{protocol: "any", port_start: nil, port_end: nil}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:protocol, :port_start, :port_end])

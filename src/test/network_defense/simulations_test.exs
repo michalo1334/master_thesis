@@ -70,8 +70,8 @@ defmodule NetworkDefense.SimulationsTest do
              }
            } = report
 
-    assert length(Graph.nodes(report.graph)) == 2
-    assert length(Graph.edges(report.graph)) == 1
+    assert [_, _] = Graph.nodes(report.graph)
+    assert [_] = Graph.edges(report.graph)
 
     assert Simulations.get_report(Ecto.UUID.generate()) == nil
   end

@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { ContextMenu } from "bits-ui";
   import { edgeEndpoints } from "./geometry";
-  import { type Edge, type Node, type NodeViewData } from "../../contract";
+  import { type Edge, type Node } from "../../contract";
   import type { Point } from "./canvasState";
   import { edgePresentation } from "../presentation/registry";
   import type { CanvasEdgeAppearance } from "./appearance";
@@ -14,6 +15,8 @@
     selected: boolean;
     appearance?: CanvasEdgeAppearance;
     onclick?: (event: MouseEvent) => void;
+    oncontextmenu?: (event: MouseEvent) => void;
+    onDelete?: () => void;
   }
 
   let {
@@ -25,6 +28,8 @@
     selected,
     appearance = undefined,
     onclick,
+    oncontextmenu,
+    onDelete = undefined,
   }: Props = $props();
   const markerId = $props.id();
   let edgeType = $derived(edge.type);
@@ -46,48 +51,70 @@
   }
 </script>
 
-<g
-  class={["canvas-edge", selected && "selected"]}
-  style:--edge-color={edgeStyle?.color}
-  style:--edge-dash={edgeStyle?.dashArray ?? "none"}
-  style:--edge-opacity={appearance?.opacity}
-  style:--edge-stroke={appearance?.stroke}
-  style:--edge-stroke-width={appearance?.strokeWidth}
-  data-graph-interactive={onclick ? true : undefined}
->
-  <defs>
-    <marker
-      id={markerId}
-      markerWidth="8"
-      markerHeight="8"
-      refX="7"
-      refY="3"
-      orient="auto"
-    >
-      <path class="canvas-edge-arrow" d="M0 0 8 3 0 6Z" />
-    </marker>
-  </defs>
-  <path class="canvas-edge-line" d={path} marker-end={`url(#${markerId})`} />
-  <path
-    class="canvas-edge-hit-target"
-    d={path}
-    tabindex={onclick ? 0 : undefined}
-    role="button"
-    aria-disabled={onclick ? undefined : true}
-    aria-pressed={onclick ? selected : undefined}
-    aria-label={`${edgeType} relationship from TODO to TODO}${selected ? ", selected" : ""}`}
-    {onclick}
-    onkeydown={handleKeydown}
-  />
-  <text
-    class="canvas-edge-label"
-    x={labelPosition.x}
-    y={labelPosition.y}
-    text-anchor="middle"
-    dominant-baseline="central"
-    aria-hidden="true">{edgeType}</text
+{#snippet edgeTrigger({ props }: { props: Record<string, unknown> })}
+  <g
+    {...props}
+    class={["canvas-edge", selected && "selected"]}
+    style:--edge-color={edgeStyle?.color}
+    style:--edge-dash={edgeStyle?.dashArray ?? "none"}
+    style:--edge-opacity={appearance?.opacity}
+    style:--edge-stroke={appearance?.stroke}
+    style:--edge-stroke-width={appearance?.strokeWidth}
+    data-graph-interactive={onclick || onDelete ? true : undefined}
   >
-</g>
+    <defs>
+      <marker
+        id={markerId}
+        markerWidth="8"
+        markerHeight="8"
+        refX="7"
+        refY="3"
+        orient="auto"
+      >
+        <path class="canvas-edge-arrow" d="M0 0 8 3 0 6Z" />
+      </marker>
+    </defs>
+    <path class="canvas-edge-line" d={path} marker-end={`url(#${markerId})`} />
+    <path
+      class="canvas-edge-hit-target"
+      d={path}
+      tabindex={onclick ? 0 : undefined}
+      role="button"
+      aria-disabled={onclick ? undefined : true}
+      aria-pressed={onclick ? selected : undefined}
+      aria-label={`${edgeType} relationship${selected ? ", selected" : ""}`}
+      {onclick}
+      onkeydown={handleKeydown}
+    />
+    <text
+      class="canvas-edge-label"
+      x={labelPosition.x}
+      y={labelPosition.y}
+      text-anchor="middle"
+      dominant-baseline="central"
+      aria-hidden="true">{edgeType}</text
+    >
+  </g>
+{/snippet}
+
+{#if onDelete}
+  <ContextMenu.Root>
+    <ContextMenu.Trigger child={edgeTrigger} {oncontextmenu} />
+    <ContextMenu.Portal>
+      <ContextMenu.Content
+        class="dashboard-menu-content"
+        sideOffset={6}
+        aria-label="Edge actions"
+      >
+        <ContextMenu.Item class="dashboard-menu-item" onSelect={onDelete}
+          >Delete</ContextMenu.Item
+        >
+      </ContextMenu.Content>
+    </ContextMenu.Portal>
+  </ContextMenu.Root>
+{:else}
+  {@render edgeTrigger({ props: {} })}
+{/if}
 
 <style>
   .canvas-edge-line {

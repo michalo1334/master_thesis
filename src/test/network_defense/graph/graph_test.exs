@@ -86,7 +86,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       insert_node(graph2, "i2")
 
       summaries = Graphs.list_summaries()
-      assert length(summaries) == 2
+      assert [_, _] = summaries
 
       g1 = Enum.find(summaries, &(&1.id == graph1.id))
       assert g1.nodeCount == 2

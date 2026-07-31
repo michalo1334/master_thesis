@@ -8,6 +8,8 @@ defmodule NetworkDefense.Nodes.Host do
     field :name, :string
   end
 
+  def default_data, do: %{name: "New host"}
+
   def changeset(schema, attrs) do
     schema
     |> cast(attrs, [:name])

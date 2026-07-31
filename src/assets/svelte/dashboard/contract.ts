@@ -26,6 +26,12 @@ import type {
   ExperimentSummary,
   FetchExperimentsPayload,
   FetchExperimentsReply,
+  CreateNodeDraftPayload,
+  CreateNodeDraftReply,
+  CreateConnectionDraftPayload,
+  CreateConnectionDraftReply,
+  GraphConnectivityReply,
+  GraphConnectivityRule,
 } from "../contracts.generated";
 
 export type {
@@ -68,6 +74,12 @@ export type {
   ExperimentSummary,
   FetchExperimentsPayload,
   FetchExperimentsReply,
+  CreateNodeDraftPayload,
+  CreateNodeDraftReply,
+  CreateConnectionDraftPayload,
+  CreateConnectionDraftReply,
+  GraphConnectivityReply,
+  GraphConnectivityRule,
   GraphSummary,
   SimulationReportErrorEvent,
 } from "../contracts.generated";

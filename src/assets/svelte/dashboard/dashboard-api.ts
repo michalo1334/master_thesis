@@ -12,6 +12,11 @@ import type {
   RunOptimizationPayload,
   RunOptimizationReply,
   SimulationParams,
+  GraphConnectivityReply,
+  CreateNodeDraftPayload,
+  CreateNodeDraftReply,
+  CreateConnectionDraftPayload,
+  CreateConnectionDraftReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 
@@ -38,6 +43,13 @@ export interface DashboardApi {
   ): Promise<RunOptimizationReply>;
   requestSimulationReport(experimentId: string, graphId: string): void;
   fetchExperiments(graphIds: string[]): Promise<FetchExperimentsReply>;
+  fetchGraphConnectivity(): Promise<GraphConnectivityReply>;
+  createNodeDraft(
+    payload: CreateNodeDraftPayload,
+  ): Promise<CreateNodeDraftReply>;
+  createConnectionDraft(
+    payload: CreateConnectionDraftPayload,
+  ): Promise<CreateConnectionDraftReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -104,6 +116,26 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         "fetch_experiments",
         { graph_ids: graphIds },
       );
+    },
+    fetchGraphConnectivity() {
+      return requestReply<{}, GraphConnectivityReply>(
+        live,
+        "fetch_graph_connectivity",
+        {},
+      );
+    },
+    createNodeDraft(payload) {
+      return requestReply<CreateNodeDraftPayload, CreateNodeDraftReply>(
+        live,
+        "create_node_draft",
+        payload,
+      );
+    },
+    createConnectionDraft(payload) {
+      return requestReply<
+        CreateConnectionDraftPayload,
+        CreateConnectionDraftReply
+      >(live, "create_connection_draft", payload);
     },
   };
 }

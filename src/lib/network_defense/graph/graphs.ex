@@ -105,8 +105,6 @@ defmodule NetworkDefense.Graph.Graphs do
       with {:ok, id} <- Ecto.UUID.cast(id),
            {:ok, candidate} <- candidate_graph(id, expected_lock_version, attrs) do
         Repo.transaction(fn -> replace_in_transaction(id, expected_lock_version, candidate) end)
-      else
-        error -> error
       end
 
     # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig

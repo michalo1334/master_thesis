@@ -60,9 +60,7 @@ defmodule NetworkDefense.Graph.GraphDiff do
   end
 
   defp changed_fields(fields) do
-    Enum.flat_map(fields, fn {field, previous, candidate} ->
-      if previous == candidate, do: [], else: [field]
-    end)
+    for {field, previous, candidate} <- fields, previous != candidate, do: field
   end
 
   defp entity_diff_empty?(diff),

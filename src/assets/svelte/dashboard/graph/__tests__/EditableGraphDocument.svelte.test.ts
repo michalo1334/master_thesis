@@ -29,6 +29,15 @@ function runsEdge(id: string) {
   return { id, from_id: "a", to_id: "b", type: "Runs" as const, data: {} };
 }
 
+function serviceNode(id: string) {
+  return {
+    id,
+    type: "Service" as const,
+    data: { name: id, protocol: "tcp" as const, port: 443, version: null },
+    view_data: { x_pos: 0, y_pos: 0 },
+  };
+}
+
 describe("EditableGraphDocument", () => {
   let doc: EditableGraphDocument;
 
@@ -151,6 +160,83 @@ describe("EditableGraphDocument", () => {
       doc.replaceFromSaveReply(updated);
       expect(doc.lockVersion).toBe(2);
       expect(doc.title).toBe("V2");
+    });
+  });
+
+  describe("canvas editing", () => {
+    it("appends and selects a node draft", () => {
+      const node = serviceNode("service");
+      doc.addNode(node);
+
+      expect(doc.graph.nodes).toEqual([node]);
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: node.id });
+    });
+
+    it("appends and selects an edge draft", () => {
+      const host = hostNode("host");
+      const service = serviceNode("service");
+      doc.graph = makeGraph({ nodes: [host, service] });
+      const edge = {
+        id: "runs",
+        type: "Runs" as const,
+        from_id: host.id,
+        to_id: service.id,
+        data: {},
+      };
+
+      doc.createConnection(edge);
+
+      expect(doc.graph.edges).toEqual([edge]);
+      expect(doc.canvasSelection).toEqual({ kind: "edge", edgeId: edge.id });
+    });
+
+    it("appends a node and edge draft, selecting the node", () => {
+      const service = serviceNode("service");
+      doc.graph = makeGraph({ nodes: [service] });
+      const host = hostNode("host", 30, 40);
+      const edge = {
+        id: "runs",
+        type: "Runs" as const,
+        from_id: host.id,
+        to_id: service.id,
+        data: {},
+      };
+
+      doc.createConnection(edge, host);
+
+      expect(doc.graph.nodes).toEqual([service, host]);
+      expect(doc.graph.edges).toEqual([edge]);
+      expect(doc.canvasSelection).toEqual({ kind: "node", nodeId: host.id });
+    });
+
+    it("deletes a node and its incident edges", () => {
+      const host = hostNode("host");
+      const service = serviceNode("service");
+      const edge = {
+        id: "edge",
+        type: "Runs" as const,
+        from_id: host.id,
+        to_id: service.id,
+        data: {},
+      };
+      doc.graph = makeGraph({ nodes: [host, service], edges: [edge] });
+      doc.selectNode(host.id);
+
+      doc.deleteSelection();
+
+      expect(doc.graph.nodes).toEqual([service]);
+      expect(doc.graph.edges).toEqual([]);
+      expect(doc.canvasSelection).toEqual({ kind: "none" });
+    });
+
+    it("updates the selected item in memory", () => {
+      const host = hostNode("host");
+      doc.graph = makeGraph({ nodes: [host] });
+      doc.selectNode(host.id);
+
+      doc.updateSelection({ ...host, data: { name: "Renamed host" } });
+
+      expect(doc.selection).toMatchObject({ data: { name: "Renamed host" } });
     });
   });
 
