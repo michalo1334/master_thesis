@@ -49,6 +49,7 @@ defmodule NetworkDefense.MixProject do
       {:live_debugger, "~> 1.0", only: [:dev]},
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
       {:igniter, "~> 0.6", only: [:dev, :test]},
