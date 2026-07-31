@@ -3,9 +3,6 @@
   import Icon from "../ui/Icon.svelte";
   import Ribbon from "../ribbon/Ribbon";
   import Slider from "../ui/Slider.svelte";
-  import SplitButton, {
-    type SplitButtonOption,
-  } from "../ui/SplitButton.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type { OptimizationParams, SimulationParams } from "../contract";
   import type { OptimizationParamsChange } from "../workspace/WorkspaceModel.svelte";
@@ -13,8 +10,10 @@
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";
 
-  type OptimizationOption = SplitButtonOption & {
+  type OptimizationOption = {
     id: OptimizationParams["strategy"];
+    title: string;
+    disabled?: boolean;
   };
 
   interface Props {
@@ -64,13 +63,6 @@
         )
       : optimizationOptions,
   );
-
-  function handleOptimizationSelect(id: string): void {
-    const option = availableOptimizationOptions.find(
-      (option) => option.id === id,
-    );
-    if (option && !option.disabled) onOptimize(option.id);
-  }
 </script>
 
 <Ribbon
@@ -143,22 +135,79 @@
       />
     </Ribbon.Section>
   </Ribbon.Tab>
-  <Ribbon.Tab title="Analyze">
+  <Ribbon.Tab title="Simulation">
     <Ribbon.Section title="Attack model">
       <RibbonButton
         onclick={onRunSimulation}
         disabled={!hasActiveGraph || footholdHosts.length === 0}
         ><Icon name="play" size={22} /><span>Simulate</span></RibbonButton
       >
-      <SplitButton
-        options={availableOptimizationOptions}
-        activeId={activeOptimizationId}
-        disabled={!hasActiveGraph}
-        ariaLabel="Optimize"
-        onSelect={handleOptimizationSelect}
-      />
     </Ribbon.Section>
-    <Ribbon.Section title="Optimization parameters">
+    <Ribbon.Section title="Standalone simulation">
+      <Select
+        label="Initial foothold"
+        value={simulationParams.initial_foothold_node_id}
+        disabled={!hasActiveGraph || footholdHosts.length === 0}
+        onchange={(event) =>
+          onSimulationParamsChange({
+            initial_foothold_node_id: event.currentTarget.value,
+          })}
+      >
+        {#each footholdHosts as host (host.id)}
+          <option value={host.id}>{host.name}</option>
+        {/each}
+      </Select>
+      <Slider
+        label="Monte Carlo trials"
+        min={1}
+        max={40000}
+        step={1000}
+        value={simulationParams.monte_carlo_trials}
+        onchange={(v) => onSimulationParamsChange({ monte_carlo_trials: v })}
+        disabled={!hasActiveGraph}
+      />
+      <Slider
+        label="Iterations per simulation"
+        min={1}
+        max={40000}
+        step={1000}
+        value={simulationParams.iterations_per_run}
+        onchange={(v) => onSimulationParamsChange({ iterations_per_run: v })}
+        disabled={!hasActiveGraph}
+      />
+      <div class="dashboard-seed-group">
+        <NumberInput
+          label="Seed"
+          value={simulationParams.seed}
+          disabled={simulationParams.generate_seed}
+          onchange={(v) => onSimulationParamsChange({ seed: v })}
+        />
+        <Checkbox
+          label="Random"
+          checked={simulationParams.generate_seed}
+          onchange={(v) => onSimulationParamsChange({ generate_seed: v })}
+        />
+      </div>
+    </Ribbon.Section>
+  </Ribbon.Tab>
+  <Ribbon.Tab title="Optimization">
+    <Ribbon.Section title="Optimization">
+      <Select
+        label="Strategy"
+        value={activeOptimizationId}
+        disabled={!hasActiveGraph}
+        onchange={(event) =>
+          onOptimizationParamsChange({
+            strategy: event.currentTarget
+              .value as OptimizationParams["strategy"],
+          })}
+      >
+        {#each availableOptimizationOptions as option (option.id)}
+          <option value={option.id} disabled={option.disabled}>
+            {option.title}
+          </option>
+        {/each}
+      </Select>
       <NumberInput
         label="Budget"
         value={optimizationParams.budget}
@@ -166,9 +215,15 @@
         disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
+      <RibbonButton
+        disabled={!hasActiveGraph ||
+          (activeOptimizationId !== "cvss" && footholdHosts.length === 0)}
+        onclick={() => onOptimize(activeOptimizationId)}
+        ><Icon name="play" size={22} /><span>Optimize</span></RibbonButton
+      >
     </Ribbon.Section>
-    {#if activeOptimizationId !== "cvss"}
-      <Ribbon.Section title="Optimization simulation">
+    {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
+      <Ribbon.Section title="Simulation settings">
         <Select
           label="Initial foothold"
           value={optimizationParams.simulation_params.initial_foothold_node_id}
@@ -236,53 +291,25 @@
           />
         </div>
       </Ribbon.Section>
+    {:else if activeOptimizationId === "topology_segmentation"}
+      <Ribbon.Section title="Topology segmentation">
+        <Select
+          label="Initial foothold"
+          value={optimizationParams.simulation_params.initial_foothold_node_id}
+          disabled={!hasActiveGraph || footholdHosts.length === 0}
+          onchange={(event) =>
+            onOptimizationParamsChange({
+              simulation_params: {
+                initial_foothold_node_id: event.currentTarget.value,
+              },
+            })}
+        >
+          {#each footholdHosts as host (host.id)}
+            <option value={host.id}>{host.name}</option>
+          {/each}
+        </Select>
+      </Ribbon.Section>
     {/if}
-    <Ribbon.Section title="Standalone simulation">
-      <Select
-        label="Initial foothold"
-        value={simulationParams.initial_foothold_node_id}
-        disabled={!hasActiveGraph || footholdHosts.length === 0}
-        onchange={(event) =>
-          onSimulationParamsChange({
-            initial_foothold_node_id: event.currentTarget.value,
-          })}
-      >
-        {#each footholdHosts as host (host.id)}
-          <option value={host.id}>{host.name}</option>
-        {/each}
-      </Select>
-      <Slider
-        label="Monte Carlo trials"
-        min={1}
-        max={40000}
-        step={1000}
-        value={simulationParams.monte_carlo_trials}
-        onchange={(v) => onSimulationParamsChange({ monte_carlo_trials: v })}
-        disabled={!hasActiveGraph}
-      />
-      <Slider
-        label="Iterations per simulation"
-        min={1}
-        max={40000}
-        step={1000}
-        value={simulationParams.iterations_per_run}
-        onchange={(v) => onSimulationParamsChange({ iterations_per_run: v })}
-        disabled={!hasActiveGraph}
-      />
-      <div class="dashboard-seed-group">
-        <NumberInput
-          label="Seed"
-          value={simulationParams.seed}
-          disabled={simulationParams.generate_seed}
-          onchange={(v) => onSimulationParamsChange({ seed: v })}
-        />
-        <Checkbox
-          label="Random"
-          checked={simulationParams.generate_seed}
-          onchange={(v) => onSimulationParamsChange({ generate_seed: v })}
-        />
-      </div>
-    </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="View">
     <Ribbon.Section title="Workspace">

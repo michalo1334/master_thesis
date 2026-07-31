@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import DashboardRibbon from "./DashboardRibbon.svelte";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import type { OptimizationParams, SimulationParams } from "../contract";
-import type { SplitButtonOption } from "../ui/SplitButton.svelte";
 
 vi.stubGlobal(
   "ResizeObserver",
@@ -14,8 +13,9 @@ vi.stubGlobal(
   },
 );
 
-type OptimizationOption = SplitButtonOption & {
+type OptimizationOption = {
   id: OptimizationParams["strategy"];
+  title: string;
 };
 
 const simulationParams: SimulationParams = {
@@ -28,74 +28,202 @@ const simulationParams: SimulationParams = {
 };
 
 const optimizationOptions: OptimizationOption[] = [
-  { id: "cvss", icon: "shield", title: "CVSS" },
-  {
-    id: "simulation_informed",
-    icon: "graph",
-    title: "Simulation-informed",
-  },
-  {
-    id: "topology_segmentation",
-    icon: "graph",
-    title: "Topology segmentation",
-  },
-  {
-    id: "simulated_annealing",
-    icon: "shield",
-    title: "Simulated annealing",
-  },
+  { id: "cvss", title: "CVSS" },
+  { id: "simulation_informed", title: "Simulation-informed" },
+  { id: "topology_segmentation", title: "Topology segmentation" },
+  { id: "simulated_annealing", title: "Simulated annealing" },
 ];
 
 afterEach(cleanup);
 
-describe("DashboardRibbon", () => {
-  it("limits optimization to CVSS when no foothold host is available", async () => {
-    render(DashboardRibbon, {
-      props: {
-        hasActiveGraph: true,
-        hasUnreadReport: false,
-        isLoadingExperiments: false,
-        forceParams: defaultForceParams,
-        onForceParamsChange: vi.fn(),
-        onForceLayout: vi.fn(),
-        onRunSimulation: vi.fn(),
-        onShowExperiments: vi.fn(),
-        onOptimize: vi.fn(),
-        optimizationOptions,
-        activeOptimizationId: "simulation_informed",
-        optimizationParams: {
-          budget: 1,
-          strategy: "simulation_informed",
-          simulation_params: simulationParams,
-        },
-        onOptimizationParamsChange: vi.fn(),
-        onSimulationParamsChange: vi.fn(),
-        simulationParams,
-        footholdHosts: [],
+function renderRibbon({
+  activeOptimizationId = "simulation_informed",
+  footholdHosts = [{ id: "host-1", name: "Host 1" }],
+  hasActiveGraph = true,
+}: {
+  activeOptimizationId?: OptimizationParams["strategy"];
+  footholdHosts?: readonly { id: string; name: string }[];
+  hasActiveGraph?: boolean;
+} = {}) {
+  const onOptimize = vi.fn();
+  const onOptimizationParamsChange = vi.fn();
+
+  render(DashboardRibbon, {
+    props: {
+      hasActiveGraph,
+      hasUnreadReport: false,
+      isLoadingExperiments: false,
+      forceParams: defaultForceParams,
+      onForceParamsChange: vi.fn(),
+      onForceLayout: vi.fn(),
+      onRunSimulation: vi.fn(),
+      onShowExperiments: vi.fn(),
+      onOptimize,
+      optimizationOptions,
+      activeOptimizationId,
+      optimizationParams: {
+        budget: 1,
+        strategy: activeOptimizationId,
+        simulation_params: simulationParams,
       },
-    });
+      onOptimizationParamsChange,
+      onSimulationParamsChange: vi.fn(),
+      simulationParams,
+      footholdHosts,
+    },
+  });
 
-    await fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+  return { onOptimize, onOptimizationParamsChange };
+}
 
-    expect(screen.getByRole("button", { name: "Optimize" })).toHaveAttribute(
-      "title",
-      "Simulation-informed",
-    );
-    expect(screen.getByRole("button", { name: "Optimize" })).toBeDisabled();
+async function openOptimizationTab(): Promise<void> {
+  await fireEvent.click(screen.getByRole("tab", { name: "Optimization" }));
+}
 
-    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
+describe("DashboardRibbon", () => {
+  it("shows Strategy and Optimize in the Optimization tab", async () => {
+    renderRibbon();
+    await openOptimizationTab();
 
     expect(
-      await screen.findByRole("menuitem", { name: /CVSS/ }),
-    ).not.toHaveAttribute("data-disabled");
-    for (const name of [
-      /Simulation-informed/,
-      /Topology segmentation/,
-      /Simulated annealing/,
-    ]) {
-      expect(screen.getByRole("menuitem", { name })).toHaveAttribute(
-        "data-disabled",
-      );
-    }
+      screen.getByRole("combobox", { name: "Strategy" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("spinbutton", { name: "Budget" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Optimize" }),
+    ).toBeInTheDocument();
+  });
+
+  it("changes the strategy without optimizing", async () => {
+    const { onOptimize, onOptimizationParamsChange } = renderRibbon({
+      activeOptimizationId: "cvss",
+    });
+    await openOptimizationTab();
+
+    await fireEvent.change(screen.getByRole("combobox", { name: "Strategy" }), {
+      target: { value: "simulation_informed" },
+    });
+
+    expect(onOptimizationParamsChange).toHaveBeenCalledWith({
+      strategy: "simulation_informed",
+    });
+    expect(onOptimize).not.toHaveBeenCalled();
+  });
+
+  it("optimizes with the selected strategy", async () => {
+    const { onOptimize } = renderRibbon({
+      activeOptimizationId: "simulated_annealing",
+    });
+    await openOptimizationTab();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize" }));
+
+    expect(onOptimize).toHaveBeenCalledWith("simulated_annealing");
+  });
+
+  it.each(["simulation_informed", "simulated_annealing"] as const)(
+    "shows simulation settings for %s",
+    async (strategy) => {
+      renderRibbon({ activeOptimizationId: strategy });
+      await openOptimizationTab();
+
+      expect(screen.getByText("Simulation settings")).toBeInTheDocument();
+      expect(
+        screen.getByRole("combobox", { name: "Initial foothold" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("spinbutton", { name: "Monte Carlo trials" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("spinbutton", { name: "Maximum attempts" }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it("shows only the foothold setting for topology segmentation", async () => {
+    renderRibbon({ activeOptimizationId: "topology_segmentation" });
+    await openOptimizationTab();
+
+    expect(
+      screen.getByText("Topology segmentation", {
+        selector: ".dashboard-ribbon-group-label",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("combobox", { name: "Initial foothold" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("spinbutton", { name: "Monte Carlo trials" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("spinbutton", { name: "Maximum attempts" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows no strategy-specific settings for CVSS", async () => {
+    renderRibbon({ activeOptimizationId: "cvss" });
+    await openOptimizationTab();
+
+    expect(screen.queryByText("Simulation settings")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Topology segmentation", {
+        selector: ".dashboard-ribbon-group-label",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Initial foothold" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps non-CVSS optimization disabled without a foothold", async () => {
+    const { onOptimize } = renderRibbon({
+      activeOptimizationId: "simulation_informed",
+      footholdHosts: [],
+    });
+    await openOptimizationTab();
+
+    expect(screen.getByRole("button", { name: "Optimize" })).toBeDisabled();
+    expect(
+      screen.getByRole("option", { name: "Simulation-informed" }),
+    ).toBeDisabled();
+    expect(onOptimize).not.toHaveBeenCalled();
+  });
+
+  it("keeps CVSS optimization enabled without a foothold", async () => {
+    const { onOptimize } = renderRibbon({
+      activeOptimizationId: "cvss",
+      footholdHosts: [],
+    });
+    await openOptimizationTab();
+
+    expect(screen.getByRole("button", { name: "Optimize" })).toBeEnabled();
+    await fireEvent.click(screen.getByRole("button", { name: "Optimize" }));
+    expect(onOptimize).toHaveBeenCalledWith("cvss");
+  });
+
+  it("keeps the standalone simulation controls unchanged", async () => {
+    renderRibbon({ footholdHosts: [] });
+
+    expect(screen.getByRole("tab", { name: "Simulation" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Optimization" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Analyze" }),
+    ).not.toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("tab", { name: "Simulation" }));
+
+    expect(
+      screen.getByRole("button", { name: "Simulate" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("spinbutton", { name: "Seed" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Optimize" }),
+    ).not.toBeInTheDocument();
   });
 });
