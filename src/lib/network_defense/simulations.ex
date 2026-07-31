@@ -21,6 +21,7 @@ defmodule NetworkDefense.Simulations do
 
   @simulation_events_topic "simulation_events"
   @trial_batch_size 100
+  @report_timeout 60_000
 
   def simulation_events_topic, do: @simulation_events_topic
 
@@ -213,8 +214,8 @@ defmodule NetworkDefense.Simulations do
       Run
       |> where([run], run.experiment_id == ^experiment.id)
       |> order_by([run], asc: :trial_index)
-      |> Repo.all()
-      |> Repo.preload(:iterations)
+      |> Repo.all(timeout: @report_timeout)
+      |> Repo.preload(:iterations, timeout: @report_timeout)
       |> Enum.map(fn run ->
         %{run | iterations: Enum.sort_by(run.iterations, & &1.index, :desc)}
       end)
