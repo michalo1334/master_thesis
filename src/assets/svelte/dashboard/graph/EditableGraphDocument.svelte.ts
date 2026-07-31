@@ -43,6 +43,8 @@ export class EditableGraphDocument {
   private _loadedGraphId = $state<string | null>(null);
   private _lockVersion = $state(0);
   private _title = $state("Untitled");
+  private _changeVersion = $state(0);
+  private _savedChangeVersion = $state(0);
 
   revision = $state(0);
   isSaving = $state(false);
@@ -72,12 +74,17 @@ export class EditableGraphDocument {
     return this._loaded;
   }
 
+  get isDirty(): boolean {
+    return this._changeVersion !== this._savedChangeVersion;
+  }
+
   get graph(): LoadedGraph {
     return this._graph;
   }
 
   set graph(value: LoadedGraph) {
     this._graph = value;
+    this._changeVersion++;
     this._preserveSelection(value);
   }
 
@@ -175,6 +182,7 @@ export class EditableGraphDocument {
     this._loaded = true;
     this._loadedGraphId = graph.id;
     this._lockVersion = graph.lock_version;
+    this._savedChangeVersion = this._changeVersion;
     this._preserveSelection(graph);
   }
 
@@ -182,17 +190,29 @@ export class EditableGraphDocument {
     this._graph = graph;
     this._title = graph.title;
     this._lockVersion = graph.lock_version;
+    this._savedChangeVersion = this._changeVersion;
     this._preserveSelection(graph);
   }
 
-  async save(api: DashboardApi): Promise<void> {
-    if (!this.saveEligible || this.isSaving) return;
+  async save(api: DashboardApi): Promise<boolean> {
+    if (!this.saveEligible || this.isSaving) return false;
     this.isSaving = true;
+    const savedChangeVersion = this._changeVersion;
     try {
-      const reply = await api.saveGraph(this._graph);
+      const reply = await api.saveGraph($state.snapshot(this._graph));
       if (reply.status === "ok" && reply.graph) {
-        this.replaceFromSaveReply(reply.graph);
+        if (this._changeVersion === savedChangeVersion) {
+          this.replaceFromSaveReply(reply.graph);
+        } else {
+          this._graph = {
+            ...this._graph,
+            lock_version: reply.graph.lock_version,
+          };
+          this._lockVersion = reply.graph.lock_version;
+          this._preserveSelection(this._graph);
+        }
         this.saveStatusMessage = "Saved.";
+        return true;
       } else if (reply.status === "stale") {
         this.saveStatusMessage =
           "Save failed: graph was modified by another user.";
@@ -201,9 +221,18 @@ export class EditableGraphDocument {
       } else {
         this.saveStatusMessage = "Save failed.";
       }
+      return false;
+    } catch {
+      this.saveStatusMessage = "Save failed.";
+      return false;
     } finally {
       this.isSaving = false;
     }
+  }
+
+  async saveIfDirty(api: DashboardApi): Promise<boolean> {
+    if (!this.isDirty) return true;
+    return (await this.save(api)) && !this.isDirty;
   }
 
   async startSimulation(
@@ -242,7 +271,7 @@ export class EditableGraphDocument {
 
   applyForceLayout(params: ForceParams): void {
     runForceLayout(this._graph.nodes, this._graph.edges, params);
-    this._graph = { ...this._graph };
+    this.graph = { ...this._graph };
     this.revision++;
   }
 

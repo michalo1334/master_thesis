@@ -163,6 +163,68 @@ describe("EditableGraphDocument", () => {
     });
   });
 
+  describe("saving", () => {
+    it("skips clean graphs when saving if dirty", async () => {
+      doc.replaceFromLoadedGraph(makeGraph());
+      const api = { saveGraph: vi.fn() } as unknown as DashboardApi;
+
+      await expect(doc.saveIfDirty(api)).resolves.toBe(true);
+      expect(api.saveGraph).not.toHaveBeenCalled();
+    });
+
+    it("reports manual save success and failure", async () => {
+      doc.replaceFromLoadedGraph(makeGraph());
+      doc.addNode(hostNode("first"));
+      const api = {
+        saveGraph: vi
+          .fn()
+          .mockResolvedValueOnce(makeSaveReply(makeGraph({ lock_version: 2 })))
+          .mockResolvedValueOnce({ status: "stale" }),
+      } as unknown as DashboardApi;
+
+      await expect(doc.save(api)).resolves.toBe(true);
+      expect(doc.saveStatusMessage).toBe("Saved.");
+      expect(doc.isDirty).toBe(false);
+
+      doc.addNode(hostNode("second"));
+      await expect(doc.save(api)).resolves.toBe(false);
+      expect(doc.saveStatusMessage).toBe(
+        "Save failed: graph was modified by another user.",
+      );
+      expect(doc.isDirty).toBe(true);
+    });
+
+    it("keeps edits made while saving dirty", async () => {
+      doc.replaceFromLoadedGraph(makeGraph());
+      doc.addNode(hostNode("first"));
+      let resolveSave!: (
+        value: Awaited<ReturnType<DashboardApi["saveGraph"]>>,
+      ) => void;
+      const api = {
+        saveGraph: vi.fn(
+          () =>
+            new Promise<Awaited<ReturnType<DashboardApi["saveGraph"]>>>(
+              (resolve) => {
+                resolveSave = resolve;
+              },
+            ),
+        ),
+      } as unknown as DashboardApi;
+
+      const saving = doc.save(api);
+      doc.addNode(hostNode("second"));
+      resolveSave(makeSaveReply(makeGraph({ lock_version: 2 })));
+
+      await expect(saving).resolves.toBe(true);
+      expect(doc.graph.nodes.map((node) => node.id)).toEqual([
+        "first",
+        "second",
+      ]);
+      expect(doc.lockVersion).toBe(2);
+      expect(doc.isDirty).toBe(true);
+    });
+  });
+
   describe("canvas editing", () => {
     it("appends and selects a node draft", () => {
       const node = serviceNode("service");
@@ -279,3 +341,7 @@ describe("EditableGraphDocument", () => {
     });
   });
 });
+
+function makeSaveReply(graph: LoadedGraph) {
+  return { status: "ok" as const, graph };
+}

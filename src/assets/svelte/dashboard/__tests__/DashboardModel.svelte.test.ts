@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { LoadedGraph, FetchSimulationReportReply } from "../contract";
+import type {
+  FetchSimulationReportReply,
+  LoadedGraph,
+  SaveGraphReply,
+} from "../contract";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 
 function makeMockApi(overrides: Partial<DashboardApi> = {}): DashboardApi {
@@ -121,6 +125,60 @@ describe("DashboardModel", () => {
         expect.any(String),
         expect.objectContaining({ initial_foothold_node_id: "host-1" }),
       );
+      expect(api.saveGraph).not.toHaveBeenCalled();
+    });
+
+    it("saves a dirty graph before starting simulation", async () => {
+      const graph = makeLoadedGraph({ nodes: [hostNode("host-1")] });
+      await model.workspace.openLoadedGraph(graph, api);
+      model.workspace.activeGraph!.addNode(hostNode("host-2"));
+      vi.mocked(api.saveGraph).mockResolvedValue({
+        status: "ok",
+        graph: makeLoadedGraph({
+          lock_version: 2,
+          nodes: [hostNode("host-1"), hostNode("host-2")],
+        }),
+      });
+      vi.mocked(api.runSimulation).mockResolvedValue({
+        status: "accepted",
+        graph_id: "g1",
+        correlation_id: "corr-saved",
+      });
+
+      await model.runActiveSimulation();
+
+      expect(api.saveGraph).toHaveBeenCalledOnce();
+      expect(api.runSimulation).toHaveBeenCalledOnce();
+      expect(vi.mocked(api.saveGraph).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(api.runSimulation).mock.invocationCallOrder[0]!,
+      );
+      expect(findReport(model, "corr-saved")).toBeDefined();
+    });
+
+    it("does not start simulation when the graph changes during its save", async () => {
+      const graph = makeLoadedGraph({ nodes: [hostNode("host-1")] });
+      await model.workspace.openLoadedGraph(graph, api);
+      model.workspace.activeGraph!.addNode(hostNode("host-2"));
+
+      let resolveSave!: (reply: SaveGraphReply) => void;
+      vi.mocked(api.saveGraph).mockImplementation(
+        () => new Promise<SaveGraphReply>((resolve) => (resolveSave = resolve)),
+      );
+
+      const simulation = model.runActiveSimulation();
+      model.workspace.activeGraph!.addNode(hostNode("host-3"));
+      resolveSave({
+        status: "ok",
+        graph: makeLoadedGraph({
+          lock_version: 2,
+          nodes: [hostNode("host-1"), hostNode("host-2")],
+        }),
+      });
+
+      await simulation;
+
+      expect(api.runSimulation).not.toHaveBeenCalled();
+      expect(model.workspace.activeGraph!.isDirty).toBe(true);
     });
 
     it("no-ops when no active graph exists", async () => {
@@ -150,6 +208,31 @@ describe("DashboardModel", () => {
 
       const report = findReport(model, "corr-rejected");
       expect(report).toBeUndefined();
+    });
+
+    it("does not start operations when saving a dirty graph fails", async () => {
+      await model.workspace.openLoadedGraph(
+        makeLoadedGraph({ nodes: [hostNode("host-1")] }),
+        api,
+      );
+      model.workspace.activeGraph!.addNode(hostNode("host-2"));
+      vi.mocked(api.saveGraph).mockResolvedValue({ status: "stale" });
+
+      await model.runActiveSimulation();
+      await model.runActiveOptimization();
+
+      expect(api.runSimulation).not.toHaveBeenCalled();
+      expect(api.runOptimization).not.toHaveBeenCalled();
+      expect(
+        model.workspace.documents.filter(
+          (document) => document.kind === "simulation-report",
+        ),
+      ).toEqual([]);
+      expect(
+        model.workspace.documents.filter(
+          (document) => document.kind === "optimization-report",
+        ),
+      ).toEqual([]);
     });
 
     it("keeps same-graph accepted simulations and delivers each completion independently", async () => {
@@ -198,6 +281,39 @@ describe("DashboardModel", () => {
   });
 
   describe("runActiveOptimization", () => {
+    it("saves a dirty graph before creating and starting an optimization", async () => {
+      const graph = makeLoadedGraph({ nodes: [hostNode("host-1")] });
+      await model.workspace.openLoadedGraph(graph, api);
+      model.workspace.activeGraph!.addNode(hostNode("host-2"));
+      vi.mocked(api.saveGraph).mockResolvedValue({
+        status: "ok",
+        graph: makeLoadedGraph({
+          lock_version: 2,
+          nodes: [hostNode("host-1"), hostNode("host-2")],
+        }),
+      });
+      vi.mocked(api.runOptimization).mockImplementation(
+        async (_graphId, correlationId) => ({
+          status: "accepted",
+          graph_id: "g1",
+          correlation_id: correlationId,
+        }),
+      );
+
+      await model.runActiveOptimization();
+
+      expect(api.saveGraph).toHaveBeenCalledOnce();
+      expect(api.runOptimization).toHaveBeenCalledOnce();
+      expect(vi.mocked(api.saveGraph).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(api.runOptimization).mock.invocationCallOrder[0]!,
+      );
+      expect(
+        model.workspace.documents.some(
+          (document) => document.kind === "optimization-report",
+        ),
+      ).toBe(true);
+    });
+
     it.each([
       "cvss",
       "simulation_informed",

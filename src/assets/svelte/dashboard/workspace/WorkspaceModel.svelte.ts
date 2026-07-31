@@ -221,11 +221,12 @@ export class WorkspaceModel {
     }
   }
 
-  async saveActiveGraph(api: DashboardApi): Promise<void> {
+  async saveActiveGraph(api: DashboardApi): Promise<boolean> {
     const doc = this.activeGraph;
-    if (!doc) return;
-    await doc.save(api);
+    if (!doc) return false;
+    const saved = await doc.save(api);
     this.statusMessage = doc.saveStatusMessage;
+    return saved;
   }
 
   createPendingReport(info: {

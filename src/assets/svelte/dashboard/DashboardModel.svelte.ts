@@ -28,6 +28,10 @@ export class DashboardModel {
   async runActiveSimulation(): Promise<void> {
     const doc = this.workspace.activeGraph;
     if (!doc) return;
+    if (doc.isDirty && !(await doc.saveIfDirty(this.api))) {
+      this.workspace.statusMessage = doc.saveStatusMessage;
+      return;
+    }
     const result = await doc.startSimulation(
       this.api,
       this.workspace.simulationParams,
@@ -40,6 +44,10 @@ export class DashboardModel {
   async runActiveOptimization(): Promise<void> {
     const doc = this.workspace.activeGraph;
     if (!doc || !doc.loadedGraphId) {
+      return;
+    }
+    if (doc.isDirty && !(await doc.saveIfDirty(this.api))) {
+      this.workspace.statusMessage = doc.saveStatusMessage;
       return;
     }
 
@@ -177,8 +185,8 @@ export class DashboardModel {
   }
 
   /** Delegate saving to the workspace. */
-  async saveActiveGraph(): Promise<void> {
-    await this.workspace.saveActiveGraph(this.api);
+  async saveActiveGraph(): Promise<boolean> {
+    return this.workspace.saveActiveGraph(this.api);
   }
 
   /** Delegate force layout to the workspace. */
