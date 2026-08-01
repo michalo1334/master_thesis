@@ -57,6 +57,26 @@ const siblingChild: GraphSummary = {
 afterEach(cleanup);
 
 describe("GraphTreePickerDialog", () => {
+  it("accepts a contextual title and description", () => {
+    render(GraphTreePickerDialog, {
+      props: {
+        open: true,
+        onOpenChange: vi.fn(),
+        summaries: [root],
+        onSelect: vi.fn(),
+        title: "Compare graphs",
+        description: "Select the base graph to compare.",
+      },
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Compare graphs" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Select the base graph to compare."),
+    ).toBeInTheDocument();
+  });
+
   it("shows roots initially and expands each branch independently", async () => {
     const onSelect = vi.fn().mockResolvedValue(false);
     render(GraphTreePickerDialog, {

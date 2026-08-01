@@ -1,9 +1,11 @@
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
+import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
   GraphSummary,
+  GraphDiffResult,
   LoadedGraph,
   ExperimentSummary,
   OptimizationParams,
@@ -12,10 +14,9 @@ import type {
 } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
-import { isReport } from "./WorkspaceDocument.svelte";
+import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 
-export type WorkspaceDocument =
-  EditableGraphDocument | SimulationReportDocument | OptimizationReportDocument;
+export type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
 
 export interface FootholdHost {
   id: string;
@@ -38,6 +39,9 @@ export class WorkspaceModel {
 
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
+  graphComparisonPickerOpen = $state(false);
+  graphComparisonPickerStatus = $state("");
+  graphComparisonBase = $state.raw<LoadedGraph>();
   experimentsModalOpen = $state(false);
   experiments = $state<ExperimentSummary[]>([]);
   experimentsStatus = $state("");
@@ -106,6 +110,16 @@ export class WorkspaceModel {
 
   get hasActiveGraph(): boolean {
     return this.activeDocument?.kind === "graph";
+  }
+
+  get graphComparisonPickerTitle(): string {
+    return this.graphComparisonBase ? "Compare with graph" : "Compare graphs";
+  }
+
+  get graphComparisonPickerDescription(): string {
+    return this.graphComparisonBase
+      ? `Select a graph to compare with ${this.graphComparisonBase.title}.`
+      : "Select the base graph to compare.";
   }
 
   get activeFootholdHosts(): FootholdHost[] {
@@ -199,6 +213,76 @@ export class WorkspaceModel {
     } catch {
       this.topologyPickerStatus = "Failed to open topology.";
       return false;
+    }
+  }
+
+  beginGraphComparison(): void {
+    this.graphComparisonBase = undefined;
+    this.graphComparisonPickerStatus = "";
+    this.graphComparisonPickerOpen = true;
+  }
+
+  beginGraphComparisonWithActive(document: EditableGraphDocument): void {
+    if (!document.loadedGraphId) {
+      this.statusMessage = "Save the graph before comparing it.";
+      return;
+    }
+
+    const graph = $state.snapshot(document.graph);
+    this.graphComparisonPickerStatus = "";
+    this.upsertGraphSummary(graph);
+    this.graphComparisonBase = graph;
+    this.graphComparisonPickerOpen = true;
+  }
+
+  async selectGraphForComparison(
+    api: DashboardApi,
+    summary: GraphSummary,
+  ): Promise<boolean> {
+    this.graphComparisonPickerStatus = "";
+    if (this.graphComparisonBase?.id === summary.id) {
+      this.graphComparisonPickerStatus = "Select a different graph.";
+      return false;
+    }
+    const base = this.graphComparisonBase;
+    try {
+      if (base) {
+        const comparison = await api.compareGraphs(base, summary.id);
+        if (comparison.status !== "ok" || !comparison.result) {
+          this.graphComparisonPickerStatus =
+            comparison.status === "not_found"
+              ? "Comparison graph not found."
+              : "Failed to compare graphs.";
+          return false;
+        }
+
+        this.openGraphDiff(base, summary, comparison.result);
+        this.graphComparisonPickerOpen = false;
+        this.graphComparisonBase = undefined;
+        return true;
+      }
+
+      const reply = await api.openGraph(summary.id);
+      if (reply.status !== "ok" || !reply.graph) {
+        this.graphComparisonPickerStatus = "Failed to open graph.";
+        return false;
+      }
+      this.upsertGraphSummary(reply.graph);
+      this.graphComparisonBase = reply.graph;
+      return false;
+    } catch {
+      this.graphComparisonPickerStatus = base
+        ? "Failed to compare graphs."
+        : "Failed to open graph.";
+      return false;
+    }
+  }
+
+  setGraphComparisonPickerOpen(open: boolean): void {
+    this.graphComparisonPickerOpen = open;
+    if (!open) {
+      this.graphComparisonBase = undefined;
+      this.graphComparisonPickerStatus = "";
     }
   }
 
@@ -402,5 +486,16 @@ export class WorkspaceModel {
       this.topologyPickerOpen = true;
       this.topologyPickerStatus = "";
     }
+  }
+
+  private openGraphDiff(
+    base: LoadedGraph,
+    comparison: GraphSummary,
+    result: GraphDiffResult,
+  ): GraphDiffDocument {
+    const document = new GraphDiffDocument(base, comparison, result);
+    this.documents.push(document);
+    this.selectedDocumentId = document.id;
+    return document;
   }
 }

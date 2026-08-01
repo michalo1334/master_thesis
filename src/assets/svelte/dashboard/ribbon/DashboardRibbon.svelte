@@ -25,6 +25,7 @@
     onForceLayout: () => void;
     onRunSimulation: () => void;
     onShowExperiments: () => void;
+    onCompareGraphs: () => void;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
     optimizationOptions: readonly OptimizationOption[];
     activeOptimizationId: OptimizationParams["strategy"];
@@ -46,6 +47,7 @@
     onForceLayout,
     onRunSimulation,
     onShowExperiments,
+    onCompareGraphs,
     onOptimize,
     optimizationOptions,
     activeOptimizationId,
@@ -80,6 +82,10 @@
       >
       <RibbonButton
         ><Icon name="link" size={22} /><span>Connect</span></RibbonButton
+      >
+      <RibbonButton onclick={onCompareGraphs}
+        ><Icon name="graph" size={22} /><span>Compare graphs</span
+        ></RibbonButton
       >
     </Ribbon.Section>
   </Ribbon.Tab>
@@ -192,6 +198,12 @@
   </Ribbon.Tab>
   <Ribbon.Tab title="Optimization">
     <Ribbon.Section title="Optimization">
+      <RibbonButton
+        disabled={!hasActiveGraph ||
+          (activeOptimizationId !== "cvss" && footholdHosts.length === 0)}
+        onclick={() => onOptimize(activeOptimizationId)}
+        ><Icon name="play" size={22} /><span>Optimize</span></RibbonButton
+      >
       <Select
         label="Strategy"
         value={activeOptimizationId}
@@ -215,12 +227,6 @@
         disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
-      <RibbonButton
-        disabled={!hasActiveGraph ||
-          (activeOptimizationId !== "cvss" && footholdHosts.length === 0)}
-        onclick={() => onOptimize(activeOptimizationId)}
-        ><Icon name="play" size={22} /><span>Optimize</span></RibbonButton
-      >
     </Ribbon.Section>
     {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
       <Ribbon.Section title="Simulation settings">
@@ -263,16 +269,18 @@
             })}
           disabled={!hasActiveGraph}
         />
-        <NumberInput
-          label="Maximum attempts"
-          value={optimizationParams.simulation_params.max_attempts}
-          min={1}
-          disabled={!hasActiveGraph}
-          onchange={(max_attempts) =>
-            onOptimizationParamsChange({
-              simulation_params: { max_attempts },
-            })}
-        />
+        <div class="dashboard-max-attempts-input">
+          <NumberInput
+            label="Maximum attempts"
+            value={optimizationParams.simulation_params.max_attempts}
+            min={1}
+            disabled={!hasActiveGraph}
+            onchange={(max_attempts) =>
+              onOptimizationParamsChange({
+                simulation_params: { max_attempts },
+              })}
+          />
+        </div>
         <div class="dashboard-seed-group">
           <NumberInput
             label="Seed"
@@ -336,5 +344,11 @@
     display: flex;
     flex-direction: column;
     gap: 0.125rem;
+    min-width: 6.5rem;
+  }
+
+  .dashboard-max-attempts-input :global(.dashboard-number-input) {
+    min-width: 8.5rem;
+    width: 8.5rem;
   }
 </style>

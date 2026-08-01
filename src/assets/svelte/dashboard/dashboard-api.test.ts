@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDashboardApi, type LiveServer } from "./dashboard-api";
+import type { LoadedGraph } from "./contract";
 
 describe("DashboardApi", () => {
   it("sends the optimization request and returns the reply", async () => {
@@ -50,6 +51,43 @@ describe("DashboardApi", () => {
     expect(live.pushEvent).toHaveBeenCalledWith(
       "fetch_experiments",
       { graph_ids: ["g1"] },
+      expect.any(Function),
+    );
+  });
+
+  it("sends graph comparisons and returns the server result", async () => {
+    const baseGraph: LoadedGraph = {
+      id: "base",
+      title: "Base",
+      lock_version: 1,
+      parent_id: null,
+      tags: [],
+      nodes: [],
+      edges: [],
+    };
+    const reply = {
+      status: "ok" as const,
+      result: {
+        graph: baseGraph,
+        node_status: [],
+        edge_status: [],
+        node_counts: { added: 0, removed: 0, unchanged: 0 },
+        edge_counts: { added: 0, removed: 0, unchanged: 0 },
+      },
+    };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).compareGraphs(baseGraph, "comparison"),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "compare_graphs",
+      { base_graph: baseGraph, comparison_graph_id: "comparison" },
       expect.any(Function),
     );
   });

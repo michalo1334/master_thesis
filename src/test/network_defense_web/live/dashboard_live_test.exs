@@ -4,6 +4,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   import Phoenix.LiveViewTest
 
   alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
@@ -125,6 +126,66 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "open_graph", %{})
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
+    end
+  end
+
+  describe "compare_graphs" do
+    test "rejects an invalid base graph", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "compare_graphs", %{})
+
+      assert_reply(view, %{status: "invalid_graph", result: nil})
+    end
+
+    test "reports a missing comparison graph", %{conn: conn} do
+      base = insert_graph("base")
+      snapshot = graph_snapshot(base)
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "compare_graphs", %{
+        "base_graph" => snapshot,
+        "comparison_graph_id" => "00000000-0000-0000-0000-000000000000"
+      })
+
+      assert_reply(view, %{status: "not_found", result: nil})
+    end
+
+    test "returns a merged structural result for the submitted base snapshot", %{conn: conn} do
+      base = insert_graph("base")
+      source = insert_node(base, "source")
+      target = insert_service(base, "target")
+      insert_edge(source, target)
+      base = Graphs.load!(base.id)
+      assert {:ok, comparison} = Graphs.insert(Graph.clone(base))
+
+      snapshot =
+        base
+        |> graph_snapshot()
+        |> Map.put(:title, "dirty title")
+        |> update_in([:nodes, Access.at(0), :view_data], &Map.put(&1, :x_pos, 1000))
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "compare_graphs", %{
+        "base_graph" => snapshot,
+        "comparison_graph_id" => comparison.id
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        result: %{
+          graph: %{id: result_graph_id, title: "dirty title"},
+          node_counts: %{added: 0, removed: 0, unchanged: 2},
+          edge_counts: %{added: 0, removed: 0, unchanged: 1},
+          node_status: node_status,
+          edge_status: edge_status
+        }
+      })
+
+      assert result_graph_id == base.id
+      assert Enum.all?(node_status, &(&1.status == "unchanged"))
+      assert Enum.all?(edge_status, &(&1.status == "unchanged"))
     end
   end
 
@@ -654,6 +715,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     %Graph{}
     |> Graph.changeset(%{title: title})
     |> Repo.insert!()
+  end
+
+  defp graph_snapshot(graph) do
+    assert {:ok, snapshot} = GraphContract.from_domain(Graphs.load!(graph.id))
+    snapshot
   end
 
   defp assert_strategy_optimization(conn, strategy, strategy_name) do

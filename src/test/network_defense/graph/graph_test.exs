@@ -2,6 +2,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.GraphDiff
   alias NetworkDefense.Graph.Graphs
@@ -599,6 +600,176 @@ defmodule NetworkDefense.Graph.GraphTest do
 
       assert diff.nodes.changed == [%{id: source.id, fields: [:data]}]
       assert diff.edges.changed == [%{id: edge.id, fields: [:type, :data]}]
+    end
+
+    test "structural comparison ignores graph metadata, positions, and cloned UUIDs" do
+      base = Graph.new("base")
+      source = build_node(base, Host, %{"name" => "source"})
+
+      target =
+        build_node(base, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
+
+      base =
+        base
+        |> Graph.add_node(source)
+        |> Graph.add_node(target)
+        |> Graph.add_edge(build_edge(base, source, target, Runs))
+
+      candidate =
+        base
+        |> Graph.clone()
+        |> Map.put(:title, "renamed")
+        |> then(fn graph ->
+          [node | _] = Graph.nodes(graph)
+          Graph.update_node(graph, %{node | view_data: %{x_pos: 999, y_pos: 888, radius: nil}})
+        end)
+
+      diff = GraphDiff.structural(base, candidate)
+
+      assert diff.node_counts == %{added: 0, removed: 0, unchanged: 2}
+      assert diff.edge_counts == %{added: 0, removed: 0, unchanged: 1}
+      assert Enum.all?(diff.node_status, &(&1.status == "unchanged"))
+      assert Enum.map(Graph.nodes(diff.graph), & &1.id) == Enum.map(Graph.nodes(base), & &1.id)
+    end
+
+    test "structural comparison reports added and removed topology" do
+      base = Graph.new("base")
+      source = build_node(base, Host, %{"name" => "source"})
+
+      removed =
+        build_node(base, Service, %{"name" => "removed", "protocol" => "tcp", "port" => 443})
+
+      base =
+        base
+        |> Graph.add_node(source)
+        |> Graph.add_node(removed)
+        |> Graph.add_edge(build_edge(base, source, removed, Runs))
+
+      candidate = Graph.new("candidate")
+      candidate_source = build_node(candidate, Host, %{"name" => "source"})
+
+      added =
+        build_node(candidate, Service, %{"name" => "added", "protocol" => "tcp", "port" => 443})
+
+      candidate =
+        candidate
+        |> Graph.add_node(candidate_source)
+        |> Graph.add_node(added)
+        |> Graph.add_edge(build_edge(candidate, candidate_source, added, Runs))
+
+      diff = GraphDiff.structural(base, candidate)
+
+      assert diff.node_counts == %{added: 1, removed: 1, unchanged: 1}
+      assert diff.edge_counts == %{added: 1, removed: 1, unchanged: 0}
+
+      assert %{id: removed_id, status: "removed"} =
+               Enum.find(diff.node_status, &(&1.id == removed.id))
+
+      assert removed_id == removed.id
+      assert %{id: added_id, status: "added"} = Enum.find(diff.node_status, &(&1.id == added.id))
+      assert added_id == added.id
+    end
+
+    test "structural comparison treats crossed duplicate semantic nodes as unchanged" do
+      base = Graph.new("base")
+      first = build_node(base, Host, %{"name" => "duplicate"})
+      second = build_node(base, Host, %{"name" => "duplicate"})
+      left = build_node(base, Service, %{"name" => "left", "protocol" => "tcp", "port" => 443})
+      right = build_node(base, Service, %{"name" => "right", "protocol" => "tcp", "port" => 443})
+
+      base =
+        base
+        |> Graph.add_node(first)
+        |> Graph.add_node(second)
+        |> Graph.add_node(left)
+        |> Graph.add_node(right)
+        |> Graph.add_edge(build_edge(base, first, left, Runs))
+        |> Graph.add_edge(build_edge(base, second, right, Runs))
+
+      candidate = Graph.new("candidate")
+      candidate_first = build_node(candidate, Host, %{"name" => "duplicate"})
+      candidate_second = build_node(candidate, Host, %{"name" => "duplicate"})
+
+      candidate_left =
+        build_node(candidate, Service, %{"name" => "left", "protocol" => "tcp", "port" => 443})
+
+      candidate_right =
+        build_node(candidate, Service, %{"name" => "right", "protocol" => "tcp", "port" => 443})
+
+      candidate =
+        candidate
+        |> Graph.add_node(candidate_first)
+        |> Graph.add_node(candidate_second)
+        |> Graph.add_node(candidate_left)
+        |> Graph.add_node(candidate_right)
+        |> Graph.add_edge(build_edge(candidate, candidate_first, candidate_right, Runs))
+        |> Graph.add_edge(build_edge(candidate, candidate_second, candidate_left, Runs))
+
+      diff = GraphDiff.structural(base, candidate)
+
+      assert diff.node_counts == %{added: 0, removed: 0, unchanged: 4}
+      assert diff.edge_counts == %{added: 0, removed: 0, unchanged: 2}
+    end
+
+    test "structural comparison keeps colliding added entities distinct" do
+      base = Graph.new("base")
+      base_source = build_node(base, Host, %{"name" => "base"})
+
+      base_target =
+        build_node(base, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
+
+      base_edge = build_edge(base, base_source, base_target, Runs)
+
+      base =
+        base
+        |> Graph.add_node(base_source)
+        |> Graph.add_node(base_target)
+        |> Graph.add_edge(base_edge)
+
+      candidate = Graph.new("candidate")
+
+      candidate_source =
+        %{build_node(candidate, Host, %{"name" => "candidate"}) | id: base_source.id}
+
+      candidate_target =
+        build_node(candidate, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
+
+      candidate_edge =
+        %{build_edge(candidate, candidate_source, candidate_target, Runs) | id: base_edge.id}
+
+      candidate =
+        candidate
+        |> Graph.add_node(candidate_source)
+        |> Graph.add_node(candidate_target)
+        |> Graph.add_edge(candidate_edge)
+
+      diff = GraphDiff.structural(base, candidate)
+
+      assert diff.node_counts == %{added: 1, removed: 1, unchanged: 1}
+      assert diff.edge_counts == %{added: 1, removed: 1, unchanged: 0}
+      assert length(Graph.nodes(diff.graph)) == 3
+      assert length(Graph.edges(diff.graph)) == 2
+
+      assert %{id: added_node_id, status: "added"} =
+               Enum.find(diff.node_status, &(&1.status == "added"))
+
+      assert %{id: added_edge_id, status: "added"} =
+               Enum.find(diff.edge_status, &(&1.status == "added"))
+
+      assert added_node_id != base_source.id
+      assert added_edge_id != base_edge.id
+
+      assert Enum.any?(Graph.edges(diff.graph), fn edge ->
+               edge.id == added_edge_id and edge.from_id == added_node_id and
+                 edge.to_id == base_target.id
+             end)
+
+      assert length(diff.node_status) == MapSet.size(MapSet.new(diff.node_status, & &1.id))
+      assert length(diff.edge_status) == MapSet.size(MapSet.new(diff.edge_status, & &1.id))
+
+      assert {:ok, wire_graph} = GraphContract.from_domain(diff.graph)
+      assert length(wire_graph.nodes) == 3
+      assert length(wire_graph.edges) == 2
     end
   end
 

@@ -9,6 +9,8 @@
     onOpenChange: (open: boolean) => void;
     summaries: readonly GraphSummary[];
     onSelect: (summary: GraphSummary) => Promise<boolean> | boolean;
+    title?: string;
+    description?: string;
     status?: string;
   }
 
@@ -28,6 +30,8 @@
     onOpenChange,
     summaries,
     onSelect,
+    title = "Open graph",
+    description = "Select a saved graph to open in the workspace.",
     status = "",
   }: Props = $props();
 
@@ -132,10 +136,8 @@
     <Dialog.Portal>
       <Dialog.Overlay class="graph-tree-picker-overlay" />
       <Dialog.Content class="graph-tree-picker-dialog">
-        <Dialog.Title>Open graph</Dialog.Title>
-        <Dialog.Description>
-          Select a saved graph to open in the workspace.
-        </Dialog.Description>
+        <Dialog.Title>{title}</Dialog.Title>
+        <Dialog.Description>{description}</Dialog.Description>
 
         <div class="graph-tree-picker-body">
           {#if summaries.length}

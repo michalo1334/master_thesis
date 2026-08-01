@@ -48,6 +48,7 @@
     ) => void;
     onAddNode?: (type: Node["type"], position: Point) => void;
     onDeleteSelection?: () => void;
+    onCompareGraphs?: () => void;
     ariaLabel?: string;
   }
 
@@ -66,6 +67,7 @@
     onCreateConnection = undefined,
     onAddNode = undefined,
     onDeleteSelection = undefined,
+    onCompareGraphs = undefined,
     ariaLabel = "Network topology canvas",
   }: Props = $props();
   const canvasPreviewArrowId = $props.id();
@@ -568,12 +570,21 @@
             </ContextMenu.Portal>
           </ContextMenu.Sub>
         {/if}
+        {#if onCompareGraphs}
+          <ContextMenu.Separator class="dashboard-menu-separator" />
+          <ContextMenu.Item
+            class="dashboard-menu-item"
+            onSelect={onCompareGraphs}
+            >Compare with another graph</ContextMenu.Item
+          >
+        {/if}
       </ContextMenu.Content></ContextMenu.Portal
     >
   </ContextMenu.Root>
   <p class="canvas-hint">
-    Drag blank space to pan. Drag a node to reposition it. Drag a node dot to
-    create a connection. Right-click to open actions.
+    Drag blank space to pan. {editable
+      ? "Drag a node to reposition it. Drag a node dot to create a connection. "
+      : ""}Right-click to open actions.
   </p>
   <div class="canvas-controls" aria-label="Canvas zoom controls">
     <button

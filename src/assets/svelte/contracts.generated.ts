@@ -179,6 +179,16 @@ export interface SimulationParams {
   seed: number;
 }
 
+export interface CompareGraphsPayload {
+  base_graph: GraphContract;
+  comparison_graph_id: string;
+}
+
+export interface CompareGraphsReply {
+  result?: GraphDiffResult | null;
+  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
 export interface CreateConnectionDraftPayload {
   new_node_type?: string | null;
   relationship_type:
@@ -263,6 +273,25 @@ export interface GraphConnectivityRule {
     | "StoresCredential"
     | "AuthenticatesTo";
   to_type: "Host" | "Service" | "Vulnerability" | "Credential";
+}
+
+export interface GraphDiffCounts {
+  added: number;
+  removed: number;
+  unchanged: number;
+}
+
+export interface GraphDiffResult {
+  edge_counts: GraphDiffCounts;
+  edge_status: GraphDiffStatusEntry[];
+  graph: GraphContract;
+  node_counts: GraphDiffCounts;
+  node_status: GraphDiffStatusEntry[];
+}
+
+export interface GraphDiffStatusEntry {
+  id: string;
+  status: "added" | "removed" | "unchanged";
 }
 
 export interface GraphSummary {

@@ -32,6 +32,11 @@ import type {
   CreateConnectionDraftReply,
   GraphConnectivityReply,
   GraphConnectivityRule,
+  CompareGraphsPayload,
+  CompareGraphsReply,
+  GraphDiffResult,
+  GraphDiffCounts,
+  GraphDiffStatusEntry,
 } from "../contracts.generated";
 
 export type {
@@ -80,6 +85,11 @@ export type {
   CreateConnectionDraftReply,
   GraphConnectivityReply,
   GraphConnectivityRule,
+  CompareGraphsPayload,
+  CompareGraphsReply,
+  GraphDiffResult,
+  GraphDiffCounts,
+  GraphDiffStatusEntry,
   GraphSummary,
   SimulationReportErrorEvent,
 } from "../contracts.generated";

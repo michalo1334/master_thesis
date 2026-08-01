@@ -1,15 +1,8 @@
 <script lang="ts">
   import type { GraphSummary, LoadedGraph, Selectable } from "../contract";
-  import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
-  import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
-  import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
+  import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
   import GraphInspector from "./graph/GraphInspector.svelte";
   import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
-
-  export type WorkspaceDocument =
-    | EditableGraphDocument
-    | SimulationReportDocument
-    | OptimizationReportDocument;
 
   interface Props {
     document: WorkspaceDocument | undefined;

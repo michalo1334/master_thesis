@@ -2,7 +2,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, Graphs, Node}
+  alias NetworkDefense.Graph.{Edge, GraphDiff, Graphs, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulations
@@ -15,6 +15,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchExperimentsReply,
     CreateConnectionDraftPayload,
     CreateConnectionDraftReply,
+    CompareGraphsPayload,
+    CompareGraphsReply,
     CreateNodeDraftPayload,
     CreateNodeDraftReply,
     GraphConnectivityReply,
@@ -82,6 +84,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         {:reply, save_graph_reply("invalid_graph"), socket}
     end
+  end
+
+  @impl true
+  def handle_event("compare_graphs", params, socket) do
+    {:reply, compare_graphs(params), socket}
   end
 
   @impl true
@@ -357,6 +364,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
+  defp compare_graphs(params) do
+    case CompareGraphsPayload.validate(params) do
+      {:ok, request} -> compare_validated_graphs(request)
+      {:error, _changeset} -> compare_graphs_reply("invalid_graph")
+    end
+  end
+
+  defp compare_validated_graphs(request) do
+    with {:ok, base} <- Graphs.build(request.base_graph),
+         comparison when not is_nil(comparison) <- Graphs.load(request.comparison_graph_id),
+         %{graph: graph} = diff <- GraphDiff.structural(base, comparison),
+         {:ok, wire_graph} <- GraphContract.from_domain(graph) do
+      compare_graphs_reply("ok", Map.put(diff, :graph, wire_graph))
+    else
+      {:error, :invalid_graph} -> compare_graphs_reply("invalid_graph")
+      nil -> compare_graphs_reply("not_found")
+      _error -> compare_graphs_reply("unmapped_error")
+    end
+  end
+
   defp save_graph_success(persisted, socket) do
     case GraphContract.from_domain(persisted) do
       {:ok, wire_graph} ->
@@ -410,6 +437,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp save_graph_reply(status, graph \\ nil) do
     contract_reply(SaveGraphReply, %{status: status, graph: graph})
+  end
+
+  defp compare_graphs_reply(status, result \\ nil) do
+    contract_reply(CompareGraphsReply, %{status: status, result: result})
   end
 
   defp graph_connectivity_reply do

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { WorkspaceModel } from "../WorkspaceModel.svelte";
 import type {
   GraphSummary,
+  GraphDiffResult,
   LoadedGraph,
   ExperimentSummary,
 } from "../../contract";
@@ -235,6 +236,143 @@ describe("WorkspaceModel", () => {
       expect(model.documents.length).toBe(2);
       expect(model.selectedDocumentId).not.toBe(blankId);
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe("graph comparison", () => {
+    const baseSummary = makeGraphSummary({ id: "base", title: "Base" });
+    const comparisonSummary = makeGraphSummary({
+      id: "comparison",
+      title: "Comparison",
+    });
+    const graphs = {
+      base: makeLoadedGraph({ id: "base", title: "Base" }),
+      comparison: makeLoadedGraph({ id: "comparison", title: "Comparison" }),
+    };
+    const serverResult: GraphDiffResult = {
+      graph: makeLoadedGraph({
+        id: "merged",
+        title: "Server merged graph",
+        nodes: [hostNode("server-node")],
+      }),
+      node_status: [{ id: "server-node", status: "removed" }],
+      edge_status: [{ id: "server-edge", status: "added" }],
+      node_counts: { added: 1, removed: 2, unchanged: 3 },
+      edge_counts: { added: 4, removed: 5, unchanged: 6 },
+    };
+
+    it("stages selection and renders server comparison statuses", async () => {
+      const api = {
+        openGraph: vi.fn((id: keyof typeof graphs) =>
+          Promise.resolve({ status: "ok" as const, graph: graphs[id] }),
+        ),
+        compareGraphs: vi.fn().mockResolvedValue({
+          status: "ok",
+          result: serverResult,
+        }),
+      } as unknown as DashboardApi;
+
+      model.beginGraphComparison();
+      expect(model.graphComparisonPickerOpen).toBe(true);
+      expect(model.graphComparisonPickerTitle).toBe("Compare graphs");
+
+      await expect(
+        model.selectGraphForComparison(api, baseSummary),
+      ).resolves.toBe(false);
+      expect(model.graphComparisonPickerTitle).toBe("Compare with graph");
+      expect(model.graphComparisonPickerDescription).toContain("Base");
+
+      await expect(
+        model.selectGraphForComparison(api, baseSummary),
+      ).resolves.toBe(false);
+      expect(model.graphComparisonPickerStatus).toBe(
+        "Select a different graph.",
+      );
+
+      await expect(
+        model.selectGraphForComparison(api, comparisonSummary),
+      ).resolves.toBe(true);
+      const first = model.activeDocument;
+      expect(first?.kind).toBe("graph-diff");
+      expect(model.graphComparisonPickerOpen).toBe(false);
+      expect(api.openGraph).toHaveBeenCalledWith("base");
+      expect(api.openGraph).not.toHaveBeenCalledWith("comparison");
+      expect(api.compareGraphs).toHaveBeenCalledWith(graphs.base, "comparison");
+      if (!first || first.kind !== "graph-diff")
+        throw new Error("Expected graph diff");
+      expect(first.graph).toBe(serverResult.graph);
+      expect(first.nodeStatusById.get("server-node")).toBe("removed");
+      expect(first.edgeStatusById.get("server-edge")).toBe("added");
+      expect(first.nodeCounts).toEqual(serverResult.node_counts);
+      expect(first.edgeCounts).toEqual(serverResult.edge_counts);
+
+      model.beginGraphComparison();
+      await model.selectGraphForComparison(api, baseSummary);
+      await model.selectGraphForComparison(api, comparisonSummary);
+
+      expect(model.documents).toHaveLength(2);
+      expect(model.selectedDocumentId).not.toBe(first?.id);
+    });
+
+    it("keeps the base staged when the server cannot produce a comparison", async () => {
+      const api = {
+        openGraph: vi
+          .fn()
+          .mockResolvedValue({ status: "ok", graph: graphs.base }),
+        compareGraphs: vi.fn().mockResolvedValue({
+          status: "not_found",
+          result: null,
+        }),
+      } as unknown as DashboardApi;
+
+      model.beginGraphComparison();
+      await model.selectGraphForComparison(api, baseSummary);
+
+      await expect(
+        model.selectGraphForComparison(api, comparisonSummary),
+      ).resolves.toBe(false);
+      expect(model.graphComparisonPickerOpen).toBe(true);
+      expect(model.graphComparisonBase).toBe(graphs.base);
+      expect(model.graphComparisonPickerStatus).toBe(
+        "Comparison graph not found.",
+      );
+      expect(api.openGraph).not.toHaveBeenCalledWith("comparison");
+    });
+
+    it("keeps the base staged when an ok comparison has no result", async () => {
+      const api = {
+        openGraph: vi
+          .fn()
+          .mockResolvedValue({ status: "ok", graph: graphs.base }),
+        compareGraphs: vi.fn().mockResolvedValue({
+          status: "ok",
+          result: null,
+        }),
+      } as unknown as DashboardApi;
+
+      model.beginGraphComparison();
+      await model.selectGraphForComparison(api, baseSummary);
+
+      await expect(
+        model.selectGraphForComparison(api, comparisonSummary),
+      ).resolves.toBe(false);
+      expect(model.graphComparisonPickerStatus).toBe(
+        "Failed to compare graphs.",
+      );
+      expect(model.documents).toHaveLength(0);
+    });
+
+    it("uses the active graph's visible dirty snapshot as the base", () => {
+      const document = model.createGraphDocument();
+      document.replaceFromLoadedGraph(graphs.base);
+      document.addNode(hostNode("unsaved", "Unsaved host"));
+
+      model.beginGraphComparisonWithActive(document);
+
+      expect(model.graphComparisonPickerOpen).toBe(true);
+      expect(model.graphComparisonBase?.nodes).toContainEqual(
+        hostNode("unsaved", "Unsaved host"),
+      );
     });
   });
 

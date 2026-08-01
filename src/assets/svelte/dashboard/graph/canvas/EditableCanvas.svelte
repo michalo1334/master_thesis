@@ -23,9 +23,10 @@
   interface Props {
     document: EditableGraphDocument;
     api: DashboardApi;
+    onCompareGraphs?: () => void;
   }
 
-  let { document, api }: Props = $props();
+  let { document, api, onCompareGraphs = undefined }: Props = $props();
   let connection = $state<ConnectionRequest>();
   let connectionPickerOpen = $state(false);
   let connectivityRules = $state<readonly GraphConnectivityRule[]>([]);
@@ -208,6 +209,7 @@
   onDeleteSelection={() => document.deleteSelection()}
   onAddNode={addNode}
   connectionRules={connectivityRules}
+  {onCompareGraphs}
 />
 
 <OptionPickerDialog

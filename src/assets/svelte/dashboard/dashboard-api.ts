@@ -17,6 +17,8 @@ import type {
   CreateNodeDraftReply,
   CreateConnectionDraftPayload,
   CreateConnectionDraftReply,
+  CompareGraphsPayload,
+  CompareGraphsReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 
@@ -50,6 +52,10 @@ export interface DashboardApi {
   createConnectionDraft(
     payload: CreateConnectionDraftPayload,
   ): Promise<CreateConnectionDraftReply>;
+  compareGraphs(
+    baseGraph: LoadedGraph,
+    comparisonGraphId: string,
+  ): Promise<CompareGraphsReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -136,6 +142,13 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         CreateConnectionDraftPayload,
         CreateConnectionDraftReply
       >(live, "create_connection_draft", payload);
+    },
+    compareGraphs(baseGraph, comparisonGraphId) {
+      return requestReply<CompareGraphsPayload, CompareGraphsReply>(
+        live,
+        "compare_graphs",
+        { base_graph: baseGraph, comparison_graph_id: comparisonGraphId },
+      );
     },
   };
 }

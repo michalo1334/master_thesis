@@ -9,12 +9,14 @@
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
   import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
+  import GraphDiff from "./dashboard/graph/GraphDiff.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
+  import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
   import type {
     ExperimentSummary,
     GraphSummary,
@@ -119,6 +121,12 @@
     return wm.openGraph(api, summary);
   }
 
+  async function handleGraphComparisonSelect(
+    summary: GraphSummary,
+  ): Promise<boolean> {
+    return wm.selectGraphForComparison(api, summary);
+  }
+
   async function handleExperimentSelect([
     experiment,
   ]: ExperimentSummary[]): Promise<boolean> {
@@ -141,6 +149,7 @@
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
     onShowExperiments={handleShowExperiments}
+    onCompareGraphs={() => wm.beginGraphComparison()}
     onOptimize={handleOptimize}
     {optimizationOptions}
     activeOptimizationId={wm.optimizationParams.strategy}
@@ -161,7 +170,14 @@
 
   {#snippet content(document: WorkspaceDocument)}
     {#if document.kind === "graph"}
-      <EditableCanvas document={document as EditableGraphDocument} {api} />
+      <EditableCanvas
+        document={document as EditableGraphDocument}
+        {api}
+        onCompareGraphs={() =>
+          wm.beginGraphComparisonWithActive(document as EditableGraphDocument)}
+      />
+    {:else if document.kind === "graph-diff"}
+      <GraphDiff document={document as GraphDiffDocument} />
     {:else if document.kind === "simulation-report"}
       <SimulationReport document={document as SimulationReportDocument} />
     {:else if document.kind === "optimization-report"}
@@ -177,6 +193,16 @@
     summaries={wm.graphSummaries}
     status={wm.topologyPickerStatus}
     onSelect={handleTopologySelect}
+  />
+
+  <GraphTreePickerDialog
+    open={wm.graphComparisonPickerOpen}
+    onOpenChange={(open) => wm.setGraphComparisonPickerOpen(open)}
+    summaries={wm.graphSummaries}
+    status={wm.graphComparisonPickerStatus}
+    title={wm.graphComparisonPickerTitle}
+    description={wm.graphComparisonPickerDescription}
+    onSelect={handleGraphComparisonSelect}
   />
 
   <OptionPickerDialog
@@ -195,7 +221,7 @@
   />
 
   <StatusBar
-    documentName={wm.activeGraph?.title ?? ""}
+    documentName={wm.activeDocument?.title ?? ""}
     statusMessage={wm.statusMessage}
   />
 </div>

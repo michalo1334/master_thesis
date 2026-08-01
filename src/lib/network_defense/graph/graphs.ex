@@ -124,6 +124,17 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  def build(%GraphContract{} = request) do
+    with {:ok, %{id: id, lock_version: lock_version, attrs: attrs}} <-
+           GraphContract.to_replace_attrs(request),
+         {:ok, tags} <- graph_tags(request.tags),
+         {:ok, graph} <- candidate_graph(id, lock_version, attrs) do
+      {:ok, %{graph | parent_id: request.parent_id, tags: tags}}
+    else
+      _error -> {:error, :invalid_graph}
+    end
+  end
+
   defp hydrate_graph(%Graph{} = graph) do
     graph = Repo.preload(graph, [:nodes, :edges], force: true)
     Graph.hydrate(graph, graph.nodes, graph.edges)
@@ -256,6 +267,19 @@ defmodule NetworkDefense.Graph.Graphs do
     if entities |> Enum.map(& &1.id) |> Enum.uniq() |> length() == length(entities),
       do: :ok,
       else: {:error, :duplicate_ids}
+  end
+
+  defp graph_tags(tags) do
+    tags
+    |> Enum.reduce_while({:ok, []}, fn
+      "original", {:ok, values} -> {:cont, {:ok, [:original | values]}}
+      "optimization", {:ok, values} -> {:cont, {:ok, [:optimization | values]}}
+      _tag, _values -> {:halt, :error}
+    end)
+    |> case do
+      {:ok, values} -> {:ok, Enum.reverse(values)}
+      :error -> :error
+    end
   end
 
   defp valid_endpoints(edges, nodes) do

@@ -1,6 +1,10 @@
 <script lang="ts">
   import Icon from "../ui/Icon.svelte";
-  import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
+  import {
+    isGraphDiff,
+    isReport,
+    type WorkspaceDocument,
+  } from "./WorkspaceDocument.svelte";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
   interface DocumentOutlineRow {
@@ -82,6 +86,10 @@
       return graphsByLoadedId.get(document.graphId);
     }
 
+    if (isGraphDiff(document)) {
+      return graphsByLoadedId.get(document.baseGraphId);
+    }
+
     if (!document.loadedGraphId || !document.graph.parent_id) return undefined;
 
     const parent = graphsByLoadedId.get(document.graph.parent_id);
@@ -102,8 +110,12 @@
     return parent;
   }
 
-  function documentType(document: WorkspaceDocument): "Graph" | "Report" {
-    return document.kind === "graph" ? "Graph" : "Report";
+  function documentType(
+    document: WorkspaceDocument,
+  ): "Graph" | "Comparison" | "Report" {
+    if (document.kind === "graph") return "Graph";
+    if (document.kind === "graph-diff") return "Comparison";
+    return "Report";
   }
 </script>
 
@@ -142,7 +154,10 @@
               onclick={() => onSelectDocument(row.document.id)}
             >
               <Icon
-                name={row.document.kind === "graph" ? "graph" : "shield"}
+                name={row.document.kind === "simulation-report" ||
+                row.document.kind === "optimization-report"
+                  ? "shield"
+                  : "graph"}
                 size={16}
               />
               <span class="document-outline-label">{row.document.title}</span>
