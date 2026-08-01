@@ -164,6 +164,39 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("sends folder requests through LiveView reply callbacks", async () => {
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply({ status: "ok" }, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+    const api = createDashboardApi(live);
+
+    await api.createFolder("Threat models");
+    await api.deleteFolder("folder-1");
+    await api.moveGraphToFolder("graph-1", null);
+
+    expect(live.pushEvent).toHaveBeenNthCalledWith(
+      1,
+      "create_folder",
+      { name: "Threat models" },
+      expect.any(Function),
+    );
+    expect(live.pushEvent).toHaveBeenNthCalledWith(
+      2,
+      "delete_folder",
+      { folder_id: "folder-1" },
+      expect.any(Function),
+    );
+    expect(live.pushEvent).toHaveBeenNthCalledWith(
+      3,
+      "move_graph_to_folder",
+      { graph_id: "graph-1", folder_id: null },
+      expect.any(Function),
+    );
+  });
+
   it("fetches graph connectivity through the LiveView reply callback", async () => {
     const reply = {
       rules: [

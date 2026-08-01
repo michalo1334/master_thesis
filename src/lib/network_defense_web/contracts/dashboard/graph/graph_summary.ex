@@ -5,6 +5,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
 
   embedded_schema do
     field :graph_id, :string
+    field :folder_id, :string
     field :title, :string
     field :revision_id, :string
     field :parent_revision_id, :string
@@ -17,6 +18,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
 
   @type t :: %__MODULE__{
           graph_id: String.t(),
+          folder_id: String.t() | nil,
           title: String.t(),
           revision_id: String.t(),
           parent_revision_id: String.t() | nil,
@@ -30,6 +32,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
   def from_domain(summary) do
     validate(%{
       graph_id: summary.graphId,
+      folder_id: summary.folderId,
       title: summary.title,
       revision_id: summary.revisionId,
       parent_revision_id: summary.parentRevisionId,
@@ -45,6 +48,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
     schema
     |> cast(attrs, [
       :graph_id,
+      :folder_id,
       :title,
       :revision_id,
       :parent_revision_id,
@@ -65,6 +69,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       :is_favorite
     ])
     |> Contracts.validate_uuid(:graph_id)
+    |> Contracts.validate_uuid(:folder_id)
     |> Contracts.validate_uuid(:revision_id)
     |> Contracts.validate_uuid(:parent_revision_id)
     |> validate_number(:node_count, greater_than_or_equal_to: 0)

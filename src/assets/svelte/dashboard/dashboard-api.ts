@@ -21,6 +21,12 @@ import type {
   CompareGraphsReply,
   SetGraphRevisionFavoritePayload,
   SetGraphRevisionFavoriteReply,
+  CreateFolderPayload,
+  CreateFolderReply,
+  DeleteFolderPayload,
+  DeleteFolderReply,
+  MoveGraphToFolderPayload,
+  MoveGraphToFolderReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 
@@ -62,6 +68,12 @@ export interface DashboardApi {
     revisionId: string,
     favorite: boolean,
   ): Promise<SetGraphRevisionFavoriteReply>;
+  createFolder(name: string): Promise<CreateFolderReply>;
+  deleteFolder(folderId: string): Promise<DeleteFolderReply>;
+  moveGraphToFolder(
+    graphId: string,
+    folderId: string | null,
+  ): Promise<MoveGraphToFolderReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -179,6 +191,27 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         graph_revision_id: revisionId,
         favorite,
       });
+    },
+    createFolder(name) {
+      return requestReply<CreateFolderPayload, CreateFolderReply>(
+        live,
+        "create_folder",
+        { name },
+      );
+    },
+    deleteFolder(folderId) {
+      return requestReply<DeleteFolderPayload, DeleteFolderReply>(
+        live,
+        "delete_folder",
+        { folder_id: folderId },
+      );
+    },
+    moveGraphToFolder(graphId, folderId) {
+      return requestReply<MoveGraphToFolderPayload, MoveGraphToFolderReply>(
+        live,
+        "move_graph_to_folder",
+        { graph_id: graphId, folder_id: folderId },
+      );
     },
   };
 }

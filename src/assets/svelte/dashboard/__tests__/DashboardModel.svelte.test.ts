@@ -37,6 +37,9 @@ function api(): DashboardApi {
     createConnectionDraft: vi.fn(),
     compareGraphs: vi.fn(),
     setGraphRevisionFavorite: vi.fn(),
+    createFolder: vi.fn(),
+    deleteFolder: vi.fn(),
+    moveGraphToFolder: vi.fn(),
   };
 }
 

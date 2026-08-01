@@ -2,7 +2,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, GraphDiff, Graphs, Node}
+  alias NetworkDefense.Graph.{Edge, Folders, GraphDiff, Graphs, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulations
@@ -17,14 +17,21 @@ defmodule NetworkDefenseWeb.DashboardLive do
     CreateConnectionDraftReply,
     CompareGraphsPayload,
     CompareGraphsReply,
+    CreateFolderPayload,
+    CreateFolderReply,
     CreateNodeDraftPayload,
     CreateNodeDraftReply,
+    DeleteFolderPayload,
+    DeleteFolderReply,
+    FolderSummary,
     GraphConnectivityReply,
     OpenGraphPayload,
     OpenGraphReply,
     SetGraphRevisionFavoritePayload,
     SetGraphRevisionFavoriteReply,
     GraphSummary,
+    MoveGraphToFolderPayload,
+    MoveGraphToFolderReply,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
     OptimizationProgressEvent,
@@ -49,7 +56,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
         id="dashboard"
         props={
           %{
-            graphSummaries: @graph_summaries
+            graphSummaries: @graph_summaries,
+            folders: @folders
           }
         }
         socket={@socket}
@@ -63,6 +71,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     socket =
       socket
       |> assign(:graph_summaries, graph_summaries())
+      |> assign(:folders, folder_summaries())
 
     if connected?(socket) do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
@@ -96,6 +105,52 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("set_graph_revision_favorite", params, socket) do
     {:reply, set_graph_revision_favorite(params), socket}
+  end
+
+  @impl true
+  def handle_event("create_folder", params, socket) do
+    case CreateFolderPayload.validate(params) do
+      {:ok, request} ->
+        create_folder(request.name, socket)
+
+      {:error, _changeset} ->
+        {:reply, create_folder_reply("invalid_folder"), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_folder", params, socket) do
+    case DeleteFolderPayload.validate(params) do
+      {:ok, request} ->
+        case Folders.delete(request.folder_id) do
+          {:ok, _folder} ->
+            {:reply, delete_folder_reply("ok"), refresh_folder_assigns(socket)}
+
+          {:error, reason} ->
+            {:reply, delete_folder_reply(folder_delete_error_status(reason)), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, delete_folder_reply("invalid_folder"), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("move_graph_to_folder", params, socket) do
+    case MoveGraphToFolderPayload.validate(params) do
+      {:ok, request} ->
+        case Folders.move_graph(request.graph_id, request.folder_id) do
+          {:ok, _graph} ->
+            {:reply, move_graph_to_folder_reply("ok"),
+             assign(socket, :graph_summaries, graph_summaries())}
+
+          {:error, reason} ->
+            {:reply, move_graph_to_folder_reply(move_graph_error_status(reason)), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, move_graph_to_folder_reply("invalid_graph"), socket}
+    end
   end
 
   @impl true
@@ -395,6 +450,23 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
+  defp create_folder(name, socket) do
+    case Folders.create(name) do
+      {:ok, folder} ->
+        case FolderSummary.from_domain(folder) do
+          {:ok, summary} ->
+            {:reply, create_folder_reply("ok", FolderSummary.to_wire(summary)),
+             assign(socket, :folders, folder_summaries())}
+
+          {:error, _changeset} ->
+            {:reply, create_folder_reply("unmapped_error"), socket}
+        end
+
+      {:error, _reason} ->
+        {:reply, create_folder_reply("invalid_folder"), socket}
+    end
+  end
+
   defp compare_validated_graphs(request) do
     with %NetworkDefense.Graph.Graph{} = base <- Graphs.load_revision(request.base_revision_id),
          %NetworkDefense.Graph.Graph{} = comparison <-
@@ -433,6 +505,22 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end)
   end
 
+  defp folder_summaries do
+    Folders.list()
+    |> Enum.flat_map(fn folder ->
+      case FolderSummary.from_domain(folder) do
+        {:ok, summary} -> [FolderSummary.to_wire(summary)]
+        {:error, _changeset} -> []
+      end
+    end)
+  end
+
+  defp refresh_folder_assigns(socket) do
+    socket
+    |> assign(:folders, folder_summaries())
+    |> assign(:graph_summaries, graph_summaries())
+  end
+
   defp simulation_request_reply(status, graph_revision_id, correlation_id, reason) do
     contract_reply(RunSimulationReply, %{
       status: status,
@@ -469,6 +557,25 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp graph_revision_favorite_reply(status, favorite) do
     contract_reply(SetGraphRevisionFavoriteReply, %{status: status, favorite: favorite})
   end
+
+  defp create_folder_reply(status, folder \\ nil) do
+    contract_reply(CreateFolderReply, %{status: status, folder: folder})
+  end
+
+  defp delete_folder_reply(status), do: contract_reply(DeleteFolderReply, %{status: status})
+
+  defp move_graph_to_folder_reply(status),
+    do: contract_reply(MoveGraphToFolderReply, %{status: status})
+
+  defp folder_delete_error_status(:not_found), do: "not_found"
+  defp folder_delete_error_status(:invalid_folder), do: "invalid_folder"
+  defp folder_delete_error_status(_reason), do: "unmapped_error"
+
+  defp move_graph_error_status(:not_found), do: "not_found"
+  defp move_graph_error_status(:invalid_graph), do: "invalid_graph"
+  defp move_graph_error_status(:invalid_folder), do: "invalid_folder"
+  defp move_graph_error_status(:folder_not_found), do: "folder_not_found"
+  defp move_graph_error_status(_reason), do: "unmapped_error"
 
   defp graph_connectivity_reply do
     contract_reply(GraphConnectivityReply, %{rules: SemanticConnectivity.rules()})

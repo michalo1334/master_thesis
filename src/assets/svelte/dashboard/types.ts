@@ -13,4 +13,6 @@ export type IconName =
   | "plus"
   | "squares-2x2"
   | "star"
-  | "star-filled";
+  | "star-filled"
+  | "folder"
+  | "trash";

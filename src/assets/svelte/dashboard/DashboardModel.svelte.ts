@@ -2,6 +2,7 @@ import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import type { DashboardApi } from "./dashboard-api";
 import type {
   GraphSummary,
+  FolderSummary,
   OptimizationCompletedEvent,
   OptimizationFailedEvent,
   OptimizationProgressEvent,
@@ -19,9 +20,13 @@ export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
 
-  constructor(api: DashboardApi, graphSummaries: GraphSummary[] = []) {
+  constructor(
+    api: DashboardApi,
+    graphSummaries: GraphSummary[] = [],
+    folders: FolderSummary[] = [],
+  ) {
     this.api = api;
-    this.workspace = new WorkspaceModel(graphSummaries);
+    this.workspace = new WorkspaceModel(graphSummaries, folders);
   }
 
   /** Cross-model: start simulation on active graph, create pending report. */

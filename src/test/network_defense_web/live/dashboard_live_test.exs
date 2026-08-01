@@ -3,7 +3,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias NetworkDefense.Graph.{Edge, Graph}
+  alias NetworkDefense.Graph.{Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
@@ -159,6 +159,49 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "set_graph_revision_favorite", %{"favorite" => true})
 
       assert_reply(view, %{status: "invalid_graph", favorite: false})
+    end
+  end
+
+  describe "graph folders" do
+    test "creates a folder and moves every graph revision into it", %{conn: conn} do
+      graph = insert_graph("foldered")
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "create_folder", %{"name" => "Threat models"})
+
+      assert_reply(view, %{status: "ok", folder: %{id: folder_id, name: "Threat models"}})
+
+      render_hook(view, "move_graph_to_folder", %{
+        "graph_id" => graph.id,
+        "folder_id" => folder_id
+      })
+
+      assert_reply(view, %{status: "ok"})
+
+      assert %{folderId: ^folder_id} =
+               Graphs.list_summaries() |> Enum.find(&(&1.graphId == graph.id))
+    end
+
+    test "deleting a folder returns its graphs to the root", %{conn: conn} do
+      graph = insert_graph("unfoldered")
+      assert {:ok, folder} = Folders.create("Temporary")
+      assert {:ok, _graph} = Folders.move_graph(graph.id, folder.id)
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "delete_folder", %{"folder_id" => folder.id})
+
+      assert_reply(view, %{status: "ok"})
+      assert %{folderId: nil} = Graphs.list_summaries() |> Enum.find(&(&1.graphId == graph.id))
+    end
+
+    test "rejects invalid folder requests", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "create_folder", %{"name" => ""})
+      assert_reply(view, %{status: "invalid_folder", folder: nil})
+
+      render_hook(view, "move_graph_to_folder", %{"graph_id" => "not-a-uuid"})
+      assert_reply(view, %{status: "invalid_graph"})
     end
   end
 

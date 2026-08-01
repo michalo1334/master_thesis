@@ -221,6 +221,15 @@ export interface CreateConnectionDraftReply {
   status: "ok" | "invalid";
 }
 
+export interface CreateFolderPayload {
+  name: string;
+}
+
+export interface CreateFolderReply {
+  folder?: FolderSummary | null;
+  status: "ok" | "invalid_folder" | "unmapped_error";
+}
+
 export interface CreateNodeDraftPayload {
   node_type: "Host" | "Service" | "Vulnerability" | "Credential";
   x_pos: number;
@@ -230,6 +239,14 @@ export interface CreateNodeDraftPayload {
 export interface CreateNodeDraftReply {
   node?: Node | null;
   status: "ok" | "invalid";
+}
+
+export interface DeleteFolderPayload {
+  folder_id: string;
+}
+
+export interface DeleteFolderReply {
+  status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
 }
 
 export interface ExperimentSummary {
@@ -270,6 +287,11 @@ export interface FetchSimulationReportReply {
   total_runtime_ms: number;
 }
 
+export interface FolderSummary {
+  id: string;
+  name: string;
+}
+
 export interface GraphConnectivityReply {
   rules: GraphConnectivityRule[];
 }
@@ -306,6 +328,7 @@ export interface GraphDiffStatusEntry {
 
 export interface GraphSummary {
   edge_count: number;
+  folder_id?: string | null;
   graph_id: string;
   is_favorite: boolean;
   node_count: number;
@@ -314,6 +337,21 @@ export interface GraphSummary {
   revision_kind: string;
   revision_number: number;
   title: string;
+}
+
+export interface MoveGraphToFolderPayload {
+  folder_id?: string | null;
+  graph_id: string;
+}
+
+export interface MoveGraphToFolderReply {
+  status:
+    | "ok"
+    | "not_found"
+    | "invalid_graph"
+    | "invalid_folder"
+    | "folder_not_found"
+    | "unmapped_error";
 }
 
 export interface OpenGraphPayload {

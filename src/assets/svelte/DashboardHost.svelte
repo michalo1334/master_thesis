@@ -8,6 +8,7 @@
   import Dashboard from "./Dashboard.svelte";
   import type {
     GraphSummary,
+    FolderSummary,
     SimulationCompletedEvent,
     SimulationFailedEvent,
     SimulationProgressEvent,
@@ -21,15 +22,17 @@
   interface Props {
     live: Live;
     graphSummaries?: GraphSummary[];
+    folders?: FolderSummary[];
   }
 
-  const { live, graphSummaries = [] }: Props = $props();
+  const { live, graphSummaries = [], folders = [] }: Props = $props();
 
   const model = untrack(
     () =>
       new DashboardModel(
         createDashboardApi(live as LiveServer),
         graphSummaries,
+        folders,
       ),
   );
 

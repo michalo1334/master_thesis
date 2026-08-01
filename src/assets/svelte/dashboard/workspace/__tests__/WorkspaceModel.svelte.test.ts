@@ -104,6 +104,79 @@ describe("WorkspaceModel", () => {
     it("defaults to empty summaries array", () => {
       expect(model.graphSummaries).toEqual([]);
     });
+
+    it("stores folders", () => {
+      const folders = [{ id: "folder-1", name: "Threat models" }];
+      const workspace = new WorkspaceModel([], folders);
+      expect(workspace.folders).toBe(folders);
+    });
+  });
+
+  describe("folders", () => {
+    it("creates a folder after the server accepts it", async () => {
+      const api = {
+        createFolder: vi.fn().mockResolvedValue({
+          status: "ok",
+          folder: { id: "folder-1", name: "Threat models" },
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(model.createFolder(api, " Threat models ")).resolves.toBe(
+        true,
+      );
+      expect(api.createFolder).toHaveBeenCalledWith("Threat models");
+      expect(model.folders).toEqual([
+        { id: "folder-1", name: "Threat models" },
+      ]);
+    });
+
+    it("moves every revision of a graph and preserves its folder on upsert", async () => {
+      model = new WorkspaceModel([
+        makeGraphSummary({ revision_id: "r1" }),
+        makeGraphSummary({ revision_id: "r2" }),
+      ]);
+      const api = {
+        moveGraphToFolder: vi.fn().mockResolvedValue({ status: "ok" }),
+      } as unknown as DashboardApi;
+
+      await expect(
+        model.moveGraphToFolder(api, "g1", "folder-1"),
+      ).resolves.toBe(true);
+      model.upsertGraphSummary(makeLoadedGraph({ revision_id: "r3" }));
+
+      expect(api.moveGraphToFolder).toHaveBeenCalledWith("g1", "folder-1");
+      expect(model.graphSummaries.map((summary) => summary.folder_id)).toEqual([
+        "folder-1",
+        "folder-1",
+        "folder-1",
+      ]);
+    });
+
+    it("removes a deleted folder and returns its graphs to the root", async () => {
+      model = new WorkspaceModel(
+        [makeGraphSummary({ folder_id: "folder-1" })],
+        [{ id: "folder-1", name: "Threat models" }],
+      );
+      const api = {
+        deleteFolder: vi.fn().mockResolvedValue({ status: "ok" }),
+      } as unknown as DashboardApi;
+
+      await expect(model.deleteFolder(api, "folder-1")).resolves.toBe(true);
+
+      expect(model.folders).toEqual([]);
+      expect(model.graphSummaries[0]?.folder_id).toBeNull();
+    });
+
+    it("reports concise folder errors", async () => {
+      const api = {
+        moveGraphToFolder: vi.fn().mockResolvedValue({ status: "not_found" }),
+      } as unknown as DashboardApi;
+
+      await expect(model.moveGraphToFolder(api, "g1", null)).resolves.toBe(
+        false,
+      );
+      expect(model.statusMessage).toBe("Could not move graph.");
+    });
   });
 
   describe("handleCreateDocument", () => {

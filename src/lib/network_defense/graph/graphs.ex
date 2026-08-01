@@ -54,6 +54,7 @@ defmodule NetworkDefense.Graph.Graphs do
         select: %{graph_revision_id: edge.graph_revision_id, count: count(edge.id)}
 
     GraphRevision
+    |> join(:inner, [revision], graph in Graph, on: graph.id == revision.graph_id)
     |> join(:left, [revision], node_count in subquery(node_counts),
       on: node_count.graph_revision_id == revision.id
     )
@@ -64,8 +65,9 @@ defmodule NetworkDefense.Graph.Graphs do
       on: favorite.graph_revision_id == revision.id
     )
     |> order_by([revision], asc: revision.graph_id, asc: revision.number)
-    |> select([revision, node_count, edge_count, favorite], %{
+    |> select([revision, graph, node_count, edge_count, favorite], %{
       graphId: revision.graph_id,
+      folderId: graph.folder_id,
       revisionId: revision.id,
       parentRevisionId: revision.parent_revision_id,
       title: revision.title,

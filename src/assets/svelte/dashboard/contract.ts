@@ -37,9 +37,15 @@ import type {
   GraphDiffResult,
   GraphDiffCounts,
   GraphDiffStatusEntry,
-  GraphSummary,
   SetGraphRevisionFavoritePayload,
   SetGraphRevisionFavoriteReply,
+  FolderSummary,
+  CreateFolderPayload,
+  CreateFolderReply,
+  DeleteFolderPayload,
+  DeleteFolderReply,
+  MoveGraphToFolderPayload,
+  MoveGraphToFolderReply,
 } from "../contracts.generated";
 
 export type {
@@ -93,13 +99,21 @@ export type {
   GraphDiffResult,
   GraphDiffCounts,
   GraphDiffStatusEntry,
-  GraphSummary,
   SetGraphRevisionFavoritePayload,
   SetGraphRevisionFavoriteReply,
+  FolderSummary,
+  CreateFolderPayload,
+  CreateFolderReply,
+  DeleteFolderPayload,
+  DeleteFolderReply,
+  MoveGraphToFolderPayload,
+  MoveGraphToFolderReply,
   SimulationReportErrorEvent,
 } from "../contracts.generated";
 
 export type LoadedGraph = GraphContract;
+
+export type GraphSummary = import("../contracts.generated").GraphSummary;
 
 export type SimulationParams = GeneratedSimulationParams;
 

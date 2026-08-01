@@ -134,6 +134,21 @@
     return wm.setGraphRevisionFavorite(api, summary, favorite);
   }
 
+  async function handleCreateFolder(name: string): Promise<boolean> {
+    return wm.createFolder(api, name);
+  }
+
+  async function handleDeleteFolder(folderId: string): Promise<boolean> {
+    return wm.deleteFolder(api, folderId);
+  }
+
+  async function handleMoveGraph(
+    graphId: string,
+    folderId: string | null,
+  ): Promise<boolean> {
+    return wm.moveGraphToFolder(api, graphId, folderId);
+  }
+
   async function handleExperimentSelect([
     experiment,
   ]: ExperimentSummary[]): Promise<boolean> {
@@ -192,7 +207,15 @@
     {/if}
   {/snippet}
 
-  <Workspace model={wm} {documentTypes} {inspector} {content} />
+  <Workspace
+    model={wm}
+    {documentTypes}
+    {inspector}
+    {content}
+    onCreateFolder={handleCreateFolder}
+    onDeleteFolder={handleDeleteFolder}
+    onMoveGraph={handleMoveGraph}
+  />
 
   <GraphTreePickerDialog
     open={wm.topologyPickerOpen}

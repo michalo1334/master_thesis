@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DropdownMenu, Tabs } from "bits-ui";
+  import { Dialog, DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
   import Icon from "../ui/Icon.svelte";
   import type { IconName } from "../types";
@@ -23,6 +23,12 @@
     documentTypes?: readonly WorkspaceDocumentType[];
     inspector?: Snippet;
     content?: Snippet<[WorkspaceDocument]>;
+    onCreateFolder: (name: string) => Promise<boolean> | boolean;
+    onDeleteFolder: (folderId: string) => Promise<boolean> | boolean;
+    onMoveGraph: (
+      graphId: string,
+      folderId: string | null,
+    ) => Promise<boolean> | boolean;
   }
 
   let {
@@ -31,6 +37,9 @@
     documentTypes = [],
     inspector = undefined,
     content = undefined,
+    onCreateFolder,
+    onDeleteFolder,
+    onMoveGraph,
   }: Props = $props();
 
   let activeDocument = $derived(
@@ -39,10 +48,28 @@
     ),
   );
   let outlineCollapsed = $state(false);
+  let folderDialogOpen = $state(false);
+  let folderName = $state("");
+  let isCreatingFolder = $state(false);
 
   function closeDocument(event: MouseEvent, id: string) {
     event.stopPropagation();
     model.closeDocument(id);
+  }
+
+  async function createFolder(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (isCreatingFolder) return;
+
+    isCreatingFolder = true;
+    try {
+      if (await onCreateFolder(folderName)) {
+        folderName = "";
+        folderDialogOpen = false;
+      }
+    } finally {
+      isCreatingFolder = false;
+    }
   }
 </script>
 
@@ -55,8 +82,12 @@
 >
   <DocumentOutline
     documents={model.documents}
+    folders={model.folders}
+    graphSummaries={model.graphSummaries}
     selectedDocumentId={model.selectedDocumentId}
     onSelectDocument={(id) => model.selectDocument(id)}
+    {onDeleteFolder}
+    {onMoveGraph}
     collapsed={outlineCollapsed}
     onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
   />
@@ -111,6 +142,10 @@
                 <span>{documentType.label}</span>
               </DropdownMenu.Item>
             {/each}
+            <DropdownMenu.Item onclick={() => (folderDialogOpen = true)}>
+              <Icon name="folder" size={16} />
+              <span>Folder</span>
+            </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
@@ -132,7 +167,96 @@
   {@render inspector?.()}
 </main>
 
+<Dialog.Root bind:open={folderDialogOpen}>
+  {#if folderDialogOpen}
+    <Dialog.Portal>
+      <Dialog.Overlay class="folder-dialog-overlay" />
+      <Dialog.Content class="folder-dialog">
+        <Dialog.Title>New folder</Dialog.Title>
+        <Dialog.Description
+          >Group saved graphs in the document outline.</Dialog.Description
+        >
+        <form onsubmit={createFolder}>
+          <label for="folder-name">Name</label>
+          <input id="folder-name" bind:value={folderName} maxlength="100" />
+          {#if model.statusMessage}
+            <p class="folder-dialog-status" role="alert">
+              {model.statusMessage}
+            </p>
+          {/if}
+          <div class="folder-dialog-actions">
+            <Dialog.Close type="button" disabled={isCreatingFolder}
+              >Cancel</Dialog.Close
+            >
+            <button type="submit" disabled={isCreatingFolder}>Create</button>
+          </div>
+        </form>
+      </Dialog.Content>
+    </Dialog.Portal>
+  {/if}
+</Dialog.Root>
+
 <style>
+  :global(.folder-dialog-overlay) {
+    position: fixed;
+    z-index: 200;
+    inset: 0;
+    background: color-mix(in srgb, var(--ds-color-nav) 45%, transparent);
+  }
+  :global(.folder-dialog) {
+    position: fixed;
+    z-index: 201;
+    top: 50%;
+    left: 50%;
+    width: min(26rem, calc(100vw - 2rem));
+    padding: 1.5rem;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-color-paper);
+    box-shadow: var(--ds-shadow-md);
+    color: var(--ds-color-text);
+    transform: translate(-50%, -50%);
+  }
+  :global(.folder-dialog [data-dialog-title]),
+  :global(.folder-dialog [data-dialog-description]) {
+    margin: 0;
+  }
+  :global(.folder-dialog form) {
+    display: grid;
+    gap: var(--ds-space-2);
+    margin-top: var(--ds-space-4);
+  }
+  :global(.folder-dialog input) {
+    min-height: var(--ds-control-height);
+    padding: 0.375rem var(--ds-space-2);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-canvas);
+  }
+  .folder-dialog-status {
+    margin: 0;
+    color: var(--ds-color-danger, #b42318);
+    font-size: var(--ds-text-sm);
+  }
+  .folder-dialog-actions {
+    display: flex;
+    justify-content: end;
+    gap: var(--ds-space-2);
+    margin-top: var(--ds-space-2);
+  }
+  .folder-dialog-actions :global(button),
+  .folder-dialog-actions button {
+    min-height: var(--ds-control-height);
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-sm);
+    background: var(--ds-color-canvas);
+  }
+  .folder-dialog-actions button[type="submit"] {
+    border-color: var(--ds-color-accent);
+    background: var(--ds-color-accent);
+    color: var(--ds-color-accent-contrast, white);
+  }
   .dashboard-workspace {
     grid-area: workspace;
     display: grid;

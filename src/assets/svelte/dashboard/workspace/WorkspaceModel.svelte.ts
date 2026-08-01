@@ -4,6 +4,7 @@ import { SimulationReportDocument } from "../simulation-report/SimulationReportD
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
+  FolderSummary,
   GraphSummary,
   GraphDiffResult,
   LoadedGraph,
@@ -33,6 +34,7 @@ export type OptimizationParamsChange = Omit<
 export class WorkspaceModel {
   /** Graphs available to open, owned by workspace so the picker has them. */
   graphSummaries = $state.raw<GraphSummary[]>([]);
+  folders = $state.raw<FolderSummary[]>([]);
 
   documents = $state<WorkspaceDocument[]>([]);
   selectedDocumentId = $state<string | undefined>();
@@ -72,14 +74,22 @@ export class WorkspaceModel {
   });
   statusMessage = $state("");
 
-  constructor(graphSummaries: GraphSummary[] = []) {
+  constructor(
+    graphSummaries: GraphSummary[] = [],
+    folders: FolderSummary[] = [],
+  ) {
     this.graphSummaries = graphSummaries;
+    this.folders = folders;
   }
 
   upsertGraphSummary(graph: LoadedGraph): void {
     const previous = this.graphSummaries.find(
       ({ revision_id }) => revision_id === graph.revision_id,
     );
+    const graphFolderId =
+      previous?.folder_id ??
+      this.graphSummaries.find(({ graph_id }) => graph_id === graph.id)
+        ?.folder_id;
     const summary: GraphSummary = {
       graph_id: graph.id,
       title: graph.title,
@@ -90,6 +100,7 @@ export class WorkspaceModel {
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
       is_favorite: previous?.is_favorite ?? false,
+      ...(graphFolderId === undefined ? {} : { folder_id: graphFolderId }),
     };
     const index = this.graphSummaries.findIndex(
       ({ revision_id }) => revision_id === graph.revision_id,
@@ -100,6 +111,79 @@ export class WorkspaceModel {
         : this.graphSummaries.map((item, itemIndex) =>
             itemIndex === index ? summary : item,
           );
+  }
+
+  async createFolder(api: DashboardApi, name: string): Promise<boolean> {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      this.statusMessage = "Folder name is required.";
+      return false;
+    }
+
+    this.statusMessage = "";
+    try {
+      const reply = await api.createFolder(trimmedName);
+      if (reply.status !== "ok" || !reply.folder) {
+        this.statusMessage = "Could not create folder.";
+        return false;
+      }
+
+      this.folders = [
+        ...this.folders.filter((folder) => folder.id !== reply.folder!.id),
+        reply.folder,
+      ];
+      return true;
+    } catch {
+      this.statusMessage = "Could not create folder.";
+      return false;
+    }
+  }
+
+  async deleteFolder(api: DashboardApi, folderId: string): Promise<boolean> {
+    this.statusMessage = "";
+    try {
+      const reply = await api.deleteFolder(folderId);
+      if (reply.status !== "ok") {
+        this.statusMessage = "Could not delete folder.";
+        return false;
+      }
+
+      this.folders = this.folders.filter((folder) => folder.id !== folderId);
+      this.graphSummaries = this.graphSummaries.map((summary) =>
+        summary.folder_id === folderId
+          ? { ...summary, folder_id: null }
+          : summary,
+      );
+      return true;
+    } catch {
+      this.statusMessage = "Could not delete folder.";
+      return false;
+    }
+  }
+
+  async moveGraphToFolder(
+    api: DashboardApi,
+    graphId: string,
+    folderId: string | null,
+  ): Promise<boolean> {
+    this.statusMessage = "";
+    try {
+      const reply = await api.moveGraphToFolder(graphId, folderId);
+      if (reply.status !== "ok") {
+        this.statusMessage = "Could not move graph.";
+        return false;
+      }
+
+      this.graphSummaries = this.graphSummaries.map((summary) =>
+        summary.graph_id === graphId
+          ? { ...summary, folder_id: folderId }
+          : summary,
+      );
+      return true;
+    } catch {
+      this.statusMessage = "Could not move graph.";
+      return false;
+    }
   }
 
   get activeDocument(): WorkspaceDocument | undefined {

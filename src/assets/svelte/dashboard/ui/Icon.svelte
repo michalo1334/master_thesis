@@ -22,6 +22,8 @@
     "squares-2x2": "hero-squares-2x2",
     star: "hero-star",
     "star-filled": "hero-star-solid",
+    folder: "hero-folder",
+    trash: "hero-trash",
   };
 
   let { name, size = 18 }: Props = $props();

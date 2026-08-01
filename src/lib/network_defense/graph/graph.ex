@@ -2,12 +2,13 @@ defmodule NetworkDefense.Graph.Graph do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.{Edge, GraphRevision, Node}
+  alias NetworkDefense.Graph.{Edge, Folder, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
+    belongs_to :folder, Folder
     has_many :revisions, GraphRevision
     field :adjacency_list, :map, virtual: true, default: %{}
     field :revision_id, :binary_id, virtual: true
