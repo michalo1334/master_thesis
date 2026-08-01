@@ -305,6 +305,31 @@ export class WorkspaceModel {
     }
   }
 
+  async loadOptimizationGraphDiff(
+    api: DashboardApi,
+    baseGraphId: string,
+    optimizedGraphId: string,
+  ): Promise<GraphDiffDocument | undefined> {
+    try {
+      const baseReply = await api.openGraph(baseGraphId);
+      if (baseReply.status !== "ok" || !baseReply.graph) return undefined;
+
+      const comparison = await api.compareGraphs(
+        baseReply.graph,
+        optimizedGraphId,
+      );
+      if (comparison.status !== "ok" || !comparison.result) return undefined;
+
+      return new GraphDiffDocument(
+        baseReply.graph,
+        { id: optimizedGraphId, title: "Optimized graph" },
+        comparison.result,
+      );
+    } catch {
+      return undefined;
+    }
+  }
+
   async saveActiveGraph(api: DashboardApi): Promise<boolean> {
     const doc = this.activeGraph;
     if (!doc) return false;

@@ -3,14 +3,15 @@ import type {
   GraphDiffCounts,
   GraphDiffResult,
   GraphDiffStatusEntry,
-  GraphSummary,
   LoadedGraph,
 } from "../contract";
+import type { IconName } from "../types";
 
 export type GraphDiffStatus = GraphDiffStatusEntry["status"];
 
 export class GraphDiffDocument {
   readonly kind = "graph-diff" as const;
+  readonly icon = "graph-diff" as const satisfies IconName;
   readonly id = crypto.randomUUID();
   readonly baseGraphId: string;
   readonly comparisonGraphId: string;
@@ -23,7 +24,7 @@ export class GraphDiffDocument {
 
   constructor(
     base: LoadedGraph,
-    comparison: GraphSummary,
+    comparison: { id: string; title: string },
     result: GraphDiffResult,
   ) {
     this.baseGraphId = base.id;

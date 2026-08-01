@@ -77,6 +77,28 @@ describe("GraphTreePickerDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("marks the selected graph without adding a second selection affordance", async () => {
+    const { rerender } = render(GraphTreePickerDialog, {
+      props: {
+        open: true,
+        onOpenChange: vi.fn(),
+        summaries: [root],
+        onSelect: vi.fn(),
+      },
+    });
+
+    await rerender({ selectedGraphId: root.id });
+
+    const row = screen.getByRole("button", { name: root.title }).closest("tr");
+    const indicator = row?.querySelector<HTMLInputElement>(
+      'input[type="checkbox"]',
+    );
+    expect(row).toHaveAttribute("data-selected", "true");
+    expect(indicator).toBeChecked();
+    expect(indicator).toHaveAttribute("aria-hidden", "true");
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
   it("shows roots initially and expands each branch independently", async () => {
     const onSelect = vi.fn().mockResolvedValue(false);
     render(GraphTreePickerDialog, {

@@ -14,6 +14,8 @@
     link: "hero-link",
     play: "hero-play",
     graph: "hero-share",
+    "simulation-report": "hero-document-chart-bar",
+    "graph-diff": "hero-arrows-right-left",
     "chevron-right": "hero-chevron-right",
     "chevron-down": "hero-chevron-down",
     plus: "hero-plus",

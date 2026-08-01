@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { OptimizationReportDocument } from "./OptimizationReportDocument.svelte";
 
 describe("OptimizationReportDocument", () => {
@@ -51,5 +52,54 @@ describe("OptimizationReportDocument", () => {
     expect(document.reportData?.actions).toHaveLength(1);
     expect(document.analysis?.strategy).toBe("simulation_informed");
     expect(openOptimizedGraph).not.toHaveBeenCalled();
+  });
+
+  it("loads the graph diff only when requested", async () => {
+    const document = createDocument();
+    const graph = {
+      id: "g1",
+      title: "Topology",
+      lock_version: 1,
+      parent_id: null,
+      tags: [],
+      nodes: [],
+      edges: [],
+    };
+    const graphDiff = new GraphDiffDocument(
+      graph,
+      { id: "optimized-g1", title: "Optimized graph" },
+      {
+        graph,
+        node_status: [],
+        edge_status: [],
+        node_counts: { added: 0, removed: 0, unchanged: 0 },
+        edge_counts: { added: 0, removed: 0, unchanged: 0 },
+      },
+    );
+    const createGraphDiff = vi.fn().mockResolvedValue(graphDiff);
+
+    document.complete(
+      {
+        correlation_id: "corr-1",
+        graph_id: "g1",
+        optimized_graph_id: "optimized-g1",
+        report: {
+          strategy: "simulation_informed",
+          requested_budget: 2,
+          used_budget: 1,
+          runtime_ms: 25,
+          actions: [],
+        },
+      },
+      vi.fn().mockResolvedValue(true),
+      createGraphDiff,
+    );
+
+    expect(createGraphDiff).not.toHaveBeenCalled();
+    await expect(document.loadGraphDiff()).resolves.toBe(true);
+    expect(document.graphDiff).toBe(graphDiff);
+    expect(createGraphDiff).toHaveBeenCalledOnce();
+    await expect(document.loadGraphDiff()).resolves.toBe(true);
+    expect(createGraphDiff).toHaveBeenCalledOnce();
   });
 });

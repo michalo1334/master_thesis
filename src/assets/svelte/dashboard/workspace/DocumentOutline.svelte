@@ -153,13 +153,7 @@
               ]}
               onclick={() => onSelectDocument(row.document.id)}
             >
-              <Icon
-                name={row.document.kind === "simulation-report" ||
-                row.document.kind === "optimization-report"
-                  ? "shield"
-                  : "graph"}
-                size={16}
-              />
+              <Icon name={row.document.icon} size={16} />
               <span class="document-outline-label">{row.document.title}</span>
             </button>
           </li>

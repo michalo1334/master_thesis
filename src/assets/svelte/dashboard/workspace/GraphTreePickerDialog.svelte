@@ -12,6 +12,7 @@
     title?: string;
     description?: string;
     status?: string;
+    selectedGraphId?: string;
   }
 
   interface TreeNode {
@@ -33,6 +34,7 @@
     title = "Open graph",
     description = "Select a saved graph to open in the workspace.",
     status = "",
+    selectedGraphId = undefined,
   }: Props = $props();
 
   let isSelecting = $state(false);
@@ -171,6 +173,8 @@
                   <tr
                     data-depth={row.depth}
                     data-disabled={isSelecting || undefined}
+                    data-selected={selectedGraphId === row.summary.id ||
+                      undefined}
                   >
                     <td class="graph-tree-graph">
                       <div class="graph-tree-row" style:--depth={row.depth}>
@@ -191,6 +195,14 @@
                             />
                           </Button.Root>
                         {/if}
+                        <input
+                          class="graph-tree-selection"
+                          type="checkbox"
+                          checked={selectedGraphId === row.summary.id}
+                          aria-hidden="true"
+                          tabindex="-1"
+                          disabled
+                        />
                         <button
                           type="button"
                           class="graph-tree-select"
@@ -337,6 +349,14 @@
     background: var(--ds-color-accent-soft);
   }
 
+  .graph-tree-picker-table tbody tr[data-selected] {
+    background: var(--ds-color-accent-soft);
+  }
+
+  .graph-tree-picker-table tbody tr[data-selected] .graph-tree-title {
+    color: var(--ds-color-accent);
+  }
+
   .graph-tree-picker-table tbody tr[data-disabled] {
     color: var(--ds-color-text-faint);
   }
@@ -367,6 +387,14 @@
     height: 1.5rem;
     flex: none;
     place-items: center;
+  }
+
+  .graph-tree-selection {
+    width: 1rem;
+    height: 1rem;
+    flex: none;
+    margin: 0 var(--ds-space-2);
+    accent-color: var(--ds-color-accent);
   }
 
   .graph-tree-select {

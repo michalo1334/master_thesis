@@ -88,11 +88,19 @@ export class DashboardModel {
       payload.graph_id,
     );
     if (!report) return;
-    report.complete(payload, () =>
-      this.workspace.openOptimizationResult(
-        this.api,
-        payload.optimized_graph_id,
-      ),
+    report.complete(
+      payload,
+      () =>
+        this.workspace.openOptimizationResult(
+          this.api,
+          payload.optimized_graph_id,
+        ),
+      () =>
+        this.workspace.loadOptimizationGraphDiff(
+          this.api,
+          payload.graph_id,
+          payload.optimized_graph_id,
+        ),
     );
     this.markOptimizationReportReadState(report);
   }

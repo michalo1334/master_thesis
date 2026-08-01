@@ -314,6 +314,31 @@ describe("WorkspaceModel", () => {
       expect(model.selectedDocumentId).not.toBe(first?.id);
     });
 
+    it("loads an optimization graph diff without opening another document", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: graphs.base,
+        }),
+        compareGraphs: vi.fn().mockResolvedValue({
+          status: "ok",
+          result: serverResult,
+        }),
+      } as unknown as DashboardApi;
+
+      const result = await model.loadOptimizationGraphDiff(
+        api,
+        graphs.base.id,
+        "optimized",
+      );
+
+      expect(result?.title).toBe("Base compared with Optimized graph");
+      expect(result?.graph).toBe(serverResult.graph);
+      expect(model.documents).toHaveLength(0);
+      expect(api.openGraph).toHaveBeenCalledWith("base");
+      expect(api.compareGraphs).toHaveBeenCalledWith(graphs.base, "optimized");
+    });
+
     it("keeps the base staged when the server cannot produce a comparison", async () => {
       const api = {
         openGraph: vi

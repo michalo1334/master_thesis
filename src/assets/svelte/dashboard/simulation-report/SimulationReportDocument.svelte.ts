@@ -1,5 +1,6 @@
 import type { LoadedGraph, SimulationReportData } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
+import type { IconName } from "../types";
 
 function formatErrorReason(reason: string): string {
   if (reason === "graph_version_mismatch") {
@@ -11,6 +12,7 @@ function formatErrorReason(reason: string): string {
 
 export class SimulationReportDocument {
   readonly kind = "simulation-report" as const;
+  readonly icon = "simulation-report" as const satisfies IconName;
   readonly id: string;
   readonly graphId: string;
 

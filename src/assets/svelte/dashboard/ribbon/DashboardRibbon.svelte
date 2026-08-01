@@ -281,23 +281,21 @@
               })}
           />
         </div>
-        <div class="dashboard-seed-group">
-          <NumberInput
-            label="Seed"
-            value={optimizationParams.simulation_params.seed}
-            disabled={optimizationParams.simulation_params.generate_seed}
-            onchange={(seed) =>
-              onOptimizationParamsChange({ simulation_params: { seed } })}
-          />
-          <Checkbox
-            label="Random"
-            checked={optimizationParams.simulation_params.generate_seed}
-            onchange={(generate_seed) =>
-              onOptimizationParamsChange({
-                simulation_params: { generate_seed },
-              })}
-          />
-        </div>
+        <NumberInput
+          label="Seed"
+          value={optimizationParams.simulation_params.seed}
+          disabled={optimizationParams.simulation_params.generate_seed}
+          onchange={(seed) =>
+            onOptimizationParamsChange({ simulation_params: { seed } })}
+        />
+        <Checkbox
+          label="Random seed"
+          checked={optimizationParams.simulation_params.generate_seed}
+          onchange={(generate_seed) =>
+            onOptimizationParamsChange({
+              simulation_params: { generate_seed },
+            })}
+        />
       </Ribbon.Section>
     {:else if activeOptimizationId === "topology_segmentation"}
       <Ribbon.Section title="Topology segmentation">
@@ -340,13 +338,6 @@
 </Ribbon>
 
 <style>
-  .dashboard-seed-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-    min-width: 6.5rem;
-  }
-
   .dashboard-max-attempts-input :global(.dashboard-number-input) {
     min-width: 8.5rem;
     width: 8.5rem;

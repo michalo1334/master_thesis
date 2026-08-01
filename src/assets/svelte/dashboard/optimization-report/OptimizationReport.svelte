@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Tabs } from "bits-ui";
   import type { OptimizationReportDocument } from "./OptimizationReportDocument.svelte";
+  import GraphDiff from "../graph/GraphDiff.svelte";
   import KpiCards from "../simulation-report/KpiCards.svelte";
   import { formatOptimizationKpis } from "./optimization-report";
   import CvssStrategyPanel from "./strategy-panels/CvssStrategyPanel.svelte";
@@ -15,10 +16,30 @@
   let { document }: Props = $props();
   let analysis = $derived(document.analysis);
   let activeTab = $state("overview");
+  let graphDiffLoadPending = $state(false);
+  let isGraphDiffLoading = $derived(
+    graphDiffLoadPending || document.graphDiffStatus === "loading",
+  );
   let hasCvssScores = $derived(
     document.reportData?.actions.some((action) => action.cvss_score != null) ??
       false,
   );
+
+  async function loadGraphDiff(): Promise<void> {
+    if (document.graphDiff || isGraphDiffLoading) return;
+
+    graphDiffLoadPending = true;
+    try {
+      await document.loadGraphDiff();
+    } finally {
+      graphDiffLoadPending = false;
+    }
+  }
+
+  function handleTabChange(value: string): void {
+    activeTab = value;
+    if (value === "graph-diff") void loadGraphDiff();
+  }
 </script>
 
 <article
@@ -56,7 +77,7 @@
         class="optimization-report-tabs"
         orientation="vertical"
         value={activeTab}
-        onValueChange={(value) => (activeTab = value)}
+        onValueChange={handleTabChange}
       >
         <Tabs.List
           class="optimization-report-tab-list"
@@ -71,6 +92,9 @@
           <Tabs.Trigger
             class="optimization-report-tab"
             value="strategy-analysis">Strategy analysis</Tabs.Trigger
+          >
+          <Tabs.Trigger class="optimization-report-tab" value="graph-diff"
+            >Graph diff</Tabs.Trigger
           >
         </Tabs.List>
 
@@ -154,6 +178,32 @@
             </section>
           {/if}
         </Tabs.Content>
+
+        <Tabs.Content class="optimization-report-tab-panel" value="graph-diff">
+          {#if document.graphDiff}
+            <div class="optimization-report-graph-diff">
+              <GraphDiff document={document.graphDiff} />
+            </div>
+          {:else}
+            <section
+              class="optimization-report-graph-diff-status"
+              aria-live="polite"
+            >
+              {#if isGraphDiffLoading}
+                <span class="optimization-report-spinner" aria-hidden="true"
+                ></span>
+                <p>Loading graph diff…</p>
+              {:else if document.graphDiffStatus === "error"}
+                <p>Unable to load graph diff.</p>
+                <button type="button" onclick={() => void loadGraphDiff()}>
+                  Retry
+                </button>
+              {:else}
+                <p>Graph diff unavailable.</p>
+              {/if}
+            </section>
+          {/if}
+        </Tabs.Content>
       </Tabs.Root>
     {/if}
   {/if}
@@ -163,7 +213,10 @@
   .optimization-report {
     height: 100%;
     min-height: 0;
-    overflow: auto;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--ds-space-6);
+    overflow: hidden;
     padding: var(--ds-space-6);
     background: var(--ds-color-surface);
   }
@@ -217,12 +270,15 @@
     font: inherit;
   }
   :global(.optimization-report-tabs) {
+    height: 100%;
+    min-height: 0;
     display: grid;
     grid-template-columns: 9rem minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: var(--ds-space-5);
-    margin-top: var(--ds-space-6);
   }
   :global(.optimization-report-tab-list) {
+    align-self: start;
     position: sticky;
     top: 0;
     display: grid;
@@ -251,6 +307,34 @@
   }
   :global(.optimization-report-tab-panel) {
     min-width: 0;
+    min-height: 0;
+    overflow: auto;
+  }
+  .optimization-report-graph-diff {
+    height: 100%;
+    min-height: 0;
+  }
+  .optimization-report-graph-diff-status {
+    min-height: 16rem;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: var(--ds-space-3);
+    border: 2px dashed var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-text-secondary);
+  }
+  .optimization-report-graph-diff-status p {
+    margin: 0;
+  }
+  .optimization-report-graph-diff-status button {
+    min-height: var(--ds-control-height);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    color: inherit;
+    font: inherit;
   }
   .optimization-report-section {
     max-width: 62rem;
@@ -290,6 +374,7 @@
   @media (max-width: 48em) {
     :global(.optimization-report-tabs) {
       grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       gap: var(--ds-space-4);
     }
     :global(.optimization-report-tab-list) {

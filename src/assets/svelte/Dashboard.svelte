@@ -202,6 +202,7 @@
     status={wm.graphComparisonPickerStatus}
     title={wm.graphComparisonPickerTitle}
     description={wm.graphComparisonPickerDescription}
+    selectedGraphId={wm.graphComparisonBase?.id}
     onSelect={handleGraphComparisonSelect}
   />
 

@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
-import type { LoadedGraph } from "../contract";
+import type { GraphDiffResult, LoadedGraph } from "../contract";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
+import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import DocumentOutline from "./DocumentOutline.svelte";
 
@@ -28,6 +29,30 @@ function depth(name: string): string | null {
   return (
     screen.getByRole("button", { name, hidden: true }).closest("li")?.dataset
       .depth ?? null
+  );
+}
+
+function graphDiff(): GraphDiffDocument {
+  const graph: LoadedGraph = {
+    id: "base",
+    title: "Base",
+    lock_version: 1,
+    parent_id: null,
+    tags: [],
+    nodes: [],
+    edges: [],
+  };
+  const result: GraphDiffResult = {
+    graph,
+    node_status: [],
+    edge_status: [],
+    node_counts: { added: 0, removed: 0, unchanged: 0 },
+    edge_counts: { added: 0, removed: 0, unchanged: 0 },
+  };
+  return new GraphDiffDocument(
+    graph,
+    { id: "comparison", title: "Comparison" },
+    result,
   );
 }
 
@@ -64,7 +89,7 @@ describe("DocumentOutline", () => {
     expect(
       screen
         .getByRole("button", { name: `Report ${report.title}`, hidden: true })
-        .querySelector(".hero-shield-check"),
+        .querySelector(".hero-document-chart-bar"),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
@@ -77,6 +102,28 @@ describe("DocumentOutline", () => {
       screen.getByRole("button", { name: "Graph Child", hidden: true }),
     );
     expect(onSelectDocument).toHaveBeenCalledWith(child.id);
+  });
+
+  it("uses the comparison icon for graph diffs", () => {
+    const comparison = graphDiff();
+
+    render(DocumentOutline, {
+      props: {
+        documents: [comparison],
+        collapsed: false,
+        onCollapsedChange: vi.fn(),
+        onSelectDocument: vi.fn(),
+      },
+    });
+
+    expect(
+      screen
+        .getByRole("button", {
+          name: `Comparison ${comparison.title}`,
+          hidden: true,
+        })
+        .querySelector(".hero-arrows-right-left"),
+    ).toBeInTheDocument();
   });
 
   it("shows a child graph at the root when its parent is closed", () => {

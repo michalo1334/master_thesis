@@ -6,6 +6,8 @@ export type IconName =
   | "link"
   | "play"
   | "graph"
+  | "simulation-report"
+  | "graph-diff"
   | "chevron-right"
   | "chevron-down"
   | "plus"

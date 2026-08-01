@@ -109,6 +109,12 @@ describe("OptionPickerDialog", () => {
     await fireEvent.click(
       screen.getByRole("checkbox", { name: "Select alpha" }),
     );
+    expect(
+      screen.getByRole("checkbox", { name: "Select beta" }).closest("tr"),
+    ).toHaveAttribute("data-selected");
+    expect(
+      screen.getByRole("checkbox", { name: "Select alpha" }).closest("tr"),
+    ).toHaveAttribute("data-selected");
     await fireEvent.click(screen.getByRole("button", { name: "Select (2)" }));
 
     await waitFor(() =>
