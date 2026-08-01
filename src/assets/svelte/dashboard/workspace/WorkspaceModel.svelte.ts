@@ -77,6 +77,9 @@ export class WorkspaceModel {
   }
 
   upsertGraphSummary(graph: LoadedGraph): void {
+    const previous = this.graphSummaries.find(
+      ({ revision_id }) => revision_id === graph.revision_id,
+    );
     const summary: GraphSummary = {
       graph_id: graph.id,
       title: graph.title,
@@ -86,6 +89,7 @@ export class WorkspaceModel {
       revision_number: graph.revision_number ?? 0,
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
+      is_favorite: previous?.is_favorite ?? false,
     };
     const index = this.graphSummaries.findIndex(
       ({ revision_id }) => revision_id === graph.revision_id,
@@ -216,6 +220,38 @@ export class WorkspaceModel {
       return false;
     } catch {
       this.topologyPickerStatus = "Failed to open topology.";
+      return false;
+    }
+  }
+
+  async setGraphRevisionFavorite(
+    api: DashboardApi,
+    summary: GraphSummary,
+    favorite: boolean,
+  ): Promise<boolean> {
+    this.topologyPickerStatus = "";
+    this.graphComparisonPickerStatus = "";
+    try {
+      const reply = await api.setGraphRevisionFavorite(
+        summary.revision_id,
+        favorite,
+      );
+      if (reply.status !== "ok") {
+        this.setGraphFavoriteError(reply.status);
+        return false;
+      }
+
+      const index = this.graphSummaries.findIndex(
+        ({ revision_id }) => revision_id === summary.revision_id,
+      );
+      if (index !== -1) {
+        this.graphSummaries = this.graphSummaries.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, is_favorite: reply.favorite } : item,
+        );
+      }
+      return true;
+    } catch {
+      this.setGraphFavoriteError("unmapped_error");
       return false;
     }
   }
@@ -515,6 +551,17 @@ export class WorkspaceModel {
       this.optimizationParams.simulation_params.initial_foothold_node_id =
         hosts[0]?.id ?? "";
     }
+  }
+
+  private setGraphFavoriteError(
+    status: "not_found" | "invalid_graph" | "unmapped_error",
+  ): void {
+    const message =
+      status === "not_found"
+        ? "Graph not found."
+        : "Could not update favourite.";
+    this.topologyPickerStatus = message;
+    this.graphComparisonPickerStatus = message;
   }
 
   applyForceLayout(): void {

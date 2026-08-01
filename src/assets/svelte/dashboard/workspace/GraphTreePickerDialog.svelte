@@ -9,6 +9,10 @@
     onOpenChange: (open: boolean) => void;
     summaries: readonly GraphSummary[];
     onSelect: (summary: GraphSummary) => Promise<boolean> | boolean;
+    onFavoriteChange: (
+      summary: GraphSummary,
+      favorite: boolean,
+    ) => Promise<boolean> | boolean;
     title?: string;
     description?: string;
     status?: string;
@@ -31,6 +35,7 @@
     onOpenChange,
     summaries,
     onSelect,
+    onFavoriteChange,
     title = "Open graph",
     description = "Select a saved graph to open in the workspace.",
     status = "",
@@ -38,12 +43,18 @@
   }: Props = $props();
 
   let isSelecting = $state(false);
+  let isFavoriting = $state(false);
   let selectionError = $state("");
+  let favoriteError = $state("");
   const expandedGraphIds = new SvelteSet<string>();
+  const id = $props.id();
 
   const tree = $derived.by(() => buildTree(summaries));
   const visibleRows = $derived.by(() => flattenTree(tree, expandedGraphIds));
-  const displayStatus = $derived(status || selectionError);
+  const favorites = $derived(
+    summaries.filter((summary) => summary.is_favorite),
+  );
+  const displayStatus = $derived(status || selectionError || favoriteError);
 
   function buildTree(summaries: readonly GraphSummary[]): TreeNode[] {
     const nodes = new Map<string, TreeNode>(
@@ -133,7 +144,93 @@
       isSelecting = false;
     }
   }
+
+  async function changeFavorite(
+    event: MouseEvent,
+    summary: GraphSummary,
+  ): Promise<void> {
+    event.stopPropagation();
+    if (isFavoriting) return;
+
+    isFavoriting = true;
+    favoriteError = "";
+    try {
+      if (!(await onFavoriteChange(summary, !summary.is_favorite)) && !status) {
+        favoriteError = "Unable to update favourite.";
+      }
+    } catch {
+      if (!status) favoriteError = "Unable to update favourite.";
+    } finally {
+      isFavoriting = false;
+    }
+  }
 </script>
+
+{#snippet graphRow(row: TreeRow, location: "favourite" | "tree")}
+  <tr
+    data-depth={location === "tree" ? row.depth : undefined}
+    data-disabled={isSelecting || isFavoriting || undefined}
+    data-graph-location={location}
+    data-revision-id={row.summary.revision_id}
+    data-selected={selectedRevisionId === row.summary.revision_id || undefined}
+  >
+    <td class="graph-tree-graph">
+      <div
+        class="graph-tree-row"
+        style:--depth={location === "tree" ? row.depth : 0}
+      >
+        {#if location === "tree" && row.hasChildren}
+          <Button.Root
+            type="button"
+            class="graph-tree-toggle"
+            aria-label={`${expandedGraphIds.has(row.summary.revision_id) ? "Collapse" : "Expand"} ${row.summary.title}`}
+            aria-expanded={expandedGraphIds.has(row.summary.revision_id)}
+            disabled={isSelecting || isFavoriting}
+            onclick={() => toggleGraph(row.summary.revision_id)}
+          >
+            <Icon
+              name={expandedGraphIds.has(row.summary.revision_id)
+                ? "chevron-down"
+                : "chevron-right"}
+              size={18}
+            />
+          </Button.Root>
+        {/if}
+        <input
+          class="graph-tree-selection"
+          type="checkbox"
+          checked={selectedRevisionId === row.summary.revision_id}
+          aria-hidden="true"
+          tabindex="-1"
+          disabled
+        />
+        <button
+          type="button"
+          class="graph-tree-select"
+          disabled={isSelecting || isFavoriting}
+          onclick={() => select(row.summary)}
+        >
+          <span class="graph-tree-title">{row.summary.title}</span>
+        </button>
+        <button
+          type="button"
+          class="graph-tree-favorite"
+          aria-label={`${row.summary.is_favorite ? "Remove" : "Add"} ${row.summary.title} ${row.summary.is_favorite ? "from" : "to"} favourites`}
+          aria-pressed={row.summary.is_favorite}
+          disabled={isSelecting || isFavoriting}
+          onclick={(event) => changeFavorite(event, row.summary)}
+        >
+          <Icon name={row.summary.is_favorite ? "star-filled" : "star"} />
+        </button>
+      </div>
+    </td>
+    <td class="graph-tree-revision">
+      {row.summary.revision_kind} #{row.summary.revision_number}
+    </td>
+    <td class="graph-tree-align-end">{row.summary.node_count}</td>
+    <td class="graph-tree-align-end">{row.summary.edge_count}</td>
+  </tr>
+{/snippet}
 
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
   {#if open}
@@ -170,68 +267,24 @@
                   <th class="graph-tree-align-end">Edges</th>
                 </tr>
               </thead>
+              {#if favorites.length}
+                <tbody aria-labelledby={`${id}-favourites`}>
+                  <tr class="graph-tree-section-heading">
+                    <th id={`${id}-favourites`} colspan="4" scope="colgroup">
+                      Favourites
+                    </th>
+                  </tr>
+                  {#each favorites as favorite (favorite.revision_id)}
+                    {@render graphRow(
+                      { summary: favorite, depth: 0, hasChildren: false },
+                      "favourite",
+                    )}
+                  {/each}
+                </tbody>
+              {/if}
               <tbody>
                 {#each visibleRows as row (row.summary.revision_id)}
-                  <tr
-                    data-depth={row.depth}
-                    data-disabled={isSelecting || undefined}
-                    data-selected={selectedRevisionId ===
-                      row.summary.revision_id || undefined}
-                  >
-                    <td class="graph-tree-graph">
-                      <div class="graph-tree-row" style:--depth={row.depth}>
-                        {#if row.hasChildren}
-                          <Button.Root
-                            type="button"
-                            class="graph-tree-toggle"
-                            aria-label={`${expandedGraphIds.has(row.summary.revision_id) ? "Collapse" : "Expand"} ${row.summary.title}`}
-                            aria-expanded={expandedGraphIds.has(
-                              row.summary.revision_id,
-                            )}
-                            disabled={isSelecting}
-                            onclick={() => toggleGraph(row.summary.revision_id)}
-                          >
-                            <Icon
-                              name={expandedGraphIds.has(
-                                row.summary.revision_id,
-                              )
-                                ? "chevron-down"
-                                : "chevron-right"}
-                              size={18}
-                            />
-                          </Button.Root>
-                        {/if}
-                        <input
-                          class="graph-tree-selection"
-                          type="checkbox"
-                          checked={selectedRevisionId ===
-                            row.summary.revision_id}
-                          aria-hidden="true"
-                          tabindex="-1"
-                          disabled
-                        />
-                        <button
-                          type="button"
-                          class="graph-tree-select"
-                          disabled={isSelecting}
-                          onclick={() => select(row.summary)}
-                        >
-                          <span class="graph-tree-title"
-                            >{row.summary.title}</span
-                          >
-                        </button>
-                      </div>
-                    </td>
-                    <td class="graph-tree-revision">
-                      {row.summary.revision_kind} #{row.summary.revision_number}
-                    </td>
-                    <td class="graph-tree-align-end"
-                      >{row.summary.node_count}</td
-                    >
-                    <td class="graph-tree-align-end"
-                      >{row.summary.edge_count}</td
-                    >
-                  </tr>
+                  {@render graphRow(row, "tree")}
                 {/each}
               </tbody>
             </table>
@@ -346,6 +399,16 @@
     vertical-align: middle;
   }
 
+  .graph-tree-section-heading th {
+    position: static;
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border-bottom: 1px solid var(--ds-color-border-soft);
+    background: var(--ds-color-accent-soft);
+    color: var(--ds-color-text);
+    font-weight: 600;
+    text-align: left;
+  }
+
   .graph-tree-picker-table tbody tr:last-child td {
     border-bottom: 0;
   }
@@ -412,13 +475,30 @@
     text-align: left;
   }
 
+  .graph-tree-favorite {
+    display: grid;
+    width: var(--ds-control-height);
+    min-height: var(--ds-control-height);
+    flex: none;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+  }
+
+  .graph-tree-favorite[aria-pressed="true"] {
+    color: var(--ds-color-accent);
+  }
+
   :global(.graph-tree-toggle:focus-visible),
-  .graph-tree-select:focus-visible {
+  .graph-tree-select:focus-visible,
+  .graph-tree-favorite:focus-visible {
     outline: 2px solid var(--ds-color-focus);
     outline-offset: -2px;
   }
 
   .graph-tree-select:disabled,
+  .graph-tree-favorite:disabled,
   :global(.graph-tree-toggle:disabled),
   .graph-tree-toolbar :global(button:disabled) {
     cursor: default;

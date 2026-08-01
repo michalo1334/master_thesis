@@ -22,6 +22,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     GraphConnectivityReply,
     OpenGraphPayload,
     OpenGraphReply,
+    SetGraphRevisionFavoritePayload,
+    SetGraphRevisionFavoriteReply,
     GraphSummary,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
@@ -89,6 +91,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("compare_graphs", params, socket) do
     {:reply, compare_graphs(params), socket}
+  end
+
+  @impl true
+  def handle_event("set_graph_revision_favorite", params, socket) do
+    {:reply, set_graph_revision_favorite(params), socket}
   end
 
   @impl true
@@ -373,6 +380,21 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
+  defp set_graph_revision_favorite(params) do
+    case SetGraphRevisionFavoritePayload.validate(params) do
+      {:ok, request} ->
+        case Graphs.set_favorite(request.graph_revision_id, request.favorite) do
+          {:ok, favorite} -> graph_revision_favorite_reply("ok", favorite)
+          {:error, :not_found} -> graph_revision_favorite_reply("not_found", false)
+          {:error, :invalid_graph} -> graph_revision_favorite_reply("invalid_graph", false)
+          {:error, _reason} -> graph_revision_favorite_reply("unmapped_error", false)
+        end
+
+      {:error, _changeset} ->
+        graph_revision_favorite_reply("invalid_graph", false)
+    end
+  end
+
   defp compare_validated_graphs(request) do
     with %NetworkDefense.Graph.Graph{} = base <- Graphs.load_revision(request.base_revision_id),
          %NetworkDefense.Graph.Graph{} = comparison <-
@@ -442,6 +464,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp compare_graphs_reply(status, result \\ nil) do
     contract_reply(CompareGraphsReply, %{status: status, result: result})
+  end
+
+  defp graph_revision_favorite_reply(status, favorite) do
+    contract_reply(SetGraphRevisionFavoriteReply, %{status: status, favorite: favorite})
   end
 
   defp graph_connectivity_reply do

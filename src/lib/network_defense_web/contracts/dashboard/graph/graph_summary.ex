@@ -12,6 +12,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
     field :revision_kind, :string
     field :node_count, :integer
     field :edge_count, :integer
+    field :is_favorite, :boolean
   end
 
   @type t :: %__MODULE__{
@@ -22,7 +23,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
           revision_number: pos_integer(),
           revision_kind: String.t(),
           node_count: non_neg_integer(),
-          edge_count: non_neg_integer()
+          edge_count: non_neg_integer(),
+          is_favorite: boolean()
         }
 
   def from_domain(summary) do
@@ -34,7 +36,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       revision_number: summary.revisionNumber,
       revision_kind: summary.revisionKind,
       node_count: summary.nodeCount,
-      edge_count: summary.edgeCount
+      edge_count: summary.edgeCount,
+      is_favorite: summary.isFavorite
     })
   end
 
@@ -48,7 +51,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       :revision_number,
       :revision_kind,
       :node_count,
-      :edge_count
+      :edge_count,
+      :is_favorite
     ])
     |> validate_required([
       :graph_id,
@@ -57,7 +61,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       :revision_number,
       :revision_kind,
       :node_count,
-      :edge_count
+      :edge_count,
+      :is_favorite
     ])
     |> Contracts.validate_uuid(:graph_id)
     |> Contracts.validate_uuid(:revision_id)

@@ -127,6 +127,13 @@
     return wm.selectGraphForComparison(api, summary);
   }
 
+  async function handleFavoriteChange(
+    summary: GraphSummary,
+    favorite: boolean,
+  ): Promise<boolean> {
+    return wm.setGraphRevisionFavorite(api, summary, favorite);
+  }
+
   async function handleExperimentSelect([
     experiment,
   ]: ExperimentSummary[]): Promise<boolean> {
@@ -193,6 +200,7 @@
     summaries={wm.graphSummaries}
     status={wm.topologyPickerStatus}
     onSelect={handleTopologySelect}
+    onFavoriteChange={handleFavoriteChange}
   />
 
   <GraphTreePickerDialog
@@ -204,6 +212,7 @@
     description={wm.graphComparisonPickerDescription}
     selectedRevisionId={wm.graphComparisonBase?.revision_id ?? undefined}
     onSelect={handleGraphComparisonSelect}
+    onFavoriteChange={handleFavoriteChange}
   />
 
   <OptionPickerDialog

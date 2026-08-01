@@ -37,6 +37,9 @@ import type {
   GraphDiffResult,
   GraphDiffCounts,
   GraphDiffStatusEntry,
+  GraphSummary,
+  SetGraphRevisionFavoritePayload,
+  SetGraphRevisionFavoriteReply,
 } from "../contracts.generated";
 
 export type {
@@ -91,6 +94,8 @@ export type {
   GraphDiffCounts,
   GraphDiffStatusEntry,
   GraphSummary,
+  SetGraphRevisionFavoritePayload,
+  SetGraphRevisionFavoriteReply,
   SimulationReportErrorEvent,
 } from "../contracts.generated";
 

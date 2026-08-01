@@ -19,6 +19,7 @@ function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
     parent_revision_id: null,
     revision_kind: "original",
     revision_number: 1,
+    is_favorite: false,
     ...overrides,
   };
 }
@@ -450,6 +451,7 @@ describe("WorkspaceModel", () => {
           revision_number: 2,
           node_count: 1,
           edge_count: 0,
+          is_favorite: false,
         },
       ]);
     });
@@ -459,6 +461,40 @@ describe("WorkspaceModel", () => {
 
       expect(model.graphSummaries).toHaveLength(1);
       expect(model.graphSummaries[0]?.graph_id).toBe("g2");
+    });
+  });
+
+  describe("setGraphRevisionFavorite", () => {
+    it("updates the matching summary after the server accepts the change", async () => {
+      model = new WorkspaceModel([makeGraphSummary()]);
+      const api = {
+        setGraphRevisionFavorite: vi
+          .fn()
+          .mockResolvedValue({ status: "ok", favorite: true }),
+      } as unknown as DashboardApi;
+
+      await expect(
+        model.setGraphRevisionFavorite(api, model.graphSummaries[0]!, true),
+      ).resolves.toBe(true);
+
+      expect(api.setGraphRevisionFavorite).toHaveBeenCalledWith("r1", true);
+      expect(model.graphSummaries[0]?.is_favorite).toBe(true);
+    });
+
+    it("keeps summaries unchanged when the server rejects the change", async () => {
+      model = new WorkspaceModel([makeGraphSummary()]);
+      const api = {
+        setGraphRevisionFavorite: vi
+          .fn()
+          .mockResolvedValue({ status: "not_found", favorite: false }),
+      } as unknown as DashboardApi;
+
+      await expect(
+        model.setGraphRevisionFavorite(api, model.graphSummaries[0]!, true),
+      ).resolves.toBe(false);
+
+      expect(model.graphSummaries[0]?.is_favorite).toBe(false);
+      expect(model.topologyPickerStatus).toBe("Graph not found.");
     });
   });
 

@@ -131,6 +131,29 @@ defmodule NetworkDefense.Graph.GraphTest do
     assert optimization.revisionId == optimized.revision_id
   end
 
+  test "marks individual revisions as favorites without changing snapshots" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
+    revision = Repo.get!(GraphRevision, original.revision_id)
+
+    assert [%{isFavorite: false}] =
+             Graphs.list_summaries() |> Enum.filter(&(&1.revisionId == original.revision_id))
+
+    assert {:ok, true} = Graphs.set_favorite(original.revision_id, true)
+
+    assert [%{isFavorite: true}] =
+             Graphs.list_summaries() |> Enum.filter(&(&1.revisionId == original.revision_id))
+
+    assert revision == Repo.get!(GraphRevision, original.revision_id)
+
+    assert {:ok, false} = Graphs.set_favorite(original.revision_id, false)
+
+    assert [%{isFavorite: false}] =
+             Graphs.list_summaries() |> Enum.filter(&(&1.revisionId == original.revision_id))
+
+    assert {:error, :not_found} = Graphs.set_favorite(Ecto.UUID.generate(), true)
+    assert {:error, :invalid_graph} = Graphs.set_favorite("invalid", true)
+  end
+
   test "rejects identities owned by another graph" do
     assert {:ok, first} = Graphs.insert(graph("First"))
     [node | _] = Graph.nodes(first)

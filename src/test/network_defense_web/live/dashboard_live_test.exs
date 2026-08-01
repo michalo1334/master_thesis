@@ -127,6 +127,41 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
+  describe "set_graph_revision_favorite" do
+    test "updates a graph revision favorite", %{conn: conn} do
+      graph = insert_graph("favorite")
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "set_graph_revision_favorite", %{
+        "graph_revision_id" => graph.revision_id,
+        "favorite" => true
+      })
+
+      assert_reply(view, %{status: "ok", favorite: true})
+
+      assert %{isFavorite: true} =
+               Graphs.list_summaries() |> Enum.find(&(&1.revisionId == graph.revision_id))
+
+      render_hook(view, "set_graph_revision_favorite", %{
+        "graph_revision_id" => graph.revision_id,
+        "favorite" => false
+      })
+
+      assert_reply(view, %{status: "ok", favorite: false})
+
+      assert %{isFavorite: false} =
+               Graphs.list_summaries() |> Enum.find(&(&1.revisionId == graph.revision_id))
+    end
+
+    test "rejects an invalid graph revision favorite request", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "set_graph_revision_favorite", %{"favorite" => true})
+
+      assert_reply(view, %{status: "invalid_graph", favorite: false})
+    end
+  end
+
   describe "compare_graphs" do
     test "rejects an invalid base graph", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")

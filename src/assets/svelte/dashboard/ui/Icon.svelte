@@ -20,6 +20,8 @@
     "chevron-down": "hero-chevron-down",
     plus: "hero-plus",
     "squares-2x2": "hero-squares-2x2",
+    star: "hero-star",
+    "star-filled": "hero-star-solid",
   };
 
   let { name, size = 18 }: Props = $props();

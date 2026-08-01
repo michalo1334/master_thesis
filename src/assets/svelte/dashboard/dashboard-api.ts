@@ -19,6 +19,8 @@ import type {
   CreateConnectionDraftReply,
   CompareGraphsPayload,
   CompareGraphsReply,
+  SetGraphRevisionFavoritePayload,
+  SetGraphRevisionFavoriteReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 
@@ -56,6 +58,10 @@ export interface DashboardApi {
     baseRevisionId: string,
     comparisonRevisionId: string,
   ): Promise<CompareGraphsReply>;
+  setGraphRevisionFavorite(
+    revisionId: string,
+    favorite: boolean,
+  ): Promise<SetGraphRevisionFavoriteReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -164,6 +170,15 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
           comparison_revision_id: comparisonRevisionId,
         },
       );
+    },
+    setGraphRevisionFavorite(revisionId, favorite) {
+      return requestReply<
+        SetGraphRevisionFavoritePayload,
+        SetGraphRevisionFavoriteReply
+      >(live, "set_graph_revision_favorite", {
+        graph_revision_id: revisionId,
+        favorite,
+      });
     },
   };
 }

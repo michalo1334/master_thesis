@@ -6,7 +6,7 @@ defmodule NetworkDefense.Graph.Graphs do
   import Ecto.Query
 
   alias Ecto.Changeset
-  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, Node}
+  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Repo
 
@@ -60,8 +60,11 @@ defmodule NetworkDefense.Graph.Graphs do
     |> join(:left, [revision], edge_count in subquery(edge_counts),
       on: edge_count.graph_revision_id == revision.id
     )
+    |> join(:left, [revision], favorite in GraphRevisionFavorite,
+      on: favorite.graph_revision_id == revision.id
+    )
     |> order_by([revision], asc: revision.graph_id, asc: revision.number)
-    |> select([revision, node_count, edge_count], %{
+    |> select([revision, node_count, edge_count, favorite], %{
       graphId: revision.graph_id,
       revisionId: revision.id,
       parentRevisionId: revision.parent_revision_id,
@@ -69,11 +72,24 @@ defmodule NetworkDefense.Graph.Graphs do
       revisionKind: revision.kind,
       revisionNumber: revision.number,
       nodeCount: coalesce(node_count.count, 0),
-      edgeCount: coalesce(edge_count.count, 0)
+      edgeCount: coalesce(edge_count.count, 0),
+      isFavorite: not is_nil(favorite.graph_revision_id)
     })
     |> Repo.all()
     |> Enum.map(&Map.update!(&1, :revisionKind, fn kind -> Atom.to_string(kind) end))
   end
+
+  def set_favorite(id, favorite) when is_boolean(favorite) do
+    with {:ok, id} <- Ecto.UUID.cast(id),
+         %GraphRevision{} <- Repo.get(GraphRevision, id) do
+      update_favorite(id, favorite)
+    else
+      :error -> {:error, :invalid_graph}
+      nil -> {:error, :not_found}
+    end
+  end
+
+  def set_favorite(_id, _favorite), do: {:error, :invalid_graph}
 
   def replace(id, attrs) when is_binary(id) and is_map(attrs) do
     with {:ok, id} <- Ecto.UUID.cast(id),
@@ -124,6 +140,24 @@ defmodule NetworkDefense.Graph.Graphs do
       {:error, %Changeset{} = changeset} -> {:error, {:graph, changeset}}
       {:error, _reason} = error -> error
     end
+  end
+
+  defp update_favorite(id, true) do
+    case Repo.insert(%GraphRevisionFavorite{graph_revision_id: id},
+           on_conflict: :nothing,
+           conflict_target: :graph_revision_id
+         ) do
+      {:ok, _favorite} -> {:ok, true}
+      {:error, _changeset} -> {:error, :unmapped_error}
+    end
+  end
+
+  defp update_favorite(id, false) do
+    GraphRevisionFavorite
+    |> where([favorite], favorite.graph_revision_id == ^id)
+    |> Repo.delete_all()
+
+    {:ok, false}
   end
 
   defp insert_initial_graph(graph) do

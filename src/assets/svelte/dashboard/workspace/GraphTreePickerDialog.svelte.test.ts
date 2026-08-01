@@ -18,6 +18,7 @@ const root: GraphSummary = {
   parent_revision_id: null,
   revision_kind: "original",
   revision_number: 1,
+  is_favorite: false,
 };
 
 const child: GraphSummary = {
@@ -29,6 +30,7 @@ const child: GraphSummary = {
   parent_revision_id: root.revision_id,
   revision_kind: "edit",
   revision_number: 2,
+  is_favorite: false,
 };
 
 const grandchild: GraphSummary = {
@@ -40,6 +42,7 @@ const grandchild: GraphSummary = {
   parent_revision_id: child.revision_id,
   revision_kind: "edit",
   revision_number: 3,
+  is_favorite: false,
 };
 
 const sibling: GraphSummary = {
@@ -51,6 +54,7 @@ const sibling: GraphSummary = {
   parent_revision_id: null,
   revision_kind: "original",
   revision_number: 1,
+  is_favorite: false,
 };
 
 const siblingChild: GraphSummary = {
@@ -62,6 +66,12 @@ const siblingChild: GraphSummary = {
   parent_revision_id: sibling.revision_id,
   revision_kind: "edit",
   revision_number: 2,
+  is_favorite: false,
+};
+
+const favorite: GraphSummary = {
+  ...sibling,
+  is_favorite: true,
 };
 
 afterEach(cleanup);
@@ -74,6 +84,7 @@ describe("GraphTreePickerDialog", () => {
         onOpenChange: vi.fn(),
         summaries: [root],
         onSelect: vi.fn(),
+        onFavoriteChange: vi.fn(),
         title: "Compare graphs",
         description: "Select the base graph to compare.",
       },
@@ -94,6 +105,7 @@ describe("GraphTreePickerDialog", () => {
         onOpenChange: vi.fn(),
         summaries: [root],
         onSelect: vi.fn(),
+        onFavoriteChange: vi.fn(),
       },
     });
 
@@ -117,6 +129,7 @@ describe("GraphTreePickerDialog", () => {
         onOpenChange: vi.fn(),
         summaries: [root, child, grandchild, sibling, siblingChild],
         onSelect,
+        onFavoriteChange: vi.fn(),
       },
     });
 
@@ -173,6 +186,7 @@ describe("GraphTreePickerDialog", () => {
         onOpenChange: vi.fn(),
         summaries: [root, child, grandchild],
         onSelect: vi.fn(),
+        onFavoriteChange: vi.fn(),
       },
     });
 
@@ -207,6 +221,7 @@ describe("GraphTreePickerDialog", () => {
         onOpenChange,
         summaries: [root, child, grandchild],
         onSelect: vi.fn(),
+        onFavoriteChange: vi.fn(),
       },
     });
 
@@ -226,5 +241,54 @@ describe("GraphTreePickerDialog", () => {
     expect(
       screen.queryByRole("button", { name: "Child graph" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows favourites above the tree and keeps their tree entries", () => {
+    render(GraphTreePickerDialog, {
+      props: {
+        open: true,
+        onOpenChange: vi.fn(),
+        summaries: [root, favorite],
+        onSelect: vi.fn(),
+        onFavoriteChange: vi.fn(),
+      },
+    });
+
+    expect(screen.getByText("Favourites")).toBeInTheDocument();
+    const entries = Array.from(
+      document.querySelectorAll<HTMLTableRowElement>(
+        '[data-revision-id="sibling-r1"]',
+      ),
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.dataset.graphLocation)).toEqual([
+      "favourite",
+      "tree",
+    ]);
+  });
+
+  it("changes favourites from either location without selecting the graph", async () => {
+    const onSelect = vi.fn();
+    const onFavoriteChange = vi.fn().mockResolvedValue(true);
+    render(GraphTreePickerDialog, {
+      props: {
+        open: true,
+        onOpenChange: vi.fn(),
+        summaries: [root, favorite],
+        onSelect,
+        onFavoriteChange,
+      },
+    });
+
+    const buttons = screen.getAllByRole("button", {
+      name: "Remove Sibling graph from favourites",
+    });
+    await fireEvent.click(buttons[0]);
+    await fireEvent.click(buttons[1]);
+
+    await waitFor(() =>
+      expect(onFavoriteChange).toHaveBeenNthCalledWith(2, favorite, false),
+    );
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

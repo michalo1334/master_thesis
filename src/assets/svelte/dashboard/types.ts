@@ -11,4 +11,6 @@ export type IconName =
   | "chevron-right"
   | "chevron-down"
   | "plus"
-  | "squares-2x2";
+  | "squares-2x2"
+  | "star"
+  | "star-filled";

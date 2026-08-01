@@ -145,6 +145,25 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("sets a graph revision favorite", async () => {
+    const reply = { status: "ok" as const, favorite: true };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).setGraphRevisionFavorite("r1", true),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "set_graph_revision_favorite",
+      { graph_revision_id: "r1", favorite: true },
+      expect.any(Function),
+    );
+  });
+
   it("fetches graph connectivity through the LiveView reply callback", async () => {
     const reply = {
       rules: [

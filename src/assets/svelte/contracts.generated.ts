@@ -307,6 +307,7 @@ export interface GraphDiffStatusEntry {
 export interface GraphSummary {
   edge_count: number;
   graph_id: string;
+  is_favorite: boolean;
   node_count: number;
   parent_revision_id?: string | null;
   revision_id: string;
@@ -396,6 +397,16 @@ export interface SaveGraphPayload {
 export interface SaveGraphReply {
   graph?: GraphContract | null;
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
+export interface SetGraphRevisionFavoritePayload {
+  favorite: boolean;
+  graph_revision_id: string;
+}
+
+export interface SetGraphRevisionFavoriteReply {
+  favorite: boolean;
+  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
 export interface SimulationCompletedEvent {

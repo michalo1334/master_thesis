@@ -36,6 +36,7 @@ function api(): DashboardApi {
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
     compareGraphs: vi.fn(),
+    setGraphRevisionFavorite: vi.fn(),
   };
 }
 
