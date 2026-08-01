@@ -2,22 +2,21 @@ defmodule NetworkDefense.Graph.Graph do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.{Edge, Node}
+  alias NetworkDefense.Graph.{Edge, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
-
-  @tag_values [:original, :optimization]
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
   schema "graphs" do
-    belongs_to :parent, __MODULE__
-    has_many :nodes, Node
-    has_many :edges, Edge
+    has_many :revisions, GraphRevision
     field :adjacency_list, :map, virtual: true, default: %{}
-    field :lock_version, :integer, default: 1
-    field :source, Ecto.Enum, values: [:optimization]
-    field :tags, {:array, Ecto.Enum}, values: @tag_values, default: [:original]
-    field :title, :string
+    field :revision_id, :binary_id, virtual: true
+    field :parent_revision_id, :binary_id, virtual: true
+    field :revision_number, :integer, virtual: true
+    field :revision_kind, Ecto.Enum, values: [:initial, :edit, :optimization], virtual: true
+    field :title, :string, virtual: true
+    field :nodes, {:array, :map}, virtual: true, default: []
+    field :edges, {:array, :map}, virtual: true, default: []
 
     timestamps(type: :utc_datetime)
   end
@@ -30,18 +29,6 @@ defmodule NetworkDefense.Graph.Graph do
     |> cast(attrs, [:title])
     |> validate_required([:title])
     |> validate_length(:title, min: 1, max: 255)
-    |> foreign_key_constraint(:parent_id)
-  end
-
-  def insert_changeset(%__MODULE__{} = graph) do
-    %__MODULE__{
-      id: graph.id,
-      lock_version: graph.lock_version,
-      parent_id: graph.parent_id,
-      source: graph.source,
-      tags: graph.tags
-    }
-    |> changeset(%{title: graph.title})
   end
 
   def new(title) when is_binary(title) and byte_size(title) > 0 do
@@ -51,44 +38,17 @@ defmodule NetworkDefense.Graph.Graph do
       nodes: [],
       edges: [],
       adjacency_list: %{},
-      lock_version: 1
+      revision_kind: :initial
     }
-  end
-
-  def clone(%__MODULE__{} = graph) do
-    {clone, node_ids} =
-      Enum.reduce(
-        nodes(graph),
-        {
-          %{new(graph.title) | parent_id: graph.id, source: :optimization, tags: [:optimization]},
-          %{}
-        },
-        fn node, {clone, node_ids} ->
-          cloned_node =
-            Node.new(clone.id, %{type: node.type, data: node.data, view_data: node.view_data})
-
-          {add_node(clone, cloned_node), Map.put(node_ids, node.id, cloned_node.id)}
-        end
-      )
-
-    Enum.reduce(edges(graph), clone, fn edge, clone ->
-      clone
-      |> add_edge(
-        Edge.new(clone.id, node_ids[edge.from_id], node_ids[edge.to_id], %{
-          type: edge.type,
-          data: edge.data
-        })
-      )
-    end)
   end
 
   def hydrate(graph, nodes, edges) do
     graph = %{graph | nodes: [], edges: [], adjacency_list: %{}}
 
-    graph =
-      Enum.reduce(nodes, graph, fn node, graph -> put_node(graph, Node.hydrate!(node)) end)
-
-    Enum.reduce(edges, graph, fn edge, graph -> put_edge(graph, Edge.hydrate!(edge)) end)
+    case hydrate_nodes(graph, nodes) do
+      {:ok, graph} -> hydrate_edges(graph, edges)
+      {:error, _reason} = error -> error
+    end
   end
 
   def nodes(graph), do: loaded_nodes(graph.nodes)
@@ -141,7 +101,12 @@ defmodule NetworkDefense.Graph.Graph do
     }
   end
 
-  def add_edge(graph, %Edge{} = edge), do: put_edge(graph, Edge.hydrate!(edge))
+  def add_edge(graph, %Edge{} = edge) do
+    case Edge.hydrate(edge) do
+      {:ok, edge} -> put_edge!(graph, edge)
+      :error -> raise ArgumentError, "invalid edge"
+    end
+  end
 
   def add_edge(graph, %Node{} = from, %Node{} = to, attrs) when is_map(attrs) do
     add_edge(graph, Edge.new(graph.id, from.id, to.id, attrs))
@@ -151,18 +116,9 @@ defmodule NetworkDefense.Graph.Graph do
     updated_edge = Edge.hydrate!(updated_edge)
     edge!(graph, updated_edge.id)
 
-    adjacency_list =
-      Map.new(graph.adjacency_list, fn {node_id, adjacency} ->
-        {
-          node_id,
-          %{
-            outgoing: replace_edge(adjacency.outgoing, updated_edge),
-            incoming: replace_edge(adjacency.incoming, updated_edge)
-          }
-        }
-      end)
-
-    %{graph | adjacency_list: adjacency_list}
+    graph
+    |> remove_edge_by_id(updated_edge.id)
+    |> put_edge!(updated_edge)
   end
 
   def remove_node_by_id(graph, node_id) do
@@ -217,25 +173,47 @@ defmodule NetworkDefense.Graph.Graph do
   end
 
   defp put_edge(graph, edge) do
-    unless edge.graph_id == graph.id and Map.has_key?(graph.adjacency_list, edge.from_id) and
-             Map.has_key?(graph.adjacency_list, edge.to_id) do
-      raise ArgumentError, "edge endpoints must belong to graph"
+    with true <- edge.graph_id == graph.id,
+         %Node{} = from_node <- node(graph, edge.from_id),
+         %Node{} = to_node <- node(graph, edge.to_id),
+         true <- SemanticConnectivity.valid?(edge.type, from_node.type, to_node.type) do
+      adjacency_list = graph.adjacency_list |> add_outgoing_edge(edge) |> add_incoming_edge(edge)
+      {:ok, %{graph | adjacency_list: adjacency_list}}
+    else
+      _ -> {:error, :invalid_endpoints}
     end
-
-    from_node = node(graph, edge.from_id)
-    to_node = node(graph, edge.to_id)
-
-    unless SemanticConnectivity.valid?(edge.type, from_node.type, to_node.type) do
-      raise ArgumentError, "edge type #{edge.type} not valid for its endpoint types"
-    end
-
-    adjacency_list = graph.adjacency_list |> add_outgoing_edge(edge) |> add_incoming_edge(edge)
-    %{graph | adjacency_list: adjacency_list}
   end
 
-  defp replace_edge(edges, updated_edge) do
-    Enum.map(edges, fn {node_id, edge} ->
-      if edge.id == updated_edge.id, do: {node_id, updated_edge}, else: {node_id, edge}
+  defp put_edge!(graph, edge) do
+    case put_edge(graph, edge) do
+      {:ok, graph} ->
+        graph
+
+      {:error, :invalid_endpoints} ->
+        raise ArgumentError, "edge type is not valid for graph endpoints"
+    end
+  end
+
+  defp hydrate_nodes(graph, nodes) do
+    Enum.reduce_while(nodes, {:ok, graph}, fn node, {:ok, graph} ->
+      case Node.hydrate(node) do
+        {:ok, %{graph_id: graph_id} = node} when graph_id == graph.id ->
+          {:cont, {:ok, put_node(graph, node)}}
+
+        _ ->
+          {:halt, {:error, :invalid_graph}}
+      end
+    end)
+  end
+
+  defp hydrate_edges(graph, edges) do
+    Enum.reduce_while(edges, {:ok, graph}, fn edge, {:ok, graph} ->
+      with {:ok, edge} <- Edge.hydrate(edge),
+           {:ok, graph} <- put_edge(graph, edge) do
+        {:cont, {:ok, graph}}
+      else
+        _ -> {:halt, {:error, :invalid_endpoints}}
+      end
     end)
   end
 

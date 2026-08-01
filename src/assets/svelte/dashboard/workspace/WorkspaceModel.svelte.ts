@@ -78,14 +78,18 @@ export class WorkspaceModel {
 
   upsertGraphSummary(graph: LoadedGraph): void {
     const summary: GraphSummary = {
-      id: graph.id,
+      graph_id: graph.id,
       title: graph.title,
-      parent_id: graph.parent_id ?? null,
-      tags: graph.tags,
+      revision_id: graph.revision_id ?? "",
+      parent_revision_id: graph.parent_revision_id ?? null,
+      revision_kind: graph.revision_kind ?? "draft",
+      revision_number: graph.revision_number ?? 0,
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
     };
-    const index = this.graphSummaries.findIndex(({ id }) => id === graph.id);
+    const index = this.graphSummaries.findIndex(
+      ({ revision_id }) => revision_id === graph.revision_id,
+    );
     this.graphSummaries =
       index === -1
         ? [...this.graphSummaries, summary]
@@ -169,7 +173,7 @@ export class WorkspaceModel {
   ): Promise<EditableGraphDocument | undefined> {
     this.upsertGraphSummary(graph);
     const existing = this.documents.find(
-      (d) => d.kind === "graph" && d.loadedGraphId === graph.id,
+      (d) => d.kind === "graph" && d.loadedRevisionId === graph.revision_id,
     ) as EditableGraphDocument | undefined;
     if (existing) {
       this.selectedDocumentId = existing.id;
@@ -199,7 +203,7 @@ export class WorkspaceModel {
   async openGraph(api: DashboardApi, summary: GraphSummary): Promise<boolean> {
     this.topologyPickerStatus = "";
     try {
-      const reply = await api.openGraph(summary.id);
+      const reply = await api.openGraph(summary.revision_id);
       if (reply.status === "ok" && reply.graph) {
         this.openLoadedGraph(reply.graph, api);
         return true;
@@ -223,7 +227,7 @@ export class WorkspaceModel {
   }
 
   beginGraphComparisonWithActive(document: EditableGraphDocument): void {
-    if (!document.loadedGraphId) {
+    if (!document.loadedRevisionId || document.isDirty) {
       this.statusMessage = "Save the graph before comparing it.";
       return;
     }
@@ -240,14 +244,19 @@ export class WorkspaceModel {
     summary: GraphSummary,
   ): Promise<boolean> {
     this.graphComparisonPickerStatus = "";
-    if (this.graphComparisonBase?.id === summary.id) {
+    if (this.graphComparisonBase?.revision_id === summary.revision_id) {
       this.graphComparisonPickerStatus = "Select a different graph.";
       return false;
     }
     const base = this.graphComparisonBase;
     try {
       if (base) {
-        const comparison = await api.compareGraphs(base, summary.id);
+        const baseRevisionId = base.revision_id;
+        if (!baseRevisionId) return false;
+        const comparison = await api.compareGraphs(
+          baseRevisionId,
+          summary.revision_id,
+        );
         if (comparison.status !== "ok" || !comparison.result) {
           this.graphComparisonPickerStatus =
             comparison.status === "not_found"
@@ -262,7 +271,7 @@ export class WorkspaceModel {
         return true;
       }
 
-      const reply = await api.openGraph(summary.id);
+      const reply = await api.openGraph(summary.revision_id);
       if (reply.status !== "ok" || !reply.graph) {
         this.graphComparisonPickerStatus = "Failed to open graph.";
         return false;
@@ -288,10 +297,10 @@ export class WorkspaceModel {
 
   async openOptimizationResult(
     api: DashboardApi,
-    graphId: string,
+    graphRevisionId: string,
   ): Promise<boolean> {
     try {
-      const reply = await api.openGraph(graphId);
+      const reply = await api.openGraph(graphRevisionId);
       if (reply.status !== "ok" || !reply.graph) {
         this.statusMessage = "Failed to open optimized graph.";
         return false;
@@ -307,22 +316,22 @@ export class WorkspaceModel {
 
   async loadOptimizationGraphDiff(
     api: DashboardApi,
-    baseGraphId: string,
-    optimizedGraphId: string,
+    baseRevisionId: string,
+    optimizedRevisionId: string,
   ): Promise<GraphDiffDocument | undefined> {
     try {
-      const baseReply = await api.openGraph(baseGraphId);
+      const baseReply = await api.openGraph(baseRevisionId);
       if (baseReply.status !== "ok" || !baseReply.graph) return undefined;
 
       const comparison = await api.compareGraphs(
-        baseReply.graph,
-        optimizedGraphId,
+        baseRevisionId,
+        optimizedRevisionId,
       );
       if (comparison.status !== "ok" || !comparison.result) return undefined;
 
       return new GraphDiffDocument(
         baseReply.graph,
-        { id: optimizedGraphId, title: "Optimized graph" },
+        { revisionId: optimizedRevisionId, title: "Optimized graph" },
         comparison.result,
       );
     } catch {
@@ -334,12 +343,14 @@ export class WorkspaceModel {
     const doc = this.activeGraph;
     if (!doc) return false;
     const saved = await doc.save(api);
+    if (saved) this.upsertGraphSummary(doc.graph);
     this.statusMessage = doc.saveStatusMessage;
     return saved;
   }
 
   createPendingReport(info: {
     graphId: string;
+    graphRevisionId: string;
     correlationId: string;
     graphTitle: string;
   }): SimulationReportDocument {
@@ -354,7 +365,11 @@ export class WorkspaceModel {
       report = existing;
       report.markPending(info.correlationId);
     } else {
-      report = new SimulationReportDocument(info.graphTitle, info.graphId);
+      report = new SimulationReportDocument(
+        info.graphTitle,
+        info.graphId,
+        info.graphRevisionId,
+      );
       report.markPending(info.correlationId);
       this.documents.push(report);
     }
@@ -364,6 +379,7 @@ export class WorkspaceModel {
 
   createPendingOptimizationReport(info: {
     graphId: string;
+    graphRevisionId: string;
     graphTitle: string;
     correlationId: string;
     strategy: OptimizationStrategy;
@@ -400,17 +416,17 @@ export class WorkspaceModel {
   async showExperiments(api: DashboardApi): Promise<void> {
     if (this.isLoadingExperiments) return;
 
-    const graphIds = this.documents
+    const graphRevisionIds = this.documents
       .flatMap((document) =>
-        document.kind === "graph" && document.loadedGraphId
-          ? [document.loadedGraphId]
+        document.kind === "graph" && document.loadedRevisionId
+          ? [document.loadedRevisionId]
           : [],
       )
       .filter((id, index, ids) => ids.indexOf(id) === index);
 
     this.experimentsStatus = "";
     this.experimentsModalOpen = true;
-    if (graphIds.length === 0) {
+    if (graphRevisionIds.length === 0) {
       this.experiments = [];
       this.experimentsStatus = "No experiments found.";
       return;
@@ -418,7 +434,7 @@ export class WorkspaceModel {
 
     this.isLoadingExperiments = true;
     try {
-      const reply = await api.fetchExperiments(graphIds);
+      const reply = await api.fetchExperiments(graphRevisionIds);
       this.experiments = reply.experiments;
       if (reply.experiments.length === 0) {
         this.experimentsStatus = "No experiments found.";
@@ -446,13 +462,14 @@ export class WorkspaceModel {
       report = new SimulationReportDocument(
         experiment.graph_title,
         experiment.graph_id,
+        experiment.graph_revision_id,
       );
       report.markReady(experiment.id);
       this.documents.push(report);
     }
 
     this.selectedDocumentId = report.id;
-    report.load(api, experiment.id, experiment.graph_id);
+    report.load(api, experiment.id, experiment.graph_revision_id);
     return true;
   }
 
@@ -518,7 +535,11 @@ export class WorkspaceModel {
     comparison: GraphSummary,
     result: GraphDiffResult,
   ): GraphDiffDocument {
-    const document = new GraphDiffDocument(base, comparison, result);
+    const document = new GraphDiffDocument(
+      base,
+      { revisionId: comparison.revision_id, title: comparison.title },
+      result,
+    );
     this.documents.push(document);
     this.selectedDocumentId = document.id;
     return document;

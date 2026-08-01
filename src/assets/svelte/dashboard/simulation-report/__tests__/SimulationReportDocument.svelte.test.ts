@@ -18,15 +18,16 @@ function makeReport(
     graph: {
       id: "g1",
       title: "Topology",
-      lock_version: 1,
-      parent_id: null,
-      tags: ["original"],
+      revision_id: "r1",
+      parent_revision_id: null,
+      revision_kind: "original",
+      revision_number: 1,
       nodes: [],
       edges: [],
     },
     graph_id: "g1",
+    graph_revision_id: "r1",
     graph_title: "Topology",
-    graph_version_at_sim: 1,
     iteration_count: 100,
     summary: {
       expected_blast_radius: 2,
@@ -50,21 +51,21 @@ describe("SimulationReportDocument", () => {
     const api = {
       requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
-    const document = new SimulationReportDocument("Topology", "g1");
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-1", "g1");
+    document.load(api, "sim-1", "r1");
 
     expect(document.status).toBe("loading");
-    expect(api.requestSimulationReport).toHaveBeenCalledWith("sim-1", "g1");
+    expect(api.requestSimulationReport).toHaveBeenCalledWith("sim-1", "r1");
   });
 
   it("applies a report only for the active experiment", () => {
     const api = {
       requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
-    const document = new SimulationReportDocument("Topology", "g1");
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-current", "g1");
+    document.load(api, "sim-current", "r1");
     document.setReportData(makeReport({ experiment_id: "sim-stale" }));
 
     expect(document.status).toBe("loading");
@@ -75,9 +76,9 @@ describe("SimulationReportDocument", () => {
     const api = {
       requestSimulationReport: vi.fn(),
     } as unknown as DashboardApi;
-    const document = new SimulationReportDocument("Topology", "g1");
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-1", "g1");
+    document.load(api, "sim-1", "r1");
     document.setReportData(makeReport());
 
     expect(document.status).toBe("loaded");
@@ -85,7 +86,7 @@ describe("SimulationReportDocument", () => {
   });
 
   it("keeps heatmap selection local and clears it with a new layout", () => {
-    const document = new SimulationReportDocument("Topology", "g1");
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
 
     document.markReady("sim-1");
     document.selectHeatmapNode("node-1");
@@ -103,7 +104,7 @@ describe("SimulationReportDocument", () => {
   });
 
   it("explains when the topology changed after a simulation", () => {
-    const document = new SimulationReportDocument("Topology", "g1");
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
 
     document.markError("graph_version_mismatch");
 

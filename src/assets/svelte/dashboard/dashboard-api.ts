@@ -31,20 +31,20 @@ export type LiveServer = {
 };
 
 export interface DashboardApi {
-  openGraph(graphId: string): Promise<OpenGraphReply>;
+  openGraph(graphRevisionId: string): Promise<OpenGraphReply>;
   saveGraph(graph: LoadedGraph): Promise<SaveGraphReply>;
   runSimulation(
-    graphId: string,
+    graphRevisionId: string,
     correlationId: string,
     simulationParams: SimulationParams,
   ): Promise<RunSimulationReply>;
   runOptimization(
-    graphId: string,
+    graphRevisionId: string,
     correlationId: string,
     optimizationParams: OptimizationParams,
   ): Promise<RunOptimizationReply>;
-  requestSimulationReport(experimentId: string, graphId: string): void;
-  fetchExperiments(graphIds: string[]): Promise<FetchExperimentsReply>;
+  requestSimulationReport(experimentId: string, graphRevisionId: string): void;
+  fetchExperiments(graphRevisionIds: string[]): Promise<FetchExperimentsReply>;
   fetchGraphConnectivity(): Promise<GraphConnectivityReply>;
   createNodeDraft(
     payload: CreateNodeDraftPayload,
@@ -53,8 +53,8 @@ export interface DashboardApi {
     payload: CreateConnectionDraftPayload,
   ): Promise<CreateConnectionDraftReply>;
   compareGraphs(
-    baseGraph: LoadedGraph,
-    comparisonGraphId: string,
+    baseRevisionId: string,
+    comparisonRevisionId: string,
   ): Promise<CompareGraphsReply>;
 }
 
@@ -70,57 +70,69 @@ function requestReply<TPayload extends object, TReply>(
 
 export function createDashboardApi(live: LiveServer): DashboardApi {
   return {
-    openGraph(graphId) {
+    openGraph(graphRevisionId) {
       return requestReply<OpenGraphPayload, OpenGraphReply>(
         live,
         "open_graph",
-        { graph_id: graphId },
+        { graph_revision_id: graphRevisionId },
       );
     },
     saveGraph(graph) {
+      if (graph.revision_id == null) {
+        return Promise.resolve({ status: "invalid_graph" });
+      }
+
       return requestReply<SaveGraphPayload, SaveGraphReply>(
         live,
         "save_graph",
-        { graph },
+        {
+          graph: {
+            id: graph.id,
+            revision_id: graph.revision_id,
+            title: graph.title,
+            nodes: graph.nodes,
+            edges: graph.edges,
+          },
+        },
       );
     },
-    runSimulation(graphId, correlationId, simulationParams) {
+    runSimulation(graphRevisionId, correlationId, simulationParams) {
       return requestReply<RunSimulationPayload, RunSimulationReply>(
         live,
         "run_simulation_request",
         {
           request: {
-            graph_id: graphId,
+            graph_revision_id: graphRevisionId,
             correlation_id: correlationId,
             simulation_params: simulationParams,
           },
         },
       );
     },
-    runOptimization(graphId, correlationId, optimizationParams) {
+    runOptimization(graphRevisionId, correlationId, optimizationParams) {
       return requestReply<RunOptimizationPayload, RunOptimizationReply>(
         live,
         "run_optimization_request",
         {
           request: {
-            graph_id: graphId,
+            graph_revision_id: graphRevisionId,
             correlation_id: correlationId,
             optimization_params: optimizationParams,
           },
         },
       );
     },
-    requestSimulationReport(experimentId, graphId) {
+    requestSimulationReport(experimentId, graphRevisionId) {
       live.pushEvent<FetchSimulationReportPayload>("fetch_simulation_report", {
         experiment_id: experimentId,
-        graph_id: graphId,
+        graph_revision_id: graphRevisionId,
       });
     },
-    fetchExperiments(graphIds) {
+    fetchExperiments(graphRevisionIds) {
       return requestReply<FetchExperimentsPayload, FetchExperimentsReply>(
         live,
         "fetch_experiments",
-        { graph_ids: graphIds },
+        { graph_revision_ids: graphRevisionIds },
       );
     },
     fetchGraphConnectivity() {
@@ -143,11 +155,14 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         CreateConnectionDraftReply
       >(live, "create_connection_draft", payload);
     },
-    compareGraphs(baseGraph, comparisonGraphId) {
+    compareGraphs(baseRevisionId, comparisonRevisionId) {
       return requestReply<CompareGraphsPayload, CompareGraphsReply>(
         live,
         "compare_graphs",
-        { base_graph: baseGraph, comparison_graph_id: comparisonGraphId },
+        {
+          base_revision_id: baseRevisionId,
+          comparison_revision_id: comparisonRevisionId,
+        },
       );
     },
   };

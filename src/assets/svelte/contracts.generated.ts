@@ -105,10 +105,11 @@ export interface AuthenticatesToEdge {
 export interface GraphContract {
   edges: Edge[];
   id: string;
-  lock_version: number;
   nodes: Node[];
-  parent_id?: string | null;
-  tags: string[];
+  parent_revision_id?: string | null;
+  revision_id?: string | null;
+  revision_kind?: string | null;
+  revision_number?: number | null;
   title: string;
 }
 
@@ -148,6 +149,14 @@ export interface NodeViewData {
   y_pos: number;
 }
 
+export interface SaveGraphContract {
+  edges: Edge[];
+  id: string;
+  nodes: Node[];
+  revision_id: string;
+  title: string;
+}
+
 export interface OptimizationParams {
   budget: number;
   simulation_params?: SimulationParams | null;
@@ -160,13 +169,13 @@ export interface OptimizationParams {
 
 export interface RunOptimizationRequest {
   correlation_id: string;
-  graph_id: string;
+  graph_revision_id: string;
   optimization_params: OptimizationParams;
 }
 
 export interface RunSimulationRequest {
   correlation_id: string;
-  graph_id: string;
+  graph_revision_id: string;
   simulation_params: SimulationParams;
 }
 
@@ -180,8 +189,8 @@ export interface SimulationParams {
 }
 
 export interface CompareGraphsPayload {
-  base_graph: GraphContract;
-  comparison_graph_id: string;
+  base_revision_id: string;
+  comparison_revision_id: string;
 }
 
 export interface CompareGraphsReply {
@@ -225,6 +234,7 @@ export interface CreateNodeDraftReply {
 
 export interface ExperimentSummary {
   graph_id: string;
+  graph_revision_id: string;
   graph_title: string;
   id: string;
   iteration_count: number;
@@ -235,7 +245,7 @@ export interface ExperimentSummary {
 }
 
 export interface FetchExperimentsPayload {
-  graph_ids: string[];
+  graph_revision_ids: string[];
 }
 
 export interface FetchExperimentsReply {
@@ -244,7 +254,7 @@ export interface FetchExperimentsReply {
 
 export interface FetchSimulationReportPayload {
   experiment_id: string;
-  graph_id: string;
+  graph_revision_id: string;
 }
 
 export interface FetchSimulationReportReply {
@@ -252,8 +262,8 @@ export interface FetchSimulationReportReply {
   experiment_id: string;
   graph: GraphContract;
   graph_id: string;
+  graph_revision_id: string;
   graph_title: string;
-  graph_version_at_sim: number;
   iteration_count: number;
   run_count: number;
   summary: SimulationReportSummary;
@@ -296,15 +306,17 @@ export interface GraphDiffStatusEntry {
 
 export interface GraphSummary {
   edge_count: number;
-  id: string;
+  graph_id: string;
   node_count: number;
-  parent_id?: string | null;
-  tags: string[];
+  parent_revision_id?: string | null;
+  revision_id: string;
+  revision_kind: string;
+  revision_number: number;
   title: string;
 }
 
 export interface OpenGraphPayload {
-  graph_id: string;
+  graph_revision_id: string;
 }
 
 export interface OpenGraphReply {
@@ -323,13 +335,14 @@ export interface OptimizationAction {
 export interface OptimizationCompletedEvent {
   correlation_id: string;
   graph_id: string;
-  optimized_graph_id: string;
+  graph_revision_id: string;
   report: OptimizationReport;
 }
 
 export interface OptimizationFailedEvent {
   correlation_id: string;
   graph_id: string;
+  graph_revision_id: string;
   reason: string;
 }
 
@@ -337,6 +350,7 @@ export interface OptimizationProgressEvent {
   completed_steps: number;
   correlation_id: string;
   graph_id: string;
+  graph_revision_id: string;
   phase: string;
   total_steps: number;
 }
@@ -359,7 +373,7 @@ export interface RunOptimizationPayload {
 
 export interface RunOptimizationReply {
   correlation_id: string;
-  graph_id: string;
+  graph_revision_id: string;
   reason?: string | null;
   status: "accepted" | "rejected";
 }
@@ -370,13 +384,13 @@ export interface RunSimulationPayload {
 
 export interface RunSimulationReply {
   correlation_id: string;
-  graph_id: string;
+  graph_revision_id: string;
   reason?: string | null;
   status: "accepted" | "rejected";
 }
 
 export interface SaveGraphPayload {
-  graph: GraphContract;
+  graph: SaveGraphContract;
 }
 
 export interface SaveGraphReply {
@@ -388,11 +402,13 @@ export interface SimulationCompletedEvent {
   correlation_id: string;
   experiment_id: string;
   graph_id: string;
+  graph_revision_id: string;
 }
 
 export interface SimulationFailedEvent {
   correlation_id: string;
   graph_id: string;
+  graph_revision_id: string;
   reason: string;
 }
 
@@ -400,6 +416,7 @@ export interface SimulationProgressEvent {
   completed_runs: number;
   correlation_id: string;
   graph_id: string;
+  graph_revision_id: string;
   total_runs: number;
 }
 
@@ -435,7 +452,7 @@ export interface SimulationReportEdgeTraversal {
 
 export interface SimulationReportErrorEvent {
   experiment_id: string;
-  graph_id: string;
+  graph_revision_id: string;
   reason: string;
 }
 

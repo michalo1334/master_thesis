@@ -11,12 +11,14 @@ import type { DashboardApi } from "../../dashboard-api";
 
 function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   return {
-    id: "g1",
+    graph_id: "g1",
     title: "Topology 1",
     node_count: 3,
     edge_count: 2,
-    parent_id: null,
-    tags: ["original"],
+    revision_id: "r1",
+    parent_revision_id: null,
+    revision_kind: "original",
+    revision_number: 1,
     ...overrides,
   };
 }
@@ -25,9 +27,10 @@ function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
     id: "g1",
     title: "Graph",
-    lock_version: 1,
-    parent_id: null,
-    tags: ["original"],
+    revision_id: "r1",
+    parent_revision_id: null,
+    revision_kind: "original",
+    revision_number: 1,
     nodes: [],
     edges: [],
     ...overrides,
@@ -49,6 +52,7 @@ function makeExperiment(
   return {
     id: "sim-1",
     graph_id: "g1",
+    graph_revision_id: "r1",
     graph_title: "Topology 1",
     iteration_count: 100,
     runtime_ms: 1000,
@@ -90,7 +94,7 @@ describe("WorkspaceModel", () => {
     });
 
     it("stores graph summaries", () => {
-      const summaries = [makeGraphSummary({ id: "a" })];
+      const summaries = [makeGraphSummary({ revision_id: "a" })];
       const m = new WorkspaceModel(summaries);
       expect(m.graphSummaries).toBe(summaries);
       expect(m.graphSummaries.length).toBe(1);
@@ -170,6 +174,7 @@ describe("WorkspaceModel", () => {
     it("marks an optimization report as read", () => {
       const report = model.createPendingOptimizationReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         graphTitle: "Test",
         correlationId: "corr-optimization",
         strategy: "cvss",
@@ -240,14 +245,27 @@ describe("WorkspaceModel", () => {
   });
 
   describe("graph comparison", () => {
-    const baseSummary = makeGraphSummary({ id: "base", title: "Base" });
+    const baseSummary = makeGraphSummary({
+      graph_id: "base",
+      revision_id: "base-r1",
+      title: "Base",
+    });
     const comparisonSummary = makeGraphSummary({
-      id: "comparison",
+      graph_id: "comparison",
+      revision_id: "comparison-r1",
       title: "Comparison",
     });
     const graphs = {
-      base: makeLoadedGraph({ id: "base", title: "Base" }),
-      comparison: makeLoadedGraph({ id: "comparison", title: "Comparison" }),
+      base: makeLoadedGraph({
+        id: "base",
+        revision_id: "base-r1",
+        title: "Base",
+      }),
+      comparison: makeLoadedGraph({
+        id: "comparison",
+        revision_id: "comparison-r1",
+        title: "Comparison",
+      }),
     };
     const serverResult: GraphDiffResult = {
       graph: makeLoadedGraph({
@@ -263,8 +281,11 @@ describe("WorkspaceModel", () => {
 
     it("stages selection and renders server comparison statuses", async () => {
       const api = {
-        openGraph: vi.fn((id: keyof typeof graphs) =>
-          Promise.resolve({ status: "ok" as const, graph: graphs[id] }),
+        openGraph: vi.fn((revisionId: string) =>
+          Promise.resolve({
+            status: "ok" as const,
+            graph: revisionId === "base-r1" ? graphs.base : graphs.comparison,
+          }),
         ),
         compareGraphs: vi.fn().mockResolvedValue({
           status: "ok",
@@ -295,9 +316,12 @@ describe("WorkspaceModel", () => {
       const first = model.activeDocument;
       expect(first?.kind).toBe("graph-diff");
       expect(model.graphComparisonPickerOpen).toBe(false);
-      expect(api.openGraph).toHaveBeenCalledWith("base");
-      expect(api.openGraph).not.toHaveBeenCalledWith("comparison");
-      expect(api.compareGraphs).toHaveBeenCalledWith(graphs.base, "comparison");
+      expect(api.openGraph).toHaveBeenCalledWith("base-r1");
+      expect(api.openGraph).not.toHaveBeenCalledWith("comparison-r1");
+      expect(api.compareGraphs).toHaveBeenCalledWith(
+        "base-r1",
+        "comparison-r1",
+      );
       if (!first || first.kind !== "graph-diff")
         throw new Error("Expected graph diff");
       expect(first.graph).toBe(serverResult.graph);
@@ -328,15 +352,15 @@ describe("WorkspaceModel", () => {
 
       const result = await model.loadOptimizationGraphDiff(
         api,
-        graphs.base.id,
-        "optimized",
+        "base-r1",
+        "optimized-r1",
       );
 
       expect(result?.title).toBe("Base compared with Optimized graph");
       expect(result?.graph).toBe(serverResult.graph);
       expect(model.documents).toHaveLength(0);
-      expect(api.openGraph).toHaveBeenCalledWith("base");
-      expect(api.compareGraphs).toHaveBeenCalledWith(graphs.base, "optimized");
+      expect(api.openGraph).toHaveBeenCalledWith("base-r1");
+      expect(api.compareGraphs).toHaveBeenCalledWith("base-r1", "optimized-r1");
     });
 
     it("keeps the base staged when the server cannot produce a comparison", async () => {
@@ -361,7 +385,7 @@ describe("WorkspaceModel", () => {
       expect(model.graphComparisonPickerStatus).toBe(
         "Comparison graph not found.",
       );
-      expect(api.openGraph).not.toHaveBeenCalledWith("comparison");
+      expect(api.openGraph).not.toHaveBeenCalledWith("comparison-r1");
     });
 
     it("keeps the base staged when an ok comparison has no result", async () => {
@@ -387,40 +411,43 @@ describe("WorkspaceModel", () => {
       expect(model.documents).toHaveLength(0);
     });
 
-    it("uses the active graph's visible dirty snapshot as the base", () => {
+    it("requires saving the active graph before comparing revisions", () => {
       const document = model.createGraphDocument();
       document.replaceFromLoadedGraph(graphs.base);
       document.addNode(hostNode("unsaved", "Unsaved host"));
 
       model.beginGraphComparisonWithActive(document);
 
-      expect(model.graphComparisonPickerOpen).toBe(true);
-      expect(model.graphComparisonBase?.nodes).toContainEqual(
-        hostNode("unsaved", "Unsaved host"),
-      );
+      expect(model.graphComparisonPickerOpen).toBe(false);
+      expect(model.statusMessage).toBe("Save the graph before comparing it.");
     });
   });
 
   describe("upsertGraphSummary", () => {
-    it("adds a loaded graph summary and replaces an existing summary", () => {
+    it("adds a summary for each persisted revision", () => {
       model = new WorkspaceModel([makeGraphSummary({ title: "Stale" })]);
 
       model.upsertGraphSummary(
         makeLoadedGraph({
           title: "Optimized",
-          parent_id: "parent-1",
-          tags: ["optimization"],
+          parent_revision_id: "parent-r1",
+          revision_id: "r2",
+          revision_kind: "optimization",
+          revision_number: 2,
           nodes: [hostNode("host-1")],
           edges: [],
         }),
       );
 
       expect(model.graphSummaries).toEqual([
+        makeGraphSummary({ title: "Stale" }),
         {
-          id: "g1",
+          graph_id: "g1",
           title: "Optimized",
-          parent_id: "parent-1",
-          tags: ["optimization"],
+          revision_id: "r2",
+          parent_revision_id: "parent-r1",
+          revision_kind: "optimization",
+          revision_number: 2,
           node_count: 1,
           edge_count: 0,
         },
@@ -431,7 +458,7 @@ describe("WorkspaceModel", () => {
       model.upsertGraphSummary(makeLoadedGraph({ id: "g2" }));
 
       expect(model.graphSummaries).toHaveLength(1);
-      expect(model.graphSummaries[0]?.id).toBe("g2");
+      expect(model.graphSummaries[0]?.graph_id).toBe("g2");
     });
   });
 
@@ -439,6 +466,7 @@ describe("WorkspaceModel", () => {
     it("creates a pending simulation report", () => {
       const report = model.createPendingReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         correlationId: "corr-1",
         graphTitle: "Test",
       });
@@ -451,6 +479,7 @@ describe("WorkspaceModel", () => {
     it("selects the new report", () => {
       const report = model.createPendingReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         correlationId: "corr-1",
         graphTitle: "Test",
       });
@@ -460,11 +489,13 @@ describe("WorkspaceModel", () => {
     it("creates distinct reports for separate requests on the same graph", () => {
       const first = model.createPendingReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         correlationId: "corr-1",
         graphTitle: "Test",
       });
       const second = model.createPendingReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         correlationId: "corr-2",
         graphTitle: "Test",
       });
@@ -478,6 +509,7 @@ describe("WorkspaceModel", () => {
   describe("createPendingOptimizationReport", () => {
     const info = {
       graphId: "g1",
+      graphRevisionId: "r1",
       graphTitle: "Test",
       correlationId: "corr-optimization",
       strategy: "cvss" as const,
@@ -505,6 +537,7 @@ describe("WorkspaceModel", () => {
     it("reuses a historical report only when its experiment ID matches", async () => {
       const existing = model.createPendingReport({
         graphId: "g1",
+        graphRevisionId: "r1",
         correlationId: "corr-old",
         graphTitle: "Test",
       });
@@ -524,18 +557,26 @@ describe("WorkspaceModel", () => {
   describe("showExperiments", () => {
     it("fetches unique IDs from open loaded graph tabs only", async () => {
       model = new WorkspaceModel([
-        makeGraphSummary({ id: "g1" }),
-        makeGraphSummary({ id: "g2" }),
-        makeGraphSummary({ id: "closed" }),
+        makeGraphSummary({ graph_id: "g1", revision_id: "r1" }),
+        makeGraphSummary({ graph_id: "g2", revision_id: "r2" }),
+        makeGraphSummary({ graph_id: "closed", revision_id: "r3" }),
       ]);
       const first = model.createGraphDocument();
-      first.replaceFromLoadedGraph(makeLoadedGraph({ id: "g1" }));
+      first.replaceFromLoadedGraph(
+        makeLoadedGraph({ id: "g1", revision_id: "r1" }),
+      );
       const second = model.createGraphDocument();
-      second.replaceFromLoadedGraph(makeLoadedGraph({ id: "g2" }));
+      second.replaceFromLoadedGraph(
+        makeLoadedGraph({ id: "g2", revision_id: "r2" }),
+      );
       const duplicate = model.createGraphDocument();
-      duplicate.replaceFromLoadedGraph(makeLoadedGraph({ id: "g1" }));
+      duplicate.replaceFromLoadedGraph(
+        makeLoadedGraph({ id: "g1", revision_id: "r1" }),
+      );
       const closed = model.createGraphDocument();
-      closed.replaceFromLoadedGraph(makeLoadedGraph({ id: "closed" }));
+      closed.replaceFromLoadedGraph(
+        makeLoadedGraph({ id: "closed", revision_id: "r3" }),
+      );
       model.closeDocument(closed.id);
       const api = {
         fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
@@ -543,7 +584,7 @@ describe("WorkspaceModel", () => {
 
       await model.showExperiments(api);
 
-      expect(api.fetchExperiments).toHaveBeenCalledWith(["g1", "g2"]);
+      expect(api.fetchExperiments).toHaveBeenCalledWith(["r1", "r2"]);
     });
 
     it("shows the empty state without fetching when no loaded graph tabs are open", async () => {

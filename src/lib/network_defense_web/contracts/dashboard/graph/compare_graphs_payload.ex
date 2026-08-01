@@ -4,21 +4,22 @@ defmodule NetworkDefenseWeb.Web.Contracts.CompareGraphsPayload do
   use NetworkDefenseWeb.Contracts, category: :graph
 
   embedded_schema do
-    embeds_one :base_graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
-    field :comparison_graph_id, :string
+    field :base_revision_id, :string
+    field :comparison_revision_id, :string
   end
 
   @type t :: %__MODULE__{
-          base_graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
-          comparison_graph_id: String.t()
+          base_revision_id: String.t(),
+          comparison_revision_id: String.t()
         }
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:comparison_graph_id])
-    |> cast_embed(:base_graph, required: true)
-    |> validate_required([:comparison_graph_id])
-    |> validate_length(:comparison_graph_id, min: 1)
-    |> Contracts.validate_uuid(:comparison_graph_id)
+    |> cast(attrs, [:base_revision_id, :comparison_revision_id])
+    |> validate_required([:base_revision_id, :comparison_revision_id])
+    |> validate_length(:base_revision_id, min: 1)
+    |> validate_length(:comparison_revision_id, min: 1)
+    |> Contracts.validate_uuid(:base_revision_id)
+    |> Contracts.validate_uuid(:comparison_revision_id)
   end
 end

@@ -5,6 +5,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Contracts
   alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Credential
@@ -47,6 +48,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     attrs = %{
       "graph" => %{
         "id" => @graph_id,
+        "revision_id" => @parent_graph_id,
         "title" => "Test graph",
         "lock_version" => 1,
         "nodes" => [
@@ -66,6 +68,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{
              "title" => "Test graph",
+             "revision_id" => @parent_graph_id,
              "nodes" => [
                %{
                  "id" => @host_id,
@@ -82,6 +85,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     attrs = %{
       "graph" => %{
         "id" => @graph_id,
+        "revision_id" => @parent_graph_id,
         "title" => "Test graph",
         "lock_version" => 1,
         "nodes" => [
@@ -102,7 +106,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   test "requires positive simulation parameters" do
     attrs = %{
-      "graph_id" => "graph-1",
+      "graph_revision_id" => "graph-1",
       "correlation_id" => "request-1",
       "simulation_params" => %{"monte_carlo_trials" => 0, "iterations_per_run" => 1}
     }
@@ -116,6 +120,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   test "maps validated graph contracts to canonical graph replacement attributes" do
     attrs = %{
       "id" => @graph_id,
+      "revision_id" => @parent_graph_id,
       "title" => "Test graph",
       "lock_version" => 1,
       "nodes" => [
@@ -143,7 +148,11 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                 ],
                 "edges" => []
               }
-            }} = GraphContract.from_params(attrs)
+            }} =
+             with(
+               {:ok, graph} <- SaveGraphContract.validate(attrs),
+               do: SaveGraphContract.to_replace_attrs(graph)
+             )
 
     assert type == Atom.to_string(Host)
   end
@@ -251,12 +260,12 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       }
     ]
 
-    graph = Graph.hydrate(graph, nodes, edges)
+    assert {:ok, graph} = Graph.hydrate(graph, nodes, edges)
 
     assert {:ok, wire} = GraphContract.from_domain(graph)
 
-    assert wire.parent_id == nil
-    assert wire.tags == ["original"]
+    assert wire.parent_revision_id == nil
+    assert wire.revision_kind == "initial"
 
     assert ["Credential", "Host", "Service", "Vulnerability"] =
              wire
@@ -281,41 +290,26 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              |> Map.fetch!(:nodes)
              |> Enum.find(&(Map.fetch!(&1, :id) == @host_id))
              |> Map.fetch!(:view_data)
-
-    assert {:ok, %{attrs: attrs}} = GraphContract.from_params(wire)
-
-    refute Map.has_key?(attrs, "parent_id")
-    refute Map.has_key?(attrs, "tags")
-
-    assert Enum.sort(Enum.map(attrs["nodes"], & &1["type"])) ==
-             Enum.sort([
-               Atom.to_string(Host),
-               Atom.to_string(Service),
-               Atom.to_string(Vulnerability),
-               Atom.to_string(Credential)
-             ])
-
-    assert Enum.sort(Enum.map(attrs["edges"], & &1["type"])) ==
-             Enum.sort([
-               Atom.to_string(HasVulnerability),
-               Atom.to_string(NetworkReachability),
-               Atom.to_string(Runs),
-               Atom.to_string(StoresCredential),
-               Atom.to_string(AuthenticatesTo)
-             ])
   end
 
-  test "preserves graph lineage through an open graph reply" do
+  test "preserves revision lineage through an open graph reply" do
     graph =
       Graph.new("Child graph")
-      |> Map.put(:parent_id, @parent_graph_id)
-      |> Map.put(:tags, [:optimization])
+      |> Map.put(:revision_id, @graph_id)
+      |> Map.put(:parent_revision_id, @parent_graph_id)
+      |> Map.put(:revision_number, 2)
+      |> Map.put(:revision_kind, :optimization)
 
     assert {:ok, wire_graph} = GraphContract.from_domain(graph)
     assert {:ok, reply} = OpenGraphReply.validate(%{status: "ok", graph: wire_graph})
 
-    assert %{graph: %{parent_id: @parent_graph_id, tags: ["optimization"]}} =
-             OpenGraphReply.to_wire(reply)
+    assert %{
+             graph: %{
+               parent_revision_id: @parent_graph_id,
+               revision_kind: "optimization",
+               revision_number: 2
+             }
+           } = OpenGraphReply.to_wire(reply)
   end
 
   defp errors_on(changeset) do

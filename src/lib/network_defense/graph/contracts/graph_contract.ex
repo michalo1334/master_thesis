@@ -9,9 +9,10 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
   embedded_schema do
     field :id, :string
     field :title, :string
-    field :lock_version, :integer
-    field :parent_id, :string
-    field :tags, {:array, :string}, default: []
+    field :revision_id, :string
+    field :parent_revision_id, :string
+    field :revision_number, :integer
+    field :revision_kind, :string
     embeds_many :nodes, Node, on_replace: :delete
     embeds_many :edges, Edge, on_replace: :delete
   end
@@ -21,38 +22,29 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
           title: String.t(),
           nodes: [Node.t()],
           edges: [Edge.t()],
-          lock_version: integer(),
-          parent_id: String.t() | nil,
-          tags: [String.t()]
+          revision_id: String.t() | nil,
+          parent_revision_id: String.t() | nil,
+          revision_number: integer() | nil,
+          revision_kind: String.t() | nil
         }
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:id, :title, :lock_version, :parent_id, :tags])
+    |> cast(attrs, [
+      :id,
+      :title,
+      :revision_id,
+      :parent_revision_id,
+      :revision_number,
+      :revision_kind
+    ])
     |> cast_embed(:nodes)
     |> cast_embed(:edges)
-    |> validate_required([:id, :title, :lock_version])
+    |> validate_required([:id, :title])
     |> Contracts.validate_uuid(:id)
-    |> Contracts.validate_uuid(:parent_id)
+    |> Contracts.validate_uuid(:revision_id)
+    |> Contracts.validate_uuid(:parent_revision_id)
     |> validate_length(:title, min: 1)
-  end
-
-  def from_params(params) do
-    with {:ok, graph} <- validate(params) do
-      to_replace_attrs(graph)
-    end
-  end
-
-  def to_replace_attrs(%__MODULE__{} = graph) do
-    with {:ok, nodes} <- map_contracts(graph.nodes, &Node.to_attrs/1),
-         {:ok, edges} <- map_contracts(graph.edges, &Edge.to_attrs/1) do
-      {:ok,
-       %{
-         id: graph.id,
-         lock_version: graph.lock_version,
-         attrs: %{"title" => graph.title, "nodes" => nodes, "edges" => edges}
-       }}
-    end
   end
 
   def from_domain(graph) do
@@ -63,15 +55,14 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
            validate(%{
              id: graph.id,
              title: graph.title,
-             lock_version: graph.lock_version,
+             revision_id: graph.revision_id,
+             parent_revision_id: graph.parent_revision_id,
+             revision_number: graph.revision_number,
+             revision_kind: graph.revision_kind && Atom.to_string(graph.revision_kind),
              nodes: Enum.map(nodes, &Node.to_wire/1),
              edges: Enum.map(edges, &Edge.to_wire/1)
            }) do
-      {:ok,
-       contract
-       |> Map.put(:parent_id, graph.parent_id)
-       |> Map.put(:tags, Enum.map(graph.tags, &Atom.to_string/1))
-       |> to_wire()}
+      {:ok, contract |> to_wire()}
     end
   end
 

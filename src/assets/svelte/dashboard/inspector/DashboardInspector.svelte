@@ -21,8 +21,11 @@
     const selectable = document.selection;
     if (selectable) return { kind: "selectable", selectable };
 
-    const parentTitle = document.graph.parent_id
-      ? summaries.find(({ id }) => id === document.graph.parent_id)?.title
+    const parentTitle = document.graph.parent_revision_id
+      ? summaries.find(
+          ({ revision_id }) =>
+            revision_id === document.graph.parent_revision_id,
+        )?.title
       : undefined;
     return { kind: "graph", graph: document.graph, parentTitle };
   });

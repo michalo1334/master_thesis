@@ -1,890 +1,443 @@
 defmodule NetworkDefense.Graph.GraphTest do
   use NetworkDefense.DataCase, async: true
 
-  alias NetworkDefense.Graph.Edge
-  alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Graph.GraphDiff
-  alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Nodes.Host
-  alias NetworkDefense.Nodes.Service
-  alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Relationships.HasVulnerability
-  alias NetworkDefense.Relationships.NetworkReachability
+  import Ecto.Query
+
+  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, Graphs, Node}
+  alias NetworkDefense.Nodes.{Host, Service}
   alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Repo
+  alias NetworkDefense.Simulation.{Experiment, IterationStep, Run}
 
-  describe "new/1" do
-    test "creates a graph with the given title" do
-      graph = Graph.new("My Topology")
-      assert graph.title == "My Topology"
-      assert graph.tags == [:original]
-      assert {:ok, _} = Ecto.UUID.cast(graph.id)
-    end
+  test "creates a graph with an immutable root revision" do
+    assert {:ok, saved} = Graphs.insert(graph("Topology"))
+
+    assert %{
+             revision_number: 1,
+             revision_kind: :initial,
+             parent_revision_id: nil,
+             title: "Topology"
+           } = saved
+
+    assert [_host, _service] = Graph.nodes(saved)
+    assert [_edge] = Graph.edges(saved)
   end
 
-  describe "changeset" do
-    test "validates title is present" do
-      changeset = Graph.changeset(%Graph{}, %{})
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).title
-    end
+  test "each save appends an edit revision without changing earlier snapshots" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
+    [host, service] = Graph.nodes(original)
+    [edge] = Graph.edges(original)
 
-    test "validates title is non-empty" do
-      changeset = Graph.changeset(%Graph{}, %{title: ""})
-      refute changeset.valid?
-      assert "can't be blank" in errors_on(changeset).title
-    end
+    attrs = %{
+      "title" => "Renamed topology",
+      "revision_id" => original.revision_id,
+      "nodes" => [node_attrs(host), node_attrs(service)],
+      "edges" => [edge_attrs(edge)]
+    }
 
-    test "accepts a valid title" do
-      changeset = Graph.changeset(%Graph{}, %{title: "Valid Graph"})
-      assert changeset.valid?
-    end
+    assert {:ok, %{graph: saved}} = Graphs.replace(original.id, attrs)
+    assert saved.revision_number == 2
+    assert saved.revision_id != original.revision_id
+    assert saved.parent_revision_id == original.revision_id
+    assert Enum.map(Graph.nodes(saved), & &1.id) == Enum.map(Graph.nodes(original), & &1.id)
+    assert Enum.map(Graph.edges(saved), & &1.id) == Enum.map(Graph.edges(original), & &1.id)
+    assert %{title: "Topology"} = Graphs.load_revision!(original.revision_id)
 
-    test "limits titles to the database length" do
-      changeset = Graph.changeset(%Graph{}, %{title: String.duplicate("x", 256)})
+    assert {:ok, %{parent_revision_id: parent_revision_id}} =
+             NetworkDefense.Graph.Contracts.GraphContract.from_domain(saved)
 
-      refute changeset.valid?
-      assert "should be at most 255 character(s)" in errors_on(changeset).title
-    end
+    assert parent_revision_id == original.revision_id
   end
 
-  describe "list_summaries/0" do
-    test "returns empty list when no graphs exist" do
-      delete_all_graphs()
+  test "rejects an edit without a valid base revision" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
 
-      assert Graphs.list_summaries() == []
-    end
+    attrs = %{"title" => original.title, "nodes" => [], "edges" => []}
+    assert {:error, :invalid_base_revision} = Graphs.replace(original.id, attrs)
 
-    test "returns summaries with correct counts for graphs with nodes and edges" do
-      delete_all_graphs()
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      target = insert_service(graph, "target")
-      insert_edge(source, target)
-
-      summaries = Graphs.list_summaries()
-
-      assert [summary] = summaries
-      assert summary.id == graph.id
-      assert summary.title == "test-graph"
-      assert summary.parentId == nil
-      assert summary.tags == ["original"]
-      assert summary.nodeCount == 2
-      assert summary.edgeCount == 1
-    end
-
-    test "returns summaries for multiple graphs" do
-      delete_all_graphs()
-      graph1 = insert_graph()
-      graph2 = insert_graph()
-
-      source1 = insert_node(graph1, "s1")
-      target1 = insert_service(graph1, "t1")
-      insert_edge(source1, target1)
-
-      insert_node(graph2, "s2")
-      insert_node(graph2, "i2")
-
-      summaries = Graphs.list_summaries()
-      assert [_, _] = summaries
-
-      g1 = Enum.find(summaries, &(&1.id == graph1.id))
-      assert g1.nodeCount == 2
-      assert g1.edgeCount == 1
-
-      g2 = Enum.find(summaries, &(&1.id == graph2.id))
-      assert g2.nodeCount == 2
-      assert g2.edgeCount == 0
-    end
+    assert {:error, :invalid_base_revision} =
+             Graphs.replace(original.id, Map.put(attrs, "revision_id", Ecto.UUID.generate()))
   end
 
-  describe "persistence" do
-    test "rejects a graph whose title exceeds the database length" do
-      graph = Graph.new(String.duplicate("x", 256))
+  test "optimization appends a revision to the same graph" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
+    assert {:ok, optimized} = Graphs.append_optimization(original)
 
-      assert {:error, {:graph, changeset}} = Graphs.insert(graph)
-      assert "should be at most 255 character(s)" in errors_on(changeset).title
-    end
-
-    test "creates and loads a graph with typed nodes and edges" do
-      graph = Graph.new("test-graph")
-      source_host = build_node(graph, Host, %{"name" => "internet"})
-      target_host = build_node(graph, Host, %{"name" => "web-01"})
-
-      service =
-        build_node(graph, Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
-
-      vulnerability =
-        build_node(graph, Vulnerability, %{
-          "identifier" => "CVE-2024-0001",
-          "cvss" => cvss(),
-          "exploit_probability" => 0.8
-        })
-
-      reachability_edge =
-        build_edge(graph, source_host, service, NetworkReachability, %{"protocol" => "any"})
-
-      runs_edge = build_edge(graph, target_host, service, Runs)
-
-      vulnerability_edge =
-        build_edge(graph, service, vulnerability, HasVulnerability, %{
-          "required_privilege" => "none",
-          "granted_privilege" => "user"
-        })
-
-      graph =
-        graph
-        |> Graph.add_node(source_host)
-        |> Graph.add_node(target_host)
-        |> Graph.add_node(service)
-        |> Graph.add_node(vulnerability)
-        |> Graph.add_edge(reachability_edge)
-        |> Graph.add_edge(runs_edge)
-        |> Graph.add_edge(vulnerability_edge)
-
-      assert {:ok, loaded_graph} = Graphs.insert(graph)
-
-      assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
-               Enum.sort([source_host.id, target_host.id, service.id, vulnerability.id])
-
-      assert [{service_id, %{id: reachability_edge_id}}] =
-               Graph.outgoing(loaded_graph, source_host.id)
-
-      assert service_id == service.id
-      assert reachability_edge_id == reachability_edge.id
-
-      assert [{runs_service_id, %{id: runs_edge_id}}] =
-               Graph.outgoing(loaded_graph, target_host.id)
-
-      assert runs_service_id == service.id
-      assert runs_edge_id == runs_edge.id
-
-      assert [{vulnerability_id, %{id: vulnerability_edge_id}}] =
-               Graph.outgoing(loaded_graph, service.id)
-
-      assert vulnerability_id == vulnerability.id
-      assert vulnerability_edge_id == vulnerability_edge.id
-    end
+    assert %{revision_number: 2, revision_kind: :optimization} = optimized
+    assert optimized.id == original.id
+    assert optimized.parent_revision_id == original.revision_id
+    assert Enum.map(Graph.nodes(optimized), & &1.id) == Enum.map(Graph.nodes(original), & &1.id)
   end
 
-  describe "clone/1" do
-    test "creates an independent optimization graph with remapped edge endpoints" do
-      source = Graph.new("source")
-      host = build_node(source, Host, %{"name" => "source-host"})
+  test "returns an error for invalid snapshot endpoints" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
+    [edge] = Graph.edges(original)
 
-      service =
-        build_node(source, Service, %{
-          "name" => "source-service",
-          "protocol" => "tcp",
-          "port" => 443
-        })
+    assert {:error, :invalid_endpoints} =
+             Graph.hydrate(original, Graph.nodes(original), [
+               %{edge | to_id: Ecto.UUID.generate()}
+             ])
 
-      edge = build_edge(source, host, service, NetworkReachability, %{"protocol" => "any"})
-
-      source = source |> Graph.add_node(host) |> Graph.add_node(service) |> Graph.add_edge(edge)
-      clone = Graph.clone(source)
-
-      assert clone.id != source.id
-      assert clone.parent_id == source.id
-      assert clone.source == :optimization
-      assert clone.tags == [:optimization]
-      assert clone.title == source.title
-
-      assert MapSet.disjoint?(
-               MapSet.new(Enum.map(source.nodes, & &1.id)),
-               MapSet.new(Enum.map(clone.nodes, & &1.id))
-             )
-
-      assert MapSet.disjoint?(
-               MapSet.new(Enum.map(Graph.edges(source), & &1.id)),
-               MapSet.new(Enum.map(Graph.edges(clone), & &1.id))
-             )
-
-      [cloned_host, cloned_service] = clone.nodes
-      [cloned_edge] = Graph.edges(clone)
-
-      host = Node.hydrate!(host)
-      service = Node.hydrate!(service)
-      edge = Edge.hydrate!(edge)
-
-      assert {cloned_host.type, cloned_host.data, cloned_host.view_data} ==
-               {host.type, host.data, host.view_data}
-
-      assert {cloned_service.type, cloned_service.data, cloned_service.view_data} ==
-               {service.type, service.data, service.view_data}
-
-      assert {cloned_edge.type, cloned_edge.data, cloned_edge.from_id, cloned_edge.to_id} ==
-               {edge.type, edge.data, cloned_host.id, cloned_service.id}
-
-      assert Graph.edges(Graph.remove_edge_by_id(clone, cloned_edge.id)) == []
-      assert [^edge] = Graph.edges(source)
-    end
-
-    test "persists its lineage and survives deletion of its parent" do
-      source = insert_graph()
-      source = Graphs.load!(source.id)
-      clone = Graph.clone(source)
-
-      assert {:ok, clone} = Graphs.insert(clone)
-
-      Repo.delete!(source)
-
-      assert %{parent_id: nil, source: :optimization, tags: [:optimization]} =
-               Graphs.load!(clone.id)
-    end
+    assert %{revision_number: 1} = Graphs.load_revision!(original.revision_id)
   end
 
-  describe "load/1" do
-    test "loads an empty graph" do
-      graph = insert_graph()
+  test "rejects duplicate snapshot node and edge IDs" do
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
+    [host, service] = Graph.nodes(original)
+    [edge] = Graph.edges(original)
 
-      loaded_graph = Graphs.load!(graph.id)
+    assert {:error, :duplicate_ids} =
+             Graphs.replace(original.id, %{
+               "title" => original.title,
+               "revision_id" => original.revision_id,
+               "nodes" => [node_attrs(host), node_attrs(host)],
+               "edges" => []
+             })
 
-      assert loaded_graph.nodes == []
-      assert loaded_graph.adjacency_list == %{}
-    end
-
-    test "loads all nodes and builds a directed adjacency list" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      target = insert_service(graph, "target")
-      isolated = insert_node(graph, "isolated")
-      edge = insert_edge(source, target)
-
-      loaded_graph = Graphs.load(graph.id)
-
-      assert Enum.sort(Enum.map(loaded_graph.nodes, & &1.id)) ==
-               Enum.sort([source.id, target.id, isolated.id])
-
-      assert %{incoming: [], outgoing: [{target_id, loaded_edge}]} =
-               loaded_graph.adjacency_list[source.id]
-
-      assert target_id == target.id
-      assert loaded_edge.id == edge.id
-
-      assert %{incoming: [{source_id, incoming_edge}], outgoing: []} =
-               loaded_graph.adjacency_list[target.id]
-
-      assert source_id == source.id
-      assert incoming_edge.id == edge.id
-      assert loaded_graph.adjacency_list[isolated.id] == %{incoming: [], outgoing: []}
-    end
-
-    test "rejects edges whose other endpoint belongs to another graph" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-
-      other_graph = insert_graph()
-      other_target = insert_node(other_graph, "other target")
-
-      assert {:error, changeset} =
-               %Edge{graph_id: graph.id, from_id: source.id, to_id: other_target.id}
-               |> Edge.changeset(%{type: Atom.to_string(Runs)})
-               |> Repo.insert()
-
-      assert "does not exist" in errors_on(changeset).to_id
-    end
-
-    test "returns nil when the graph does not exist" do
-      assert Graphs.load(Ecto.UUID.generate()) == nil
-    end
+    assert {:error, :duplicate_ids} =
+             Graphs.replace(original.id, %{
+               "title" => original.title,
+               "revision_id" => original.revision_id,
+               "nodes" => [node_attrs(host), node_attrs(service)],
+               "edges" => [edge_attrs(edge), edge_attrs(edge)]
+             })
   end
 
-  describe "type validation" do
-    test "accepts fully qualified registered module names" do
-      node_changeset =
-        Node.changeset(%Node{}, %{
-          type: Atom.to_string(Host),
-          data: %{"name" => "host"},
-          view_data: %{"x_pos" => 0, "y_pos" => 0}
-        })
+  test "lists every revision with its lineage and snapshot counts" do
+    assert {:ok, original} = Graphs.insert(graph_with_duplicate_edge("Topology"))
+    assert {:ok, %{graph: edited}} = Graphs.replace(original.id, replacement_attrs(original))
+    assert {:ok, optimized} = Graphs.append_optimization(edited)
 
-      edge_changeset = Edge.changeset(%Edge{}, %{type: Atom.to_string(Runs), data: %{}})
+    [initial, edit, optimization] =
+      Graphs.list_summaries() |> Enum.filter(&(&1.graphId == original.id))
 
-      assert node_changeset.valid?
-      assert edge_changeset.valid?
-    end
+    assert %{
+             graphId: graph_id,
+             revisionId: initial_id,
+             parentRevisionId: nil,
+             revisionKind: "initial"
+           } = initial
 
-    test "rejects unregistered module names" do
-      changeset =
-        Node.changeset(%Node{}, %{
-          type: "Elixir.Unknown.Node",
-          data: %{},
-          view_data: %{"x_pos" => 0, "y_pos" => 0}
-        })
+    assert graph_id == original.id
+    assert initial_id == original.revision_id
 
-      refute changeset.valid?
-      assert "is invalid" in errors_on(changeset).type
-    end
+    assert %{parentRevisionId: ^initial_id, revisionKind: "edit", nodeCount: 2, edgeCount: 2} =
+             edit
+
+    assert %{parentRevisionId: edit_id, revisionKind: "optimization", nodeCount: 2, edgeCount: 2} =
+             optimization
+
+    assert edit_id == edited.revision_id
+    assert optimization.revisionId == optimized.revision_id
   end
 
-  describe "runtime hydration" do
-    test "round-trips persisted nodes and edges through typed runtime values" do
-      persisted_node = %Node{
-        id: Ecto.UUID.generate(),
-        graph_id: Ecto.UUID.generate(),
+  test "rejects identities owned by another graph" do
+    assert {:ok, first} = Graphs.insert(graph("First"))
+    [node | _] = Graph.nodes(first)
+    second = Graph.new("Second")
+    second = Graph.add_node(second, %{node | graph_id: second.id})
+
+    assert {:error, :identity_belongs_to_another_graph} = Graphs.insert(second)
+  end
+
+  test "database rejects graph revision references from another graph" do
+    assert {:ok, first} = Graphs.insert(graph("First"))
+    assert {:ok, second} = Graphs.insert(graph("Second"))
+    [_first_host, first_service] = Graph.nodes(first)
+    [second_host | _] = Graph.nodes(second)
+
+    assert_foreign_key_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, parent_revision_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, $3, 2, 'edit', 'Invalid parent', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(second.id), uuid(first.revision_id)]
+    )
+
+    assert_foreign_key_violation(
+      """
+      INSERT INTO graph_revision_nodes (graph_revision_id, graph_id, node_id, type, data, view_data)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      """,
+      [
+        uuid(first.revision_id),
+        uuid(first.id),
+        uuid(second_host.id),
+        Atom.to_string(second_host.type),
+        NetworkDefense.Graph.Data.to_params(second_host.data),
+        second_host.view_data
+      ]
+    )
+
+    edge_id = Ecto.UUID.generate()
+
+    Repo.insert_all("edges", [
+      %{
+        id: uuid(edge_id),
+        graph_id: uuid(first.id),
+        inserted_at: DateTime.utc_now(),
+        updated_at: DateTime.utc_now()
+      }
+    ])
+
+    assert_foreign_key_violation(
+      """
+      INSERT INTO graph_revision_edges (graph_revision_id, graph_id, edge_id, from_id, to_id, type, data)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      """,
+      [
+        uuid(first.revision_id),
+        uuid(first.id),
+        uuid(edge_id),
+        uuid(second_host.id),
+        uuid(first_service.id),
+        Atom.to_string(Runs),
+        %{}
+      ]
+    )
+  end
+
+  test "database requires edge endpoints in the same revision" do
+    assert {:ok, graph} = Graphs.insert(graph("Topology"))
+    [host | _] = Graph.nodes(graph)
+    missing_node_id = Ecto.UUID.generate()
+    edge_id = Ecto.UUID.generate()
+
+    now = DateTime.utc_now()
+
+    Repo.insert_all("nodes", [
+      %{id: uuid(missing_node_id), graph_id: uuid(graph.id), inserted_at: now, updated_at: now}
+    ])
+
+    Repo.insert_all("edges", [
+      %{id: uuid(edge_id), graph_id: uuid(graph.id), inserted_at: now, updated_at: now}
+    ])
+
+    assert_foreign_key_violation(
+      """
+      INSERT INTO graph_revision_edges (graph_revision_id, graph_id, edge_id, from_id, to_id, type, data)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      """,
+      [
+        uuid(graph.revision_id),
+        uuid(graph.id),
+        uuid(edge_id),
+        uuid(missing_node_id),
+        uuid(host.id),
+        Atom.to_string(Runs),
+        %{}
+      ]
+    )
+  end
+
+  test "database enforces revision number, kind, and parent shape" do
+    assert {:ok, graph} = Graphs.insert(graph("Topology"))
+
+    assert_unique_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, 1, 'initial', 'Duplicate number', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(graph.id)]
+    )
+
+    assert_check_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, 0, 'initial', 'Invalid number', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(graph.id)]
+    )
+
+    assert_check_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, 2, 'invalid', 'Invalid kind', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(graph.id)]
+    )
+
+    assert_check_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, parent_revision_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, $3, 2, 'initial', 'Initial parent', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(graph.id), uuid(graph.revision_id)]
+    )
+
+    assert_check_violation(
+      """
+      INSERT INTO graph_revisions (id, graph_id, number, kind, title, inserted_at, updated_at)
+      VALUES ($1, $2, 2, 'edit', 'Missing parent', now(), now())
+      """,
+      [uuid(Ecto.UUID.generate()), uuid(graph.id)]
+    )
+  end
+
+  test "database rejects graph snapshot updates" do
+    assert {:ok, graph} = Graphs.insert(graph("Topology"))
+    [node | _] = Graph.nodes(graph)
+    [edge] = Graph.edges(graph)
+
+    assert_update_guard("UPDATE graph_revisions SET title = 'changed' WHERE id = $1", [
+      uuid(graph.revision_id)
+    ])
+
+    assert_update_guard(
+      "UPDATE graph_revision_nodes SET data = '{}' WHERE graph_revision_id = $1 AND node_id = $2",
+      [uuid(graph.revision_id), uuid(node.id)]
+    )
+
+    assert_update_guard(
+      "UPDATE graph_revision_edges SET data = '{}' WHERE graph_revision_id = $1 AND edge_id = $2",
+      [uuid(graph.revision_id), uuid(edge.id)]
+    )
+  end
+
+  test "deleting a graph cascades through its revisions and simulation history" do
+    assert {:ok, graph} = Graphs.insert(graph("Topology"))
+    [node | _] = Graph.nodes(graph)
+    experiment_id = Ecto.UUID.generate()
+    run_id = Ecto.UUID.generate()
+    step_id = Ecto.UUID.generate()
+
+    Repo.insert_all("experiments", [
+      %{
+        id: uuid(experiment_id),
+        graph_revision_id: uuid(graph.revision_id),
+        master_seed: 0,
+        iteration_count: 1,
+        max_attempts: 1,
+        runtime_ms: 0,
+        total_trials: 1,
+        completed_trials: 0,
+        status: "running",
+        inserted_at: DateTime.utc_now(),
+        updated_at: DateTime.utc_now()
+      }
+    ])
+
+    Repo.insert_all("simulation_runs", [
+      %{
+        id: uuid(run_id),
+        experiment_id: uuid(experiment_id),
+        graph_revision_id: uuid(graph.revision_id),
+        seed: 0,
+        trial_index: 0,
+        initial_attacker_state: %{},
+        inserted_at: DateTime.utc_now(),
+        updated_at: DateTime.utc_now()
+      }
+    ])
+
+    Repo.insert_all("iteration_steps", [
+      %{
+        id: uuid(step_id),
+        run_id: uuid(run_id),
+        index: 1,
+        success: true,
+        attacker_state: %{},
+        inserted_at: DateTime.utc_now(),
+        updated_at: DateTime.utc_now()
+      }
+    ])
+
+    Repo.delete!(Repo.get!(Graph, graph.id))
+
+    assert Repo.get(Graph, graph.id) == nil
+    assert Repo.get(GraphRevision, graph.revision_id) == nil
+    assert Repo.get(Experiment, experiment_id) == nil
+    assert Repo.get(Run, run_id) == nil
+    assert Repo.get(IterationStep, step_id) == nil
+
+    assert Repo.one(from(n in "nodes", where: n.id == ^Ecto.UUID.dump!(node.id), select: n.id)) ==
+             nil
+  end
+
+  defp graph(title) do
+    graph = Graph.new(title)
+
+    host =
+      Node.new(graph.id, %{
         type: Atom.to_string(Host),
         data: %{"name" => "host"},
-        view_data: nil
-      }
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
 
-      assert {:ok, %Node{type: Host, data: %Host{name: "host"}} = node} =
-               Node.hydrate(persisted_node)
+    service =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Service),
+        data: %{"name" => "ssh", "protocol" => "tcp", "port" => 22},
+        view_data: %{"x_pos" => 100, "y_pos" => 0}
+      })
 
-      assert node.view_data == %{x_pos: 0, y_pos: 0, radius: nil}
-
-      assert %Node{type: "Elixir.NetworkDefense.Nodes.Host", data: %{"name" => "host"}} =
-               Node.persist(node)
-
-      persisted_edge = %Edge{
-        id: Ecto.UUID.generate(),
-        graph_id: persisted_node.graph_id,
-        from_id: persisted_node.id,
-        to_id: Ecto.UUID.generate(),
-        type: Atom.to_string(Runs),
-        data: %{}
-      }
-
-      assert {:ok, %Edge{type: Runs, data: %Runs{}} = edge} = Edge.hydrate(persisted_edge)
-
-      assert %Edge{type: "Elixir.NetworkDefense.Relationships.Runs", data: %{}} =
-               Edge.persist(edge)
-    end
+    graph
+    |> Graph.add_node(host)
+    |> Graph.add_node(service)
+    |> Graph.add_edge(
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
+    )
   end
 
-  describe "in-memory updates" do
-    test "builds nodes and edges with UUIDs" do
-      graph = Graph.new("test-graph")
-      graph = Graph.add_node(graph, %{type: Atom.to_string(Host), data: %{"name" => "source"}})
-
-      graph =
-        Graph.add_node(graph, %{
-          type: Atom.to_string(Service),
-          data: %{"name" => "target", "protocol" => "tcp", "port" => 443}
-        })
-
-      [source, target] = graph.nodes
-
-      graph = Graph.add_edge(graph, source, target, %{type: Atom.to_string(Runs), data: %{}})
-
-      assert {:ok, _graph_id} = Ecto.UUID.cast(graph.id)
-      assert {:ok, _source_id} = Ecto.UUID.cast(source.id)
-      assert {:ok, _target_id} = Ecto.UUID.cast(target.id)
-      assert [{target_id, %{id: edge_id}}] = Graph.outgoing(graph, source.id)
-      assert target_id == target.id
-      assert {:ok, _edge_id} = Ecto.UUID.cast(edge_id)
-    end
-
-    test "add and remove operations maintain the adjacency list" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      target = insert_service(graph, "target")
-      edge = insert_edge(source, target)
-
-      graph =
-        graph
-        |> Graph.add_node(source)
-        |> Graph.add_node(target)
-        |> Graph.add_edge(edge)
-
-      assert %{outgoing: [{target_id, added_edge}]} = graph.adjacency_list[source.id]
-      assert target_id == target.id
-      assert added_edge.id == edge.id
-
-      assert %{incoming: [{source_id, incoming_edge}]} = graph.adjacency_list[target.id]
-      assert source_id == source.id
-      assert incoming_edge.id == edge.id
-
-      graph = Graph.remove_edge_by_id(graph, edge.id)
-      assert graph.adjacency_list[source.id] == %{incoming: [], outgoing: []}
-      assert graph.adjacency_list[target.id] == %{incoming: [], outgoing: []}
-
-      graph = Graph.remove_node_by_id(graph, target.id)
-      refute Map.has_key?(graph.adjacency_list, target.id)
-      refute Enum.any?(graph.nodes, &(&1.id == target.id))
-    end
-
-    test "rejects nodes and edges outside the graph" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-
-      other_graph = insert_graph()
-      other_node = insert_node(other_graph, "other")
-
-      graph = Graph.add_node(graph, source)
-
-      assert_raise ArgumentError, fn -> Graph.add_node(graph, other_node) end
-
-      invalid_edge = %Edge{
-        graph_id: graph.id,
-        from_id: source.id,
-        to_id: other_node.id,
-        type: Atom.to_string(Runs)
-      }
-
-      assert_raise ArgumentError, fn -> Graph.add_edge(graph, invalid_edge) end
-      assert Map.keys(graph.adjacency_list) == [source.id]
-    end
-  end
-
-  describe "complete graph replacement" do
-    test "replaces the complete graph and increments its lock version" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      target = insert_service(graph, "target")
-      removed = insert_service(graph, "removed")
-      old_edge = insert_edge(source, removed)
-      edge_id = Ecto.UUID.generate()
-
-      attrs = %{
-        "title" => "replaced graph",
-        "nodes" => [node_attrs(source), node_attrs(target)],
-        "edges" => [
-          edge_attrs(edge_id, source.id, target.id, NetworkReachability, %{"protocol" => "any"})
-        ]
-      }
-
-      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
-      assert saved.title == "replaced graph"
-      assert saved.lock_version == 2
-      assert Enum.sort(Enum.map(saved.nodes, & &1.id)) == Enum.sort([source.id, target.id])
-
-      assert [%{id: ^edge_id, from_id: source_id, to_id: target_id, type: type}] =
-               Graph.edges(saved)
-
-      assert source_id == source.id
-      assert target_id == target.id
-      assert type == NetworkReachability
-
-      for node <- saved.nodes do
-        assert is_number(node.view_data.x_pos)
-        assert is_number(node.view_data.y_pos)
-      end
-
-      assert diff.nodes.removed == [removed.id]
-      assert diff.edges.removed == [old_edge.id]
-      assert diff.edges.added == [edge_id]
-    end
-
-    test "does not rewrite or increment an unchanged graph" do
-      graph = Graph.new("test-graph")
-      node = build_node(graph, Host, %{"name" => "source"})
-      graph = graph |> Graph.add_node(node)
-      assert {:ok, graph} = Graphs.insert(graph)
-
-      attrs = %{
-        "title" => graph.title,
-        "nodes" => [node_attrs(node)],
-        "edges" => []
-      }
-
-      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
-      assert GraphDiff.empty?(diff)
-      assert saved.lock_version == 1
-    end
-
-    test "rejects a stale lock version without changing the graph" do
-      graph = insert_graph()
-
-      attrs = %{
-        "title" => "first replacement",
-        "nodes" => [],
-        "edges" => []
-      }
-
-      assert {:ok, %{graph: saved}} = Graphs.replace(graph.id, 1, attrs)
-      assert saved.lock_version == 2
-
-      assert {:error, :stale} =
-               Graphs.replace(graph.id, 1, %{attrs | "title" => "stale replacement"})
-
-      assert Graphs.load!(graph.id).title == "first replacement"
-    end
-
-    test "rejects an invalid complete graph without partial writes" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-
-      attrs = %{
-        "title" => "invalid replacement",
-        "nodes" => [node_attrs(source)],
-        "edges" => [edge_attrs(Ecto.UUID.generate(), source.id, Ecto.UUID.generate(), Runs)]
-      }
-
-      assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
-      persisted = Graphs.load!(graph.id)
-      assert persisted.title == "test-graph"
-      assert Enum.map(persisted.nodes, & &1.id) == [source.id]
-      assert persisted.lock_version == 1
-    end
-
-    test "validates view_data for every node" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      valid_node_attrs = node_attrs(source)
-
-      invalid_nodes = [
-        Map.delete(valid_node_attrs, "view_data"),
-        %{valid_node_attrs | "view_data" => "not_a_map"},
-        %{valid_node_attrs | "view_data" => %{"x" => 1, "y" => 2}},
-        %{valid_node_attrs | "view_data" => %{"x_pos" => "abc", "y_pos" => 2}}
-      ]
-
-      Enum.each(invalid_nodes, fn invalid_node ->
-        attrs = %{"title" => graph.title, "nodes" => [invalid_node], "edges" => []}
-        assert {:error, :invalid_graph} = Graphs.replace(graph.id, 1, attrs)
-      end)
-
-      assert {:ok, _} =
-               Graphs.replace(graph.id, 1, %{
-                 "title" => graph.title,
-                 "nodes" => [valid_node_attrs],
-                 "edges" => []
-               })
-    end
-
-    test "view-data-only replacement increments lock_version" do
-      graph = insert_graph()
-      node = insert_node(graph, "node")
-      new_view_data = %{"x_pos" => 10, "y_pos" => 20}
-
-      attrs = %{
-        "title" => graph.title,
-        "nodes" => [%{node_attrs(node) | "view_data" => new_view_data}],
-        "edges" => []
-      }
-
-      assert {:ok, %{graph: saved, diff: diff}} = Graphs.replace(graph.id, 1, attrs)
-      assert saved.lock_version == 2
-      refute GraphDiff.empty?(diff)
-
-      [saved_node] = saved.nodes
-      assert saved_node.view_data.x_pos == new_view_data["x_pos"]
-      assert saved_node.view_data.y_pos == new_view_data["y_pos"]
-    end
-  end
-
-  describe "graph diff" do
-    test "matches by stable IDs and includes view-data-only changes" do
-      graph = Graph.new("graph")
-      node = build_node(graph, Host, %{"name" => "source"})
-      node_a = %{node | view_data: %{"x_pos" => 1, "y_pos" => 2}}
-      node_b = %{node | view_data: %{"x_pos" => 3, "y_pos" => 2}}
-
-      previous = graph |> Graph.add_node(node_a)
-      candidate = Graph.update_node(previous, node_b)
-      diff = GraphDiff.compare(previous, candidate)
-
-      assert diff.nodes.changed == [%{id: node.id, fields: [:view_data]}]
-      refute GraphDiff.empty?(diff)
-    end
-
-    test "reports changed node and edge fields" do
-      graph = Graph.new("graph")
-      source = build_node(graph, Host, %{"name" => "source"})
-
-      target =
-        build_node(graph, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
-
-      edge = build_edge(graph, source, target, Runs)
-
-      previous = graph |> Graph.add_node(source) |> Graph.add_node(target) |> Graph.add_edge(edge)
-
-      candidate =
-        previous
-        |> Graph.update_node(%{source | data: %{"name" => "renamed"}})
-        |> Graph.update_edge(%{edge | type: Atom.to_string(NetworkReachability)})
-
-      diff = GraphDiff.compare(previous, candidate)
-
-      assert diff.nodes.changed == [%{id: source.id, fields: [:data]}]
-      assert diff.edges.changed == [%{id: edge.id, fields: [:type, :data]}]
-    end
-
-    test "structural comparison ignores graph metadata, positions, and cloned UUIDs" do
-      base = Graph.new("base")
-      source = build_node(base, Host, %{"name" => "source"})
-
-      target =
-        build_node(base, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
-
-      base =
-        base
-        |> Graph.add_node(source)
-        |> Graph.add_node(target)
-        |> Graph.add_edge(build_edge(base, source, target, Runs))
-
-      candidate =
-        base
-        |> Graph.clone()
-        |> Map.put(:title, "renamed")
-        |> then(fn graph ->
-          [node | _] = Graph.nodes(graph)
-          Graph.update_node(graph, %{node | view_data: %{x_pos: 999, y_pos: 888, radius: nil}})
-        end)
-
-      diff = GraphDiff.structural(base, candidate)
-
-      assert diff.node_counts == %{added: 0, removed: 0, unchanged: 2}
-      assert diff.edge_counts == %{added: 0, removed: 0, unchanged: 1}
-      assert Enum.all?(diff.node_status, &(&1.status == "unchanged"))
-      assert Enum.map(Graph.nodes(diff.graph), & &1.id) == Enum.map(Graph.nodes(base), & &1.id)
-    end
-
-    test "structural comparison reports added and removed topology" do
-      base = Graph.new("base")
-      source = build_node(base, Host, %{"name" => "source"})
-
-      removed =
-        build_node(base, Service, %{"name" => "removed", "protocol" => "tcp", "port" => 443})
-
-      base =
-        base
-        |> Graph.add_node(source)
-        |> Graph.add_node(removed)
-        |> Graph.add_edge(build_edge(base, source, removed, Runs))
-
-      candidate = Graph.new("candidate")
-      candidate_source = build_node(candidate, Host, %{"name" => "source"})
-
-      added =
-        build_node(candidate, Service, %{"name" => "added", "protocol" => "tcp", "port" => 443})
-
-      candidate =
-        candidate
-        |> Graph.add_node(candidate_source)
-        |> Graph.add_node(added)
-        |> Graph.add_edge(build_edge(candidate, candidate_source, added, Runs))
-
-      diff = GraphDiff.structural(base, candidate)
-
-      assert diff.node_counts == %{added: 1, removed: 1, unchanged: 1}
-      assert diff.edge_counts == %{added: 1, removed: 1, unchanged: 0}
-
-      assert %{id: removed_id, status: "removed"} =
-               Enum.find(diff.node_status, &(&1.id == removed.id))
-
-      assert removed_id == removed.id
-      assert %{id: added_id, status: "added"} = Enum.find(diff.node_status, &(&1.id == added.id))
-      assert added_id == added.id
-    end
-
-    test "structural comparison treats crossed duplicate semantic nodes as unchanged" do
-      base = Graph.new("base")
-      first = build_node(base, Host, %{"name" => "duplicate"})
-      second = build_node(base, Host, %{"name" => "duplicate"})
-      left = build_node(base, Service, %{"name" => "left", "protocol" => "tcp", "port" => 443})
-      right = build_node(base, Service, %{"name" => "right", "protocol" => "tcp", "port" => 443})
-
-      base =
-        base
-        |> Graph.add_node(first)
-        |> Graph.add_node(second)
-        |> Graph.add_node(left)
-        |> Graph.add_node(right)
-        |> Graph.add_edge(build_edge(base, first, left, Runs))
-        |> Graph.add_edge(build_edge(base, second, right, Runs))
-
-      candidate = Graph.new("candidate")
-      candidate_first = build_node(candidate, Host, %{"name" => "duplicate"})
-      candidate_second = build_node(candidate, Host, %{"name" => "duplicate"})
-
-      candidate_left =
-        build_node(candidate, Service, %{"name" => "left", "protocol" => "tcp", "port" => 443})
-
-      candidate_right =
-        build_node(candidate, Service, %{"name" => "right", "protocol" => "tcp", "port" => 443})
-
-      candidate =
-        candidate
-        |> Graph.add_node(candidate_first)
-        |> Graph.add_node(candidate_second)
-        |> Graph.add_node(candidate_left)
-        |> Graph.add_node(candidate_right)
-        |> Graph.add_edge(build_edge(candidate, candidate_first, candidate_right, Runs))
-        |> Graph.add_edge(build_edge(candidate, candidate_second, candidate_left, Runs))
-
-      diff = GraphDiff.structural(base, candidate)
-
-      assert diff.node_counts == %{added: 0, removed: 0, unchanged: 4}
-      assert diff.edge_counts == %{added: 0, removed: 0, unchanged: 2}
-    end
-
-    test "structural comparison keeps colliding added entities distinct" do
-      base = Graph.new("base")
-      base_source = build_node(base, Host, %{"name" => "base"})
-
-      base_target =
-        build_node(base, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
-
-      base_edge = build_edge(base, base_source, base_target, Runs)
-
-      base =
-        base
-        |> Graph.add_node(base_source)
-        |> Graph.add_node(base_target)
-        |> Graph.add_edge(base_edge)
-
-      candidate = Graph.new("candidate")
-
-      candidate_source =
-        %{build_node(candidate, Host, %{"name" => "candidate"}) | id: base_source.id}
-
-      candidate_target =
-        build_node(candidate, Service, %{"name" => "target", "protocol" => "tcp", "port" => 443})
-
-      candidate_edge =
-        %{build_edge(candidate, candidate_source, candidate_target, Runs) | id: base_edge.id}
-
-      candidate =
-        candidate
-        |> Graph.add_node(candidate_source)
-        |> Graph.add_node(candidate_target)
-        |> Graph.add_edge(candidate_edge)
-
-      diff = GraphDiff.structural(base, candidate)
-
-      assert diff.node_counts == %{added: 1, removed: 1, unchanged: 1}
-      assert diff.edge_counts == %{added: 1, removed: 1, unchanged: 0}
-      assert length(Graph.nodes(diff.graph)) == 3
-      assert length(Graph.edges(diff.graph)) == 2
-
-      assert %{id: added_node_id, status: "added"} =
-               Enum.find(diff.node_status, &(&1.status == "added"))
-
-      assert %{id: added_edge_id, status: "added"} =
-               Enum.find(diff.edge_status, &(&1.status == "added"))
-
-      assert added_node_id != base_source.id
-      assert added_edge_id != base_edge.id
-
-      assert Enum.any?(Graph.edges(diff.graph), fn edge ->
-               edge.id == added_edge_id and edge.from_id == added_node_id and
-                 edge.to_id == base_target.id
-             end)
-
-      assert length(diff.node_status) == MapSet.size(MapSet.new(diff.node_status, & &1.id))
-      assert length(diff.edge_status) == MapSet.size(MapSet.new(diff.edge_status, & &1.id))
-
-      assert {:ok, wire_graph} = GraphContract.from_domain(diff.graph)
-      assert length(wire_graph.nodes) == 3
-      assert length(wire_graph.edges) == 2
-    end
-  end
-
-  describe "SQL ownership" do
-    test "deleting a graph deletes its nodes and edges" do
-      graph = insert_graph()
-      source = insert_node(graph, "source")
-      target = insert_node(graph, "target")
-      edge = insert_edge(source, target)
-
-      Repo.delete!(graph)
-
-      refute Repo.get(Node, source.id)
-      refute Repo.get(Node, target.id)
-      refute Repo.get(Edge, edge.id)
-    end
-
-    test "deleting a node deletes incoming and outgoing edges" do
-      graph = insert_graph()
-      first = insert_node(graph, "first")
-      middle = insert_node(graph, "middle")
-      last = insert_node(graph, "last")
-      incoming = insert_edge(first, middle)
-      outgoing = insert_edge(middle, last)
-
-      Repo.delete!(middle)
-
-      refute Repo.get(Edge, incoming.id)
-      refute Repo.get(Edge, outgoing.id)
-    end
-  end
-
-  defp insert_graph do
-    %Graph{}
-    |> Graph.changeset(%{title: "test-graph"})
-    |> Repo.insert!()
-  end
-
-  defp insert_node(graph, name) do
-    %Node{graph_id: graph.id}
-    |> Node.changeset(%{
-      type: Atom.to_string(Host),
-      data: %{"name" => name},
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    })
-    |> Repo.insert!()
-  end
-
-  defp insert_service(graph, name) do
-    %Node{graph_id: graph.id}
-    |> Node.changeset(%{
-      type: Atom.to_string(Service),
-      data: %{"name" => name, "protocol" => "tcp", "port" => 443},
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    })
-    |> Repo.insert!()
-  end
-
-  defp insert_edge(source, target) do
-    %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
-    |> Edge.changeset(%{type: Atom.to_string(Runs), data: %{}})
-    |> Repo.insert!()
+  defp graph_with_duplicate_edge(title) do
+    graph = graph(title)
+    [host, service] = Graph.nodes(graph)
+
+    Graph.add_edge(
+      graph,
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
+    )
   end
 
   defp node_attrs(node) do
-    %{"id" => node.id, "type" => node.type, "data" => node.data, "view_data" => node.view_data}
-  end
-
-  defp edge_attrs(id, from_id, to_id, type, data \\ %{}) do
     %{
-      "id" => id,
-      "from_id" => from_id,
-      "to_id" => to_id,
-      "type" => Atom.to_string(type),
-      "data" => data
+      "id" => node.id,
+      "type" => Atom.to_string(node.type),
+      "data" => NetworkDefense.Graph.Data.to_params(node.data),
+      "view_data" => %{"x_pos" => node.view_data.x_pos, "y_pos" => node.view_data.y_pos}
     }
   end
 
-  defp delete_all_graphs do
-    Repo.delete_all(Edge)
-    Repo.delete_all(Node)
-    Repo.delete_all(Graph)
-  end
+  defp replacement_attrs(graph) do
+    [host, service] = Graph.nodes(graph)
 
-  defp build_node(graph, type, data) do
-    %Node{
-      id: Ecto.UUID.generate(),
-      graph_id: graph.id,
-      type: Atom.to_string(type),
-      data: data,
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    }
-  end
-
-  defp build_edge(graph, from, to, type, data \\ %{}) do
-    %Edge{
-      id: Ecto.UUID.generate(),
-      graph_id: graph.id,
-      from_id: from.id,
-      to_id: to.id,
-      type: Atom.to_string(type),
-      data: data
-    }
-  end
-
-  defp cvss do
     %{
-      "attack_vector" => "network",
-      "attack_complexity" => "low",
-      "privileges_required" => "none",
-      "user_interaction" => "none",
-      "scope" => "unchanged",
-      "confidentiality_impact" => "high",
-      "integrity_impact" => "none",
-      "availability_impact" => "none"
+      "title" => graph.title,
+      "revision_id" => graph.revision_id,
+      "nodes" => [node_attrs(host), node_attrs(service)],
+      "edges" => Enum.map(Graph.edges(graph), &edge_attrs/1)
     }
   end
+
+  defp edge_attrs(edge) do
+    %{
+      "id" => edge.id,
+      "from_id" => edge.from_id,
+      "to_id" => edge.to_id,
+      "type" => Atom.to_string(edge.type),
+      "data" => NetworkDefense.Graph.Data.to_params(edge.data)
+    }
+  end
+
+  defp assert_foreign_key_violation(query, params) do
+    assert {:error, %Postgrex.Error{postgres: %{code: :foreign_key_violation}}} =
+             Repo.query(query, params)
+  end
+
+  defp assert_update_guard(query, params) do
+    assert {:error, %Postgrex.Error{postgres: %{code: :raise_exception}}} =
+             Repo.query(query, params)
+  end
+
+  defp assert_unique_violation(query, params) do
+    assert {:error, %Postgrex.Error{postgres: %{code: :unique_violation}}} =
+             Repo.query(query, params)
+  end
+
+  defp assert_check_violation(query, params) do
+    assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
+             Repo.query(query, params)
+  end
+
+  defp uuid(id), do: Ecto.UUID.dump!(id)
 end

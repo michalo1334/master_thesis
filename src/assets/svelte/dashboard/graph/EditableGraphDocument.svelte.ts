@@ -26,9 +26,6 @@ function blankGraph(title: string): LoadedGraph {
   return {
     id: crypto.randomUUID(),
     title,
-    lock_version: 0,
-    parent_id: null,
-    tags: ["original"],
     nodes: [],
     edges: [],
   };
@@ -42,8 +39,7 @@ export class EditableGraphDocument {
   private _graph = $state<LoadedGraph>(blankGraph("Untitled"));
   private _selection = $state<CanvasSelection>({ kind: "none" });
   private _loaded = $state(false);
-  private _loadedGraphId = $state<string | null>(null);
-  private _lockVersion = $state(0);
+  private _loadedRevisionId = $state<string | null>(null);
   private _title = $state("Untitled");
   private _changeVersion = $state(0);
   private _savedChangeVersion = $state(0);
@@ -64,12 +60,8 @@ export class EditableGraphDocument {
     return this._loaded;
   }
 
-  get loadedGraphId(): string | null {
-    return this._loadedGraphId;
-  }
-
-  get lockVersion(): number {
-    return this._lockVersion;
+  get loadedRevisionId(): string | null {
+    return this._loadedRevisionId;
   }
 
   get saveEligible(): boolean {
@@ -182,8 +174,7 @@ export class EditableGraphDocument {
     this._graph = graph;
     this._title = graph.title;
     this._loaded = true;
-    this._loadedGraphId = graph.id;
-    this._lockVersion = graph.lock_version;
+    this._loadedRevisionId = graph.revision_id ?? null;
     this._savedChangeVersion = this._changeVersion;
     this._preserveSelection(graph);
   }
@@ -191,7 +182,7 @@ export class EditableGraphDocument {
   replaceFromSaveReply(graph: LoadedGraph): void {
     this._graph = graph;
     this._title = graph.title;
-    this._lockVersion = graph.lock_version;
+    this._loadedRevisionId = graph.revision_id ?? null;
     this._savedChangeVersion = this._changeVersion;
     this._preserveSelection(graph);
   }
@@ -206,18 +197,12 @@ export class EditableGraphDocument {
         if (this._changeVersion === savedChangeVersion) {
           this.replaceFromSaveReply(reply.graph);
         } else {
-          this._graph = {
-            ...this._graph,
-            lock_version: reply.graph.lock_version,
-          };
-          this._lockVersion = reply.graph.lock_version;
+          this._graph = { ...this._graph, ...revisionMetadata(reply.graph) };
+          this._loadedRevisionId = reply.graph.revision_id ?? null;
           this._preserveSelection(this._graph);
         }
         this.saveStatusMessage = "Saved.";
         return true;
-      } else if (reply.status === "stale") {
-        this.saveStatusMessage =
-          "Save failed: graph was modified by another user.";
       } else if (reply.status === "not_found") {
         this.saveStatusMessage = "Save failed: graph no longer exists.";
       } else {
@@ -242,19 +227,21 @@ export class EditableGraphDocument {
     params: SimulationParams,
   ): Promise<{
     graphId: string;
+    graphRevisionId: string;
     correlationId: string;
     graphTitle: string;
   } | null> {
-    if (!this.loadedGraphId) return null;
+    if (!this.loadedRevisionId) return null;
     const correlationId = crypto.randomUUID();
     const reply = await api.runSimulation(
-      this.loadedGraphId,
+      this.loadedRevisionId,
       correlationId,
       params,
     );
     if (reply.status === "accepted") {
       return {
-        graphId: reply.graph_id,
+        graphId: this.graph.id,
+        graphRevisionId: reply.graph_revision_id,
         correlationId: reply.correlation_id,
         graphTitle: this.title,
       };
@@ -267,8 +254,8 @@ export class EditableGraphDocument {
     params: OptimizationParams,
     correlationId: string = crypto.randomUUID(),
   ): Promise<RunOptimizationReply | null> {
-    if (!this.loadedGraphId) return null;
-    return api.runOptimization(this.loadedGraphId, correlationId, params);
+    if (!this.loadedRevisionId) return null;
+    return api.runOptimization(this.loadedRevisionId, correlationId, params);
   }
 
   applyForceLayout(params: ForceParams): void {
@@ -285,4 +272,30 @@ export class EditableGraphDocument {
       return;
     this._selection = { kind: "none" };
   }
+}
+
+function revisionMetadata(
+  graph: LoadedGraph,
+): Pick<
+  LoadedGraph,
+  | "id"
+  | "revision_id"
+  | "parent_revision_id"
+  | "revision_kind"
+  | "revision_number"
+> {
+  const {
+    id,
+    revision_id,
+    parent_revision_id,
+    revision_kind,
+    revision_number,
+  } = graph;
+  return {
+    id,
+    revision_id,
+    parent_revision_id,
+    revision_kind,
+    revision_number,
+  };
 }

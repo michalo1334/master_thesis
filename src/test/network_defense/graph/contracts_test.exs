@@ -11,6 +11,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
   }
 
   alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Graph.Contracts.SaveGraphContract
 
   describe "CredentialData" do
     test "validates credential data" do
@@ -136,6 +137,22 @@ defmodule NetworkDefense.Graph.ContractsTest do
     end
   end
 
+  describe "SaveGraphContract" do
+    test "requires a base revision and excludes response-only fields" do
+      params = Map.put(graph_params(), "revision_id", Ecto.UUID.generate())
+
+      assert {:ok, graph} = SaveGraphContract.validate(params)
+
+      assert %{"id" => _, "revision_id" => _, "title" => _, "nodes" => _, "edges" => _} =
+               SaveGraphContract.to_params(graph)
+
+      refute Map.has_key?(SaveGraphContract.to_params(graph), "parent_revision_id")
+      refute Map.has_key?(SaveGraphContract.to_params(graph), "revision_number")
+      refute Map.has_key?(SaveGraphContract.to_params(graph), "revision_kind")
+      assert {:error, _changeset} = SaveGraphContract.validate(graph_params())
+    end
+  end
+
   defp graph_params do
     node_id = Ecto.UUID.generate()
     target_id = Ecto.UUID.generate()
@@ -143,7 +160,6 @@ defmodule NetworkDefense.Graph.ContractsTest do
     %{
       "id" => Ecto.UUID.generate(),
       "title" => "Graph",
-      "lock_version" => 1,
       "nodes" => [
         %{
           "id" => node_id,

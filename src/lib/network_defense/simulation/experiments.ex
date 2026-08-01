@@ -162,7 +162,7 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   defp dump_uuid(_field, nil), do: nil
 
-  defp dump_uuid(field, value) when field in [:id, :graph_id, :experiment_id, :run_id],
+  defp dump_uuid(field, value) when field in [:id, :graph_revision_id, :experiment_id, :run_id],
     do: Ecto.UUID.dump!(value)
 
   defp dump_uuid(_field, value), do: value
@@ -223,7 +223,6 @@ defmodule NetworkDefense.Simulation.Experiments do
       :master_seed,
       :iteration_count,
       :max_attempts,
-      :lock_version,
       :runtime_ms,
       :total_trials,
       :completed_trials,

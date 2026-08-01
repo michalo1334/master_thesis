@@ -34,11 +34,11 @@
   let rows = $derived.by(() => buildRows(documents));
 
   function buildRows(documents: readonly WorkspaceDocument[]): OutlineRow[] {
-    const graphsByLoadedId = new SvelteMap<string, WorkspaceDocument>();
+    const graphsByRevisionId = new SvelteMap<string, WorkspaceDocument>();
 
     for (const document of documents) {
-      if (document.kind === "graph" && document.loadedGraphId) {
-        graphsByLoadedId.set(document.loadedGraphId, document);
+      if (document.kind === "graph" && document.loadedRevisionId) {
+        graphsByRevisionId.set(document.loadedRevisionId, document);
       }
     }
 
@@ -47,7 +47,7 @@
     const fallbackReports: WorkspaceDocument[] = [];
 
     for (const document of documents) {
-      const parent = parentDocument(document, graphsByLoadedId);
+      const parent = parentDocument(document, graphsByRevisionId);
       if (parent) {
         const siblings = children.get(parent.id) ?? [];
         siblings.push(document);
@@ -80,19 +80,20 @@
 
   function parentDocument(
     document: WorkspaceDocument,
-    graphsByLoadedId: ReadonlyMap<string, WorkspaceDocument>,
+    graphsByRevisionId: ReadonlyMap<string, WorkspaceDocument>,
   ): WorkspaceDocument | undefined {
     if (isReport(document)) {
-      return graphsByLoadedId.get(document.graphId);
+      return graphsByRevisionId.get(document.graphRevisionId);
     }
 
     if (isGraphDiff(document)) {
-      return graphsByLoadedId.get(document.baseGraphId);
+      return graphsByRevisionId.get(document.baseRevisionId);
     }
 
-    if (!document.loadedGraphId || !document.graph.parent_id) return undefined;
+    if (!document.loadedRevisionId || !document.graph.parent_revision_id)
+      return undefined;
 
-    const parent = graphsByLoadedId.get(document.graph.parent_id);
+    const parent = graphsByRevisionId.get(document.graph.parent_revision_id);
     if (!parent || parent.id === document.id) return undefined;
 
     // A malformed parent chain is shown at the root instead of recursing forever.
@@ -102,8 +103,8 @@
       if (visited.has(current.id)) return undefined;
       visited.add(current.id);
       current =
-        current.kind === "graph" && current.graph.parent_id
-          ? graphsByLoadedId.get(current.graph.parent_id)
+        current.kind === "graph" && current.graph.parent_revision_id
+          ? graphsByRevisionId.get(current.graph.parent_revision_id)
           : undefined;
     }
 

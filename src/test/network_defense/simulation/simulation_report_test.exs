@@ -39,7 +39,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   end
 
   test "maps a typed report to the web contract" do
-    graph = Graph.new("Test graph")
+    graph = %{Graph.new("Test graph") | revision_id: Ecto.UUID.generate()}
 
     assert {:ok,
             %FetchSimulationReportReply{
@@ -72,10 +72,18 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
            ]
   end
 
-  defp experiment(runs, graph \\ %Graph{title: "Test graph", nodes: [%{}, %{}, %{}]}) do
+  defp experiment(
+         runs,
+         graph \\ %Graph{
+           id: "graph",
+           revision_id: "revision",
+           title: "Test graph",
+           nodes: [%{}, %{}, %{}]
+         }
+       ) do
     %Experiment{
       id: "experiment",
-      graph_id: "graph",
+      graph_revision_id: graph.revision_id,
       graph: graph,
       iteration_count: 1,
       runs: runs

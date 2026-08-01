@@ -3,22 +3,21 @@ defmodule NetworkDefense.Graph.Edge do
   import Ecto.Changeset
 
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
-  alias NetworkDefense.Graph.{Data, Graph, SemanticConnectivity}
+  alias NetworkDefense.Graph.{Data, SemanticConnectivity}
   alias NetworkDefense.Graph.Contracts.Edge, as: EdgeContract
-  alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
 
-  @primary_key {:id, :binary_id, autogenerate: true}
+  @primary_key false
   @foreign_key_type :binary_id
-  schema "edges" do
-    belongs_to :graph, Graph
-    belongs_to :from, Node
-    belongs_to :to, Node
+  schema "graph_revision_edges" do
+    field :id, :binary_id, source: :edge_id, primary_key: true
+    field :graph_revision_id, :binary_id, primary_key: true
+    field :graph_id, :binary_id
+    field :from_id, :binary_id
+    field :to_id, :binary_id
 
     field :type, :string
     field :data, :map
-
-    timestamps(type: :utc_datetime)
   end
 
   @doc false
@@ -26,10 +25,7 @@ defmodule NetworkDefense.Graph.Edge do
     edge
     |> cast(attrs, [:type, :data])
     |> validate_required([:type])
-    |> foreign_key_constraint(:graph_id)
-    |> foreign_key_constraint(:from_id, name: :edges_from_graph_fkey)
-    |> foreign_key_constraint(:to_id, name: :edges_to_graph_fkey)
-    |> validate_dynamic_data()
+    |> Data.validate_dynamic_data(RelationshipRegistry)
   end
 
   def new(graph_id, from_id, to_id, attrs) do
@@ -87,25 +83,4 @@ defmodule NetworkDefense.Graph.Edge do
   def persist(%__MODULE__{} = edge) do
     %{edge | type: RelationshipRegistry.type_for(edge.type), data: Data.to_params(edge.data)}
   end
-
-  defp validate_dynamic_data(changeset) do
-    type = get_field(changeset, :type)
-    data = get_field(changeset, :data)
-
-    case schema_for(type) do
-      nil ->
-        add_error(changeset, :type, "is invalid")
-
-      schema ->
-        data_changeset = schema.changeset(struct(schema), data || %{})
-
-        if data_changeset.valid? do
-          changeset
-        else
-          add_error(changeset, :data, "is invalid")
-        end
-    end
-  end
-
-  defp schema_for(type), do: RelationshipRegistry.module_for(type)
 end

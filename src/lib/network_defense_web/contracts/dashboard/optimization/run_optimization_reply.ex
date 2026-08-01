@@ -9,21 +9,21 @@ defmodule NetworkDefenseWeb.Web.Contracts.RunOptimizationReply do
 
   embedded_schema do
     field :status, :string
-    field :graph_id, :string
+    field :graph_revision_id, :string
     field :correlation_id, :string
     field :reason, :string
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          graph_id: String.t(),
+          graph_revision_id: String.t(),
           correlation_id: String.t(),
           reason: String.t() | nil
         }
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:status, :graph_id, :correlation_id, :reason], empty_values: [])
+    |> cast(attrs, [:status, :graph_revision_id, :correlation_id, :reason], empty_values: [])
     |> validate_required([:status])
     |> validate_inclusion(:status, ["accepted", "rejected"])
   end

@@ -40,6 +40,7 @@ describe("OptimizationReport", () => {
   ): OptimizationReportDocument {
     const document = new OptimizationReportDocument({
       graphId: "g1",
+      graphRevisionId: "r1",
       graphTitle: "Topology",
       correlationId: "corr-1",
       strategy: "cvss",
@@ -49,7 +50,7 @@ describe("OptimizationReport", () => {
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        optimized_graph_id: "optimized-g1",
+        graph_revision_id: "optimized-r1",
         report: {
           strategy: "cvss",
           requested_budget: 2,
@@ -68,9 +69,10 @@ describe("OptimizationReport", () => {
     const graph = {
       id: "g1",
       title: "Topology",
-      lock_version: 1,
-      parent_id: null,
-      tags: [],
+      revision_id: "r1",
+      parent_revision_id: null,
+      revision_kind: "original",
+      revision_number: 1,
       nodes: [],
       edges: [],
     };
@@ -84,7 +86,7 @@ describe("OptimizationReport", () => {
     return new GraphDiffDocument(
       graph,
       {
-        id: "g2",
+        revisionId: "optimized-r1",
         title: "Optimized topology",
       },
       result,
@@ -95,6 +97,7 @@ describe("OptimizationReport", () => {
     const openOptimizedGraph = vi.fn().mockResolvedValue(true);
     const document = new OptimizationReportDocument({
       graphId: "g1",
+      graphRevisionId: "r1",
       graphTitle: "Topology",
       correlationId: "corr-1",
       strategy: "cvss",
@@ -104,7 +107,7 @@ describe("OptimizationReport", () => {
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        optimized_graph_id: "optimized-g1",
+        graph_revision_id: "optimized-r1",
         report: {
           strategy: "future_strategy",
           requested_budget: 2,

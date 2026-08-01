@@ -13,8 +13,8 @@ export class GraphDiffDocument {
   readonly kind = "graph-diff" as const;
   readonly icon = "graph-diff" as const satisfies IconName;
   readonly id = crypto.randomUUID();
-  readonly baseGraphId: string;
-  readonly comparisonGraphId: string;
+  readonly baseRevisionId: string;
+  readonly comparisonRevisionId: string;
   readonly title: string;
   readonly graph: LoadedGraph;
   readonly nodeStatusById: ReadonlyMap<string, GraphDiffStatus>;
@@ -24,11 +24,11 @@ export class GraphDiffDocument {
 
   constructor(
     base: LoadedGraph,
-    comparison: { id: string; title: string },
+    comparison: { revisionId: string; title: string },
     result: GraphDiffResult,
   ) {
-    this.baseGraphId = base.id;
-    this.comparisonGraphId = comparison.id;
+    this.baseRevisionId = base.revision_id ?? "";
+    this.comparisonRevisionId = comparison.revisionId;
     this.title = `${base.title} compared with ${comparison.title}`;
     this.graph = result.graph;
     this.nodeStatusById = new SvelteMap(

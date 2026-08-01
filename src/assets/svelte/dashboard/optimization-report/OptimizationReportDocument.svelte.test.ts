@@ -6,6 +6,7 @@ describe("OptimizationReportDocument", () => {
   const createDocument = () =>
     new OptimizationReportDocument({
       graphId: "g1",
+      graphRevisionId: "r1",
       graphTitle: "Topology",
       correlationId: "corr-1",
       strategy: "simulation_informed",
@@ -29,7 +30,7 @@ describe("OptimizationReportDocument", () => {
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        optimized_graph_id: "optimized-g1",
+        graph_revision_id: "optimized-r1",
         report: {
           strategy: "simulation_informed",
           requested_budget: 2,
@@ -59,15 +60,16 @@ describe("OptimizationReportDocument", () => {
     const graph = {
       id: "g1",
       title: "Topology",
-      lock_version: 1,
-      parent_id: null,
-      tags: [],
+      revision_id: "r1",
+      parent_revision_id: null,
+      revision_kind: "original",
+      revision_number: 1,
       nodes: [],
       edges: [],
     };
     const graphDiff = new GraphDiffDocument(
       graph,
-      { id: "optimized-g1", title: "Optimized graph" },
+      { revisionId: "optimized-r1", title: "Optimized graph" },
       {
         graph,
         node_status: [],
@@ -82,7 +84,7 @@ describe("OptimizationReportDocument", () => {
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        optimized_graph_id: "optimized-g1",
+        graph_revision_id: "optimized-r1",
         report: {
           strategy: "simulation_informed",
           requested_budget: 2,

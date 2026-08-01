@@ -4,7 +4,7 @@ defmodule NetworkDefense.Simulation.Experiment do
   import Ecto.Changeset
 
   alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Simulation.Run
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -12,12 +12,11 @@ defmodule NetworkDefense.Simulation.Experiment do
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
-          graph_id: String.t() | nil,
+          graph_revision_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           master_seed: Seed.seed(),
           iteration_count: non_neg_integer(),
           max_attempts: pos_integer(),
-          lock_version: integer(),
           runtime_ms: integer(),
           total_trials: pos_integer(),
           completed_trials: non_neg_integer(),
@@ -27,12 +26,12 @@ defmodule NetworkDefense.Simulation.Experiment do
         }
 
   schema "experiments" do
-    belongs_to :graph, Graph
+    belongs_to :graph_revision, GraphRevision
+    field :graph, :any, virtual: true
 
     field :master_seed, :integer
     field :iteration_count, :integer
     field :max_attempts, :integer, default: 1
-    field :lock_version, :integer, default: 1
     field :runtime_ms, :integer, default: 0
     field :total_trials, :integer, default: 0
     field :completed_trials, :integer, default: 0
@@ -50,7 +49,6 @@ defmodule NetworkDefense.Simulation.Experiment do
       :master_seed,
       :iteration_count,
       :max_attempts,
-      :lock_version,
       :runtime_ms,
       :total_trials,
       :completed_trials,
@@ -58,7 +56,7 @@ defmodule NetworkDefense.Simulation.Experiment do
       :initial_foothold_node_id
     ])
     |> validate_required([
-      :graph_id,
+      :graph_revision_id,
       :master_seed,
       :iteration_count,
       :max_attempts,
@@ -72,7 +70,7 @@ defmodule NetworkDefense.Simulation.Experiment do
     |> validate_number(:total_trials, greater_than: 0)
     |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, ["running", "failed", "completed"])
-    |> foreign_key_constraint(:graph_id)
+    |> foreign_key_constraint(:graph_revision_id)
   end
 
   def new(attrs) do
@@ -80,12 +78,12 @@ defmodule NetworkDefense.Simulation.Experiment do
 
     %__MODULE__{
       id: Ecto.UUID.generate(),
-      graph_id: Map.get(attrs, :graph_id) || graph_id(Map.get(attrs, :graph)),
+      graph_revision_id:
+        Map.get(attrs, :graph_revision_id) || graph_revision_id(Map.get(attrs, :graph)),
       graph: Map.get(attrs, :graph),
       master_seed: Map.fetch!(attrs, :master_seed),
       iteration_count: Map.fetch!(attrs, :iteration_count),
       max_attempts: Map.get(attrs, :max_attempts, 1),
-      lock_version: Map.get(attrs, :lock_version, 1),
       runtime_ms: Map.get(attrs, :runtime_ms, 0),
       total_trials: Map.get(attrs, :total_trials, length(Map.get(attrs, :runs, []))),
       completed_trials: Map.get(attrs, :completed_trials, 0),
@@ -95,6 +93,6 @@ defmodule NetworkDefense.Simulation.Experiment do
     }
   end
 
-  defp graph_id(%Graph{id: id}), do: id
-  defp graph_id(_), do: nil
+  defp graph_revision_id(%Graph{revision_id: id}), do: id
+  defp graph_revision_id(_), do: nil
 end

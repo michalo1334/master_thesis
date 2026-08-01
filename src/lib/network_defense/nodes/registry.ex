@@ -8,27 +8,13 @@ defmodule NetworkDefense.Nodes.Registry do
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
+  alias NetworkDefense.Registry
 
   @types [Host, Service, Vulnerability, Credential]
 
-  def module_for(type) when is_binary(type) do
-    Enum.find(@types, &(Atom.to_string(&1) == type))
-  end
-
-  def module_for(_type), do: nil
-
-  def module_for_contract(type) when is_binary(type) do
-    Enum.find(@types, &(contract_type_for(&1) == type))
-  end
-
-  def module_for_contract(_type), do: nil
-
-  def type_for(module) when module in @types, do: Atom.to_string(module)
-  def type_for(_module), do: nil
-
-  def contract_type_for(module) when module in @types,
-    do: module |> Module.split() |> List.last()
-
-  def contract_type_for(_module), do: nil
-  def contract_types, do: Enum.map(@types, &contract_type_for/1)
+  def module_for(type), do: Registry.module_for(@types, type)
+  def module_for_contract(type), do: Registry.module_for_short(@types, type)
+  def type_for(module), do: Registry.type_for(@types, module)
+  def contract_type_for(module), do: Registry.contract_type_for(@types, module)
+  def contract_types, do: Registry.contract_types(@types)
 end

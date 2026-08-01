@@ -15,6 +15,7 @@ export class OptimizationReportDocument {
   readonly icon = "shield" as const satisfies IconName;
   readonly id = crypto.randomUUID();
   readonly graphId: string;
+  readonly graphRevisionId: string;
   readonly correlationId: string;
 
   title = $state("");
@@ -26,7 +27,7 @@ export class OptimizationReportDocument {
   totalSteps = $state(0);
   phase = $state("");
   errorReason = $state("");
-  optimizedGraphId = $state<string | undefined>();
+  optimizedGraphRevisionId = $state<string | undefined>();
   reportData = $state.raw<OptimizationReport | undefined>();
   analysis = $state.raw<OptimizationAnalysis | undefined>();
   openOptimizedGraph = $state<(() => Promise<boolean>) | undefined>();
@@ -38,18 +39,21 @@ export class OptimizationReportDocument {
 
   constructor({
     graphId,
+    graphRevisionId,
     graphTitle,
     correlationId,
     strategy,
     budget,
   }: {
     graphId: string;
+    graphRevisionId: string;
     graphTitle: string;
     correlationId: string;
     strategy: OptimizationStrategy;
     budget: number;
   }) {
     this.graphId = graphId;
+    this.graphRevisionId = graphRevisionId;
     this.correlationId = correlationId;
     this.strategy = strategy;
     this.budget = budget;
@@ -73,7 +77,7 @@ export class OptimizationReportDocument {
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
   ): void {
     this.status = "completed";
-    this.optimizedGraphId = payload.optimized_graph_id;
+    this.optimizedGraphRevisionId = payload.graph_revision_id;
     this.reportData = payload.report;
     this.analysis = toOptimizationAnalysis(payload.report);
     this.openOptimizedGraph = openOptimizedGraph;

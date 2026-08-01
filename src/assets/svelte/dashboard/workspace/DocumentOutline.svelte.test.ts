@@ -9,15 +9,16 @@ import DocumentOutline from "./DocumentOutline.svelte";
 function graph(
   id: string,
   title: string,
-  parentId: string | null = null,
+  parentRevisionId: string | null = null,
 ): EditableGraphDocument {
   const document = new EditableGraphDocument();
   const loadedGraph: LoadedGraph = {
     id,
     title,
-    lock_version: 1,
-    parent_id: parentId,
-    tags: [],
+    revision_id: `${id}-r1`,
+    parent_revision_id: parentRevisionId,
+    revision_kind: "edit",
+    revision_number: 1,
     nodes: [],
     edges: [],
   };
@@ -36,9 +37,10 @@ function graphDiff(): GraphDiffDocument {
   const graph: LoadedGraph = {
     id: "base",
     title: "Base",
-    lock_version: 1,
-    parent_id: null,
-    tags: [],
+    revision_id: "base-r1",
+    parent_revision_id: null,
+    revision_kind: "original",
+    revision_number: 1,
     nodes: [],
     edges: [],
   };
@@ -51,7 +53,7 @@ function graphDiff(): GraphDiffDocument {
   };
   return new GraphDiffDocument(
     graph,
-    { id: "comparison", title: "Comparison" },
+    { revisionId: "comparison-r1", title: "Comparison" },
     result,
   );
 }
@@ -61,8 +63,12 @@ afterEach(cleanup);
 describe("DocumentOutline", () => {
   it("nests open child graphs and their reports", async () => {
     const root = graph("root", "Root");
-    const child = graph("child", "Child", root.loadedGraphId);
-    const report = new SimulationReportDocument("Child", child.loadedGraphId!);
+    const child = graph("child", "Child", root.loadedRevisionId);
+    const report = new SimulationReportDocument(
+      "Child",
+      "child",
+      child.loadedRevisionId!,
+    );
     const onSelectDocument = vi.fn();
 
     render(DocumentOutline, {
@@ -142,7 +148,11 @@ describe("DocumentOutline", () => {
   });
 
   it("places reports without an open graph in the Reports group", () => {
-    const report = new SimulationReportDocument("Closed graph", "closed-graph");
+    const report = new SimulationReportDocument(
+      "Closed graph",
+      "closed-graph",
+      "closed-r1",
+    );
 
     render(DocumentOutline, {
       props: {
@@ -160,7 +170,7 @@ describe("DocumentOutline", () => {
   });
 
   it("selects a report when clicked", async () => {
-    const report = new SimulationReportDocument("Graph", "graph");
+    const report = new SimulationReportDocument("Graph", "graph", "graph-r1");
     const onSelectDocument = vi.fn();
 
     render(DocumentOutline, {

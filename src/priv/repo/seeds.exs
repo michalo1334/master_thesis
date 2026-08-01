@@ -2,8 +2,6 @@
 #
 #     mix run priv/repo/seeds.exs
 #
-import Ecto.Query, only: [from: 2]
-
 alias NetworkDefense.Graph.Graph
 alias NetworkDefense.Graph.Graphs
 alias NetworkDefense.Graph.Node
@@ -16,7 +14,6 @@ alias NetworkDefense.Relationships.HasVulnerability
 alias NetworkDefense.Relationships.NetworkReachability
 alias NetworkDefense.Relationships.Runs
 alias NetworkDefense.Relationships.StoresCredential
-alias NetworkDefense.Repo
 alias NetworkDefense.Simulation.Seed
 
 type_id = &Atom.to_string/1
@@ -296,7 +293,7 @@ graph =
     Graph.update_node(graph, %{node | view_data: view_data})
   end)
 
-case Repo.exists?(from(stored_graph in Graph, where: stored_graph.title == ^graph.title)) do
+case Enum.any?(Graphs.list_summaries(), &(&1.title == graph.title)) do
   false ->
     {:ok, _graph} = Graphs.insert(graph)
     IO.puts("Seeded enterprise graph #{graph.id} with #{length(host_names)} hosts")
@@ -308,7 +305,7 @@ end
 Enum.each([500, 1_000, 2_000], fn node_count ->
   performance_title = "Performance Topology (#{node_count} nodes)"
 
-  case Repo.exists?(from(stored_graph in Graph, where: stored_graph.title == ^performance_title)) do
+  case Enum.any?(Graphs.list_summaries(), &(&1.title == performance_title)) do
     false ->
       host_count = div(node_count * 2, 5)
       service_count = host_count

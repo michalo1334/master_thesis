@@ -4,18 +4,17 @@ defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
   use NetworkDefenseWeb.Contracts, category: :graph
 
   embedded_schema do
-    field :graph_id, :string
+    field :graph_revision_id, :string
   end
 
   @type t :: %__MODULE__{
-          graph_id: String.t()
+          graph_revision_id: String.t()
         }
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:graph_id])
-    |> validate_required([:graph_id])
-    |> validate_length(:graph_id, min: 1)
-    |> Contracts.validate_uuid(:graph_id)
+    |> cast(attrs, [:graph_revision_id])
+    |> validate_required([:graph_revision_id])
+    |> Contracts.validate_uuid(:graph_revision_id)
   end
 end

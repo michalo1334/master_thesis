@@ -10,7 +10,9 @@
 
   let { graph, parentTitle = undefined }: Props = $props();
   let parent = $derived(
-    graph.parent_id ? (parentTitle ?? graph.parent_id) : "Root graph",
+    graph.parent_revision_id
+      ? (parentTitle ?? graph.parent_revision_id)
+      : "Root revision",
   );
 </script>
 
@@ -18,11 +20,13 @@
   <InspectorField
     fields={[
       { label: "Title", value: graph.title },
-      { label: "Tags", value: graph.tags.join(", ") || "None" },
+      { label: "Graph ID", value: graph.id },
+      { label: "Revision", value: graph.revision_id ?? "Unsaved" },
+      { label: "Revision kind", value: graph.revision_kind ?? "Draft" },
+      { label: "Revision number", value: String(graph.revision_number ?? 0) },
       { label: "Parent", value: parent },
       { label: "Nodes", value: String(graph.nodes.length) },
       { label: "Edges", value: String(graph.edges.length) },
-      { label: "Lock version", value: String(graph.lock_version) },
     ]}
   />
 </Inspector>

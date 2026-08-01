@@ -3,15 +3,12 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias NetworkDefense.Graph.Edge
-  alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.{Edge, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Optimizations
-  alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Simulation.Experiments
@@ -100,27 +97,28 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "accepts an existing graph", %{conn: conn} do
       graph = insert_graph("dwg-001")
       source = insert_node(graph, "origin")
-      target = insert_service(graph, "dest")
-      insert_edge(source, target)
+      target = insert_service(Graphs.load_revision!(source.graph_revision_id), "dest")
+      edge = insert_edge(source, target)
+      graph = Graphs.load_revision!(edge.graph_revision_id)
 
       {:ok, view, _html} = live(conn, ~p"/")
 
-      render_hook(view, "open_graph", %{"graph_id" => graph.id})
+      render_hook(view, "open_graph", %{"graph_revision_id" => graph.revision_id})
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
-    test "accepts a missing graph_id", %{conn: conn} do
+    test "accepts a missing graph_revision_id", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{
-        "graph_id" => "00000000-0000-0000-0000-000000000000"
+        "graph_revision_id" => "00000000-0000-0000-0000-000000000000"
       })
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
-    test "accepts an open request without graph_id", %{conn: conn} do
+    test "accepts an open request without graph_revision_id", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{})
@@ -138,44 +136,37 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "invalid_graph", result: nil})
     end
 
-    test "reports a missing comparison graph", %{conn: conn} do
+    test "reports a missing comparison revision", %{conn: conn} do
       base = insert_graph("base")
-      snapshot = graph_snapshot(base)
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "compare_graphs", %{
-        "base_graph" => snapshot,
-        "comparison_graph_id" => "00000000-0000-0000-0000-000000000000"
+        "base_revision_id" => base.revision_id,
+        "comparison_revision_id" => "00000000-0000-0000-0000-000000000000"
       })
 
       assert_reply(view, %{status: "not_found", result: nil})
     end
 
-    test "returns a merged structural result for the submitted base snapshot", %{conn: conn} do
+    test "returns a merged structural result for two persisted revisions", %{conn: conn} do
       base = insert_graph("base")
       source = insert_node(base, "source")
-      target = insert_service(base, "target")
-      insert_edge(source, target)
-      base = Graphs.load!(base.id)
-      assert {:ok, comparison} = Graphs.insert(Graph.clone(base))
-
-      snapshot =
-        base
-        |> graph_snapshot()
-        |> Map.put(:title, "dirty title")
-        |> update_in([:nodes, Access.at(0), :view_data], &Map.put(&1, :x_pos, 1000))
+      target = insert_service(Graphs.load_revision!(source.graph_revision_id), "target")
+      edge = insert_edge(source, target)
+      base = Graphs.load_revision!(edge.graph_revision_id)
+      assert {:ok, comparison} = Graphs.append_optimization(%{base | title: "comparison"})
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "compare_graphs", %{
-        "base_graph" => snapshot,
-        "comparison_graph_id" => comparison.id
+        "base_revision_id" => base.revision_id,
+        "comparison_revision_id" => comparison.revision_id
       })
 
       assert_reply(view, %{
         status: "ok",
         result: %{
-          graph: %{id: result_graph_id, title: "dirty title"},
+          graph: %{id: result_graph_id, title: "base"},
           node_counts: %{added: 0, removed: 0, unchanged: 2},
           edge_counts: %{added: 0, removed: 0, unchanged: 1},
           node_status: node_status,
@@ -198,9 +189,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "invalid_params"})
     end
 
-    test "reports a topology version mismatch", %{conn: conn} do
+    test "rejects a report request for another graph revision", %{conn: conn} do
       graph = insert_graph("versioned-report")
-      graph_id = graph.id
       foothold = insert_node(graph, "entry-host")
       correlation_id = "versioned-report-request"
 
@@ -209,7 +199,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_simulation_request", %{
         "request" => %{
-          "graph_id" => graph_id,
+          "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
             "monte_carlo_trials" => 1,
@@ -224,24 +214,25 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
                      5_000
 
-      assert {:ok, _} =
-               Graphs.replace(graph_id, graph.lock_version, %{
-                 "title" => "changed topology",
-                 "nodes" => [],
-                 "edges" => []
+      assert {:ok, revised} =
+               Graphs.append_optimization(%{
+                 Graphs.load_revision!(foothold.graph_revision_id)
+                 | title: "changed topology"
                })
+
+      revised_revision_id = revised.revision_id
 
       render_hook(view, "fetch_simulation_report", %{
         "experiment_id" => experiment_id,
-        "graph_id" => graph_id
+        "graph_revision_id" => revised_revision_id
       })
 
       assert_reply(view, %{status: "processing"})
 
       assert_push_event(view, "simulation_report_error", %{
         experiment_id: ^experiment_id,
-        graph_id: ^graph_id,
-        reason: "graph_version_mismatch"
+        graph_revision_id: ^revised_revision_id,
+        reason: "not_found"
       })
     end
 
@@ -256,7 +247,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_simulation_request", %{
         "request" => %{
-          "graph_id" => graph_id,
+          "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
             "monte_carlo_trials" => 1,
@@ -269,7 +260,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "accepted",
-        graph_id: ^graph_id,
+        graph_revision_id: graph_revision_id,
         correlation_id: ^correlation_id,
         reason: nil
       })
@@ -280,6 +271,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
+                        graph_revision_id: ^graph_revision_id,
                         experiment_id: experiment_id
                       }},
                      5_000
@@ -298,7 +290,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_simulation_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
             "monte_carlo_trials" => 101,
@@ -319,14 +311,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
     test "rejects a simulation request with nil seed and generate_seed false", %{conn: conn} do
       graph = insert_graph("nil-seed-test")
-      graph_id = graph.id
+      graph_revision_id = graph.revision_id
       correlation_id = "request-nil-seed"
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "run_simulation_request", %{
         "request" => %{
-          "graph_id" => graph_id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
             "monte_carlo_trials" => 1,
@@ -337,7 +329,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: ^graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: "invalid_request"
       })
@@ -350,7 +342,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_simulation_request", %{
         "request" => %{
-          "graph_id" => "not-a-uuid",
+          "graph_revision_id" => "not-a-uuid",
           "correlation_id" => correlation_id,
           "simulation_params" => %{
             "monte_carlo_trials" => 1,
@@ -361,7 +353,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: "not-a-uuid",
+        graph_revision_id: "not-a-uuid",
         correlation_id: ^correlation_id,
         reason: "invalid_request"
       })
@@ -374,7 +366,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: "",
+        graph_revision_id: "",
         correlation_id: "",
         reason: "invalid_request"
       })
@@ -386,13 +378,19 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       completed = %{
         correlation_id: "request-1",
         graph_id: "graph-1",
+        graph_revision_id: "revision-1",
         experiment_id: "experiment-1"
       }
 
       send(view.pid, {:simulation_completed, completed})
       assert_push_event(view, "simulation_completed", ^completed)
 
-      failed = %{correlation_id: "request-2", graph_id: "graph-2", reason: "persistence_failed"}
+      failed = %{
+        correlation_id: "request-2",
+        graph_id: "graph-2",
+        graph_revision_id: "revision-2",
+        reason: "persistence_failed"
+      }
 
       send(view.pid, {:simulation_failed, failed})
       assert_push_event(view, "simulation_failed", ^failed)
@@ -403,7 +401,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   describe "optimization events" do
     test "accepts an optimization request and persists an optimized graph", %{conn: conn} do
       graph = insert_graph("optimize-test")
-      insert_node(graph, "entry-host")
+      foothold = insert_node(graph, "entry-host")
+      graph = Graphs.load_revision!(foothold.graph_revision_id)
+      graph_id = graph.id
+      graph_revision_id = graph.revision_id
       correlation_id = "optimization-request"
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -411,7 +412,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_optimization_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
         }
@@ -419,7 +420,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "accepted",
-        graph_id: graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: nil
       })
@@ -432,7 +433,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
-                        optimized_graph_id: optimized_graph_id,
+                        graph_revision_id: optimized_revision_id,
                         report: %{
                           strategy: "cvss",
                           requested_budget: 1,
@@ -446,13 +447,12 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert runtime_ms >= 0
 
       assert %{
-               id: ^optimized_graph_id,
-               parent_id: ^graph_id,
-               source: :optimization,
-               tags: [:optimization],
-               title: "optimize-test (optimized with CVSS strategy)"
+               id: ^graph_id,
+               parent_revision_id: ^graph_revision_id,
+               revision_kind: :optimization,
+               title: "optimize-test"
              } =
-               Graphs.load(optimized_graph_id)
+               Graphs.load_revision(optimized_revision_id)
     end
 
     test "accepts topology segmentation optimization", %{conn: conn} do
@@ -471,9 +471,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       )
     end
 
-    test "reports a friendly error when an optimized title is too long", %{conn: conn} do
+    test "optimizes a graph with the maximum title length", %{conn: conn} do
       graph = insert_graph(String.duplicate("x", 255))
       graph_id = graph.id
+      graph_revision_id = graph.revision_id
+      graph_title = graph.title
       correlation_id = "optimization-title-too-long"
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -481,7 +483,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "run_optimization_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
         }
@@ -489,29 +491,32 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "accepted",
-        graph_id: ^graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: nil
       })
 
-      assert_receive {:optimization_failed,
+      assert_receive {:optimization_completed,
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
-                        reason: "Title should be at most 255 character(s)"
+                        graph_revision_id: optimized_revision_id
                       }},
                      5_000
+
+      assert %{title: ^graph_title} = Graphs.load_revision(optimized_revision_id)
     end
 
     test "rejects invalid optimization parameters", %{conn: conn} do
       graph = insert_graph("invalid-optimization")
+      graph_revision_id = graph.revision_id
       correlation_id = "invalid-optimization-request"
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "run_optimization_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "optimization_params" => %{"strategy" => "cvss", "budget" => 0}
         }
@@ -519,23 +524,22 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: "invalid_request"
       })
-
-      assert graph_id == graph.id
     end
 
     test "requires simulation parameters for simulation-informed optimization", %{conn: conn} do
       graph = insert_graph("simulation-informed-optimization")
+      graph_revision_id = graph.revision_id
       correlation_id = "simulation-informed-request"
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "run_optimization_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "optimization_params" => %{"strategy" => "simulation_informed", "budget" => 1}
         }
@@ -543,23 +547,22 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: "invalid_request"
       })
-
-      assert graph_id == graph.id
     end
 
     test "rejects a foothold that is not a host in the graph", %{conn: conn} do
       graph = insert_graph("invalid-foothold-optimization")
+      graph_revision_id = graph.revision_id
       correlation_id = "invalid-foothold-request"
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "run_optimization_request", %{
         "request" => %{
-          "graph_id" => graph.id,
+          "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "optimization_params" => %{
             "strategy" => "topology_segmentation",
@@ -577,12 +580,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "rejected",
-        graph_id: graph_id,
+        graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
         reason: "initial foothold must identify a host in the graph"
       })
-
-      assert graph_id == graph.id
     end
 
     test "forwards optimization completion and failure events", %{conn: conn} do
@@ -591,7 +592,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       completed = %{
         correlation_id: "optimization-1",
         graph_id: "graph-1",
-        optimized_graph_id: "optimized-1",
+        graph_revision_id: "revision-1",
         report: %{
           strategy: "cvss",
           requested_budget: 1,
@@ -615,6 +616,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       failed = %{
         correlation_id: "optimization-2",
         graph_id: "graph-2",
+        graph_revision_id: "revision-2",
         reason: "optimization_failed"
       }
 
@@ -625,6 +627,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       progress = %{
         correlation_id: "optimization-3",
         graph_id: "graph-3",
+        graph_revision_id: "revision-3",
         completed_steps: 1,
         total_steps: 2,
         phase: "Applied defense 1 of 2"
@@ -639,27 +642,29 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "persists graph edges and node view_data", %{conn: conn} do
       graph = insert_graph("save-graph")
       source = insert_node(graph, "source")
+      graph = Graphs.load_revision!(source.graph_revision_id)
       target = insert_service(graph, "target")
       edge_id = Ecto.UUID.generate()
+      graph = Graphs.load_revision!(target.graph_revision_id)
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "save_graph", %{
         "graph" => %{
           "id" => graph.id,
-          "lock_version" => graph.lock_version,
+          "revision_id" => graph.revision_id,
           "title" => "saved graph",
           "nodes" => [
             %{
               "id" => source.id,
               "type" => "Host",
-              "data" => source.data,
+              "data" => NetworkDefense.Graph.Data.to_params(source.data),
               "view_data" => %{"x_pos" => 120, "y_pos" => 240}
             },
             %{
               "id" => target.id,
               "type" => "Service",
-              "data" => target.data,
+              "data" => NetworkDefense.Graph.Data.to_params(target.data),
               "view_data" => %{"x_pos" => 360, "y_pos" => 480}
             }
           ],
@@ -675,14 +680,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
-      saved_graph = Graphs.load!(graph.id)
+      saved_graph = latest_graph(graph.id)
 
       assert [%{from_id: source_id, to_id: target_id, type: type}] = Graph.edges(saved_graph)
       assert source_id == source.id
       assert target_id == target.id
       assert type == NetworkReachability
       assert saved_graph.title == "saved graph"
-      assert saved_graph.lock_version == 2
+      assert saved_graph.revision_id != graph.revision_id
 
       source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
       target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
@@ -692,7 +697,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert target_node.view_data.y_pos == 480.0
     end
 
-    test "does not replace a stale graph", %{conn: conn} do
+    test "replaces a selected graph revision", %{conn: conn} do
       graph = insert_graph("stale-graph")
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -700,31 +705,26 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "save_graph", %{
         "graph" => %{
           "id" => graph.id,
-          "lock_version" => graph.lock_version - 1,
+          "revision_id" => graph.revision_id,
           "title" => "stale graph",
           "nodes" => [],
           "edges" => []
         }
       })
 
-      assert Graphs.load!(graph.id).title == "stale-graph"
+      assert latest_graph(graph.id).title == "stale graph"
     end
   end
 
   defp insert_graph(title) do
-    %Graph{}
-    |> Graph.changeset(%{title: title})
-    |> Repo.insert!()
+    assert {:ok, graph} = Graphs.insert(Graph.new(title))
+    graph
   end
 
-  defp graph_snapshot(graph) do
-    assert {:ok, snapshot} = GraphContract.from_domain(Graphs.load!(graph.id))
-    snapshot
-  end
-
-  defp assert_strategy_optimization(conn, strategy, strategy_name) do
+  defp assert_strategy_optimization(conn, strategy, _strategy_name) do
     graph = insert_graph("#{strategy}-test")
     foothold = insert_node(graph, "entry-host")
+    graph = Graphs.load_revision!(foothold.graph_revision_id)
     correlation_id = "#{strategy}-request"
 
     {:ok, view, _html} = live(conn, ~p"/")
@@ -732,7 +732,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
     render_hook(view, "run_optimization_request", %{
       "request" => %{
-        "graph_id" => graph.id,
+        "graph_revision_id" => graph.revision_id,
         "correlation_id" => correlation_id,
         "optimization_params" => %{
           "strategy" => strategy,
@@ -753,37 +753,65 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     assert_receive {:optimization_completed,
                     %{
                       correlation_id: ^correlation_id,
-                      optimized_graph_id: optimized_graph_id
+                      graph_revision_id: optimized_revision_id
                     }},
                    5_000
 
-    expected_title = "#{strategy}-test (optimized with #{strategy_name})"
-    assert %{title: ^expected_title} = Graphs.load(optimized_graph_id)
+    expected_title = "#{strategy}-test"
+    assert %{title: ^expected_title} = Graphs.load_revision(optimized_revision_id)
   end
 
   defp insert_node(graph, name) do
-    %Node{graph_id: graph.id}
-    |> Node.changeset(%{
-      type: Atom.to_string(Host),
-      data: %{"name" => name},
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    })
-    |> Repo.insert!()
+    node =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Host),
+        data: %{"name" => name},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
+    graph.revision_id
+    |> Graphs.load_revision!()
+    |> Graph.add_node(node)
+    |> append_revision()
+    |> Graph.node(node.id)
   end
 
   defp insert_service(graph, name) do
-    %Node{graph_id: graph.id}
-    |> Node.changeset(%{
-      type: Atom.to_string(Service),
-      data: %{"name" => name, "protocol" => "tcp", "port" => 443},
-      view_data: %{"x_pos" => 0, "y_pos" => 0}
-    })
-    |> Repo.insert!()
+    node =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Service),
+        data: %{"name" => name, "protocol" => "tcp", "port" => 443},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
+    graph.revision_id
+    |> Graphs.load_revision!()
+    |> Graph.add_node(node)
+    |> append_revision()
+    |> Graph.node(node.id)
   end
 
   defp insert_edge(source, target) do
-    %Edge{graph_id: source.graph_id, from_id: source.id, to_id: target.id}
-    |> Edge.changeset(%{type: Atom.to_string(Runs), data: %{}})
-    |> Repo.insert!()
+    edge =
+      Edge.new(source.graph_id, source.id, target.id, %{type: Atom.to_string(Runs), data: %{}})
+
+    target.graph_revision_id
+    |> Graphs.load_revision!()
+    |> Graph.add_edge(edge)
+    |> append_revision()
+    |> Graph.edge(edge.id)
+  end
+
+  defp append_revision(graph) do
+    assert {:ok, graph} = Graphs.append_optimization(graph)
+    graph
+  end
+
+  defp latest_graph(graph_id) do
+    graph_id
+    |> then(fn id ->
+      Graphs.list_summaries() |> Enum.filter(&(&1.graphId == id)) |> List.last()
+    end)
+    |> then(&Graphs.load_revision!(&1.revisionId))
   end
 end

@@ -4,11 +4,11 @@ defmodule NetworkDefenseWeb.Web.Contracts.SaveGraphPayload do
   use NetworkDefenseWeb.Contracts, category: :graph
 
   embedded_schema do
-    embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
+    embeds_one :graph, NetworkDefense.Graph.Contracts.SaveGraphContract, on_replace: :update
   end
 
   @type t :: %__MODULE__{
-          graph: NetworkDefense.Graph.Contracts.GraphContract.t()
+          graph: NetworkDefense.Graph.Contracts.SaveGraphContract.t()
         }
 
   def changeset(schema, attrs) do

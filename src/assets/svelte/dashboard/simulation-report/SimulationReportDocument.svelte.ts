@@ -15,6 +15,7 @@ export class SimulationReportDocument {
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id: string;
   readonly graphId: string;
+  readonly graphRevisionId: string;
 
   title = $state<string>("");
   status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
@@ -31,10 +32,11 @@ export class SimulationReportDocument {
   completedRuns = $state(0);
   totalRuns = $state(0);
 
-  constructor(graphTitle: string, graphId: string) {
+  constructor(graphTitle: string, graphId: string, graphRevisionId: string) {
     this.id = crypto.randomUUID();
     this.title = `Report for ${graphTitle}`;
     this.graphId = graphId;
+    this.graphRevisionId = graphRevisionId;
   }
 
   markPending(correlationId: string): void {
@@ -109,15 +111,19 @@ export class SimulationReportDocument {
     this.status = "loaded";
   }
 
-  complete(api: DashboardApi, experimentId: string, graphId: string): void {
+  complete(
+    api: DashboardApi,
+    experimentId: string,
+    graphRevisionId: string,
+  ): void {
     this.markReady(experimentId);
-    this.load(api, experimentId, graphId);
+    this.load(api, experimentId, graphRevisionId);
   }
 
-  load(api: DashboardApi, experimentId: string, graphId: string): void {
+  load(api: DashboardApi, experimentId: string, graphRevisionId: string): void {
     this.experimentId = experimentId;
     this.status = "loading";
     this.errorReason = "";
-    api.requestSimulationReport(experimentId, graphId);
+    api.requestSimulationReport(experimentId, graphRevisionId);
   }
 }

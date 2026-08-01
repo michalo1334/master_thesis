@@ -7,25 +7,12 @@ defmodule NetworkDefense.DefenseActions.Registry do
   alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.BlockReachability
+  alias NetworkDefense.Registry
 
   @types [BlockReachability, PatchVulnerability, RevokeCredential]
 
-  def get_all() do
-    MapSet.new(@types)
-  end
-
-  def module_for(type) when is_binary(type) do
-    Enum.find(@types, &(Atom.to_string(&1) == type))
-  end
-
-  def module_for(_type), do: nil
-
-  def module_for_short(short) when is_binary(short) do
-    Enum.find(@types, &(Module.split(&1) |> List.last() == short))
-  end
-
-  def module_for_short(_), do: nil
-
-  def type_for(module) when module in @types, do: Atom.to_string(module)
-  def type_for(_module), do: nil
+  def get_all, do: Registry.get_all(@types)
+  def module_for(type), do: Registry.module_for(@types, type)
+  def module_for_short(type), do: Registry.module_for_short(@types, type)
+  def type_for(module), do: Registry.type_for(@types, module)
 end

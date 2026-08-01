@@ -7,20 +7,20 @@ defmodule NetworkDefense.Graph.Node do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.{Data, Graph}
+  alias NetworkDefense.Graph.Data
   alias NetworkDefense.Graph.Contracts.Node, as: NodeContract
   alias NetworkDefense.Nodes.Registry
 
-  @primary_key {:id, :binary_id, autogenerate: true}
+  @primary_key false
   @foreign_key_type :binary_id
-  schema "nodes" do
-    belongs_to :graph, Graph
+  schema "graph_revision_nodes" do
+    field :id, :binary_id, source: :node_id, primary_key: true
+    field :graph_revision_id, :binary_id, primary_key: true
+    field :graph_id, :binary_id
 
     field :type, :string
     field :data, :map
     field :view_data, :map
-
-    timestamps(type: :utc_datetime)
   end
 
   @doc false
@@ -28,8 +28,7 @@ defmodule NetworkDefense.Graph.Node do
     node
     |> cast(attrs, [:type, :data, :view_data])
     |> validate_required([:type, :view_data])
-    |> foreign_key_constraint(:graph_id)
-    |> validate_dynamic_data()
+    |> Data.validate_dynamic_data(Registry)
     |> validate_view_data()
   end
 
@@ -91,25 +90,6 @@ defmodule NetworkDefense.Graph.Node do
   def position(%__MODULE__{view_data: %{"x_pos" => x_pos, "y_pos" => y_pos}}),
     do: {x_pos, y_pos}
 
-  defp validate_dynamic_data(changeset) do
-    type = get_field(changeset, :type)
-    data = get_field(changeset, :data)
-
-    case schema_for(type) do
-      nil ->
-        add_error(changeset, :type, "is invalid")
-
-      schema ->
-        data_changeset = schema.changeset(struct(schema), data || %{})
-
-        if data_changeset.valid? do
-          changeset
-        else
-          add_error(changeset, :data, "is invalid")
-        end
-    end
-  end
-
   defp validate_view_data(changeset) do
     case get_field(changeset, :view_data) do
       nil ->
@@ -123,8 +103,6 @@ defmodule NetworkDefense.Graph.Node do
     end
   end
 
-  defp schema_for(type), do: Registry.module_for(type)
-
   defp normalize_view_data(%{"x_pos" => x_pos, "y_pos" => y_pos} = view_data)
        when is_number(x_pos) and is_number(y_pos),
        do: {:ok, %{x_pos: x_pos, y_pos: y_pos, radius: Map.get(view_data, "radius")}}
@@ -132,7 +110,7 @@ defmodule NetworkDefense.Graph.Node do
   defp normalize_view_data(nil), do: {:ok, %{x_pos: 0, y_pos: 0, radius: nil}}
   defp normalize_view_data(_view_data), do: :error
 
-  defp view_data_params(%{x_pos: x_pos, y_pos: y_pos, radius: radius}) do
+  def view_data_params(%{x_pos: x_pos, y_pos: y_pos, radius: radius}) do
     %{"x_pos" => x_pos, "y_pos" => y_pos, "radius" => radius}
     |> Map.reject(fn {_key, value} -> is_nil(value) end)
   end

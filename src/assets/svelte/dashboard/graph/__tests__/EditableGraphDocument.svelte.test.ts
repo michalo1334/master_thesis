@@ -7,9 +7,10 @@ function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
     id: "g1",
     title: "Graph",
-    lock_version: 1,
-    parent_id: null,
-    tags: ["original"],
+    revision_id: "r1",
+    parent_revision_id: null,
+    revision_kind: "original",
+    revision_number: 1,
     nodes: [],
     edges: [],
     ...overrides,
@@ -72,12 +73,8 @@ describe("EditableGraphDocument", () => {
       expect(doc.loaded).toBe(false);
     });
 
-    it("has null loadedGraphId initially", () => {
-      expect(doc.loadedGraphId).toBeNull();
-    });
-
-    it("has zero lockVersion initially", () => {
-      expect(doc.lockVersion).toBe(0);
+    it("has null loadedRevisionId initially", () => {
+      expect(doc.loadedRevisionId).toBeNull();
     });
 
     it("is not save eligible initially", () => {
@@ -141,24 +138,23 @@ describe("EditableGraphDocument", () => {
       const graph = makeGraph({
         id: "server-g",
         title: "Server Topology",
-        lock_version: 3,
+        revision_id: "r3",
         nodes: [hostNode("n1", 10, 20)],
       });
       doc.replaceFromLoadedGraph(graph);
       expect(doc.loaded).toBe(true);
-      expect(doc.loadedGraphId).toBe("server-g");
-      expect(doc.lockVersion).toBe(3);
+      expect(doc.loadedRevisionId).toBe("r3");
       expect(doc.title).toBe("Server Topology");
       expect(doc.saveEligible).toBe(true);
     });
 
-    it("replaceFromSaveReply updates graph and lock version", () => {
+    it("replaceFromSaveReply updates graph and revision", () => {
       doc.replaceFromLoadedGraph(
-        makeGraph({ id: "sg", lock_version: 1, title: "V1" }),
+        makeGraph({ id: "sg", revision_id: "r1", title: "V1" }),
       );
-      const updated = makeGraph({ id: "sg", title: "V2", lock_version: 2 });
+      const updated = makeGraph({ id: "sg", title: "V2", revision_id: "r2" });
       doc.replaceFromSaveReply(updated);
-      expect(doc.lockVersion).toBe(2);
+      expect(doc.loadedRevisionId).toBe("r2");
       expect(doc.title).toBe("V2");
     });
   });
@@ -178,8 +174,10 @@ describe("EditableGraphDocument", () => {
       const api = {
         saveGraph: vi
           .fn()
-          .mockResolvedValueOnce(makeSaveReply(makeGraph({ lock_version: 2 })))
-          .mockResolvedValueOnce({ status: "stale" }),
+          .mockResolvedValueOnce(
+            makeSaveReply(makeGraph({ revision_id: "r2" })),
+          )
+          .mockResolvedValueOnce({ status: "invalid_graph" }),
       } as unknown as DashboardApi;
 
       await expect(doc.save(api)).resolves.toBe(true);
@@ -188,9 +186,7 @@ describe("EditableGraphDocument", () => {
 
       doc.addNode(hostNode("second"));
       await expect(doc.save(api)).resolves.toBe(false);
-      expect(doc.saveStatusMessage).toBe(
-        "Save failed: graph was modified by another user.",
-      );
+      expect(doc.saveStatusMessage).toBe("Save failed.");
       expect(doc.isDirty).toBe(true);
     });
 
@@ -213,14 +209,14 @@ describe("EditableGraphDocument", () => {
 
       const saving = doc.save(api);
       doc.addNode(hostNode("second"));
-      resolveSave(makeSaveReply(makeGraph({ lock_version: 2 })));
+      resolveSave(makeSaveReply(makeGraph({ revision_id: "r2" })));
 
       await expect(saving).resolves.toBe(true);
       expect(doc.graph.nodes.map((node) => node.id)).toEqual([
         "first",
         "second",
       ]);
-      expect(doc.lockVersion).toBe(2);
+      expect(doc.loadedRevisionId).toBe("r2");
       expect(doc.isDirty).toBe(true);
     });
   });
@@ -308,7 +304,7 @@ describe("EditableGraphDocument", () => {
       const api = {
         runOptimization: vi.fn().mockResolvedValue({
           status: "accepted",
-          graph_id: "g1",
+          graph_revision_id: "r1",
           correlation_id: "corr-1",
         }),
       } as unknown as DashboardApi;
@@ -319,7 +315,7 @@ describe("EditableGraphDocument", () => {
         "corr-1",
       );
 
-      expect(api.runOptimization).toHaveBeenCalledWith("g1", "corr-1", {
+      expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", {
         strategy: "cvss",
         budget: 3,
       });

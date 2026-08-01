@@ -5,38 +5,6 @@ defmodule NetworkDefense.Graph.GraphDiff do
 
   alias NetworkDefense.Graph.{Data, Graph}
 
-  def compare(%Graph{} = previous, %Graph{} = candidate) do
-    previous_nodes = index_by_id(Graph.nodes(previous))
-    candidate_nodes = index_by_id(Graph.nodes(candidate))
-    previous_edges = index_by_id(Graph.edges(previous))
-    candidate_edges = index_by_id(Graph.edges(candidate))
-
-    %{
-      title_changed: previous.title != candidate.title,
-      nodes:
-        compare_entities(previous_nodes, candidate_nodes, fn _id, left, right ->
-          changed_fields([
-            {:type, left.type, right.type},
-            {:data, left.data, right.data},
-            {:view_data, left.view_data, right.view_data}
-          ])
-        end),
-      edges:
-        compare_entities(previous_edges, candidate_edges, fn _id, left, right ->
-          changed_fields([
-            {:from_id, left.from_id, right.from_id},
-            {:to_id, left.to_id, right.to_id},
-            {:type, left.type, right.type},
-            {:data, left.data, right.data}
-          ])
-        end)
-    }
-  end
-
-  def empty?(diff) do
-    not diff.title_changed and entity_diff_empty?(diff.nodes) and entity_diff_empty?(diff.edges)
-  end
-
   @doc """
   Compares graph topology while ignoring graph metadata and node view data.
   """
@@ -74,50 +42,21 @@ defmodule NetworkDefense.Graph.GraphDiff do
             }, "added"}
          end))
 
-    %{
-      graph:
-        Graph.hydrate(
-          %{base | nodes: [], edges: [], adjacency_list: %{}},
-          entity_values(nodes),
-          entity_values(edges)
-        ),
-      node_status: status_entries(nodes),
-      node_counts: status_counts(nodes),
-      edge_status: status_entries(edges),
-      edge_counts: status_counts(edges)
-    }
+    with {:ok, graph} <-
+           Graph.hydrate(
+             %{base | nodes: [], edges: [], adjacency_list: %{}},
+             entity_values(nodes),
+             entity_values(edges)
+           ) do
+      %{
+        graph: graph,
+        node_status: status_entries(nodes),
+        node_counts: status_counts(nodes),
+        edge_status: status_entries(edges),
+        edge_counts: status_counts(edges)
+      }
+    end
   end
-
-  defp compare_entities(previous, candidate, changed_fields) do
-    previous_ids = previous |> Map.keys() |> MapSet.new()
-    candidate_ids = candidate |> Map.keys() |> MapSet.new()
-
-    changed =
-      previous_ids
-      |> MapSet.intersection(candidate_ids)
-      |> Enum.sort()
-      |> Enum.flat_map(fn id ->
-        case changed_fields.(id, Map.fetch!(previous, id), Map.fetch!(candidate, id)) do
-          [] -> []
-          fields -> [%{id: id, fields: fields}]
-        end
-      end)
-
-    %{
-      added: candidate_ids |> MapSet.difference(previous_ids) |> Enum.sort(),
-      removed: previous_ids |> MapSet.difference(candidate_ids) |> Enum.sort(),
-      changed: changed
-    }
-  end
-
-  defp changed_fields(fields) do
-    for {field, previous, candidate} <- fields, previous != candidate, do: field
-  end
-
-  defp entity_diff_empty?(diff),
-    do: diff.added == [] and diff.removed == [] and diff.changed == []
-
-  defp index_by_id(entities), do: Map.new(entities, &{&1.id, &1})
 
   defp match_nodes(base, candidate) do
     match_groups(group_by_key(base, &node_key/1), group_by_key(candidate, &node_key/1))

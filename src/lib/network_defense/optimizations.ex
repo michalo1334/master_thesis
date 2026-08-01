@@ -4,7 +4,6 @@ defmodule NetworkDefense.Optimizations do
   """
 
   alias Ecto.Changeset
-  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
@@ -12,7 +11,6 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.Report
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
-  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -29,8 +27,9 @@ defmodule NetworkDefense.Optimizations do
   def optimization_events_topic, do: @optimization_events_topic
 
   def run_async(%RunOptimizationRequest{} = request) do
-    case Graphs.load(request.graph_id) do
+    case Graphs.load_revision(request.graph_revision_id) do
       nil -> {:error, "graph_not_found"}
+      {:error, _reason} -> {:error, "invalid_graph"}
       graph -> start_optimization(graph, request)
     end
   end
@@ -44,11 +43,9 @@ defmodule NetworkDefense.Optimizations do
               Optimizer.apply(graph, strategy, request.optimization_params.budget, fn completed,
                                                                                       total,
                                                                                       phase ->
-                broadcast_progress(graph.id, request.correlation_id, completed, total, phase)
+                broadcast_progress(graph, request.correlation_id, completed, total, phase)
               end)
             end)
-
-          optimized_graph = clone_optimized_graph(result.graph, strategy)
 
           report =
             Report.build(
@@ -59,11 +56,11 @@ defmodule NetworkDefense.Optimizations do
               runtime_us
             )
 
-          persist_and_broadcast(optimized_graph, graph, request, report)
+          persist_and_broadcast(result.graph, graph, request, report)
         rescue
           error ->
             Logger.error("Optimization failed: #{Exception.message(error)}")
-            broadcast_failed(graph.id, request.correlation_id, Exception.message(error))
+            broadcast_failed(graph, request.correlation_id, Exception.message(error))
         end
       end)
     end
@@ -76,12 +73,8 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp clone_optimized_graph(%Graph{} = graph, strategy) do
-    Graph.clone(%{graph | title: "#{graph.title} (optimized with #{Strategy.name(strategy)})"})
-  end
-
   defp persist_and_broadcast(optimized_graph, graph, request, report) do
-    case Graphs.insert(optimized_graph) do
+    case Graphs.append_optimization(optimized_graph) do
       {:ok, persisted_graph} ->
         Phoenix.PubSub.broadcast(
           NetworkDefense.PubSub,
@@ -90,13 +83,13 @@ defmodule NetworkDefense.Optimizations do
            %{
              correlation_id: request.correlation_id,
              graph_id: graph.id,
-             optimized_graph_id: persisted_graph.id,
+             graph_revision_id: persisted_graph.revision_id,
              report: report
            }}
         )
 
       {:error, reason} ->
-        broadcast_failed(graph.id, request.correlation_id, persistence_error(reason))
+        broadcast_failed(graph, request.correlation_id, persistence_error(reason))
     end
   end
 
@@ -114,23 +107,29 @@ defmodule NetworkDefense.Optimizations do
 
   defp persistence_error(reason), do: inspect(reason)
 
-  defp broadcast_failed(graph_id, correlation_id, reason) do
+  defp broadcast_failed(graph, correlation_id, reason) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @optimization_events_topic,
       {:optimization_failed,
-       %{correlation_id: correlation_id, graph_id: graph_id, reason: reason}}
+       %{
+         correlation_id: correlation_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
+         reason: reason
+       }}
     )
   end
 
-  defp broadcast_progress(graph_id, correlation_id, completed_steps, total_steps, phase) do
+  defp broadcast_progress(graph, correlation_id, completed_steps, total_steps, phase) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @optimization_events_topic,
       {:optimization_progress,
        %{
          correlation_id: correlation_id,
-         graph_id: graph_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
          completed_steps: completed_steps,
          total_steps: total_steps,
          phase: phase

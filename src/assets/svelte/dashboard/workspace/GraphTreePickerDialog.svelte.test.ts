@@ -10,48 +10,58 @@ import GraphTreePickerDialog from "./GraphTreePickerDialog.svelte";
 import type { GraphSummary } from "../contract";
 
 const root: GraphSummary = {
-  id: "root",
+  graph_id: "root",
+  revision_id: "root-r1",
   title: "Root graph",
   node_count: 1,
   edge_count: 0,
-  parent_id: null,
-  tags: [],
+  parent_revision_id: null,
+  revision_kind: "original",
+  revision_number: 1,
 };
 
 const child: GraphSummary = {
-  id: "child",
+  graph_id: "child",
+  revision_id: "child-r1",
   title: "Child graph",
   node_count: 2,
   edge_count: 1,
-  parent_id: root.id,
-  tags: [],
+  parent_revision_id: root.revision_id,
+  revision_kind: "edit",
+  revision_number: 2,
 };
 
 const grandchild: GraphSummary = {
-  id: "grandchild",
+  graph_id: "grandchild",
+  revision_id: "grandchild-r1",
   title: "Grandchild graph",
   node_count: 3,
   edge_count: 2,
-  parent_id: child.id,
-  tags: [],
+  parent_revision_id: child.revision_id,
+  revision_kind: "edit",
+  revision_number: 3,
 };
 
 const sibling: GraphSummary = {
-  id: "sibling",
+  graph_id: "sibling",
+  revision_id: "sibling-r1",
   title: "Sibling graph",
   node_count: 1,
   edge_count: 0,
-  parent_id: null,
-  tags: [],
+  parent_revision_id: null,
+  revision_kind: "original",
+  revision_number: 1,
 };
 
 const siblingChild: GraphSummary = {
-  id: "sibling-child",
+  graph_id: "sibling-child",
+  revision_id: "sibling-child-r1",
   title: "Sibling child graph",
   node_count: 1,
   edge_count: 0,
-  parent_id: sibling.id,
-  tags: [],
+  parent_revision_id: sibling.revision_id,
+  revision_kind: "edit",
+  revision_number: 2,
 };
 
 afterEach(cleanup);
@@ -87,7 +97,7 @@ describe("GraphTreePickerDialog", () => {
       },
     });
 
-    await rerender({ selectedGraphId: root.id });
+    await rerender({ selectedRevisionId: root.revision_id });
 
     const row = screen.getByRole("button", { name: root.title }).closest("tr");
     const indicator = row?.querySelector<HTMLInputElement>(

@@ -43,7 +43,7 @@ export class DashboardModel {
 
   async runActiveOptimization(): Promise<void> {
     const doc = this.workspace.activeGraph;
-    if (!doc || !doc.loadedGraphId) {
+    if (!doc || !doc.loadedRevisionId) {
       return;
     }
     if (doc.isDirty && !(await doc.saveIfDirty(this.api))) {
@@ -54,7 +54,8 @@ export class DashboardModel {
     const params = $state.snapshot(this.workspace.optimizationParams);
     const correlationId = crypto.randomUUID();
     const report = this.workspace.createPendingOptimizationReport({
-      graphId: doc.loadedGraphId,
+      graphId: doc.graph.id,
+      graphRevisionId: doc.loadedRevisionId,
       graphTitle: doc.title,
       correlationId,
       strategy: params.strategy,
@@ -93,13 +94,13 @@ export class DashboardModel {
       () =>
         this.workspace.openOptimizationResult(
           this.api,
-          payload.optimized_graph_id,
+          payload.graph_revision_id,
         ),
       () =>
         this.workspace.loadOptimizationGraphDiff(
           this.api,
-          payload.graph_id,
-          payload.optimized_graph_id,
+          report.graphRevisionId,
+          payload.graph_revision_id,
         ),
     );
     this.markOptimizationReportReadState(report);
@@ -133,10 +134,10 @@ export class DashboardModel {
       (d) =>
         d.kind === "simulation-report" &&
         d.correlationId === payload.correlation_id &&
-        d.graphId === payload.graph_id,
+        d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
     if (!report) return;
-    report.complete(this.api, payload.experiment_id, payload.graph_id);
+    report.complete(this.api, payload.experiment_id, payload.graph_revision_id);
     if (this.workspace.selectedDocumentId === report.id) {
       report.markRead();
     } else {
@@ -150,7 +151,7 @@ export class DashboardModel {
       (d) =>
         d.kind === "simulation-report" &&
         d.correlationId === payload.correlation_id &&
-        d.graphId === payload.graph_id,
+        d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
     if (!report) return;
     report.markError(payload.reason);
@@ -166,7 +167,7 @@ export class DashboardModel {
       (d) =>
         d.kind === "simulation-report" &&
         d.correlationId === payload.correlation_id &&
-        d.graphId === payload.graph_id,
+        d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
     if (!report) return;
     report.setProgress(payload.completed_runs, payload.total_runs);

@@ -26,8 +26,9 @@ defmodule NetworkDefense.Simulations do
   def simulation_events_topic, do: @simulation_events_topic
 
   def run_async(%RunSimulationRequest{} = request) do
-    case Graphs.load(request.graph_id) do
+    case Graphs.load_revision(request.graph_revision_id) do
       nil -> {:error, "graph_not_found"}
+      {:error, _reason} -> {:error, "invalid_graph"}
       graph -> run_async(graph, request.correlation_id, request.simulation_params)
     end
   end
@@ -39,15 +40,15 @@ defmodule NetworkDefense.Simulations do
     else
       {:error, reason} ->
         TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-          broadcast_simulation_failed(graph.id, correlation_id, to_string(reason))
+          broadcast_simulation_failed(graph, correlation_id, to_string(reason))
         end)
     end
   end
 
   def resume_async(experiment_id, correlation_id) do
     with {:ok, experiment} <- Experiments.resume(experiment_id),
-         graph when not is_nil(graph) <- Graphs.load(experiment.graph_id),
-         :ok <- verify_graph_version(graph, experiment) do
+         %NetworkDefense.Graph.Graph{} = graph <-
+           Graphs.load_revision(experiment.graph_revision_id) do
       start_async(graph, correlation_id, experiment)
     else
       nil -> {:error, "graph_not_found"}
@@ -63,7 +64,7 @@ defmodule NetworkDefense.Simulations do
              error ->
                Experiments.fail(experiment.id)
                Logger.error("Simulation failed: #{Exception.message(error)}")
-               broadcast_simulation_failed(graph.id, correlation_id, Exception.message(error))
+               broadcast_simulation_failed(graph, correlation_id, Exception.message(error))
            end
          end) do
       {:ok, _pid} = started ->
@@ -85,7 +86,7 @@ defmodule NetworkDefense.Simulations do
       } do
       experiment = run_batches(graph, correlation_id, experiment)
       Tracer.set_status(OpenTelemetry.status(:ok))
-      broadcast_simulation_completed(experiment, correlation_id)
+      broadcast_simulation_completed(graph, experiment, correlation_id)
     end
   end
 
@@ -121,7 +122,7 @@ defmodule NetworkDefense.Simulations do
       case Experiments.append_batch(experiment, runs, runtime_ms) do
         {:ok, saved} ->
           broadcast_simulation_progress(
-            graph.id,
+            graph,
             correlation_id,
             saved.completed_trials,
             saved.total_trials
@@ -147,21 +148,14 @@ defmodule NetworkDefense.Simulations do
     seed = if simulation_params.generate_seed, do: Seed.random(), else: simulation_params.seed
 
     Experiment.new(
-      graph_id: graph.id,
+      graph_revision_id: graph.revision_id,
       master_seed: seed,
       iteration_count: simulation_params.iterations_per_run,
       max_attempts: simulation_params.max_attempts,
-      lock_version: graph.lock_version,
       total_trials: simulation_params.monte_carlo_trials,
       initial_foothold_node_id: simulation_params.initial_foothold_node_id
     )
     |> Experiments.create()
-  end
-
-  defp verify_graph_version(graph, experiment) do
-    if graph.lock_version == experiment.lock_version,
-      do: :ok,
-      else: {:error, :graph_version_mismatch}
   end
 
   def parallel_map_fn(enum, fun) do
@@ -171,18 +165,19 @@ defmodule NetworkDefense.Simulations do
     )
   end
 
-  def list_experiments(graph_ids) when is_list(graph_ids) do
+  def list_experiments(graph_revision_ids) when is_list(graph_revision_ids) do
     query =
       from experiment in Experiment,
-        where: experiment.graph_id in ^graph_ids,
+        join: revision in assoc(experiment, :graph_revision),
+        where: revision.id in ^graph_revision_ids,
         where: experiment.status == "completed",
         order_by: [desc: :inserted_at],
-        preload: [:graph]
+        preload: [:graph_revision]
 
     Repo.all(query)
   end
 
-  def list_experiments(graph_ids), do: list_experiments([graph_ids])
+  def list_experiments(graph_revision_id), do: list_experiments([graph_revision_id])
 
   @doc """
   Returns a generated report for an experiment, or `nil` when it does not exist.
@@ -232,7 +227,15 @@ defmodule NetworkDefense.Simulations do
         nil
 
       experiment ->
-        experiment |> Map.put(:graph, Graphs.load(experiment.graph_id)) |> load_report_runs()
+        graph =
+          case Graphs.load_revision(experiment.graph_revision_id) do
+            %NetworkDefense.Graph.Graph{} = graph -> graph
+            _ -> nil
+          end
+
+        experiment
+        |> Map.put(:graph, graph)
+        |> load_report_runs()
     end
   end
 
@@ -245,41 +248,44 @@ defmodule NetworkDefense.Simulations do
     ]
   end
 
-  defp broadcast_simulation_completed(experiment, correlation_id) do
+  defp broadcast_simulation_completed(graph, experiment, correlation_id) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_completed,
        %{
          correlation_id: correlation_id,
-         graph_id: experiment.graph_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
          experiment_id: experiment.id
        }}
     )
   end
 
-  defp broadcast_simulation_progress(graph_id, correlation_id, completed_runs, total_runs) do
+  defp broadcast_simulation_progress(graph, correlation_id, completed_runs, total_runs) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_progress,
        %{
          correlation_id: correlation_id,
-         graph_id: graph_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
          completed_runs: completed_runs,
          total_runs: total_runs
        }}
     )
   end
 
-  defp broadcast_simulation_failed(graph_id, correlation_id, reason) do
+  defp broadcast_simulation_failed(graph, correlation_id, reason) do
     Phoenix.PubSub.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_failed,
        %{
          correlation_id: correlation_id,
-         graph_id: graph_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
          reason: reason
        }}
     )

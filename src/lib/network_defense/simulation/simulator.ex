@@ -37,15 +37,13 @@ defmodule NetworkDefense.Simulation.Simulator do
     seed = Keyword.get(opts, :seed)
     run_count = Keyword.get(opts, :run_count)
     iteration_count = Keyword.get(opts, :iteration_count)
-    lock_version = Keyword.get(opts, :lock_version, 1)
     max_attempts = Keyword.get(opts, :max_attempts, 1)
 
     experiment =
       Experiment.new(
-        graph_id: graph.id,
+        graph_revision_id: graph.revision_id,
         master_seed: seed,
         iteration_count: iteration_count,
-        lock_version: lock_version,
         max_attempts: max_attempts,
         total_trials: run_count
       )

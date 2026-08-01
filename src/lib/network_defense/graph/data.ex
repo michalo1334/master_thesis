@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Graph.Data do
   @moduledoc false
 
-  import Ecto.Changeset, only: [apply_action: 2]
+  import Ecto.Changeset, only: [add_error: 3, apply_action: 2, get_field: 2]
 
   def to_params(data) when is_struct(data) do
     data
@@ -16,6 +16,20 @@ defmodule NetworkDefense.Graph.Data do
     |> struct()
     |> schema.changeset(data || %{})
     |> apply_action(:validate)
+  end
+
+  def validate_dynamic_data(changeset, registry) do
+    case registry.module_for(get_field(changeset, :type)) do
+      nil ->
+        add_error(changeset, :type, "is invalid")
+
+      schema ->
+        if schema.changeset(struct(schema), get_field(changeset, :data) || %{}).valid? do
+          changeset
+        else
+          add_error(changeset, :data, "is invalid")
+        end
+    end
   end
 
   defp value_param(nil), do: nil

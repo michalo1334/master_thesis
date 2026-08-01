@@ -4,7 +4,7 @@ defmodule NetworkDefense.Simulation.Run do
   import Ecto.Changeset
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
@@ -14,7 +14,7 @@ defmodule NetworkDefense.Simulation.Run do
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
-          graph_id: String.t() | nil,
+          graph_revision_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           seed: integer(),
           trial_index: non_neg_integer(),
@@ -26,7 +26,8 @@ defmodule NetworkDefense.Simulation.Run do
         }
 
   schema "simulation_runs" do
-    belongs_to :graph, Graph
+    belongs_to :graph_revision, GraphRevision
+    field :graph, :any, virtual: true
     belongs_to :experiment, Experiment
 
     field :seed, :integer
@@ -54,11 +55,11 @@ defmodule NetworkDefense.Simulation.Run do
       end
 
     changeset
-    |> validate_required([:graph_id, :seed, :trial_index, :initial_attacker_state])
+    |> validate_required([:graph_revision_id, :seed, :trial_index, :initial_attacker_state])
     |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_number(:trial_index, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:graph_id)
-    |> foreign_key_constraint(:experiment_id)
+    |> foreign_key_constraint(:graph_revision_id)
+    |> foreign_key_constraint(:experiment_id, name: :simulation_runs_experiment_revision_fkey)
     |> unique_constraint([:experiment_id, :trial_index])
   end
 
@@ -67,7 +68,8 @@ defmodule NetworkDefense.Simulation.Run do
 
     %__MODULE__{
       id: Ecto.UUID.generate(),
-      graph_id: Map.get(attrs, :graph_id) || graph_id(Map.get(attrs, :graph)),
+      graph_revision_id:
+        Map.get(attrs, :graph_revision_id) || graph_revision_id(Map.get(attrs, :graph)),
       graph: Map.get(attrs, :graph),
       seed: Map.get(attrs, :seed, 0),
       trial_index: Map.get(attrs, :trial_index, 0),
@@ -98,6 +100,6 @@ defmodule NetworkDefense.Simulation.Run do
     %{state | iterations: [iteration | iterations]}
   end
 
-  defp graph_id(%Graph{id: id}), do: id
-  defp graph_id(_), do: nil
+  defp graph_revision_id(%Graph{revision_id: id}), do: id
+  defp graph_revision_id(_), do: nil
 end

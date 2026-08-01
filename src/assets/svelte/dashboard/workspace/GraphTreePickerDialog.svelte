@@ -12,7 +12,7 @@
     title?: string;
     description?: string;
     status?: string;
-    selectedGraphId?: string;
+    selectedRevisionId?: string;
   }
 
   interface TreeNode {
@@ -34,7 +34,7 @@
     title = "Open graph",
     description = "Select a saved graph to open in the workspace.",
     status = "",
-    selectedGraphId = undefined,
+    selectedRevisionId = undefined,
   }: Props = $props();
 
   let isSelecting = $state(false);
@@ -48,15 +48,15 @@
   function buildTree(summaries: readonly GraphSummary[]): TreeNode[] {
     const nodes = new Map<string, TreeNode>(
       summaries.map((summary): [string, TreeNode] => [
-        summary.id,
+        summary.revision_id,
         { summary, children: [] },
       ]),
     );
     const roots: TreeNode[] = [];
 
     for (const node of nodes.values()) {
-      const parent = node.summary.parent_id
-        ? nodes.get(node.summary.parent_id)
+      const parent = node.summary.parent_revision_id
+        ? nodes.get(node.summary.parent_revision_id)
         : undefined;
       if (parent && parent !== node) parent.children.push(node);
       else roots.push(node);
@@ -84,7 +84,8 @@
           depth,
           hasChildren: node.children.length > 0,
         });
-        if (expanded.has(node.summary.id)) visit(node.children, depth + 1);
+        if (expanded.has(node.summary.revision_id))
+          visit(node.children, depth + 1);
       }
     };
 
@@ -92,15 +93,16 @@
     return rows;
   }
 
-  function toggleGraph(graphId: string): void {
-    if (expandedGraphIds.has(graphId)) expandedGraphIds.delete(graphId);
-    else expandedGraphIds.add(graphId);
+  function toggleGraph(revisionId: string): void {
+    if (expandedGraphIds.has(revisionId)) expandedGraphIds.delete(revisionId);
+    else expandedGraphIds.add(revisionId);
   }
 
   function expandAllGraphs(): void {
     const visit = (nodes: readonly TreeNode[]): void => {
       for (const node of nodes) {
-        if (node.children.length) expandedGraphIds.add(node.summary.id);
+        if (node.children.length)
+          expandedGraphIds.add(node.summary.revision_id);
         visit(node.children);
       }
     };
@@ -163,18 +165,18 @@
               <thead>
                 <tr>
                   <th>Graph</th>
-                  <th>Tags</th>
+                  <th>Revision</th>
                   <th class="graph-tree-align-end">Nodes</th>
                   <th class="graph-tree-align-end">Edges</th>
                 </tr>
               </thead>
               <tbody>
-                {#each visibleRows as row (row.summary.id)}
+                {#each visibleRows as row (row.summary.revision_id)}
                   <tr
                     data-depth={row.depth}
                     data-disabled={isSelecting || undefined}
-                    data-selected={selectedGraphId === row.summary.id ||
-                      undefined}
+                    data-selected={selectedRevisionId ===
+                      row.summary.revision_id || undefined}
                   >
                     <td class="graph-tree-graph">
                       <div class="graph-tree-row" style:--depth={row.depth}>
@@ -182,13 +184,17 @@
                           <Button.Root
                             type="button"
                             class="graph-tree-toggle"
-                            aria-label={`${expandedGraphIds.has(row.summary.id) ? "Collapse" : "Expand"} ${row.summary.title}`}
-                            aria-expanded={expandedGraphIds.has(row.summary.id)}
+                            aria-label={`${expandedGraphIds.has(row.summary.revision_id) ? "Collapse" : "Expand"} ${row.summary.title}`}
+                            aria-expanded={expandedGraphIds.has(
+                              row.summary.revision_id,
+                            )}
                             disabled={isSelecting}
-                            onclick={() => toggleGraph(row.summary.id)}
+                            onclick={() => toggleGraph(row.summary.revision_id)}
                           >
                             <Icon
-                              name={expandedGraphIds.has(row.summary.id)
+                              name={expandedGraphIds.has(
+                                row.summary.revision_id,
+                              )
                                 ? "chevron-down"
                                 : "chevron-right"}
                               size={18}
@@ -198,7 +204,8 @@
                         <input
                           class="graph-tree-selection"
                           type="checkbox"
-                          checked={selectedGraphId === row.summary.id}
+                          checked={selectedRevisionId ===
+                            row.summary.revision_id}
                           aria-hidden="true"
                           tabindex="-1"
                           disabled
@@ -215,10 +222,8 @@
                         </button>
                       </div>
                     </td>
-                    <td class="graph-tree-tags">
-                      {#each row.summary.tags as tag (tag)}
-                        <span class="graph-tree-tag">{tag}</span>
-                      {/each}
+                    <td class="graph-tree-revision">
+                      {row.summary.revision_kind} #{row.summary.revision_number}
                     </td>
                     <td class="graph-tree-align-end"
                       >{row.summary.node_count}</td
@@ -428,17 +433,8 @@
     white-space: nowrap;
   }
 
-  .graph-tree-tags {
+  .graph-tree-revision {
     min-width: 10rem;
-  }
-
-  .graph-tree-tag {
-    display: inline-block;
-    margin: 0 var(--ds-space-1) var(--ds-space-1) 0;
-    padding: 0 0.375rem;
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-accent-soft);
-    color: var(--ds-color-text);
   }
 
   .graph-tree-align-end {

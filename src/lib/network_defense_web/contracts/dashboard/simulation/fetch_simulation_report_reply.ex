@@ -10,7 +10,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     field :experiment_id, :string
     field :graph_id, :string
     field :graph_title, :string
-    field :graph_version_at_sim, :integer
+    field :graph_revision_id, :string
     field :run_count, :integer
     field :iteration_count, :integer
     field :total_runtime_ms, :integer
@@ -28,7 +28,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           experiment_id: String.t(),
           graph_id: String.t(),
           graph_title: String.t(),
-          graph_version_at_sim: integer(),
+          graph_revision_id: String.t(),
           run_count: integer(),
           iteration_count: integer(),
           total_runtime_ms: integer(),
@@ -43,7 +43,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :experiment_id,
       :graph_id,
       :graph_title,
-      :graph_version_at_sim,
+      :graph_revision_id,
       :run_count,
       :iteration_count,
       :total_runtime_ms
@@ -55,7 +55,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :experiment_id,
       :graph_id,
       :graph_title,
-      :graph_version_at_sim,
+      :graph_revision_id,
       :run_count,
       :iteration_count,
       :total_runtime_ms
