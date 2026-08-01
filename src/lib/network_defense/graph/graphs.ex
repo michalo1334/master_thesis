@@ -43,27 +43,33 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   def list_summaries do
+    node_counts =
+      from node in Node,
+        group_by: node.graph_revision_id,
+        select: %{graph_revision_id: node.graph_revision_id, count: count(node.id)}
+
+    edge_counts =
+      from edge in Edge,
+        group_by: edge.graph_revision_id,
+        select: %{graph_revision_id: edge.graph_revision_id, count: count(edge.id)}
+
     GraphRevision
-    |> join(:left, [revision], node in Node, on: node.graph_revision_id == revision.id)
-    |> join(:left, [revision], edge in Edge, on: edge.graph_revision_id == revision.id)
-    |> group_by([revision], [
-      revision.graph_id,
-      revision.id,
-      revision.parent_revision_id,
-      revision.title,
-      revision.kind,
-      revision.number
-    ])
+    |> join(:left, [revision], node_count in subquery(node_counts),
+      on: node_count.graph_revision_id == revision.id
+    )
+    |> join(:left, [revision], edge_count in subquery(edge_counts),
+      on: edge_count.graph_revision_id == revision.id
+    )
     |> order_by([revision], asc: revision.graph_id, asc: revision.number)
-    |> select([revision, node, edge], %{
+    |> select([revision, node_count, edge_count], %{
       graphId: revision.graph_id,
       revisionId: revision.id,
       parentRevisionId: revision.parent_revision_id,
       title: revision.title,
       revisionKind: revision.kind,
       revisionNumber: revision.number,
-      nodeCount: count(node.id, :distinct),
-      edgeCount: count(edge.id, :distinct)
+      nodeCount: coalesce(node_count.count, 0),
+      edgeCount: coalesce(edge_count.count, 0)
     })
     |> Repo.all()
     |> Enum.map(&Map.update!(&1, :revisionKind, fn kind -> Atom.to_string(kind) end))
