@@ -5,7 +5,6 @@
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
-  import OptionPickerDialog from "./dashboard/ui/OptionPickerDialog.svelte";
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
   import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
@@ -18,14 +17,7 @@
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
   import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
-  import type {
-    ExperimentSummary,
-    GraphSummary,
-    OptimizationParams,
-    OptimizationRunSummary,
-  } from "./dashboard/contract";
-  import { formatRuntime, formatTimestamp } from "./dashboard/format";
-  import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.types";
+  import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
 
   interface Props {
     model: DashboardModel;
@@ -64,40 +56,6 @@
     },
   ];
 
-  const experimentColumns: FilterableTableColumn<ExperimentSummary>[] = [
-    {
-      key: "title",
-      header: "Graph",
-      getValue: (experiment) => experiment.graph_title,
-      filterable: true,
-    },
-    {
-      key: "runs",
-      header: "Runs",
-      getValue: (experiment) => String(experiment.run_count),
-      align: "end",
-    },
-    {
-      key: "iters",
-      header: "Iters",
-      getValue: (experiment) => String(experiment.iteration_count),
-      align: "end",
-    },
-    {
-      key: "runtime",
-      header: "Runtime",
-      getValue: (experiment) => formatRuntime(experiment.runtime_ms),
-      align: "end",
-      filterable: true,
-    },
-    {
-      key: "started",
-      header: "Started",
-      getValue: (experiment) => formatTimestamp(experiment.started_at),
-      align: "end",
-    },
-  ];
-
   async function handleSave(): Promise<void> {
     await model.saveActiveGraph();
   }
@@ -108,10 +66,6 @@
 
   async function handleRunSimulation(): Promise<void> {
     await model.runActiveSimulation();
-  }
-
-  async function handleShowExperiments(): Promise<void> {
-    await model.showExperiments();
   }
 
   function handleOptimize(strategyId: OptimizationParams["strategy"]): void {
@@ -150,18 +104,6 @@
   ): Promise<boolean> {
     return wm.moveGraphToFolder(api, graphId, folderId);
   }
-
-  async function handleExperimentSelect([
-    experiment,
-  ]: ExperimentSummary[]): Promise<boolean> {
-    return experiment ? model.selectExperiment(experiment) : false;
-  }
-
-  async function handleOptimizationRunSelect(
-    run: OptimizationRunSummary,
-  ): Promise<boolean> {
-    return wm.openOptimizationRun(api, run);
-  }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
@@ -174,13 +116,10 @@
   />
   <DashboardRibbon
     hasActiveGraph={wm.hasActiveGraph}
-    hasUnreadReport={wm.hasUnreadReport}
-    isLoadingExperiments={wm.isLoadingExperiments}
     forceParams={wm.forceParams}
     onForceParamsChange={(change) => wm.onForceParamsChange(change)}
     onForceLayout={handleForceLayout}
     onRunSimulation={handleRunSimulation}
-    onShowExperiments={handleShowExperiments}
     onCompareGraphs={() => wm.beginGraphComparison()}
     onOpenAnalysis={() => model.analysis.openDialog()}
     onOptimize={handleOptimize}
@@ -233,8 +172,6 @@
     onCreateFolder={handleCreateFolder}
     onDeleteFolder={handleDeleteFolder}
     onMoveGraph={handleMoveGraph}
-    onOpenExperiment={(experiment) => model.selectExperiment(experiment)}
-    onOpenOptimizationRun={handleOptimizationRunSelect}
   />
 
   <GraphTreePickerDialog
@@ -268,21 +205,6 @@
     selectedRevisionId={model.analysis.targetRevisionId || undefined}
     onSelect={(summary) => model.analysis.selectTarget(summary.revision_id)}
     onFavoriteChange={handleFavoriteChange}
-  />
-
-  <OptionPickerDialog
-    open={wm.experimentsModalOpen}
-    onOpenChange={(open) => (wm.experimentsModalOpen = open)}
-    items={wm.experiments}
-    title="Experiments"
-    description="Select a completed experiment to view its report."
-    getKey={(experiment) => experiment.id}
-    columns={experimentColumns}
-    searchPlaceholder="Search experiments…"
-    emptyMessage="No experiments found."
-    noMatchMessage="No experiments match your search."
-    status={wm.experimentsStatus}
-    onConfirm={handleExperimentSelect}
   />
 
   <AnalysisDialog model={model.analysis} {optimizationOptions} />

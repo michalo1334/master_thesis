@@ -10,7 +10,6 @@ import type {
   SimulationCompletedEvent,
   SimulationFailedEvent,
   SimulationProgressEvent,
-  ExperimentSummary,
   FetchSimulationReportReply,
   SimulationReportErrorEvent,
   FetchOptimizationReportReply,
@@ -84,7 +83,6 @@ export class DashboardModel {
       );
       this.markOptimizationReportReadState(report);
     }
-    void this.workspace.loadSavedResults(this.api);
   }
 
   onOptimizationFailed(payload: OptimizationFailedEvent): void {
@@ -129,7 +127,6 @@ export class DashboardModel {
         report.markUnread();
       }
     }
-    void this.workspace.loadSavedResults(this.api);
   }
 
   /** Cross-model: route a server failure event to the matching report. */
@@ -198,10 +195,6 @@ export class DashboardModel {
     report?.markError(payload.reason);
   }
 
-  async loadSavedResults(): Promise<void> {
-    await this.workspace.loadSavedResults(this.api);
-  }
-
   /** Delegate saving to the workspace. */
   async saveActiveGraph(): Promise<boolean> {
     return this.workspace.saveActiveGraph(this.api);
@@ -210,16 +203,6 @@ export class DashboardModel {
   /** Delegate force layout to the workspace. */
   applyForceLayout(): void {
     this.workspace.applyForceLayout();
-  }
-
-  /** Delegate historical report picker opening to the workspace. */
-  async showExperiments(): Promise<void> {
-    await this.workspace.showExperiments(this.api);
-  }
-
-  /** Delegate historical report selection to the workspace. */
-  async selectExperiment(experiment: ExperimentSummary): Promise<boolean> {
-    return this.workspace.selectExperiment(this.api, experiment);
   }
 
   private markOptimizationReportReadState(

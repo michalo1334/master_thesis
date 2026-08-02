@@ -255,92 +255,12 @@ describe("DocumentOutline", () => {
     expect(onSelectDocument).toHaveBeenCalledWith(report.id);
   });
 
-  it("groups saved reports by source graph folder and opens each result", async () => {
-    const onOpenExperiment = vi.fn();
-    const onOpenOptimizationRun = vi.fn();
-
-    render(DocumentOutline, {
-      props: {
-        documents: [],
-        folders: [{ id: "folder-1", name: "Threat models" }],
-        graphSummaries: [summary("graph-1", "r1", "folder-1")],
-        experiments: [
-          {
-            id: "experiment-1",
-            graph_id: "graph-1",
-            graph_revision_id: "r1",
-            graph_title: "Topology",
-            iteration_count: 10,
-            run_count: 10,
-            runtime_ms: 20,
-            seed: 1,
-            started_at: "2026-01-01T00:00:00Z",
-          },
-        ],
-        optimizationRuns: [
-          {
-            id: "optimization-1",
-            graph_id: "graph-1",
-            graph_revision_id: "r1",
-            graph_title: "Topology",
-            strategy: "cvss",
-            requested_budget: 1,
-            used_budget: 1,
-            runtime_ms: 20,
-            output_graph_revision_id: "optimized-r1",
-            started_at: "2026-01-01T00:00:00Z",
-          },
-        ],
-        collapsed: false,
-        onCollapsedChange: vi.fn(),
-        onSelectDocument: vi.fn(),
-        onOpenExperiment,
-        onOpenOptimizationRun,
-      },
-    });
-
-    expect(depth("Simulation report for Topology")).toBe("2");
-    expect(depth("Optimization report for Topology")).toBe("2");
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Simulation report for Topology",
-        hidden: true,
-      }),
-    );
-    await fireEvent.click(
-      screen.getByRole("button", {
-        name: "Optimization report for Topology",
-        hidden: true,
-      }),
-    );
-    expect(onOpenExperiment).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "experiment-1" }),
-    );
-    expect(onOpenOptimizationRun).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "optimization-1" }),
-    );
-  });
-
-  it("does not duplicate an opened persisted report", () => {
+  it("shows only open report documents in the Reports group", () => {
     const report = new SimulationReportDocument("Topology", "graph-1", "r1");
-    report.markReady("experiment-1");
 
     render(DocumentOutline, {
       props: {
         documents: [report],
-        experiments: [
-          {
-            id: "experiment-1",
-            graph_id: "graph-1",
-            graph_revision_id: "r1",
-            graph_title: "Topology",
-            iteration_count: 10,
-            run_count: 10,
-            runtime_ms: 20,
-            seed: 1,
-            started_at: "2026-01-01T00:00:00Z",
-          },
-        ],
         collapsed: false,
         onCollapsedChange: vi.fn(),
         onSelectDocument: vi.fn(),
@@ -348,17 +268,16 @@ describe("DocumentOutline", () => {
     });
 
     expect(
-      screen.queryByRole("button", {
-        name: "Simulation report for Topology",
-        hidden: true,
-      }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: "Reports", hidden: true }),
+    ).toBeInTheDocument();
     expect(
+      screen.getAllByRole("button", { name: /^Report /, hidden: true }),
+    ).toEqual([
       screen.getByRole("button", {
         name: `Report ${report.title}`,
         hidden: true,
       }),
-    ).toBeInTheDocument();
+    ]);
   });
 
   it("requests a controlled outline expansion", async () => {

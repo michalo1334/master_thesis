@@ -53,13 +53,10 @@ function renderRibbon({
   render(DashboardRibbon, {
     props: {
       hasActiveGraph,
-      hasUnreadReport: false,
-      isLoadingExperiments: false,
       forceParams: defaultForceParams,
       onForceParamsChange: vi.fn(),
       onForceLayout: vi.fn(),
       onRunSimulation: vi.fn(),
-      onShowExperiments: vi.fn(),
       onCompareGraphs,
       onOpenAnalysis,
       onOptimize,

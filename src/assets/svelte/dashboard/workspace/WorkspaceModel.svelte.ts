@@ -8,8 +8,6 @@ import type {
   GraphSummary,
   GraphDiffResult,
   LoadedGraph,
-  ExperimentSummary,
-  OptimizationRunSummary,
   OptimizationParams,
   SimulationParams,
   OptimizationStrategy,
@@ -45,13 +43,6 @@ export class WorkspaceModel {
   graphComparisonPickerOpen = $state(false);
   graphComparisonPickerStatus = $state("");
   graphComparisonBase = $state.raw<LoadedGraph>();
-  experimentsModalOpen = $state(false);
-  experiments = $state.raw<ExperimentSummary[]>([]);
-  optimizationRuns = $state.raw<OptimizationRunSummary[]>([]);
-  experimentsStatus = $state("");
-  isLoadingExperiments = $state(false);
-  private savedResultsRefreshQueued = false;
-
   forceParams = $state<ForceParams>({ ...defaultForceParams });
   simulationParams = $state<SimulationParams>({
     initial_foothold_node_id: "",
@@ -558,107 +549,6 @@ export class WorkspaceModel {
         document.correlationId === correlationId &&
         document.graphId === graphId,
     ) as OptimizationReportDocument | undefined;
-  }
-
-  async loadSavedResults(api: DashboardApi): Promise<void> {
-    if (this.isLoadingExperiments) {
-      this.savedResultsRefreshQueued = true;
-      return;
-    }
-
-    const graphRevisionIds = [
-      ...new Set(this.graphSummaries.map(({ revision_id }) => revision_id)),
-    ];
-    if (graphRevisionIds.length === 0) {
-      this.experiments = [];
-      this.optimizationRuns = [];
-      return;
-    }
-
-    this.isLoadingExperiments = true;
-    try {
-      const [experiments, optimizationRuns] = await Promise.all([
-        api.fetchExperiments(graphRevisionIds),
-        api.fetchOptimizationRuns(graphRevisionIds),
-      ]);
-      this.experiments = experiments.experiments;
-      this.optimizationRuns = optimizationRuns.runs;
-    } catch {
-      this.experimentsStatus = "Failed to load saved results.";
-    } finally {
-      this.isLoadingExperiments = false;
-      if (this.savedResultsRefreshQueued) {
-        this.savedResultsRefreshQueued = false;
-        await this.loadSavedResults(api);
-      }
-    }
-  }
-
-  async showExperiments(api: DashboardApi): Promise<void> {
-    this.experimentsStatus = "";
-    this.experimentsModalOpen = true;
-    await this.loadSavedResults(api);
-    if (!this.experimentsStatus && this.experiments.length === 0) {
-      this.experimentsStatus = "No experiments found.";
-    }
-  }
-
-  async selectExperiment(
-    api: DashboardApi,
-    experiment: ExperimentSummary,
-  ): Promise<boolean> {
-    const existing = this.documents.find(
-      (d) => d.kind === "simulation-report" && d.experimentId === experiment.id,
-    ) as SimulationReportDocument | undefined;
-
-    let report: SimulationReportDocument;
-    if (existing) {
-      report = existing;
-      existing.markReady(experiment.id);
-    } else {
-      report = new SimulationReportDocument(
-        experiment.graph_title,
-        experiment.graph_id,
-        experiment.graph_revision_id,
-      );
-      report.markReady(experiment.id);
-      this.documents.push(report);
-    }
-
-    this.selectedDocumentId = report.id;
-    report.load(api, experiment.id, experiment.graph_revision_id);
-    return true;
-  }
-
-  openOptimizationRun(api: DashboardApi, run: OptimizationRunSummary): boolean {
-    const existing = this.documents.find(
-      (d) => d.kind === "optimization-report" && d.optimizationId === run.id,
-    ) as OptimizationReportDocument | undefined;
-    const report =
-      existing ??
-      new OptimizationReportDocument({
-        graphId: run.graph_id,
-        graphRevisionId: run.graph_revision_id,
-        graphTitle: run.graph_title,
-        strategy: run.strategy as OptimizationStrategy,
-        budget: run.requested_budget,
-      });
-    if (!existing) this.documents.push(report);
-
-    report.markReady(
-      run.id,
-      run.output_graph_revision_id,
-      () => this.openOptimizationResult(api, run.output_graph_revision_id),
-      () =>
-        this.loadOptimizationGraphDiff(
-          api,
-          run.graph_revision_id,
-          run.output_graph_revision_id,
-        ),
-    );
-    this.selectedDocumentId = report.id;
-    report.load(api, run.id, run.graph_revision_id);
-    return true;
   }
 
   onForceParamsChange(change: Partial<ForceParams>): void {

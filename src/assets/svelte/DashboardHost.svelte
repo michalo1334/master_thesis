@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Live } from "live_svelte";
-  import { onMount, untrack } from "svelte";
+  import { untrack } from "svelte";
   import { useLiveEvent } from "live_svelte";
   import { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { createDashboardApi } from "./dashboard/dashboard-api";
@@ -76,10 +76,6 @@
 
   useLiveEvent("optimization_report_error", (payload: unknown) => {
     model.onOptimizationReportError(payload as OptimizationReportErrorEvent);
-  });
-
-  onMount(() => {
-    void model.loadSavedResults();
   });
 </script>
 

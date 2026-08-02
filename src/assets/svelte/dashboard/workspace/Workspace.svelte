@@ -29,12 +29,6 @@
       graphId: string,
       folderId: string | null,
     ) => Promise<boolean> | boolean;
-    onOpenExperiment: (
-      experiment: import("../contract").ExperimentSummary,
-    ) => Promise<boolean> | boolean;
-    onOpenOptimizationRun: (
-      run: import("../contract").OptimizationRunSummary,
-    ) => Promise<boolean> | boolean;
   }
 
   let {
@@ -46,8 +40,6 @@
     onCreateFolder,
     onDeleteFolder,
     onMoveGraph,
-    onOpenExperiment,
-    onOpenOptimizationRun,
   }: Props = $props();
 
   let activeDocument = $derived(
@@ -96,10 +88,6 @@
     onSelectDocument={(id) => model.selectDocument(id)}
     {onDeleteFolder}
     {onMoveGraph}
-    experiments={model.experiments}
-    optimizationRuns={model.optimizationRuns}
-    {onOpenExperiment}
-    {onOpenOptimizationRun}
     collapsed={outlineCollapsed}
     onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
   />

@@ -4,7 +4,6 @@ import type {
   GraphSummary,
   GraphDiffResult,
   LoadedGraph,
-  ExperimentSummary,
 } from "../../contract";
 import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
@@ -45,33 +44,6 @@ function hostNode(id: string, name = id) {
     data: { name },
     view_data: { x_pos: 0, y_pos: 0 },
   };
-}
-
-function makeExperiment(
-  overrides: Partial<ExperimentSummary> = {},
-): ExperimentSummary {
-  return {
-    id: "sim-1",
-    graph_id: "g1",
-    graph_revision_id: "r1",
-    graph_title: "Topology 1",
-    iteration_count: 100,
-    runtime_ms: 1000,
-    seed: 1,
-    run_count: 10,
-    started_at: "2026-01-01T00:00:00Z",
-    ...overrides,
-  };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
 }
 
 describe("WorkspaceModel", () => {
@@ -673,166 +645,6 @@ describe("WorkspaceModel", () => {
 
       expect(existing).toBe(report);
       expect(model.selectedDocumentId).toBe(report.id);
-    });
-  });
-
-  describe("selectExperiment", () => {
-    const api = {
-      requestSimulationReport: vi.fn(),
-    } as unknown as DashboardApi;
-
-    it("reuses a historical report only when its experiment ID matches", async () => {
-      const existing = model.createPendingReport({
-        graphId: "g1",
-        graphRevisionId: "r1",
-        correlationId: "corr-old",
-        graphTitle: "Test",
-      });
-      existing.markReady("sim-old");
-
-      await model.selectExperiment(api, makeExperiment({ id: "sim-new" }));
-
-      expect(model.documents).toHaveLength(2);
-
-      await model.selectExperiment(api, makeExperiment({ id: "sim-old" }));
-
-      expect(model.documents).toHaveLength(2);
-      expect(model.selectedDocumentId).toBe(existing.id);
-    });
-  });
-
-  describe("openOptimizationRun", () => {
-    it("opens and reuses a persisted optimization report", () => {
-      const api = {
-        requestOptimizationReport: vi.fn(),
-      } as unknown as DashboardApi;
-      const run = {
-        id: "optimization-1",
-        graph_id: "g1",
-        graph_revision_id: "r1",
-        graph_title: "Topology 1",
-        strategy: "cvss",
-        requested_budget: 2,
-        used_budget: 1,
-        runtime_ms: 100,
-        output_graph_revision_id: "optimized-r1",
-        started_at: "2026-01-01T00:00:00Z",
-      };
-
-      model.openOptimizationRun(api, run);
-      const report = model.activeDocument;
-      model.createGraphDocument();
-      model.openOptimizationRun(api, run);
-
-      expect(
-        model.documents.filter((d) => d.kind === "optimization-report"),
-      ).toHaveLength(1);
-      expect(model.selectedDocumentId).toBe(report?.id);
-      expect(api.requestOptimizationReport).toHaveBeenCalledWith(
-        "optimization-1",
-        "r1",
-      );
-    });
-  });
-
-  describe("showExperiments", () => {
-    it("fetches saved results for every known graph revision", async () => {
-      model = new WorkspaceModel([
-        makeGraphSummary({ graph_id: "g1", revision_id: "r1" }),
-        makeGraphSummary({ graph_id: "g2", revision_id: "r2" }),
-        makeGraphSummary({ graph_id: "closed", revision_id: "r3" }),
-      ]);
-      const first = model.createGraphDocument();
-      first.replaceFromLoadedGraph(
-        makeLoadedGraph({ id: "g1", revision_id: "r1" }),
-      );
-      const second = model.createGraphDocument();
-      second.replaceFromLoadedGraph(
-        makeLoadedGraph({ id: "g2", revision_id: "r2" }),
-      );
-      const duplicate = model.createGraphDocument();
-      duplicate.replaceFromLoadedGraph(
-        makeLoadedGraph({ id: "g1", revision_id: "r1" }),
-      );
-      const closed = model.createGraphDocument();
-      closed.replaceFromLoadedGraph(
-        makeLoadedGraph({ id: "closed", revision_id: "r3" }),
-      );
-      model.closeDocument(closed.id);
-      const api = {
-        fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
-        fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
-      } as unknown as DashboardApi;
-
-      await model.showExperiments(api);
-
-      expect(api.fetchExperiments).toHaveBeenCalledWith(["r1", "r2", "r3"]);
-      expect(api.fetchOptimizationRuns).toHaveBeenCalledWith([
-        "r1",
-        "r2",
-        "r3",
-      ]);
-    });
-
-    it("shows the empty state without fetching when no graph revisions are known", async () => {
-      const api = {
-        fetchExperiments: vi.fn(),
-        fetchOptimizationRuns: vi.fn(),
-      } as unknown as DashboardApi;
-
-      await model.showExperiments(api);
-
-      expect(model.experimentsModalOpen).toBe(true);
-      expect(model.experimentsStatus).toBe("No experiments found.");
-      expect(api.fetchExperiments).not.toHaveBeenCalled();
-      expect(api.fetchOptimizationRuns).not.toHaveBeenCalled();
-    });
-
-    it("queues one refresh requested while experiments are loading", async () => {
-      model = new WorkspaceModel([makeGraphSummary()]);
-      const request = deferred<{ experiments: ExperimentSummary[] }>();
-      const optimizationRequest = deferred<{ runs: [] }>();
-      const api = {
-        fetchExperiments: vi
-          .fn()
-          .mockReturnValueOnce(request.promise)
-          .mockResolvedValue({
-            experiments: [makeExperiment({ id: "sim-2" })],
-          }),
-        fetchOptimizationRuns: vi
-          .fn()
-          .mockReturnValueOnce(optimizationRequest.promise)
-          .mockResolvedValue({ runs: [] }),
-      } as unknown as DashboardApi;
-
-      const first = model.loadSavedResults(api);
-      expect(model.isLoadingExperiments).toBe(true);
-      const completionRefresh = model.loadSavedResults(api);
-      const duplicateCompletionRefresh = model.loadSavedResults(api);
-
-      expect(api.fetchExperiments).toHaveBeenCalledTimes(1);
-
-      request.resolve({ experiments: [] });
-      optimizationRequest.resolve({ runs: [] });
-      await Promise.all([first, completionRefresh, duplicateCompletionRefresh]);
-
-      expect(api.fetchExperiments).toHaveBeenCalledTimes(2);
-      expect(api.fetchOptimizationRuns).toHaveBeenCalledTimes(2);
-      expect(model.isLoadingExperiments).toBe(false);
-      expect(model.experiments).toEqual([makeExperiment({ id: "sim-2" })]);
-    });
-
-    it("shows a status and resets loading when experiments fail to load", async () => {
-      model = new WorkspaceModel([makeGraphSummary()]);
-      const api = {
-        fetchExperiments: vi.fn().mockRejectedValue(new Error("offline")),
-        fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
-      } as unknown as DashboardApi;
-
-      await model.showExperiments(api);
-
-      expect(model.isLoadingExperiments).toBe(false);
-      expect(model.experimentsStatus).toBe("Failed to load saved results.");
     });
   });
 

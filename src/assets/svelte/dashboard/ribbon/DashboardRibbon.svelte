@@ -18,13 +18,10 @@
 
   interface Props {
     hasActiveGraph: boolean;
-    hasUnreadReport: boolean;
-    isLoadingExperiments: boolean;
     forceParams: ForceParams;
     onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
     onRunSimulation: () => void;
-    onShowExperiments: () => void;
     onCompareGraphs: () => void;
     onOpenAnalysis: () => void;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
@@ -41,13 +38,10 @@
 
   let {
     hasActiveGraph,
-    hasUnreadReport,
-    isLoadingExperiments,
     forceParams,
     onForceParamsChange,
     onForceLayout,
     onRunSimulation,
-    onShowExperiments,
     onCompareGraphs,
     onOpenAnalysis,
     onOptimize,
@@ -69,14 +63,7 @@
   );
 </script>
 
-<Ribbon
-  tabDecorations={{
-    Report: {
-      color: "var(--ds-color-warning)",
-      animate: hasUnreadReport ? "pulse" : undefined,
-    },
-  }}
->
+<Ribbon>
   <Ribbon.Tab title="Home">
     <Ribbon.Section title="Tools">
       <RibbonButton
@@ -326,16 +313,6 @@
     <Ribbon.Section title="Workspace">
       <RibbonButton
         ><Icon name="chevron-right" size={22} /><span>Inspector</span
-        ></RibbonButton
-      >
-    </Ribbon.Section>
-  </Ribbon.Tab>
-  <Ribbon.Tab title="Report">
-    <Ribbon.Section title="Reports">
-      <RibbonButton
-        disabled={isLoadingExperiments}
-        onclick={(_) => onShowExperiments()}
-        ><Icon name="shield" size={22} /><span>Show experiments</span
         ></RibbonButton
       >
     </Ribbon.Section>
