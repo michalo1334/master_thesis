@@ -190,15 +190,22 @@ defmodule NetworkDefense.Simulation.Experiments do
     rows
     |> Enum.chunk_every(rows_per_insert(rows))
     |> Enum.reduce(0, fn chunk, inserted_count ->
-      case Repo.insert_all(schema.__schema__(:source), chunk,
-             on_conflict: :nothing,
-             timeout: :infinity
-           ) do
-        {count, nil} when count == length(chunk) -> inserted_count + count
-        _ -> Repo.rollback(operation)
-      end
+      Repo.insert_all(schema.__schema__(:source), chunk,
+        on_conflict: :nothing,
+        timeout: :infinity
+      )
+      |> add_inserted_count(chunk, inserted_count, operation)
     end)
   end
+
+  defp add_inserted_count({count, nil}, chunk, inserted_count, operation) do
+    if count == Enum.count(chunk),
+      do: inserted_count + count,
+      else: Repo.rollback(operation)
+  end
+
+  defp add_inserted_count(_result, _chunk, _inserted_count, operation),
+    do: Repo.rollback(operation)
 
   defp rows_per_insert([row | _rows]) do
     row

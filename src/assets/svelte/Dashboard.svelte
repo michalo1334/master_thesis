@@ -21,6 +21,7 @@
     ExperimentSummary,
     GraphSummary,
     OptimizationParams,
+    OptimizationRunSummary,
   } from "./dashboard/contract";
   import { formatRuntime, formatTimestamp } from "./dashboard/format";
   import type { FilterableTableColumn } from "./dashboard/controls/FilterableTable.types";
@@ -154,6 +155,12 @@
   ]: ExperimentSummary[]): Promise<boolean> {
     return experiment ? model.selectExperiment(experiment) : false;
   }
+
+  async function handleOptimizationRunSelect(
+    run: OptimizationRunSummary,
+  ): Promise<boolean> {
+    return wm.openOptimizationRun(api, run);
+  }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
@@ -215,6 +222,8 @@
     onCreateFolder={handleCreateFolder}
     onDeleteFolder={handleDeleteFolder}
     onMoveGraph={handleMoveGraph}
+    onOpenExperiment={(experiment) => model.selectExperiment(experiment)}
+    onOpenOptimizationRun={handleOptimizationRunSelect}
   />
 
   <GraphTreePickerDialog

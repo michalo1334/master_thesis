@@ -16,7 +16,6 @@ defmodule NetworkDefense.Simulations do
 
   import Ecto.Query
 
-  require Logger
   require OpenTelemetry.Tracer, as: Tracer
 
   @simulation_events_topic "simulation_events"
@@ -58,14 +57,7 @@ defmodule NetworkDefense.Simulations do
 
   defp start_async(graph, correlation_id, experiment) do
     case TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-           try do
-             do_run_async(graph, correlation_id, experiment)
-           rescue
-             error ->
-               Experiments.fail(experiment.id)
-               Logger.error("Simulation failed: #{Exception.message(error)}")
-               broadcast_simulation_failed(graph, correlation_id, Exception.message(error))
-           end
+           do_run_async(graph, correlation_id, experiment)
          end) do
       {:ok, _pid} = started ->
         started

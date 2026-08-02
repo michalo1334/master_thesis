@@ -67,6 +67,11 @@
         >
       {/if}
     </section>
+  {:else if document.status === "loading" || document.status === "ready" || document.status === "completed"}
+    <section class="optimization-report-waiting" aria-live="polite">
+      <span class="optimization-report-spinner" aria-hidden="true"></span>
+      <span>Loading optimization report…</span>
+    </section>
   {:else if document.status === "error"}
     <section class="optimization-report-waiting">
       <p>{document.errorReason || "Optimization failed."}</p>

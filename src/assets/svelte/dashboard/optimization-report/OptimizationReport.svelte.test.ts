@@ -18,6 +18,7 @@ import OptimizationReportComponent from "./OptimizationReport.svelte";
 import { OptimizationReportDocument } from "./OptimizationReportDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { GraphDiffResult, OptimizationReport } from "../contract";
+import type { DashboardApi } from "../dashboard-api";
 
 afterEach(cleanup);
 
@@ -35,6 +36,9 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 describe("OptimizationReport", () => {
+  const api = () =>
+    ({ requestOptimizationReport: vi.fn() }) as unknown as DashboardApi;
+
   function createDocument(
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
   ): OptimizationReportDocument {
@@ -47,21 +51,30 @@ describe("OptimizationReport", () => {
       budget: 2,
     });
     document.complete(
+      api(),
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        graph_revision_id: "optimized-r1",
-        report: {
-          strategy: "cvss",
-          requested_budget: 2,
-          used_budget: 1,
-          runtime_ms: 25,
-          actions: [],
-        },
+        graph_revision_id: "r1",
+        output_graph_revision_id: "optimized-r1",
+        optimization_id: "optimization-1",
       },
       vi.fn().mockResolvedValue(true),
       createGraphDiff,
     );
+    document.setReportData({
+      optimization_id: "optimization-1",
+      graph_id: "g1",
+      graph_title: "Topology",
+      graph_revision_id: "r1",
+      report: {
+        strategy: "cvss",
+        requested_budget: 2,
+        used_budget: 1,
+        runtime_ms: 25,
+        actions: [],
+      },
+    });
     return document;
   }
 
@@ -104,28 +117,37 @@ describe("OptimizationReport", () => {
       budget: 2,
     });
     document.complete(
+      api(),
       {
         correlation_id: "corr-1",
         graph_id: "g1",
-        graph_revision_id: "optimized-r1",
-        report: {
-          strategy: "future_strategy",
-          requested_budget: 2,
-          used_budget: 1,
-          runtime_ms: 25,
-          actions: [
-            {
-              id: "patch-1",
-              label: "Patch CVE-1",
-              kind: "patch_vulnerability",
-              cost: 1,
-              cvss_score: 9.8,
-            },
-          ],
-        } as unknown as OptimizationReport,
+        graph_revision_id: "r1",
+        output_graph_revision_id: "optimized-r1",
+        optimization_id: "optimization-1",
       },
       openOptimizedGraph,
     );
+    document.setReportData({
+      optimization_id: "optimization-1",
+      graph_id: "g1",
+      graph_title: "Topology",
+      graph_revision_id: "r1",
+      report: {
+        strategy: "future_strategy",
+        requested_budget: 2,
+        used_budget: 1,
+        runtime_ms: 25,
+        actions: [
+          {
+            id: "patch-1",
+            label: "Patch CVE-1",
+            kind: "patch_vulnerability",
+            cost: 1,
+            cvss_score: 9.8,
+          },
+        ],
+      } as unknown as OptimizationReport,
+    });
 
     render(OptimizationReportComponent, { props: { document } });
 

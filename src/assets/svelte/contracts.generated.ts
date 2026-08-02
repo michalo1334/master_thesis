@@ -269,6 +269,27 @@ export interface FetchExperimentsReply {
   experiments: ExperimentSummary[];
 }
 
+export interface FetchOptimizationReportPayload {
+  graph_revision_id: string;
+  optimization_id: string;
+}
+
+export interface FetchOptimizationReportReply {
+  graph_id: string;
+  graph_revision_id: string;
+  graph_title: string;
+  optimization_id: string;
+  report: OptimizationReport;
+}
+
+export interface FetchOptimizationRunsPayload {
+  graph_revision_ids: string[];
+}
+
+export interface FetchOptimizationRunsReply {
+  runs: OptimizationRunSummary[];
+}
+
 export interface FetchSimulationReportPayload {
   experiment_id: string;
   graph_revision_id: string;
@@ -375,7 +396,8 @@ export interface OptimizationCompletedEvent {
   correlation_id: string;
   graph_id: string;
   graph_revision_id: string;
-  report: OptimizationReport;
+  optimization_id: string;
+  output_graph_revision_id: string;
 }
 
 export interface OptimizationFailedEvent {
@@ -403,6 +425,25 @@ export interface OptimizationReport {
     | "simulation_informed"
     | "topology_segmentation"
     | "simulated_annealing";
+  used_budget: number;
+}
+
+export interface OptimizationReportErrorEvent {
+  graph_revision_id: string;
+  optimization_id: string;
+  reason: string;
+}
+
+export interface OptimizationRunSummary {
+  graph_id: string;
+  graph_revision_id: string;
+  graph_title: string;
+  id: string;
+  output_graph_revision_id: string;
+  requested_budget: number;
+  runtime_ms: number;
+  started_at: string;
+  strategy: string;
   used_budget: number;
 }
 

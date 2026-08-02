@@ -115,10 +115,21 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def append_optimization(%Graph{} = graph), do: append(graph, :optimization)
 
-  defp append(%Graph{} = graph, kind) do
+  def append_optimization(%Graph{} = graph, after_append) when is_function(after_append, 1),
+    do: append(graph, :optimization, after_append)
+
+  defp append(%Graph{} = graph, kind, after_append \\ fn persisted -> {:ok, persisted} end) do
     with {:ok, parent_revision_id} <- base_revision_id(%{"revision_id" => graph.revision_id}),
          {:ok, candidate} <- candidate_graph(graph.id, graph_attrs(graph)) do
-      transaction(fn -> append_from_graph(graph.id, parent_revision_id, candidate, kind) end)
+      transaction(fn ->
+        append_and_after(graph.id, parent_revision_id, candidate, kind, after_append)
+      end)
+    end
+  end
+
+  defp append_and_after(graph_id, parent_revision_id, candidate, kind, after_append) do
+    with {:ok, persisted} <- append_from_graph(graph_id, parent_revision_id, candidate, kind) do
+      after_append.(persisted)
     end
   end
 

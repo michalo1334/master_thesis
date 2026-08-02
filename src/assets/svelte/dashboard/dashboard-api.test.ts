@@ -107,6 +107,32 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("requests an optimization report and fetches saved optimization runs", async () => {
+    const reply = { runs: [] };
+    const live = {
+      pushEvent: vi.fn((event, _, onReply) => {
+        if (event === "fetch_optimization_runs") onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+    const api = createDashboardApi(live);
+
+    api.requestOptimizationReport("optimization-1", "r1");
+    await expect(api.fetchOptimizationRuns(["r1"])).resolves.toEqual(reply);
+
+    expect(live.pushEvent).toHaveBeenNthCalledWith(
+      1,
+      "fetch_optimization_report",
+      { optimization_id: "optimization-1", graph_revision_id: "r1" },
+    );
+    expect(live.pushEvent).toHaveBeenNthCalledWith(
+      2,
+      "fetch_optimization_runs",
+      { graph_revision_ids: ["r1"] },
+      expect.any(Function),
+    );
+  });
+
   it("sends graph comparisons and returns the server result", async () => {
     const baseGraph: LoadedGraph = {
       id: "base",

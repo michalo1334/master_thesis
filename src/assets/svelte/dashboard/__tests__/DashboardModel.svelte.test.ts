@@ -31,7 +31,9 @@ function api(): DashboardApi {
     runSimulation: vi.fn(),
     runOptimization: vi.fn(),
     requestSimulationReport: vi.fn(),
-    fetchExperiments: vi.fn(),
+    requestOptimizationReport: vi.fn(),
+    fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
+    fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
     fetchGraphConnectivity: vi.fn(),
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
@@ -122,9 +124,44 @@ describe("DashboardModel", () => {
       throw new Error("Missing report");
 
     model.onOptimizationCompleted({
-      correlation_id: report.correlationId,
+      correlation_id: report.correlationId!,
       graph_id: "g1",
-      graph_revision_id: "optimized-r1",
+      graph_revision_id: "r1",
+      output_graph_revision_id: "optimized-r1",
+      optimization_id: "optimization-1",
+    });
+
+    expect(report.graphRevisionId).toBe("r1");
+    expect(report.optimizedGraphRevisionId).toBe("optimized-r1");
+    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
+      "optimization-1",
+      "r1",
+    );
+    const openOptimizedGraph = vi
+      .spyOn(model.workspace, "openOptimizationResult")
+      .mockResolvedValue(true);
+    const loadGraphDiff = vi
+      .spyOn(model.workspace, "loadOptimizationGraphDiff")
+      .mockResolvedValue(undefined);
+
+    await report.openOptimizedGraph!();
+    await report.loadGraphDiff();
+
+    expect(openOptimizedGraph).toHaveBeenCalledWith(
+      dashboardApi,
+      "optimized-r1",
+    );
+    expect(loadGraphDiff).toHaveBeenCalledWith(
+      dashboardApi,
+      "r1",
+      "optimized-r1",
+    );
+
+    model.onOptimizationReportReady({
+      optimization_id: "optimization-1",
+      graph_id: "g1",
+      graph_title: "Topology",
+      graph_revision_id: "r1",
       report: {
         strategy: "cvss",
         requested_budget: 1,
@@ -133,8 +170,6 @@ describe("DashboardModel", () => {
         actions: [],
       },
     });
-
-    expect(report.graphRevisionId).toBe("r1");
-    expect(report.optimizedGraphRevisionId).toBe("optimized-r1");
+    expect(report.status).toBe("loaded");
   });
 });

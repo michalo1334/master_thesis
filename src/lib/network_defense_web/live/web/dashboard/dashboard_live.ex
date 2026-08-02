@@ -32,9 +32,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
     GraphSummary,
     MoveGraphToFolderPayload,
     MoveGraphToFolderReply,
+    FetchOptimizationReportPayload,
+    FetchOptimizationReportReply,
+    FetchOptimizationRunsPayload,
+    FetchOptimizationRunsReply,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
     OptimizationProgressEvent,
+    OptimizationReportErrorEvent,
     RunOptimizationPayload,
     RunOptimizationReply,
     RunSimulationReply,
@@ -301,6 +306,36 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("fetch_optimization_report", params, socket) do
+    case FetchOptimizationReportPayload.validate(params) do
+      {:ok, request} ->
+        case start_optimization_report_fetch(request, params, self()) do
+          {:ok, _pid} -> {:reply, %{status: "processing"}, socket}
+          {:error, _reason} -> {:reply, %{status: "unavailable"}, socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, %{status: "invalid_params"}, socket}
+    end
+  end
+
+  def handle_event("fetch_optimization_runs", params, socket) do
+    case FetchOptimizationRunsPayload.validate(params) do
+      {:ok, request} ->
+        runs =
+          Optimizations.list_runs(request.graph_revision_ids)
+          |> Enum.map(&optimization_run_summary/1)
+
+        {:ok, reply} = FetchOptimizationRunsReply.validate(%{runs: runs})
+        {:reply, FetchOptimizationRunsReply.to_wire(reply), socket}
+
+      {:error, _changeset} ->
+        {:reply, FetchOptimizationRunsReply.to_wire(%FetchOptimizationRunsReply{runs: []}),
+         socket}
+    end
+  end
+
+  @impl true
   def handle_info({:simulation_completed, payload}, socket) do
     {:noreply,
      push_contract_event(socket, "simulation_completed", SimulationCompletedEvent, payload)}
@@ -358,6 +393,24 @@ defmodule NetworkDefenseWeb.DashboardLive do
     {:noreply, socket}
   end
 
+  def handle_info(
+        {:optimization_report_result, optimization_id, graph_revision_id, result},
+        socket
+      ) do
+    socket =
+      if is_map(result) and result[:report] do
+        push_event(socket, "optimization_report_ready", result)
+      else
+        push_contract_event(socket, "optimization_report_error", OptimizationReportErrorEvent, %{
+          optimization_id: optimization_id,
+          graph_revision_id: graph_revision_id,
+          reason: to_string((is_map(result) && result[:status]) || "unknown_error")
+        })
+      end
+
+    {:noreply, socket}
+  end
+
   defp fetch_simulation_report(params) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
@@ -400,8 +453,60 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp report_result(params) do
     fetch_simulation_report(params)
-  rescue
-    e -> %{status: "crash: #{Exception.message(e)}"}
+  end
+
+  defp start_optimization_report_fetch(request, params, owner) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      send(
+        owner,
+        {:optimization_report_result, request.optimization_id, request.graph_revision_id,
+         optimization_report_result(params)}
+      )
+    end)
+  end
+
+  defp optimization_report_result(params) do
+    fetch_optimization_report_params(params)
+  end
+
+  defp fetch_optimization_report_params(params) do
+    case FetchOptimizationReportPayload.validate(params) do
+      {:ok, request} -> fetch_optimization_report(request)
+      {:error, _changeset} -> %{status: "not_found"}
+    end
+  end
+
+  defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request) do
+    case Optimizations.get_report(request.optimization_id) do
+      %{graph_revision_id: graph_revision_id} = report
+      when graph_revision_id == request.graph_revision_id ->
+        optimization_report_reply(report)
+
+      _ ->
+        %{status: "not_found"}
+    end
+  end
+
+  defp optimization_report_reply(report) do
+    case FetchOptimizationReportReply.from_domain(report) do
+      {:ok, reply} -> FetchOptimizationReportReply.to_wire(reply)
+      {:error, _changeset} -> %{status: "not_found"}
+    end
+  end
+
+  defp optimization_run_summary(run) do
+    %{
+      id: run.id,
+      graph_id: run.graph_revision.graph_id,
+      graph_revision_id: run.graph_revision_id,
+      graph_title: run.graph_revision.title,
+      strategy: run.strategy,
+      requested_budget: run.requested_budget,
+      used_budget: run.used_budget,
+      runtime_ms: run.runtime_ms,
+      output_graph_revision_id: run.output_graph_revision_id,
+      started_at: run.inserted_at && DateTime.to_iso8601(run.inserted_at)
+    }
   end
 
   defp open_graph(params) do

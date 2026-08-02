@@ -67,7 +67,10 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
       ["Integer"] -> "number"
       ["Float"] -> "number"
       ["Boolean"] -> "boolean"
-      parts -> List.last(parts)
+      parts -> last_part(parts)
     end
   end
+
+  defp last_part([part]), do: part
+  defp last_part([_ | parts]), do: last_part(parts)
 end

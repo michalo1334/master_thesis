@@ -4,17 +4,19 @@ defmodule NetworkDefense.Optimizations do
   """
 
   alias Ecto.Changeset
-  alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
+  alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
+  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Optimizer
-  alias NetworkDefense.Optimization.Report
+  alias NetworkDefense.Optimization.OptimizationReport
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
-
-  require Logger
 
   @optimization_events_topic "optimization_events"
   @strategy_modules %{
@@ -30,40 +32,53 @@ defmodule NetworkDefense.Optimizations do
     case Graphs.load_revision(request.graph_revision_id) do
       nil -> {:error, "graph_not_found"}
       {:error, _reason} -> {:error, "invalid_graph"}
-      graph -> start_optimization(graph, request)
+      graph -> run_async(graph, request)
     end
   end
 
-  defp start_optimization(graph, request) do
+  defp run_async(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request) do
-      TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-        try do
-          {runtime_us, result} =
-            :timer.tc(fn ->
-              Optimizer.apply(graph, strategy, request.optimization_params.budget, fn completed,
-                                                                                      total,
-                                                                                      phase ->
-                broadcast_progress(graph, request.correlation_id, completed, total, phase)
-              end)
-            end)
+      run =
+        OptimizationRun.new(
+          graph_revision_id: graph.revision_id,
+          strategy: request.optimization_params.strategy,
+          requested_budget: request.optimization_params.budget
+        )
 
-          report =
-            Report.build(
-              graph,
-              request.optimization_params.strategy,
-              request.optimization_params.budget,
-              result,
-              runtime_us
-            )
-
-          persist_and_broadcast(result.graph, graph, request, report)
-        rescue
-          error ->
-            Logger.error("Optimization failed: #{Exception.message(error)}")
-            broadcast_failed(graph, request.correlation_id, Exception.message(error))
-        end
-      end)
+      case OptimizationRuns.create(run) do
+        {:ok, run} -> start_optimization(graph, request, run, strategy)
+        {:error, reason} -> {:error, persistence_error(reason)}
+      end
     end
+  end
+
+  defp start_optimization(graph, request, run, strategy) do
+    case TaskSupervisor.start_child(
+           NetworkDefense.TaskSupervisor,
+           fn -> run_optimization(graph, request, run, strategy) end
+         ) do
+      {:ok, _pid} = started ->
+        started
+
+      {:error, reason} ->
+        reason = persistence_error(reason)
+        OptimizationRuns.fail(run.id)
+        {:error, reason}
+    end
+  end
+
+  defp run_optimization(graph, request, run, strategy) do
+    {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+    complete_optimization(graph, request, run, result, runtime_us)
+  end
+
+  defp apply_optimization(graph, request, strategy) do
+    Optimizer.apply(
+      graph,
+      strategy,
+      request.optimization_params.budget,
+      &broadcast_progress(graph, request.correlation_id, &1, &2, &3)
+    )
   end
 
   defp strategy_for(graph, %RunOptimizationRequest{optimization_params: params}) do
@@ -73,27 +88,60 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp persist_and_broadcast(optimized_graph, graph, request, report) do
-    case Graphs.append_optimization(optimized_graph) do
-      {:ok, persisted_graph} ->
-        Phoenix.PubSub.broadcast(
-          NetworkDefense.PubSub,
-          @optimization_events_topic,
-          {:optimization_completed,
-           %{
-             correlation_id: request.correlation_id,
-             graph_id: graph.id,
-             graph_revision_id: persisted_graph.revision_id,
-             report: report
-           }}
-        )
+  defp complete_optimization(graph, request, run, result, runtime_us) do
+    case Graphs.append_optimization(result.graph, fn persisted_graph ->
+           OptimizationRuns.complete(run, %{
+             actions: Enum.map(result.actions, &action_attrs/1),
+             used_budget: result.budget_used,
+             runtime_ms: div(runtime_us, 1000),
+             output_graph_revision_id: persisted_graph.revision_id
+           })
+         end) do
+      {:ok, completed_run} ->
+        broadcast_completed(graph, request, completed_run)
 
       {:error, reason} ->
-        broadcast_failed(graph, request.correlation_id, persistence_error(reason))
+        reason = persistence_error(reason)
+        OptimizationRuns.fail(run.id)
+        broadcast_failed(graph, request.correlation_id, reason)
     end
   end
 
-  defp persistence_error({:graph, changeset}) do
+  defp action_attrs(action) do
+    {_target_type, target_id} = DefenseAction.target(action)
+
+    %{
+      action_type: action |> struct_type() |> DefenseActionsRegistry.short_type_for(),
+      target_id: target_id,
+      cost: DefenseAction.cost(action)
+    }
+  end
+
+  defp struct_type(%module{}), do: module
+
+  def list_runs(graph_revision_ids),
+    do: OptimizationRuns.list_by_graph_revisions(graph_revision_ids)
+
+  @doc """
+  Regenerates a report for a completed optimization run, or `nil` when it does not exist.
+  """
+  @spec get_report(String.t()) :: OptimizationReport.t() | nil
+  def get_report(optimization_run_id) do
+    case OptimizationRuns.load(optimization_run_id) do
+      %OptimizationRun{status: "completed"} = run ->
+        case Graphs.load_revision(run.graph_revision_id) do
+          %Graph{} = graph -> OptimizationReport.generate(run, graph)
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp persistence_error({:graph, changeset}), do: persistence_error(changeset)
+
+  defp persistence_error(%Changeset{} = changeset) do
     changeset
     |> Changeset.traverse_errors(fn {message, options} ->
       Enum.reduce(options, message, fn {key, value}, message ->
@@ -106,6 +154,21 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp persistence_error(reason), do: inspect(reason)
+
+  defp broadcast_completed(graph, request, run) do
+    Phoenix.PubSub.broadcast(
+      NetworkDefense.PubSub,
+      @optimization_events_topic,
+      {:optimization_completed,
+       %{
+         correlation_id: request.correlation_id,
+         graph_id: graph.id,
+         graph_revision_id: graph.revision_id,
+         output_graph_revision_id: run.output_graph_revision_id,
+         optimization_id: run.id
+       }}
+    )
+  end
 
   defp broadcast_failed(graph, correlation_id, reason) do
     Phoenix.PubSub.broadcast(

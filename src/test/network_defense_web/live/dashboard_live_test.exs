@@ -511,18 +511,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{
                         correlation_id: ^correlation_id,
                         graph_id: ^graph_id,
-                        graph_revision_id: optimized_revision_id,
-                        report: %{
-                          strategy: "cvss",
-                          requested_budget: 1,
-                          used_budget: 0,
-                          runtime_ms: runtime_ms,
-                          actions: []
-                        }
+                        graph_revision_id: ^graph_revision_id,
+                        output_graph_revision_id: optimized_revision_id,
+                        optimization_id: optimization_id
                       }},
                      5_000
 
-      assert runtime_ms >= 0
+      assert is_binary(optimization_id)
 
       assert %{
                id: ^graph_id,
@@ -671,21 +666,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: "optimization-1",
         graph_id: "graph-1",
         graph_revision_id: "revision-1",
-        report: %{
-          strategy: "cvss",
-          requested_budget: 1,
-          used_budget: 1,
-          runtime_ms: 1,
-          actions: [
-            %{
-              id: "patch-1",
-              label: "Patch CVE-1",
-              kind: "Vulnerability patch",
-              cost: 1,
-              cvss_score: nil
-            }
-          ]
-        }
+        output_graph_revision_id: "output-revision-1",
+        optimization_id: "optimization-1"
       }
 
       send(view.pid, {:optimization_completed, completed})
@@ -713,6 +695,167 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       send(view.pid, {:optimization_progress, progress})
       assert_push_event(view, "optimization_progress", ^progress)
+    end
+  end
+
+  describe "optimization reports" do
+    test "returns invalid_params for an invalid report request", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_optimization_report", %{})
+
+      assert_reply(view, %{status: "invalid_params"})
+    end
+
+    test "rejects a report request for another graph revision", %{conn: conn} do
+      graph = insert_graph("versioned-optimization-report")
+      foothold = insert_node(graph, "entry-host")
+      source_revision_id = Graphs.load_revision!(foothold.graph_revision_id).revision_id
+      correlation_id = "versioned-optimization-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_revision_id" => source_revision_id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+        }
+      })
+
+      assert_receive {:optimization_completed,
+                      %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
+                     5_000
+
+      assert {:ok, revised} =
+               Graphs.append_optimization(%{
+                 Graphs.load_revision!(source_revision_id)
+                 | title: "changed topology"
+               })
+
+      revised_revision_id = revised.revision_id
+
+      render_hook(view, "fetch_optimization_report", %{
+        "optimization_id" => optimization_id,
+        "graph_revision_id" => revised_revision_id
+      })
+
+      assert_reply(view, %{status: "processing"})
+
+      assert_push_event(view, "optimization_report_error", %{
+        optimization_id: ^optimization_id,
+        graph_revision_id: ^revised_revision_id,
+        reason: "not_found"
+      })
+    end
+
+    test "fetches a completed optimization report for its source revision", %{conn: conn} do
+      graph = insert_graph("optimization-report")
+      foothold = insert_node(graph, "entry-host")
+      graph = Graphs.load_revision!(foothold.graph_revision_id)
+      source_revision_id = graph.revision_id
+      graph_id = graph.id
+      correlation_id = "optimization-report-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_revision_id" => source_revision_id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+        }
+      })
+
+      assert_receive {:optimization_completed,
+                      %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
+                     5_000
+
+      render_hook(view, "fetch_optimization_report", %{
+        "optimization_id" => optimization_id,
+        "graph_revision_id" => source_revision_id
+      })
+
+      assert_reply(view, %{status: "processing"})
+
+      assert_push_event(view, "optimization_report_ready", %{
+        optimization_id: ^optimization_id,
+        graph_id: ^graph_id,
+        graph_title: "optimization-report",
+        graph_revision_id: ^source_revision_id,
+        report: %{strategy: "cvss", requested_budget: 1, used_budget: 0, actions: []}
+      })
+    end
+  end
+
+  describe "optimization runs" do
+    test "lists completed optimization runs for submitted revisions", %{conn: conn} do
+      graph = insert_graph("optimization-runs")
+      foothold = insert_node(graph, "entry-host")
+      graph = Graphs.load_revision!(foothold.graph_revision_id)
+      graph_revision_id = graph.revision_id
+      graph_id = graph.id
+      correlation_id = "optimization-runs-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_revision_id" => graph_revision_id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+        }
+      })
+
+      assert_receive {:optimization_completed,
+                      %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
+                     5_000
+
+      render_hook(view, "fetch_optimization_runs", %{
+        "graph_revision_ids" => [graph_revision_id]
+      })
+
+      assert_reply(view, %{
+        runs: [
+          %{
+            id: ^optimization_id,
+            graph_id: ^graph_id,
+            graph_revision_id: ^graph_revision_id,
+            graph_title: "optimization-runs",
+            strategy: "cvss",
+            requested_budget: 1,
+            used_budget: 0,
+            runtime_ms: runtime_ms,
+            output_graph_revision_id: output_revision_id,
+            started_at: started_at
+          }
+        ]
+      })
+
+      assert is_integer(runtime_ms)
+      assert is_binary(output_revision_id)
+      assert is_binary(started_at)
+    end
+
+    test "returns an empty run list for unknown revisions", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_optimization_runs", %{
+        "graph_revision_ids" => ["00000000-0000-0000-0000-000000000000"]
+      })
+
+      assert_reply(view, %{runs: []})
+    end
+
+    test "rejects invalid revision ids", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_optimization_runs", %{"graph_revision_ids" => ["not-a-uuid"]})
+
+      assert_reply(view, %{runs: []})
     end
   end
 

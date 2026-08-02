@@ -29,6 +29,12 @@
       graphId: string,
       folderId: string | null,
     ) => Promise<boolean> | boolean;
+    onOpenExperiment: (
+      experiment: import("../contract").ExperimentSummary,
+    ) => Promise<boolean> | boolean;
+    onOpenOptimizationRun: (
+      run: import("../contract").OptimizationRunSummary,
+    ) => Promise<boolean> | boolean;
   }
 
   let {
@@ -40,6 +46,8 @@
     onCreateFolder,
     onDeleteFolder,
     onMoveGraph,
+    onOpenExperiment,
+    onOpenOptimizationRun,
   }: Props = $props();
 
   let activeDocument = $derived(
@@ -88,6 +96,10 @@
     onSelectDocument={(id) => model.selectDocument(id)}
     {onDeleteFolder}
     {onMoveGraph}
+    experiments={model.experiments}
+    optimizationRuns={model.optimizationRuns}
+    {onOpenExperiment}
+    {onOpenOptimizationRun}
     collapsed={outlineCollapsed}
     onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
   />
@@ -235,7 +247,7 @@
   }
   .folder-dialog-status {
     margin: 0;
-    color: var(--ds-color-danger, #b42318);
+    color: var(--ds-color-danger);
     font-size: var(--ds-text-sm);
   }
   .folder-dialog-actions {
@@ -255,7 +267,7 @@
   .folder-dialog-actions button[type="submit"] {
     border-color: var(--ds-color-accent);
     background: var(--ds-color-accent);
-    color: var(--ds-color-accent-contrast, white);
+    color: var(--ds-color-accent-contrast);
   }
   .dashboard-workspace {
     grid-area: workspace;

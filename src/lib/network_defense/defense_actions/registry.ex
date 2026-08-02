@@ -15,4 +15,5 @@ defmodule NetworkDefense.DefenseActions.Registry do
   def module_for(type), do: Registry.module_for(@types, type)
   def module_for_short(type), do: Registry.module_for_short(@types, type)
   def type_for(module), do: Registry.type_for(@types, module)
+  def short_type_for(module), do: Registry.contract_type_for(@types, module)
 end

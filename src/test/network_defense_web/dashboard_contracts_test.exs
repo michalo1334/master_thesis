@@ -12,6 +12,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
+  alias NetworkDefense.Optimization.OptimizationRun
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
@@ -23,7 +24,14 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
-  alias NetworkDefenseWeb.Web.Contracts.{OpenGraphReply, SaveGraphPayload}
+  alias NetworkDefenseWeb.Web.Contracts.{
+    FetchOptimizationReportPayload,
+    FetchOptimizationReportReply,
+    FetchOptimizationRunsPayload,
+    OpenGraphReply,
+    OptimizationCompletedEvent,
+    SaveGraphPayload
+  }
 
   @graph_id "00000000-0000-0000-0000-000000000001"
   @parent_graph_id "00000000-0000-0000-0000-000000000011"
@@ -310,6 +318,93 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                revision_number: 2
              }
            } = OpenGraphReply.to_wire(reply)
+  end
+
+  test "requires an optimization id on the completed event" do
+    assert {:ok, %OptimizationCompletedEvent{optimization_id: "optimization-1"}} =
+             OptimizationCompletedEvent.validate(%{
+               correlation_id: "request-1",
+               graph_id: "graph-1",
+               graph_revision_id: "revision-1",
+               output_graph_revision_id: "output-revision-1",
+               optimization_id: "optimization-1"
+             })
+
+    assert {:error, changeset} =
+             OptimizationCompletedEvent.validate(%{
+               correlation_id: "request-1",
+               graph_id: "graph-1",
+               graph_revision_id: "revision-1",
+               output_graph_revision_id: "output-revision-1"
+             })
+
+    assert %{optimization_id: ["can't be blank"]} = errors_on(changeset)
+  end
+
+  test "requires optimization report fetch identifiers to be UUIDs" do
+    assert {:error, changeset} =
+             FetchOptimizationReportPayload.validate(%{
+               "optimization_id" => "not-a-uuid",
+               "graph_revision_id" => "graph-1"
+             })
+
+    assert %{optimization_id: ["is invalid"], graph_revision_id: ["is invalid"]} =
+             errors_on(changeset)
+  end
+
+  test "rejects non-UUID graph revision ids in optimization run fetch" do
+    assert {:error, changeset} =
+             FetchOptimizationRunsPayload.validate(%{"graph_revision_ids" => ["not-a-uuid"]})
+
+    assert %{graph_revision_ids: ["contains an invalid UUID"]} = errors_on(changeset)
+  end
+
+  test "maps a persisted optimization run report to the web contract" do
+    run = %OptimizationRun{id: @graph_id, graph_revision_id: @parent_graph_id}
+    graph = %{Graph.new("Test graph") | id: @graph_id, revision_id: @parent_graph_id}
+
+    report = %{
+      strategy: "cvss",
+      requested_budget: 2,
+      used_budget: 1,
+      runtime_ms: 12,
+      actions: [
+        %{
+          id: "target-1",
+          label: "Patch CVE-1",
+          kind: "Vulnerability patch",
+          cvss_score: 7.5,
+          cost: 1
+        }
+      ]
+    }
+
+    report = %NetworkDefense.Optimization.OptimizationReport{
+      optimization_id: run.id,
+      graph_id: graph.id,
+      graph_title: graph.title,
+      graph: graph,
+      graph_revision_id: run.graph_revision_id,
+      strategy: report.strategy,
+      requested_budget: report.requested_budget,
+      used_budget: report.used_budget,
+      runtime_ms: report.runtime_ms,
+      actions: report.actions
+    }
+
+    assert {:ok, reply} = FetchOptimizationReportReply.from_domain(report)
+
+    assert %{
+             optimization_id: @graph_id,
+             graph_id: @graph_id,
+             graph_title: "Test graph",
+             graph_revision_id: @parent_graph_id,
+             report: %{
+               strategy: "cvss",
+               used_budget: 1,
+               actions: [%{id: "target-1", label: "Patch CVE-1", cvss_score: 7.5, cost: 1}]
+             }
+           } = FetchOptimizationReportReply.to_wire(reply)
   end
 
   defp errors_on(changeset) do

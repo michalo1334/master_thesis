@@ -96,7 +96,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
         p95: percentile(sorted, n, 0.95),
         p99: percentile(sorted, n, 0.99),
         min: List.first(sorted),
-        max: List.last(sorted),
+        max: Enum.max(sorted),
         variance: variance
       }
     end

@@ -2,7 +2,9 @@ import type {
   OptimizationCompletedEvent,
   OptimizationReport,
   OptimizationStrategy,
+  FetchOptimizationReportReply,
 } from "../contract";
+import type { DashboardApi } from "../dashboard-api";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { IconName } from "../types";
 import {
@@ -16,11 +18,14 @@ export class OptimizationReportDocument {
   readonly id = crypto.randomUUID();
   readonly graphId: string;
   readonly graphRevisionId: string;
-  readonly correlationId: string;
+  correlationId = $state<string | null>(null);
 
   title = $state("");
-  status = $state<"pending" | "completed" | "error">("pending");
+  status = $state<
+    "pending" | "completed" | "ready" | "loading" | "loaded" | "error"
+  >("pending");
   hasUnread = $state(false);
+  optimizationId = $state<string | null>(null);
   strategy: OptimizationStrategy;
   budget: number;
   completedSteps = $state(0);
@@ -41,14 +46,14 @@ export class OptimizationReportDocument {
     graphId,
     graphRevisionId,
     graphTitle,
-    correlationId,
+    correlationId = null,
     strategy,
     budget,
   }: {
     graphId: string;
     graphRevisionId: string;
     graphTitle: string;
-    correlationId: string;
+    correlationId?: string | null;
     strategy: OptimizationStrategy;
     budget: number;
   }) {
@@ -72,19 +77,57 @@ export class OptimizationReportDocument {
   }
 
   complete(
+    api: DashboardApi,
     payload: OptimizationCompletedEvent,
     openOptimizedGraph: () => Promise<boolean>,
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
   ): void {
-    this.status = "completed";
-    this.optimizedGraphRevisionId = payload.graph_revision_id;
-    this.reportData = payload.report;
-    this.analysis = toOptimizationAnalysis(payload.report);
+    this.optimizationId = payload.optimization_id;
+    this.optimizedGraphRevisionId = payload.output_graph_revision_id;
     this.openOptimizedGraph = openOptimizedGraph;
     this.graphDiff = undefined;
     this.graphDiffStatus = "";
     this.createGraphDiff = createGraphDiff;
     this.errorReason = "";
+    this.status = "completed";
+    this.load(api, payload.optimization_id, this.graphRevisionId);
+  }
+
+  markReady(
+    optimizationId: string,
+    optimizedGraphRevisionId: string,
+    openOptimizedGraph: () => Promise<boolean>,
+    createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
+  ): void {
+    this.optimizationId = optimizationId;
+    this.optimizedGraphRevisionId = optimizedGraphRevisionId;
+    this.openOptimizedGraph = openOptimizedGraph;
+    this.graphDiff = undefined;
+    this.graphDiffStatus = "";
+    this.createGraphDiff = createGraphDiff;
+    this.status = "ready";
+    this.reportData = undefined;
+    this.analysis = undefined;
+    this.errorReason = "";
+  }
+
+  setReportData(data: FetchOptimizationReportReply): void {
+    if (data.optimization_id !== this.optimizationId) return;
+    this.reportData = data.report;
+    this.analysis = toOptimizationAnalysis(data.report);
+    this.title = `Optimization report for ${data.graph_title}`;
+    this.status = "loaded";
+  }
+
+  load(
+    api: DashboardApi,
+    optimizationId: string,
+    graphRevisionId: string,
+  ): void {
+    this.optimizationId = optimizationId;
+    this.status = "loading";
+    this.errorReason = "";
+    api.requestOptimizationReport(optimizationId, graphRevisionId);
   }
 
   async loadGraphDiff(): Promise<boolean> {

@@ -12,6 +12,8 @@ import type {
   ExperimentSummary,
   FetchSimulationReportReply,
   SimulationReportErrorEvent,
+  FetchOptimizationReportReply,
+  OptimizationReportErrorEvent,
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
@@ -93,22 +95,25 @@ export class DashboardModel {
       payload.correlation_id,
       payload.graph_id,
     );
-    if (!report) return;
-    report.complete(
-      payload,
-      () =>
-        this.workspace.openOptimizationResult(
-          this.api,
-          payload.graph_revision_id,
-        ),
-      () =>
-        this.workspace.loadOptimizationGraphDiff(
-          this.api,
-          report.graphRevisionId,
-          payload.graph_revision_id,
-        ),
-    );
-    this.markOptimizationReportReadState(report);
+    if (report) {
+      report.complete(
+        this.api,
+        payload,
+        () =>
+          this.workspace.openOptimizationResult(
+            this.api,
+            payload.output_graph_revision_id,
+          ),
+        () =>
+          this.workspace.loadOptimizationGraphDiff(
+            this.api,
+            report.graphRevisionId,
+            payload.output_graph_revision_id,
+          ),
+      );
+      this.markOptimizationReportReadState(report);
+    }
+    void this.workspace.loadSavedResults(this.api);
   }
 
   onOptimizationFailed(payload: OptimizationFailedEvent): void {
@@ -141,13 +146,19 @@ export class DashboardModel {
         d.correlationId === payload.correlation_id &&
         d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
-    if (!report) return;
-    report.complete(this.api, payload.experiment_id, payload.graph_revision_id);
-    if (this.workspace.selectedDocumentId === report.id) {
-      report.markRead();
-    } else {
-      report.markUnread();
+    if (report) {
+      report.complete(
+        this.api,
+        payload.experiment_id,
+        payload.graph_revision_id,
+      );
+      if (this.workspace.selectedDocumentId === report.id) {
+        report.markRead();
+      } else {
+        report.markUnread();
+      }
     }
+    void this.workspace.loadSavedResults(this.api);
   }
 
   /** Cross-model: route a server failure event to the matching report. */
@@ -196,6 +207,28 @@ export class DashboardModel {
     ) as SimulationReportDocument | undefined;
     if (!report) return;
     report.markError(payload.reason);
+  }
+
+  onOptimizationReportReady(payload: FetchOptimizationReportReply): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "optimization-report" &&
+        d.optimizationId === payload.optimization_id,
+    ) as OptimizationReportDocument | undefined;
+    report?.setReportData(payload);
+  }
+
+  onOptimizationReportError(payload: OptimizationReportErrorEvent): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "optimization-report" &&
+        d.optimizationId === payload.optimization_id,
+    ) as OptimizationReportDocument | undefined;
+    report?.markError(payload.reason);
+  }
+
+  async loadSavedResults(): Promise<void> {
+    await this.workspace.loadSavedResults(this.api);
   }
 
   /** Delegate saving to the workspace. */

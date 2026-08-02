@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Live } from "live_svelte";
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { useLiveEvent } from "live_svelte";
   import { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { createDashboardApi } from "./dashboard/dashboard-api";
@@ -17,6 +17,8 @@
     OptimizationFailedEvent,
     OptimizationProgressEvent,
     SimulationReportErrorEvent,
+    FetchOptimizationReportReply,
+    OptimizationReportErrorEvent,
   } from "./dashboard/contract";
 
   interface Props {
@@ -66,6 +68,18 @@
 
   useLiveEvent("simulation_report_error", (payload: unknown) => {
     model.onSimulationReportError(payload as SimulationReportErrorEvent);
+  });
+
+  useLiveEvent("optimization_report_ready", (payload: unknown) => {
+    model.onOptimizationReportReady(payload as FetchOptimizationReportReply);
+  });
+
+  useLiveEvent("optimization_report_error", (payload: unknown) => {
+    model.onOptimizationReportError(payload as OptimizationReportErrorEvent);
+  });
+
+  onMount(() => {
+    void model.loadSavedResults();
   });
 </script>
 

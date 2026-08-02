@@ -1,7 +1,12 @@
 <script lang="ts">
   import { DropdownMenu } from "bits-ui";
   import Icon from "../ui/Icon.svelte";
-  import type { FolderSummary, GraphSummary } from "../contract";
+  import type {
+    ExperimentSummary,
+    FolderSummary,
+    GraphSummary,
+    OptimizationRunSummary,
+  } from "../contract";
   import {
     isGraphDiff,
     isReport,
@@ -15,8 +20,22 @@
     depth: number;
   }
 
+  interface SavedSimulationRow {
+    type: "saved-simulation";
+    experiment: ExperimentSummary;
+    depth: number;
+  }
+
+  interface SavedOptimizationRow {
+    type: "saved-optimization";
+    run: OptimizationRunSummary;
+    depth: number;
+  }
+
   type OutlineRow =
     | DocumentOutlineRow
+    | SavedSimulationRow
+    | SavedOptimizationRow
     | { type: "folder"; folder: FolderSummary }
     | { type: "reports"; folderId: string | null };
 
@@ -24,12 +43,20 @@
     documents: readonly WorkspaceDocument[];
     folders?: readonly FolderSummary[];
     graphSummaries?: readonly GraphSummary[];
+    experiments?: readonly ExperimentSummary[];
+    optimizationRuns?: readonly OptimizationRunSummary[];
     selectedDocumentId?: string;
     onSelectDocument: (id: string) => void;
     onDeleteFolder?: (folderId: string) => Promise<boolean> | boolean;
     onMoveGraph?: (
       graphId: string,
       folderId: string | null,
+    ) => Promise<boolean> | boolean;
+    onOpenExperiment?: (
+      experiment: ExperimentSummary,
+    ) => Promise<boolean> | boolean;
+    onOpenOptimizationRun?: (
+      run: OptimizationRunSummary,
     ) => Promise<boolean> | boolean;
     collapsed: boolean;
     onCollapsedChange: (collapsed: boolean) => void;
@@ -39,21 +66,35 @@
     documents,
     folders = [],
     graphSummaries = [],
+    experiments = [],
+    optimizationRuns = [],
     selectedDocumentId,
     onSelectDocument,
     onDeleteFolder = () => false,
     onMoveGraph = () => false,
+    onOpenExperiment = () => false,
+    onOpenOptimizationRun = () => false,
     collapsed,
     onCollapsedChange,
   }: Props = $props();
 
-  let rows = $derived.by(() => buildRows(documents, folders, graphSummaries));
+  let rows = $derived.by(() =>
+    buildRows(
+      documents,
+      folders,
+      graphSummaries,
+      experiments,
+      optimizationRuns,
+    ),
+  );
   let dragFolderId = $state<string>();
 
   function buildRows(
     documents: readonly WorkspaceDocument[],
     folders: readonly FolderSummary[],
     graphSummaries: readonly GraphSummary[],
+    experiments: readonly ExperimentSummary[],
+    optimizationRuns: readonly OptimizationRunSummary[],
   ): OutlineRow[] {
     const graphsByRevisionId = new SvelteMap<string, WorkspaceDocument>();
 
@@ -98,19 +139,64 @@
       rootsByFolderId.set(key, groupedRoots);
     }
 
+    const openExperimentIds = new Set(
+      documents.flatMap((document) =>
+        document.kind === "simulation-report" && document.experimentId
+          ? [document.experimentId]
+          : [],
+      ),
+    );
+    const openOptimizationIds = new Set(
+      documents.flatMap((document) =>
+        document.kind === "optimization-report" && document.optimizationId
+          ? [document.optimizationId]
+          : [],
+      ),
+    );
+    const savedByFolderId = new Map<
+      string | null,
+      (SavedSimulationRow | SavedOptimizationRow)[]
+    >();
+    const addSaved = (
+      graphId: string,
+      row: SavedSimulationRow | SavedOptimizationRow,
+    ): void => {
+      const folderId = folderIdForGraphId(graphId, graphSummaries);
+      const key = folderId && folderIds.has(folderId) ? folderId : null;
+      const saved = savedByFolderId.get(key) ?? [];
+      saved.push(row);
+      savedByFolderId.set(key, saved);
+    };
+    for (const experiment of experiments) {
+      if (!openExperimentIds.has(experiment.id)) {
+        addSaved(experiment.graph_id, {
+          type: "saved-simulation",
+          experiment,
+          depth: 0,
+        });
+      }
+    }
+    for (const run of optimizationRuns) {
+      if (!openOptimizationIds.has(run.id)) {
+        addSaved(run.graph_id, { type: "saved-optimization", run, depth: 0 });
+      }
+    }
+
     const appendRoots = (
       items: readonly WorkspaceDocument[],
       depth: number,
       folderId: string | null,
     ): void => {
       const reports = items.filter(isReport);
+      const saved = savedByFolderId.get(folderId) ?? [];
       visit(
         items.filter((document) => !isReport(document)),
         depth,
       );
-      if (reports.length) {
+      if (reports.length || saved.length) {
         rows.push({ type: "reports", folderId });
         visit(reports, depth + 1);
+        rows.push(...saved.map((row) => ({ ...row, depth: depth + 1 })));
       }
     };
 
@@ -122,6 +208,14 @@
 
     appendRoots(rootsByFolderId.get(null) ?? [], 0, null);
     return rows;
+  }
+
+  function folderIdForGraphId(
+    graphId: string,
+    graphSummaries: readonly GraphSummary[],
+  ): string | null | undefined {
+    return graphSummaries.find((summary) => summary.graph_id === graphId)
+      ?.folder_id;
   }
 
   function folderIdForDocument(
@@ -136,8 +230,16 @@
           : graphSummaries.find(
               (summary) => summary.revision_id === document.baseRevisionId,
             )?.graph_id;
-    return graphSummaries.find((summary) => summary.graph_id === graphId)
-      ?.folder_id;
+    return graphId ? folderIdForGraphId(graphId, graphSummaries) : undefined;
+  }
+
+  function rowKey(row: OutlineRow): string {
+    if (row.type === "document") return row.document.id;
+    if (row.type === "folder") return `folder-${row.folder.id}`;
+    if (row.type === "reports") return `reports-${row.folderId ?? "root"}`;
+    return row.type === "saved-simulation"
+      ? `simulation-${row.experiment.id}`
+      : `optimization-${row.run.id}`;
   }
 
   function parentDocument(
@@ -221,7 +323,7 @@
 
   {#if !collapsed}
     <ul>
-      {#each rows as row (row.type === "document" ? row.document.id : row.type === "folder" ? `folder-${row.folder.id}` : `reports-${row.folderId ?? "root"}`)}
+      {#each rows as row (rowKey(row))}
         {#if row.type === "folder"}
           <li class="document-outline-folder">
             <div
@@ -253,6 +355,34 @@
         {:else if row.type === "reports"}
           <li class="document-outline-group">
             <span role="heading" aria-level="2">Reports</span>
+          </li>
+        {:else if row.type === "saved-simulation"}
+          <li data-depth={row.depth} style:--depth={row.depth}>
+            <button
+              type="button"
+              aria-label={`Simulation report for ${row.experiment.graph_title}`}
+              class="document-outline-row"
+              onclick={() => void onOpenExperiment(row.experiment)}
+            >
+              <Icon name="simulation-report" size={16} />
+              <span class="document-outline-label"
+                >Report for {row.experiment.graph_title}</span
+              >
+            </button>
+          </li>
+        {:else if row.type === "saved-optimization"}
+          <li data-depth={row.depth} style:--depth={row.depth}>
+            <button
+              type="button"
+              aria-label={`Optimization report for ${row.run.graph_title}`}
+              class="document-outline-row"
+              onclick={() => void onOpenOptimizationRun(row.run)}
+            >
+              <Icon name="shield" size={16} />
+              <span class="document-outline-label"
+                >Optimization report for {row.run.graph_title}</span
+              >
+            </button>
           </li>
         {:else}
           {@const documentGraphId = graphId(row.document)}

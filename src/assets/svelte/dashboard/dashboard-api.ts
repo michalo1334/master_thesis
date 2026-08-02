@@ -6,8 +6,11 @@ import type {
   RunSimulationPayload,
   RunSimulationReply,
   FetchSimulationReportPayload,
+  FetchOptimizationReportPayload,
   FetchExperimentsPayload,
   FetchExperimentsReply,
+  FetchOptimizationRunsPayload,
+  FetchOptimizationRunsReply,
   OptimizationParams,
   RunOptimizationPayload,
   RunOptimizationReply,
@@ -52,7 +55,14 @@ export interface DashboardApi {
     optimizationParams: OptimizationParams,
   ): Promise<RunOptimizationReply>;
   requestSimulationReport(experimentId: string, graphRevisionId: string): void;
+  requestOptimizationReport(
+    optimizationId: string,
+    graphRevisionId: string,
+  ): void;
   fetchExperiments(graphRevisionIds: string[]): Promise<FetchExperimentsReply>;
+  fetchOptimizationRuns(
+    graphRevisionIds: string[],
+  ): Promise<FetchOptimizationRunsReply>;
   fetchGraphConnectivity(): Promise<GraphConnectivityReply>;
   createNodeDraft(
     payload: CreateNodeDraftPayload,
@@ -146,12 +156,29 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         graph_revision_id: graphRevisionId,
       });
     },
+    requestOptimizationReport(optimizationId, graphRevisionId) {
+      live.pushEvent<FetchOptimizationReportPayload>(
+        "fetch_optimization_report",
+        {
+          optimization_id: optimizationId,
+          graph_revision_id: graphRevisionId,
+        },
+      );
+    },
     fetchExperiments(graphRevisionIds) {
       return requestReply<FetchExperimentsPayload, FetchExperimentsReply>(
         live,
         "fetch_experiments",
         { graph_revision_ids: graphRevisionIds },
       );
+    },
+    fetchOptimizationRuns(graphRevisionIds) {
+      return requestReply<
+        FetchOptimizationRunsPayload,
+        FetchOptimizationRunsReply
+      >(live, "fetch_optimization_runs", {
+        graph_revision_ids: graphRevisionIds,
+      });
     },
     fetchGraphConnectivity() {
       return requestReply<{}, GraphConnectivityReply>(
