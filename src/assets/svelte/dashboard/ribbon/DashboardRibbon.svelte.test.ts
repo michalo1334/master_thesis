@@ -48,6 +48,7 @@ function renderRibbon({
   const onOptimize = vi.fn();
   const onOptimizationParamsChange = vi.fn();
   const onCompareGraphs = vi.fn();
+  const onOpenAnalysis = vi.fn();
 
   render(DashboardRibbon, {
     props: {
@@ -60,6 +61,7 @@ function renderRibbon({
       onRunSimulation: vi.fn(),
       onShowExperiments: vi.fn(),
       onCompareGraphs,
+      onOpenAnalysis,
       onOptimize,
       optimizationOptions,
       activeOptimizationId,
@@ -75,7 +77,12 @@ function renderRibbon({
     },
   });
 
-  return { onCompareGraphs, onOptimize, onOptimizationParamsChange };
+  return {
+    onCompareGraphs,
+    onOpenAnalysis,
+    onOptimize,
+    onOptimizationParamsChange,
+  };
 }
 
 async function openOptimizationTab(): Promise<void> {
@@ -91,6 +98,14 @@ describe("DashboardRibbon", () => {
     );
 
     expect(onCompareGraphs).toHaveBeenCalledOnce();
+  });
+
+  it("opens analysis from the Home tab", async () => {
+    const { onOpenAnalysis } = renderRibbon();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
+
+    expect(onOpenAnalysis).toHaveBeenCalledOnce();
   });
 
   it("shows Strategy and Optimize in the Optimization tab", async () => {

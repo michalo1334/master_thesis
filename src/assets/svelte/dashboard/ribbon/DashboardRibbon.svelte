@@ -26,6 +26,7 @@
     onRunSimulation: () => void;
     onShowExperiments: () => void;
     onCompareGraphs: () => void;
+    onOpenAnalysis: () => void;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
     optimizationOptions: readonly OptimizationOption[];
     activeOptimizationId: OptimizationParams["strategy"];
@@ -48,6 +49,7 @@
     onRunSimulation,
     onShowExperiments,
     onCompareGraphs,
+    onOpenAnalysis,
     onOptimize,
     optimizationOptions,
     activeOptimizationId,
@@ -86,6 +88,9 @@
       <RibbonButton onclick={onCompareGraphs}
         ><Icon name="graph" size={22} /><span>Compare graphs</span
         ></RibbonButton
+      >
+      <RibbonButton onclick={onOpenAnalysis}
+        ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
       >
     </Ribbon.Section>
   </Ribbon.Tab>

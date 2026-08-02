@@ -12,6 +12,7 @@
   import GraphDiff from "./dashboard/graph/GraphDiff.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
+  import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
@@ -166,7 +167,9 @@
 <div class="dashboard-app" data-dashboard-theme="topology">
   <AppBar
     onSave={handleSave}
-    saveDisabled={!wm.activeGraph?.saveEligible || wm.activeGraph?.isSaving}
+    saveDisabled={!wm.activeGraph?.loaded ||
+      !wm.activeGraph?.isDirty ||
+      wm.activeGraph?.isSaving}
     isSaving={wm.activeGraph?.isSaving ?? false}
   />
   <DashboardRibbon
@@ -179,6 +182,7 @@
     onRunSimulation={handleRunSimulation}
     onShowExperiments={handleShowExperiments}
     onCompareGraphs={() => wm.beginGraphComparison()}
+    onOpenAnalysis={() => model.analysis.openDialog()}
     onOptimize={handleOptimize}
     {optimizationOptions}
     activeOptimizationId={wm.optimizationParams.strategy}
@@ -208,7 +212,14 @@
     {:else if document.kind === "graph-diff"}
       <GraphDiff document={document as GraphDiffDocument} />
     {:else if document.kind === "simulation-report"}
-      <SimulationReport document={document as SimulationReportDocument} />
+      <SimulationReport
+        document={document as SimulationReportDocument}
+        onOpenSourceGraph={() =>
+          wm.openGraphRevision(
+            api,
+            (document as SimulationReportDocument).graphRevisionId,
+          )}
+      />
     {:else if document.kind === "optimization-report"}
       <OptimizationReport document={document as OptimizationReportDocument} />
     {/if}
@@ -247,6 +258,18 @@
     onFavoriteChange={handleFavoriteChange}
   />
 
+  <GraphTreePickerDialog
+    open={model.analysis.targetPickerOpen}
+    onOpenChange={(open) => model.analysis.setTargetPickerOpen(open)}
+    summaries={wm.graphSummaries}
+    status={model.analysis.statusMessage}
+    title="Select target graph"
+    description="Select the saved graph to analyze."
+    selectedRevisionId={model.analysis.targetRevisionId || undefined}
+    onSelect={(summary) => model.analysis.selectTarget(summary.revision_id)}
+    onFavoriteChange={handleFavoriteChange}
+  />
+
   <OptionPickerDialog
     open={wm.experimentsModalOpen}
     onOpenChange={(open) => (wm.experimentsModalOpen = open)}
@@ -261,6 +284,8 @@
     status={wm.experimentsStatus}
     onConfirm={handleExperimentSelect}
   />
+
+  <AnalysisDialog model={model.analysis} {optimizationOptions} />
 
   <StatusBar
     documentName={wm.activeDocument?.title ?? ""}

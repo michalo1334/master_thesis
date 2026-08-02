@@ -1,4 +1,5 @@
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
+import { AnalysisModel } from "./analysis/AnalysisModel.svelte";
 import type { DashboardApi } from "./dashboard-api";
 import type {
   GraphSummary,
@@ -21,6 +22,7 @@ import type { OptimizationReportDocument } from "./optimization-report/Optimizat
 export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
+  analysis: AnalysisModel;
 
   constructor(
     api: DashboardApi,
@@ -29,6 +31,7 @@ export class DashboardModel {
   ) {
     this.api = api;
     this.workspace = new WorkspaceModel(graphSummaries, folders);
+    this.analysis = new AnalysisModel(api, this.workspace);
   }
 
   /** Cross-model: start simulation on active graph, create pending report. */
@@ -39,13 +42,7 @@ export class DashboardModel {
       this.workspace.statusMessage = doc.saveStatusMessage;
       return;
     }
-    const result = await doc.startSimulation(
-      this.api,
-      this.workspace.simulationParams,
-    );
-    if (result) {
-      this.workspace.createPendingReport(result);
-    }
+    await this.analysis.runSimulation(doc, this.workspace.simulationParams);
   }
 
   async runActiveOptimization(): Promise<void> {
@@ -58,36 +55,10 @@ export class DashboardModel {
       return;
     }
 
-    const params = $state.snapshot(this.workspace.optimizationParams);
-    const correlationId = crypto.randomUUID();
-    const report = this.workspace.createPendingOptimizationReport({
-      graphId: doc.graph.id,
-      graphRevisionId: doc.loadedRevisionId,
-      graphTitle: doc.title,
-      correlationId,
-      strategy: params.strategy,
-      budget: params.budget,
-    });
-
-    try {
-      const reply = await doc.startOptimization(
-        this.api,
-        params,
-        correlationId,
-      );
-      if (!reply) {
-        report.markError("Optimization failed.");
-        this.markOptimizationReportReadState(report);
-      } else if (reply.status === "rejected") {
-        report.markError(reply.reason || "Optimization rejected.");
-        this.markOptimizationReportReadState(report);
-        this.workspace.statusMessage = report.errorReason;
-      }
-    } catch {
-      report.markError("Optimization failed.");
-      this.markOptimizationReportReadState(report);
-      this.workspace.statusMessage = report.errorReason;
-    }
+    await this.analysis.runOptimization(
+      doc,
+      $state.snapshot(this.workspace.optimizationParams),
+    );
   }
 
   onOptimizationCompleted(payload: OptimizationCompletedEvent): void {

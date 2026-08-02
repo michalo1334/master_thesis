@@ -11,7 +11,12 @@
 
   type InspectorSelection =
     | { kind: "selectable"; selectable: Selectable }
-    | { kind: "graph"; graph: LoadedGraph; parentTitle?: string }
+    | {
+        kind: "graph";
+        graph: LoadedGraph;
+        parentTitle?: string;
+        onTitleChange: (title: string) => void;
+      }
     | undefined;
 
   let { document, summaries = [] }: Props = $props();
@@ -27,12 +32,21 @@
             revision_id === document.graph.parent_revision_id,
         )?.title
       : undefined;
-    return { kind: "graph", graph: document.graph, parentTitle };
+    return {
+      kind: "graph",
+      graph: document.graph,
+      parentTitle,
+      onTitleChange: (title) => document.setTitle(title),
+    };
   });
 </script>
 
 {#if selection?.kind === "graph"}
-  <GraphInspector graph={selection.graph} parentTitle={selection.parentTitle} />
+  <GraphInspector
+    graph={selection.graph}
+    parentTitle={selection.parentTitle}
+    onTitleChange={selection.onTitleChange}
+  />
 {:else if selection?.kind === "selectable" && document?.kind === "graph"}
   <EditableSelectionInspector
     selectable={selection.selectable}

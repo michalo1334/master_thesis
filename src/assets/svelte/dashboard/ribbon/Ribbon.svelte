@@ -170,7 +170,9 @@
       min-height: 2.4375rem;
       min-width: 2.6875rem;
     }
-    :global(.dashboard-ribbon-content .dashboard-button > span) {
+    :global(
+      .dashboard-ribbon-content .dashboard-button > span:not(.dashboard-icon)
+    ) {
       display: none;
     }
   }
@@ -190,7 +192,9 @@
       border: 0;
     }
     :global(.dashboard-ribbon-content .dashboard-ribbon-group-label),
-    :global(.dashboard-ribbon-content .dashboard-button > span) {
+    :global(
+      .dashboard-ribbon-content .dashboard-button > span:not(.dashboard-icon)
+    ) {
       display: none;
     }
     :global(.dashboard-ribbon-content .dashboard-button),

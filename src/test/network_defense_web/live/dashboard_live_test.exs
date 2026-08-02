@@ -358,6 +358,49 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
+    test "lists completed experiments with their master seed", %{conn: conn} do
+      graph = insert_graph("experiment-list")
+      foothold = insert_node(graph, "entry-host")
+      graph_revision_id = foothold.graph_revision_id
+      correlation_id = "experiment-list-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+      render_hook(view, "run_simulation_request", %{
+        "request" => %{
+          "graph_revision_id" => graph_revision_id,
+          "correlation_id" => correlation_id,
+          "simulation_params" => %{
+            "monte_carlo_trials" => 1,
+            "iterations_per_run" => 1,
+            "initial_foothold_node_id" => foothold.id,
+            "generate_seed" => true
+          }
+        }
+      })
+
+      assert_receive {:simulation_completed,
+                      %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
+                     5_000
+
+      render_hook(view, "fetch_experiments", %{
+        "graph_revision_ids" => [graph_revision_id]
+      })
+
+      assert_reply(view, %{
+        experiments: [
+          %{
+            id: ^experiment_id,
+            graph_revision_id: ^graph_revision_id,
+            seed: seed
+          }
+        ]
+      })
+
+      assert seed == Experiments.get(experiment_id).master_seed
+    end
+
     test "commits a simulation across trial batches", %{conn: conn} do
       graph = insert_graph("batched-simulation")
       foothold = insert_node(graph, "entry-host")

@@ -418,23 +418,47 @@ export class WorkspaceModel {
     }
   }
 
+  async openGraphRevision(
+    api: DashboardApi,
+    graphRevisionId: string,
+  ): Promise<boolean> {
+    this.statusMessage = "";
+    try {
+      const reply = await api.openGraph(graphRevisionId);
+      if (reply.status !== "ok" || !reply.graph) {
+        this.statusMessage = "Failed to open graph.";
+        return false;
+      }
+
+      const existing = this.documents.find(
+        (document) =>
+          document.kind === "graph" &&
+          document.loadedRevisionId === graphRevisionId,
+      ) as EditableGraphDocument | undefined;
+      if (existing?.isDirty) {
+        const document = new EditableGraphDocument();
+        document.replaceFromLoadedGraph(reply.graph);
+        this.documents.push(document);
+        this.selectedDocumentId = document.id;
+        this.ensureInitialFoothold(document);
+        return true;
+      }
+
+      await this.openLoadedGraph(reply.graph, api);
+      return true;
+    } catch {
+      this.statusMessage = "Failed to open graph.";
+      return false;
+    }
+  }
+
   async openOptimizationResult(
     api: DashboardApi,
     graphRevisionId: string,
   ): Promise<boolean> {
-    try {
-      const reply = await api.openGraph(graphRevisionId);
-      if (reply.status !== "ok" || !reply.graph) {
-        this.statusMessage = "Failed to open optimized graph.";
-        return false;
-      }
-      await this.openLoadedGraph(reply.graph, api);
-      this.statusMessage = "Optimization completed.";
-      return true;
-    } catch {
-      this.statusMessage = "Failed to open optimized graph.";
-      return false;
-    }
+    const opened = await this.openGraphRevision(api, graphRevisionId);
+    if (opened) this.statusMessage = "Optimization completed.";
+    return opened;
   }
 
   async loadOptimizationGraphDiff(

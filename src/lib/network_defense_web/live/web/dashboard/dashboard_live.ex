@@ -289,7 +289,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
               graph_id: experiment.graph_revision.graph_id,
               graph_revision_id: experiment.graph_revision_id,
               graph_title: experiment.graph_revision.title,
-              seed: experiment.seed,
+              seed: experiment.master_seed,
               run_count: experiment.completed_trials,
               iteration_count: experiment.iteration_count,
               runtime_ms: experiment.runtime_ms,

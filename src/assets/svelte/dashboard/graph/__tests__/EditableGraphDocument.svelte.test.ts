@@ -148,6 +148,16 @@ describe("EditableGraphDocument", () => {
       expect(doc.saveEligible).toBe(true);
     });
 
+    it("updates the title and marks the graph dirty", () => {
+      doc.replaceFromLoadedGraph(makeGraph({ title: "Original" }));
+
+      doc.setTitle("  Renamed graph  ");
+
+      expect(doc.title).toBe("Renamed graph");
+      expect(doc.graph.title).toBe("Renamed graph");
+      expect(doc.isDirty).toBe(true);
+    });
+
     it("replaceFromSaveReply updates graph and revision", () => {
       doc.replaceFromLoadedGraph(
         makeGraph({ id: "sg", revision_id: "r1", title: "V1" }),
@@ -188,6 +198,24 @@ describe("EditableGraphDocument", () => {
       await expect(doc.save(api)).resolves.toBe(false);
       expect(doc.saveStatusMessage).toBe("Save failed.");
       expect(doc.isDirty).toBe(true);
+    });
+
+    it("saves a changed title in the graph payload", async () => {
+      doc.replaceFromLoadedGraph(makeGraph({ title: "Original" }));
+      doc.setTitle("Renamed");
+      const api = {
+        saveGraph: vi
+          .fn()
+          .mockResolvedValue(
+            makeSaveReply(makeGraph({ title: "Renamed", revision_id: "r2" })),
+          ),
+      } as unknown as DashboardApi;
+
+      await expect(doc.save(api)).resolves.toBe(true);
+
+      expect(api.saveGraph).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "Renamed" }),
+      );
     });
 
     it("keeps edits made while saving dirty", async () => {

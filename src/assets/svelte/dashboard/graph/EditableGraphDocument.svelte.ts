@@ -108,6 +108,14 @@ export class EditableGraphDocument {
     this._selection = { kind: "none" };
   }
 
+  setTitle(title: string): void {
+    const nextTitle = title.trim();
+    if (!nextTitle || nextTitle === this._title) return;
+
+    this._title = nextTitle;
+    this.graph = { ...this._graph, title: nextTitle };
+  }
+
   addNode(node: Node): void {
     this.graph = { ...this.graph, nodes: [...this.graph.nodes, node] };
     this.selectNode(node.id);

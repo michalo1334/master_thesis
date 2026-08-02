@@ -15,9 +15,10 @@
 
   interface Props {
     document: SimulationReportDocument;
+    onOpenSourceGraph?: () => Promise<boolean>;
   }
 
-  let { document }: Props = $props();
+  let { document, onOpenSourceGraph = undefined }: Props = $props();
   let activeTab = $state("report");
   let heatmapAppearance = $derived(
     document.reportData
@@ -28,8 +29,19 @@
 
 <article class="simulation-report" aria-labelledby="simulation-report-title">
   <header class="simulation-report-header">
-    <p class="simulation-report-eyebrow">Simulation result</p>
-    <h1 id="simulation-report-title">{document.title}</h1>
+    <div>
+      <p class="simulation-report-eyebrow">Simulation result</p>
+      <h1 id="simulation-report-title">{document.title}</h1>
+    </div>
+    {#if onOpenSourceGraph}
+      <button
+        class="simulation-report-open"
+        type="button"
+        onclick={() => void onOpenSourceGraph?.()}
+      >
+        Open source graph
+      </button>
+    {/if}
   </header>
 
   {#if document.status === "pending"}
@@ -218,6 +230,10 @@
   }
 
   .simulation-report-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: var(--ds-space-3);
     max-width: 62rem;
     margin-bottom: var(--ds-space-6);
   }
@@ -247,6 +263,18 @@
     font-size: var(--ds-text-base);
     font-weight: 700;
     margin-bottom: var(--ds-space-3);
+  }
+
+  .simulation-report-open {
+    flex: none;
+    min-height: var(--ds-control-height);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-color-accent);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-accent);
+    color: var(--ds-color-paper);
+    font: inherit;
+    white-space: nowrap;
   }
 
   .simulation-report-empty,
@@ -436,6 +464,11 @@
   @media (max-width: 48em) {
     .simulation-report {
       padding: var(--ds-space-4);
+    }
+
+    .simulation-report-header {
+      align-items: start;
+      flex-direction: column;
     }
 
     :global(.simulation-report-tabs) {

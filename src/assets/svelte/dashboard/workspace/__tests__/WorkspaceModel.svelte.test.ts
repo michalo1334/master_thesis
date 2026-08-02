@@ -318,6 +318,44 @@ describe("WorkspaceModel", () => {
     });
   });
 
+  describe("openGraphRevision", () => {
+    it("opens the requested revision", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "simulated-r1" }),
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(model.openGraphRevision(api, "simulated-r1")).resolves.toBe(
+        true,
+      );
+
+      expect(api.openGraph).toHaveBeenCalledWith("simulated-r1");
+      expect(model.activeGraph?.loadedRevisionId).toBe("simulated-r1");
+    });
+
+    it("opens a clean copy when the same revision has unsaved edits", async () => {
+      const original = makeLoadedGraph({
+        title: "Persisted",
+        revision_id: "simulated-r1",
+      });
+      await model.openLoadedGraph(original, {} as DashboardApi);
+      model.activeGraph!.setTitle("Unsaved edit");
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({ status: "ok", graph: original }),
+      } as unknown as DashboardApi;
+
+      await expect(model.openGraphRevision(api, "simulated-r1")).resolves.toBe(
+        true,
+      );
+
+      expect(model.documents).toHaveLength(2);
+      expect(model.activeGraph?.title).toBe("Persisted");
+      expect(model.activeGraph?.isDirty).toBe(false);
+    });
+  });
+
   describe("graph comparison", () => {
     const baseSummary = makeGraphSummary({
       graph_id: "base",
