@@ -9,6 +9,7 @@ defmodule NetworkDefense.Graph.Contracts.Node do
   alias NetworkDefense.Graph.Contracts.Data.{
     CredentialData,
     HostData,
+    NetworkSegmentData,
     ServiceData,
     VulnerabilityData
   }
@@ -23,7 +24,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
       Host: HostData,
       Service: ServiceData,
       Vulnerability: VulnerabilityData,
-      Credential: CredentialData
+      Credential: CredentialData,
+      NetworkSegment: NetworkSegmentData
     ]
   ]
 
@@ -33,7 +35,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
     Host: {HostData, NetworkDefense.Nodes.Host},
     Service: {ServiceData, NetworkDefense.Nodes.Service},
     Vulnerability: {VulnerabilityData, NetworkDefense.Nodes.Vulnerability},
-    Credential: {CredentialData, NetworkDefense.Nodes.Credential}
+    Credential: {CredentialData, NetworkDefense.Nodes.Credential},
+    NetworkSegment: {NetworkSegmentData, NetworkDefense.Nodes.NetworkSegment}
   ]
 
   embedded_schema do
@@ -50,7 +53,8 @@ defmodule NetworkDefense.Graph.Contracts.Node do
             HostData.t()
             | ServiceData.t()
             | VulnerabilityData.t()
-            | CredentialData.t(),
+            | CredentialData.t()
+            | NetworkSegmentData.t(),
           view_data: NodeViewData.t()
         }
 

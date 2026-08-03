@@ -1,5 +1,6 @@
 defmodule NetworkDefense.Relationships.Registry do
   alias NetworkDefense.Relationships.AuthenticatesTo
+  alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.HasVulnerability
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
@@ -12,7 +13,14 @@ defmodule NetworkDefense.Relationships.Registry do
   Provides central place to manage all current and future relationships created in the source code
   """
 
-  @types [Runs, NetworkReachability, HasVulnerability, StoresCredential, AuthenticatesTo]
+  @types [
+    Runs,
+    NetworkReachability,
+    HasVulnerability,
+    StoresCredential,
+    AuthenticatesTo,
+    Contains
+  ]
 
   def module_for(type), do: Registry.module_for(@types, type)
   def module_for_contract(type), do: Registry.module_for_short(@types, type)

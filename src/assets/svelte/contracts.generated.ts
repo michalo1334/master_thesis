@@ -5,6 +5,8 @@ export interface AuthenticatesToData {
   granted_privilege: "user" | "administrator";
 }
 
+export type ContainsData = Record<never, never>;
+
 export interface CredentialData {
   credential_type: "password" | "ssh_key" | "token";
   identifier: string;
@@ -36,6 +38,11 @@ export interface NetworkReachabilityData {
   protocol: "tcp" | "udp" | "any";
 }
 
+export interface NetworkSegmentData {
+  cidr?: string | null;
+  name: string;
+}
+
 export type RunsData = Record<never, never>;
 
 export interface ServiceData {
@@ -60,7 +67,8 @@ export type Edge =
   | NetworkReachabilityEdge
   | HasVulnerabilityEdge
   | StoresCredentialEdge
-  | AuthenticatesToEdge;
+  | AuthenticatesToEdge
+  | ContainsEdge;
 
 export interface RunsEdge {
   type: "Runs";
@@ -102,6 +110,14 @@ export interface AuthenticatesToEdge {
   to_id: string;
 }
 
+export interface ContainsEdge {
+  type: "Contains";
+  data: ContainsData;
+  from_id: string;
+  id: string;
+  to_id: string;
+}
+
 export interface GraphContract {
   edges: Edge[];
   id: string;
@@ -113,7 +129,12 @@ export interface GraphContract {
   title: string;
 }
 
-export type Node = HostNode | ServiceNode | VulnerabilityNode | CredentialNode;
+export type Node =
+  | HostNode
+  | ServiceNode
+  | VulnerabilityNode
+  | CredentialNode
+  | NetworkSegmentNode;
 
 export interface HostNode {
   type: "Host";
@@ -139,6 +160,13 @@ export interface VulnerabilityNode {
 export interface CredentialNode {
   type: "Credential";
   data: CredentialData;
+  id: string;
+  view_data: NodeViewData;
+}
+
+export interface NetworkSegmentNode {
+  type: "NetworkSegment";
+  data: NetworkSegmentData;
   id: string;
   view_data: NodeViewData;
 }
@@ -205,10 +233,12 @@ export interface CreateConnectionDraftPayload {
     | "NetworkReachability"
     | "HasVulnerability"
     | "StoresCredential"
-    | "AuthenticatesTo";
+    | "AuthenticatesTo"
+    | "Contains";
   source_id: string;
   source_is_from: boolean;
-  source_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  source_type:
+    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
   target_id?: string | null;
   target_type?: string | null;
   x_pos?: number | null;
@@ -231,7 +261,8 @@ export interface CreateFolderReply {
 }
 
 export interface CreateNodeDraftPayload {
-  node_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  node_type:
+    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
   x_pos: number;
   y_pos: number;
 }
@@ -318,14 +349,17 @@ export interface GraphConnectivityReply {
 }
 
 export interface GraphConnectivityRule {
-  from_type: "Host" | "Service" | "Vulnerability" | "Credential";
+  from_type:
+    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
   relationship_type:
     | "Runs"
     | "NetworkReachability"
     | "HasVulnerability"
     | "StoresCredential"
-    | "AuthenticatesTo";
-  to_type: "Host" | "Service" | "Vulnerability" | "Credential";
+    | "AuthenticatesTo"
+    | "Contains";
+  to_type:
+    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
 }
 
 export interface GraphDiffCounts {

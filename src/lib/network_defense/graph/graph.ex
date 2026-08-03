@@ -4,6 +4,7 @@ defmodule NetworkDefense.Graph.Graph do
 
   alias NetworkDefense.Graph.{Edge, Folder, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
+  alias NetworkDefense.Relationships.Contains
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -43,12 +44,13 @@ defmodule NetworkDefense.Graph.Graph do
     }
   end
 
-  def hydrate(graph, nodes, edges) do
+  def hydrate(graph, nodes, edges, validate_membership \\ true) do
     graph = %{graph | nodes: [], edges: [], adjacency_list: %{}}
 
-    case hydrate_nodes(graph, nodes) do
-      {:ok, graph} -> hydrate_edges(graph, edges)
-      {:error, _reason} = error -> error
+    with {:ok, graph} <- hydrate_nodes(graph, nodes),
+         {:ok, graph} <- hydrate_edges(graph, edges),
+         :ok <- validate_segment_membership(graph, validate_membership) do
+      {:ok, graph}
     end
   end
 
@@ -173,14 +175,16 @@ defmodule NetworkDefense.Graph.Graph do
     end
   end
 
-  defp put_edge(graph, edge) do
+  defp put_edge(graph, edge, check_membership \\ true) do
     with true <- edge.graph_id == graph.id,
          %Node{} = from_node <- node(graph, edge.from_id),
          %Node{} = to_node <- node(graph, edge.to_id),
-         true <- SemanticConnectivity.valid?(edge.type, from_node.type, to_node.type) do
+         true <- SemanticConnectivity.valid?(edge.type, from_node.type, to_node.type),
+         :ok <- segment_membership_allowed?(graph, edge, check_membership) do
       adjacency_list = graph.adjacency_list |> add_outgoing_edge(edge) |> add_incoming_edge(edge)
       {:ok, %{graph | adjacency_list: adjacency_list}}
     else
+      {:error, :multiple_segments} -> {:error, :multiple_segments}
       _ -> {:error, :invalid_endpoints}
     end
   end
@@ -192,6 +196,9 @@ defmodule NetworkDefense.Graph.Graph do
 
       {:error, :invalid_endpoints} ->
         raise ArgumentError, "edge type is not valid for graph endpoints"
+
+      {:error, :multiple_segments} ->
+        raise ArgumentError, "host already belongs to a network segment"
     end
   end
 
@@ -210,13 +217,34 @@ defmodule NetworkDefense.Graph.Graph do
   defp hydrate_edges(graph, edges) do
     Enum.reduce_while(edges, {:ok, graph}, fn edge, {:ok, graph} ->
       with {:ok, edge} <- Edge.hydrate(edge),
-           {:ok, graph} <- put_edge(graph, edge) do
+           {:ok, graph} <- put_edge(graph, edge, false) do
         {:cont, {:ok, graph}}
       else
         _ -> {:halt, {:error, :invalid_endpoints}}
       end
     end)
   end
+
+  defp validate_segment_membership(_graph, false), do: :ok
+
+  defp validate_segment_membership(graph, true) do
+    graph
+    |> edges()
+    |> Enum.filter(&match?(%{type: Contains}, &1))
+    |> Enum.frequencies_by(& &1.to_id)
+    |> Enum.all?(fn {_host_id, count} -> count == 1 end)
+    |> if(do: :ok, else: {:error, :multiple_segments})
+  end
+
+  defp segment_membership_allowed?(_graph, _edge, false), do: :ok
+
+  defp segment_membership_allowed?(graph, %{type: Contains, to_id: host_id}, true) do
+    if Enum.any?(incoming(graph, host_id), fn {_segment_id, edge} -> edge.type == Contains end),
+      do: {:error, :multiple_segments},
+      else: :ok
+  end
+
+  defp segment_membership_allowed?(_graph, _edge, true), do: :ok
 
   defp node!(graph, node_id),
     do: node(graph, node_id) || raise(ArgumentError, "node does not belong to graph")

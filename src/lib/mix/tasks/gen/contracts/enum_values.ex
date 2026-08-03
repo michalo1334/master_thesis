@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
   def render(%{metadata: %{enum_values: values}} = context) do
     overrides =
       Map.new(values, fn {field, atoms} ->
-        {field, enum_type(atoms)}
+        {field, enum_type(field, atoms)}
       end)
 
     {:emit, Renderer.interface(context.ts_name, context.fields, overrides)}
@@ -16,14 +16,19 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
 
   def render(_context), do: :skip
 
-  defp enum_type(atoms) do
+  defp enum_type(field, atoms) do
     values = Enum.map(atoms, &"\"#{&1}\"")
     inline = Enum.join(values, " | ")
 
-    if String.length(inline) > 72 do
-      "\n    | " <> Enum.join(values, "\n    | ")
-    else
-      inline
+    cond do
+      String.length(inline) > 72 ->
+        "\n    | " <> Enum.join(values, "\n    | ")
+
+      String.length("  #{field}: #{inline};") > 80 ->
+        "\n    #{inline}"
+
+      true ->
+        inline
     end
   end
 end

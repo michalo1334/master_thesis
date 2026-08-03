@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Canvas from "./Canvas.svelte";
+  import NetworkCanvas from "../network/NetworkCanvas.svelte";
   import type {
     ConnectionOption,
     EditableGraphDocument,
@@ -30,6 +31,7 @@
   let connection = $state<ConnectionRequest>();
   let connectionPickerOpen = $state(false);
   let connectivityRules = $state<readonly GraphConnectivityRule[]>([]);
+  let canvasMode = $state<"topology" | "network">("topology");
 
   onMount(() => {
     let active = true;
@@ -78,6 +80,32 @@
       position,
       targetId,
       options: connectionOptions(source, target),
+    };
+    connectionPickerOpen = true;
+  }
+
+  function chooseNetworkReachability(
+    sourceHostId: string,
+    targetServiceIds: readonly string[],
+    position: { x: number; y: number },
+  ) {
+    const source = document.graph.nodes.find(
+      (node) => node.id === sourceHostId,
+    );
+    if (!source || source.type !== "Host") return;
+
+    connection = {
+      position,
+      options: targetServiceIds.flatMap((targetServiceId) => {
+        const target = document.graph.nodes.find(
+          (node) => node.id === targetServiceId,
+        );
+        return target?.type === "Service"
+          ? connectionOptions(source, target).filter(
+              (option) => option.relationshipType === "NetworkReachability",
+            )
+          : [];
+      }),
     };
     connectionPickerOpen = true;
   }
@@ -192,25 +220,48 @@
   }
 </script>
 
-<Canvas
-  graph={document.graph}
-  fitVersion={document.revision}
-  selectedNodeId={document.canvasSelection.kind === "node"
-    ? document.canvasSelection.nodeId
-    : undefined}
-  selectedEdgeId={document.canvasSelection.kind === "edge"
-    ? document.canvasSelection.edgeId
-    : undefined}
-  onGraphChange={(graph) => (document.graph = graph)}
-  onSelectNode={(nodeId) => document.selectNode(nodeId)}
-  onSelectEdge={(edgeId) => document.selectEdge(edgeId)}
-  onClearSelection={() => document.clearSelection()}
-  onCreateConnection={chooseConnection}
-  onDeleteSelection={() => document.deleteSelection()}
-  onAddNode={addNode}
-  connectionRules={connectivityRules}
-  {onCompareGraphs}
-/>
+<div class="editable-canvas">
+  <div class="canvas-mode-toggle" role="group" aria-label="Graph view">
+    <button
+      type="button"
+      aria-pressed={canvasMode === "topology"}
+      onclick={() => (canvasMode = "topology")}>Topology</button
+    >
+    <button
+      type="button"
+      aria-pressed={canvasMode === "network"}
+      onclick={() => (canvasMode = "network")}>Network</button
+    >
+  </div>
+
+  {#if canvasMode === "topology"}
+    <Canvas
+      graph={document.graph}
+      fitVersion={document.revision}
+      selectedNodeId={document.canvasSelection.kind === "node"
+        ? document.canvasSelection.nodeId
+        : undefined}
+      selectedEdgeId={document.canvasSelection.kind === "edge"
+        ? document.canvasSelection.edgeId
+        : undefined}
+      onGraphChange={(graph) => (document.graph = graph)}
+      onSelectNode={(nodeId) => document.selectNode(nodeId)}
+      onSelectEdge={(edgeId) => document.selectEdge(edgeId)}
+      onClearSelection={() => document.clearSelection()}
+      onCreateConnection={chooseConnection}
+      onDeleteSelection={() => document.deleteSelection()}
+      onAddNode={addNode}
+      connectionRules={connectivityRules}
+      {onCompareGraphs}
+    />
+  {:else}
+    <NetworkCanvas
+      {document}
+      {api}
+      onCreateReachability={chooseNetworkReachability}
+    />
+  {/if}
+</div>
 
 <OptionPickerDialog
   open={connectionPickerOpen}
@@ -227,3 +278,39 @@
   searchPlaceholder="Search connections…"
   onConfirm={createConnection}
 />
+
+<style>
+  .editable-canvas {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+  }
+  .canvas-mode-toggle {
+    position: absolute;
+    z-index: 2;
+    top: var(--ds-space-3);
+    left: var(--ds-space-3);
+    display: flex;
+    overflow: hidden;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    box-shadow: var(--ds-shadow-md);
+  }
+  .canvas-mode-toggle button {
+    min-height: 2rem;
+    border: 0;
+    border-right: 1px solid var(--ds-color-border);
+    background: transparent;
+    color: var(--ds-color-text-secondary);
+    padding: 0 0.625rem;
+  }
+  .canvas-mode-toggle button:last-child {
+    border-right: 0;
+  }
+  .canvas-mode-toggle button[aria-pressed="true"] {
+    background: var(--ds-color-accent-soft);
+    color: var(--ds-color-text);
+    font-weight: 700;
+  }
+</style>

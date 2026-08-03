@@ -2,8 +2,8 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
   use NetworkDefense.DataCase
 
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Vulnerability}
+  alias NetworkDefense.Relationships.{Contains, HasVulnerability, NetworkReachability}
   alias NetworkDefense.Topology.{EnterpriseTopology, VulnerabilityCatalog}
 
   describe "generate/1" do
@@ -24,6 +24,42 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
       assert Enum.any?(names, &String.starts_with?(&1, "internal-api-"))
       assert Enum.any?(names, &String.starts_with?(&1, "restricted-db-"))
       assert Enum.any?(names, &String.starts_with?(&1, "mgmt-bastion-"))
+    end
+
+    test "assigns every host to one deterministic network segment" do
+      graph = EnterpriseTopology.generate(hosts: EnterpriseTopology.minimum_hosts(), seed: 1)
+
+      segments =
+        graph
+        |> Graph.nodes()
+        |> Enum.filter(&(&1.type == NetworkSegment))
+
+      assert Enum.map(segments, & &1.data.name) == [
+               "External",
+               "DMZ",
+               "Internal",
+               "Restricted",
+               "Management",
+               "Workstations"
+             ]
+
+      for host <- Graph.nodes(graph), host.type == Host do
+        assert [{segment_id, %{type: Contains}}] =
+                 graph
+                 |> Graph.incoming(host.id)
+                 |> Enum.filter(fn {_id, edge} -> edge.type == Contains end)
+
+        assert %{type: NetworkSegment} = Graph.node(graph, segment_id)
+      end
+
+      internet = Enum.find(Graph.nodes(graph), &(&1.data.name == "internet"))
+
+      assert [{segment_id, %{type: Contains}}] =
+               graph
+               |> Graph.incoming(internet.id)
+               |> Enum.filter(fn {_id, edge} -> edge.type == Contains end)
+
+      assert %{data: %{name: "External"}} = Graph.node(graph, segment_id)
     end
 
     test "shares each catalog CVE across matching services" do

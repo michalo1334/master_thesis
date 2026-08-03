@@ -2,8 +2,8 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
-  alias NetworkDefense.Nodes.{Host, Service}
-  alias NetworkDefense.Relationships.{NetworkReachability, Runs}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
+  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
 
   test "accepts valid directed endpoints" do
     graph = Graph.new("Topology")
@@ -29,6 +29,33 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
 
     assert_raise ArgumentError, ~r/not valid/, fn ->
       Graph.add_edge(graph, first, second, %{type: Atom.to_string(Runs), data: %{}})
+    end
+  end
+
+  test "accepts segment containment and rejects multiple segments per host" do
+    graph = Graph.new("Topology")
+    host = node(graph, Host, %{"name" => "host"})
+    dmz = node(graph, NetworkSegment, %{"name" => "DMZ"})
+    internal = node(graph, NetworkSegment, %{"name" => "Internal"})
+
+    assert {:error, :multiple_segments} =
+             Graph.hydrate(
+               graph,
+               [host, dmz, internal],
+               [
+                 Edge.new(graph.id, dmz.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+                 Edge.new(graph.id, internal.id, host.id, %{
+                   type: Atom.to_string(Contains),
+                   data: %{}
+                 })
+               ]
+             )
+
+    graph = graph |> Graph.add_node(host) |> Graph.add_node(dmz) |> Graph.add_node(internal)
+    graph = Graph.add_edge(graph, dmz, host, %{type: Atom.to_string(Contains), data: %{}})
+
+    assert_raise ArgumentError, ~r/already belongs/, fn ->
+      Graph.add_edge(graph, internal, host, %{type: Atom.to_string(Contains), data: %{}})
     end
   end
 

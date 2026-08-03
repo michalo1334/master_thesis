@@ -207,6 +207,12 @@
     }
   }
 
+  @media (max-width: 35rem) {
+    :global(.dashboard-ribbon-content .dashboard-ribbon-tab) {
+      padding-inline: 0.3125rem;
+    }
+  }
+
   @media (forced-colors: active) {
     :global(
       .dashboard-ribbon-content .dashboard-ribbon-tab[data-state="active"]

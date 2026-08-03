@@ -123,7 +123,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   defp total_host_count(%Graph{} = graph) do
     graph
     |> Graph.nodes()
-    |> length()
+    |> Enum.count(&match?(%{type: NetworkDefense.Nodes.Host}, &1))
   end
 
   defp histogram_buckets(counts) do

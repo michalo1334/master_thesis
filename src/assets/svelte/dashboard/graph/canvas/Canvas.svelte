@@ -27,7 +27,13 @@
   const ZOOM_STEP = 10;
   const PAN_STEP = 40;
   const DRAG_THRESHOLD = 4;
-  const nodeTypes = ["Host", "Service", "Vulnerability", "Credential"] as const;
+  const nodeTypes = [
+    "Host",
+    "Service",
+    "Vulnerability",
+    "Credential",
+    "NetworkSegment",
+  ] as const;
 
   interface Props {
     graph: LoadedGraph;

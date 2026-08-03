@@ -9,7 +9,14 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     output = Registry.render_all()
 
     assert output =~
-             "export type Node = HostNode | ServiceNode | VulnerabilityNode | CredentialNode;"
+             """
+             export type Node =
+               | HostNode
+               | ServiceNode
+               | VulnerabilityNode
+               | CredentialNode
+               | NetworkSegmentNode;
+             """
 
     assert output =~ "type: \"Host\";"
     assert output =~ "data: HostData;"
@@ -21,7 +28,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
                | NetworkReachabilityEdge
                | HasVulnerabilityEdge
                | StoresCredentialEdge
-               | AuthenticatesToEdge;
+               | AuthenticatesToEdge
+               | ContainsEdge;
              """
 
     assert output =~ "protocol: \"tcp\" | \"udp\";"
@@ -89,7 +97,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
                NetworkDefense.Graph.Contracts.Data.HostData,
                NetworkDefense.Graph.Contracts.Data.ServiceData,
                NetworkDefense.Graph.Contracts.Data.VulnerabilityData,
-               NetworkDefense.Graph.Contracts.Data.CredentialData
+               NetworkDefense.Graph.Contracts.Data.CredentialData,
+               NetworkDefense.Graph.Contracts.Data.NetworkSegmentData
              ])
   end
 

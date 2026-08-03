@@ -20,8 +20,8 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
   """
 
   alias NetworkDefense.Graph.{Edge, Graph, Node}
-  alias NetworkDefense.Nodes.{Host, Service, Vulnerability}
-  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability, Runs}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefense.Relationships.{Contains, HasVulnerability, NetworkReachability, Runs}
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Topology.VulnerabilityCatalog
 
@@ -90,7 +90,23 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
     workstation: [{:workstation, 2}, {:internal_app, 1}, {:dmz_web, 1}]
   }
 
-  @zone_columns %{dmz: 100, internal: 300, restricted: 500, mgmt: 700, workstation: 900}
+  @zone_columns %{
+    external: 0,
+    dmz: 100,
+    internal: 300,
+    restricted: 500,
+    mgmt: 700,
+    workstation: 900
+  }
+
+  @segments [
+    {:external, "External"},
+    {:dmz, "DMZ"},
+    {:internal, "Internal"},
+    {:restricted, "Restricted"},
+    {:mgmt, "Management"},
+    {:workstation, "Workstations"}
+  ]
 
   @server_roles [:dmz_web, :internal_api, :internal_app, :restricted_db, :restricted_ad]
 
@@ -139,7 +155,9 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
          vulnerabilities}
       end)
 
-    add_reachability(graph, internet_id, hosts_by_role)
+    graph
+    |> add_segments(internet_id, hosts_by_role)
+    |> add_reachability(internet_id, hosts_by_role)
   end
 
   defp add_internet_node(graph) do
@@ -151,6 +169,35 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
       })
 
     {Graph.add_node(graph, internet), internet.id}
+  end
+
+  defp add_segments(graph, internet_id, hosts_by_role) do
+    Enum.reduce(@segments, graph, fn {zone, name}, graph ->
+      segment =
+        Node.new(graph.id, %{
+          type: Atom.to_string(NetworkSegment),
+          data: %{"name" => name},
+          view_data: segment_position(zone)
+        })
+
+      graph = Graph.add_node(graph, segment)
+
+      Enum.reduce(host_ids_for_zone(zone, internet_id, hosts_by_role), graph, fn host_id, graph ->
+        Graph.add_edge(
+          graph,
+          Edge.new(graph.id, segment.id, host_id, %{type: Atom.to_string(Contains), data: %{}})
+        )
+      end)
+    end)
+  end
+
+  defp host_ids_for_zone(:external, internet_id, _hosts_by_role), do: [internet_id]
+
+  defp host_ids_for_zone(zone, _internet_id, hosts_by_role) do
+    for {role, hosts} <- Enum.sort_by(hosts_by_role, &elem(&1, 0)),
+        Map.fetch!(@roles, role).zone == zone,
+        {host_id, _services} <- hosts,
+        do: host_id
   end
 
   defp build_role_host(graph, role, index, vulnerabilities) do
@@ -376,6 +423,11 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
 
   defp host_position(zone, index),
     do: %{"x_pos" => Map.fetch!(@zone_columns, zone), "y_pos" => index * 120}
+
+  defp segment_position(:external),
+    do: %{"x_pos" => Map.fetch!(@zone_columns, :external), "y_pos" => -100}
+
+  defp segment_position(zone), do: %{"x_pos" => Map.fetch!(@zone_columns, zone), "y_pos" => 0}
 
   defp service_position(%{zone: zone, index: index, service_index: service_index}),
     do: %{

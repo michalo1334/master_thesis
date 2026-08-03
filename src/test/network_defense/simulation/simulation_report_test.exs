@@ -5,7 +5,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.Actions.ExploitVulnerability
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Nodes.{Host, Service}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.IterationStep
@@ -26,6 +26,24 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
              convergence: [%{run: 1, mean_blast_radius: 1.0}],
              action_success: []
            } = report.charts
+  end
+
+  test "counts hosts without structural graph nodes" do
+    graph = %Graph{
+      id: "graph",
+      revision_id: "revision",
+      title: "Test graph",
+      nodes: [
+        %{id: "host", type: Host},
+        %{id: "segment", type: NetworkSegment},
+        %{id: "service", type: Service}
+      ]
+    }
+
+    assert %{summary: %{host_count: 1}} =
+             [run("source-host")]
+             |> experiment(graph)
+             |> SimulationReport.generate()
   end
 
   test "returns empty series when no simulations were persisted" do
@@ -78,7 +96,11 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
            id: "graph",
            revision_id: "revision",
            title: "Test graph",
-           nodes: [%{}, %{}, %{}]
+           nodes: [
+             %{id: "host-1", type: Host},
+             %{id: "host-2", type: Host},
+             %{id: "host-3", type: Host}
+           ]
          }
        ) do
     %Experiment{

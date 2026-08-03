@@ -6,11 +6,13 @@ import { hostNode } from "./nodes/HostNode";
 import { serviceNode } from "./nodes/ServiceNode";
 import { vulnerabilityNode } from "./nodes/VulnerabilityNode";
 import { credentialNode } from "./nodes/CredentialNode";
+import { networkSegmentNode } from "./nodes/NetworkSegmentNode";
 import { runsEdge } from "./edges/RunsEdge";
 import { networkReachabilityEdge } from "./edges/NetworkReachabilityEdge";
 import { hasVulnerabilityEdge } from "./edges/HasVulnerabilityEdge";
 import { storesCredentialEdge } from "./edges/StoresCredentialEdge";
 import { authenticatesToEdge } from "./edges/AuthenticatesToEdge";
+import { containsEdge } from "./edges/ContainsEdge";
 
 export interface NodePresentation {
   color: string;
@@ -30,6 +32,7 @@ const nodeRegistry = {
   Service: serviceNode,
   Vulnerability: vulnerabilityNode,
   Credential: credentialNode,
+  NetworkSegment: networkSegmentNode,
 } satisfies Record<Node["type"], NodePresentation>;
 
 const edgeRegistry = {
@@ -38,6 +41,7 @@ const edgeRegistry = {
   HasVulnerability: hasVulnerabilityEdge,
   StoresCredential: storesCredentialEdge,
   AuthenticatesTo: authenticatesToEdge,
+  Contains: containsEdge,
 } satisfies Record<Edge["type"], EdgePresentation>;
 
 const allInspectors: Record<string, Component<any>> = {};

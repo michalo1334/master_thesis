@@ -6,11 +6,12 @@ defmodule NetworkDefense.Nodes.Registry do
   """
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Registry
 
-  @types [Host, Service, Vulnerability, Credential]
+  @types [Host, Service, Vulnerability, Credential, NetworkSegment]
 
   def module_for(type), do: Registry.module_for(@types, type)
   def module_for_contract(type), do: Registry.module_for_short(@types, type)

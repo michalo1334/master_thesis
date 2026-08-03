@@ -1,11 +1,12 @@
 defmodule NetworkDefense.Graph.SemanticConnectivity do
   @moduledoc false
 
-  alias NetworkDefense.Nodes.{Credential, Host, Service, Vulnerability}
+  alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
+    Contains,
     HasVulnerability,
     NetworkReachability,
     Runs,
@@ -19,7 +20,8 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     NetworkReachability => [{Host, Service}],
     HasVulnerability => [{Host, Vulnerability}, {Service, Vulnerability}],
     StoresCredential => [{Host, Credential}],
-    AuthenticatesTo => [{Credential, Service}]
+    AuthenticatesTo => [{Credential, Service}],
+    Contains => [{NetworkSegment, Host}]
   }
 
   def valid?(relationship_type, from_type, to_type)

@@ -46,7 +46,8 @@ defmodule NetworkDefense.Graph.GraphDiff do
            Graph.hydrate(
              %{base | nodes: [], edges: [], adjacency_list: %{}},
              entity_values(nodes),
-             entity_values(edges)
+             entity_values(edges),
+             false
            ) do
       %{
         graph: graph,

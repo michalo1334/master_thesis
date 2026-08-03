@@ -41,7 +41,8 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
   def type({:type, _, :list, [item]}), do: "#{type(item)}[]"
 
   def type({:type, _, :union, types}) do
-    Enum.map_join(types, " | ", &type/1)
+    joined = Enum.map_join(types, " | ", &type/1)
+    if String.length(joined) > 50, do: "\n    #{joined}", else: joined
   end
 
   def type({:type, _, type, []}), do: Map.get(@basic_types, type, "unknown")

@@ -147,4 +147,10 @@
     font-size: var(--ds-text-sm);
     font-weight: 700;
   }
+  @media (max-width: 35rem) {
+    .dashboard-brand > span:not(.dashboard-brand-mark),
+    .dashboard-appbar-divider {
+      display: none;
+    }
+  }
 </style>

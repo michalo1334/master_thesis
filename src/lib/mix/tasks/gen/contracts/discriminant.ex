@@ -53,15 +53,10 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
     joined = Enum.join(variants, " | ")
     single_line = "export type #{name} = #{joined};"
 
-    cond do
-      String.length(single_line) <= 80 ->
-        single_line
-
-      String.length("  #{joined};") <= 80 ->
-        "export type #{name} =\n  #{joined};"
-
-      true ->
-        "export type #{name} =\n  | #{Enum.join(variants, "\n  | ")};"
+    if String.length(single_line) <= 80 do
+      single_line
+    else
+      "export type #{name} =\n  | #{Enum.join(variants, "\n  | ")};"
     end
   end
 end

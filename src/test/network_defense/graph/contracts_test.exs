@@ -4,6 +4,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
     CredentialData,
+    NetworkSegmentData,
     CvssData,
     HasVulnerabilityData,
     NetworkReachabilityData,
@@ -31,6 +32,18 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
       assert {:error, _} =
                CredentialData.validate(%{"identifier" => "key-1", "credential_type" => "invalid"})
+    end
+  end
+
+  describe "NetworkSegmentData" do
+    test "requires a name and accepts an optional CIDR" do
+      assert {:ok, _} = NetworkSegmentData.validate(%{"name" => "DMZ", "cidr" => "10.0.0.0/24"})
+      assert {:ok, _} = NetworkSegmentData.validate(%{"name" => "Internal"})
+
+      assert {:error, _} =
+               NetworkSegmentData.validate(%{"name" => "Invalid", "cidr" => "10.0.0.0/40"})
+
+      assert {:error, _} = NetworkSegmentData.validate(%{})
     end
   end
 
