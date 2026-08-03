@@ -165,41 +165,20 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
     end
   end
 
-  describe "RemoteServiceExploitation protocol matching" do
-    test "matches when reachability protocol matches service" do
+  describe "RemoteServiceExploitation" do
+    test "exploits vulnerable service reachable from foothold" do
       {graph, source_host, _target_host, service, _vulnerability} =
-        vulnerable_service_graph("tcp")
+        vulnerable_service_graph()
 
       attacker_state = AttackerState.new(source_host.id)
       simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
 
       assert [action] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
       assert action.service_id == service.id
-    end
-
-    test "matches when reachability protocol is any" do
-      {graph, source_host, _target_host, service, _vulnerability} =
-        vulnerable_service_graph("any")
-
-      attacker_state = AttackerState.new(source_host.id)
-      simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
-
-      assert [action] = Rule.evaluate(%RemoteServiceExploitation{}, simulation)
-      assert action.service_id == service.id
-    end
-
-    test "does not match when protocol differs" do
-      {graph, source_host, _target_host, _service, _vulnerability} =
-        vulnerable_service_graph("udp")
-
-      attacker_state = AttackerState.new(source_host.id)
-      simulation = Run.new(graph: graph, initial_attacker_state: attacker_state)
-
-      assert Rule.evaluate(%RemoteServiceExploitation{}, simulation) == []
     end
   end
 
-  defp vulnerable_service_graph(reachability_protocol) do
+  defp vulnerable_service_graph do
     source_host = node("source", Host, %{"name" => "internet"})
     target_host = node("target", Host, %{"name" => "web-01"})
     service = node("service", Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
@@ -213,9 +192,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
 
     graph =
       graph([source_host, target_host, service, vulnerability], [
-        edge("reachable", source_host, service, NetworkReachability, %{
-          "protocol" => reachability_protocol
-        }),
+        edge("reachable", source_host, service, NetworkReachability),
         edge("runs", target_host, service, Runs),
         edge("vulnerability", service, vulnerability, HasVulnerability, %{
           "required_privilege" => "none",

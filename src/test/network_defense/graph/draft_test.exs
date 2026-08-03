@@ -14,17 +14,17 @@ defmodule NetworkDefense.Graph.DraftTest do
   end
 
   test "edge draft uses relationship defaults for valid directed endpoints" do
-    host = %{id: Ecto.UUID.generate(), type: "Host"}
-    service = %{id: Ecto.UUID.generate(), type: "Service"}
-    host_id = host.id
-    service_id = service.id
+    from_segment = %{id: Ecto.UUID.generate(), type: "NetworkSegment"}
+    to_segment = %{id: Ecto.UUID.generate(), type: "NetworkSegment"}
+    from_id = from_segment.id
+    to_id = to_segment.id
 
-    assert {:ok, edge} = Edge.draft("NetworkReachability", host, service)
+    assert {:ok, edge} = Edge.draft("SegmentReachability", from_segment, to_segment)
 
     assert %{
-             type: "NetworkReachability",
-             from_id: ^host_id,
-             to_id: ^service_id,
+             type: "SegmentReachability",
+             from_id: ^from_id,
+             to_id: ^to_id,
              data: %{protocol: "any", port_start: nil, port_end: nil}
            } = edge
   end

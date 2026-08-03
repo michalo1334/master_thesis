@@ -84,32 +84,6 @@
     connectionPickerOpen = true;
   }
 
-  function chooseNetworkReachability(
-    sourceHostId: string,
-    targetServiceIds: readonly string[],
-    position: { x: number; y: number },
-  ) {
-    const source = document.graph.nodes.find(
-      (node) => node.id === sourceHostId,
-    );
-    if (!source || source.type !== "Host") return;
-
-    connection = {
-      position,
-      options: targetServiceIds.flatMap((targetServiceId) => {
-        const target = document.graph.nodes.find(
-          (node) => node.id === targetServiceId,
-        );
-        return target?.type === "Service"
-          ? connectionOptions(source, target).filter(
-              (option) => option.relationshipType === "NetworkReachability",
-            )
-          : [];
-      }),
-    };
-    connectionPickerOpen = true;
-  }
-
   function connectionOptions(source: Node, target?: Node): ConnectionOption[] {
     return connectivityRules.flatMap((rule) => {
       if (target) {
@@ -255,11 +229,7 @@
       {onCompareGraphs}
     />
   {:else}
-    <NetworkCanvas
-      {document}
-      {api}
-      onCreateReachability={chooseNetworkReachability}
-    />
+    <NetworkCanvas {document} {api} />
   {/if}
 </div>
 

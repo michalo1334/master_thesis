@@ -3,7 +3,7 @@ import { applyForceLayout, resolveOwnership } from "./ForceLayout.svelte";
 import { defaultForceParams } from "./ForceLayout.types";
 import type { Node, Edge } from "../../contract";
 
-type NodeType = "Host" | "Service" | "Vulnerability";
+type NodeType = "Host" | "Service" | "Vulnerability" | "NetworkSegment";
 
 function mkNode(id: string, type: NodeType): Node {
   switch (type) {
@@ -39,6 +39,13 @@ function mkNode(id: string, type: NodeType): Node {
           },
           exploit_probability: 0,
         },
+        view_data: { x_pos: 0, y_pos: 0 },
+      };
+    case "NetworkSegment":
+      return {
+        id,
+        type,
+        data: { name: id },
         view_data: { x_pos: 0, y_pos: 0 },
       };
   }
@@ -128,13 +135,15 @@ describe("applyForceLayout ownership clustering", () => {
     const s2 = mkNode("s2", "Service");
     const v1 = mkNode("v1", "Vulnerability");
     const v2 = mkNode("v2", "Vulnerability");
-    const nodes = [h1, h2, s1, s2, v1, v2];
+    const segA = mkNode("seg-a", "NetworkSegment");
+    const segB = mkNode("seg-b", "NetworkSegment");
+    const nodes = [h1, h2, s1, s2, v1, v2, segA, segB];
     const edges: Edge[] = [
       mkEdge("runs-1", "h1", "s1", "Runs"),
       mkEdge("runs-2", "h2", "s2", "Runs"),
       mkEdge("vulnerability-1", "s1", "v1", "HasVulnerability"),
       mkEdge("vulnerability-2", "s2", "v2", "HasVulnerability"),
-      mkEdge("reachability", "h1", "s2", "NetworkReachability"),
+      mkEdge("reachability", "seg-a", "seg-b", "SegmentReachability"),
     ];
 
     applyForceLayout(nodes, edges, defaultForceParams);

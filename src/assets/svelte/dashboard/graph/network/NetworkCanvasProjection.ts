@@ -15,13 +15,6 @@ export interface NetworkHost {
   }>;
 }
 
-export interface NetworkLink {
-  id: string;
-  sourceId: string;
-  targetId: string;
-  edgeIds: string[];
-}
-
 export interface NetworkSegment {
   id: string;
   name: string;
@@ -35,12 +28,11 @@ export interface NetworkSegmentLink {
   id: string;
   sourceId: string;
   targetId: string;
-  edgeCount: number;
+  edgeIds: string[];
 }
 
 export interface NetworkProjection {
   hosts: NetworkHost[];
-  links: NetworkLink[];
   segments: NetworkSegment[];
   segmentLinks: NetworkSegmentLink[];
 }
@@ -146,33 +138,6 @@ export function projectNetwork(graph: LoadedGraph): NetworkProjection {
     ];
   });
 
-  const hostIdFor = (nodeId: string): string | undefined => {
-    const node = nodesById.get(nodeId);
-    if (node?.type === "Host") return node.id;
-    if (node?.type === "Service") return serviceHostIds.get(node.id);
-    if (node?.type === "Vulnerability") {
-      const serviceId = vulnerabilityServiceIds.get(node.id);
-      return serviceId ? serviceHostIds.get(serviceId) : undefined;
-    }
-    return undefined;
-  };
-  const linksByHosts = new Map<string, NetworkLink>();
-  for (const edge of graph.edges) {
-    if (edge.type !== "NetworkReachability") continue;
-    const sourceId = hostIdFor(edge.from_id);
-    const targetId = hostIdFor(edge.to_id);
-    if (!sourceId || !targetId || sourceId === targetId) continue;
-    const id = `${sourceId}:${targetId}`;
-    const link = linksByHosts.get(id) ?? {
-      id,
-      sourceId,
-      targetId,
-      edgeIds: [],
-    };
-    link.edgeIds.push(edge.id);
-    linksByHosts.set(id, link);
-  }
-
   const segments = new Map<string, NetworkSegment>();
   for (const segment of segmentsById.values()) {
     segments.set(segment.id, {
@@ -214,24 +179,26 @@ export function projectNetwork(graph: LoadedGraph): NetworkProjection {
   }
 
   const segmentLinksById = new Map<string, NetworkSegmentLink>();
-  for (const link of linksByHosts.values()) {
-    const sourceId = segmentIdByHostId.get(link.sourceId) ?? "unassigned";
-    const targetId = segmentIdByHostId.get(link.targetId) ?? "unassigned";
-    if (sourceId === targetId) continue;
-    const id = `${sourceId}:${targetId}`;
+  for (const edge of graph.edges) {
+    if (edge.type !== "SegmentReachability") continue;
+    const source = nodesById.get(edge.from_id);
+    const target = nodesById.get(edge.to_id);
+    if (source?.type !== "NetworkSegment" || target?.type !== "NetworkSegment")
+      continue;
+    if (edge.from_id === edge.to_id) continue;
+    const id = `${edge.from_id}:${edge.to_id}`;
     const segmentLink = segmentLinksById.get(id) ?? {
       id,
-      sourceId,
-      targetId,
-      edgeCount: 0,
+      sourceId: edge.from_id,
+      targetId: edge.to_id,
+      edgeIds: [],
     };
-    segmentLink.edgeCount += link.edgeIds.length;
+    segmentLink.edgeIds.push(edge.id);
     segmentLinksById.set(id, segmentLink);
   }
 
   return {
     hosts,
-    links: [...linksByHosts.values()],
     segments: [...segments.values()].filter(
       (segment) => segment.hosts.length > 0 || segment.node,
     ),

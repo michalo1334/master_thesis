@@ -11,8 +11,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     AuthenticatesToData,
     ContainsData,
     HasVulnerabilityData,
-    NetworkReachabilityData,
     RunsData,
+    SegmentReachabilityData,
     StoresCredentialData
   }
 
@@ -21,7 +21,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     data_field: :data,
     variants: [
       Runs: RunsData,
-      NetworkReachability: NetworkReachabilityData,
+      SegmentReachability: SegmentReachabilityData,
       HasVulnerability: HasVulnerabilityData,
       StoresCredential: StoresCredentialData,
       AuthenticatesTo: AuthenticatesToData,
@@ -33,8 +33,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
 
   @variants [
     Runs: {RunsData, NetworkDefense.Relationships.Runs},
-    NetworkReachability:
-      {NetworkReachabilityData, NetworkDefense.Relationships.NetworkReachability},
+    SegmentReachability:
+      {SegmentReachabilityData, NetworkDefense.Relationships.SegmentReachability},
     HasVulnerability: {HasVulnerabilityData, NetworkDefense.Relationships.HasVulnerability},
     StoresCredential: {StoresCredentialData, NetworkDefense.Relationships.StoresCredential},
     AuthenticatesTo: {AuthenticatesToData, NetworkDefense.Relationships.AuthenticatesTo},
@@ -56,7 +56,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
           type: String.t(),
           data:
             RunsData.t()
-            | NetworkReachabilityData.t()
+            | SegmentReachabilityData.t()
             | HasVulnerabilityData.t()
             | StoresCredentialData.t()
             | AuthenticatesToData.t()

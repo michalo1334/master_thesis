@@ -72,7 +72,7 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
              )
   end
 
-  test "rejects invalid endpoints before appending a revision" do
+  test "rejects operational reachability edges before appending a revision" do
     assert {:ok, graph} = Graphs.insert(Graph.new("Topology"))
     host_id = Ecto.UUID.generate()
 
@@ -86,12 +86,12 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
           "from_id" => host_id,
           "to_id" => host_id,
           "type" => Atom.to_string(NetworkReachability),
-          "data" => %{"protocol" => "any"}
+          "data" => %{}
         }
       ]
     }
 
-    assert {:error, :invalid_endpoints} = Graphs.replace(graph.id, attrs)
+    assert {:error, :invalid_edge} = Graphs.replace(graph.id, attrs)
     assert %{revision_number: 1} = Graphs.load_revision!(graph.revision_id)
   end
 

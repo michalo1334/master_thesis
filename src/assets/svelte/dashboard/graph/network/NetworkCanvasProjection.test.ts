@@ -26,6 +26,12 @@ function graph(): LoadedGraph {
         view_data: { x_pos: 0, y_pos: -200 },
       },
       {
+        id: "segment-b",
+        type: "NetworkSegment",
+        data: { name: "LAN", cidr: "10.0.1.0/24" },
+        view_data: { x_pos: 500, y_pos: -200 },
+      },
+      {
         id: "service",
         type: "Service",
         data: { name: "https", port: 443, protocol: "tcp" },
@@ -59,9 +65,9 @@ function graph(): LoadedGraph {
       },
       {
         id: "reachability",
-        type: "NetworkReachability",
-        from_id: "host-b",
-        to_id: "service",
+        type: "SegmentReachability",
+        from_id: "segment",
+        to_id: "segment-b",
         data: { protocol: "tcp" },
       },
       {
@@ -71,12 +77,19 @@ function graph(): LoadedGraph {
         to_id: "host-a",
         data: {},
       },
+      {
+        id: "contains-b",
+        type: "Contains",
+        from_id: "segment-b",
+        to_id: "host-b",
+        data: {},
+      },
     ],
   };
 }
 
 describe("projectNetwork", () => {
-  it("folds ownership and collapses reachability to hosts", () => {
+  it("folds ownership into hosts", () => {
     const projection = projectNetwork(graph());
 
     expect(projection.hosts[0]).toMatchObject({
@@ -85,11 +98,14 @@ describe("projectNetwork", () => {
         { node: { id: "service" }, vulnerabilities: [{ id: "vulnerability" }] },
       ],
     });
-    expect(projection.links).toEqual([
+  });
+
+  it("maps segment policy edges directly between segments", () => {
+    expect(projectNetwork(graph()).segmentLinks).toEqual([
       {
-        id: "host-b:host-a",
-        sourceId: "host-b",
-        targetId: "host-a",
+        id: "segment:segment-b",
+        sourceId: "segment",
+        targetId: "segment-b",
         edgeIds: ["reachability"],
       },
     ]);

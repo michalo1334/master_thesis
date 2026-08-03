@@ -10,15 +10,17 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Optimization.OptimizationRun
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
+    Contains,
     HasVulnerability,
-    NetworkReachability,
     Runs,
+    SegmentReachability,
     StoresCredential
   }
 
@@ -44,6 +46,9 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   @vulnerability_edge_id "00000000-0000-0000-0000-000000000008"
   @stores_edge_id "00000000-0000-0000-0000-000000000009"
   @auth_edge_id "00000000-0000-0000-0000-000000000010"
+  @segment_id "00000000-0000-0000-0000-000000000012"
+  @segment_b_id "00000000-0000-0000-0000-000000000013"
+  @contains_edge_id "00000000-0000-0000-0000-000000000014"
   test "all dashboard contracts are embedded schemas with changesets" do
     Registry.list_contract_modules(:all)
     |> Enum.each(fn contract ->
@@ -192,6 +197,20 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     nodes = [
       %Node{
+        id: @segment_id,
+        graph_id: graph.id,
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "dmz"},
+        view_data: %{"x_pos" => 10, "y_pos" => 10}
+      },
+      %Node{
+        id: @segment_b_id,
+        graph_id: graph.id,
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "internal"},
+        view_data: %{"x_pos" => 20, "y_pos" => 10}
+      },
+      %Node{
         id: @host_id,
         graph_id: graph.id,
         type: Atom.to_string(Host),
@@ -227,6 +246,14 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     edges = [
       %Edge{
+        id: @contains_edge_id,
+        graph_id: graph.id,
+        from_id: @segment_id,
+        to_id: @host_id,
+        type: Atom.to_string(Contains),
+        data: %{}
+      },
+      %Edge{
         id: @runs_edge_id,
         graph_id: graph.id,
         from_id: @host_id,
@@ -237,10 +264,10 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       %Edge{
         id: @reachability_edge_id,
         graph_id: graph.id,
-        from_id: @host_id,
-        to_id: @service_id,
-        type: Atom.to_string(NetworkReachability),
-        data: %{"protocol" => "any"}
+        from_id: @segment_b_id,
+        to_id: @segment_id,
+        type: Atom.to_string(SegmentReachability),
+        data: %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
       },
       %Edge{
         id: @vulnerability_edge_id,
@@ -275,7 +302,14 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     assert wire.parent_revision_id == nil
     assert wire.revision_kind == "initial"
 
-    assert ["Credential", "Host", "Service", "Vulnerability"] =
+    assert [
+             "Credential",
+             "Host",
+             "NetworkSegment",
+             "NetworkSegment",
+             "Service",
+             "Vulnerability"
+           ] =
              wire
              |> Map.fetch!(:nodes)
              |> Enum.map(&Map.fetch!(&1, :type))
@@ -283,15 +317,18 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert [
              "AuthenticatesTo",
+             "Contains",
              "HasVulnerability",
-             "NetworkReachability",
              "Runs",
+             "SegmentReachability",
              "StoresCredential"
            ] =
              wire
              |> Map.fetch!(:edges)
              |> Enum.map(&Map.fetch!(&1, :type))
              |> Enum.sort()
+
+    refute Enum.any?(wire.edges, &(&1.type == "NetworkReachability"))
 
     assert %{radius: 30.0} =
              wire

@@ -3,14 +3,14 @@ defmodule NetworkDefense.SimulationsTest do
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
-  alias NetworkDefense.Nodes.{Host, Service}
-  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
+  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Simulation.{Experiment, IterationStep, Run, SimulationReport}
   alias NetworkDefense.Simulations
 
   test "reports load the graph revision pinned by the experiment" do
     assert {:ok, graph} = Graphs.insert(graph("Original"))
-    [host | _] = Graph.nodes(graph)
+    host = Enum.find(Graph.nodes(graph), &(&1.type == Host))
 
     experiment =
       Experiment.new(
@@ -73,7 +73,50 @@ defmodule NetworkDefense.SimulationsTest do
              graph.revision_id |> Simulations.list_experiments() |> Enum.map(& &1.id)
   end
 
+  test "keeps operational reachability as a valid in-memory marker" do
+    graph = operational_graph("Operational")
+
+    assert [%{type: NetworkReachability, data: %NetworkReachability{}}] = Graph.edges(graph)
+    assert {:error, :invalid_edge} = Graphs.insert(graph)
+  end
+
   defp graph(title) do
+    graph = Graph.new(title)
+
+    segment =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "External"},
+        view_data: %{"x_pos" => 0, "y_pos" => -100}
+      })
+
+    host =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Host),
+        data: %{"name" => "host"},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
+    service =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Service),
+        data: %{"name" => "ssh", "protocol" => "tcp", "port" => 22},
+        view_data: %{"x_pos" => 100, "y_pos" => 0}
+      })
+
+    graph
+    |> Graph.add_node(segment)
+    |> Graph.add_node(host)
+    |> Graph.add_node(service)
+    |> Graph.add_edge(
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}})
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
+    )
+  end
+
+  defp operational_graph(title) do
     graph = Graph.new(title)
 
     host =
@@ -96,7 +139,7 @@ defmodule NetworkDefense.SimulationsTest do
     |> Graph.add_edge(
       Edge.new(graph.id, host.id, service.id, %{
         type: Atom.to_string(NetworkReachability),
-        data: %{"protocol" => "any"}
+        data: %{}
       })
     )
   end

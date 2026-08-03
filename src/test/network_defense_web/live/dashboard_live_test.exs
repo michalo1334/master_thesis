@@ -7,10 +7,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
 
@@ -98,8 +101,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       graph = insert_graph("dwg-001")
       source = insert_node(graph, "origin")
       target = insert_service(Graphs.load_revision!(source.graph_revision_id), "dest")
-      edge = insert_edge(source, target)
-      graph = Graphs.load_revision!(edge.graph_revision_id)
+      graph = Graphs.load_revision!(target.graph_revision_id)
 
       {:ok, view, _html} = live(conn, ~p"/")
 
@@ -230,8 +232,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       base = insert_graph("base")
       source = insert_node(base, "source")
       target = insert_service(Graphs.load_revision!(source.graph_revision_id), "target")
-      edge = insert_edge(source, target)
-      base = Graphs.load_revision!(edge.graph_revision_id)
+      base = Graphs.load_revision!(target.graph_revision_id)
       assert {:ok, comparison} = Graphs.append_optimization(%{base | title: "comparison"})
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -245,8 +246,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "ok",
         result: %{
           graph: %{id: result_graph_id, title: "base"},
-          node_counts: %{added: 0, removed: 0, unchanged: 2},
-          edge_counts: %{added: 0, removed: 0, unchanged: 1},
+          node_counts: %{added: 0, removed: 0, unchanged: 3},
+          edge_counts: %{added: 0, removed: 0, unchanged: 2},
           node_status: node_status,
           edge_status: edge_status
         }
@@ -903,13 +904,17 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   describe "save_graph" do
-    test "persists graph edges and node view_data", %{conn: conn} do
+    test "persists a fully owned canonical graph with segment policy", %{conn: conn} do
       graph = insert_graph("save-graph")
       source = insert_node(graph, "source")
       graph = Graphs.load_revision!(source.graph_revision_id)
       target = insert_service(graph, "target")
-      edge_id = Ecto.UUID.generate()
       graph = Graphs.load_revision!(target.graph_revision_id)
+      segment = Enum.find(Graph.nodes(graph), &(&1.type == NetworkSegment))
+      other_segment = insert_segment(graph, "other")
+      graph = Graphs.load_revision!(other_segment.graph_revision_id)
+      [contains, runs] = Graph.edges(graph)
+      reachability_id = Ecto.UUID.generate()
 
       {:ok, view, _html} = live(conn, ~p"/")
 
@@ -919,6 +924,18 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "revision_id" => graph.revision_id,
           "title" => "saved graph",
           "nodes" => [
+            %{
+              "id" => segment.id,
+              "type" => "NetworkSegment",
+              "data" => NetworkDefense.Graph.Data.to_params(segment.data),
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            },
+            %{
+              "id" => other_segment.id,
+              "type" => "NetworkSegment",
+              "data" => NetworkDefense.Graph.Data.to_params(other_segment.data),
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            },
             %{
               "id" => source.id,
               "type" => "Host",
@@ -934,24 +951,58 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           ],
           "edges" => [
             %{
-              "id" => edge_id,
+              "id" => contains.id,
+              "from_id" => segment.id,
+              "to_id" => source.id,
+              "type" => "Contains",
+              "data" => %{}
+            },
+            %{
+              "id" => runs.id,
               "from_id" => source.id,
               "to_id" => target.id,
-              "type" => "NetworkReachability",
+              "type" => "Runs",
+              "data" => %{}
+            },
+            %{
+              "id" => reachability_id,
+              "from_id" => segment.id,
+              "to_id" => other_segment.id,
+              "type" => "SegmentReachability",
               "data" => %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
             }
           ]
         }
       })
 
+      assert_reply(view, %{
+        status: "ok",
+        graph: %{title: "saved graph", edges: wire_edges}
+      })
+
+      assert Enum.map(wire_edges, & &1.type) |> Enum.sort() ==
+               Enum.sort(["Contains", "Runs", "SegmentReachability"])
+
+      refute Enum.any?(wire_edges, &(&1.type == "NetworkReachability"))
+
       saved_graph = latest_graph(graph.id)
 
-      assert [%{from_id: source_id, to_id: target_id, type: type}] = Graph.edges(saved_graph)
-      assert source_id == source.id
-      assert target_id == target.id
-      assert type == NetworkReachability
       assert saved_graph.title == "saved graph"
       assert saved_graph.revision_id != graph.revision_id
+
+      saved_edges = Graph.edges(saved_graph)
+      refute Enum.any?(saved_edges, &(&1.type == NetworkReachability))
+
+      assert Enum.find(saved_edges, &(&1.type == Contains)).from_id == segment.id
+      assert Enum.find(saved_edges, &(&1.type == Contains)).to_id == source.id
+      assert Enum.find(saved_edges, &(&1.type == Runs)).from_id == source.id
+      assert Enum.find(saved_edges, &(&1.type == Runs)).to_id == target.id
+
+      assert %{from_id: from_segment_id, to_id: to_segment_id, type: SegmentReachability} =
+               Enum.find(saved_edges, &(&1.type == SegmentReachability))
+
+      assert from_segment_id == segment.id
+      assert to_segment_id == other_segment.id
 
       source_node = Enum.find(saved_graph.nodes, &(&1.id == source.id))
       target_node = Enum.find(saved_graph.nodes, &(&1.id == target.id))
@@ -959,6 +1010,43 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert source_node.view_data.y_pos == 240.0
       assert target_node.view_data.x_pos == 360.0
       assert target_node.view_data.y_pos == 480.0
+    end
+
+    test "rejects a save payload with an operational NetworkReachability edge", %{conn: conn} do
+      graph = insert_graph("rejected-save")
+      source = insert_node(graph, "source")
+      graph = Graphs.load_revision!(source.graph_revision_id)
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "revision_id" => graph.revision_id,
+          "title" => "rejected graph",
+          "nodes" => [
+            %{
+              "id" => source.id,
+              "type" => "Host",
+              "data" => NetworkDefense.Graph.Data.to_params(source.data),
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => [
+            %{
+              "id" => Ecto.UUID.generate(),
+              "from_id" => source.id,
+              "to_id" => Ecto.UUID.generate(),
+              "type" => "NetworkReachability",
+              "data" => %{"protocol" => "any"}
+            }
+          ]
+        }
+      })
+
+      assert_reply(view, %{status: "invalid_graph", graph: nil})
+
+      assert latest_graph(graph.id).revision_id == graph.revision_id
     end
 
     test "replaces a selected graph revision", %{conn: conn} do
@@ -1026,6 +1114,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp insert_node(graph, name) do
+    segment =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "segment"},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
     node =
       Node.new(graph.id, %{
         type: Atom.to_string(Host),
@@ -1035,7 +1130,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
     graph.revision_id
     |> Graphs.load_revision!()
+    |> Graph.add_node(segment)
     |> Graph.add_node(node)
+    |> Graph.add_edge(
+      Edge.new(graph.id, segment.id, node.id, %{type: Atom.to_string(Contains), data: %{}})
+    )
     |> append_revision()
     |> Graph.node(node.id)
   end
@@ -1048,22 +1147,31 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         view_data: %{"x_pos" => 0, "y_pos" => 0}
       })
 
+    host = Enum.find(Graph.nodes(graph), &(&1.type == Host))
+
+    graph.revision_id
+    |> Graphs.load_revision!()
+    |> Graph.add_node(node)
+    |> Graph.add_edge(
+      Edge.new(graph.id, host.id, node.id, %{type: Atom.to_string(Runs), data: %{}})
+    )
+    |> append_revision()
+    |> Graph.node(node.id)
+  end
+
+  defp insert_segment(graph, name) do
+    node =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => name},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
     graph.revision_id
     |> Graphs.load_revision!()
     |> Graph.add_node(node)
     |> append_revision()
     |> Graph.node(node.id)
-  end
-
-  defp insert_edge(source, target) do
-    edge =
-      Edge.new(source.graph_id, source.id, target.id, %{type: Atom.to_string(Runs), data: %{}})
-
-    target.graph_revision_id
-    |> Graphs.load_revision!()
-    |> Graph.add_edge(edge)
-    |> append_revision()
-    |> Graph.edge(edge.id)
   end
 
   defp append_revision(graph) do

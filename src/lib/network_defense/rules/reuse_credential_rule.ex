@@ -1,6 +1,6 @@
 defmodule NetworkDefense.Rules.ReuseCredentialRule do
   @moduledoc """
-  Source foothold with matching reachability to Service and acquired Credential AuthenticatesTo
+  Source foothold with reachability to Service and acquired Credential AuthenticatesTo
   Service receives granted privilege on the host running service, deterministic.
   """
 
@@ -37,7 +37,6 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
           %{from: {:target_host, Host}, via: {:runs, Runs}, to: {:service, Service}}
         ]
       })
-      |> Enum.filter(&reachability_matches?/1)
       |> Enum.flat_map(fn match ->
         graph
         |> Query.match(%{
@@ -64,12 +63,6 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
           }
         end)
       end)
-    end
-
-    defp reachability_matches?(match) do
-      reachability = match.reachability.data
-      service = match.service.data
-      NetworkReachability.matches_service?(reachability, service)
     end
   end
 end

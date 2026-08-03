@@ -11,7 +11,7 @@ const nodeTypes = [
 ] as const;
 const edgeTypes = [
   "Runs",
-  "NetworkReachability",
+  "SegmentReachability",
   "HasVulnerability",
   "StoresCredential",
   "AuthenticatesTo",
@@ -54,6 +54,27 @@ describe("presentation registry", () => {
     it("Runs edge has solid line (null dashArray)", () => {
       const pres = edgePresentation("Runs");
       expect(pres!.dashArray).toBeNull();
+    });
+
+    it("SegmentReachability presents a dashed policy edge with a label", () => {
+      const pres = edgePresentation("SegmentReachability");
+
+      expect(pres!.dashArray).toBe("5 3");
+
+      const base = { id: "r", from_id: "segment-a", to_id: "segment-b" };
+      const protocolOnly = pres!.label?.({
+        ...base,
+        type: "SegmentReachability",
+        data: { protocol: "tcp" },
+      } as Edge);
+      const withPorts = pres!.label?.({
+        ...base,
+        type: "SegmentReachability",
+        data: { protocol: "tcp", port_start: 80, port_end: 443 },
+      } as Edge);
+
+      expect(protocolOnly).toBe("tcp");
+      expect(withPorts).toBe("tcp:80-443");
     });
 
     it("returns null for an unknown edge type", () => {

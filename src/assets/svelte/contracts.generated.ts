@@ -32,18 +32,18 @@ export interface HostData {
   name: string;
 }
 
-export interface NetworkReachabilityData {
-  port_end?: number | null;
-  port_start?: number | null;
-  protocol: "tcp" | "udp" | "any";
-}
-
 export interface NetworkSegmentData {
   cidr?: string | null;
   name: string;
 }
 
 export type RunsData = Record<never, never>;
+
+export interface SegmentReachabilityData {
+  port_end?: number | null;
+  port_start?: number | null;
+  protocol: "tcp" | "udp" | "any";
+}
 
 export interface ServiceData {
   name: string;
@@ -64,7 +64,7 @@ export interface VulnerabilityData {
 
 export type Edge =
   | RunsEdge
-  | NetworkReachabilityEdge
+  | SegmentReachabilityEdge
   | HasVulnerabilityEdge
   | StoresCredentialEdge
   | AuthenticatesToEdge
@@ -78,9 +78,9 @@ export interface RunsEdge {
   to_id: string;
 }
 
-export interface NetworkReachabilityEdge {
-  type: "NetworkReachability";
-  data: NetworkReachabilityData;
+export interface SegmentReachabilityEdge {
+  type: "SegmentReachability";
+  data: SegmentReachabilityData;
   from_id: string;
   id: string;
   to_id: string;
@@ -230,7 +230,7 @@ export interface CreateConnectionDraftPayload {
   new_node_type?: string | null;
   relationship_type:
     | "Runs"
-    | "NetworkReachability"
+    | "SegmentReachability"
     | "HasVulnerability"
     | "StoresCredential"
     | "AuthenticatesTo"
@@ -353,7 +353,7 @@ export interface GraphConnectivityRule {
     "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
   relationship_type:
     | "Runs"
-    | "NetworkReachability"
+    | "SegmentReachability"
     | "HasVulnerability"
     | "StoresCredential"
     | "AuthenticatesTo"

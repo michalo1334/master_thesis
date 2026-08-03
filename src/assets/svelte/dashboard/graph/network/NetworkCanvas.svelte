@@ -17,14 +17,9 @@
   interface Props {
     document: EditableGraphDocument;
     api: DashboardApi;
-    onCreateReachability: (
-      sourceHostId: string,
-      targetServiceIds: readonly string[],
-      position: { x: number; y: number },
-    ) => void;
   }
 
-  let { document, api, onCreateReachability }: Props = $props();
+  let { document, api }: Props = $props();
   let viewport = $state({ width: 0, height: 0 });
   let view = $state({ zoom: 100, pan: { x: 0, y: 0 } });
   let expandedHostIds = $state.raw(new SvelteSet<string>());
@@ -46,12 +41,6 @@
         moved: boolean;
       }
     | {
-        kind: "connection";
-        pointerId: number;
-        hostId: string;
-        point: { x: number; y: number };
-      }
-    | {
         kind: "containment";
         pointerId: number;
         segmentId: string;
@@ -60,7 +49,6 @@
   >();
   let suppressClick = $state(false);
   let status = $state("");
-  let keyboardConnectionSourceId = $state<string>();
   let keyboardContainmentSourceId = $state<string>();
 
   let projection = $derived(projectNetwork(document.graph));
@@ -77,7 +65,6 @@
   let visibleSegments = $derived(
     cullNetworkSegments(projection.segments, viewport, view.pan, view.zoom),
   );
-  let visibleHostIds = $derived(new Set(visibleHosts.map((host) => host.id)));
   let visibleSegmentIds = $derived(
     new Set(visibleSegments.map((segment) => segment.id)),
   );
@@ -88,7 +75,6 @@
     document.selection?.type === "Host" ? document.selection : undefined,
   );
   let showHosts = $derived(view.zoom >= 60);
-  let connectionDrag = $derived(drag?.kind === "connection" ? drag : undefined);
   let containmentDrag = $derived(
     drag?.kind === "containment" ? drag : undefined,
   );
@@ -164,18 +150,6 @@
     };
   }
 
-  function startConnection(hostId: string, event: PointerEvent): void {
-    if (event.button !== 0 || !event.isPrimary) return;
-    event.stopPropagation();
-    captureSurface(event);
-    drag = {
-      kind: "connection",
-      pointerId: event.pointerId,
-      hostId,
-      point: graphPoint(event),
-    };
-  }
-
   function startContainment(segmentId: string, event: PointerEvent): void {
     if (event.button !== 0 || !event.isPrimary) return;
     event.stopPropagation();
@@ -198,7 +172,7 @@
       };
       return;
     }
-    if (activeDrag.kind === "connection" || activeDrag.kind === "containment") {
+    if (activeDrag.kind === "containment") {
       activeDrag.point = graphPoint(event);
       return;
     }
@@ -272,20 +246,6 @@
       document.selectNode(current.hostId);
     }
     const targetId = hostAt(point);
-    if (current.kind === "connection") {
-      const targetHost = projection.hosts.find((host) => host.id === targetId);
-      if (targetHost && targetHost.id !== current.hostId) {
-        if (targetHost.services.length === 0) {
-          status = "Target host has no services.";
-          return;
-        }
-        onCreateReachability(
-          current.hostId,
-          targetHost.services.map((service) => service.node.id),
-          point,
-        );
-      }
-    }
     if (current.kind === "containment" && targetId)
       void createContainment(current.segmentId, targetId);
   }
@@ -314,33 +274,10 @@
       void createContainment(segmentId, host.id);
       return;
     }
-    if (keyboardConnectionSourceId) {
-      const sourceId = keyboardConnectionSourceId;
-      keyboardConnectionSourceId = undefined;
-      status = "";
-      if (sourceId !== host.id && host.services.length === 0) {
-        status = "Target host has no services.";
-        return;
-      }
-      if (sourceId !== host.id)
-        onCreateReachability(
-          sourceId,
-          host.services.map((service) => service.node.id),
-          { x: host.node.view_data.x_pos, y: host.node.view_data.y_pos },
-        );
-      return;
-    }
     selectHost(hostId);
   }
 
-  function startKeyboardConnection(hostId: string): void {
-    keyboardContainmentSourceId = undefined;
-    keyboardConnectionSourceId = hostId;
-    status = "Select a target host and press Enter.";
-  }
-
   function startKeyboardContainment(segmentId: string): void {
-    keyboardConnectionSourceId = undefined;
     keyboardContainmentSourceId = segmentId;
     status = "Select an unassigned host and press Enter.";
   }
@@ -466,7 +403,7 @@
     class="network-surface"
     role="group"
     viewBox={`0 0 ${viewport.width} ${viewport.height}`}
-    aria-label="Host-centric network topology. Drag blank space to pan, drag a host to move it, and drag connectors to create relationships."
+    aria-label="Network topology. Drag blank space to pan, drag a host to move it, and drag a segment connector to assign a host."
     bind:clientWidth={viewport.width}
     bind:clientHeight={viewport.height}
     onpointerdown={startPan}
@@ -482,70 +419,33 @@
     }}
   >
     <g {transform}>
-      {#if showHosts}
-        {#each projection.links as link (link.id)}
-          {#if visibleHostIds.has(link.sourceId) && visibleHostIds.has(link.targetId)}
-            {@const source = projection.hosts.find(
-              (host) => host.id === link.sourceId,
-            )!}
-            {@const target = projection.hosts.find(
-              (host) => host.id === link.targetId,
-            )!}
+      {#if !showHosts}
+        {#each projection.segmentLinks as link (link.id)}
+          {#if visibleSegmentIds.has(link.sourceId) && visibleSegmentIds.has(link.targetId)}
+            {@const source = segmentById.get(link.sourceId)!}
+            {@const target = segmentById.get(link.targetId)!}
             <g
               class="network-link"
               role="button"
               tabindex="0"
-              aria-label="Network reachability"
+              aria-label="Segment reachability"
               onclick={() => document.selectEdge(link.edgeIds[0])}
               onkeydown={(event) =>
                 activateKey(event, () => document.selectEdge(link.edgeIds[0]))}
             >
               <path
-                d={`M ${source.node.view_data.x_pos + HOST_WIDTH} ${source.node.view_data.y_pos + HOST_HEIGHT / 2} L ${target.node.view_data.x_pos} ${target.node.view_data.y_pos + HOST_HEIGHT / 2}`}
+                d={`M ${source.position.x + 180} ${source.position.y + 40} L ${target.position.x} ${target.position.y + 40}`}
               />
               {#if link.edgeIds.length > 1}
                 <text
-                  x={(source.node.view_data.x_pos +
-                    target.node.view_data.x_pos +
-                    HOST_WIDTH) /
-                    2}
-                  y={(source.node.view_data.y_pos +
-                    target.node.view_data.y_pos +
-                    HOST_HEIGHT) /
-                    2}>{link.edgeIds.length}</text
+                  x={(source.position.x + target.position.x + 180) / 2}
+                  y={(source.position.y + target.position.y + 80) / 2}
+                  >{link.edgeIds.length}</text
                 >
               {/if}
             </g>
           {/if}
         {/each}
-      {:else}
-        {#each projection.segmentLinks as link (link.id)}
-          {#if visibleSegmentIds.has(link.sourceId) && visibleSegmentIds.has(link.targetId)}
-            {@const source = segmentById.get(link.sourceId)!}
-            {@const target = segmentById.get(link.targetId)!}
-            <g class="network-link">
-              <path
-                d={`M ${source.position.x + 180} ${source.position.y + 40} L ${target.position.x} ${target.position.y + 40}`}
-              />
-              <text
-                x={(source.position.x + target.position.x + 180) / 2}
-                y={(source.position.y + target.position.y + 80) / 2}
-                >{link.edgeCount}</text
-              >
-            </g>
-          {/if}
-        {/each}
-      {/if}
-      {#if connectionDrag}
-        {@const source = projection.hosts.find(
-          (host) => host.id === connectionDrag.hostId,
-        )}
-        {#if source}
-          <path
-            class="network-preview"
-            d={`M ${source.node.view_data.x_pos + HOST_WIDTH} ${source.node.view_data.y_pos + HOST_HEIGHT / 2} L ${connectionDrag.point.x} ${connectionDrag.point.y}`}
-          />
-        {/if}
       {/if}
       {#if containmentDrag}
         {@const source = segmentById.get(containmentDrag.segmentId)}
@@ -588,21 +488,6 @@
             <text class="network-host-meta" x="12" y="64"
               >{segmentById.get(host.segmentId)?.name ?? "Unassigned"}</text
             >
-            <circle
-              class="network-connector"
-              cx={HOST_WIDTH}
-              cy={HOST_HEIGHT / 2}
-              r="6"
-              role="button"
-              tabindex="0"
-              aria-label={`Create reachability from ${host.node.data.name}`}
-              onpointerdown={(event) => startConnection(host.id, event)}
-              onclick={(event) => event.stopPropagation()}
-              onkeydown={(event) => {
-                event.stopPropagation();
-                activateKey(event, () => startKeyboardConnection(host.id));
-              }}
-            />
             {#if host.services.length > 0}
               <g
                 class="network-expand"

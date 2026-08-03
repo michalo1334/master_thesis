@@ -8,7 +8,7 @@ import { vulnerabilityNode } from "./nodes/VulnerabilityNode";
 import { credentialNode } from "./nodes/CredentialNode";
 import { networkSegmentNode } from "./nodes/NetworkSegmentNode";
 import { runsEdge } from "./edges/RunsEdge";
-import { networkReachabilityEdge } from "./edges/NetworkReachabilityEdge";
+import { segmentReachabilityEdge } from "./edges/SegmentReachabilityEdge";
 import { hasVulnerabilityEdge } from "./edges/HasVulnerabilityEdge";
 import { storesCredentialEdge } from "./edges/StoresCredentialEdge";
 import { authenticatesToEdge } from "./edges/AuthenticatesToEdge";
@@ -25,6 +25,7 @@ export interface EdgePresentation {
   color: string;
   dashArray: string | null;
   inspector: Component<any>;
+  label?: (edge: Edge) => string;
 }
 
 const nodeRegistry = {
@@ -37,7 +38,7 @@ const nodeRegistry = {
 
 const edgeRegistry = {
   Runs: runsEdge,
-  NetworkReachability: networkReachabilityEdge,
+  SegmentReachability: segmentReachabilityEdge,
   HasVulnerability: hasVulnerabilityEdge,
   StoresCredential: storesCredentialEdge,
   AuthenticatesTo: authenticatesToEdge,

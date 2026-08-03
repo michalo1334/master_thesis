@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Graph.Contracts.Data.NetworkReachabilityData do
+defmodule NetworkDefense.Graph.Contracts.Data.SegmentReachabilityData do
   @moduledoc false
 
   use NetworkDefense.Contracts, category: :graph

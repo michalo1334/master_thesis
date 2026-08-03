@@ -7,7 +7,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
     NetworkSegmentData,
     CvssData,
     HasVulnerabilityData,
-    NetworkReachabilityData,
+    SegmentReachabilityData,
     StoresCredentialData
   }
 
@@ -99,33 +99,33 @@ defmodule NetworkDefense.Graph.ContractsTest do
     end
   end
 
-  describe "NetworkReachabilityData" do
+  describe "SegmentReachabilityData" do
     test "validates protocol and optional ports" do
-      assert {:ok, _} = NetworkReachabilityData.validate(%{"protocol" => "any"})
-      assert {:ok, _} = NetworkReachabilityData.validate(%{"protocol" => "tcp"})
-      assert {:ok, _} = NetworkReachabilityData.validate(%{"protocol" => "udp"})
+      assert {:ok, _} = SegmentReachabilityData.validate(%{"protocol" => "any"})
+      assert {:ok, _} = SegmentReachabilityData.validate(%{"protocol" => "tcp"})
+      assert {:ok, _} = SegmentReachabilityData.validate(%{"protocol" => "udp"})
 
       assert {:ok, _} =
-               NetworkReachabilityData.validate(%{
+               SegmentReachabilityData.validate(%{
                  "protocol" => "tcp",
                  "port_start" => 80,
                  "port_end" => 443
                })
 
-      assert {:error, _} = NetworkReachabilityData.validate(%{})
+      assert {:error, _} = SegmentReachabilityData.validate(%{})
 
       assert {:error, _} =
-               NetworkReachabilityData.validate(%{"protocol" => "tcp", "port_start" => 80})
+               SegmentReachabilityData.validate(%{"protocol" => "tcp", "port_start" => 80})
 
       assert {:error, _} =
-               NetworkReachabilityData.validate(%{
+               SegmentReachabilityData.validate(%{
                  "protocol" => "tcp",
                  "port_start" => 70_000,
                  "port_end" => 80_000
                })
 
       assert {:error, _} =
-               NetworkReachabilityData.validate(%{
+               SegmentReachabilityData.validate(%{
                  "protocol" => "tcp",
                  "port_start" => 443,
                  "port_end" => 80

@@ -30,7 +30,7 @@
   --ds-color-node-service: #22c55e;
   --ds-color-node-vulnerability: #ef4444;
   --ds-color-edge-runs: #64748b;
-  --ds-color-edge-reachability: #f59e0b;
+  --ds-color-edge-segment-reachability: #f59e0b;
   --ds-color-edge-vulnerability: #ef4444;
 
   /* Status and semantic state */
@@ -101,7 +101,7 @@
   --ds-color-node-service: #22a84e;
   --ds-color-node-vulnerability: #e0453b;
   --ds-color-edge-runs: #64748b;
-  --ds-color-edge-reachability: #e0950a;
+  --ds-color-edge-segment-reachability: #e0950a;
   --ds-color-edge-vulnerability: #e0453b;
 
   --ds-color-warning-bg: #f5e9be;
@@ -141,7 +141,7 @@
   --ds-color-node-service: #5ea67a;
   --ds-color-node-vulnerability: #ff8076;
   --ds-color-edge-runs: #9ba8b8;
-  --ds-color-edge-reachability: #e0a945;
+  --ds-color-edge-segment-reachability: #e0a945;
   --ds-color-edge-vulnerability: #ff8076;
 
   --ds-shadow-sm: 0 1px 3px #0000003d;

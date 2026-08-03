@@ -25,12 +25,14 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
              """
              export type Edge =
                | RunsEdge
-               | NetworkReachabilityEdge
+               | SegmentReachabilityEdge
                | HasVulnerabilityEdge
                | StoresCredentialEdge
                | AuthenticatesToEdge
                | ContainsEdge;
              """
+
+    refute output =~ "NetworkReachability"
 
     assert output =~ "protocol: \"tcp\" | \"udp\";"
     assert output =~ "protocol: \"tcp\" | \"udp\" | \"any\";"

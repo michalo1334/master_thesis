@@ -8,6 +8,8 @@ defmodule NetworkDefense.Graph.Graphs do
   alias Ecto.Changeset
   alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
+  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Repo
 
   @snapshot_insert_batch_size 1_000
@@ -364,7 +366,8 @@ defmodule NetworkDefense.Graph.Graphs do
   defp make_edge(graph_id, id, from_id, to_id, type, data) do
     with {:ok, id} <- Ecto.UUID.cast(id),
          {:ok, from_id} <- Ecto.UUID.cast(from_id),
-         {:ok, to_id} <- Ecto.UUID.cast(to_id) do
+         {:ok, to_id} <- Ecto.UUID.cast(to_id),
+         :ok <- reject_operational_reachability(type) do
       %Edge{id: id, graph_id: graph_id, from_id: from_id, to_id: to_id}
       |> Edge.changeset(%{type: type, data: data})
       |> Changeset.apply_action(:insert)
@@ -375,6 +378,10 @@ defmodule NetworkDefense.Graph.Graphs do
     else
       :error -> {:error, :invalid_edge}
     end
+  end
+
+  defp reject_operational_reachability(type) do
+    if RelationshipRegistry.module_for(type) == NetworkReachability, do: :error, else: :ok
   end
 
   defp map_candidates(attrs, mapper) do

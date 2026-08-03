@@ -4,8 +4,8 @@ defmodule NetworkDefense.Graph.GraphTest do
   import Ecto.Query
 
   alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, Graphs, Node}
-  alias NetworkDefense.Nodes.{Host, Service}
-  alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
+  alias NetworkDefense.Relationships.{Contains, Runs}
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, IterationStep, Run}
 
@@ -19,20 +19,20 @@ defmodule NetworkDefense.Graph.GraphTest do
              title: "Topology"
            } = saved
 
-    assert [_host, _service] = Graph.nodes(saved)
-    assert [_edge] = Graph.edges(saved)
+    assert [_segment, _host, _service] = Graph.nodes(saved)
+    assert [_contains, _runs] = Graph.edges(saved)
   end
 
   test "each save appends an edit revision without changing earlier snapshots" do
     assert {:ok, original} = Graphs.insert(graph("Topology"))
-    [host, service] = Graph.nodes(original)
-    [edge] = Graph.edges(original)
+    [segment, host, service] = Graph.nodes(original)
+    [contains, runs] = Graph.edges(original)
 
     attrs = %{
       "title" => "Renamed topology",
       "revision_id" => original.revision_id,
-      "nodes" => [node_attrs(host), node_attrs(service)],
-      "edges" => [edge_attrs(edge)]
+      "nodes" => [node_attrs(segment), node_attrs(host), node_attrs(service)],
+      "edges" => [edge_attrs(contains), edge_attrs(runs)]
     }
 
     assert {:ok, %{graph: saved}} = Graphs.replace(original.id, attrs)
@@ -71,7 +71,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   test "returns an error for invalid snapshot endpoints" do
     assert {:ok, original} = Graphs.insert(graph("Topology"))
-    [edge] = Graph.edges(original)
+    [_, edge] = Graph.edges(original)
 
     assert {:error, :invalid_endpoints} =
              Graph.hydrate(original, Graph.nodes(original), [
@@ -83,8 +83,8 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   test "rejects duplicate snapshot node and edge IDs" do
     assert {:ok, original} = Graphs.insert(graph("Topology"))
-    [host, service] = Graph.nodes(original)
-    [edge] = Graph.edges(original)
+    [_, host, service] = Graph.nodes(original)
+    [edge | _] = Graph.edges(original)
 
     assert {:error, :duplicate_ids} =
              Graphs.replace(original.id, %{
@@ -104,7 +104,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   test "lists every revision with its lineage and snapshot counts" do
-    assert {:ok, original} = Graphs.insert(graph_with_duplicate_edge("Topology"))
+    assert {:ok, original} = Graphs.insert(graph("Topology"))
     assert {:ok, %{graph: edited}} = Graphs.replace(original.id, replacement_attrs(original))
     assert {:ok, optimized} = Graphs.append_optimization(edited)
 
@@ -121,10 +121,10 @@ defmodule NetworkDefense.Graph.GraphTest do
     assert graph_id == original.id
     assert initial_id == original.revision_id
 
-    assert %{parentRevisionId: ^initial_id, revisionKind: "edit", nodeCount: 2, edgeCount: 2} =
+    assert %{parentRevisionId: ^initial_id, revisionKind: "edit", nodeCount: 3, edgeCount: 2} =
              edit
 
-    assert %{parentRevisionId: edit_id, revisionKind: "optimization", nodeCount: 2, edgeCount: 2} =
+    assert %{parentRevisionId: edit_id, revisionKind: "optimization", nodeCount: 3, edgeCount: 2} =
              optimization
 
     assert edit_id == edited.revision_id
@@ -156,7 +156,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   test "rejects identities owned by another graph" do
     assert {:ok, first} = Graphs.insert(graph("First"))
-    [node | _] = Graph.nodes(first)
+    node = Enum.find(Graph.nodes(first), &(&1.type == NetworkSegment))
     second = Graph.new("Second")
     second = Graph.add_node(second, %{node | graph_id: second.id})
 
@@ -166,7 +166,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   test "database rejects graph revision references from another graph" do
     assert {:ok, first} = Graphs.insert(graph("First"))
     assert {:ok, second} = Graphs.insert(graph("Second"))
-    [_first_host, first_service] = Graph.nodes(first)
+    [_, _, first_service] = Graph.nodes(first)
     [second_host | _] = Graph.nodes(second)
 
     assert_foreign_key_violation(
@@ -300,7 +300,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   test "database rejects graph snapshot updates" do
     assert {:ok, graph} = Graphs.insert(graph("Topology"))
     [node | _] = Graph.nodes(graph)
-    [edge] = Graph.edges(graph)
+    [edge | _] = Graph.edges(graph)
 
     assert_update_guard("UPDATE graph_revisions SET title = 'changed' WHERE id = $1", [
       uuid(graph.revision_id)
@@ -380,6 +380,13 @@ defmodule NetworkDefense.Graph.GraphTest do
   defp graph(title) do
     graph = Graph.new(title)
 
+    segment =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "segment"},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
     host =
       Node.new(graph.id, %{
         type: Atom.to_string(Host),
@@ -395,19 +402,13 @@ defmodule NetworkDefense.Graph.GraphTest do
       })
 
     graph
+    |> Graph.add_node(segment)
     |> Graph.add_node(host)
     |> Graph.add_node(service)
     |> Graph.add_edge(
-      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}})
     )
-  end
-
-  defp graph_with_duplicate_edge(title) do
-    graph = graph(title)
-    [host, service] = Graph.nodes(graph)
-
-    Graph.add_edge(
-      graph,
+    |> Graph.add_edge(
       Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
     )
   end
@@ -422,12 +423,10 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   defp replacement_attrs(graph) do
-    [host, service] = Graph.nodes(graph)
-
     %{
       "title" => graph.title,
       "revision_id" => graph.revision_id,
-      "nodes" => [node_attrs(host), node_attrs(service)],
+      "nodes" => Enum.map(Graph.nodes(graph), &node_attrs/1),
       "edges" => Enum.map(Graph.edges(graph), &edge_attrs/1)
     }
   end

@@ -25,7 +25,7 @@ interface SimLink extends SimulationLinkDatum<SimNode> {
 }
 
 const DEFAULT_EDGE_DISTANCES: Record<string, number> = {
-  NetworkReachability: 200,
+  SegmentReachability: 200,
   Runs: 80,
   HasVulnerability: 50,
 };
@@ -89,21 +89,6 @@ function forceOwnership(
   };
 }
 
-function rootOwnerId(
-  nodeId: string,
-  ownership: ReadonlyMap<string, string>,
-): string {
-  let rootId = nodeId;
-  let parentId = ownership.get(rootId);
-
-  while (parentId) {
-    rootId = parentId;
-    parentId = ownership.get(rootId);
-  }
-
-  return rootId;
-}
-
 export function applyForceLayout(
   nodes: Node[],
   edges: Edge[],
@@ -124,18 +109,11 @@ export function applyForceLayout(
     .filter(
       (edge) => simNodesById.has(edge.from_id) && simNodesById.has(edge.to_id),
     )
-    .map((edge) => {
-      const isReachability = edge.type === "NetworkReachability";
-      return {
-        source: isReachability
-          ? rootOwnerId(edge.from_id, ownership)
-          : edge.from_id,
-        target: isReachability
-          ? rootOwnerId(edge.to_id, ownership)
-          : edge.to_id,
-        distance: DEFAULT_EDGE_DISTANCES[edge.type] ?? params.linkDistance,
-      };
-    })
+    .map((edge) => ({
+      source: edge.from_id,
+      target: edge.to_id,
+      distance: DEFAULT_EDGE_DISTANCES[edge.type] ?? params.linkDistance,
+    }))
     .filter((edge) => edge.source !== edge.target);
 
   const simulation = forceSimulation<SimNode>(simNodes)

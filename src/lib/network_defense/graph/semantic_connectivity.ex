@@ -10,6 +10,7 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     HasVulnerability,
     NetworkReachability,
     Runs,
+    SegmentReachability,
     StoresCredential
   }
 
@@ -18,6 +19,16 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
   @allowed_endpoints %{
     Runs => [{Host, Service}],
     NetworkReachability => [{Host, Service}],
+    SegmentReachability => [{NetworkSegment, NetworkSegment}],
+    HasVulnerability => [{Host, Vulnerability}, {Service, Vulnerability}],
+    StoresCredential => [{Host, Credential}],
+    AuthenticatesTo => [{Credential, Service}],
+    Contains => [{NetworkSegment, Host}]
+  }
+
+  @canonical_endpoints %{
+    Runs => [{Host, Service}],
+    SegmentReachability => [{NetworkSegment, NetworkSegment}],
     HasVulnerability => [{Host, Vulnerability}, {Service, Vulnerability}],
     StoresCredential => [{Host, Credential}],
     AuthenticatesTo => [{Credential, Service}],
@@ -31,10 +42,10 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
   def valid?(_relationship_type, _from_type, _to_type), do: false
 
   def rules do
-    for {relationship, endpoints} <- @allowed_endpoints,
+    for {relationship, endpoints} <- @canonical_endpoints,
         {from, to} <- endpoints do
       %{
-        relationship_type: RelationshipRegistry.contract_type_for(relationship),
+        relationship_type: RelationshipRegistry.contract_type_for_canonical(relationship),
         from_type: NodeRegistry.contract_type_for(from),
         to_type: NodeRegistry.contract_type_for(to)
       }

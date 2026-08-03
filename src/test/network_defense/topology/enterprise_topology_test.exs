@@ -92,21 +92,20 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
         |> Graph.edges()
         |> Enum.filter(&(&1.type == NetworkReachability))
         |> Enum.map(fn edge ->
-          {Graph.node(graph, edge.from_id).data.name, Graph.node(graph, edge.to_id).data.name,
-           edge.data.port_start}
+          {Graph.node(graph, edge.from_id).data.name, Graph.node(graph, edge.to_id).data.name}
         end)
 
-      assert {"internet", "https", 443} in reachability
-      refute {"internet", "ssh", 22} in reachability
-      assert Enum.any?(reachability, &match?({"dmz-web-" <> _, "api", 8080}, &1))
-      assert Enum.any?(reachability, &match?({"internal-api-" <> _, "postgresql", 5432}, &1))
-      assert Enum.any?(reachability, &match?({"internal-app-" <> _, "postgresql", 5432}, &1))
-      assert Enum.any?(reachability, &match?({"workstation-" <> _, "ldap", 389}, &1))
-      assert Enum.any?(reachability, &match?({"workstation-" <> _, "smb", 445}, &1))
-      assert Enum.any?(reachability, &match?({"mgmt-bastion-" <> _, "ssh", 22}, &1))
+      assert {"internet", "https"} in reachability
+      refute {"internet", "ssh"} in reachability
+      assert Enum.any?(reachability, &match?({"dmz-web-" <> _, "api"}, &1))
+      assert Enum.any?(reachability, &match?({"internal-api-" <> _, "postgresql"}, &1))
+      assert Enum.any?(reachability, &match?({"internal-app-" <> _, "postgresql"}, &1))
+      assert Enum.any?(reachability, &match?({"workstation-" <> _, "ldap"}, &1))
+      assert Enum.any?(reachability, &match?({"workstation-" <> _, "smb"}, &1))
+      assert Enum.any?(reachability, &match?({"mgmt-bastion-" <> _, "ssh"}, &1))
 
       assert Enum.all?(reachability, fn
-               {"internet", _, port} -> port == 443
+               {"internet", to} -> to == "https"
                _ -> true
              end)
     end
@@ -125,19 +124,20 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
   end
 
   describe "persistence" do
-    test "inserts a graph that passes full data validation" do
+    test "rejects canonical persistence of a generated operational graph" do
       graph = EnterpriseTopology.generate(title: "persisted", hosts: 8, seed: 3)
-      assert {:ok, persisted} = Graphs.insert(graph)
-      assert persisted.title == "persisted"
-      assert Enum.count_until(host_names(persisted), 10) == 9
-      assert Graph.edges(persisted) != []
+
+      assert graph.title == "persisted"
+      assert Enum.count_until(host_names(graph), 10) == 9
+      assert Graph.edges(graph) != []
+
+      assert {:error, :invalid_edge} = Graphs.insert(graph)
     end
 
-    test "inserts an enterprise-scale graph" do
+    test "rejects persisting an enterprise-scale operational graph" do
       graph = EnterpriseTopology.generate(title: "enterprise-scale", hosts: 249, seed: 69)
 
-      assert {:ok, persisted} = Graphs.insert(graph)
-      assert Enum.count_until(host_names(persisted), 251) == 250
+      assert {:error, :invalid_edge} = Graphs.insert(graph)
     end
   end
 

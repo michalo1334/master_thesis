@@ -4,7 +4,9 @@ defmodule NetworkDefense.Graph.Graph do
 
   alias NetworkDefense.Graph.{Edge, Folder, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
+  alias NetworkDefense.Nodes.{Host, Service}
   alias NetworkDefense.Relationships.Contains
+  alias NetworkDefense.Relationships.Runs
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -49,7 +51,7 @@ defmodule NetworkDefense.Graph.Graph do
 
     with {:ok, graph} <- hydrate_nodes(graph, nodes),
          {:ok, graph} <- hydrate_edges(graph, edges),
-         :ok <- validate_segment_membership(graph, validate_membership) do
+         :ok <- validate_membership(graph, validate_membership) do
       {:ok, graph}
     end
   end
@@ -225,15 +227,26 @@ defmodule NetworkDefense.Graph.Graph do
     end)
   end
 
-  defp validate_segment_membership(_graph, false), do: :ok
+  defp validate_membership(_graph, false), do: :ok
 
-  defp validate_segment_membership(graph, true) do
+  defp validate_membership(graph, true) do
+    with :ok <- validate_exactly_one(graph, Host, Contains, :multiple_segments) do
+      validate_exactly_one(graph, Service, Runs, :multiple_runs)
+    end
+  end
+
+  defp validate_exactly_one(graph, node_type, edge_type, error_atom) do
+    memberships =
+      graph
+      |> edges()
+      |> Enum.filter(&(&1.type == edge_type))
+      |> Enum.frequencies_by(& &1.to_id)
+
     graph
-    |> edges()
-    |> Enum.filter(&match?(%{type: Contains}, &1))
-    |> Enum.frequencies_by(& &1.to_id)
-    |> Enum.all?(fn {_host_id, count} -> count == 1 end)
-    |> if(do: :ok, else: {:error, :multiple_segments})
+    |> nodes()
+    |> Enum.filter(&(&1.type == node_type))
+    |> Enum.all?(fn node -> Map.get(memberships, node.id, 0) == 1 end)
+    |> if(do: :ok, else: {:error, error_atom})
   end
 
   defp segment_membership_allowed?(_graph, _edge, false), do: :ok

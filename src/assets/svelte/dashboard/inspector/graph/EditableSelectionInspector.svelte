@@ -31,7 +31,7 @@
     const key = path.at(-1);
     if (key === "credential_type") return ["password", "ssh_key", "token"];
     if (key === "protocol")
-      return selectable.type === "NetworkReachability"
+      return selectable.type === "SegmentReachability"
         ? ["tcp", "udp", "any"]
         : ["tcp", "udp"];
     if (key === "required_privilege")

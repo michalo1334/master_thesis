@@ -34,6 +34,7 @@
   const markerId = $props.id();
   let edgeType = $derived(edge.type);
   let edgeStyle = $derived(edgePresentation(edge.type));
+  let edgeLabel = $derived(edgeStyle?.label ? edgeStyle.label(edge) : edgeType);
   let geometry = $derived(edgeEndpoints(sourcePosition, targetPosition));
   let path = $derived(
     `M ${geometry.source.x} ${geometry.source.y} L ${geometry.target.x} ${geometry.target.y}`,
@@ -82,7 +83,7 @@
       role="button"
       aria-disabled={onclick ? undefined : true}
       aria-pressed={onclick ? selected : undefined}
-      aria-label={`${edgeType} relationship${selected ? ", selected" : ""}`}
+      aria-label={`${edgeLabel} relationship${selected ? ", selected" : ""}`}
       {onclick}
       onkeydown={handleKeydown}
     />
@@ -92,7 +93,7 @@
       y={labelPosition.y}
       text-anchor="middle"
       dominant-baseline="central"
-      aria-hidden="true">{edgeType}</text
+      aria-hidden="true">{edgeLabel}</text
     >
   </g>
 {/snippet}

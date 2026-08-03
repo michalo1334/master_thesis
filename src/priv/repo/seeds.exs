@@ -7,12 +7,14 @@ alias NetworkDefense.Graph.Graphs
 alias NetworkDefense.Graph.Node
 alias NetworkDefense.Nodes.Credential
 alias NetworkDefense.Nodes.Host
+alias NetworkDefense.Nodes.NetworkSegment
 alias NetworkDefense.Nodes.Service
 alias NetworkDefense.Nodes.Vulnerability
 alias NetworkDefense.Relationships.AuthenticatesTo
+alias NetworkDefense.Relationships.Contains
 alias NetworkDefense.Relationships.HasVulnerability
-alias NetworkDefense.Relationships.NetworkReachability
 alias NetworkDefense.Relationships.Runs
+alias NetworkDefense.Relationships.SegmentReachability
 alias NetworkDefense.Relationships.StoresCredential
 alias NetworkDefense.Simulation.Seed
 
@@ -83,28 +85,43 @@ credential_specs = [
   {"db-password", "db-readonly-password", "password"}
 ]
 
-# NetworkReachability Host -> Service edges only
-reachability_specs = [
-  {"internet", "vpn"},
-  {"edge-fw-01", "vpn"},
-  {"edge-fw-01", "web-01"},
-  {"edge-fw-01", "web-02"},
-  {"vpn-01", "bastion"},
-  {"bastion-01", "idp"},
-  {"bastion-01", "git"},
-  {"web-01", "app-01"},
-  {"web-02", "app-02"},
-  {"app-01", "worker"},
-  {"app-02", "worker"},
-  {"app-01", "db-primary"},
-  {"app-02", "db-primary"},
-  {"worker-01", "db-replica"},
-  {"worker-01", "files"},
-  {"git-01", "files"},
-  {"monitoring-01", "app-01"},
-  {"monitoring-01", "app-02"},
-  {"monitoring-01", "db-primary"},
-  {"db-01", "db-replica"}
+# Host -> segment membership. Exactly one segment per host.
+segment_assignments = [
+  {"External", "internet"},
+  {"DMZ", "edge-fw-01"},
+  {"DMZ", "vpn-01"},
+  {"DMZ", "web-01"},
+  {"DMZ", "web-02"},
+  {"Internal", "app-01"},
+  {"Internal", "app-02"},
+  {"Internal", "worker-01"},
+  {"Internal", "git-01"},
+  {"Internal", "files-01"},
+  {"Restricted", "idp-01"},
+  {"Restricted", "db-01"},
+  {"Restricted", "db-replica-01"},
+  {"Management", "bastion-01"},
+  {"Management", "monitoring-01"}
+]
+
+# SegmentReachability NetworkSegment -> NetworkSegment policy rules.
+# Each previous host/service flow becomes the rule between the source host's
+# segment and the target service's host's segment, carrying the target
+# service's protocol and port.
+segment_policy_specs = [
+  {"External", "DMZ", "udp", 1194},
+  {"DMZ", "DMZ", "udp", 1194},
+  {"DMZ", "DMZ", "tcp", 443},
+  {"DMZ", "Management", "tcp", 22},
+  {"Management", "Restricted", "tcp", 636},
+  {"Management", "Internal", "tcp", 443},
+  {"DMZ", "Internal", "tcp", 8443},
+  {"Internal", "Internal", "tcp", 5672},
+  {"Internal", "Restricted", "tcp", 5432},
+  {"Internal", "Internal", "tcp", 445},
+  {"Management", "Internal", "tcp", 8443},
+  {"Management", "Restricted", "tcp", 5432},
+  {"Restricted", "Restricted", "tcp", 5432}
 ]
 
 # HasVulnerability Service -> Vulnerability with privilege defaults
@@ -198,14 +215,37 @@ graph = Graph.new("Enterprise Network")
     {Graph.add_node(graph, credential), Map.put(credentials, credential_id, credential)}
   end)
 
-# NetworkReachability Host -> Service edges only
+{graph, segments} =
+  segment_assignments
+  |> Enum.map(&elem(&1, 0))
+  |> Enum.uniq()
+  |> Enum.reduce({graph, %{}}, fn segment_name, {graph, segments} ->
+    segment = new_node.(graph, NetworkSegment, %{"name" => segment_name})
+    {Graph.add_node(graph, segment), Map.put(segments, segment_name, segment)}
+  end)
+
+# Contains NetworkSegment -> Host, exactly one per host
 graph =
-  Enum.reduce(reachability_specs, graph, fn {source_host_name, target_service_id}, graph ->
+  Enum.reduce(segment_assignments, graph, fn {segment_name, host_name}, graph ->
     Graph.add_edge(
       graph,
-      Map.fetch!(hosts, source_host_name),
-      Map.fetch!(services, target_service_id),
-      %{type: type_id.(NetworkReachability), data: %{}}
+      Map.fetch!(segments, segment_name),
+      Map.fetch!(hosts, host_name),
+      %{type: type_id.(Contains), data: %{}}
+    )
+  end)
+
+# SegmentReachability NetworkSegment -> NetworkSegment policy rules only
+graph =
+  Enum.reduce(segment_policy_specs, graph, fn {from_segment, to_segment, protocol, port}, graph ->
+    Graph.add_edge(
+      graph,
+      Map.fetch!(segments, from_segment),
+      Map.fetch!(segments, to_segment),
+      %{
+        type: type_id.(SegmentReachability),
+        data: %{"protocol" => protocol, "port_start" => port, "port_end" => port}
+      }
     )
   end)
 
@@ -307,11 +347,16 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
 
   case Enum.any?(Graphs.list_summaries(), &(&1.title == performance_title)) do
     false ->
-      host_count = div(node_count * 2, 5)
+      segment_count = 10
+      budget = node_count - segment_count
+      host_count = div(budget * 2, 5)
       service_count = host_count
-      vulnerability_count = div(node_count, 5)
+      vulnerability_count = div(budget, 5)
       performance_seed = node_count
       performance_host_names = ["internet" | Enum.map(1..(host_count - 1), &"host-#{&1}")]
+      segment_names = Enum.map(1..segment_count, &"segment-#{&1}")
+      host_segments = Enum.zip(performance_host_names, Stream.cycle(segment_names))
+      host_segment_map = Map.new(host_segments)
 
       service_templates = [
         {"http", "tcp", 80, "2.4.0"},
@@ -330,11 +375,28 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
           {Graph.add_node(graph, host), Map.put(hosts, host_name, host)}
         end)
 
-      {performance_graph, performance_services, random_state} =
+      {performance_graph, performance_segments} =
+        Enum.reduce(segment_names, {performance_graph, %{}}, fn segment_name, {graph, segments} ->
+          segment = new_node.(graph, NetworkSegment, %{"name" => segment_name})
+          {Graph.add_node(graph, segment), Map.put(segments, segment_name, segment)}
+        end)
+
+      # Contains NetworkSegment -> Host, exactly one per host
+      performance_graph =
+        Enum.reduce(host_segments, performance_graph, fn {host_name, segment_name}, graph ->
+          Graph.add_edge(
+            graph,
+            Map.fetch!(performance_segments, segment_name),
+            Map.fetch!(performance_hosts, host_name),
+            %{type: type_id.(Contains), data: %{}}
+          )
+        end)
+
+      {performance_graph, performance_services, service_flows, random_state} =
         Enum.reduce(
           1..service_count,
-          {performance_graph, [], Seed.integer_to_state(performance_seed)},
-          fn index, {graph, services, state} ->
+          {performance_graph, [], %{}, Seed.integer_to_state(performance_seed)},
+          fn index, {graph, services, flows, state} ->
             {template_index, state} = :rand.uniform_s(length(service_templates), state)
             {name, protocol, port, version} = Enum.at(service_templates, template_index - 1)
 
@@ -353,7 +415,8 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
               |> Graph.add_node(service)
               |> Graph.add_edge(host, service, %{type: type_id.(Runs), data: %{}})
 
-            {graph, [service | services], state}
+            {graph, [service | services],
+             Map.put(flows, service.id, %{protocol: protocol, port: port}), state}
           end
         )
 
@@ -393,18 +456,36 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
           {graph, state}
         end)
 
+      # SegmentReachability policy rules, three per host segment, matching the
+      # target service's protocol and port
       {performance_graph, _random_state} =
         Enum.reduce(performance_host_names, {performance_graph, random_state}, fn host_name,
                                                                                   {graph, state} ->
+          host_segment = Map.fetch!(host_segment_map, host_name)
+
           Enum.reduce(1..3, {graph, state}, fn _, {graph, state} ->
             {service_index, state} = :rand.uniform_s(vulnerability_count, state)
             service = Enum.at(performance_services, service_index - 1)
 
+            target_segment =
+              Map.fetch!(host_segment_map, Enum.at(performance_host_names, service_index - 1))
+
+            flow = Map.fetch!(service_flows, service.id)
+
             graph =
-              Graph.add_edge(graph, Map.fetch!(performance_hosts, host_name), service, %{
-                type: type_id.(NetworkReachability),
-                data: %{"protocol" => "any"}
-              })
+              Graph.add_edge(
+                graph,
+                Map.fetch!(performance_segments, host_segment),
+                Map.fetch!(performance_segments, target_segment),
+                %{
+                  type: type_id.(SegmentReachability),
+                  data: %{
+                    "protocol" => flow.protocol,
+                    "port_start" => flow.port,
+                    "port_end" => flow.port
+                  }
+                }
+              )
 
             {graph, state}
           end)
@@ -433,7 +514,7 @@ Enum.each([500, 1_000, 2_000], fn node_count ->
         raise "performance topology must contain #{node_count} nodes"
       end
 
-      edge_count = service_count + vulnerability_count + host_count * 3
+      edge_count = service_count + vulnerability_count + host_count + host_count * 3
 
       unless length(Graph.edges(performance_graph)) == edge_count do
         raise "performance topology must contain #{edge_count} edges"
