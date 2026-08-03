@@ -49,6 +49,8 @@ RUN mix deps.compile
 
 # install npm packages
 COPY package.json package-lock.json ./
+COPY lib/network_defense/runtime_config.ex lib/network_defense/
+RUN mix compile
 RUN mix assets.setup
 
 # copy source and compile

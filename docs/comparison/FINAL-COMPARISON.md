@@ -121,7 +121,7 @@ All four projects rely on standard `{:ok, _}` / `{:error, _}` tuples — no dry-
 ### Your Codebase
 
 - `Dockerfile`: multi-stage build with tini, Node.js for SSR, debian-based.
-- `docker-compose.yml` + `docker-compose.prod.yml` + `docker-compose.dev.yml`: full monitoring stack (Grafana, Tempo, Loki, Prometheus, Alloy).
+- Terraform Docker modules: full monitoring stack (Grafana, Tempo, Loki, Prometheus, Alloy).
 - `runtime.exs`: secrets from `_FILE` pattern (Docker/K8s compatible), typed env vars.
 - `mix precommit` alias: compile warnings, format, credo, dialyzer, sobelow, deps audit, tests.
 - **No CI/CD** — zero GitHub Actions workflows, no `.github/` directory.

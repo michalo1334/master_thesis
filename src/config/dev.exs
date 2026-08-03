@@ -1,37 +1,11 @@
 import Config
 
-# Use polling for file change detection inside Docker
-# (inotify doesn't propagate across bind mounts on all platforms)
 config :file_system, backend: FileSystem.Backends.Poll
-
-if File.exists?(".env") do
-  ".env"
-  |> File.read!()
-  |> String.split("\n")
-  |> Enum.each(fn line ->
-    if String.contains?(line, "=") and not String.starts_with?(line, "#") do
-      [k, v] = String.split(line, "=", parts: 2)
-      System.put_env(String.trim(k), String.trim(v))
-    end
-  end)
-end
 
 config :live_svelte, ssr_module: LiveSvelte.SSR.ViteJS, vite_host: "http://localhost:5173"
 
 # Keep traces responsive while debugging without changing production batching.
 config :opentelemetry, bsp_scheduled_delay_ms: 250
-
-# Configure your database
-config :network_defense, NetworkDefense.Repo,
-  username: System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") || "postgres",
-  password: System.get_env("REPO_PASSWORD") || System.get_env("POSTGRES_PASSWORD") || "postgres",
-  hostname: System.get_env("REPO_HOSTNAME") || "localhost",
-  port: String.to_integer(System.get_env("REPO_PORT") || "5433"),
-  database:
-    System.get_env("REPO_DATABASE") || System.get_env("POSTGRES_DB") || "network_defense_dev",
-  stacktrace: true,
-  show_sensitive_data_on_connection_error: true,
-  pool_size: 10
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -40,20 +14,9 @@ config :network_defense, NetworkDefense.Repo,
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
 config :network_defense, NetworkDefenseWeb.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
-  # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [
-    ip:
-      System.get_env("PHX_IP", "127.0.0.1")
-      |> String.split(".")
-      |> Enum.map(&String.to_integer/1)
-      |> List.to_tuple(),
-    port: String.to_integer(System.get_env("PORT") || "4000")
-  ],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   watchers: [vite: {PhoenixVite.Npm, :run, [:vite, ~w(dev)]}],
   static_url: [host: "localhost", port: 5173]
 

@@ -1,5 +1,60 @@
 import Config
 
+alias NetworkDefense.RuntimeConfig
+
+if config_env() == :dev do
+  RuntimeConfig.load_dotenv()
+end
+
+if (config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
+     RuntimeConfig.read_secret("DATABASE_URL") do
+  repo_config =
+    if System.get_env("REPO_HOSTNAME") do
+      [
+        username:
+          System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") ||
+            raise("expected REPO_USERNAME or POSTGRES_USER environment variable"),
+        password:
+          RuntimeConfig.read_secret("REPO_PASSWORD") ||
+            RuntimeConfig.read_secret("POSTGRES_PASSWORD") ||
+            raise("expected REPO_PASSWORD or POSTGRES_PASSWORD environment variable"),
+        hostname: System.fetch_env!("REPO_HOSTNAME"),
+        port: System.fetch_env!("REPO_PORT") |> String.to_integer(),
+        database:
+          System.get_env("REPO_DATABASE") || System.get_env("POSTGRES_DB") ||
+            raise("expected REPO_DATABASE or POSTGRES_DB environment variable")
+      ]
+    else
+      [
+        url:
+          RuntimeConfig.read_secret("DATABASE_URL") ||
+            raise("expected REPO_HOSTNAME or DATABASE_URL environment variable")
+      ]
+    end
+
+  config :network_defense, NetworkDefense.Repo, repo_config
+
+  if config_env() == :dev do
+    config :network_defense, NetworkDefense.Repo,
+      stacktrace: true,
+      show_sensitive_data_on_connection_error: true
+
+    config :network_defense, NetworkDefenseWeb.Endpoint,
+      http: [
+        ip:
+          System.get_env("PHX_IP", "127.0.0.1")
+          |> String.split(".")
+          |> Enum.map(&String.to_integer/1)
+          |> List.to_tuple(),
+        port: String.to_integer(System.get_env("PORT") || "4000")
+      ],
+      secret_key_base: RuntimeConfig.read_secret("SECRET_KEY_BASE"),
+      live_view: [
+        signing_salt: RuntimeConfig.read_secret("LIVE_VIEW_SIGNING_SALT", "dev-only-signing-salt")
+      ]
+  end
+end
+
 config :opentelemetry,
   resource: %{
     service: %{
@@ -83,35 +138,23 @@ if enable_file_log do
 end
 
 if config_env() == :prod do
-  read_secret = fn base_var ->
-    file_var = base_var <> "_FILE"
-
-    case System.get_env(file_var) do
-      path when is_binary(path) ->
-        path |> File.read!() |> String.trim()
-
-      nil ->
-        System.get_env(base_var) ||
-          raise "expected #{base_var} or #{file_var} environment variable"
-    end
-  end
-
-  database_url = read_secret.("DATABASE_URL")
-
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   ssl_enabled = System.get_env("DB_SSL") in ~w(true 1)
 
   config :network_defense, NetworkDefense.Repo,
     ssl: ssl_enabled,
-    url: database_url,
-    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10"),
     # For machines with several cores, consider starting multiple pools of `pool_size`
     # pool_count: 4,
     socket_options: maybe_ipv6
 
-  secret_key_base = read_secret.("SECRET_KEY_BASE")
-  live_view_signing_salt = read_secret.("LIVE_VIEW_SIGNING_SALT")
+  secret_key_base =
+    RuntimeConfig.read_secret("SECRET_KEY_BASE") ||
+      raise "expected SECRET_KEY_BASE or SECRET_KEY_BASE_FILE environment variable"
+
+  live_view_signing_salt =
+    RuntimeConfig.read_secret("LIVE_VIEW_SIGNING_SALT") ||
+      raise "expected LIVE_VIEW_SIGNING_SALT or LIVE_VIEW_SIGNING_SALT_FILE environment variable"
 
   host = System.get_env("PHX_HOST") || "example.com"
   port = String.to_integer(System.get_env("PORT") || "4000")

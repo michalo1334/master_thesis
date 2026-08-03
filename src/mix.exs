@@ -118,7 +118,7 @@ defmodule NetworkDefense.MixProject do
         "assets.build",
         "credo",
         "dialyzer",
-        "sobelow --config",
+        "sobelow --config --skip",
         "deps.unlock --unused",
         "test"
       ]

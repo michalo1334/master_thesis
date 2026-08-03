@@ -62,7 +62,7 @@ Evaluation metrics may include:
 
 ```text
 📁 master_thesis/  — Attack simulation and automated defense optimization
-├── 📁 docker/        — Application infrastructure and observability stack
+├── 📁 docker/        — Observability configuration and initialization scripts
 │   ├── 📁 grafana-dashboards/
 │   └── 📁 grafana-provisioning/
 ├── 📁 docs/          — ADRs, concepts, research notes, wireframes, and thesis drafts
@@ -72,6 +72,7 @@ Evaluation metrics may include:
 |   ├── 🗎 architecture.md
 |   └── 🗎 infrastructure.md
 ├── 📁 src/           — Elixir simulation engine and web application
+├── 📁 infra/         — Terraform infrastructure
 └── 📁 thesis/        — LaTeX source of the master's thesis
 ```
 
@@ -88,19 +89,9 @@ Evaluation metrics may include:
 # Quick start
 
 ```bash
-# Start PostgreSQL, pgAdmin, and the observability stack; run the application locally
-./docker/up.sh infra
-
-cd src
-
-OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 \
-mix phx.server
-
-# Run the complete development environment in Docker with hot reload
-./docker/up.sh dev
-
-# Display all available commands
-./docker/up.sh
+cd infra/environments/local
+./terraform.sh init
+./terraform.sh apply
 ```
 
 # Links
