@@ -14,7 +14,6 @@ locals {
     loki              = "grafana/loki:3.3.2"
     node_exporter     = "quay.io/prometheus/node-exporter:v1.9.1"
     otel_collector    = "otel/opentelemetry-collector-contrib:0.111.0"
-    postgres          = "postgres:18"
     postgres_exporter = "quay.io/prometheuscommunity/postgres-exporter:v0.17.1"
     prometheus        = "prom/prometheus:v2.55.0"
     tempo             = "grafana/tempo:2.5.0"
@@ -269,7 +268,7 @@ resource "docker_container" "cadvisor" {
 
 resource "docker_container" "postgres_exporter_init" {
   name     = "${var.name_prefix}-postgres-exporter-init"
-  image    = docker_image.stack["postgres"].image_id
+  image    = var.postgres_image
   command  = ["/bin/sh", "/usr/local/bin/postgres-exporter-init.sh"]
   attach   = true
   must_run = false

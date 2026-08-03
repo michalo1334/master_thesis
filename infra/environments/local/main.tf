@@ -76,6 +76,7 @@ module "observability" {
   log_volume_name   = docker_volume.application_logs.name
   postgres_user     = var.postgres_user
   postgres_database = var.postgres_database
+  postgres_image    = module.local.postgres_image
   grafana_user      = var.grafana_user
 
   depends_on = [module.local]

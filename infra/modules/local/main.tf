@@ -138,3 +138,7 @@ resource "docker_container" "pgadmin" {
   restart = "unless-stopped"
   wait    = true
 }
+
+output "postgres_image" {
+  value = docker_image.postgres.image_id
+}

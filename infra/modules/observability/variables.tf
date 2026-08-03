@@ -26,6 +26,10 @@ variable "postgres_database" {
   type = string
 }
 
+variable "postgres_image" {
+  type = string
+}
+
 variable "grafana_user" {
   type = string
 }
