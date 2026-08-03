@@ -10,6 +10,8 @@ defmodule NetworkDefense.Graph.Graphs do
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Repo
 
+  @snapshot_insert_batch_size 1_000
+
   def insert(%Graph{} = graph), do: create(graph)
 
   def create(%Graph{} = graph) do
@@ -463,7 +465,12 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   defp insert_snapshot_rows(_schema, []), do: :ok
-  defp insert_snapshot_rows(schema, rows), do: Repo.insert_all(schema, rows)
+
+  defp insert_snapshot_rows(schema, rows) do
+    rows
+    |> Enum.chunk_every(@snapshot_insert_batch_size)
+    |> Enum.each(&Repo.insert_all(schema, &1))
+  end
 
   defp transaction(fun) do
     Repo.transaction(fn -> fun.() |> rollback_error() end)

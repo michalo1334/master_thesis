@@ -1,0 +1,114 @@
+defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
+  use NetworkDefense.DataCase
+
+  alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.Nodes.Vulnerability
+  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability}
+  alias NetworkDefense.Topology.{EnterpriseTopology, VulnerabilityCatalog}
+
+  describe "generate/1" do
+    test "is deterministic and contains the requested enterprise hosts plus internet ingress" do
+      first = EnterpriseTopology.generate(title: "topo", hosts: 12, seed: 42)
+      second = EnterpriseTopology.generate(title: "topo", hosts: 12, seed: 42)
+
+      assert host_names(first) == host_names(second)
+      assert Enum.count_until(host_names(first), 14) == 13
+      assert "internet" in host_names(first)
+    end
+
+    test "always includes hosts for every required zone and role" do
+      graph = EnterpriseTopology.generate(hosts: EnterpriseTopology.minimum_hosts(), seed: 1)
+      names = host_names(graph)
+
+      assert Enum.any?(names, &String.starts_with?(&1, "dmz-web-"))
+      assert Enum.any?(names, &String.starts_with?(&1, "internal-api-"))
+      assert Enum.any?(names, &String.starts_with?(&1, "restricted-db-"))
+      assert Enum.any?(names, &String.starts_with?(&1, "mgmt-bastion-"))
+    end
+
+    test "shares each catalog CVE across matching services" do
+      graph = EnterpriseTopology.generate(hosts: 20, seed: 1)
+
+      vulnerability_nodes =
+        graph
+        |> Graph.nodes()
+        |> Enum.filter(&(&1.type == Vulnerability))
+
+      identifiers = Enum.map(vulnerability_nodes, & &1.data.identifier)
+
+      assert MapSet.new(identifiers) ==
+               MapSet.new(Enum.map(VulnerabilityCatalog.all(), & &1.identifier))
+
+      assert length(identifiers) == MapSet.size(MapSet.new(identifiers))
+
+      assert Enum.any?(vulnerability_nodes, fn vulnerability ->
+               graph
+               |> Graph.incoming(vulnerability.id)
+               |> Enum.count(fn {_service_id, edge} -> edge.type == HasVulnerability end) > 1
+             end)
+    end
+
+    test "reachability only follows the deny-default segmentation rules" do
+      graph = EnterpriseTopology.generate(hosts: 10, seed: 7)
+
+      reachability =
+        graph
+        |> Graph.edges()
+        |> Enum.filter(&(&1.type == NetworkReachability))
+        |> Enum.map(fn edge ->
+          {Graph.node(graph, edge.from_id).data.name, Graph.node(graph, edge.to_id).data.name,
+           edge.data.port_start}
+        end)
+
+      assert {"internet", "https", 443} in reachability
+      refute {"internet", "ssh", 22} in reachability
+      assert Enum.any?(reachability, &match?({"dmz-web-" <> _, "api", 8080}, &1))
+      assert Enum.any?(reachability, &match?({"internal-api-" <> _, "postgresql", 5432}, &1))
+      assert Enum.any?(reachability, &match?({"internal-app-" <> _, "postgresql", 5432}, &1))
+      assert Enum.any?(reachability, &match?({"workstation-" <> _, "ldap", 389}, &1))
+      assert Enum.any?(reachability, &match?({"workstation-" <> _, "smb", 445}, &1))
+      assert Enum.any?(reachability, &match?({"mgmt-bastion-" <> _, "ssh", 22}, &1))
+
+      assert Enum.all?(reachability, fn
+               {"internet", _, port} -> port == 443
+               _ -> true
+             end)
+    end
+
+    test "rejects a host count below the minimum" do
+      assert_raise ArgumentError, fn ->
+        EnterpriseTopology.generate(hosts: EnterpriseTopology.minimum_hosts() - 1, seed: 1)
+      end
+    end
+
+    test "rejects an invalid title" do
+      assert_raise ArgumentError, fn ->
+        EnterpriseTopology.generate(title: "", hosts: EnterpriseTopology.minimum_hosts(), seed: 1)
+      end
+    end
+  end
+
+  describe "persistence" do
+    test "inserts a graph that passes full data validation" do
+      graph = EnterpriseTopology.generate(title: "persisted", hosts: 8, seed: 3)
+      assert {:ok, persisted} = Graphs.insert(graph)
+      assert persisted.title == "persisted"
+      assert Enum.count_until(host_names(persisted), 10) == 9
+      assert Graph.edges(persisted) != []
+    end
+
+    test "inserts an enterprise-scale graph" do
+      graph = EnterpriseTopology.generate(title: "enterprise-scale", hosts: 249, seed: 69)
+
+      assert {:ok, persisted} = Graphs.insert(graph)
+      assert Enum.count_until(host_names(persisted), 251) == 250
+    end
+  end
+
+  defp host_names(graph) do
+    graph
+    |> Graph.nodes()
+    |> Enum.filter(&(&1.type == NetworkDefense.Nodes.Host))
+    |> Enum.map(& &1.data.name)
+  end
+end
