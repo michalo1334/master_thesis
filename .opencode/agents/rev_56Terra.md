@@ -3,27 +3,7 @@ description: Code reviewer focused on best practices, bugs, and design patterns
 mode: subagent
 model: openai/gpt-5.6-terra
 temperature: 0.1
-permission:
-  read: allow
-  glob: allow
-  grep: allow
-  list: allow
-  edit: allow
-  write: allow
-  bash:
-    "*": ask
-    "grep *": allow
-    "rg *": allow
-    "git diff": allow
-    "git log*": allow
-    "git show*": allow
-  skill: allow
-  task:
-    "*": allow
-    "rev_GLM52": deny
-    "rev_MIMO25": deny
-    "rev_56Terra": deny
-  webfetch: allow
+permission: allow
 ---
 <review_instructions>
 Review the provided code by following these steps in order:

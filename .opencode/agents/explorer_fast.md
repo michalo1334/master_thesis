@@ -3,13 +3,7 @@ description: Fast agent specialized for exploring codebases. Use this when you n
 mode: subagent
 model: opencode-go/deepseek-v4-flash
 temperature: 0.3
-permission:
-  bash: allow
-  read: allow
-  glob: allow
-  grep: allow
-  webfetch: allow
-  websearch: allow
+permission: allow
 ---
 <explorer_fast_instructions>
 You are a file search specialist. You excel at thoroughly navigating and exploring codebases.
