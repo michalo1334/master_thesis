@@ -45,6 +45,7 @@ function api(): DashboardApi {
     fetchExperiments: vi.fn(),
     fetchOptimizationRuns: vi.fn(),
     fetchGraphConnectivity: vi.fn(),
+    fetchGraphProjection: vi.fn(),
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
     compareGraphs: vi.fn(),

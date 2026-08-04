@@ -572,12 +572,41 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                Graphs.load_revision(optimized_revision_id)
     end
 
-    test "accepts topology segmentation optimization", %{conn: conn} do
-      assert_strategy_optimization(
-        conn,
-        "topology_segmentation",
-        "Topology segmentation strategy"
-      )
+    test "rejects topology segmentation without reachability in the graph", %{conn: conn} do
+      graph = insert_graph("topology-segmentation-test")
+      foothold = insert_node(graph, "entry-host")
+      graph = Graphs.load_revision!(foothold.graph_revision_id)
+      graph_revision_id = graph.revision_id
+      correlation_id = "topology-segmentation-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_optimization_request", %{
+        "request" => %{
+          "graph_revision_id" => graph_revision_id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{
+            "strategy" => "topology_segmentation",
+            "budget" => 1,
+            "simulation_params" => %{
+              "monte_carlo_trials" => 1,
+              "iterations_per_run" => 1,
+              "initial_foothold_node_id" => foothold.id,
+              "generate_seed" => true,
+              "max_attempts" => 1
+            }
+          }
+        }
+      })
+
+      assert_reply(view, %{
+        status: "rejected",
+        graph_revision_id: ^graph_revision_id,
+        correlation_id: ^correlation_id,
+        reason: "topology segmentation requires reachability relationships in the graph"
+      })
+
+      refute_received {:optimization_completed, _}
     end
 
     test "accepts simulated annealing optimization", %{conn: conn} do
@@ -900,6 +929,121 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "fetch_optimization_runs", %{"graph_revision_ids" => ["not-a-uuid"]})
 
       assert_reply(view, %{runs: []})
+    end
+  end
+
+  describe "fetch_graph_projection" do
+    test "returns segments, hosts, policy links, and derived operational flows for a saved revision",
+         %{
+           conn: conn
+         } do
+      graph = insert_graph("projection")
+      source = insert_node(graph, "source")
+      graph = Graphs.load_revision!(source.graph_revision_id)
+      target = insert_service(graph, "target")
+      graph = Graphs.load_revision!(target.graph_revision_id)
+      segment = Enum.find(Graph.nodes(graph), &(&1.type == NetworkSegment))
+      host = Enum.find(Graph.nodes(graph), &(&1.type == Host))
+      policy_id = Ecto.UUID.generate()
+
+      assert {:ok, graph} =
+               Graphs.append_optimization(
+                 Graph.add_edge(
+                   graph,
+                   %{
+                     Edge.new(graph.id, segment.id, segment.id, %{
+                       type: Atom.to_string(SegmentReachability),
+                       data: %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
+                     })
+                     | id: policy_id
+                   }
+                 )
+               )
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_projection", %{
+        "graph_revision_id" => graph.revision_id
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        segments: [%{id: segment_id}],
+        hosts: [%{id: host_id}],
+        policy_links: [policy_link],
+        operational_flows: [operational_flow]
+      })
+
+      assert segment_id == segment.id
+      assert host_id == host.id
+
+      assert %{id: ^policy_id, from_id: ^segment_id, to_id: ^segment_id} = policy_link
+
+      target_id = target.id
+      assert %{id: flow_id, from_id: ^host_id, to_id: ^target_id} = operational_flow
+      assert {:ok, _uuid} = Ecto.UUID.cast(flow_id)
+
+      refute Enum.any?(
+               Graph.edges(Graphs.load_revision!(graph.revision_id)),
+               &(&1.type == NetworkReachability)
+             )
+    end
+
+    test "derives deterministic operational flow ids across repeated fetches", %{conn: conn} do
+      graph = insert_graph("projection-determinism")
+      source = insert_node(graph, "source")
+      graph = Graphs.load_revision!(source.graph_revision_id)
+      target = insert_service(graph, "target")
+      graph = Graphs.load_revision!(target.graph_revision_id)
+      graph_revision_id = graph.revision_id
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => graph_revision_id})
+      assert_reply(view, %{operational_flows: first_flows})
+
+      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => graph_revision_id})
+      assert_reply(view, %{operational_flows: second_flows})
+
+      assert Enum.map(first_flows, & &1.id) == Enum.map(second_flows, & &1.id)
+    end
+
+    test "returns not_found for an unknown revision", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_projection", %{
+        "graph_revision_id" => "00000000-0000-0000-0000-000000000000"
+      })
+
+      assert_reply(view, %{
+        status: "not_found",
+        segments: [],
+        hosts: [],
+        policy_links: [],
+        operational_flows: []
+      })
+    end
+
+    test "rejects a projection request without a revision id", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_projection", %{})
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        segments: [],
+        hosts: [],
+        policy_links: [],
+        operational_flows: []
+      })
+    end
+
+    test "rejects a projection request with a non-UUID revision id", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => "not-a-uuid"})
+
+      assert_reply(view, %{status: "invalid_graph"})
     end
   end
 

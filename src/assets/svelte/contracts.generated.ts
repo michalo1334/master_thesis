@@ -300,6 +300,18 @@ export interface FetchExperimentsReply {
   experiments: ExperimentSummary[];
 }
 
+export interface FetchGraphProjectionPayload {
+  graph_revision_id: string;
+}
+
+export interface FetchGraphProjectionReply {
+  hosts: GraphProjectionHost[];
+  operational_flows: GraphProjectionOperationalFlow[];
+  policy_links: GraphProjectionPolicyLink[];
+  segments: GraphProjectionSegment[];
+  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
 export interface FetchOptimizationReportPayload {
   graph_revision_id: string;
   optimization_id: string;
@@ -379,6 +391,26 @@ export interface GraphDiffResult {
 export interface GraphDiffStatusEntry {
   id: string;
   status: "added" | "removed" | "unchanged";
+}
+
+export interface GraphProjectionHost {
+  id: string;
+}
+
+export interface GraphProjectionOperationalFlow {
+  from_id: string;
+  id: string;
+  to_id: string;
+}
+
+export interface GraphProjectionPolicyLink {
+  from_id: string;
+  id: string;
+  to_id: string;
+}
+
+export interface GraphProjectionSegment {
+  id: string;
 }
 
 export interface GraphSummary {

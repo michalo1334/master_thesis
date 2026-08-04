@@ -4,6 +4,7 @@ defmodule NetworkDefense.Simulations do
   """
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
@@ -19,7 +20,7 @@ defmodule NetworkDefense.Simulations do
   require OpenTelemetry.Tracer, as: Tracer
 
   @simulation_events_topic "simulation_events"
-  @trial_batch_size 100
+  @trial_batch_size 500
   @report_timeout 60_000
 
   def simulation_events_topic, do: @simulation_events_topic
@@ -83,6 +84,8 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp run_batches(graph, correlation_id, experiment) do
+    graph = MaterializeReachability.materialize(graph)
+
     initial_attacker_state = initial_attacker_state(graph, experiment.initial_foothold_node_id)
 
     (experiment.completed_trials + 1)..experiment.total_trials

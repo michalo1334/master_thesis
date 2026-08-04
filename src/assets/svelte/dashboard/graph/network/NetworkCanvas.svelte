@@ -1,6 +1,7 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
   import type { DashboardApi } from "../../dashboard-api";
+  import type { GraphProjectionOperationalFlow } from "../../contract";
   import type { EditableGraphDocument } from "../EditableGraphDocument.svelte";
   import {
     cullNetworkHosts,
@@ -50,8 +51,20 @@
   let suppressClick = $state(false);
   let status = $state("");
   let keyboardContainmentSourceId = $state<string>();
+  let serverFlows = $state<
+    readonly GraphProjectionOperationalFlow[] | undefined
+  >();
+  let projectedRevisionId = $state<string | null>(null);
+  let projectionError = $state("");
 
-  let projection = $derived(projectNetwork(document.graph));
+  let projection = $derived(
+    projectNetwork(
+      document.graph,
+      document.loadedRevisionId === projectedRevisionId
+        ? serverFlows
+        : undefined,
+    ),
+  );
   let visibleHosts = $derived(
     cullNetworkHosts(
       projection.hosts,
@@ -61,6 +74,17 @@
       180,
       hostHeight,
     ),
+  );
+  let visibleHostIds = $derived(new Set(visibleHosts.map((host) => host.id)));
+  let visibleFlows = $derived(
+    projection.operationalFlows.filter(
+      (flow) =>
+        visibleHostIds.has(flow.sourceId) && visibleHostIds.has(flow.targetId),
+    ),
+  );
+  let projectionStale = $derived(
+    document.loadedRevisionId !== null &&
+      (document.isDirty || document.loadedRevisionId !== projectedRevisionId),
   );
   let visibleSegments = $derived(
     cullNetworkSegments(projection.segments, viewport, view.pan, view.zoom),
@@ -81,6 +105,31 @@
   let transform = $derived(
     `translate(${view.pan.x} ${view.pan.y}) scale(${view.zoom / 100})`,
   );
+
+  $effect(() => {
+    const revisionId = document.loadedRevisionId;
+    if (!revisionId || revisionId === projectedRevisionId || document.isDirty)
+      return;
+    let active = true;
+    void api
+      .fetchGraphProjection(revisionId)
+      .then((reply) => {
+        if (!active || document.loadedRevisionId !== revisionId) return;
+        if (reply.status === "ok") {
+          serverFlows = reply.operational_flows;
+          projectedRevisionId = revisionId;
+          projectionError = "";
+        } else {
+          projectionError = "Reachability projection unavailable.";
+        }
+      })
+      .catch(() => {
+        if (active) projectionError = "Reachability projection unavailable.";
+      });
+    return () => {
+      active = false;
+    };
+  });
 
   function clampZoom(value: number): number {
     return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
@@ -372,6 +421,15 @@
       </div>
     {/if}
   </div>
+  {#if projectionError}
+    <div class="network-projection-notice" role="status" aria-live="polite">
+      {projectionError}
+    </div>
+  {:else if projectionStale}
+    <div class="network-projection-notice" role="status" aria-live="polite">
+      Reachability flows are stale. Save to refresh.
+    </div>
+  {/if}
   {#if showHosts && projection.segments.length > 0}
     <section class="network-segment-indicator" aria-label="Network segments">
       <span>Segments</span>
@@ -457,6 +515,24 @@
         {/if}
       {/if}
       {#if showHosts}
+        {#each visibleFlows as flow (flow.id)}
+          <g
+            class="network-operational-flow"
+            role="img"
+            aria-label={`Operational flow from ${flow.sourceName} to ${flow.serviceName}`}
+          >
+            <path
+              d={`M ${flow.sourcePosition.x + HOST_WIDTH} ${flow.sourcePosition.y + HOST_HEIGHT / 2} L ${flow.targetPosition.x} ${flow.targetPosition.y + HOST_HEIGHT / 2}`}
+            />
+            <text
+              x={(flow.sourcePosition.x + HOST_WIDTH + flow.targetPosition.x) /
+                2}
+              y={(flow.sourcePosition.y + flow.targetPosition.y + HOST_HEIGHT) /
+                2 -
+                4}>{flow.serviceName}</text
+            >
+          </g>
+        {/each}
         {#each visibleHosts as host (host.id)}
           {@const isExpanded = expandedHostIds.has(host.id)}
           {@const selected =
@@ -777,6 +853,32 @@
   .network-preview {
     stroke-dasharray: 6 4;
     pointer-events: none;
+  }
+  .network-operational-flow path {
+    fill: none;
+    stroke: var(--ds-color-node-service);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    pointer-events: none;
+  }
+  .network-operational-flow text {
+    fill: var(--ds-color-text-secondary);
+    font: var(--ds-text-xs) var(--ds-font-mono);
+    pointer-events: none;
+  }
+  .network-projection-notice {
+    position: absolute;
+    z-index: 1;
+    top: calc(var(--ds-space-3) + 5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--ds-color-warning);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-warning-bg);
+    color: var(--ds-color-warning-text);
+    font-size: var(--ds-text-xs);
+    box-shadow: var(--ds-shadow-md);
   }
   .network-host {
     cursor: pointer;

@@ -4,9 +4,9 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, Service, Vulnerability}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
   alias NetworkDefense.Optimization.{SimulatedAnnealingStrategy, Strategy}
-  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability, Runs}
+  alias NetworkDefense.Relationships.{Contains, HasVulnerability, Runs, SegmentReachability}
   alias NetworkDefense.Rules.RemoteServiceExploitation
 
   test "returns a deterministic valid defense plan" do
@@ -44,6 +44,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
   defp graph do
     source = GraphFixtures.node("source", Host, %{"name" => "source"})
     target = GraphFixtures.node("target", Host, %{"name" => "target"})
+    source_segment = segment("source-segment")
+    target_segment = segment("target-segment")
 
     service =
       GraphFixtures.node("service", Service, %{
@@ -60,20 +62,34 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
       })
 
     graph =
-      GraphFixtures.graph([source, target, service, vulnerability], [
-        GraphFixtures.edge("reachability", source, service, NetworkReachability),
-        GraphFixtures.edge("runs", target, service, Runs),
-        GraphFixtures.edge(
-          "vulnerability",
-          service,
-          vulnerability,
-          HasVulnerability,
-          privileges()
-        )
-      ])
+      GraphFixtures.graph(
+        [source_segment, target_segment, source, target, service, vulnerability],
+        [
+          GraphFixtures.edge("contains-source", source_segment, source, Contains),
+          GraphFixtures.edge("contains-target", target_segment, target, Contains),
+          GraphFixtures.edge(
+            "policy",
+            source_segment,
+            target_segment,
+            SegmentReachability,
+            %{"protocol" => "tcp"}
+          ),
+          GraphFixtures.edge("runs", target, service, Runs),
+          GraphFixtures.edge(
+            "vulnerability",
+            service,
+            vulnerability,
+            HasVulnerability,
+            privileges()
+          )
+        ]
+      )
 
     {graph, source}
   end
+
+  defp segment(id),
+    do: GraphFixtures.node(id, NetworkSegment, %{"name" => id})
 
   defp privileges, do: %{"required_privilege" => "none", "granted_privilege" => "user"}
 

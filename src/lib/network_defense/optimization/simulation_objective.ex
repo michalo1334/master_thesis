@@ -2,9 +2,12 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   @moduledoc false
 
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Simulation.{Run, Simulator}
 
   def expected_blast_radius(graph, strategy) do
+    graph = MaterializeReachability.materialize(graph)
+
     {_experiment, runs} =
       Simulator.run_experiment(
         graph,

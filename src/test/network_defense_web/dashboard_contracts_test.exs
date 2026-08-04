@@ -27,6 +27,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   alias NetworkDefenseWeb.Web.Contracts.{
+    FetchGraphProjectionPayload,
+    FetchGraphProjectionReply,
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
@@ -442,6 +444,65 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
                actions: [%{id: "target-1", label: "Patch CVE-1", cvss_score: 7.5, cost: 1}]
              }
            } = FetchOptimizationReportReply.to_wire(reply)
+  end
+
+  test "accepts a graph projection fetch payload with a UUID revision id" do
+    assert {:ok, %FetchGraphProjectionPayload{graph_revision_id: @graph_id}} =
+             FetchGraphProjectionPayload.validate(%{"graph_revision_id" => @graph_id})
+  end
+
+  test "rejects a graph projection fetch payload without a UUID revision id" do
+    assert {:error, changeset} = FetchGraphProjectionPayload.validate(%{})
+    assert %{graph_revision_id: ["can't be blank"]} = errors_on(changeset)
+
+    assert {:error, changeset} =
+             FetchGraphProjectionPayload.validate(%{"graph_revision_id" => "not-a-uuid"})
+
+    assert %{graph_revision_id: ["is invalid"]} = errors_on(changeset)
+  end
+
+  test "round trips an ok graph projection reply with endpoint records" do
+    attrs = %{
+      "status" => "ok",
+      "segments" => [%{"id" => @segment_id}, %{"id" => @segment_b_id}],
+      "hosts" => [%{"id" => @host_id}],
+      "policy_links" => [
+        %{"id" => @reachability_edge_id, "from_id" => @segment_b_id, "to_id" => @segment_id}
+      ],
+      "operational_flows" => [
+        %{"id" => @runs_edge_id, "from_id" => @host_id, "to_id" => @service_id}
+      ]
+    }
+
+    assert {:ok, reply} = FetchGraphProjectionReply.validate(attrs)
+
+    assert %{
+             status: "ok",
+             segments: [%{id: @segment_id}, %{id: @segment_b_id}],
+             hosts: [%{id: @host_id}],
+             policy_links: [
+               %{id: @reachability_edge_id, from_id: @segment_b_id, to_id: @segment_id}
+             ],
+             operational_flows: [%{id: @runs_edge_id, from_id: @host_id, to_id: @service_id}]
+           } = FetchGraphProjectionReply.to_wire(reply)
+  end
+
+  test "accepts an error status projection reply with empty collections" do
+    assert {:ok, reply} = FetchGraphProjectionReply.validate(%{"status" => "not_found"})
+
+    assert %{
+             status: "not_found",
+             segments: [],
+             hosts: [],
+             policy_links: [],
+             operational_flows: []
+           } =
+             FetchGraphProjectionReply.to_wire(reply)
+  end
+
+  test "rejects a graph projection reply with an unknown status" do
+    assert {:error, changeset} = FetchGraphProjectionReply.validate(%{"status" => "stale"})
+    assert %{status: ["is invalid"]} = errors_on(changeset)
   end
 
   defp errors_on(changeset) do

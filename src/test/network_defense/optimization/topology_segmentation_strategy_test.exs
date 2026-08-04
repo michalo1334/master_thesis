@@ -7,6 +7,28 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
   alias NetworkDefense.Optimization.{Strategy, TopologySegmentationStrategy}
   alias NetworkDefense.Relationships.{NetworkReachability, Runs}
 
+  test "new/2 accepts an operational graph with reachability edges" do
+    {graph, source} = graph()
+
+    assert {:ok, %TopologySegmentationStrategy{}} =
+             TopologySegmentationStrategy.new(graph, simulation_params(source))
+  end
+
+  test "new/2 rejects a canonical graph without reachability edges" do
+    source = host("source")
+    app = host("app")
+    app_service = service("app-service")
+
+    graph =
+      GraphFixtures.graph(
+        [source, app, app_service],
+        [GraphFixtures.edge("runs-app", app, app_service, Runs)]
+      )
+
+    assert {:error, "topology segmentation requires reachability relationships in the graph"} =
+             TopologySegmentationStrategy.new(graph, simulation_params(source))
+  end
+
   test "ranks the reachability block that disconnects the most hosts from the foothold" do
     {graph, source} = graph()
 
@@ -65,6 +87,18 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
       )
 
     {graph, source}
+  end
+
+  defp simulation_params(source) do
+    %{
+      simulation_params: %{
+        monte_carlo_trials: 1,
+        iterations_per_run: 1,
+        initial_foothold_node_id: source.id,
+        generate_seed: true,
+        max_attempts: 1
+      }
+    }
   end
 
   defp host(id), do: GraphFixtures.node(id, Host, %{"name" => id})

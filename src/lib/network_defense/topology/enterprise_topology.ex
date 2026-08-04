@@ -3,25 +3,25 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
   Pure deterministic generator of a segmented enterprise topology graph.
 
   The graph is deny-by-default: the only reachability edges added are the fixed
-  rules below. Hosts are grouped into zones (dmz, internal, restricted,
-  management, workstations) plus a single `internet` ingress node that is not
-  counted in `:hosts`. Extra hosts beyond the base set get their role from a
-  seeded first-order Markov chain over roles.
+  segment policies below. Hosts are grouped into zones (dmz, internal,
+  restricted, management, workstations) plus a single `internet` ingress node
+  that is not counted in `:hosts`. Extra hosts beyond the base set get their
+  role from a seeded first-order Markov chain over roles.
 
-  Reachability rules:
+  Reachability policies (segment to segment, tcp):
 
-    * internet -> DMZ public HTTPS (443)
-    * DMZ -> internal API (8080)
-    * internal applications -> restricted PostgreSQL (5432)
-    * workstations -> restricted LDAP (389) / SMB (445)
-    * management bastions -> SSH (22) on server hosts
+    * external -> DMZ (443, public HTTPS)
+    * DMZ -> internal (8080, API access)
+    * internal -> restricted (5432, PostgreSQL)
+    * workstations -> restricted (389, LDAP) and (445, SMB)
+    * management -> DMZ, internal, restricted (22, SSH on server hosts)
 
   Topology structure is a pure function of `(title, hosts, seed)`.
   """
 
   alias NetworkDefense.Graph.{Edge, Graph, Node}
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
-  alias NetworkDefense.Relationships.{Contains, HasVulnerability, NetworkReachability, Runs}
+  alias NetworkDefense.Relationships.{Contains, HasVulnerability, Runs, SegmentReachability}
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Topology.VulnerabilityCatalog
 
@@ -108,7 +108,16 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
     {:workstation, "Workstations"}
   ]
 
-  @server_roles [:dmz_web, :internal_api, :internal_app, :restricted_db, :restricted_ad]
+  @reachability_policies [
+    {:external, :dmz, 443},
+    {:dmz, :internal, 8080},
+    {:internal, :restricted, 5432},
+    {:workstation, :restricted, 389},
+    {:workstation, :restricted, 445},
+    {:mgmt, :dmz, 22},
+    {:mgmt, :internal, 22},
+    {:mgmt, :restricted, 22}
+  ]
 
   @doc "Minimum number of enterprise hosts required to cover all zones and roles."
   def minimum_hosts, do: @minimum_hosts
@@ -155,9 +164,10 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
          vulnerabilities}
       end)
 
+    {graph, segment_ids} = add_segments(graph, internet_id, hosts_by_role)
+
     graph
-    |> add_segments(internet_id, hosts_by_role)
-    |> add_reachability(internet_id, hosts_by_role)
+    |> add_reachability(segment_ids)
   end
 
   defp add_internet_node(graph) do
@@ -172,23 +182,30 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
   end
 
   defp add_segments(graph, internet_id, hosts_by_role) do
-    Enum.reduce(@segments, graph, fn {zone, name}, graph ->
-      segment =
-        Node.new(graph.id, %{
-          type: Atom.to_string(NetworkSegment),
-          data: %{"name" => name},
-          view_data: segment_position(zone)
-        })
+    {graph, segment_ids} =
+      Enum.reduce(@segments, {graph, %{}}, fn {zone, name}, {graph, segment_ids} ->
+        segment =
+          Node.new(graph.id, %{
+            type: Atom.to_string(NetworkSegment),
+            data: %{"name" => name},
+            view_data: segment_position(zone)
+          })
 
-      graph = Graph.add_node(graph, segment)
+        graph = Graph.add_node(graph, segment)
 
-      Enum.reduce(host_ids_for_zone(zone, internet_id, hosts_by_role), graph, fn host_id, graph ->
-        Graph.add_edge(
-          graph,
-          Edge.new(graph.id, segment.id, host_id, %{type: Atom.to_string(Contains), data: %{}})
-        )
+        graph =
+          Enum.reduce(host_ids_for_zone(zone, internet_id, hosts_by_role), graph, fn host_id,
+                                                                                     graph ->
+            Graph.add_edge(
+              graph,
+              Edge.new(graph.id, segment.id, host_id, %{type: Atom.to_string(Contains), data: %{}})
+            )
+          end)
+
+        {graph, Map.put(segment_ids, zone, segment.id)}
       end)
-    end)
+
+    {graph, segment_ids}
   end
 
   defp host_ids_for_zone(:external, internet_id, _hosts_by_role), do: [internet_id]
@@ -298,81 +315,16 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
     )
   end
 
-  defp add_reachability(graph, internet_id, hosts_by_role) do
-    pairs =
-      internet_https_pairs(internet_id, Map.get(hosts_by_role, :dmz_web, [])) ++
-        dmz_api_pairs(
-          Map.get(hosts_by_role, :dmz_web, []),
-          Map.get(hosts_by_role, :internal_api, [])
-        ) ++
-        app_db_pairs(
-          Map.get(hosts_by_role, :internal_api, []) ++ Map.get(hosts_by_role, :internal_app, []),
-          Map.get(hosts_by_role, :restricted_db, [])
-        ) ++
-        workstation_ad_pairs(
-          Map.get(hosts_by_role, :workstation, []),
-          Map.get(hosts_by_role, :restricted_ad, [])
-        ) ++ bastion_ssh_pairs(Map.get(hosts_by_role, :mgmt_bastion, []), hosts_by_role)
-
-    Enum.reduce(pairs, graph, fn {from, to, port}, graph ->
-      add_reachability_edge(graph, from, to, port)
+  defp add_reachability(graph, segment_ids) do
+    Enum.reduce(@reachability_policies, graph, fn {from, to, port}, graph ->
+      Graph.add_edge(
+        graph,
+        Edge.new(graph.id, Map.fetch!(segment_ids, from), Map.fetch!(segment_ids, to), %{
+          type: Atom.to_string(SegmentReachability),
+          data: %{"protocol" => "tcp", "port_start" => port, "port_end" => port}
+        })
+      )
     end)
-  end
-
-  defp internet_https_pairs(internet_id, dmz_hosts),
-    do: for({_host, services} <- dmz_hosts, do: {internet_id, Map.fetch!(services, "https"), 443})
-
-  defp dmz_api_pairs(dmz_hosts, api_hosts),
-    do:
-      for(
-        {dmz, _services} <- dmz_hosts,
-        {_host, services} <- api_hosts,
-        do: {dmz, Map.fetch!(services, "api"), 8080}
-      )
-
-  defp app_db_pairs(app_hosts, db_hosts),
-    do:
-      for(
-        {app, _services} <- app_hosts,
-        {_host, services} <- db_hosts,
-        do: {app, Map.fetch!(services, "postgresql"), 5432}
-      )
-
-  defp workstation_ad_pairs(workstation_hosts, ad_hosts) do
-    ldap =
-      for(
-        {workstation, _services} <- workstation_hosts,
-        {_host, services} <- ad_hosts,
-        do: {workstation, Map.fetch!(services, "ldap"), 389}
-      )
-
-    smb =
-      for(
-        {workstation, _services} <- workstation_hosts,
-        {_host, services} <- ad_hosts,
-        do: {workstation, Map.fetch!(services, "smb"), 445}
-      )
-
-    ldap ++ smb
-  end
-
-  defp bastion_ssh_pairs(bastion_hosts, hosts_by_role),
-    do:
-      for(
-        {bastion, _services} <- bastion_hosts,
-        role <- @server_roles,
-        {_host, services} <- Map.get(hosts_by_role, role, []),
-        do: {bastion, Map.fetch!(services, "ssh"), 22}
-      )
-
-  defp add_reachability_edge(graph, from_id, to_id, port) do
-    Graph.add_edge(
-      graph,
-      Edge.new(graph.id, from_id, to_id, %{
-        type: Atom.to_string(NetworkReachability),
-        data: %{"protocol" => "tcp", "port_start" => port, "port_end" => port}
-      })
-    )
   end
 
   defp select_roles(host_count, state) do

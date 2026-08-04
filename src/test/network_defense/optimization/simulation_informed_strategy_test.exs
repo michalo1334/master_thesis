@@ -3,10 +3,19 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.DefenseActions.PatchVulnerability
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, Service, Vulnerability}
-  alias NetworkDefense.Optimization.{SimulationInformedStrategy, Strategy}
-  alias NetworkDefense.Relationships.{HasVulnerability, NetworkReachability, Runs}
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefense.Optimization.{SimulationInformedStrategy, SimulationObjective, Strategy}
+
+  alias NetworkDefense.Relationships.{
+    Contains,
+    HasVulnerability,
+    NetworkReachability,
+    Runs,
+    SegmentReachability
+  }
+
   alias NetworkDefense.Rules.RemoteServiceExploitation
 
   test "chooses the patch with the largest simulated blast-radius reduction" do
@@ -24,11 +33,33 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
              Strategy.rank(strategy, [PatchVulnerability], graph, 1)
   end
 
+  test "expected_blast_radius/2 simulates an unmaterialized canonical graph" do
+    {graph, source} = graph()
+
+    refute Enum.any?(Graph.edges(graph), &(&1.type == NetworkReachability))
+
+    strategy = %SimulationInformedStrategy{
+      initial_attacker_state: AttackerState.new(source.id),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 5,
+      iteration_count: 5,
+      seed: 42
+    }
+
+    radius = SimulationObjective.expected_blast_radius(graph, strategy)
+
+    assert radius > 1.0
+  end
+
   defp graph do
     source = GraphFixtures.node("source", Host, %{"name" => "internet"})
     host_a = GraphFixtures.node("host-a", Host, %{"name" => "a"})
     host_b = GraphFixtures.node("host-b", Host, %{"name" => "b"})
     host_c = GraphFixtures.node("host-c", Host, %{"name" => "c"})
+    source_segment = segment("source-segment")
+    segment_a = segment("segment-a")
+    segment_b = segment("segment-b")
+    segment_c = segment("segment-c")
     service_a = service("service-a")
     service_b = service("service-b")
     service_c = service("service-c")
@@ -39,6 +70,10 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
     graph =
       GraphFixtures.graph(
         [
+          source_segment,
+          segment_a,
+          segment_b,
+          segment_c,
           source,
           host_a,
           host_b,
@@ -51,8 +86,28 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
           vulnerability_c
         ],
         [
-          GraphFixtures.edge("reachability-a", source, service_a, NetworkReachability),
+          GraphFixtures.edge("contains-source", source_segment, source, Contains),
+          GraphFixtures.edge("contains-a", segment_a, host_a, Contains),
+          GraphFixtures.edge("contains-b", segment_b, host_b, Contains),
+          GraphFixtures.edge("contains-c", segment_c, host_c, Contains),
+          GraphFixtures.edge(
+            "policy-a",
+            source_segment,
+            segment_a,
+            SegmentReachability,
+            policy()
+          ),
+          GraphFixtures.edge("policy-b", segment_a, segment_b, SegmentReachability, policy()),
+          GraphFixtures.edge(
+            "policy-c",
+            source_segment,
+            segment_c,
+            SegmentReachability,
+            policy()
+          ),
           GraphFixtures.edge("runs-a", host_a, service_a, Runs),
+          GraphFixtures.edge("runs-b", host_b, service_b, Runs),
+          GraphFixtures.edge("runs-c", host_c, service_c, Runs),
           GraphFixtures.edge(
             "vulnerability-a",
             service_a,
@@ -60,8 +115,6 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
             HasVulnerability,
             privileges()
           ),
-          GraphFixtures.edge("reachability-b", host_a, service_b, NetworkReachability),
-          GraphFixtures.edge("runs-b", host_b, service_b, Runs),
           GraphFixtures.edge(
             "vulnerability-b",
             service_b,
@@ -69,8 +122,6 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
             HasVulnerability,
             privileges()
           ),
-          GraphFixtures.edge("reachability-c", source, service_c, NetworkReachability),
-          GraphFixtures.edge("runs-c", host_c, service_c, Runs),
           GraphFixtures.edge(
             "vulnerability-c",
             service_c,
@@ -83,6 +134,11 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
 
     {graph, source}
   end
+
+  defp segment(id),
+    do: GraphFixtures.node(id, NetworkSegment, %{"name" => id})
+
+  defp policy, do: %{"protocol" => "tcp"}
 
   defp service(id),
     do: GraphFixtures.node(id, Service, %{"name" => id, "protocol" => "tcp", "port" => 443})

@@ -2,8 +2,16 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
   use NetworkDefense.DataCase
 
   alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Vulnerability}
-  alias NetworkDefense.Relationships.{Contains, HasVulnerability, NetworkReachability}
+
+  alias NetworkDefense.Relationships.{
+    Contains,
+    HasVulnerability,
+    NetworkReachability,
+    SegmentReachability
+  }
+
   alias NetworkDefense.Topology.{EnterpriseTopology, VulnerabilityCatalog}
 
   describe "generate/1" do
@@ -84,8 +92,13 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
              end)
     end
 
-    test "reachability only follows the deny-default segmentation rules" do
+    test "emits segment policies only and follows the deny-default rules after materialization" do
       graph = EnterpriseTopology.generate(hosts: 10, seed: 7)
+
+      assert Enum.count(Graph.edges(graph), &(&1.type == SegmentReachability)) == 8
+      refute Enum.any?(Graph.edges(graph), &(&1.type == NetworkReachability))
+
+      graph = MaterializeReachability.materialize(graph)
 
       reachability =
         graph
@@ -124,20 +137,20 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
   end
 
   describe "persistence" do
-    test "rejects canonical persistence of a generated operational graph" do
+    test "persists a generated canonical policy topology" do
       graph = EnterpriseTopology.generate(title: "persisted", hosts: 8, seed: 3)
 
       assert graph.title == "persisted"
       assert Enum.count_until(host_names(graph), 10) == 9
       assert Graph.edges(graph) != []
 
-      assert {:error, :invalid_edge} = Graphs.insert(graph)
+      assert {:ok, %Graph{revision_number: 1}} = Graphs.insert(graph)
     end
 
-    test "rejects persisting an enterprise-scale operational graph" do
+    test "persists an enterprise-scale canonical topology" do
       graph = EnterpriseTopology.generate(title: "enterprise-scale", hosts: 249, seed: 69)
 
-      assert {:error, :invalid_edge} = Graphs.insert(graph)
+      assert {:ok, %Graph{revision_number: 1}} = Graphs.insert(graph)
     end
   end
 

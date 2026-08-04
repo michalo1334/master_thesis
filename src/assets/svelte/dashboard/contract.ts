@@ -50,6 +50,9 @@ import type {
   DeleteFolderReply,
   MoveGraphToFolderPayload,
   MoveGraphToFolderReply,
+  FetchGraphProjectionPayload,
+  FetchGraphProjectionReply,
+  GraphProjectionOperationalFlow,
 } from "../contracts.generated";
 
 export type {
@@ -121,6 +124,9 @@ export type {
   DeleteFolderReply,
   MoveGraphToFolderPayload,
   MoveGraphToFolderReply,
+  FetchGraphProjectionPayload,
+  FetchGraphProjectionReply,
+  GraphProjectionOperationalFlow,
   SimulationReportErrorEvent,
 } from "../contracts.generated";
 

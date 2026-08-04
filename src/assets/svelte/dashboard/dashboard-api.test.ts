@@ -250,6 +250,35 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("fetches the graph projection for a revision", async () => {
+    const reply = {
+      status: "ok" as const,
+      segments: [{ id: "segment-1" }],
+      hosts: [{ id: "host-1" }],
+      policy_links: [
+        { id: "link-1", from_id: "segment-1", to_id: "segment-2" },
+      ],
+      operational_flows: [
+        { id: "flow-1", from_id: "host-1", to_id: "service-1" },
+      ],
+    };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    const result = await createDashboardApi(live).fetchGraphProjection("r1");
+
+    expect(result).toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "fetch_graph_projection",
+      { graph_revision_id: "r1" },
+      expect.any(Function),
+    );
+  });
+
   it("creates node drafts through the LiveView reply callback", async () => {
     const reply = { status: "ok" as const };
     const live = {

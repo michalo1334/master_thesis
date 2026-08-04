@@ -128,3 +128,84 @@ describe("projectNetwork", () => {
     ).toEqual(["host-a"]);
   });
 });
+
+function flowGraph(): LoadedGraph {
+  return {
+    ...graph(),
+    nodes: [
+      ...graph().nodes,
+      {
+        id: "service-b",
+        type: "Service",
+        data: { name: "postgres", port: 5432, protocol: "tcp" },
+        view_data: { x_pos: 500, y_pos: 0 },
+      },
+      {
+        id: "orphan-service",
+        type: "Service",
+        data: { name: "orphan", port: 8080, protocol: "tcp" },
+        view_data: { x_pos: 250, y_pos: 100 },
+      },
+    ],
+    edges: [
+      ...graph().edges,
+      {
+        id: "runs-b",
+        type: "Runs",
+        from_id: "host-b",
+        to_id: "service-b",
+        data: {},
+      },
+    ],
+  };
+}
+
+describe("projectNetwork operational flows", () => {
+  it("has no operational flows without a server projection", () => {
+    expect(projectNetwork(flowGraph()).operationalFlows).toEqual([]);
+  });
+
+  it("combines server flows between valid hosts and services", () => {
+    const projection = projectNetwork(flowGraph(), [
+      { id: "flow-1", from_id: "host-a", to_id: "service" },
+      { id: "flow-2", from_id: "host-b", to_id: "service-b" },
+    ]);
+
+    expect(projection.operationalFlows).toEqual([
+      expect.objectContaining({
+        id: "flow-1",
+        sourceId: "host-a",
+        targetId: "host-a",
+        serviceId: "service",
+        serviceName: "https",
+      }),
+      expect.objectContaining({
+        id: "flow-2",
+        sourceId: "host-b",
+        targetId: "host-b",
+        serviceId: "service-b",
+        serviceName: "postgres",
+      }),
+    ]);
+  });
+
+  it("resolves the flow target to the host running the service", () => {
+    const projection = projectNetwork(flowGraph(), [
+      { id: "cross", from_id: "host-a", to_id: "service-b" },
+    ]);
+
+    expect(projection.operationalFlows).toEqual([
+      expect.objectContaining({ id: "cross", targetId: "host-b" }),
+    ]);
+  });
+
+  it("ignores flows with unknown or unhosted endpoints", () => {
+    const projection = projectNetwork(flowGraph(), [
+      { id: "unknown-host", from_id: "missing-host", to_id: "service" },
+      { id: "unknown-service", from_id: "host-a", to_id: "missing-service" },
+      { id: "unhosted-service", from_id: "host-a", to_id: "orphan-service" },
+    ]);
+
+    expect(projection.operationalFlows).toEqual([]);
+  });
+});

@@ -35,6 +35,7 @@ function api(): DashboardApi {
     fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
     fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
     fetchGraphConnectivity: vi.fn(),
+    fetchGraphProjection: vi.fn(),
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
     compareGraphs: vi.fn(),

@@ -2,9 +2,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, Folders, GraphDiff, Graphs, Node}
+  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
+  alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Graph.SemanticConnectivity
+  alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Relationships.{NetworkReachability, SegmentReachability}
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -17,6 +20,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     CreateConnectionDraftReply,
     CompareGraphsPayload,
     CompareGraphsReply,
+    FetchGraphProjectionPayload,
+    FetchGraphProjectionReply,
     CreateFolderPayload,
     CreateFolderReply,
     CreateNodeDraftPayload,
@@ -161,6 +166,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("fetch_graph_connectivity", _params, socket) do
     {:reply, graph_connectivity_reply(), socket}
+  end
+
+  @impl true
+  def handle_event("fetch_graph_projection", params, socket) do
+    {:reply, graph_projection(params), socket}
   end
 
   @impl true
@@ -684,6 +694,50 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp graph_connectivity_reply do
     contract_reply(GraphConnectivityReply, %{rules: SemanticConnectivity.rules()})
+  end
+
+  defp graph_projection(params) do
+    case FetchGraphProjectionPayload.validate(params) do
+      {:ok, request} ->
+        case Graphs.load_revision(request.graph_revision_id) do
+          %Graph{} = graph -> graph_projection_reply(build_graph_projection(graph))
+          nil -> graph_projection_reply("not_found")
+          {:error, _reason} -> graph_projection_reply("unmapped_error")
+        end
+
+      {:error, _changeset} ->
+        graph_projection_reply("invalid_graph")
+    end
+  end
+
+  defp build_graph_projection(%Graph{} = graph) do
+    graph = MaterializeReachability.materialize(graph)
+
+    %{
+      status: "ok",
+      segments: projection_ids(Graph.nodes(graph), NetworkSegment),
+      hosts: projection_ids(Graph.nodes(graph), Host),
+      policy_links: projection_links(Graph.edges(graph), SegmentReachability),
+      operational_flows: projection_links(Graph.edges(graph), NetworkReachability)
+    }
+  end
+
+  defp projection_ids(nodes, type) do
+    Enum.map(Enum.filter(nodes, &(&1.type == type)), fn node -> %{id: node.id} end)
+  end
+
+  defp projection_links(edges, type) do
+    Enum.map(Enum.filter(edges, &(&1.type == type)), fn edge ->
+      %{id: edge.id, from_id: edge.from_id, to_id: edge.to_id}
+    end)
+  end
+
+  defp graph_projection_reply(status) when is_binary(status) do
+    contract_reply(FetchGraphProjectionReply, %{status: status})
+  end
+
+  defp graph_projection_reply(attrs) do
+    contract_reply(FetchGraphProjectionReply, attrs)
   end
 
   defp node_draft_reply(status, node \\ nil) do

@@ -4,6 +4,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   alias NetworkDefense.DefenseActions.BlockReachability
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.{Budget, Strategy}
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Simulations
 
   defstruct [:initial_foothold_node_id]
@@ -13,15 +14,26 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
            Simulations.validate_initial_foothold(
              graph,
              simulation_params.initial_foothold_node_id
-           ) do
+           ),
+         :ok <- ensure_reachability(graph) do
       {:ok, %__MODULE__{initial_foothold_node_id: simulation_params.initial_foothold_node_id}}
+    end
+  end
+
+  defp ensure_reachability(graph) do
+    if graph
+       |> Graph.edges()
+       |> Enum.any?(&(&1.type == NetworkReachability)) do
+      :ok
+    else
+      {:error, "topology segmentation requires reachability relationships in the graph"}
     end
   end
 
   defimpl Strategy, for: __MODULE__ do
     alias NetworkDefense.Graph.Query
     alias NetworkDefense.Nodes.{Host, Service}
-    alias NetworkDefense.Relationships.{NetworkReachability, Runs}
+    alias NetworkDefense.Relationships.Runs
 
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Topology segmentation strategy"

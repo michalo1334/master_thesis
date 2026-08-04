@@ -1,5 +1,6 @@
 import type {
   Edge,
+  GraphProjectionOperationalFlow,
   LoadedGraph,
   NetworkSegmentNode,
   Node,
@@ -31,10 +32,22 @@ export interface NetworkSegmentLink {
   edgeIds: string[];
 }
 
+export interface NetworkOperationalFlow {
+  id: string;
+  sourceId: string;
+  sourceName: string;
+  sourcePosition: { x: number; y: number };
+  targetId: string;
+  targetPosition: { x: number; y: number };
+  serviceId: string;
+  serviceName: string;
+}
+
 export interface NetworkProjection {
   hosts: NetworkHost[];
   segments: NetworkSegment[];
   segmentLinks: NetworkSegmentLink[];
+  operationalFlows: NetworkOperationalFlow[];
 }
 
 function uniqueParents(
@@ -66,7 +79,10 @@ function uniqueParents(
   );
 }
 
-export function projectNetwork(graph: LoadedGraph): NetworkProjection {
+export function projectNetwork(
+  graph: LoadedGraph,
+  serverFlows?: readonly GraphProjectionOperationalFlow[],
+): NetworkProjection {
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
   const servicesByHostId = new Map<
     string,
@@ -197,12 +213,37 @@ export function projectNetwork(graph: LoadedGraph): NetworkProjection {
     segmentLinksById.set(id, segmentLink);
   }
 
+  const operationalFlows: NetworkOperationalFlow[] = [];
+  for (const flow of serverFlows ?? []) {
+    const source = nodesById.get(flow.from_id);
+    const service = nodesById.get(flow.to_id);
+    const targetHost = service
+      ? nodesById.get(serviceHostIds.get(service.id)!)
+      : undefined;
+    if (source?.type !== "Host" || service?.type !== "Service") continue;
+    if (targetHost?.type !== "Host") continue;
+    operationalFlows.push({
+      id: flow.id,
+      sourceId: source.id,
+      sourceName: source.data.name,
+      sourcePosition: { x: source.view_data.x_pos, y: source.view_data.y_pos },
+      targetId: targetHost.id,
+      targetPosition: {
+        x: targetHost.view_data.x_pos,
+        y: targetHost.view_data.y_pos,
+      },
+      serviceId: service.id,
+      serviceName: service.data.name,
+    });
+  }
+
   return {
     hosts,
     segments: [...segments.values()].filter(
       (segment) => segment.hosts.length > 0 || segment.node,
     ),
     segmentLinks: [...segmentLinksById.values()],
+    operationalFlows,
   };
 }
 
