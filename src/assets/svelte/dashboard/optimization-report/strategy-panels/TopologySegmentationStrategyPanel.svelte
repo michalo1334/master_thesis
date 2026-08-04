@@ -9,6 +9,6 @@
 
 <StrategyPanel
   title="Topology segmentation"
-  description="Selects reachability controls that isolate reachable hosts."
+  description="Cuts segment-boundary reachability policies that reduce reachable hosts."
   actions={analysis.actions}
 />

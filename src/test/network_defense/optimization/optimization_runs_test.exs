@@ -202,6 +202,31 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       assert Optimizations.get_report(run.id) == nil
     end
 
+    test "get_report/1 discards runs persisted with the retired BlockReachability action" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+      credential = Graph.nodes(graph) |> List.first()
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 strategy: "cvss",
+                 requested_budget: 2
+               )
+               |> OptimizationRuns.create()
+
+      assert {:ok, _completed} =
+               OptimizationRuns.complete(run, %{
+                 actions: [
+                   %{action_type: "BlockReachability", target_id: credential.id, cost: 1}
+                 ],
+                 used_budget: 1,
+                 runtime_ms: 12,
+                 output_graph_revision_id: graph.revision_id
+               })
+
+      assert Optimizations.get_report(run.id) == nil
+    end
+
     test "list_runs/1 returns completed runs for graph revisions" do
       assert {:ok, graph} = Graphs.insert(graph_with_credential())
       assert {:ok, other} = Graphs.insert(graph_with_credential())

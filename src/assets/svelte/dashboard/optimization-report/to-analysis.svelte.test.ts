@@ -11,8 +11,8 @@ const report: OptimizationReport = {
   actions: [
     {
       id: "block-1",
-      label: "Block edge",
-      kind: "block_reachability",
+      label: "Cut source-segment to target-segment (tcp:443-443)",
+      kind: "Segment-boundary cut",
       cost: 2,
     },
   ],

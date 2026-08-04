@@ -7,7 +7,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   alias NetworkDefense.Cvss
 
   alias NetworkDefense.DefenseActions.{
-    BlockReachability,
+    BlockSegmentReachability,
     DefenseAction,
     PatchVulnerability,
     RevokeCredential
@@ -84,13 +84,13 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
     }
   end
 
-  defp action_summary(%BlockReachability{} = action, graph) do
+  defp action_summary(%BlockSegmentReachability{} = action, graph) do
     edge = Graph.edge(graph, action.edge_id)
 
     %{
       id: action.edge_id,
-      label: "Block #{edge_label(edge, graph)}",
-      kind: "Network segmentation",
+      label: policy_cut_label(edge, graph),
+      kind: "Segment-boundary cut",
       cost: DefenseAction.cost(action)
     }
   end
@@ -114,10 +114,19 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
     |> Map.put(:cost, action.cost)
   end
 
-  defp edge_label(nil, _graph), do: "reachability"
+  defp policy_cut_label(nil, _graph), do: "Cut reachability policy"
 
-  defp edge_label(edge, graph) do
-    "#{node_label(Graph.node(graph, edge.from_id))} to #{node_label(Graph.node(graph, edge.to_id))}"
+  defp policy_cut_label(edge, graph) do
+    source = node_label(Graph.node(graph, edge.from_id))
+    target = node_label(Graph.node(graph, edge.to_id))
+    "Cut #{source} to #{target} (#{policy_label(edge.data)})"
+  end
+
+  defp policy_label(%{protocol: protocol, port_start: nil, port_end: nil}),
+    do: to_string(protocol)
+
+  defp policy_label(%{protocol: protocol, port_start: port_start, port_end: port_end}) do
+    "#{protocol}:#{port_start || "*"}-#{port_end || "*"}"
   end
 
   defp node_label(nil), do: "unknown target"

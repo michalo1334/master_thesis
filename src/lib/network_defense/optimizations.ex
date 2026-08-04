@@ -123,20 +123,22 @@ defmodule NetworkDefense.Optimizations do
     do: OptimizationRuns.list_by_graph_revisions(graph_revision_ids)
 
   @doc """
-  Regenerates a report for a completed optimization run, or `nil` when it does not exist.
+  Regenerates a report for a completed optimization run, or `nil` when it does not exist
+  or its actions reference a retired defense action type.
   """
   @spec get_report(String.t()) :: OptimizationReport.t() | nil
   def get_report(optimization_run_id) do
-    case OptimizationRuns.load(optimization_run_id) do
-      %OptimizationRun{status: "completed"} = run ->
-        case Graphs.load_revision(run.graph_revision_id) do
-          %Graph{} = graph -> OptimizationReport.generate(run, graph)
-          _ -> nil
-        end
-
-      _ ->
-        nil
+    with %OptimizationRun{status: "completed"} = run <- OptimizationRuns.load(optimization_run_id),
+         true <- materializable_run?(run),
+         %Graph{} = graph <- Graphs.load_revision(run.graph_revision_id) do
+      OptimizationReport.generate(run, graph)
+    else
+      _ -> nil
     end
+  end
+
+  defp materializable_run?(%OptimizationRun{actions: actions}) do
+    Enum.all?(actions, &DefenseActionsRegistry.module_for_short(&1.action_type))
   end
 
   defp persistence_error({:graph, changeset}), do: persistence_error(changeset)

@@ -173,6 +173,57 @@ describe("OptimizationReport", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders a segment-boundary cut action in the defense plan", async () => {
+    const document = new OptimizationReportDocument({
+      graphId: "g1",
+      graphRevisionId: "r1",
+      graphTitle: "Topology",
+      correlationId: "corr-1",
+      strategy: "topology_segmentation",
+      budget: 1,
+    });
+    document.complete(
+      api(),
+      {
+        correlation_id: "corr-1",
+        graph_id: "g1",
+        graph_revision_id: "r1",
+        output_graph_revision_id: "optimized-r1",
+        optimization_id: "optimization-1",
+      },
+      vi.fn().mockResolvedValue(true),
+    );
+    document.setReportData({
+      optimization_id: "optimization-1",
+      graph_id: "g1",
+      graph_title: "Topology",
+      graph_revision_id: "r1",
+      report: {
+        strategy: "topology_segmentation",
+        requested_budget: 1,
+        used_budget: 1,
+        runtime_ms: 25,
+        actions: [
+          {
+            id: "block-1",
+            label: "Cut source-segment to target-segment (tcp:443-443)",
+            kind: "Segment-boundary cut",
+            cost: 1,
+          },
+        ],
+      },
+    });
+
+    render(OptimizationReportComponent, { props: { document } });
+
+    await fireEvent.click(screen.getByRole("tab", { name: "Defense plan" }));
+    expect(
+      screen.getAllByText("Cut source-segment to target-segment (tcp:443-443)")
+        .length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("Segment-boundary cut")).toBeInTheDocument();
+  });
+
   it("loads and displays the graph diff", async () => {
     let resolveGraphDiff!: (graphDiff: GraphDiffDocument | undefined) => void;
     const createGraphDiff = vi.fn(

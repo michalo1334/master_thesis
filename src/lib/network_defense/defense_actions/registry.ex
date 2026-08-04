@@ -6,10 +6,10 @@ defmodule NetworkDefense.DefenseActions.Registry do
   """
   alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.DefenseActions.PatchVulnerability
-  alias NetworkDefense.DefenseActions.BlockReachability
+  alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.Registry
 
-  @types [BlockReachability, PatchVulnerability, RevokeCredential]
+  @types [BlockSegmentReachability, PatchVulnerability, RevokeCredential]
 
   def get_all, do: Registry.get_all(@types)
   def module_for(type), do: Registry.module_for(@types, type)

@@ -4,7 +4,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.DefenseActions.PatchVulnerability
-  alias NetworkDefense.DefenseActions.BlockReachability
+  alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Graph.Graph
@@ -29,7 +29,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
   end
 
   defp do_optimize(graph, strategy, budget, progress_callback) do
-    default_actions = [BlockReachability, PatchVulnerability, RevokeCredential]
+    default_actions = [BlockSegmentReachability, PatchVulnerability, RevokeCredential]
 
     1..budget
     |> Enum.reduce_while({graph, budget, [], 0}, fn step,

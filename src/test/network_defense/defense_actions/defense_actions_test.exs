@@ -1,7 +1,7 @@
 defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.DefenseActions.BlockReachability
+  alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.RevokeCredential
@@ -10,27 +10,39 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Relationships.AuthenticatesTo
+  alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.HasVulnerability
-  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
+  alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Relationships.SegmentReachability
 
-  describe "BlockReachability" do
-    test "removes one edge" do
-      graph = reachability_graph()
-      [edge] = Graph.edges(graph)
+  describe "BlockSegmentReachability" do
+    test "removes one canonical policy edge" do
+      graph = segment_reachability_graph()
 
-      action = %BlockReachability{edge_id: edge.id}
+      policy_edges =
+        Enum.filter(
+          Graph.edges(graph),
+          &(&1.type == SegmentReachability)
+        )
+
+      assert [edge] = policy_edges
+
+      action = %BlockSegmentReachability{edge_id: edge.id}
       assert DefenseAction.cost(action) == 1
 
-      assert %BlockReachability{edge_id: "replacement"} =
+      assert %BlockSegmentReachability{edge_id: "replacement"} =
                DefenseAction.with_target_id(action, "replacement")
 
       new_graph = DefenseAction.apply(action, graph)
-      assert Graph.edges(new_graph) == []
+
+      assert Enum.filter(Graph.edges(new_graph), &(&1.type == SegmentReachability)) == []
+      assert Graph.edges(new_graph) != []
     end
   end
 
@@ -99,20 +111,51 @@ defmodule NetworkDefense.DefenseActions.DefenseActionsTest do
     end
   end
 
-  defp reachability_graph do
-    host = node("host", Host, %{"name" => "h1"})
-    svc = node("svc", Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
+  defp segment_reachability_graph do
+    segment_a = node("segment-a", NetworkSegment, %{"name" => "segment-a"})
+    segment_b = node("segment-b", NetworkSegment, %{"name" => "segment-b"})
+    host_a = node("host-a", Host, %{"name" => "host-a"})
+    host_b = node("host-b", Host, %{"name" => "host-b"})
 
-    edge = %Edge{
-      id: "e1",
-      graph_id: "g",
-      from_id: host.id,
-      to_id: svc.id,
-      type: RelationshipRegistry.type_for(NetworkReachability),
-      data: %{}
-    }
+    service =
+      node("service", Service, %{"name" => "nginx", "protocol" => "tcp", "port" => 443})
 
-    graph([host, svc], [edge])
+    edges = [
+      %Edge{
+        id: "contains-a",
+        graph_id: "g",
+        from_id: segment_a.id,
+        to_id: host_a.id,
+        type: RelationshipRegistry.type_for(Contains),
+        data: %{}
+      },
+      %Edge{
+        id: "contains-b",
+        graph_id: "g",
+        from_id: segment_b.id,
+        to_id: host_b.id,
+        type: RelationshipRegistry.type_for(Contains),
+        data: %{}
+      },
+      %Edge{
+        id: "runs-b",
+        graph_id: "g",
+        from_id: host_b.id,
+        to_id: service.id,
+        type: RelationshipRegistry.type_for(Runs),
+        data: %{}
+      },
+      %Edge{
+        id: "policy-ab",
+        graph_id: "g",
+        from_id: segment_a.id,
+        to_id: segment_b.id,
+        type: RelationshipRegistry.type_for(SegmentReachability),
+        data: %{"protocol" => "tcp"}
+      }
+    ]
+
+    graph([segment_a, segment_b, host_a, host_b, service], edges)
   end
 
   defp vulnerability_graph do

@@ -1,10 +1,10 @@
 defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   @moduledoc false
 
-  alias NetworkDefense.DefenseActions.BlockReachability
-  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.DefenseActions.BlockSegmentReachability
+  alias NetworkDefense.Graph.{Graph, MaterializeReachability}
   alias NetworkDefense.Optimization.{Budget, Strategy}
-  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Relationships.{NetworkReachability, Runs, SegmentReachability}
   alias NetworkDefense.Simulations
 
   defstruct [:initial_foothold_node_id]
@@ -23,7 +23,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   defp ensure_reachability(graph) do
     if graph
        |> Graph.edges()
-       |> Enum.any?(&(&1.type == NetworkReachability)) do
+       |> Enum.any?(&(&1.type == SegmentReachability)) do
       :ok
     else
       {:error, "topology segmentation requires reachability relationships in the graph"}
@@ -31,31 +31,29 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   end
 
   defimpl Strategy, for: __MODULE__ do
-    alias NetworkDefense.Graph.Query
-    alias NetworkDefense.Nodes.{Host, Service}
-    alias NetworkDefense.Relationships.Runs
-
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Topology segmentation strategy"
 
     @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: list()
     def rank(strategy, action_types, graph, _budget) do
-      if BlockReachability in action_types do
-        host_links = host_links(graph)
-        reachable_count = reachable_host_count(strategy.initial_foothold_node_id, host_links, nil)
+      if BlockSegmentReachability in action_types do
+        baseline = reachable_host_count(strategy.initial_foothold_node_id, graph)
 
         graph
         |> Graph.edges()
-        |> Enum.filter(&(&1.type == NetworkReachability))
+        |> Enum.filter(&(&1.type == SegmentReachability))
         |> Enum.map(fn edge ->
           reduction =
-            reachable_count -
-              reachable_host_count(strategy.initial_foothold_node_id, host_links, edge.id)
+            baseline -
+              reachable_host_count(
+                strategy.initial_foothold_node_id,
+                Graph.remove_edge_by_id(graph, edge.id)
+              )
 
-          {%BlockReachability{edge_id: edge.id}, reduction}
+          {%BlockSegmentReachability{edge_id: edge.id}, reduction}
         end)
         |> Enum.filter(fn {_action, reduction} -> reduction > 0 end)
-        |> Enum.sort_by(fn {%BlockReachability{edge_id: edge_id}, reduction} ->
+        |> Enum.sort_by(fn {%BlockSegmentReachability{edge_id: edge_id}, reduction} ->
           {-reduction, edge_id}
         end)
         |> Enum.map(&elem(&1, 0))
@@ -64,33 +62,31 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
       end
     end
 
-    defp host_links(graph) do
-      graph
-      |> Query.match(%{
-        start: {:source_host, Host},
-        hops: [
-          %{via: {:reachability, NetworkReachability}, to: {:service, Service}}
-        ],
-        joins: [
-          %{from: {:target_host, Host}, via: {:runs, Runs}, to: {:service, Service}}
-        ]
-      })
-      |> Enum.map(fn match ->
-        {match.source_host.id, match.target_host.id, match.reachability.id}
-      end)
-    end
+    # ponytail: exact but O(policies * flows): rematerializes and BFSes the full
+    # graph per candidate. Parallelize per policy or diff flows incrementally once
+    # real graph sizes warrant profiling.
+    defp reachable_host_count(foothold_id, graph) do
+      hosts_by_service =
+        Enum.flat_map(Graph.edges(graph), fn
+          %{type: Runs, from_id: host_id, to_id: service_id} -> [{service_id, host_id}]
+          _ -> []
+        end)
+        |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
 
-    defp reachable_host_count(source_id, links, blocked_edge_id) do
       adjacency =
-        Enum.reduce(links, %{}, fn {link_source_id, target_id, edge_id}, adjacency ->
-          if edge_id == blocked_edge_id do
+        graph
+        |> MaterializeReachability.materialize()
+        |> Graph.edges()
+        |> Enum.reduce(%{}, fn
+          %{type: NetworkReachability, from_id: source_id, to_id: service_id}, adjacency ->
+            target_hosts = Map.get(hosts_by_service, service_id, [])
+            Map.update(adjacency, source_id, target_hosts, &(target_hosts ++ &1))
+
+          _edge, adjacency ->
             adjacency
-          else
-            Map.update(adjacency, link_source_id, [target_id], &[target_id | &1])
-          end
         end)
 
-      traverse([source_id], adjacency, MapSet.new()) |> MapSet.size()
+      traverse([foothold_id], adjacency, MapSet.new()) |> MapSet.size()
     end
 
     defp traverse([], _adjacency, visited), do: visited

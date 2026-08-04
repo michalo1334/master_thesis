@@ -1,21 +1,18 @@
 defmodule NetworkDefense.Optimization.RandomStrategyTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.DefenseActions.{BlockReachability, RevokeCredential}
-  alias NetworkDefense.Graph.{Edge, Graph, Node}
-  alias NetworkDefense.Nodes.{Credential, Host, Service}
+  alias NetworkDefense.DefenseActions.{BlockSegmentReachability, RevokeCredential}
+  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.GraphFixtures
+  alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service}
   alias NetworkDefense.Optimization.{RandomStrategy, Strategy}
-  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability}
 
-  test "selects a concrete action for an eligible edge" do
-    graph =
-      graph(
-        [node("host", Host, %{"name" => "host"}), node("service", Service, service_data())],
-        [edge("reachability", "host", "service", NetworkReachability, %{"protocol" => "tcp"})]
-      )
+  test "selects a concrete action for an eligible policy edge" do
+    graph = policy_graph()
 
-    assert [%BlockReachability{edge_id: "reachability"}] =
-             Strategy.rank(%RandomStrategy{}, [BlockReachability], graph, 1)
+    assert [%BlockSegmentReachability{edge_id: "policy-ab"}] =
+             Strategy.rank(%RandomStrategy{}, [BlockSegmentReachability], graph, 1)
   end
 
   test "selects a credential node for revocation" do
@@ -28,11 +25,29 @@ defmodule NetworkDefense.Optimization.RandomStrategyTest do
   test "returns no action when no eligible target exists" do
     graph = graph([node("host", Host, %{"name" => "host"})], [])
 
-    assert Strategy.rank(%RandomStrategy{}, [BlockReachability], graph, 1) == []
+    assert Strategy.rank(%RandomStrategy{}, [BlockSegmentReachability], graph, 1) == []
   end
 
   test "returns no action when no action type is provided" do
     assert Strategy.rank(%RandomStrategy{}, [], graph([], []), 1) == []
+  end
+
+  defp policy_graph do
+    segment_a = node("segment-a", NetworkSegment, %{"name" => "segment-a"})
+    segment_b = node("segment-b", NetworkSegment, %{"name" => "segment-b"})
+    host_a = node("host-a", Host, %{"name" => "host-a"})
+    host_b = node("host-b", Host, %{"name" => "host-b"})
+    service = node("service", Service, service_data())
+
+    graph(
+      [segment_a, segment_b, host_a, host_b, service],
+      [
+        edge("contains-a", segment_a, host_a, Contains, %{}),
+        edge("contains-b", segment_b, host_b, Contains, %{}),
+        edge("runs-b", host_b, service, Runs, %{}),
+        edge("policy-ab", segment_a, segment_b, SegmentReachability, %{"protocol" => "tcp"})
+      ]
+    )
   end
 
   defp graph(nodes, edges) do
@@ -42,18 +57,11 @@ defmodule NetworkDefense.Optimization.RandomStrategyTest do
   end
 
   defp node(id, type, data) do
-    %Node{id: id, graph_id: "graph", type: Atom.to_string(type), data: data, view_data: nil}
+    GraphFixtures.node(id, type, data)
   end
 
-  defp edge(id, from_id, to_id, type, data) do
-    %Edge{
-      id: id,
-      graph_id: "graph",
-      from_id: from_id,
-      to_id: to_id,
-      type: Atom.to_string(type),
-      data: data
-    }
+  defp edge(id, from, to, type, data) do
+    GraphFixtures.edge(id, from, to, type, data)
   end
 
   defp service_data, do: %{"name" => "service", "protocol" => "tcp", "port" => 443}
