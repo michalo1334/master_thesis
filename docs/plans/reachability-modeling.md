@@ -153,7 +153,7 @@ The projection exists only in memory. It is never saved in a graph revision or a
 
 1. Add `NetworkDefense.Graph.MaterializeReachability`.
 2. Resolve membership, ownership, policy matching, deduplication, sorting, and deterministic operational IDs in that module only.
-3. Change `EnterpriseTopology` to emit a dedicated segment-policy table, then remove `add_reachability/3` and its host/service pair helpers. Keep `@transitions`; it only selects extra host roles.
+3. Change `EnterpriseTopology` to emit connectivity from a dedicated segment-policy table instead of direct host/service reachability helpers. The private helper that adds policy edges from the table remains; the phase eliminates any host/service pair reachability construction so every effective flow derives from policy. Keep `@transitions`; it only selects extra host roles.
 4. Add one shared operational-graph boundary used by both normal simulation dispatch and optimization scoring. `Simulations` materializes before batch execution; `SimulationObjective.expected_blast_radius/2` materializes before its direct `Simulator.run_experiment/3` call. No rule or strategy passes a canonical graph directly to a simulator.
 5. `RemoteServiceExploitation` and `ReuseCredentialRule` retain their traversal shape but remove protocol/range filtering.
 6. Add a server read operation that returns a network projection for one revision. It returns hosts, segments, policy links, and derived operational flows. It never writes them.
@@ -251,6 +251,8 @@ The projection exists only in memory. It is never saved in a graph revision or a
 2. Remove any residual host-flow creation copy, shortcut, test, or presentation path not deleted in Phase 1.
 3. Audit all uses of `NetworkReachability` with repository search. The only allowed production consumers are the materializer, operational graph traversal, and projection response.
 4. Update the model documentation to state the structural-versus-operational split and the deliberate absence of micro-segmentation exceptions.
+5. Update the thesis chapters that describe reachability and segmentation: policy is segment-to-segment, effective flows are an in-memory projection, and segmentation removes a policy rule.
+6. Mark historical initial drafts under `docs/initial` as superseded at their start, linking to this plan.
 
 ### Change blast radius
 
@@ -266,12 +268,18 @@ The projection exists only in memory. It is never saved in a graph revision or a
 - Update `src/lib/network_defense/graph/graph_diff.ex` and `src/assets/svelte/dashboard/graph/GraphDiff.svelte` with their tests.
 - Update residual frontend tests and presentation-registry tests.
 - Update `docs/concepts/model.md`, `docs/concepts/graph-model-evaluation.md`, `docs/concepts/usecases.md`, `docs/concepts/enterprise-topology-sources.md`, `docs/concepts/credential-privilege-model-plan.md`, `docs/concepts/milestones.md`, and this plan.
+- Update the reachability and segmentation sections of `thesis/chapter_design.tex`, `thesis/chapter_implementation.tex`, `thesis/chapter_introduction.tex`, `thesis/chapter_theory.tex`, `thesis/chapter_evaluation.tex`, and `thesis/chapter_conclusion.tex`.
+- Mark `docs/initial/2026-03-04-attack-graph-blast-radius-design.md`, `docs/initial/2026-04-01-unified-plan.md`, `docs/initial/thesis-proposal-draft.md`, and `docs/initial/2026-03-04-project-setup-todos.md` as superseded; their historical content stays unchanged.
 
 ### Gate
 
 - Repository search shows no production direct-reachability authoring or persistence path.
 - Policy diffs, network projection, simulation, and optimization work from one newly generated graph.
 - `mix precommit` passes.
+
+### Completion
+
+Phase 4 complete. Canonical diff, projection, simulation, optimization, and the repository-boundary audit pass; the full `mix precommit` gate passes.
 
 ## Explicitly Deferred
 

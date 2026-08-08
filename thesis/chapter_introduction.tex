@@ -16,7 +16,7 @@ A working familiarity with the notation used throughout the document is assumed;
 \section{Goal and scope of the thesis}
 \label{ch:intro:goal}
 
-The goal of the thesis is to design, implement, and evaluate a small but expressive system that demonstrates the proposed approach on synthetic but realistic network topologies of 20 to 1000 hosts. The scope is intentionally limited: a single-pass offline analysis, a single optimization family (min-cut segmentation, greedy patching, and a hybrid of the two), and a reproducible evaluation. Out-of-scope topics (online re-evaluation under topology change, real-CVE feed integration, multi-tenant operation) are noted in the conclusion.
+The goal of the thesis is to design, implement, and evaluate a small but expressive system that demonstrates the proposed approach on synthetic but realistic network topologies of 20 to 1000 hosts. The scope is intentionally limited: a single-pass offline analysis, canonical segment-policy reachability with operational flows derived in memory, policy-rule removals as the segmentation action, and a reproducible evaluation. Out-of-scope topics (online re-evaluation under topology change, real-CVE feed integration, multi-tenant operation) are noted in the conclusion.
 
 \section{Research questions}
 \label{ch:intro:questions}
@@ -25,7 +25,7 @@ The work is organized around three sub-questions, which together determine the s
 
 \begin{enumerate}
 	\item How effectively does graph-based attack-path modeling capture real lateral-movement patterns, compared to per-host CVSS-based scoring?
-	\item Which optimization strategy --- graph min-cut for segmentation, greedy patching, or a hybrid of the two --- achieves the greatest reduction in blast radius per defensive action?
+	\item Which optimization strategy --- simulation-informed patching, policy-rule segmentation, or annealing-based search --- achieves the greatest reduction in blast radius per defensive action?
 	\item How does the approach scale with the number of hosts in the network, both in graph-construction time and in simulation throughput?
 \end{enumerate}
 

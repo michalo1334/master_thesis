@@ -224,11 +224,11 @@ Projekt wygląda dojrzale badawczo.
 
 # TOP 7 — Cost-aware optimization
 
-## Obecny problem
+## Obecny stan
 
-Optimizer minimalizuje blast radius bez kosztu działań.
+Optimizer jest już kosztowy: każda akcja obronna ma koszt, a wybrane portfolio musi zmieścić się w budżecie.
 
-To jest mało realistyczne.
+Rozszerzeniem pozostaje pogłębienie modelu kosztów: koszty operacyjne, zależności między akcjami, realistyczne metryki (np. czas rebootu przy patchowaniu).
 
 ## Rozszerzenie
 

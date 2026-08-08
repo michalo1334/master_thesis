@@ -86,16 +86,20 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
             adjacency
         end)
 
-      traverse([foothold_id], adjacency, MapSet.new()) |> MapSet.size()
+      traverse([foothold_id], adjacency, %{}) |> map_size()
     end
 
     defp traverse([], _adjacency, visited), do: visited
 
     defp traverse([host_id | rest], adjacency, visited) do
-      if MapSet.member?(visited, host_id) do
+      if Map.has_key?(visited, host_id) do
         traverse(rest, adjacency, visited)
       else
-        traverse(Map.get(adjacency, host_id, []) ++ rest, adjacency, MapSet.put(visited, host_id))
+        traverse(
+          Map.get(adjacency, host_id, []) ++ rest,
+          adjacency,
+          Map.put(visited, host_id, true)
+        )
       end
     end
   end

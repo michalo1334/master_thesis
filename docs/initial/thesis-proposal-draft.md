@@ -1,5 +1,7 @@
 # Propozycja tematu pracy dyplomowej — DRAFT
 
+> **Superseded.** This draft describes the earlier host/service reachability model, min-cut segmentation, and the retired min-cut/greedy/hybrid strategy set. The canonical model — segment-to-segment policy with a deterministic in-memory operational projection — is defined in [Reachability Modeling — Canonical Policy, Transient Operational Flows](../plans/reachability-modeling.md). Historical record only.
+
 ## Proponowany temat pracy dyplomowej w języku polskim
 
 Grafowa symulacja ścieżek ataku i automatyczna optymalizacja obrony w celu minimalizacji zasięgu rażenia w sieciach komputerowych

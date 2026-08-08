@@ -1,5 +1,7 @@
 # Unified Plan: Master Thesis + Work Growth Project
 
+> **Superseded.** This plan describes the earlier host/service reachability model and min-cut segmentation. The canonical model — segment-to-segment policy with a deterministic in-memory operational projection — is defined in [Reachability Modeling — Canonical Policy, Transient Operational Flows](../plans/reachability-modeling.md). Historical record only.
+
 ## Vision
 
 A **single-pane-of-glass security platform** that:

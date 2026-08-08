@@ -9,14 +9,14 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Basic project structure (src, docs, config, docker, etc.)
 - [x] Telemetry & observability setup (Grafana, Tempo, Loki, Alloy)
 - [x] UI dependencies (LiveSvelte, Bits UI, Svelte 5, Tailwind)
-- [ ] CI/CD pipeline (precommit hooks, automated tests)
+- [ ] CI/CD pipeline (automated tests on push/PR, git precommit hooks)
 
 ## 1. Model — Design Network Topology (all use cases)
 
 - [x] Graph data model (Node, Edge, Graph schemas + adjacency list)
-- [x] Graph persistence (CRUD via Graphs, optimistic locking, migrations)
-- [x] Node types (Host, Service, Vulnerability with embedded validation)
-- [x] Relationship types (NetworkReachability, Runs, HasVulnerability)
+- [x] Graph persistence (CRUD via Graphs, revision-lineage conflict rejection, migrations)
+- [x] Node types (Host, Service, Vulnerability, NetworkSegment, Credential with embedded validation)
+- [x] Relationship types (SegmentReachability, Runs, HasVulnerability, Contains)
 - [x] Graph query DSL (pattern matching with Query.match)
 - [x] Graph diff engine (detect added/removed/changed nodes + edges)
 - [x] Canvas rendering (SVG graph with pan, zoom, node/edge rendering)
@@ -25,7 +25,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Object selection + inspectors (Host, Service, Vulnerability, Edge)
 - [x] Force-directed layout with tunable parameters
 - [x] Multi-document workspace (open/close/switch topologies)
-- [x] Graph ↔ list view toggle
+- [x] Topology/Network view toggle
 
 ## 2. Simulate — Run Attack Simulation
 
@@ -33,9 +33,9 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Rule protocol + RemoteServiceExploitation rule
 - [x] Action protocol + ExploitVulnerability action
 - [x] Attacker state tracking (footholds, attempted actions)
-- [x] Single and multi-run simulation (run/run_multiple)
+- [x] Batch Monte Carlo simulation (trial batches committed to one experiment)
 - [x] Dashboard integration (trigger simulation from ribbon)
-- [ ] Simulation parameter configuration UI (seed, iteration count)
+- [x] Simulation parameter configuration UI (seed, iteration count)
 
 ## 3. Analyze — Examine Results
 
@@ -44,13 +44,14 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Statistical chart component (StatisticalChart.svelte)
 - [ ] Blast radius heat map on graph nodes
 - [x] Data pipeline: simulation results → dashboard UI
-- [ ] Compromised host/attack path inspection
+- [x] Compromised host/attack path inspection
 
 ## 4. Defend — Optimize & Apply Defenses
 
-- [x] Optimizer core stub (empty file)
-- [ ] Patch vulnerability action stub
-- [ ] Block reachability action stub
+- [x] Optimizer core (strategies, budget, simulation objective)
+- [x] Patch vulnerability action
+- [x] Segment policy removal (segmentation) action
+- [x] Revoke credential action
 
 ## Thesis
 
@@ -64,7 +65,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## Infrastructure
 
-- [ ] IaC — Terraform local dev environment
+- [x] IaC — Terraform local dev environment
 - [ ] IaC — Terraform Azure dev environment
 
 ## 2. Simulate — Run Attack Simulation
@@ -72,19 +73,19 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Trigger simulation from dashboard
 - [x] Configure simulation parameters via UI
 - [x] Telemetry inside simulator (OTel spans)
-- [ ] Simulation progress indicator
+- [x] Simulation progress indicator
 
 ## 3. Analyze — Examine Results
 
 - [ ] Blast radius heat map (node coloring by compromise probability)
 - [x] Data pipeline: connect simulation output to dashboard
-- [ ] Compromised host list (which hosts reached, how often)
-- [ ] Attack path visualization (highlighted edges)
+- [x] Compromised host list (which hosts reached, how often)
+- [x] Attack path visualization (highlighted edges)
 - [x] Simulation report with KPIs + charts
 
 ## 4. Defend — Optimize & Apply Defenses
 
-- [ ] Greedy defense optimizer
+- [x] Greedy defense optimizer
 - [ ] Simulate-only defense evaluation (hypothetical what-if)
 
 ## 5. Verify — Re-simulate After Defense
@@ -112,7 +113,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 ## 4. Defend — Advanced
 
 - [ ] Apply patch vulnerability on a service
-- [ ] Apply block reachability between two nodes
+- [ ] Apply segmentation (remove a segment reachability policy)
 - [ ] Compare predicted vs actual blast radius reduction
 
 ## 6. Report — Export

@@ -13,11 +13,13 @@ Model credential-based lateral movement and local privilege escalation in the pr
 | Credential node | — | `identifier`, `credential_type` | A non-secret reference to reusable credential material. |
 | StoresCredential | Host → Credential | `required_privilege` | The host exposes the credential at the stated privilege. |
 | AuthenticatesTo | Credential → Service | `granted_privilege` | The credential can authenticate to the service. |
-| NetworkReachability | Host → Service | `protocol`, `port_start`, `port_end` | One allowed network flow. |
+| SegmentReachability | NetworkSegment → NetworkSegment | `protocol`, `port_start`, `port_end` | One allowed segment policy rule. |
 | HasVulnerability | Service → Vulnerability | `required_privilege`, `granted_privilege` | A remote exploit. |
 | HasVulnerability | Host → Vulnerability | `required_privilege`, `granted_privilege` | A local privilege escalation. |
 
 `none < user < administrator` defines the privilege order. Credential nodes never contain passwords, keys, tokens, or hashes.
+
+Reachability is segment policy, not authored host/service flows. `SegmentReachability` is the canonical, persisted edge. `NetworkReachability` is an empty, deterministic `Host -> Service` marker derived in memory by materialization; it is never authored or persisted. See `../plans/reachability-modeling.md`.
 
 ## Simulation
 
@@ -33,7 +35,7 @@ flowchart LR
     P --> L[Local escalation]
 ```
 
-- Remote exploitation requires matching protocol and port reachability.
+- Remote exploitation receives an already matching effective flow: materialization filters by protocol and port range against segment policy before the rule runs.
 - Credential acquisition and reuse are deterministic once their prerequisites hold.
 - Exploitation retains the vulnerability's configured success probability.
 - Every iteration evaluates all currently eligible actions. Newly acquired access becomes available in the next iteration.
@@ -42,7 +44,7 @@ flowchart LR
 ## Defensive Actions
 
 - Patch one `HasVulnerability` relationship.
-- Block one explicitly modeled reachability flow.
+- Remove one `SegmentReachability` policy rule. A segmentation action removes the rule, not individual host/service flows.
 - Revoke a credential by removing its `AuthenticatesTo` relationships.
 
 ## Delivery Scope

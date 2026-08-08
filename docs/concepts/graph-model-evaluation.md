@@ -1,6 +1,6 @@
 # Context Graph Model — Critical Evaluation and Extension Analysis
 
-Status: Current baseline (3 node types, 3 edge types, zero edge data fields).
+Status: Active evaluation analysis for the canonical model. Reachability is segment policy; see `../plans/reachability-modeling.md`.
 Source files: `src/lib/network_defense/graph/`, `src/lib/network_defense/nodes/`, `src/lib/network_defense/relationships/`.
 Contracts: `src/lib/network_defense/graph/contracts/`.
 Primary documentation: `docs/concepts/model.md`.
@@ -15,65 +15,78 @@ Primary documentation: `docs/concepts/model.md`.
 |------|--------|--------|
 | Host | `name: string` | `NetworkDefense.Nodes.Host` |
 | Service | `name: string`, `protocol: tcp\|udp`, `port: integer 1-65535`, `version?: string` | `NetworkDefense.Nodes.Service` |
-| Vulnerability | `identifier: string`, `cvss_score: float 0-10`, `exploit_probability: float 0-1` | `NetworkDefense.Nodes.Vulnerability` |
+| Vulnerability | `identifier: string`, `cvss: embedded`, `exploit_probability: float 0-1` | `NetworkDefense.Nodes.Vulnerability` |
+| NetworkSegment | `name: string`, `cidr?: string` | `NetworkDefense.Nodes.NetworkSegment` |
+| Credential | `identifier: string`, `credential_type: password\|ssh_key\|token` | `NetworkDefense.Nodes.Credential` |
 
 ### Edge Types
 
 | Type | Direction | Semantics | Data | Module |
 |------|-----------|-----------|------|--------|
+| Contains | NetworkSegment → Host | The segment contains the host | (none) | `Relationships.Contains` |
 | Runs | Host → Service | The host runs the service | (none) | `Relationships.Runs` |
-| NetworkReachability | Source Host → Service | Foothold on source can contact the service | (none) | `Relationships.NetworkReachability` |
-| HasVulnerability | Service → Vulnerability | The service exposes the vulnerability | (none) | `Relationships.HasVulnerability` |
+| SegmentReachability | NetworkSegment → NetworkSegment | The source segment may reach matching services in the target segment | `protocol: tcp\|udp\|any`, `port_start?`, `port_end?` | `Relationships.SegmentReachability` |
+| HasVulnerability | Host → Vulnerability, Service → Vulnerability | The host/service exposes the vulnerability | `required_privilege`, `granted_privilege` | `Relationships.HasVulnerability` |
+| StoresCredential | Host → Credential | The host stores the credential | `required_privilege` | `Relationships.StoresCredential` |
+| AuthenticatesTo | Credential → Service | The credential authenticates to the service | `granted_privilege` | `Relationships.AuthenticatesTo` |
 
-All three edge types carry **zero data fields**. The embedded schemas are empty. They function as pure markers.
+`SegmentReachability` is the canonical directed segment policy and the only authored, persisted reachability edge. It owns protocol and port-range data. `NetworkReachability` is not canonical: the materializer derives one empty, deterministic `Host -> Service` marker per effective flow the policy admits. The marker is never authored, saved, or accepted by canonical contracts.
 
 ### Graph Topology
 
 ```mermaid
 flowchart LR
-    Source[Source host] -->|network_reachability| Service[Service]
-    Target[Target host] -->|runs| Service
+    Source[Source segment] -->|contains| SourceHost[Source host]
+    Target[Target segment] -->|contains| TargetHost[Target host]
+    Source -->|segment_reachability| Target
+    TargetHost -->|runs| Service[Service]
     Service -->|has_vulnerability| Vulnerability[Vulnerability]
+    SourceHost -. network_reachability .-> Service
 ```
 
 ### Database Representation
 
-- `graphs`: `id`, `title`, `lock_version`
-- `nodes`: `id`, `graph_id` (FK), `type` (full module name string), `data` (JSONB), `view_data` (JSONB: `{x_pos, y_pos, radius}`)
-- `edges`: `id`, `graph_id` (FK), `from_id` (FK to nodes, scoped to graph), `to_id` (FK to nodes, scoped to graph), `type` (string), `data` (JSONB)
+Graphs persist as immutable revision chains. `graphs` holds only identity; every edit or optimization appends a new snapshot revision that a database trigger protects from updates.
+
+- `graphs`: `id`
+- `graph_revisions`: `id`, `graph_id` (FK), `parent_revision_id` (self-FK; null only for `initial`), `number` (per-graph sequence), `kind` (`initial` | `edit` | `optimization`), `title`
+- `nodes`: `id`, `graph_id` (FK) — node identity only
+- `edges`: `id`, `graph_id` (FK) — edge identity only
+- `graph_revision_nodes`: composite PK (`graph_revision_id`, `node_id`), `type` (full module name string), `data` (JSONB), `view_data` (JSONB: `{x_pos, y_pos, radius}`) — the revision-scoped node snapshot
+- `graph_revision_edges`: composite PK (`graph_revision_id`, `edge_id`), `from_id`, `to_id` (scoped to graph), `type` (string), `data` (JSONB) — the revision-scoped edge snapshot
 
 The `data` JSONB column supports new fields without migrations. In-memory, the graph is an immutable Elixir struct with a `virtual: true` adjacency list built via `Graph.hydrate/3`.
 
 ### Simulation Usage
 
-```
-Simulator.run_experiment(graph: graph, ...)
-  └── Rule.evaluate(:remote_service_exploitation, state)
-      └── Query.match(graph, pattern)
-          ├── Start: Host nodes matching current footholds
-          ├── Hop 1: NetworkReachability edge → Service node
-          ├── Hop 2: HasVulnerability edge → Vulnerability node
-          └── Join: Runs edge backward → target Host
+```mermaid
+flowchart TD
+    Caller[SimulationObjective / Simulations] -->|materialize once| Mat[Materialized operational graph]
+    Caller -->|dispatch batch| Sim[Simulator.run_experiment]
+    Mat --> Sim
+    Sim -->|each iteration| Rule[Rule.evaluate]
+    Rule --> Query[Query.match]
+    Query --> Flow[Host foothold to Service via NetworkReachability,<br/>Vulnerability via HasVulnerability,<br/>target host via Runs]
 ```
 
-The graph is **never mutated** during simulation. Only `AttackerState` evolves. The explosion rule is `ExploitVulnerability` — the only action type. If the RNG sample ≤ `exploit_probability`, the target host is added to footholds.
+Materialization runs once before batch dispatch and scoring. The exploitation rule receives an already matching effective flow; it no longer filters by protocol or port. The graph is **never mutated** during simulation. Only `AttackerState` evolves. The remote-exploitation action is `ExploitVulnerability`; credential rules emit `AcquireCredential` and `ReuseCredential`. If the RNG sample ≤ `exploit_probability`, the target host is added to footholds.
 
 ---
 
 ## 2. Comparison Against Current Literature
 
-The project's bibliography (`thesis/refs.bib`, 18 references) includes the canonical attack-graph works: Phillips & Swiler (1998), Sheyner et al. (2002), Ammann et al. (2002), Ou/MulVAL (2005), Ingols/MP graphs (2006/2009), Noel & Jajodia (2003), Wang et al. (2006), Frigault et al. (2008), Poolsappasit et al. (2012), Albanese et al. (2012), Homer/NetSPA (2009), Matthews et al. (2021), Kaynar survey (2016), Allodi & Massacci (2014), Lippmann & Ingols (2005).
+The project's bibliography (`thesis/refs.bib`) includes the canonical attack-graph works: Phillips & Swiler (1998), Sheyner et al. (2002), Ammann et al. (2002), Ou/MulVAL (2005), Ingols/MP graphs (2006/2009), Noel & Jajodia (2003), Wang et al. (2006), Frigault et al. (2008), Poolsappasit et al. (2012), Albanese et al. (2012), Homer/NetSPA (2009), Matthews et al. (2021), Kaynar survey (2016), Allodi & Massacci (2014), Lippmann & Ingols (2005).
 
 | Aspect | This Model | Literature Standard |
 |--------|-----------|---------------------|
-| Edge data | None — pure markers | Protocol, port, privilege requirements, exploit pre/post-conditions |
+| Edge data | Policy and privilege data on `segment_reachability`, `has_vulnerability`, and credential edges; `contains` and `runs` are markers | Protocol, port, privilege requirements, exploit pre/post-conditions |
 | Attacker model | Single `exploit_probability` float, collapsed from CVSS | Multi-dimensional: skill tier, tool access, persistence, patience |
-| Exploit types | One (`ExploitVulnerability` — remote service exploit) | Multiple: remote exploit, local privilege escalation, credential theft, phishing, supply chain |
-| Privilege levels | None — foothold = full host control | User vs root, credential rings, trust domains |
-| Credential propagation | Not modeled — only exploitation-based lateral movement | Shared passwords, SSH keys, LDAP trust, token theft (Sheyner, Ou, Ammann) |
+| Exploit types | Remote and local exploitation; credential acquisition and reuse | Multiple: remote exploit, local privilege escalation, credential theft, phishing, supply chain |
+| Privilege levels | `required_privilege`/`granted_privilege` on exploit and credential edges | User vs root, credential rings, trust domains |
+| Credential propagation | `stores_credential`/`authenticates_to`; no token theft or trust domains | Shared passwords, SSH keys, LDAP trust, token theft (Sheyner, Ou, Ammann) |
 | Pre/post-conditions | Hardcoded in Elixir rule, not in graph | Explicit condition/exploit/consequence nodes (MulVAL, MP graphs, NetSPA) |
 | Temporal dynamics | None — instantaneous exploit, no detection delay, no patching-during-attack | Time windows, detection delays, attacker dwell time, recovery during attack |
-| Network segmentation | Implicit — reachability edges are binary on/off | Firewall rule nodes, zone membership, ACL edges |
+| Network segmentation | Directed segment policy with protocol/port range, deny by default | Firewall rule nodes, zone membership, ACL edges |
 | Monotonicity | Implicit — attacker never loses foothold | Explicitly stated and discussed as a trade-off (Ammann et al. 2002) |
 | Validation | No mapping to real attack patterns | ATT&CK technique chains, empirical exploit data (Allodi) |
 | Trust/domain relationships | Absent | Active Directory trust, domain admin propagation |
@@ -84,10 +97,10 @@ The thesis identifies the gap as: "no existing system combines stochastic simula
 
 But the gap is **narrower than it reads**. Many of the listed differences are intentional (not defects):
 - Simple graph = tractable optimization comparisons
-- Single exploit type = controlled experiment variable
-- No credential propagation = scope boundary
+- Limited exploit set = controlled experiment variable
+- Credential scope excludes token theft and trust domains
 
-The danger is that a reviewer may read the literature review (which surveys MulVAL, NetSPA, MP graphs in detail), then look at the implementation and ask: "Your model is 3 node types and 3 empty edges. How does this relate to the systems you reviewed, which were all more expressive 10-20 years ago?"
+The danger is that a reviewer may read the literature review (which surveys MulVAL, NetSPA, MP graphs in detail), then look at the implementation and ask: "Your model hardcodes exploit semantics in rules; the graph itself carries no pre/post-conditions. How does this relate to the systems you reviewed, which expressed exploit pre/post-conditions as first-class graph elements 10-20 years ago?"
 
 The answer must be: "The model is deliberately minimal — the research question is about optimization strategy comparison, not graph expressiveness. The thesis demonstrates that even a simple model benefits from simulation-informed optimization. Adding expressiveness is future work." But this argument needs to be made **explicitly** in the design chapter, not left implicit.
 
@@ -118,32 +131,29 @@ CVSS exploitability sub-scores (Attack Vector, Attack Complexity, Privileges Req
 
 ### 3.3 Pre/Post-Conditions Are Hardcoded, Not Modeled
 
-The `RemoteServiceExploitation` rule in `src/lib/network_defense/rules/remote_service_exploitation.ex` bakes all exploit logic into an Elixir module. The graph itself has no way to express:
+The `RemoteServiceExploitation` and `LocalVulnerabilityExploitation` rules in `src/lib/network_defense/rules/` bake exploit logic into Elixir modules. The graph has no explicit per-vulnerability access-vector attribute. Edge placement covers the available local/remote cases: a `Service → Vulnerability` edge marks a remotely exploitable vulnerability, a `Host → Vulnerability` edge a locally exploitable one. What the graph cannot express:
 
-- "This vulnerability requires local access" vs "this one is remotely exploitable"
 - "This exploit requires root on host A AND network access to port 445 on host B"
 - "This CVE only affects Apache versions < 2.4.50" — no version matching logic
 
 The graph carries topology but not exploit semantics. Adding a new exploit type means writing a new Elixir rule, not adding graph data.
 
-**Risk:** The optimizer's job is to decide which vulnerabilities to patch and which reachability to block. But without pre/post-condition data on the graph, every vulnerability and every reachability edge looks identical to the optimizer — only probability and CVSS score differentiate them. The optimizer can't reason about "patching this CVE-7.2 requires a server reboot, so it costs more than patching three CVE-5.0s that don't."
+**Risk:** The optimizer's job is to decide which vulnerabilities to patch and which segment policy rules to remove. But without pre/post-condition data on the graph, every vulnerability looks identical to the optimizer — only probability and CVSS score differentiate them. The optimizer can't reason about "patching this CVE-7.2 requires a server reboot, so it costs more than patching three CVE-5.0s that don't."
 
 **Fix:** The optimal balance depends on whether you plan more exploit types:
 - If only one exploit type stays → document the limitation and argue it's a controlled experiment variable
 - If adding exploit types → add `access_vector` and `privileges_required` fields to `Vulnerability` nodes; the rule then filters based on these instead of treating all vulns identically
 
-### 3.4 All Edges Carry Zero Data
+### 3.4 Edge Data Coverage
 
-This is the most concrete deficiency. Every edge type is a pure marker — it says "there exists a relationship" but carries no properties. This has cascading effects:
+The original gap — every edge a pure marker — is largely closed by the policy model. `SegmentReachability` carries protocol and port range, `HasVulnerability` carries `required_privilege`/`granted_privilege`, and credential edges carry privilege data. Remaining gaps:
 
-| Missing Edge Data | Consequence |
+| Remaining Gap | Consequence |
 |---|---|
-| `NetworkReachability` has no protocol/port | Any reachability = access to every service on the target host. Unrealistic. |
-| `NetworkReachability` has no segmentation attribute | Optimizer can only cut entire edges, not selectively block ports. |
-| `HasVulnerability` has no access requirements | A local privilege escalation is treated identically to a remote RCE. |
 | `Runs` has no relationship type | Bare metal, container, VM — all indistinguishable. Compromise semantics identical. |
+| No host-specific reachability exceptions | Deny-by-default segment policy cannot express per-host allow rules. Deliberately deferred by the reachability plan. |
 
-**Fix:** See Section 4.
+**Fix:** See Section 4 for the deferred edge-data proposals. Host-specific exceptions are explicitly deferred by `../plans/reachability-modeling.md`.
 
 ---
 
@@ -151,102 +161,27 @@ This is the most concrete deficiency. Every edge type is a pure marker — it sa
 
 The `nodes.data` and `edges.data` JSONB columns already support adding fields. No database migration needed. The polymorphic registry pattern and discriminated union contracts handle new fields automatically.
 
-### NetworkReachability
+### NetworkReachability (superseded)
 
-Add to `src/lib/network_defense/relationships/network_reachability.ex`:
-
-```elixir
-embedded_schema do
-  field :protocol, Ecto.Enum, values: [:tcp, :udp, :any], default: :any
-  field :port, :integer              # nil = any port
-  field :port_range, {:array, :integer}  # nil = single port
-end
-```
-
-Impact on simulation: the rule can now match "reachability to this specific service's port" instead of "reachability to any service on this host." Impact on optimization: the segmentation optimizer can model "block TCP port 445 between DMZ and internal" instead of "sever all communication."
+Superseded by `../plans/reachability-modeling.md`. Protocol and port range now live on the canonical `SegmentReachability` policy edge. `NetworkReachability` is an empty operational marker; the target service already defines protocol and port. The materializer performs the matching, and the exploitation rule receives an already matching effective flow. Segmentation removes a policy rule, not individual host/service flows.
 
 ### HasVulnerability
 
-Add to `src/lib/network_defense/relationships/has_vulnerability.ex`:
-
-```elixir
-embedded_schema do
-  field :access_vector, Ecto.Enum, values: [:remote, :adjacent, :local], default: :remote
-  field :privileges_required, Ecto.Enum, values: [:none, :low, :high], default: :none
-  field :authentication_required, :boolean, default: false
-end
-```
-
-Impact on simulation: the rule skips local-only vulns when the attacker has no foothold on the target host, and skips high-privilege vulns when the attacker has only user access. This makes the attack graph more realistic without adding exploit types.
+Partially adopted. The relationship now carries `required_privilege` and `granted_privilege`. `access_vector` and `authentication_required` remain deferred; without them the graph has no explicit per-vulnerability access-vector attribute. Edge placement still distinguishes the available local/remote cases, as in Section 3.3.
 
 ### Host
 
-Add to `src/lib/network_defense/nodes/host.ex`:
-
-```elixir
-embedded_schema do
-  field :name, :string
-  field :zone, :string              # e.g., "dmz", "internal", "database"
-  field :criticality, :float, default: 0.0  # placeholder for later mission weighting
-end
-```
-
-Impact: zone-based reasoning in the optimizer (e.g., "prioritize blocking edges crossing DMZ → internal"). The `criticality` field is a placeholder that mission impact (Section 6) would consume.
+The proposed `zone` attribute is superseded by segment containment: `network_segment` nodes with `contains` edges model zones, and `segment_reachability` policy expresses cross-zone rules. `Host` currently carries only `name`; a future `criticality` field (float, default 0.0) would serve as the placeholder that mission impact (Section 7) consumes.
 
 ### Service
 
-Add version-matching capability:
-
-```elixir
-embedded_schema do
-  field :name, :string
-  field :protocol, Ecto.Enum, values: [:tcp, :udp]
-  field :port, :integer
-  field :version, :string
-  field :version_range, :string     # nil = exact match on :version
-end
-```
-
-Impact: if a vulnerability affects "Apache 2.4.x < 2.4.50" and the service runs 2.4.49, the rule can match. Without `version_range`, every vulnerability on a service with `version: nil` is a false positive.
+`Service` already carries `name`, `protocol`, `port`, and `version`. A future `version_range` field (nil = exact match on `version`) would let a vulnerability affect "Apache 2.4.x < 2.4.50" while the service runs 2.4.49. Without it, every vulnerability on a service with `version: nil` is a false positive.
 
 ---
 
-## 5. Recommended New Edge Type: HasCredential
+## 5. Credential-Based Lateral Movement (superseded)
 
-The single largest missing attack vector in the current model is credential-based lateral movement. Real attackers reuse stolen credentials, SSH keys, and tokens to move between hosts without exploiting any vulnerability.
-
-### Definition
-
-```elixir
-# New file: src/lib/network_defense/relationships/has_credential.ex
-defmodule NetworkDefense.Relationships.HasCredential do
-  use Ecto.Schema
-
-  embedded_schema do
-    field :credential_type, Ecto.Enum, values: [:password, :ssh_key, :token, :hash]
-    field :source, :string     # where the credential was obtained from (optional context)
-  end
-end
-```
-
-Direction: `Source Host → Target Host` or `Source Host → Service` (auto-login to a specific service).
-
-### Required Work
-
-| Area | Files to Create/Modify |
-|------|----------------------|
-| Domain module | `src/lib/network_defense/relationships/has_credential.ex` (new) |
-| Relationship registry | `src/lib/network_defense/relationships/registry.ex` — add to `@types` |
-| Data contract | `src/lib/network_defense/graph/contracts/data/has_credential_data.ex` (new) |
-| Edge contract | `src/lib/network_defense/graph/contracts/edge.ex` — add variant |
-| Graph query | No changes needed — `Query.match` traverses all edge types generically |
-| New rule | `src/lib/network_defense/rules/credential_reuse.ex` (new) — matches reachability + has_credential → add target host to footholds |
-| New action | `src/lib/network_defense/actions/reuse_credential.ex` (new) |
-| TypeScript | Auto-generated via `mix gen.contracts` |
-| Frontend palette | `src/assets/svelte/dashboard/graph/presentation/edges/HasCredentialEdge.ts` (new) |
-| Frontend registry | `src/assets/svelte/dashboard/graph/presentation/registry.ts` — add entry |
-
-Effort: ~1 day. The polymorphic registry + discriminated union pattern makes adding edge types mechanical.
+Superseded. `credential-privilege-model-plan.md` defines the approved model: a `Credential` node with `StoresCredential` and `AuthenticatesTo` edges carrying privilege data, plus `ReuseCredential` as a simulation action. Credential reuse traverses the operational graph — after materialization, the reuse rule follows the derived reachability flow and the credential edges. See `../plans/reachability-modeling.md` for the reachability boundary.
 
 ---
 
@@ -263,38 +198,14 @@ The architecture already supports this cleanly. Key facts from the code:
 1. `Graph` is an immutable Elixir struct — no destructive updates
 2. `Simulator.run_experiment(graph: graph, ...)` receives the graph as a parameter
 3. `Graph.hydrate/3` builds an in-memory adjacency list from arbitrary node/edge lists — creating a filtered copy is trivial
-4. The experiment stores `graph_id` and `lock_version` — can store a second graph ID for the observed graph
+4. The experiment stores `graph_revision_id` — it can pin a second revision for the observed graph
 5. Graph is read-only during simulation — no risk of the optimizer accidentally modifying the ground truth
 
 ### Implementation Plan
 
 **Step 1: Graph projection function** (~2 hours)
 
-```elixir
-# New function in NetworkDefense.Graph.Projection
-def project(%Graph{} = ground_truth, coverage: coverage) when coverage in 0.0..1.0 do
-  nodes = ground_truth |> Graph.nodes() |> Enum.shuffle()
-  edges = ground_truth |> Graph.edges() |> Enum.shuffle()
-
-  node_count = round(length(nodes) * coverage)
-  edge_count = round(length(edges) * coverage)
-
-  # Ensure edges only reference surviving nodes
-  surviving_node_ids = nodes |> Enum.take(node_count) |> MapSet.new(& &1.id)
-  surviving_edges = edges
-    |> Enum.take(edge_count)
-    |> Enum.filter(fn e ->
-      MapSet.member?(surviving_node_ids, e.from_id) and
-        MapSet.member?(surviving_node_ids, e.to_id)
-    end)
-
-  Graph.hydrate(
-    %Graph{id: ground_truth.id, title: "#{ground_truth.title} (defender view)", lock_version: ground_truth.lock_version},
-    Enum.take(nodes, node_count),
-    surviving_edges
-  )
-end
-```
+Shuffle the ground-truth nodes and edges, keep a `coverage` fraction of each, drop any edge whose endpoints were dropped, and rebuild the graph with a fresh revision identity. The function takes the ground-truth graph and a coverage value in `0.0..1.0` and returns the observed graph.
 
 Variants worth implementing:
 - `coverage: 1.0` → complete knowledge (control)
@@ -314,41 +225,11 @@ Recommendation: use on-the-fly for initial experiments, switch to persisted only
 
 The optimizer currently receives one graph. Split into two parameters:
 
-```elixir
-# In the optimization loop:
-def evaluate_candidate(ground_truth, observed, candidate_defense, params) do
-  # 1. Apply candidate defense to observed graph (what the defender thinks)
-  defended_observed = DefenseAction.apply(candidate_defense, observed)
-
-  # 2. Map the defense decision to ground truth actions
-  ground_truth_defended = translate_defense(candidate_defense, observed, ground_truth)
-
-  # 3. Simulate attack on ground truth
-  result = Simulator.run_experiment(graph: ground_truth_defended, ...)
-
-  # 4. Compare with what defender expected
-  expected_result = Simulator.run_experiment(graph: defended_observed, ...)
-
-  %{ground_truth: result, defender_expected: expected_result}
-end
-```
+For each candidate defense, apply it to the observed graph (the defender's view), map the decision onto the ground-truth graph, and simulate both. The ground-truth simulation is what actually happens; the observed one is what the defender expects. The gap between the two measures the value of the missing knowledge.
 
 **Step 4: Experiment orchestration** (~3 hours)
 
-```elixir
-# New experiment type: IncompleteKnowledgeExperiment
-@coverage_levels [1.0, 0.75, 0.5, 0.25]
-@repetitions 5  # Each coverage level gets N random projections
-
-for coverage <- @coverage_levels, _ <- 1..@repetitions do
-  observed = Projection.project(ground_truth, coverage: coverage)
-  # Run optimizer on observed
-  defended_config = Optimizer.optimize(observed, budget: budget, strategies: strategies)
-  # Evaluate defended_config on ground truth
-  results = Simulator.run_experiment(graph: apply_defenses(ground_truth, defended_config), ...)
-  # Store: coverage, projection_index, strategy, blast_radius, ...
-end
-```
+For each coverage level, repeat with several random projections: project the observed graph, optimize against it under the budget, apply the chosen defenses to the ground-truth graph, simulate, and record coverage, projection index, strategy, and outcome.
 
 **Step 5: Report and visualization** (~1 day)
 
@@ -396,37 +277,15 @@ This is the contribution that distinguishes the thesis from 20 years of prior wo
 
 **Node: MissionCapability**
 
-```elixir
-# New file: src/lib/network_defense/nodes/mission_capability.ex
-defmodule NetworkDefense.Nodes.MissionCapability do
-  use Ecto.Schema
+A node with a name, description, `criticality_weight` (relative importance, default 1.0), and a `threshold_rule` selecting how many supporting hosts must fail before the capability is down:
 
-  embedded_schema do
-    field :name, :string
-    field :description, :string
-    field :criticality_weight, :float, default: 1.0   # relative importance
-    field :threshold_rule, Ecto.Enum, values: [:all, :any, :majority], default: :any
-    # :all   → capability down if ANY supporting host is compromised
-    # :any   → capability down if ALL supporting hosts are compromised (full redundancy)
-    # :majority → capability down if >50% of supporting hosts are compromised
-  end
-end
-```
+- `all` — the capability is down when any supporting host is compromised (no redundancy);
+- `any` — the capability is down only when all supporting hosts are compromised (full redundancy);
+- `majority` — the capability is down when more than half of the supporting hosts are compromised.
 
 **Edge: Supports**
 
-```elixir
-# New file: src/lib/network_defense/relationships/supports.ex
-defmodule NetworkDefense.Relationships.Supports do
-  use Ecto.Schema
-
-  embedded_schema do
-    field :weight, :float, default: 1.0  # this host's relative contribution to the capability
-  end
-end
-```
-
-Direction: `Host → MissionCapability` (the host supports the capability).
+An edge from `Host` to `MissionCapability` (the host supports the capability) carrying a relative contribution `weight` (default 1.0).
 
 These require no database migration — JSONB columns handle new types dynamically.
 
@@ -450,60 +309,28 @@ The core change: after each action execution during simulation, compute which mi
 
 **Current state tracking:**
 
-```elixir
-AttackerState: %{footholds: MapSet<host_id>, attempted_actions: MapSet<action_key>}
-```
+`AttackerState` tracks the set of foothold host IDs and the set of already attempted action keys.
 
 **New state tracking:**
 
-```elixir
-# Option A: Extend AttackerState (simpler but mixes concerns)
-AttackerState: %{
-  footholds: MapSet<host_id>,
-  attempted_actions: MapSet<action_key>,
-  mission_loss_cumulative: float,         # running sum
-  capabilities_down: MapSet<capability_id>  # current snapshot
-}
-
-# Option B: Parallel MissionState (cleaner separation)
-MissionState: %{
-  cumulative_loss: float,
-  per_iteration_loss: [float],
-  capabilities_status: %{capability_id => :operational | :degraded | :down}
-}
-```
+Two options. Option A extends `AttackerState` with a running cumulative mission loss and the set of currently down capability IDs — simpler, but mixes attack and mission concerns. Option B adds a parallel mission state holding cumulative loss, per-iteration loss, and a per-capability status (`operational` | `degraded` | `down`) — cleaner separation, at the cost of one more struct.
 
 Recommendation: Option A (extend AttackerState). The `AttackerState` is serialized to JSONB anyway. Adding two fields is low-risk. The concern about "mixing concerns" is theoretical — in practice, the simulator updates both sets of information at the same point in the loop. A separate struct adds indirection without benefit.
 
-**Per-iteration computation** (in `simulator.ex`, after `maybe_execute_action`):
+**Per-iteration computation** (after an action executes):
 
-```elixir
-defp compute_mission_loss(graph, attacker_state) do
-  capability_nodes = Graph.nodes(graph) |> Enum.filter(&(&1.type == "MissionCapability"))
-  foothold_set = AttackerState.foothold_nodes(attacker_state) |> MapSet.new()
-
-  capability_nodes
-  |> Enum.reduce({0, MapSet.new()}, fn cap, {loss, down_set} ->
-    supporting_hosts = graph
-      |> Graph.incoming(cap.id)
-      |> Enum.filter(& &1.type == "Supports")
-      |> Enum.map(& &1.from_id)
-
-    compromised_count = Enum.count(supporting_hosts, &MapSet.member?(foothold_set, &1))
-
-    down? = case cap.data["threshold_rule"] do
-      "all"  -> compromised_count > 0
-      "any"  -> compromised_count == length(supporting_hosts)
-      "majority" -> compromised_count > length(supporting_hosts) / 2
-    end
-
-    if down? do
-      {loss + cap.data["criticality_weight"], MapSet.put(down_set, cap.id)}
-    else
-      {loss, down_set}
-    end
-  end)
-end
+```text
+for each capability node in the graph:
+    supporting hosts = hosts connected by a Supports edge to the capability
+    compromised = number of supporting hosts that are attacker footholds
+    down = threshold rule satisfied:
+        all      -> compromised > 0
+        any      -> compromised == number of supporting hosts
+        majority -> compromised > number of supporting hosts / 2
+    if down:
+        add the capability's criticality weight to the cumulative mission loss
+        mark the capability as down
+return cumulative mission loss and the set of down capabilities
 ```
 
 **Impact on reporting:**
@@ -526,18 +353,11 @@ end
 
 Current `report.ex` (~300 lines):
 
-```
-final_foothold_counts → blast_radius_stats → kpis + distribution_chart + convergence_chart + action_stats
-```
+The report derives final foothold counts per run, computes blast-radius statistics, and emits summary KPIs plus histogram, CDF, convergence, per-action success, per-host compromise, and per-edge traversal charts.
 
 New `report.ex`:
 
-```
-final_foothold_counts   → blast_radius_stats   → blast radius KPIs + charts
-final_mission_losses    → mission_loss_stats   → mission loss KPIs + charts
-capability_breakdown    → per-capability heatmap
-correlation             → blast radius vs mission loss scatter
-```
+The report would add mission-loss statistics parallel to the blast-radius ones, a per-capability breakdown heatmap, and a blast-radius-versus-mission-loss scatter.
 
 | Report Component | Effort |
 |-----------------|--------|
@@ -549,23 +369,7 @@ correlation             → blast radius vs mission loss scatter
 
 ### Optimization Objective Change
 
-The optimizer's cost function changes:
-
-```elixir
-# Before
-def evaluate(graph, candidate) do
-  result = Simulator.run_experiment(graph: candidate, ...)
-  result.expected_blast_radius   # minimize this
-end
-
-# After
-def evaluate(graph, candidate) do
-  result = Simulator.run_experiment(graph: candidate, ...)
-  result.expected_mission_loss   # minimize this, possibly with blast radius as secondary metric
-end
-```
-
-The optimizer loop itself doesn't change structurally — it still generates candidate configurations and evaluates them via simulation. But:
+The optimizer's objective changes: candidate evaluation now ranks by expected mission loss instead of expected blast radius, optionally keeping blast radius as a secondary metric. The optimizer loop itself doesn't change structurally — it still generates candidate configurations and evaluates them via simulation. But:
 
 1. The simulation must now return mission loss as the primary output metric
 2. The optimizer needs a new `objective` field: `:blast_radius` or `:mission_loss`
@@ -613,26 +417,22 @@ Effort: 2-3 days for scenario design + manual verification before automating.
 
 ```mermaid
 flowchart TD
-    A[Edge data fields<br/>Section 4] --> B[HasCredential edge<br/>Section 5]
-    B --> C[Optimizer end-to-end<br/>not yet implemented]
+    A[Segment policy + edge data<br/>implemented] --> C[Optimizer end-to-end]
     C --> D[Incomplete graph<br/>Section 6 — 3 days]
     C --> E[Mission impact<br/>Section 7 — 7 days]
     D --> F[Combined experiment:<br/>incomplete knowledge<br/>+ mission dependencies]
     E --> F
 
-    style C fill:#ff9999,stroke:#333
+    style C fill:#99ccff,stroke:#333
     style D fill:#99ccff,stroke:#333
     style E fill:#99ccff,stroke:#333
 ```
 
-The critical path is the optimizer. Without a working end-to-end optimization loop, neither extension can be evaluated. The optimizer protocol and strategy files exist as stubs (`src/lib/network_defense/optimization/`), defense actions are empty (`src/lib/network_defense/defense_actions/`), and the LiveView handler does nothing on `optimize_defense`.
+The critical path is the optimizer. The end-to-end optimization loop now exists (`src/lib/network_defense/optimization/`, `src/lib/network_defense/defense_actions/`); its policies are segment-based, and `SimulationObjective` materializes each candidate before scoring.
 
-Recommended order:
-1. Edge data fields (Section 4) — do first, unblocks both extensions
-2. HasCredential (Section 5) — do next, adds critical lateral movement vector
-3. Optimizer (separate work) — prerequisite for everything below
-4. Incomplete graph (Section 6) — lower risk, architectures fits
-5. Mission impact (Section 7) — thesis differentiator, higher risk
+Remaining work:
+1. Incomplete graph (Section 6) — lower risk, architecture fits
+2. Mission impact (Section 7) — thesis differentiator, higher risk
 
 ---
 
@@ -640,12 +440,12 @@ Recommended order:
 
 Items that would be scope creep without a corresponding research claim:
 
-- **Firewall as a node**: firewalls filter existing edges. Model as filter attributes on `NetworkReachability.data`, not standalone entities. Making it a node forces N-ary relationships awkward in a directed graph.
-- **Zone/Segment as a node**: zones are attributes of hosts (`Host.data.zone`). Making them nodes creates a separate hierarchy that doesn't interact with the attack graph usefully.
+- **Firewall as a node**: firewalls filter existing policy edges. Model as attributes on `SegmentReachability`, not standalone entities. Making it a node forces N-ary relationships awkward in a directed graph. Host-specific filter exceptions are deferred by `../plans/reachability-modeling.md`.
+- **Zone/Segment as a node (superseded)**: this document previously argued zones are host attributes. The model now has `network_segment` nodes with `contains` edges, and `segment_reachability` expresses cross-zone policy. See `../plans/reachability-modeling.md`.
 - **Attacker profile as a graph element**: attacker profiles belong in simulation configuration parameters, not graph nodes. The graph describes the environment; the profile describes the threat actor.
 - **Reinforcement learning, GNNs, autonomous agents**: explicitly excluded by thesis-scope-roadmap. Not relevant to the research claims.
 - **Real-time monitoring, SOC orchestration, automated remediation**: outside scope. The system models pre-attack defense planning, not runtime incident response.
-- **Privilege levels (user vs root) on hosts**: important but adds significant complexity to the attacker state model. A host would need `{compromised, privilege_level}` instead of just `compromised`. Defer to post-thesis unless a specific experiment requires it.
+- **Privilege levels on hosts (superseded)**: implemented. Attacker state tracks per-host privilege (`none/user/administrator`), and exploit and credential edges carry `required_privilege`/`granted_privilege`. Only trust domains and credential rings remain deferred.
 
 ---
 
@@ -655,8 +455,8 @@ Items that would be scope creep without a corresponding research claim:
 |---------------|----------|--------|------|----------------|
 | Monotonicity discussion (Section 3.1) | Critical | Text only | None | Address in design chapter now |
 | Probability calibration (Section 3.2) | Critical | Sensitivity analysis | Low | Add sensitivity sweep to evaluation |
-| Pre/post-conditions in graph (3.3) | High | Varies | Low | Add access_vector + privileges_required to HasVulnerability |
-| Edge data fields (Section 4) | High | 0.5 days | None | Do first |
-| HasCredential edge (Section 5) | Medium | 1 day | None | Do after edge data |
+| Pre/post-conditions in graph (3.3) | High | Varies | Low | Adopt access_vector + authentication_required on HasVulnerability |
+| Edge data fields (Section 4) | High | 0.5 days | None | Done — SegmentReachability owns protocol/port range |
+| Credential lateral movement (Section 5) | Medium | 1 day | None | Done — credential node with StoresCredential/AuthenticatesTo |
 | Incomplete graph (Section 6) | Medium | 3 days | Low | Do after optimizer works |
 | Mission impact (Section 7) | Medium | 7 days | Medium | Do last — thesis differentiator |

@@ -16,24 +16,33 @@ The thesis baseline uses these node types:
 
 * `host`;
 * `service`, including protocol and port;
-* `vulnerability`, including CVSS and an explicitly modeled exploit probability.
+* `vulnerability`, including CVSS and an explicitly modeled exploit probability;
+* `network_segment`, a container of hosts;
+* `credential`.
 
 The baseline uses these edge types:
 
+* `contains` - a network segment contains a host;
 * `runs` - a host runs a service;
-* `network_reachability` - a source can reach a service;
-* `has_vulnerability` - a service exposes a vulnerability.
+* `segment_reachability` - a source segment can reach a target segment's services. The policy carries protocol and port range;
+* `has_vulnerability` - a service exposes a vulnerability;
+* `stores_credential` - a host stores a credential;
+* `authenticates_to` - a credential authenticates to a service.
 
-A port is a service attribute, not a separate node. Capabilities, credentials, containers, network segments, and security controls are future extensions.
+Reachability is policy, not a host/service flow. `segment_reachability` is the only authored and persisted reachability edge. Materialization derives an empty, deterministic `network_reachability` (`Host -> Service`) marker edge in memory for each flow the policy admits. The marker is never authored, saved, or part of a contract edge.
+
+A port is a service attribute, not a separate node. Capabilities, containers, and security controls are future extensions.
 
 ```mermaid
 flowchart LR
-    Source[Source host] -->|network_reachability| Service[Service]
-    Target[Target host] -->|runs| Service
+    Source[Source segment] -->|segment_reachability| Target[Target segment]
+    Source -->|contains| SourceHost[Source host]
+    Target -->|contains| TargetHost[Target host]
+    TargetHost -->|runs| Service[Service]
     Service -->|has_vulnerability| Vulnerability[Vulnerability]
 ```
 
-The reachability edge identifies the service that a foothold can contact. The `runs` edge identifies the host compromised after a successful exploit.
+The `runs` edge identifies the host compromised after a successful exploit. A flow exists only when the source host's segment and the target host's segment are linked by a matching policy.
 
 ## Attacker State
 
@@ -86,7 +95,7 @@ For each candidate configuration, it:
 3. compares attack-impact metrics with the baseline;
 4. accounts for defensive cost.
 
-The initial defensive actions are patching a vulnerability, blocking or restricting reachability, and disabling an application. Each action has a cost.
+The initial defensive actions are patching a vulnerability, removing a segment reachability policy, and revoking a credential. Each action has a cost.
 
 The primary objective is:
 
@@ -104,7 +113,7 @@ Evaluation compares simulation-informed optimization with simpler strategies und
 * no defense;
 * random action selection;
 * CVSS-based patch prioritization;
-* topology-based segmentation, such as min-cut selection;
+* topology-based segmentation by segment-policy removal;
 * greedy simulation-informed selection.
 
 The optimizer evaluates every selected configuration through the same simulation process so that strategy comparisons use consistent attack and cost metrics.

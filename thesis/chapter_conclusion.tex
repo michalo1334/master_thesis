@@ -6,7 +6,7 @@ The thesis set out to investigate how a graph-based attack-simulation pipeline, 
 \section{Summary}
 \label{ch:conclusion:summary}
 
-Three contributions were made. First, an \emph{attack-graph construction} in the NetSPA / MP family, enriched with CVSS-derived edge weights from a synthetic CVE feed. Second, a \emph{Monte Carlo blast-radius simulator} that produces a calibrated blast-radius map under a fixed attacker model. Third, a small \emph{optimization framework} supporting three strategies (min-cut, greedy, hybrid) and a comparison against three baselines. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
+Three contributions were made. First, an \emph{attack-graph construction} in the NetSPA / MP family, enriched with CVSS-derived edge weights from a synthetic CVE feed. Second, a \emph{Monte Carlo blast-radius simulator} that produces a calibrated blast-radius map under a fixed attacker model. Third, a small \emph{optimization framework} supporting policy-rule segmentation, simulation-informed patching, and annealing-based search, compared against three baselines. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
 
 \begin{table}[hbt!]
 	\centering
@@ -16,7 +16,7 @@ Three contributions were made. First, an \emph{attack-graph construction} in the
 		\midrule
 		Attack-graph construction & NetSPA / MP family, CVSS-weighted             & Implemented          \\
 		Monte Carlo simulation    & Stochastic propagation, blast-radius map      & Implemented          \\
-		Optimization framework    & Min-cut, greedy, hybrid                       & Implemented          \\
+		Optimization framework    & Policy-rule segmentation, simulation-informed patching, annealing & Implemented          \\
 		Empirical evaluation      & Comparison on three topologies, three baselines & Reported             \\
 		\bottomrule
 	\end{tabular}

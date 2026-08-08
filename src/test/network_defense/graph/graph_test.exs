@@ -5,7 +5,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
-  alias NetworkDefense.Relationships.{Contains, Runs}
+  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, IterationStep, Run}
 
@@ -67,6 +67,10 @@ defmodule NetworkDefense.Graph.GraphTest do
     assert optimized.id == original.id
     assert optimized.parent_revision_id == original.revision_id
     assert Enum.map(Graph.nodes(optimized), & &1.id) == Enum.map(Graph.nodes(original), & &1.id)
+  end
+
+  test "optimization rejects a graph carrying an operational NetworkReachability edge" do
+    assert {:error, :invalid_edge} = Graphs.append_optimization(operational_graph())
   end
 
   test "returns an error for invalid snapshot endpoints" do
@@ -410,6 +414,35 @@ defmodule NetworkDefense.Graph.GraphTest do
     )
     |> Graph.add_edge(
       Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}})
+    )
+  end
+
+  defp operational_graph do
+    # ponytail: fake revision_id suffices because validation precedes persistence; a persisted fixture is needed only if that ordering changes
+    graph = %{Graph.new("Operational") | revision_id: Ecto.UUID.generate()}
+
+    host =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Host),
+        data: %{"name" => "host"},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
+    service =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Service),
+        data: %{"name" => "ssh", "protocol" => "tcp", "port" => 22},
+        view_data: %{"x_pos" => 100, "y_pos" => 0}
+      })
+
+    graph
+    |> Graph.add_node(host)
+    |> Graph.add_node(service)
+    |> Graph.add_edge(
+      Edge.new(graph.id, host.id, service.id, %{
+        type: Atom.to_string(NetworkReachability),
+        data: %{}
+      })
     )
   end
 

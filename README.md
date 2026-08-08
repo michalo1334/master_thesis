@@ -30,7 +30,7 @@ In this work, *graph-based* refers to representing network topology and security
 
 1. **How do network topology, vulnerability preconditions, and attacker profiles influence simulated attack propagation and the resulting blast-radius distribution?**
 
-2. **How effectively do simulation-informed patching, network segmentation, and hybrid defense strategies reduce the expected blast radius compared with vulnerability-based and topology-based prioritization methods under a constrained defense budget?**
+2. **How effectively do simulation-informed patching, policy segmentation, and simulated-annealing optimization reduce the expected blast radius compared with vulnerability-based and topology-based prioritization methods under a constrained defense budget?**
 
 3. **How do the computational cost and stability of the proposed approach scale with network size, topology density, vulnerability density, and the number of Monte Carlo simulation runs?**
 
@@ -43,8 +43,8 @@ The evaluated defense strategies may include:
 * vulnerability-score-based patch prioritization;
 * topology-based defense prioritization;
 * simulation-informed vulnerability patching;
-* graph-based network segmentation;
-* hybrid patching and segmentation strategies.
+* policy-based network segmentation;
+* simulated-annealing optimization over patching and segmentation actions.
 
 Evaluation metrics may include:
 

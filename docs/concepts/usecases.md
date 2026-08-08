@@ -13,10 +13,11 @@ Status: `[x]` = code exists, `[ ]` = not started
     - [x] Add host node
     - [x] Add service node
     - [x] Add vulnerability node
+    - [x] Add network segment node
     - [x] Remove node
     - [x] Position node by dragging on canvas
 - [x] Manage edges
-    - [x] Connect nodes (NetworkReachability edge)
+    - [x] Connect network segments (SegmentReachability policy edge)
     - [x] Connect service to host (Runs edge)
     - [x] Connect vulnerability to service (HasVulnerability edge)
     - [x] Remove edge
@@ -26,35 +27,35 @@ Status: `[x]` = code exists, `[ ]` = not started
     - [x] Service inspector (name, protocol, port, version)
     - [x] Vulnerability inspector (identifier, CVSS score, exploit probability)
 - [x] Inspect edge properties
-    - [x] Network reachability edge inspector
+    - [x] Segment reachability policy inspector (protocol, port range)
     - [x] Generic canvas edge inspector (from, to, type)
 - [x] Apply force-directed layout
     - [x] Tune layout parameters (repulsion, link distance, collision radius, gravity, alpha decay)
-- [x] Save graph to database with optimistic-lock conflict detection
+- [x] Save graph to database with base-revision conflict rejection
 - [x] Switch between multiple open topologies (document tabs, workspace)
-- [x] Toggle between graph view and list view
+- [x] Toggle between Topology and Network views
 
 ## 2. Simulate — Run Attack Simulation
 
 - [x] Run single simulation (N iterations of rule-based action selection)
 - [x] Run multiple simulations (M runs × N iterations — Monte Carlo ensemble)
-- [ ] Configure simulation parameters (seed, iteration count) via UI
-- [ ] Trigger simulation from dashboard
+- [x] Configure simulation parameters (seed, iteration count) via UI
+- [x] Trigger simulation from dashboard
 
 ## 3. Analyze — Examine Results
 
 - [ ] View blast radius distribution on graph nodes (color-coded heat map)
-- [ ] View simulation KPIs (expected blast radius, min/max, percentiles)
-- [ ] View statistical charts (histograms, distributions)
-- [ ] Inspect compromised hosts
-- [ ] Inspect attack paths (edges traversed)
-- [ ] View simulation report
+- [x] View simulation KPIs (expected blast radius, min/max, percentiles)
+- [x] View statistical charts (histograms, distributions)
+- [x] Inspect compromised hosts
+- [x] Inspect attack paths (edges traversed)
+- [x] View simulation report
 
 ## 4. Defend — Optimize & Apply Defenses
 
-- [ ] Run defense optimizer (greedy strategy)
+- [x] Run defense optimizer (greedy strategy)
 - [ ] Apply patch vulnerability on a service
-- [ ] Apply block reachability between two nodes
+- [ ] Apply segmentation (remove a segment reachability policy)
 - [ ] Compare predicted vs actual blast radius reduction
 
 ## 5. Verify — Re-simulate After Defense

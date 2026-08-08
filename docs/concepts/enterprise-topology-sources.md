@@ -69,7 +69,7 @@ Papers cited in the thesis bibliography used known but not openly published netw
 
 **NetSPA** (Homer et al., cited in `thesis/refs.bib`): evaluated on government and enterprise networks with hundreds to thousands of hosts. The papers describe the network characteristics (subnet structure, service distribution, vulnerability density) even though they don't publish the raw data.
 
-**MulVAL/NetSPA topology pattern**: networks are described as facts — `networkServiceInfo(host, service, protocol, port)`, `vulExists(host, vulID, program)`, `hacl(src, dst, protocol, port)` — which maps directly to your graph model (Host, Service, Vulnerability nodes + Runs, NetworkReachability, HasVulnerability edges).
+**MulVAL/NetSPA topology pattern**: networks are described as facts — `networkServiceInfo(host, service, protocol, port)`, `vulExists(host, vulID, program)`, `hacl(src, dst, protocol, port)` — which maps to your graph model as Host, Service, and Vulnerability nodes with `Contains` and `Runs` edges. `hacl` facts become `SegmentReachability` policy rules between segments; the materializer derives the operational `Host -> Service` flow from the policy. See `../plans/reachability-modeling.md`.
 
 ### 5. CIC Datasets (Canadian Institute for Cybersecurity, UNB)
 
@@ -111,7 +111,7 @@ Center for Internet Security publishes benchmark documents for enterprise servic
 
 **URL:** `attack.mitre.org/matrices/enterprise/`
 
-Documents the techniques real attackers use. The prerequisite relationships between techniques (e.g., "Valid Accounts → Remote Services → Lateral Tool Transfer") imply the graph edges that need to exist: credential reuse implies `HasCredential` edges, remote services exploitation implies `NetworkReachability` → `HasVulnerability` → `Runs` paths.
+Documents the techniques real attackers use. The prerequisite relationships between techniques (e.g., "Valid Accounts → Remote Services → Lateral Tool Transfer") imply the graph structures that need to exist: credential reuse requires `StoresCredential`/`AuthenticatesTo` edges and traverses the operational graph; remote services exploitation requires segment containment plus a `SegmentReachability` policy rule, from which materialization derives only `NetworkReachability`; the canonical `Runs` and `HasVulnerability` relationships are then traversed with it. Direct `HasCredential` or host/service reachability mappings are superseded by `../plans/reachability-modeling.md`.
 
 ---
 
@@ -173,7 +173,7 @@ For each generated host running a known service (e.g., Apache 2.4.49, OpenSSH 8.
 Before using a generated topology in experiments, verify that known APT technique chains have plausible paths through it:
 
 1. Pick 3-4 documented attack chains from CTID/CALDERA adversary emulation plans (e.g., APT29 — spearphishing → credential theft → lateral movement → data exfiltration)
-2. Map each step to your graph model: what host is entry point, what reachability edges enable lateral movement, what vulnerabilities are exploitable
+2. Map each step to your graph model: what host is entry point, what segment policy rules enable lateral movement, what vulnerabilities are exploitable
 3. If a generated topology doesn't have plausible paths, adjust generation parameters
 
 ### Step 5: Document the Design Rationale

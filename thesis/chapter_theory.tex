@@ -46,33 +46,21 @@ A source code listing is a floating environment based on \texttt{minted}. The cl
 	\texttt{\textbackslash begin\{code\}}\quad $\rightarrow$\quad \texttt{\textbackslash begin\{minted\}\{python\}}\quad $\rightarrow$\quad \emph{code body}\quad $\rightarrow$\quad \texttt{\textbackslash end\{minted\}}\quad $\rightarrow$\quad \texttt{\textbackslash caption\{...\}}\quad $\rightarrow$\quad \texttt{\textbackslash label\{src:...\}}\quad $\rightarrow$\quad \texttt{\textbackslash end\{code\}}
 \end{quote}
 
-\noindent A worked example in the Elixir language, showing a module that holds a single attack-graph node:
+\noindent A worked example of the \enquote{Source Code} environment. The body is implementation-independent pseudocode: it states the materialization invariant --- one segment-policy rule admits zero or more effective host/service flows --- and does not name any module or function from the implementation.
 
 \begin{code}
-	\begin{minted}{elixir}
-defmodule NetworkDefense.AttackGraph.Node do
-  @enforce_keys [:id, :host, :service, :vulnerabilities]
-  defstruct id: nil, host: nil, service: nil, vulnerabilities: []
-
-  def new(host, service, vulnerabilities) do
-    %__MODULE__{
-      id: "#{host}:#{service}",
-      host: host,
-      service: service,
-      vulnerabilities: vulnerabilities
-    }
-  end
-
-  def compromise_probability(%__MODULE__{vulnerabilities: vs}) do
-    Enum.reduce(vs, 0.0, &max(&2, cvss_to_prob(&1.cvss)))
-  end
-end
+	\begin{minted}{text}
+for each segment-policy rule:
+    for each {source host, target service} pair the rule admits:
+        emit one effective operational flow
+deduplicate by {source host, target service}
+sort by deterministic operational id
 	\end{minted}
-	\caption{An attack-graph node module in Elixir.}
+	\caption{Illustrative pseudocode for materializing operational flows from segment policy.}
 	\label{src:theory:elixir-example}
 \end{code}
 
-\noindent A worked example in the Python language, showing a min-cut finder on a tiny attack graph:
+\noindent A worked example in the Python language, showing a min-cut finder on a tiny attack graph. Min-cut (Stoer--Wagner) segmentation was evaluated during design and intentionally excluded: the canonical model has no host/service edges to cut, because reachability is segment-to-segment policy, so segmentation is a policy-rule removal. The listing is retained as historical reference.
 
 \begin{code}
 	\begin{minted}{python}
@@ -108,8 +96,8 @@ def min_cut(graph, source, sink):
 Inline code is typeset with \texttt{\textbackslash mintinline}. The first argument is the language, the second is the snippet:
 
 \begin{itemize}
-	\item \mintinline{elixir}|NetworkDefense.AttackGraph|
-	\item \mintinline{elixir}|monte_carlo_step/3|
+	\item \mintinline{elixir}|NetworkDefense.Graph.Graph|
+	\item \mintinline{elixir}|NetworkDefense.Simulation.Simulator.run_experiment/3|
 	\item \mintinline{python}|min_cut(graph, source, sink)|
 \end{itemize}
 
@@ -154,7 +142,7 @@ A wider table that combines \texttt{multirow} and \texttt{\textbackslash cline} 
 
 \section{Diagrams with TikZ}
 
-Diagrams are drawn with TikZ inside a \texttt{figure} environment. The example below is a small attack graph: each node is a host/service pair, and arrows show exploit opportunities. TikZ is sensitive to coordinate placement, so it is worth sketching the layout before committing to code.
+Diagrams are drawn with TikZ inside a \texttt{figure} environment. The example below is a small attack graph: each node is a host, and arrows show exploit opportunities. TikZ is sensitive to coordinate placement, so it is worth sketching the layout before committing to code.
 
 \begin{figure}[hbt!]
 	\centering
@@ -215,7 +203,7 @@ A simple enumerated list:
 	\item Build the attack graph.
 	\item Run Monte Carlo simulation.
 	\item Compute blast-radius map.
-	\item Run optimizer (min-cut, greedy, or hybrid).
+	\item Run optimizer (policy segmentation or patching).
 \end{enumerate}
 
 A list with \texttt{\textbackslash enquote} strings around phrases:
@@ -255,4 +243,4 @@ A single-line footnote example: this is a sentence with a footnote\footnote{This
 
 A multi-line footnote using \texttt{\textbackslash footnotetext}:
 
-\footnotetext{This is a longer footnote. It can span multiple lines, contain its own paragraph breaks, and even contain inline code such as \mintinline{elixir}|NetworkDefense.Optimizer.min_cut/2|, as long as the surrounding text is not overly fragile.}
+\footnotetext{This is a longer footnote. It can span multiple lines, contain its own paragraph breaks, and even contain inline code such as \mintinline{elixir}|NetworkDefense.Optimization.Optimizer.apply/4|, as long as the surrounding text is not overly fragile.}

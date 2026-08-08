@@ -35,4 +35,12 @@ defmodule NetworkDefense.Graph.DraftTest do
 
     assert :error = Edge.draft("Runs", service, host)
   end
+
+  test "edge draft rejects the operational NetworkReachability marker" do
+    host = %{id: Ecto.UUID.generate(), type: "Host"}
+    service = %{id: Ecto.UUID.generate(), type: "Service"}
+
+    assert {:ok, _edge} = Edge.draft("Runs", host, service)
+    assert :error = Edge.draft("NetworkReachability", host, service)
+  end
 end

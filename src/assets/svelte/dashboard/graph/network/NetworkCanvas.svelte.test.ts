@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/svelte";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/svelte";
 import { tick } from "svelte";
 import NetworkCanvas from "./NetworkCanvas.svelte";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
@@ -58,6 +64,56 @@ function makeGraph(revisionId = "r1"): LoadedGraph {
         type: "Runs",
         from_id: "host-a",
         to_id: "service",
+        data: {},
+      },
+    ],
+  };
+}
+
+function makeSegmentGraph(revisionId = "r1"): LoadedGraph {
+  return {
+    id: "g1",
+    title: "Network",
+    revision_id: revisionId,
+    parent_revision_id: null,
+    revision_kind: "original",
+    revision_number: 1,
+    nodes: [
+      {
+        id: "seg-a",
+        type: "NetworkSegment",
+        data: { name: "DMZ", cidr: "10.0.0.0/24" },
+        view_data: { x_pos: 0, y_pos: -200 },
+      },
+      {
+        id: "seg-b",
+        type: "NetworkSegment",
+        data: { name: "LAN", cidr: "10.0.1.0/24" },
+        view_data: { x_pos: 400, y_pos: -200 },
+      },
+      ...makeGraph(revisionId).nodes,
+    ],
+    edges: [
+      ...makeGraph(revisionId).edges,
+      {
+        id: "policy",
+        type: "SegmentReachability",
+        from_id: "seg-a",
+        to_id: "seg-b",
+        data: { protocol: "tcp" },
+      },
+      {
+        id: "contains-a",
+        type: "Contains",
+        from_id: "seg-a",
+        to_id: "host-a",
+        data: {},
+      },
+      {
+        id: "contains-b",
+        type: "Contains",
+        from_id: "seg-b",
+        to_id: "host-b",
         data: {},
       },
     ],
@@ -136,6 +192,62 @@ describe("NetworkCanvas", () => {
         screen.getByRole("img", { name: "Operational flow from A to https" }),
       ).toBeInTheDocument(),
     );
+  });
+
+  it("renders a segment policy link as a keyboard-selectable button", async () => {
+    document.replaceFromLoadedGraph(makeSegmentGraph());
+    api.fetchGraphProjection.mockResolvedValue(
+      projectionReply([{ id: "flow-1", from_id: "host-a", to_id: "service" }]),
+    );
+
+    render(NetworkCanvas, { props: { document, api } });
+
+    const zoomOut = screen.getByRole("button", { name: "Zoom out" });
+    for (let i = 0; i < 5; i++) await fireEvent.click(zoomOut);
+
+    const link = screen.getByRole("button", { name: "Segment reachability" });
+    expect(link).toHaveAttribute("tabindex", "0");
+    expect(
+      screen.queryByRole("img", { name: /Operational flow from/ }),
+    ).not.toBeInTheDocument();
+
+    await fireEvent.keyDown(link, { key: "Enter" });
+    expect(document.canvasSelection).toEqual({
+      kind: "edge",
+      edgeId: "policy",
+    });
+
+    document.clearSelection();
+    await fireEvent.keyDown(link, { key: " " });
+    expect(document.canvasSelection).toEqual({
+      kind: "edge",
+      edgeId: "policy",
+    });
+
+    document.clearSelection();
+    await fireEvent.click(link);
+    expect(document.canvasSelection).toEqual({
+      kind: "edge",
+      edgeId: "policy",
+    });
+  });
+
+  it("keeps operational flows noninteractive: no selection, edit, or delete path", async () => {
+    document.replaceFromLoadedGraph(makeSegmentGraph());
+    api.fetchGraphProjection.mockResolvedValue(
+      projectionReply([{ id: "flow-1", from_id: "host-a", to_id: "service" }]),
+    );
+
+    render(NetworkCanvas, { props: { document, api } });
+
+    const flow = await screen.findByRole("img", {
+      name: "Operational flow from A to https",
+    });
+    expect(flow).not.toHaveAttribute("tabindex");
+    expect(flow.querySelector('[role="button"]')).toBeNull();
+
+    await fireEvent.click(flow);
+    expect(document.canvasSelection.kind).toBe("none");
   });
 
   it("shows a stale notice while the document is dirty", async () => {

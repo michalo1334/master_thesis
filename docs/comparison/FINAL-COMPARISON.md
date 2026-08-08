@@ -182,7 +182,6 @@ All four projects rely on standard `{:ok, _}` / `{:error, _}` tuples — no dry-
 
 ### Your Codebase
 
-- 16 test files found.
 - `DataCase` and `ConnCase` (standard Phoenix templates).
 - `async: true` available but usage unknown.
 - **No factory** — test data is created inline.
@@ -239,7 +238,7 @@ All four projects rely on standard `{:ok, _}` / `{:error, _}` tuples — no dry-
 - **No Oban** — no background job system.
 - **No feature flags**.
 - **No caching abstraction**.
-- **No custom protocols/behaviours** for polymorphism.
+- **One custom protocol** for defense selection: `NetworkDefense.Optimization.Strategy` with `name/1` and `rank/4` (ranks candidate actions under a budget). Implemented by `CvssStrategy`, `NullStrategy`, `RandomStrategy`, `SimulatedAnnealingStrategy`, `SimulationInformedStrategy`, and `TopologySegmentationStrategy`.
 - **No GenServer usage** in domain logic — all simulation is synchronous in-process.
 - **No clustering** (uses `DNSCluster` for basic service discovery, not BEAM clustering).
 
@@ -250,20 +249,17 @@ All four projects rely on standard `{:ok, _}` / `{:error, _}` tuples — no dry-
 | No Oban | Long-running simulations block the web process. No retry, no scheduling, no monitoring |
 | No feature flags | Can't gradually roll out new simulation strategies or defense types |
 | No caching abstraction | Repeated expensive queries (graph traversals, NVD lookups) hit DB every time |
-| No behaviours for simulation strategies | Strategy pattern (Greedy, Mincut, Random) uses ad-hoc interfaces — hard to add new ones consistently |
 | Sync-only simulation | Web process blocks during Monte Carlo runs. Affects UX. |
 
 ### Recommendations
 
 1. **Move simulation runs to Oban** (Critical) — Monte Carlo simulation is CPU-intensive and blocking the web process. Move `Simulation.Run` to an Oban worker with `queue: :simulation`, `max_attempts: 1`. Results saved to DB, frontend polls/pushes for completion. You already have Phoenix PubSub — use it for completion notifications.
 
-2. **Define a Strategy behaviour** (Medium) — The optimization strategies (`GreedyStructuralStrategy`, `RandomStrategy`, `MincutStrategy`, `NullStrategy`) have ad-hoc interfaces. Define a `NetworkDefense.Optimization.Strategy` behaviour with `@callback optimize(budget, graph, opts) :: {:ok, actions} | {:error, reason}`. Then implement each strategy. Reference: Logflare's `Adaptor` behaviour or Livebook's `Runtime` protocol.
+2. **Cache expensive graph queries** (Medium) — Add ETS caching for computed graph metrics (policy reachability, operational projections, etc.) that are queried repeatedly during simulation. Use `ConCache` or hand-rolled ETS.
 
-3. **Cache expensive graph queries** (Medium) — Add ETS caching for computed graph metrics (reachability, min cuts, etc.) that are queried repeatedly during simulation. Use `ConCache` or hand-rolled ETS.
+3. **Add feature flag system** (Low) — When you need to compare simulation strategies or gate new defense types, add a simple compile-time feature flag list (ref: Livebook's compile-time flags) or `fun_with_flags` (ref: Plausible).
 
-4. **Add feature flag system** (Low) — When you need to compare simulation strategies or gate new defense types, add a simple compile-time feature flag list (ref: Livebook's compile-time flags) or `fun_with_flags` (ref: Plausible).
-
-5. **Refactor contract types into shared library** (Low) — Currently contracts are duplicated/inline. Extract shared types that both frontend and backend import.
+4. **Refactor contract types into shared library** (Low) — Currently contracts are duplicated/inline. Extract shared types that both frontend and backend import.
 
 ---
 
@@ -307,10 +303,9 @@ All four projects rely on standard `{:ok, _}` / `{:error, _}` tuples — no dry-
 | 9 | **Add test for core simulation engine** | High | Testing | 1-2 days |
 | 10 | **Add trace-log correlation (trace_id in Logger)** | Medium | Observability | 0.5 day |
 | 11 | **Add Req.Test for HTTP mocking** | Medium | Testing | 0.5 day |
-| 12 | **Define Strategy behaviour for optimization** | Medium | Code Org | 1 day |
-| 13 | **Add test partitioning in CI** | Medium | Infra/CI | 0.5 day |
-| 14 | **Cache expensive graph queries (ETS)** | Medium | Code Org | 1 day |
-| 15 | **Add .tool-versions** | Low | Infra/CI | 0.25 day |
-| 16 | **Move precommit to pre-commit hooks** | Low | Infra/CI | 0.5 day |
-| 17 | **Add feature flag system** | Low | Code Org | 1 day |
-| 18 | **Enable LiveDashboard in prod** | Low | Observability | 0.25 day |
+| 12 | **Add test partitioning in CI** | Medium | Infra/CI | 0.5 day |
+| 13 | **Cache expensive graph queries (ETS)** | Medium | Code Org | 1 day |
+| 14 | **Add .tool-versions** | Low | Infra/CI | 0.25 day |
+| 15 | **Move precommit to pre-commit hooks** | Low | Infra/CI | 0.5 day |
+| 16 | **Add feature flag system** | Low | Code Org | 1 day |
+| 17 | **Enable LiveDashboard in prod** | Low | Observability | 0.25 day |

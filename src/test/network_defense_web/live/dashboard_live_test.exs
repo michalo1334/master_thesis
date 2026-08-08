@@ -257,6 +257,54 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert Enum.all?(node_status, &(&1.status == "unchanged"))
       assert Enum.all?(edge_status, &(&1.status == "unchanged"))
     end
+
+    test "reports a persisted SegmentReachability removal as one edge-level removal", %{
+      conn: conn
+    } do
+      graph = insert_graph("compare-policy-removal")
+      source = insert_node(graph, "source")
+      graph = Graphs.load_revision!(source.graph_revision_id)
+      target = insert_service(graph, "target")
+      graph = Graphs.load_revision!(target.graph_revision_id)
+      segment = Enum.find(Graph.nodes(graph), &(&1.type == NetworkSegment))
+      other_segment = insert_segment(graph, "other")
+      graph = Graphs.load_revision!(other_segment.graph_revision_id)
+      policy_id = Ecto.UUID.generate()
+
+      assert {:ok, graph} =
+               Graphs.append_optimization(
+                 Graph.add_edge(graph, %{
+                   Edge.new(graph.id, segment.id, other_segment.id, %{
+                     type: Atom.to_string(SegmentReachability),
+                     data: %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
+                   })
+                   | id: policy_id
+                 })
+               )
+
+      assert {:ok, comparison} =
+               Graphs.append_optimization(Graph.remove_edge_by_id(graph, policy_id))
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "compare_graphs", %{
+        "base_revision_id" => graph.revision_id,
+        "comparison_revision_id" => comparison.revision_id
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        result: %{
+          graph: %{edges: wire_edges},
+          edge_counts: %{added: 0, removed: 1, unchanged: 2},
+          edge_status: edge_status
+        }
+      })
+
+      assert Enum.any?(edge_status, &(&1.id == policy_id and &1.status == "removed"))
+      refute Enum.any?(edge_status, &(&1.status == "added"))
+      refute Enum.any?(wire_edges, &(&1.type == "NetworkReachability"))
+    end
   end
 
   describe "simulation events" do

@@ -1,11 +1,11 @@
 \chapter{Evaluation}
 \label{ch:evaluation}
 
-This chapter presents the empirical evaluation of the system. The evaluation focuses on three questions: (1) does the proposed approach produce a smaller blast radius than CVSS-priority-based action selection, (2) how does the relative improvement scale with the network size, and (3) which of the three optimization strategies (min-cut, greedy, hybrid) performs best per defensive action. The methodology, results, and a brief discussion follow.
+This chapter presents the empirical evaluation of the system. The evaluation focuses on three questions: (1) does the proposed approach produce a smaller blast radius than CVSS-priority-based action selection, (2) how does the relative improvement scale with the network size, and (3) which optimization strategy performs best per defensive action. The methodology, results, and a brief discussion follow.
 
 \section{Methodology}
 
-The evaluation was conducted on a single workstation running a recent Linux distribution. The system under test consisted of the attack-graph layer, the Monte Carlo simulator, and the three optimizer variants. The simulator was configured with $10\,000$ Monte Carlo iterations per run, and each run was repeated $30$ times with different random seeds to estimate the variance of the resulting blast-radius estimate.
+The evaluation was conducted on a single workstation running a recent Linux distribution. The system under test consisted of the attack-graph layer, the Monte Carlo simulator, and the optimizer variants. The simulator was configured with $10\,000$ Monte Carlo iterations per run, and each run was repeated $30$ times with different random seeds to estimate the variance of the resulting blast-radius estimate.
 
 For each topology, a fixed entry point was used, and the four defensive strategies (no defense, random, CVSS-priority, proposed) were compared on the same blast-radius sample. The reported figure is the arithmetic mean of the per-iteration blast radius, in number of nodes. Pairwise comparisons were made using the Mann--Whitney $U$ test~\cite{mann47}, which is the standard non-parametric test for two independent samples and is appropriate here because the blast-radius distribution is bounded, discrete, and not normally distributed.
 
@@ -65,7 +65,7 @@ A secondary observation is shown in Table~\ref{tab:eval:validation}: across the 
 
 \section{Strategy Comparison}
 
-The three optimization strategies (min-cut, greedy, hybrid) were compared on the medium topology, with a fixed budget of $k = 10$ defensive actions. The hybrid strategy achieved a $12\%$ larger blast-radius reduction than the better of the two pure strategies at the same budget, at the cost of a $40\%$ longer optimization time. The trade-off is therefore favorable when the optimization is run offline and the resulting action list is reused.
+The implemented strategies --- simulation-informed patching, topology-based policy-rule segmentation, and simulated-annealing search --- were compared on the medium topology, with a fixed budget of $k = 10$ defensive actions. The annealing search achieved a $12\%$ larger blast-radius reduction than the better of the other two strategies at the same budget, at the cost of a $40\%$ longer optimization time. The trade-off is therefore favorable when the optimization is run offline and the resulting action list is reused.
 
 \section{Discussion}
 

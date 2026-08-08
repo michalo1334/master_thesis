@@ -2,6 +2,8 @@
 
 Master checklist for setting up the thesis project infrastructure.
 
+> **Superseded.** This is an early project-setup checklist. The canonical model — segment-to-segment policy with a deterministic in-memory operational projection — is defined in [Reachability Modeling — Canonical Policy, Transient Operational Flows](../plans/reachability-modeling.md). Historical record only.
+
 ## 1. Find & Secure Supervisor
 
 - [ ] Draft outreach email/message with thesis topic summary (reference `docs/plans/2026-03-04-attack-graph-blast-radius-design.md`)

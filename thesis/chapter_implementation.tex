@@ -5,33 +5,25 @@ This chapter describes the implementation of the system. The description follows
 
 \section{Attack-Graph Layer}
 
-The attack-graph layer is implemented as a small set of Elixir modules. The central data structure is a directed graph whose nodes are \mintinline{elixir}|%NetworkDefense.AttackGraph.Node{}| records and whose edges are \mintinline{elixir}|%NetworkDefense.AttackGraph.Edge{}| records. The graph is built in two passes: a structural pass that follows the network reachability relation, and an enrichment pass that adds edges for each applicable CVE. Source Code~\ref{src:impl:graph} shows the entry point of the graph builder.
+The attack-graph layer stores a typed context graph and materializes operational flows. The canonical graph holds hosts, services, and network segments as nodes, and ownership and reachability as edges. Reachability is a segment-to-segment policy that carries protocol and port-range data; no host/service flow is authored or persisted. When the simulator or the network view needs connectivity, the layer materializes one deterministic, in-memory \enquote{host to service} flow per effective host/service pair. The materializer resolves membership, ownership, policy matching, deduplication, and deterministic operational IDs; its single public entry point is \mintinline{elixir}|NetworkDefense.Graph.MaterializeReachability.materialize/1|. Source Code~\ref{src:impl:graph} shows the invariant it implements as illustrative pseudocode.
 
 \begin{code}
-	\begin{minted}{elixir}
-defmodule NetworkDefense.AttackGraph do
-  alias NetworkDefense.AttackGraph.{Node, Edge}
-
-  def build(topology, cve_feed) do
-    base_nodes = topology.hosts
-                 |> Enum.flat_map(&host_service_nodes/1)
-    base_edges = topology.reachability
-                 |> Enum.flat_map(&reachability_edges/1)
-    enriched_edges = base_edges
-                     |> Enum.flat_map(&cve_edges(&1, cve_feed))
-    %{nodes: base_nodes, edges: base_edges ++ enriched_edges}
-  end
-end
+	\begin{minted}{text}
+for each segment-policy rule:
+    for each {source host, target service} pair the rule admits:
+        emit one effective operational flow
+deduplicate by {source host, target service}
+sort by deterministic operational id
 	\end{minted}
-	\caption{Entry point of the attack-graph builder.}
+	\caption{Illustrative pseudocode: materializing operational flows from segment policy.}
 	\label{src:impl:graph}
 \end{code}
 
-The choice of a two-pass construction is deliberate: it keeps the structural and enrichment concerns in separate functions, and it makes it easy to add a third pass later (e.g., for transitive-vulnerability inference) without changing the upstream passes.
+Materialization is the only path from policy to concrete connectivity. It is deterministic, so the same canonical graph always produces the same flow set, which keeps simulation and optimization results reproducible.
 
 \section{Simulation Layer}
 
-The simulation layer is implemented as a single \mintinline{elixir}|NetworkDefense.Simulator| module. The module exposes a \mintinline{elixir}|run/3| function that takes a graph, an entry point, and a number of iterations, and returns a blast-radius map. The pipeline is illustrated in Figure~\ref{fig:impl:pipeline}.
+The simulation layer is implemented as a single \mintinline{elixir}|NetworkDefense.Simulation.Simulator| module. The module exposes a function that takes the materialized operational graph, an entry point, and a number of iterations, and returns a blast-radius map. The pipeline is illustrated in Figure~\ref{fig:impl:pipeline}.
 
 \begin{figure}[hbt!]
 	\centering
@@ -52,45 +44,30 @@ The simulation layer is implemented as a single \mintinline{elixir}|NetworkDefen
 	\label{fig:impl:pipeline}
 \end{figure}
 
-The simulator step itself is shown in Source Code~\ref{src:impl:step}. It is a small recursive function over the attack graph; the recursion is bounded by the iteration budget and the depth of the graph.
+The simulator step itself is shown as implementation-independent pseudocode in Source Code~\ref{src:impl:step}. Each iteration evaluates the configured rules against the current attacker state, filters the resulting candidate actions by the per-action attempt limit, selects one candidate, and executes it with a probability drawn from the action's success probability. The iteration budget bounds the run.
 
 \begin{code}
-	\begin{minted}{elixir}
-defp step(graph, current, reached, depth) do
-  outgoing = outgoing_edges(graph, current)
-
-  case Enum.random(outgoing) do
-    nil ->
-      reached
-
-    edge ->
-      if :rand.uniform() < edge.probability and depth > 0 do
-        step(graph, edge.target, MapSet.put(reached, edge.target), depth - 1)
-      else
-        reached
-      end
-  end
-end
+	\begin{minted}{text}
+for each iteration up to the iteration budget:
+    evaluate every configured rule against the current attacker state
+    collect the candidate actions the rules emit
+    drop candidates that exceed the per-action attempt limit
+    if no candidates remain, end the run
+    select one candidate action
+    sample a uniform random number
+    if the sample is at or below the action's success probability:
+        execute the action and update the attacker state
+    record the iteration step
 	\end{minted}
-	\caption{One step of the Monte Carlo simulator.}
+	\caption{Implementation-independent pseudocode: one Monte Carlo iteration.}
 	\label{src:impl:step}
 \end{code}
 
 \section{Optimization Layer}
 
-The optimization layer is implemented in three sibling modules, one per strategy:
+The optimization layer evaluates candidate defensive actions against the baseline. Actions change the canonical graph: patching a vulnerability, removing a segment-policy rule, or revoking a credential. Segmentation is thus a policy removal, not a cut of individual host edges. Each candidate graph is materialized and scored through the same simulation boundary as the baseline, so every strategy is compared under identical attack and cost assumptions.
 
-\begin{itemize}
-	\item \mintinline{elixir}|NetworkDefense.Optimizer.MinCut|
-	\item \mintinline{elixir}|NetworkDefense.Optimizer.Greedy|
-	\item \mintinline{elixir}|NetworkDefense.Optimizer.Hybrid|
-\end{itemize}
-
-\noindent Each module exposes a \mintinline{elixir}|recommend/2| function with the same signature, so they are interchangeable at the call site.
-
-The min-cut strategy is implemented in terms of a small Stoer--Wagner implementation; the greedy strategy is implemented in terms of a sort over the marginal blast-radius reduction of each vulnerability. The hybrid strategy alternates the two and uses the better of the two at each step.
-
-A small auxiliary routine, \mintinline{elixir}|marginal_reduction(graph, blast_map, action)|, encapsulates the cost of evaluating a single candidate action. Listing it here is not necessary for the narrative; what matters is that the call site in the optimizer loop is a single line.
+Strategies differ only in how they select the next candidate: a greedy pass over marginal blast-radius reduction per unit of cost, a topology-based pass over segment-policy boundaries, or simple CVSS- and random-based baselines. All of them share one scoring boundary, which keeps the comparison consistent.
 
 \section{UI Layer}
 

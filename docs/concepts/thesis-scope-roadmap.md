@@ -44,7 +44,7 @@ The dynamic state of one run remains separate from the context graph:
 
 A capability must declare whether all, any, or a threshold number of supporting resources are needed. This makes redundancy and failover measurable rather than assumed.
 
-Network zones, organizational units, and long-lived controls remain attributes or configuration unless a simulation rule requires them as first-class graph entities. Credentials and privilege levels are added only with attacker behaviors that use them.
+Network segments are first-class graph entities: `network_segment` nodes contain hosts, and `segment_reachability` is the directed cross-segment policy. Organizational units and long-lived controls remain attributes or configuration unless a simulation rule requires them as first-class graph entities. Credentials and privilege levels are added only with attacker behaviors that use them.
 
 ## Resilience Objective
 

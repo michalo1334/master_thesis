@@ -1,5 +1,7 @@
 # Graph-Based Attack Simulation and Blast Radius Minimization
 
+> **Superseded.** This early draft describes direct host/service reachability edges and min-cut segmentation. The canonical model — segment-to-segment policy with a deterministic in-memory operational projection — is defined in [Reachability Modeling — Canonical Policy, Transient Operational Flows](../plans/reachability-modeling.md). Historical record only.
+
 ## Research Question
 
 > To what extent can graph-based attack simulation combined with automated defense optimization reduce the blast radius of network attacks compared to conventional vulnerability prioritization methods?

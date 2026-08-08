@@ -68,12 +68,12 @@ defmodule Mix.Tasks.Gen.Contracts.Registry do
       module.__contract__()
   end
 
-  defp contract_closure(modules), do: expand_contracts(modules, MapSet.new()) |> MapSet.to_list()
+  defp contract_closure(modules), do: expand_contracts(modules, %{}) |> Map.keys()
 
   defp expand_contracts([], modules), do: modules
 
   defp expand_contracts([module | rest], modules) do
-    if MapSet.member?(modules, module) do
+    if Map.has_key?(modules, module) do
       expand_contracts(rest, modules)
     else
       dependencies =
@@ -81,7 +81,7 @@ defmodule Mix.Tasks.Gen.Contracts.Registry do
         |> contract_dependencies()
         |> Enum.filter(&contract?/1)
 
-      expand_contracts(dependencies ++ rest, MapSet.put(modules, module))
+      expand_contracts(dependencies ++ rest, Map.put(modules, module, true))
     end
   end
 
