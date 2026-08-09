@@ -46,6 +46,7 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
     |> validate_number(:monte_carlo_trials, greater_than: 0)
     |> validate_number(:iterations_per_run, greater_than: 0)
     |> validate_number(:max_attempts, greater_than: 0)
+    |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_seed_present_unless_generated()
   end
 

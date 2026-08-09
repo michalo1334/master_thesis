@@ -43,12 +43,9 @@ defmodule Mix.Tasks.Evaluate.Optimization do
     output: :string
   ]
 
-  @simulation_strategies ["simulation_informed", "topology_segmentation", "simulated_annealing"]
-
   alias NetworkDefense.Optimization.Contracts.{OptimizationParams, RunOptimizationRequest}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
 
   @impl Mix.Task
   def run(args) do
@@ -81,47 +78,29 @@ defmodule Mix.Tasks.Evaluate.Optimization do
 
     with :ok <- require_option(:strategy, strategy),
          :ok <- require_option(:budget, budget),
-         :ok <- require_option(:graph_revision_id, graph_revision_id),
-         {:ok, simulation_params} <- validate_simulation_params(strategy, opts),
-         {:ok, optimization_params} <-
-           validate_optimization_params(strategy, budget, simulation_params) do
+         :ok <- require_option(:graph_revision_id, graph_revision_id) do
       params = %{
         "graph_revision_id" => graph_revision_id,
         "correlation_id" => Ecto.UUID.generate(),
-        "optimization_params" => OptimizationParams.to_params(optimization_params)
+        "optimization_params" => %{
+          "strategy" => strategy,
+          "budget" => budget,
+          "simulation_params" =>
+            if(OptimizationParams.requires_simulation_params?(strategy),
+              do: simulation_attrs(opts)
+            )
+        }
       }
 
-      case RunOptimizationRequest.changeset(%RunOptimizationRequest{}, params) do
-        %{valid?: true} = changeset -> {:ok, Ecto.Changeset.apply_changes(changeset)}
-        changeset -> {:error, changeset_errors(changeset)}
+      case RunOptimizationRequest.validate(params) do
+        {:ok, request} -> {:ok, request}
+        {:error, changeset} -> {:error, changeset_errors(changeset)}
       end
     end
   end
 
   defp require_option(name, nil), do: {:error, "missing required option --#{name}"}
   defp require_option(_name, _value), do: :ok
-
-  defp validate_simulation_params(strategy, opts) when strategy in @simulation_strategies do
-    case SimulationParams.changeset(%SimulationParams{}, simulation_attrs(opts)) do
-      %{valid?: true} = changeset -> {:ok, Ecto.Changeset.apply_changes(changeset)}
-      changeset -> {:error, changeset_errors(changeset)}
-    end
-  end
-
-  defp validate_simulation_params(_strategy, _opts), do: {:ok, nil}
-
-  defp validate_optimization_params(strategy, budget, simulation_params) do
-    params = %{
-      "strategy" => strategy,
-      "budget" => budget,
-      "simulation_params" => simulation_params && SimulationParams.to_params(simulation_params)
-    }
-
-    case OptimizationParams.changeset(%OptimizationParams{}, params) do
-      %{valid?: true} = changeset -> {:ok, Ecto.Changeset.apply_changes(changeset)}
-      changeset -> {:error, changeset_errors(changeset)}
-    end
-  end
 
   defp simulation_attrs(opts) do
     %{
@@ -141,10 +120,19 @@ defmodule Mix.Tasks.Evaluate.Optimization do
         String.replace(message, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map_join(", ", fn {field, messages} ->
-      "#{field |> Atom.to_string() |> String.capitalize()} #{Enum.join(messages, ", ")}"
-    end)
+    |> flatten_errors()
+    |> Enum.map_join(", ", fn {field, message} -> "#{field} #{message}" end)
   end
+
+  defp flatten_errors(errors, path \\ []), do: Enum.flat_map(errors, &flatten_error(&1, path))
+
+  defp flatten_error({field, messages}, path) when is_list(messages) do
+    field = Enum.map_join(path ++ [field], ".", &to_string/1)
+    Enum.map(messages, fn message -> {field, message} end)
+  end
+
+  defp flatten_error({field, messages}, path) when is_map(messages),
+    do: flatten_errors(messages, path ++ [field])
 
   defp load_with_actions(%OptimizationRun{} = run), do: OptimizationRuns.load(run.id)
 

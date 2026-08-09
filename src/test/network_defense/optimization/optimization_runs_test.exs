@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   use NetworkDefense.DataCase, async: true
 
+  import Ecto.Query
+
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
@@ -397,11 +399,70 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       assert run.seed == 42
 
       assert run.simulation_config == %{
-               "trials" => 1,
-               "iterations" => 1,
-               "initial_foothold" => host.id,
+               "monte_carlo_trials" => 1,
+               "iterations_per_run" => 1,
+               "initial_foothold_node_id" => host.id,
                "max_attempts" => 1
              }
+    end
+
+    test "run/1 returns a foothold validation error without persisting a run" do
+      assert {:ok, graph} = Graphs.insert(graph_with_host())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{
+          strategy: "simulation_informed",
+          budget: 1,
+          simulation_params: %SimulationParams{
+            monte_carlo_trials: 1,
+            iterations_per_run: 1,
+            initial_foothold_node_id: Ecto.UUID.generate(),
+            seed: 42,
+            generate_seed: false,
+            max_attempts: 1
+          }
+        }
+      }
+
+      assert {:error, "initial foothold must identify a host in the graph"} =
+               Optimizations.run(request)
+
+      assert [] =
+               Repo.all(
+                 from(run in OptimizationRun, where: run.graph_revision_id == ^graph.revision_id)
+               )
+    end
+
+    test "run/1 returns a topology reachability error without persisting a run" do
+      assert {:ok, graph} = Graphs.insert(graph_with_host())
+      host = Enum.find(Graph.nodes(graph), &(&1.type == NetworkDefense.Nodes.Host))
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{
+          strategy: "topology_segmentation",
+          budget: 1,
+          simulation_params: %SimulationParams{
+            monte_carlo_trials: 1,
+            iterations_per_run: 1,
+            initial_foothold_node_id: host.id,
+            seed: 42,
+            generate_seed: false,
+            max_attempts: 1
+          }
+        }
+      }
+
+      assert {:error, "topology segmentation requires reachability relationships in the graph"} =
+               Optimizations.run(request)
+
+      assert [] =
+               Repo.all(
+                 from(run in OptimizationRun, where: run.graph_revision_id == ^graph.revision_id)
+               )
     end
 
     test "run/1 rejects an unknown strategy" do

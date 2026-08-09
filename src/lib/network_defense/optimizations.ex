@@ -18,6 +18,8 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
+  require Logger
+
   @optimization_events_topic "optimization_events"
   @strategy_modules %{
     "cvss" => CvssStrategy,
@@ -51,8 +53,12 @@ defmodule NetworkDefense.Optimizations do
   defp run_sync(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request),
          {:ok, run} <- persist_run(graph, request, strategy) do
-      {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-      complete_optimization(graph, request, run, result, runtime_us)
+      try do
+        {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+        complete_optimization(graph, request, run, result, runtime_us)
+      rescue
+        error -> {:error, fail_optimization(run, error, __STACKTRACE__)}
+      end
     end
   end
 
@@ -84,9 +90,9 @@ defmodule NetworkDefense.Optimizations do
 
   defp simulation_config(%RunOptimizationRequest{optimization_params: params}) do
     %{
-      trials: params.simulation_params.monte_carlo_trials,
-      iterations: params.simulation_params.iterations_per_run,
-      initial_foothold: params.simulation_params.initial_foothold_node_id,
+      monte_carlo_trials: params.simulation_params.monte_carlo_trials,
+      iterations_per_run: params.simulation_params.iterations_per_run,
+      initial_foothold_node_id: params.simulation_params.initial_foothold_node_id,
       max_attempts: params.simulation_params.max_attempts
     }
   end
@@ -107,8 +113,21 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp run_optimization(graph, request, run, strategy) do
-    {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-    complete_optimization(graph, request, run, result, runtime_us)
+    try do
+      {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+      complete_optimization(graph, request, run, result, runtime_us)
+    rescue
+      error ->
+        reason = fail_optimization(run, error, __STACKTRACE__)
+        broadcast_failed(graph, request.correlation_id, reason)
+        {:error, reason}
+    end
+  end
+
+  defp fail_optimization(run, error, stacktrace) do
+    Logger.error(Exception.format(:error, error, stacktrace))
+    OptimizationRuns.fail(run.id)
+    "optimization_failed"
   end
 
   defp apply_optimization(graph, request, strategy) do

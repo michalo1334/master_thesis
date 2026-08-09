@@ -12,8 +12,11 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
                  :topology_segmentation,
                  :simulated_annealing
                ]
+  @simulation_strategies ["simulation_informed", "topology_segmentation", "simulated_annealing"]
 
   def contract_meta, do: %{enum_values: @enum_values}
+
+  def requires_simulation_params?(strategy), do: strategy in @simulation_strategies
 
   embedded_schema do
     field :strategy, :string
@@ -41,11 +44,7 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
   end
 
   defp require_simulation_params(changeset) do
-    if Changeset.get_field(changeset, :strategy) in [
-         "simulation_informed",
-         "topology_segmentation",
-         "simulated_annealing"
-       ] and
+    if requires_simulation_params?(Changeset.get_field(changeset, :strategy)) and
          is_nil(Changeset.get_field(changeset, :simulation_params)) do
       Changeset.add_error(changeset, :simulation_params, "is required")
     else

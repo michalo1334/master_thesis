@@ -228,15 +228,15 @@ defmodule NetworkDefense.Simulations do
         nil
 
       experiment ->
-        graph =
-          case Graphs.load_revision(experiment.graph_revision_id) do
-            %NetworkDefense.Graph.Graph{} = graph -> graph
-            _ -> nil
-          end
+        case Graphs.load_revision(experiment.graph_revision_id) do
+          %NetworkDefense.Graph.Graph{} = graph ->
+            experiment
+            |> Map.put(:graph, graph)
+            |> load_report_runs()
 
-        experiment
-        |> Map.put(:graph, graph)
-        |> load_report_runs()
+          _ ->
+            nil
+        end
     end
   end
 

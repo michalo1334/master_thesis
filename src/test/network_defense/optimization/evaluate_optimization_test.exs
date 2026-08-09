@@ -99,6 +99,22 @@ defmodule Mix.Tasks.Evaluate.OptimizationTest do
     assert reason =~ "greater than"
   end
 
+  test "rejects a negative simulation seed at request validation" do
+    assert {:error, reason} =
+             Optimization.build_request(
+               strategy: "simulated_annealing",
+               budget: 2,
+               graph_revision_id: @revision_id,
+               trials: 1,
+               iterations: 1,
+               initial_foothold: "host-1",
+               seed: -1
+             )
+
+    assert reason =~ "seed"
+    assert reason =~ "greater than or equal to 0"
+  end
+
   test "rejects a malformed graph revision id" do
     assert {:error, reason} =
              Optimization.build_request(strategy: "cvss", budget: 2, graph_revision_id: "nope")

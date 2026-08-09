@@ -27,15 +27,10 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   def load_revision(id) do
-    case Repo.get(GraphRevision, id) do
-      nil ->
-        nil
-
-      revision ->
-        case hydrate_revision(revision, Repo.get!(Graph, revision.graph_id)) do
-          {:ok, graph} -> graph
-          {:error, _reason} = error -> error
-        end
+    with %GraphRevision{} = revision <- Repo.get(GraphRevision, id),
+         %Graph{} = graph <- Repo.get(Graph, revision.graph_id),
+         {:ok, graph} <- hydrate_revision(revision, graph) do
+      graph
     end
   end
 
