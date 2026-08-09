@@ -12,6 +12,8 @@ The contribution is not a generic cyber-resilience platform. It is a reproducibl
 
 Blast radius remains an explanatory measure of attacker reach. The primary outcome is mission loss over time.
 
+Mission and recovery claims are planned extensions, not part of the current thesis scope.
+
 ## Research Question
 
 > To what extent does a graph-based model combining attack propagation, mission dependencies, and recovery capacity improve the selection of cost-constrained cyber-resilience controls compared with severity- and topology-based prioritization?

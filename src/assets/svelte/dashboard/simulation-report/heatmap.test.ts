@@ -30,4 +30,22 @@ it("styles reported hosts and traversed edges from their probabilities", () => {
       to_id: "host-2",
     }),
   ).toMatchObject({ stroke: "#b91c1c", strokeWidth: 3 });
+  expect(
+    appearance.flowAppearance({
+      id: "edge-1",
+      sourceName: "Source",
+      sourcePosition: { x: 0, y: 0 },
+      targetPosition: { x: 120, y: 0 },
+      serviceName: "https",
+    }),
+  ).toMatchObject({ stroke: "#b91c1c", strokeWidth: 3 });
+  expect(
+    appearance.flowAppearance({
+      id: "unknown-flow",
+      sourceName: "Source",
+      sourcePosition: { x: 0, y: 0 },
+      targetPosition: { x: 120, y: 0 },
+      serviceName: "https",
+    }),
+  ).toBeUndefined();
 });

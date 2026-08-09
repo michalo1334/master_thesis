@@ -5,23 +5,28 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
 
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefenseWeb.Web.Contracts.GraphProjectionOperationalFlow
 
   embedded_schema do
-    field :experiment_id, :string
-    field :graph_id, :string
-    field :graph_title, :string
-    field :graph_revision_id, :string
-    field :run_count, :integer
-    field :iteration_count, :integer
-    field :total_runtime_ms, :integer
+    field(:experiment_id, :string)
+    field(:graph_id, :string)
+    field(:graph_title, :string)
+    field(:graph_revision_id, :string)
+    field(:run_count, :integer)
+    field(:iteration_count, :integer)
+    field(:total_runtime_ms, :integer)
 
-    embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
+    embeds_one(:graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update)
 
-    embeds_one :summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
+    embeds_many(:operational_flows, GraphProjectionOperationalFlow, on_replace: :delete)
+
+    embeds_one(:summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
       on_replace: :update
+    )
 
-    embeds_one :charts, NetworkDefenseWeb.Web.Contracts.SimulationReportCharts,
+    embeds_one(:charts, NetworkDefenseWeb.Web.Contracts.SimulationReportCharts,
       on_replace: :update
+    )
   end
 
   @type t :: %__MODULE__{
@@ -33,6 +38,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           iteration_count: integer(),
           total_runtime_ms: integer(),
           graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
+          operational_flows: [GraphProjectionOperationalFlow.t()],
           summary: NetworkDefenseWeb.Web.Contracts.SimulationReportSummary.t(),
           charts: NetworkDefenseWeb.Web.Contracts.SimulationReportCharts.t()
         }
@@ -49,6 +55,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :total_runtime_ms
     ])
     |> cast_embed(:graph, required: true)
+    |> cast_embed(:operational_flows)
     |> cast_embed(:summary, required: true)
     |> cast_embed(:charts, required: true)
     |> validate_required([
@@ -62,10 +69,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     ])
   end
 
-  @spec from_domain(SimulationReport.t(), NetworkDefense.Graph.Graph.t()) ::
-          {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def from_domain(%SimulationReport{} = report, graph) do
-    with {:ok, wire_graph} <- GraphContract.from_domain(graph) do
+  @spec from_domain(SimulationReport.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def from_domain(%SimulationReport{} = report) do
+    with {:ok, wire_graph} <- GraphContract.from_domain(report.graph) do
       report
       |> Contracts.to_wire()
       |> Map.put(:graph, wire_graph)

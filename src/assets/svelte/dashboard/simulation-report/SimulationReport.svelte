@@ -12,6 +12,7 @@
     histogramOptions,
   } from "./chart-options";
   import { heatmapLegend, simulationHeatmapAppearance } from "./heatmap";
+  import { projectNetwork } from "../graph/network/NetworkCanvasProjection";
 
   interface Props {
     document: SimulationReportDocument;
@@ -24,6 +25,14 @@
     document.reportData
       ? simulationHeatmapAppearance(document.reportData.charts)
       : undefined,
+  );
+  let heatmapFlows = $derived(
+    document.heatmapGraph && document.reportData
+      ? projectNetwork(
+          document.heatmapGraph,
+          document.reportData.operational_flows,
+        ).operationalFlows
+      : [],
   );
 </script>
 
@@ -179,8 +188,9 @@
             <h2 id="heatmap-title">Attack-path heatmap</h2>
             <p id="heatmap-description">
               Host cards and traversed edges are colored by their probability
-              across simulation runs. Drag nodes to arrange this report view;
-              positions are local and are not saved to the topology.
+              across simulation runs. Dashed lines show operational flows. Drag
+              nodes to arrange this report view; positions are local and are not
+              saved to the topology.
             </p>
           </div>
           <ul
@@ -202,6 +212,8 @@
               graph={document.heatmapGraph}
               nodeAppearance={heatmapAppearance?.nodeAppearance}
               edgeAppearance={heatmapAppearance?.edgeAppearance}
+              structuralFlows={heatmapFlows}
+              structuralFlowAppearance={heatmapAppearance?.flowAppearance}
               selectedNodeId={document.heatmapSelectedNodeId}
               selectedEdgeId={document.heatmapSelectedEdgeId}
               onGraphChange={(graph) => (document.heatmapGraph = graph)}

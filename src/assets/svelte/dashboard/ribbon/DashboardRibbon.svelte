@@ -66,12 +66,6 @@
 <Ribbon>
   <Ribbon.Tab title="Home">
     <Ribbon.Section title="Tools">
-      <RibbonButton
-        ><Icon name="cursor" size={22} /><span>Select</span></RibbonButton
-      >
-      <RibbonButton
-        ><Icon name="link" size={22} /><span>Connect</span></RibbonButton
-      >
       <RibbonButton onclick={onCompareGraphs}
         ><Icon name="graph" size={22} /><span>Compare graphs</span
         ></RibbonButton
@@ -308,14 +302,6 @@
         </Select>
       </Ribbon.Section>
     {/if}
-  </Ribbon.Tab>
-  <Ribbon.Tab title="View">
-    <Ribbon.Section title="Workspace">
-      <RibbonButton
-        ><Icon name="chevron-right" size={22} /><span>Inspector</span
-        ></RibbonButton
-      >
-    </Ribbon.Section>
   </Ribbon.Tab>
 </Ribbon>
 

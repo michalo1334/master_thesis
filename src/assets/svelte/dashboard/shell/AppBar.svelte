@@ -25,12 +25,6 @@
       disabled={saveDisabled}
       aria-busy={isSaving}>Save</button
     >
-    <button class="dashboard-app-icon" aria-label="Search"
-      ><Icon name="search" /></button
-    >
-    <button class="dashboard-app-icon" aria-label="Help"
-      ><Icon name="help" /></button
-    >
     <DropdownMenu.Root>
       <DropdownMenu.Trigger class="dashboard-avatar-trigger">
         <Avatar.Root class="dashboard-avatar">
@@ -102,7 +96,6 @@
     align-items: center;
     gap: var(--ds-space-1);
   }
-  .dashboard-app-icon,
   .dashboard-app-save,
   .dashboard-appbar :global(.dashboard-avatar-trigger) {
     border: 0;
@@ -110,19 +103,12 @@
     color: var(--ds-color-on-dark);
     background: transparent;
   }
-  .dashboard-app-icon {
-    width: var(--ds-space-8);
-    height: var(--ds-control-height);
-    display: grid;
-    place-items: center;
-  }
   .dashboard-app-save {
     height: var(--ds-control-height);
     padding: 0 var(--ds-space-2);
     font-size: var(--ds-text-sm);
     font-weight: 600;
   }
-  .dashboard-app-icon:hover,
   .dashboard-app-save:not(:disabled):hover,
   .dashboard-appbar :global(.dashboard-avatar-trigger:hover) {
     background: var(--ds-color-on-dark-hover);

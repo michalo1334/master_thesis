@@ -1,6 +1,6 @@
 # Enterprise Network Topology Sources
 
-Research on where to gather realistic enterprise network layouts (~100–500 hosts) for thesis evaluation scenarios. Target: networks described in terms of hosts, services, vulnerabilities, and reachability — not routing/device-level topologies.
+Research on sources that can inform stylized enterprise network layouts (~100--500 hosts) for future thesis scenarios. Target: networks described in terms of hosts, services, vulnerabilities, and reachability --- not routing/device-level topologies. The current evaluation scope remains one fixed stylized topology, policy, and attacker model.
 
 Status: published machine-readable enterprise network topologies at 100+ host scale essentially do not exist. Organizations don't publish internal network maps. The standard approach in attack-graph literature (NetSPA, MulVAL, TVA) is parameterized synthetic generation informed by real structural patterns.
 
@@ -91,7 +91,7 @@ Not published as topology files — must be reverse-engineered from the textual 
 
 ## Reference Architectures (Structural Patterns, Not Datasets)
 
-These describe how real enterprises structure networks. Use them to validate your synthetic topologies, not as direct data sources.
+These describe how real enterprises structure networks. Use them to inform synthetic topology design, not to validate the model against real attack behavior.
 
 ### 7. Microsoft Enterprise-Scale Landing Zones
 
@@ -164,23 +164,23 @@ Constraints to enforce:
 
 For each generated host running a known service (e.g., Apache 2.4.49, OpenSSH 8.2):
 1. Query NVD API for CVEs affecting that product+version combination
-2. Assign realistic CVSS scores from the actual CVE data
-3. Derive `exploit_probability` from exploitability sub-scores (AV, AC, PR, UI)
+2. Preserve CVSS data as vulnerability severity characteristics
+3. Assign `exploit_probability` separately as a documented, stylized scenario parameter; do not derive it from CVSS or present it as real-world exploit likelihood
 4. Apply version distribution skew — not all hosts run latest patches
 
-### Step 4: Validate Against Real Attack Patterns
+### Step 4: Check Structural Coverage Against Documented Attack Patterns
 
-Before using a generated topology in experiments, verify that known APT technique chains have plausible paths through it:
+Before using a generated topology in experiments, check whether selected documented technique chains have plausible paths through it. This is a structural check, not validation of real attacker behavior:
 
 1. Pick 3-4 documented attack chains from CTID/CALDERA adversary emulation plans (e.g., APT29 — spearphishing → credential theft → lateral movement → data exfiltration)
 2. Map each step to your graph model: what host is entry point, what segment policy rules enable lateral movement, what vulnerabilities are exploitable
 3. If a generated topology doesn't have plausible paths, adjust generation parameters
 
-### Step 5: Document the Design Rationale
+### Step 5: Document the Scenario Rationale
 
 In the thesis evaluation chapter, justify the synthetic approach:
 
-> Synthetic topologies with realistic parameter distributions are the standard evaluation methodology in attack-graph literature. NetSPA (Homer et al., 2009), MulVAL (Ou et al., 2005), and TVA (Ammann et al., 2002) all evaluate on generated networks rather than real published topologies. The advantage is controlled parameter sweeps: service density, vulnerability density, and network complexity can be varied independently to isolate their effects on optimizer performance. The structural patterns were derived from open security training environments (GOAD, DetectionLab), enterprise reference architectures (Microsoft Enterprise-Scale), and documented attack-graph evaluation networks (CIC, MulVAL example facts).
+> Synthetic topologies are common in attack-graph literature. NetSPA (Homer et al., 2009), MulVAL (Ou et al., 2005), and TVA (Ammann et al., 2002) use generated networks rather than published production topologies. The current thesis scope uses one fixed stylized scenario. Future parameter sweeps require a versioned runner and result artifacts before reporting sensitivity or scalability. Structural patterns may be informed by open training environments, enterprise reference architectures, and documented attack-graph evaluation networks.
 
 ---
 

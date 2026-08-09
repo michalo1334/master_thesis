@@ -6,6 +6,8 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Actions.AttemptedAction
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.MaterializeReachability
+  alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Run
@@ -16,6 +18,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
           graph_title: String.t(),
           graph: Graph.t(),
           graph_revision_id: String.t(),
+          operational_flows: [map()],
           run_count: non_neg_integer(),
           iteration_count: non_neg_integer(),
           total_runtime_ms: non_neg_integer(),
@@ -32,6 +35,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     :run_count,
     :iteration_count,
     :total_runtime_ms,
+    operational_flows: [],
     summary: %{},
     charts: %Charts{}
   ]
@@ -46,12 +50,16 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     final_counts = final_foothold_counts(runs)
     stats = blast_radius_stats(final_counts)
 
+    operational_flows =
+      experiment.graph |> MaterializeReachability.materialize() |> operational_flows()
+
     %__MODULE__{
       experiment_id: experiment.id,
       graph_id: experiment.graph.id,
       graph_title: graph_title(experiment),
       graph: experiment.graph,
       graph_revision_id: experiment.graph_revision_id,
+      operational_flows: operational_flows,
       run_count: length(runs),
       iteration_count: experiment.iteration_count,
       total_runtime_ms: experiment.runtime_ms,
@@ -62,13 +70,12 @@ defmodule NetworkDefense.Simulation.SimulationReport do
         convergence: convergence_series(final_counts),
         action_success: action_successes(runs),
         host_compromise: host_compromise_probabilities(runs, experiment.graph),
-        edge_traversal: edge_traversal_probabilities(runs, experiment.graph)
+        edge_traversal: edge_traversal_probabilities(runs, experiment.graph, operational_flows)
       }
     }
   end
 
   defp graph_title(%Experiment{graph: %Graph{title: title}}), do: title
-  defp graph_title(_), do: "Unknown graph"
 
   defp final_foothold_counts(runs) do
     runs
@@ -229,8 +236,20 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     )
   end
 
-  defp edge_traversal_probabilities(runs, %Graph{} = graph) do
-    edge_ids = graph |> Graph.edges() |> Enum.map(& &1.id)
+  defp operational_flows(%Graph{} = graph) do
+    graph
+    |> Graph.edges()
+    |> Enum.filter(&(&1.type == NetworkReachability))
+    |> Enum.map(&%{id: &1.id, from_id: &1.from_id, to_id: &1.to_id})
+  end
+
+  defp edge_traversal_probabilities(runs, %Graph{} = graph, operational_flows) do
+    edge_ids =
+      graph
+      |> Graph.edges()
+      |> Enum.map(& &1.id)
+      |> Kernel.++(Enum.map(operational_flows, & &1.id))
+      |> Enum.uniq()
 
     probabilities_for_runs(
       edge_ids,

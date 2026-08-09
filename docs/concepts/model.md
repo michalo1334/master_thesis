@@ -4,9 +4,9 @@ The system has three concerns:
 
 * a persistent context graph describing the environment;
 * a simulator that models stochastic attack propagation;
-* a defense optimizer that evaluates cost-constrained changes to the environment.
+* a defense optimizer that compares equal-action-count changes to the environment.
 
-The graph is shared by simulation runs. Each run keeps its own attacker state. This separation allows baseline and defended configurations to be compared reproducibly. Planned extensions are described in [`thesis-scope-roadmap.md`](thesis-scope-roadmap.md).
+The graph is shared by simulation runs. Each run keeps its own attacker state. This separation allows baseline and defended configurations to use the same declared simulation configuration. Planned extensions are described in [`thesis-scope-roadmap.md`](thesis-scope-roadmap.md).
 
 ## Context Graph
 
@@ -16,7 +16,7 @@ The thesis baseline uses these node types:
 
 * `host`;
 * `service`, including protocol and port;
-* `vulnerability`, including CVSS and an explicitly modeled exploit probability;
+* `vulnerability`, including CVSS severity characteristics and an independently assigned, stylized exploit probability;
 * `network_segment`, a container of hosts;
 * `credential`.
 
@@ -69,7 +69,9 @@ The baseline rule models remote service exploitation. It requires:
 * satisfied vulnerability preconditions;
 * an available exploit attempt.
 
-The baseline action is `ExploitVulnerability`. The simulator selects a candidate action, resolves its deterministic or stochastic outcome, applies the state transition, and records the event. A run stops when no action is available or a configured limit or objective is reached.
+The baseline action is `ExploitVulnerability`. The simulator selects uniformly from eligible candidate actions, resolves the selected action's deterministic or stochastic outcome, applies the state transition, and records the event. A run stops when no action is available or a configured limit or objective is reached.
+
+CVSS describes severity characteristics. The configured exploit probability is a separate stylized model parameter: it is not derived from CVSS, calibrated to incident data, or interpreted as real-world exploit likelihood.
 
 ## Monte Carlo Evaluation
 
@@ -82,20 +84,20 @@ blast_radius = count(compromised_resources)
 expected_blast_radius = mean(blast_radius across runs)
 ```
 
-The expected blast radius is the primary optimization metric. Median, percentiles, variance, and per-resource compromise probability support analysis of distribution and stability.
+The expected blast radius is the primary optimization metric. Median, percentiles, variance, and per-resource compromise probability describe outcomes within the stated model; they do not validate real attack behavior.
 
 ## Defense Optimization
 
 The defense optimizer changes the context graph or its security configuration, not the temporary attacker state of an individual run.
 
-For each candidate configuration, it:
+For a simulation-informed or annealing candidate configuration, it:
 
 1. applies defensive actions to a copy or projection of the graph;
 2. runs a Monte Carlo experiment;
 3. compares attack-impact metrics with the baseline;
-4. accounts for defensive cost.
+4. accounts for the action-count budget.
 
-The initial defensive actions are patching a vulnerability, removing a segment reachability policy, and revoking a credential. Each action has a cost.
+The initial defensive actions are patching a vulnerability, removing a segment reachability policy, and revoking a credential. Each current action has unit cost, so the budget counts actions rather than deployment cost.
 
 The primary objective is:
 
@@ -104,11 +106,11 @@ minimize expected blast radius
 subject to total defense cost <= budget
 ```
 
-The optimizer can also rank actions by expected blast-radius reduction per unit of cost.
+The optimizer ranks actions by expected blast-radius reduction per unit of the current unit cost. It does not model cost-aware deployment trade-offs.
 
 ## Baseline Strategies
 
-Evaluation compares simulation-informed optimization with simpler strategies under the same budget:
+A future evaluation can compare simulation-informed optimization with simpler strategies under the same budget:
 
 * no defense;
 * random action selection;
@@ -116,4 +118,4 @@ Evaluation compares simulation-informed optimization with simpler strategies und
 * topology-based segmentation by segment-policy removal;
 * greedy simulation-informed selection.
 
-The optimizer evaluates every selected configuration through the same simulation process so that strategy comparisons use consistent attack and cost metrics.
+Simulation-informed and annealing strategies evaluate candidates through the simulator; CVSS and topology strategies use direct rankings. A future strategy comparison must evaluate each selected configuration through the same simulation process to use consistent model and action-count metrics.

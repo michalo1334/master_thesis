@@ -1,9 +1,9 @@
 \chapter{Theoretical Background}
 \label{ch:theory}
 
-This chapter is a \emph{visual-elements reference} for the rest of the thesis. Each section demonstrates one type of visual element supported by the document class, with a minimal but complete example that can be copied into another chapter. Where appropriate, the examples are drawn from the thesis topic --- attack-graph construction, blast-radius simulation, and defense optimization --- so that the chapter also serves as a worked example of the visual elements applied to a non-trivial domain.
+This chapter is a \emph{visual-elements reference} for the rest of the thesis. Each section demonstrates one type of visual element supported by the document class, with a minimal but complete example that can be copied into another chapter. Where appropriate, the examples are drawn from the thesis topic --- context-graph modeling, blast-radius simulation, and defense optimization --- so that the chapter also serves as a worked example of the visual elements applied to a non-trivial domain.
 
-\section{Attack Graphs and Their Visualization}
+\section{Context-Graph Modeling and Visualization}
 
 A figure is a floating environment that places a graphic at a suitable position on the page. The body of the figure is an \texttt{\textbackslash includegraphics} call (for a raster or vector image) or a TikZ picture. The image file must live in \texttt{img/} (or be referenced with a full path). The class \texttt{pclass.cls} also accepts an optional caption and label.
 
@@ -21,11 +21,11 @@ A figure is a floating environment that places a graphic at a suitable position 
 	\draw[arrow] (h1) -- node[above, draw=none, fill=none] {CVE-2024-X} (h2);
 	\draw[arrow] (h1) -- (h3);
 	\end{tikzpicture}
-	\caption{Small attack graph: three hosts, two exploit edges.}
+	\caption{Illustrative context graph: three hosts and two modeled relationships.}
 	\label{fig:attack-graph-example}
 \end{figure}
 	\end{minted}
-	\caption{Source template for an attack-graph figure.}
+	\caption{Source template for a context-graph figure.}
 	\label{src:theory:figure-template}
 \end{code}
 
@@ -34,7 +34,7 @@ The example below uses the existing logo as a stand-in. In a real chapter, the i
 \begin{figure}[hbt!]
 	\centering
 	\includegraphics[width=0.6\textwidth]{logo_wiisi.png}
-	\caption{Placeholder figure: an attack-graph render produced by the system would replace this slot.}
+	\caption{Placeholder figure: a context-graph render produced by the system would replace this slot.}
 	\label{fig:theory:figure-example}
 \end{figure}
 
@@ -60,7 +60,7 @@ sort by deterministic operational id
 	\label{src:theory:elixir-example}
 \end{code}
 
-\noindent A worked example in the Python language, showing a min-cut finder on a tiny attack graph. Min-cut (Stoer--Wagner) segmentation was evaluated during design and intentionally excluded: the canonical model has no host/service edges to cut, because reachability is segment-to-segment policy, so segmentation is a policy-rule removal. The listing is retained as historical reference.
+\noindent A worked example in the Python language, showing a min-cut finder on a tiny context graph. Min-cut (Stoer--Wagner) segmentation was considered during design and intentionally excluded: the canonical model has no host/service edges to cut, because reachability is segment-to-segment policy, so segmentation is a policy-rule removal. The listing is retained as historical reference.
 
 \begin{code}
 	\begin{minted}{python}
@@ -109,40 +109,39 @@ The class loads \texttt{booktabs}, \texttt{multirow}, and \texttt{array}, so the
 	\centering
 	\begin{tabular}{lcr}
 		\toprule
-		\textbf{Strategy} & \textbf{Mean $|B|$} & \textbf{$p$-value} \\
+		\textbf{Example row} & \textbf{Sample value} & \textbf{Sample note} \\
 		\midrule
-		No defense     & 412 & ---      \\
-		Random         & 388 & 0.21     \\
-		CVSS-priority  & 274 & $< 0.01$ \\
-		Proposed       & 153 & $< 0.01$ \\
+		Example A & alpha & placeholder \\
+		Example B & beta  & placeholder \\
+		Example C & gamma & placeholder \\
 		\bottomrule
 	\end{tabular}
-	\caption{Blast-radius comparison on a 200-host topology, $|V| = 200$.}
+	\caption{Illustrative three-column table layout; entries are placeholders, not experimental results.}
 	\label{tab:theory:simple}
 \end{table}
 
-A wider table that combines \texttt{multirow} and \texttt{\textbackslash cline} is shown in Table~\ref{tab:theory:wide}. This is the pattern to use for benchmark results where a single row label spans multiple data rows.
+A wider table that combines \texttt{multirow} and \texttt{\textbackslash cline} is shown in Table~\ref{tab:theory:wide}. This pattern lets one row label span multiple data rows.
 
 \begin{table}[hbt!]
 	\centering
 	\begin{tabular}{lrrr}
 		\toprule
-		\textbf{Topology} & \textbf{Strategy} & \textbf{Mean $|B|$} & \textbf{Reduction ($\times$)} \\
+		\textbf{Group} & \textbf{Variant} & \textbf{Sample value} & \textbf{Sample ratio} \\
 		\midrule
-		\multirow{2}{*}{Small (20 hosts)}  & No defense & 18  & 1.0  \\
-		                                    & Proposed   & 5   & 3.6  \\
+		\multirow{2}{*}{Example group 1} & Variant A & alpha & one \\
+		                                   & Variant B & beta  & two \\
 		\cline{2-4}
-		\multirow{2}{*}{Large (1000 hosts)} & No defense & 980  & 1.0  \\
-		                                    & Proposed   & 173  & 5.7  \\
+		\multirow{2}{*}{Example group 2} & Variant A & gamma & three \\
+		                                   & Variant B & delta & four \\
 		\bottomrule
 	\end{tabular}
-	\caption{Benchmark results on small and large topologies.}
+	\caption{Illustrative multirow table layout; entries are placeholders, not benchmark results.}
 	\label{tab:theory:wide}
 \end{table}
 
 \section{Diagrams with TikZ}
 
-Diagrams are drawn with TikZ inside a \texttt{figure} environment. The example below is a small attack graph: each node is a host, and arrows show exploit opportunities. TikZ is sensitive to coordinate placement, so it is worth sketching the layout before committing to code.
+Diagrams are drawn with TikZ inside a \texttt{figure} environment. The example below is a small context graph: each node is a host, and arrows show modeled relationships. TikZ is sensitive to coordinate placement, so it is worth sketching the layout before committing to code.
 
 \begin{figure}[hbt!]
 	\centering
@@ -160,7 +159,7 @@ Diagrams are drawn with TikZ inside a \texttt{figure} environment. The example b
 		\draw[arrow] (a) |- (d);
 		\draw[arrow] (d) -| (b);
 	\end{tikzpicture}
-	\caption{Example TikZ diagram: a small attack graph.}
+	\caption{Illustrative TikZ diagram: a small context graph.}
 	\label{fig:theory:diagram}
 \end{figure}
 
@@ -186,7 +185,7 @@ Aligned example, useful for derivations:
 The class loads \texttt{enumitem}, which makes it easy to adjust list spacing. A simple itemized list:
 
 \begin{itemize}
-	\item Attack-graph construction.
+	\item Context-graph modeling.
 	\item Monte Carlo blast-radius simulation.
 	\begin{itemize}
 		\item Stochastic propagation.
@@ -200,7 +199,7 @@ A simple enumerated list:
 \begin{enumerate}
 	\item Ingest network topology.
 	\item Enrich nodes with CVE / CVSS data.
-	\item Build the attack graph.
+	\item Model the context graph.
 	\item Run Monte Carlo simulation.
 	\item Compute blast-radius map.
 	\item Run optimizer (policy segmentation or patching).

@@ -64,6 +64,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       <.svelte
         name="DashboardHost"
         id="dashboard"
+        ssr={false}
         props={
           %{
             graphSummaries: @graph_summaries,
@@ -446,7 +447,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp simulation_report_reply(report) do
-    case FetchSimulationReportReply.from_domain(report, report.graph) do
+    case FetchSimulationReportReply.from_domain(report) do
       {:ok, reply} -> FetchSimulationReportReply.to_wire(reply)
       {:error, _changeset} -> %{status: "not_found"}
     end

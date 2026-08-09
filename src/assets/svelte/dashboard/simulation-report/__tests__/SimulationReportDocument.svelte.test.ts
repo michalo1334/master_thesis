@@ -29,6 +29,7 @@ function makeReport(
     graph_revision_id: "r1",
     graph_title: "Topology",
     iteration_count: 100,
+    operational_flows: [],
     summary: {
       expected_blast_radius: 2,
       median_blast_radius: 2,

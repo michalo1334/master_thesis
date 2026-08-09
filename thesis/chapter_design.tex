@@ -10,7 +10,7 @@ This chapter presents the design of the system. The goals collected in Section~\
 			arrow/.style={->, thick},
 		]
 		\node (topo)   at (0,  0)   {Topology\\(\textit{segments, hosts, services, policy})};
-		\node (cve)    at (0,  -1.6) {CVE Feed\\(\textit{NVD / CVSS})};
+		\node (cve)    at (0,  -1.6) {Vulnerability Catalog\\(\textit{CVSS})};
 		\node (graph)  at (4.0, -0.8) {Model \&\\Projection};
 		\node (sim)    at (7.0, -0.8) {Monte Carlo\\Simulator};
 		\node (opt)    at (10.0, -0.8) {Defense\\Optimizer};
@@ -37,12 +37,12 @@ The system is designed to satisfy a small set of explicit goals. The goals are p
 	\begin{itemize}
 		\item Construct a canonical graph with segment-policy reachability and derive operational flows for simulation.
 		\item Simulate attacker propagation by Monte Carlo sampling and produce a blast-radius map.
-		\item Recommend defensive actions (segment-policy removals, vulnerability patches) that minimize the resulting blast radius.
+		\item Recommend defensive actions (segment-policy removals, vulnerability patches) intended to reduce the modeled blast radius.
 	\end{itemize}
 	\item \textbf{Non-functional:}
 	\begin{itemize}
 		\item Reproducible results: a given topology and seed must produce the same blast-radius map across runs.
-		\item Reasonable scale: the pipeline should run end-to-end on a 200-host topology in under one minute on a single workstation.
+		\item Measurable scale: a future benchmark must record the topology, configuration, hardware, and elapsed time; no general scalability claim is made without such measurements.
 		\item Implementation fits in a small number of Elixir source files, to make the system easy to study and modify~\cite{ou05mulval}.
 	\end{itemize}
 \end{itemize}
@@ -56,8 +56,8 @@ A compact view of the design is given in Table~\ref{tab:design:requirements}, wh
 		\textbf{ID} & \textbf{Requirement}            & \textbf{Elaboration} \\
 		\midrule
 		R1 & Topology ingest                 & Section~\ref{ch:design:data}       \\
-		R2 & CVE enrichment                  & Section~\ref{ch:design:data}       \\
-		R3 & Attack-graph construction       & Section~\ref{ch:design:graph}      \\
+		R2 & Vulnerability catalog           & Section~\ref{ch:design:data}       \\
+		R3 & Context-graph construction      & Section~\ref{ch:design:graph}      \\
 		R4 & Monte Carlo simulation          & Section~\ref{ch:design:sim}        \\
 		R5 & Policy-based segmentation        & Section~\ref{ch:design:opt}        \\
 		R6 & Greedy patch prioritization     & Section~\ref{ch:design:opt}        \\
@@ -72,25 +72,25 @@ A compact view of the design is given in Table~\ref{tab:design:requirements}, wh
 \section{Data Layer}
 \label{ch:design:data}
 
-The data layer consists of two inputs. The first is a \emph{network topology}: a set of network segments, hosts, and services, together with a segment-to-segment reachability policy. Each policy rule permits the source segment to initiate traffic to matching services in the target segment and carries protocol and port-range data. The second is a \emph{CVE feed}: a list of vulnerabilities, each with a CVSS base score, drawn from the National Vulnerability Database~\cite{nvd} or, in the present evaluation, a synthetic generator with the same statistical shape.
+The data layer consists of two inputs. The first is a \emph{network topology}: a set of network segments, hosts, and services, together with a segment-to-segment reachability policy. Each policy rule permits the source segment to initiate traffic to matching services in the target segment and carries protocol and port-range data. The second is a \emph{vulnerability catalog} containing CVSS data and a separately assigned success probability. The current catalog is synthetic; a live NVD feed is not part of the implementation. CVSS describes severity characteristics, not a calibrated probability or real-world exploit likelihood~\cite{nvd}.
 
-\section{Attack-Graph Layer}
+\section{Context-Graph Layer}
 \label{ch:design:graph}
 
-The graph layer stores the topology as a typed context graph. Hosts, services, and network segments are nodes; ownership (segment contains host, host runs service) and reachability are edges. Reachability is segment policy, not a host/service flow: the stored edge connects a source to a target segment and carries protocol and port-range data. The effective \enquote{host to service} flow is a deterministic projection materialized in memory when the simulator or the network view needs it. No flow is admitted unless a policy rule supports it, and no complete static attack graph is enumerated before simulation; attack paths emerge dynamically during traversal, in the lineage of MulVAL~\cite{ou05mulval} and the multiple-prerequisite family~\cite{ingols06mpg}.
+The graph layer stores the topology as a typed context graph. Hosts, services, and network segments are nodes; ownership (segment contains host, host runs service) and reachability are edges. Reachability is segment policy, not a host/service flow: the stored edge connects a source to a target segment and carries protocol and port-range data. The effective \enquote{host to service} flow is a deterministic projection materialized in memory when the simulator or the network view needs it. No flow is admitted unless a policy rule supports it, and no complete static attack graph is enumerated before simulation. The context graph and state-transition simulation are informed by attack-graph literature, including MulVAL~\cite{ou05mulval} and multiple-prerequisite graphs~\cite{ingols06mpg}; they are not an implementation of either attack-graph family.
 
 \section{Simulation Layer}
 \label{ch:design:sim}
 
-The simulation layer runs a fixed number of Monte Carlo iterations. In each iteration, a fresh attacker is dropped at the configured entry point, and propagation proceeds stochastically: at each step, the next exploit is drawn with probability proportional to its CVSS-derived weight. The output of one iteration is the set of nodes reached; the aggregate output is a \emph{blast-radius map} $\beta: V \to [0, 1]$, where $\beta(v)$ is the empirical probability that $v$ is reached across the run.
+The simulation layer runs a fixed number of Monte Carlo trials. Each trial starts at the configured entry point. At each state transition, the simulator evaluates eligible actions, selects one uniformly, then samples its outcome. Exploit actions use the vulnerability's independently assigned, stylized success probability; credential actions are deterministic when their preconditions hold. The probability is not derived from CVSS and is not calibrated to real-world exploitation. The output of one trial is the set of nodes reached; the aggregate output is a \emph{blast-radius map} $\beta: V \to [0, 1]$, where $\beta(v)$ is the empirical probability that $v$ is reached by this model across the trials.
 
 \section{Optimization Layer}
 \label{ch:design:opt}
 
-The optimization layer takes the blast-radius map and a budget $k$ of defensive actions, and returns a set of actions that minimizes the expected post-defense blast radius. The supported strategies differ only in how they select the next candidate action; all of them score candidates through the same simulation boundary:
+The optimization layer takes the blast-radius map and a budget $k$ of defensive actions, and returns a set of actions selected to reduce the estimated post-defense blast radius. Every current action has unit cost, so $k$ is an equal-action-count budget rather than a deployment-cost model. Simulation-informed and annealing strategies score candidates through simulation; CVSS-priority and topology-based strategies use direct rankings:
 
 \begin{itemize}
-	\item \textbf{Policy segmentation.} Remove a segment-policy rule that admits high-blast-radius flows. Each removal is a single canonical policy change, not a cut of individual host edges; its effect on the blast radius is measured by re-materializing the flows and re-running the simulation.
+	\item \textbf{Policy segmentation.} Remove a segment-policy rule. Each removal is a single canonical policy change, not a cut of individual host edges; the topology-based strategy ranks it by the reduction in deterministically reachable hosts after re-materializing the flows.
 	\item \textbf{Simulation-informed patching.} Rank vulnerabilities by their marginal reduction in blast radius, measured by re-simulating each candidate graph, and patch the highest-ranked ones up to the budget.
 	\item \textbf{Simulated annealing.} A stochastic search over patching and segmentation actions, guided by the simulated post-defense blast radius of each candidate graph.
 \end{itemize}

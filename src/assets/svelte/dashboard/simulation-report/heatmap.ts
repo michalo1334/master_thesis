@@ -3,6 +3,7 @@ import type { SimulationReportCharts } from "../../contracts.generated";
 import type {
   CanvasEdgeAppearance,
   CanvasNodeAppearance,
+  CanvasStructuralFlow,
 } from "../graph/canvas/appearance";
 
 export interface HeatmapLegendItem {
@@ -33,6 +34,9 @@ function heatTone(probability: number): HeatTone {
 
 export function simulationHeatmapAppearance(charts: SimulationReportCharts): {
   edgeAppearance: (edge: Edge) => CanvasEdgeAppearance | undefined;
+  flowAppearance: (
+    flow: CanvasStructuralFlow,
+  ) => CanvasEdgeAppearance | undefined;
   nodeAppearance: (node: Node) => CanvasNodeAppearance | undefined;
 } {
   const hostProbabilities = new Map(
@@ -62,6 +66,13 @@ export function simulationHeatmapAppearance(charts: SimulationReportCharts): {
     },
     edgeAppearance(edge) {
       const probability = edgeProbabilities.get(edge.id);
+      if (probability === undefined) return undefined;
+
+      const tone = heatTone(probability);
+      return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
+    },
+    flowAppearance(flow) {
+      const probability = edgeProbabilities.get(flow.id);
       if (probability === undefined) return undefined;
 
       const tone = heatTone(probability);

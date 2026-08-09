@@ -1,8 +1,8 @@
 # Master Thesis — Graph-Based Attack Simulation and Defense Optimization
 
-A system for graph-based simulation of attack propagation in computer networks and automated evaluation of defensive actions aimed at reducing attack blast radius.
+A system for graph-based simulation of attack propagation in computer networks and simulation-based comparison of defensive actions aimed at reducing modeled blast radius.
 
-The project combines network topology modeling, stochastic attack simulation, vulnerability data, and defense optimization. Network infrastructure is represented as a graph, while attack propagation is evaluated dynamically using vulnerability preconditions, attacker characteristics, and probabilistic simulation.
+The project combines network topology modeling, stochastic state-transition simulation, vulnerability data, and defense optimization. Vulnerabilities carry CVSS severity characteristics and a separately assigned, stylized success probability. The simulator selects uniformly from eligible actions, then samples the selected action's outcome; it does not estimate real-world exploit likelihood.
 
 The system does not require the construction of a complete static attack graph or the prior enumeration of every possible attack path. Attack paths may emerge dynamically during simulation.
 
@@ -24,19 +24,21 @@ In this work, *graph-based* refers to representing network topology and security
 
 ## Main research question
 
-> To what extent can graph-based attack-propagation simulation combined with automated defense optimization reduce the expected blast radius of network attacks compared with conventional vulnerability-based defense prioritization methods?
+> Within a fixed stylized network, policy, and attacker model, how can context-graph simulation support comparison of equal-action-count defensive choices with CVSS-priority ordering?
 
 ## Research sub-questions
 
-1. **How do network topology, vulnerability preconditions, and attacker profiles influence simulated attack propagation and the resulting blast-radius distribution?**
+1. **How do modeled topology and vulnerability preconditions influence simulated attack propagation under the fixed attacker model?**
 
-2. **How effectively do simulation-informed patching, policy segmentation, and simulated-annealing optimization reduce the expected blast radius compared with vulnerability-based and topology-based prioritization methods under a constrained defense budget?**
+2. **Under an equal-action-count budget, how do simulation-informed patching, policy segmentation, and simulated-annealing search select actions relative to vulnerability- and topology-based priorities?**
 
-3. **How do the computational cost and stability of the proposed approach scale with network size, topology density, vulnerability density, and the number of Monte Carlo simulation runs?**
+3. **What versioned runner, inputs, and result artifacts are required before measuring stability, runtime, or sensitivity to topology and vulnerability density?**
 
 ## Research scope
 
-The research evaluates whether information obtained from attack-propagation simulation can improve defensive decision-making compared with simpler vulnerability- and topology-based prioritization approaches.
+The current scope is one fixed stylized topology, policy, and attacker model. It supports only equal-action-count budgets because each current defensive action has unit cost. A reproducible evaluation runner and result artifacts are pending.
+
+The model cannot substantiate claims about real lateral movement, deployable cost-aware segmentation, sensitivity to topology density or attacker profiles, or general scalability beyond scenarios that are measured and reported.
 
 The evaluated defense strategies may include:
 
@@ -53,7 +55,7 @@ Evaluation metrics may include:
 * blast-radius variance;
 * probability of compromising critical assets;
 * expected blast-radius reduction;
-* blast-radius reduction per unit of defensive cost;
+* blast-radius reduction per unit of defensive cost, after non-unit costs are modeled;
 * simulation and optimization runtime;
 * memory usage;
 * convergence and stability of Monte Carlo estimates.
@@ -81,9 +83,9 @@ Evaluation metrics may include:
 * **Elixir** — attack simulation and defense optimization.
 * **PostgreSQL** — persistent application, network, vulnerability, and simulation data.
 * **Phoenix LiveView, LiveSvelte, Svelte 5, Bits UI, and Tailwind CSS** — browser-based visualization and management of network topology, simulations, and defensive actions.
-* **NVD API** — real CVE and vulnerability data.
+* **NVD API** — planned source of real CVE and vulnerability data.
 * **OpenTelemetry, Grafana, Tempo, Loki, Prometheus, and Grafana Alloy** — tracing, metrics, logging, and application observability.
-* **Python** — statistical analysis and evaluation of experimental results.
+* **Python** — planned statistical analysis of experimental results.
 * **LuaLaTeX, Minted, and TikZ** — master's thesis typesetting, source-code presentation, and technical diagrams.
 
 # Quick start

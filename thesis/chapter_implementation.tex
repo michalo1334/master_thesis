@@ -1,11 +1,11 @@
 \chapter{Implementation}
 \label{ch:implementation}
 
-This chapter describes the implementation of the system. The description follows the layering established in Chapter~\ref{ch:design}: the data layer, the attack-graph layer, the simulation layer, the optimization layer, and the UI layer. The implementation is small enough to be discussed end-to-end, and the most important parts are illustrated with code excerpts.
+This chapter describes the implementation of the system. The description follows the layering established in Chapter~\ref{ch:design}: the data layer, the context-graph layer, the simulation layer, the optimization layer, and the UI layer. The implementation is small enough to be discussed end-to-end, and the most important parts are illustrated with code excerpts.
 
-\section{Attack-Graph Layer}
+\section{Context-Graph Layer}
 
-The attack-graph layer stores a typed context graph and materializes operational flows. The canonical graph holds hosts, services, and network segments as nodes, and ownership and reachability as edges. Reachability is a segment-to-segment policy that carries protocol and port-range data; no host/service flow is authored or persisted. When the simulator or the network view needs connectivity, the layer materializes one deterministic, in-memory \enquote{host to service} flow per effective host/service pair. The materializer resolves membership, ownership, policy matching, deduplication, and deterministic operational IDs; its single public entry point is \mintinline{elixir}|NetworkDefense.Graph.MaterializeReachability.materialize/1|. Source Code~\ref{src:impl:graph} shows the invariant it implements as illustrative pseudocode.
+The context-graph layer stores a typed context graph and materializes operational flows. The canonical graph holds hosts, services, and network segments as nodes, and ownership and reachability as edges. Reachability is a segment-to-segment policy that carries protocol and port-range data; no host/service flow is authored or persisted. When the simulator or the network view needs connectivity, the layer materializes one deterministic, in-memory \enquote{host to service} flow per effective host/service pair. The materializer resolves membership, ownership, policy matching, deduplication, and deterministic operational IDs; its single public entry point is \mintinline{elixir}|NetworkDefense.Graph.MaterializeReachability.materialize/1|. Source Code~\ref{src:impl:graph} shows the invariant it implements as illustrative pseudocode.
 
 \begin{code}
 	\begin{minted}{text}
@@ -65,9 +65,9 @@ for each iteration up to the iteration budget:
 
 \section{Optimization Layer}
 
-The optimization layer evaluates candidate defensive actions against the baseline. Actions change the canonical graph: patching a vulnerability, removing a segment-policy rule, or revoking a credential. Segmentation is thus a policy removal, not a cut of individual host edges. Each candidate graph is materialized and scored through the same simulation boundary as the baseline, so every strategy is compared under identical attack and cost assumptions.
+The optimization layer applies defensive actions to the context graph: patching a vulnerability, removing a segment-policy rule, or revoking a credential. Segmentation is thus a policy removal, not a cut of individual host edges. Simulation-informed ranking and simulated annealing materialize candidate configurations and score modeled blast radius through the simulation boundary.
 
-Strategies differ only in how they select the next candidate: a greedy pass over marginal blast-radius reduction per unit of cost, a topology-based pass over segment-policy boundaries, or simple CVSS- and random-based baselines. All of them share one scoring boundary, which keeps the comparison consistent.
+CVSS-priority ordering ranks vulnerabilities directly by CVSS base score. Topology-based segmentation ranks policy removals directly by the reduction in deterministically reachable hosts after flow materialization. These strategies use different selection mechanisms; no comparative evaluation is reported here.
 
 \section{UI Layer}
 

@@ -69,7 +69,7 @@ flowchart TD
     Query --> Flow[Host foothold to Service via NetworkReachability,<br/>Vulnerability via HasVulnerability,<br/>target host via Runs]
 ```
 
-Materialization runs once before batch dispatch and scoring. The exploitation rule receives an already matching effective flow; it no longer filters by protocol or port. The graph is **never mutated** during simulation. Only `AttackerState` evolves. The remote-exploitation action is `ExploitVulnerability`; credential rules emit `AcquireCredential` and `ReuseCredential`. If the RNG sample ≤ `exploit_probability`, the target host is added to footholds.
+Materialization runs once before batch dispatch and scoring. The exploitation rule receives an already matching effective flow; it no longer filters by protocol or port. The graph is **never mutated** during simulation. Only `AttackerState` evolves. The remote-exploitation action is `ExploitVulnerability`; credential rules emit `AcquireCredential` and `ReuseCredential`. The simulator selects uniformly from eligible actions. If the selected exploit action's RNG sample is ≤ `exploit_probability`, the target host is added to footholds.
 
 ---
 
@@ -80,7 +80,7 @@ The project's bibliography (`thesis/refs.bib`) includes the canonical attack-gra
 | Aspect | This Model | Literature Standard |
 |--------|-----------|---------------------|
 | Edge data | Policy and privilege data on `segment_reachability`, `has_vulnerability`, and credential edges; `contains` and `runs` are markers | Protocol, port, privilege requirements, exploit pre/post-conditions |
-| Attacker model | Single `exploit_probability` float, collapsed from CVSS | Multi-dimensional: skill tier, tool access, persistence, patience |
+| Attacker model | Single independently assigned, stylized `exploit_probability`; no attacker-profile parameter | Multi-dimensional: skill tier, tool access, persistence, patience |
 | Exploit types | Remote and local exploitation; credential acquisition and reuse | Multiple: remote exploit, local privilege escalation, credential theft, phishing, supply chain |
 | Privilege levels | `required_privilege`/`granted_privilege` on exploit and credential edges | User vs root, credential rings, trust domains |
 | Credential propagation | `stores_credential`/`authenticates_to`; no token theft or trust domains | Shared passwords, SSH keys, LDAP trust, token theft (Sheyner, Ou, Ammann) |
@@ -102,7 +102,7 @@ But the gap is **narrower than it reads**. Many of the listed differences are in
 
 The danger is that a reviewer may read the literature review (which surveys MulVAL, NetSPA, MP graphs in detail), then look at the implementation and ask: "Your model hardcodes exploit semantics in rules; the graph itself carries no pre/post-conditions. How does this relate to the systems you reviewed, which expressed exploit pre/post-conditions as first-class graph elements 10-20 years ago?"
 
-The answer must be: "The model is deliberately minimal — the research question is about optimization strategy comparison, not graph expressiveness. The thesis demonstrates that even a simple model benefits from simulation-informed optimization. Adding expressiveness is future work." But this argument needs to be made **explicitly** in the design chapter, not left implicit.
+The answer must be: "The model is deliberately minimal. The intended research question concerns optimization strategy comparison, not graph expressiveness. Any benefit from simulation-informed optimization remains an evaluation question. Adding expressiveness is future work." This argument needs to be made **explicitly** in the design chapter, not left implicit.
 
 ---
 
@@ -121,13 +121,13 @@ The current model assumes: once a host is compromised, it stays compromised fore
 4. Argues why it's acceptable: the research question compares defense strategies applied pre-attack, not mid-attack responses
 5. Notes that the assumption matches the optimizer's model (pre-attack hardening decisions)
 
-### 3.2 Exploit Probability Conflates Attacker Skill with Vulnerability Exploitability
+### 3.2 Stylized Success Probability Is Not Calibration
 
-CVSS exploitability sub-scores (Attack Vector, Attack Complexity, Privileges Required, User Interaction) are collapsed into a single `exploit_probability` float. Attacker skill level is not separately parameterized. Allodi & Massacci (2014) — already in the bibliography — demonstrated that CVSS alone is a poor predictor of real-world exploitation.
+The current `exploit_probability` is assigned independently of CVSS. CVSS describes severity characteristics and is not a calibrated probability or a prediction of real-world exploitation. Attacker skill is not separately parameterized. Allodi & Massacci (2014) --- already in the bibliography --- demonstrated that CVSS alone is a poor predictor of real-world exploitation.
 
-**Risk:** A reviewer will ask: "You cite Allodi (2014), which shows CVSS is a weak predictor. Why would an optimizer based on this data produce useful recommendations? Are your results robust to probability miscalibration?"
+**Risk:** A reviewer will ask whether the configured probability supports claims about real-world exploitability. It does not.
 
-**Fix:** Acknowledge the limitation explicitly. Add a sensitivity analysis: vary the `exploit_probability` values by ±20% and check whether the strategy ranking changes. If the ranking is stable, argue that the optimization is robust to probability calibration errors. If not, discuss what additional data would be needed.
+**Fix:** Label the value as a stylized model parameter. A later calibration or sensitivity study requires a versioned runner, declared scenarios, and reproducible results; none is available yet.
 
 ### 3.3 Pre/Post-Conditions Are Hardcoded, Not Modeled
 
@@ -442,7 +442,7 @@ Items that would be scope creep without a corresponding research claim:
 
 - **Firewall as a node**: firewalls filter existing policy edges. Model as attributes on `SegmentReachability`, not standalone entities. Making it a node forces N-ary relationships awkward in a directed graph. Host-specific filter exceptions are deferred by `../plans/reachability-modeling.md`.
 - **Zone/Segment as a node (superseded)**: this document previously argued zones are host attributes. The model now has `network_segment` nodes with `contains` edges, and `segment_reachability` expresses cross-zone policy. See `../plans/reachability-modeling.md`.
-- **Attacker profile as a graph element**: attacker profiles belong in simulation configuration parameters, not graph nodes. The graph describes the environment; the profile describes the threat actor.
+- **Attacker profile as a graph element**: if added, attacker profiles belong in simulation configuration parameters, not graph nodes. The graph describes the environment; the profile describes the threat actor.
 - **Reinforcement learning, GNNs, autonomous agents**: explicitly excluded by thesis-scope-roadmap. Not relevant to the research claims.
 - **Real-time monitoring, SOC orchestration, automated remediation**: outside scope. The system models pre-attack defense planning, not runtime incident response.
 - **Privilege levels on hosts (superseded)**: implemented. Attacker state tracks per-host privilege (`none/user/administrator`), and exploit and credential edges carry `required_privilege`/`granted_privilege`. Only trust domains and credential rings remain deferred.
@@ -454,7 +454,7 @@ Items that would be scope creep without a corresponding research claim:
 | Gap/Extension | Severity | Effort | Risk | Recommendation |
 |---------------|----------|--------|------|----------------|
 | Monotonicity discussion (Section 3.1) | Critical | Text only | None | Address in design chapter now |
-| Probability calibration (Section 3.2) | Critical | Sensitivity analysis | Low | Add sensitivity sweep to evaluation |
+| Probability calibration (Section 3.2) | Critical | Reproducible calibration study | Low | Label the parameter as stylized until evidence exists |
 | Pre/post-conditions in graph (3.3) | High | Varies | Low | Adopt access_vector + authentication_required on HasVulnerability |
 | Edge data fields (Section 4) | High | 0.5 days | None | Done — SegmentReachability owns protocol/port range |
 | Credential lateral movement (Section 5) | Medium | 1 day | None | Done — credential node with StoresCredential/AuthenticatesTo |

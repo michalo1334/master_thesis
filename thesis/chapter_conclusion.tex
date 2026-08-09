@@ -1,12 +1,12 @@
 \chapter{Conclusion}
 \label{ch:conclusion}
 
-The thesis set out to investigate how a graph-based attack-simulation pipeline, combined with an automated defense optimizer, can reduce the blast radius of network attacks compared to conventional CVSS-based vulnerability prioritization. The implementation and evaluation described in Chapters~\ref{ch:implementation} and~\ref{ch:evaluation} suggest that the proposed approach is viable for the problem domain explored, and that the design choices summarized in Chapter~\ref{ch:design} are reasonable.
+The thesis set out to investigate a graph-based attack-simulation pipeline and automated defense optimizer. The implementation described in Chapter~\ref{ch:implementation} provides a context-graph model, state-transition simulation, and defense strategies. Chapter~\ref{ch:evaluation} defines the evidence required to assess them; it does not report empirical findings.
 
 \section{Summary}
 \label{ch:conclusion:summary}
 
-Three contributions were made. First, an \emph{attack-graph construction} in the NetSPA / MP family, enriched with CVSS-derived edge weights from a synthetic CVE feed. Second, a \emph{Monte Carlo blast-radius simulator} that produces a calibrated blast-radius map under a fixed attacker model. Third, a small \emph{optimization framework} supporting policy-rule segmentation, simulation-informed patching, and annealing-based search, compared against three baselines. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
+Three contributions were made. First, a \emph{context graph} and state-transition model informed by attack-graph literature, with synthetic CVSS data and independently assigned success probabilities. Second, a \emph{Monte Carlo blast-radius simulator} for the fixed stylized attacker model. Third, a small \emph{optimization framework} supporting policy-rule segmentation, simulation-informed patching, and annealing-based search. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
 
 \begin{table}[hbt!]
 	\centering
@@ -14,10 +14,10 @@ Three contributions were made. First, an \emph{attack-graph construction} in the
 		\toprule
 		\textbf{Area}             & \textbf{Contribution}                          & \textbf{Status}      \\
 		\midrule
-		Attack-graph construction & NetSPA / MP family, CVSS-weighted             & Implemented          \\
-		Monte Carlo simulation    & Stochastic propagation, blast-radius map      & Implemented          \\
-		Optimization framework    & Policy-rule segmentation, simulation-informed patching, annealing & Implemented          \\
-		Empirical evaluation      & Comparison on three topologies, three baselines & Reported             \\
+		Context graph             & Informed by attack-graph literature            & Implemented          \\
+		Monte Carlo simulation    & Uniform action selection, stylized outcomes    & Implemented          \\
+		Optimization framework    & Unit-cost patching, segmentation, and annealing & Implemented         \\
+		Empirical evaluation      & Reproducible protocol and reporting requirements & Pending             \\
 		\bottomrule
 	\end{tabular}
 	\caption{Contributions of the thesis and their status.}
@@ -30,9 +30,9 @@ Three contributions were made. First, an \emph{attack-graph construction} in the
 Several directions are left open for future work:
 
 \begin{itemize}
-	\item \textbf{Real-CVE integration.} The current evaluation uses a synthetic CVE feed with the same statistical shape as the National Vulnerability Database~\cite{nvd}. Replacing the feed with a live NVD pull would test the pipeline on a larger and more realistic input.
+	\item \textbf{Real-CVE integration.} The current vulnerability catalog is synthetic. A live NVD integration~\cite{nvd} would require a separate, justified mapping from CVE data to model parameters; CVSS must not be treated as a calibrated exploit probability.
 	\item \textbf{Dynamic topology.} The present system assumes a static network. Extending the attack-graph and simulator layers to handle changes in the network over time would unlock operational use cases (e.g., daily re-evaluation of a corporate network).
-	\item \textbf{Richer attacker models.} The current Monte Carlo simulator uses a single stochastic model for attacker behavior. A more expressive model, perhaps learned from incident data, would close the gap with the qualitative claims in the attack-graph literature~\cite{jha02two, ammann02tva}.
+	\item \textbf{Richer attacker models.} The current Monte Carlo simulator has one stylized model and no attacker-profile parameter. A more expressive model, perhaps informed by incident data, would require separate validation before it could support claims about attacker behavior~\cite{jha02two, ammann02tva}.
 	\item \textbf{Better diagnostics.} Translating the optimizer's recommendations back to source-level positions in the input topology (e.g., \enquote{segment the link between $H_3$ and $H_7$, patch CVE-2024-1234 on $H_{12}$}) would substantially improve the usability of the system for security operators.
 \end{itemize}
 

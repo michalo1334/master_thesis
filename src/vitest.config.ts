@@ -16,5 +16,10 @@ export default defineConfig({
     environment: "jsdom",
     include: ["assets/svelte/dashboard/**/*.test.ts"],
     setupFiles: ["assets/svelte/test-setup.ts"],
+    server: {
+      deps: {
+        inline: ["bits-ui"],
+      },
+    },
   },
 });

@@ -5,8 +5,9 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.Actions.ExploitVulnerability
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
-  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs, SegmentReachability}
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.SimulationReport
@@ -62,32 +63,62 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
     assert {:ok,
             %FetchSimulationReportReply{
               summary: %{expected_blast_radius: 1.0},
-              charts: %{convergence: [%{run: 1, mean_blast_radius: 1.0}]}
+              charts: %{convergence: [%{run: 1, mean_blast_radius: 1.0}]},
+              operational_flows: []
             }} =
              experiment([run("source-host")], graph)
              |> SimulationReport.generate()
-             |> FetchSimulationReportReply.from_domain(graph)
+             |> FetchSimulationReportReply.from_domain()
   end
 
-  test "aggregates host compromise and successful edge traversal by run" do
-    source = node("source-host", Host, %{"name" => "source"})
-    service = node("service", Service, %{"name" => "ssh", "port" => 22, "protocol" => "tcp"})
-
-    graph =
-      graph([source, service], [edge("reach", source, service, NetworkReachability)])
+  test "reports derived operational flows and their successful traversal by run" do
+    {graph, source_host_id} = canonical_policy_graph()
+    flow = operational_flow(graph)
 
     report =
-      [run("source-host", ["reach"]), run("source-host")]
+      [run(source_host_id, [flow.id]), run(source_host_id)]
       |> experiment(graph)
       |> SimulationReport.generate()
 
-    assert report.charts.host_compromise == [
-             %{host_id: "source-host", compromise_probability: 1.0}
+    assert report.graph == graph
+    refute Enum.any?(Graph.edges(report.graph), &(&1.type == NetworkReachability))
+
+    assert report.operational_flows == [
+             %{id: flow.id, from_id: flow.from_id, to_id: flow.to_id}
            ]
 
-    assert report.charts.edge_traversal == [
-             %{edge_id: "reach", traversal_probability: 0.5}
+    assert report.charts.host_compromise == [
+             %{host_id: source_host_id, compromise_probability: 1.0},
+             %{host_id: "target-host", compromise_probability: 0.0}
            ]
+
+    assert Enum.find(report.charts.edge_traversal, &(&1.edge_id == flow.id)) ==
+             %{edge_id: flow.id, traversal_probability: 0.5}
+  end
+
+  test "serializes operational flows separately from the canonical report graph" do
+    {graph, source_host_id} =
+      canonical_policy_graph(Ecto.UUID.generate(), fn _ -> Ecto.UUID.generate() end)
+
+    graph = %{graph | revision_id: Ecto.UUID.generate(), title: "Test graph"}
+    flow = operational_flow(graph)
+
+    report =
+      [run(source_host_id, [flow.id])]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+
+    assert %{
+             operational_flows: [
+               %{id: flow_id, from_id: from_id, to_id: to_id}
+             ],
+             graph: %{edges: edges}
+           } = FetchSimulationReportReply.to_wire(reply)
+
+    assert {flow_id, from_id, to_id} == {flow.id, flow.from_id, flow.to_id}
+    refute Enum.any?(edges, &(&1.type == "NetworkReachability"))
   end
 
   defp experiment(
@@ -137,5 +168,51 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
           []
         end
     )
+  end
+
+  defp canonical_policy_graph(graph_id \\ "graph", id_for \\ fn id -> id end) do
+    source_segment =
+      node(id_for.("source-segment"), NetworkSegment, %{"name" => "Source"}, graph_id)
+
+    target_segment =
+      node(id_for.("target-segment"), NetworkSegment, %{"name" => "Target"}, graph_id)
+
+    source_host = node(id_for.("source-host"), Host, %{"name" => "source"}, graph_id)
+    target_host = node(id_for.("target-host"), Host, %{"name" => "target"}, graph_id)
+
+    service =
+      node(
+        id_for.("service"),
+        Service,
+        %{"name" => "ssh", "port" => 22, "protocol" => "tcp"},
+        graph_id
+      )
+
+    graph =
+      graph(
+        [source_segment, target_segment, source_host, target_host, service],
+        [
+          edge(id_for.("source-contains"), source_segment, source_host, Contains),
+          edge(id_for.("target-contains"), target_segment, target_host, Contains),
+          edge(id_for.("target-runs"), target_host, service, Runs),
+          edge(
+            id_for.("policy"),
+            source_segment,
+            target_segment,
+            SegmentReachability,
+            %{"protocol" => "tcp"}
+          )
+        ],
+        graph_id
+      )
+
+    {graph, source_host.id}
+  end
+
+  defp operational_flow(graph) do
+    graph
+    |> MaterializeReachability.materialize()
+    |> Graph.edges()
+    |> Enum.find(&(&1.type == NetworkReachability))
   end
 end

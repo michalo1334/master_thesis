@@ -346,6 +346,7 @@ export interface FetchSimulationReportReply {
   graph_revision_id: string;
   graph_title: string;
   iteration_count: number;
+  operational_flows: GraphProjectionOperationalFlow[];
   run_count: number;
   summary: SimulationReportSummary;
   total_runtime_ms: number;
