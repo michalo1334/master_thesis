@@ -177,6 +177,26 @@ defmodule NetworkDefense.Graph.MaterializeReachabilityTest do
     end
   end
 
+  describe "operational flow serialization" do
+    test "serializes materialized flows as lightweight id/from/to maps" do
+      segments = segments()
+
+      graph =
+        canonical(segments, [
+          {segments.external, segments.internal, %{"protocol" => "tcp"}}
+        ])
+
+      materialized = materialize(graph)
+
+      assert Enum.sort(MaterializeReachability.operational_flows(materialized)) ==
+               Enum.sort(
+                 Enum.map(operational_edges(materialized), fn edge ->
+                   %{id: edge.id, from_id: edge.from_id, to_id: edge.to_id}
+                 end)
+               )
+    end
+  end
+
   describe "deterministic ids and ordering" do
     test "produces stable sorted UUID ids derived from graph and endpoint ids" do
       segments = segments()

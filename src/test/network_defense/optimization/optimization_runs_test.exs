@@ -1,12 +1,15 @@
 defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   use NetworkDefense.DataCase, async: true
 
-  alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.Credential
+  alias NetworkDefense.Nodes.{Host, NetworkSegment}
+  alias NetworkDefense.Optimization.Contracts.{OptimizationParams, RunOptimizationRequest}
+  alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Simulation.Contracts.SimulationParams
 
   describe "OptimizationRuns" do
     test "creates a run as running and completes it atomically with its actions" do
@@ -142,6 +145,83 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
     test "load/1 returns nil for an unknown run" do
       assert OptimizationRuns.load(Ecto.UUID.generate()) == nil
     end
+
+    test "persists reproducibility inputs through create, complete, and load" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      simulation_config = %{
+        trials: 20,
+        iterations: 10,
+        initial_foothold: "host-1",
+        max_attempts: 3
+      }
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 strategy: "simulated_annealing",
+                 requested_budget: 2,
+                 seed: 42,
+                 simulation_config: simulation_config
+               )
+               |> OptimizationRuns.create()
+
+      assert run.seed == 42
+      assert run.simulation_config == simulation_config
+
+      assert {:ok, _completed} =
+               OptimizationRuns.complete(run, %{
+                 actions: [],
+                 used_budget: 0,
+                 runtime_ms: 1,
+                 output_graph_revision_id: graph.revision_id
+               })
+
+      assert %{seed: 42, simulation_config: %{"trials" => 20, "iterations" => 10}} =
+               OptimizationRuns.load(run.id)
+    end
+
+    test "rejects a negative seed" do
+      changeset =
+        OptimizationRun.changeset(%OptimizationRun{}, %{
+          graph_revision_id: Ecto.UUID.generate(),
+          strategy: "cvss",
+          requested_budget: 1,
+          seed: -1
+        })
+
+      refute changeset.valid?
+      assert {message, options} = changeset.errors[:seed]
+      assert message == "must be greater than or equal to %{number}"
+      assert options[:number] == 0
+    end
+
+    test "rejects duplicate action positions as a changeset error" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 strategy: "cvss",
+                 requested_budget: 2
+               )
+               |> OptimizationRuns.create()
+
+      action = %{action_type: "patch", target_id: Ecto.UUID.generate(), cost: 1}
+
+      assert {:ok, _first} =
+               %OptimizationAction{optimization_run_id: run.id, position: 1}
+               |> OptimizationAction.changeset(action)
+               |> Repo.insert()
+
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               %OptimizationAction{optimization_run_id: run.id, position: 1}
+               |> OptimizationAction.changeset(action)
+               |> Repo.insert()
+
+      refute changeset.valid?
+      assert changeset.errors[:optimization_run_id] || changeset.errors[:position]
+    end
   end
 
   describe "Optimizations" do
@@ -269,17 +349,97 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
       assert executions |> Enum.map(& &1.status) == ["completed", "completed"]
     end
+
+    test "run/1 completes synchronously through the persistence pipeline" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2}
+      }
+
+      assert {:ok, run} = Optimizations.run(request)
+      assert run.status == "completed"
+      assert run.output_graph_revision_id != nil
+      assert run.output_graph_revision_id != graph.revision_id
+      assert run.used_budget == 0
+      assert run.seed == nil
+      assert run.simulation_config == nil
+
+      assert %{status: "completed", actions: []} = OptimizationRuns.load(run.id)
+    end
+
+    test "run/1 persists the resolved seed and simulation configuration" do
+      assert {:ok, graph} = Graphs.insert(graph_with_host())
+
+      host = Enum.find(Graph.nodes(graph), &(&1.type == NetworkDefense.Nodes.Host))
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{
+          strategy: "simulation_informed",
+          budget: 1,
+          simulation_params: %SimulationParams{
+            monte_carlo_trials: 1,
+            iterations_per_run: 1,
+            initial_foothold_node_id: host.id,
+            seed: 42,
+            generate_seed: false,
+            max_attempts: 1
+          }
+        }
+      }
+
+      assert {:ok, run} = Optimizations.run(request)
+      assert run.status == "completed"
+      assert run.seed == 42
+
+      assert run.simulation_config == %{
+               "trials" => 1,
+               "iterations" => 1,
+               "initial_foothold" => host.id,
+               "max_attempts" => 1
+             }
+    end
+
+    test "run/1 rejects an unknown strategy" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "bogus", budget: 1}
+      }
+
+      assert {:error, "unknown_strategy"} = Optimizations.run(request)
+    end
   end
 
-  defp graph_with_credential do
-    graph = Graph.new("optimization-test")
+  defp graph_with_credential, do: GraphFixtures.persisted_credential_graph("optimization-test")
 
-    credential =
-      GraphFixtures.build_node(graph, Credential, %{
-        "identifier" => "admin",
-        "credential_type" => "password"
+  defp graph_with_host do
+    graph = Graph.new("optimization-host-test")
+
+    segment =
+      GraphFixtures.build_node(graph, NetworkSegment, %{
+        "name" => "segment"
       })
 
-    Graph.add_node(graph, credential)
+    host =
+      GraphFixtures.build_node(graph, Host, %{
+        "name" => "foothold"
+      })
+
+    graph
+    |> Graph.add_node(segment)
+    |> Graph.add_node(host)
+    |> Graph.add_edge(
+      Edge.new(graph.id, segment.id, host.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.Contains),
+        data: %{}
+      })
+    )
   end
 end

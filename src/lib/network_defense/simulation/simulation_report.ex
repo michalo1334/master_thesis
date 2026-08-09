@@ -7,7 +7,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Actions.AttemptedAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
-  alias NetworkDefense.Relationships.NetworkReachability
+  alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Run
@@ -51,7 +51,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     stats = blast_radius_stats(final_counts)
 
     operational_flows =
-      experiment.graph |> MaterializeReachability.materialize() |> operational_flows()
+      experiment.graph
+      |> MaterializeReachability.materialize()
+      |> MaterializeReachability.operational_flows()
 
     %__MODULE__{
       experiment_id: experiment.id,
@@ -78,13 +80,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   defp graph_title(%Experiment{graph: %Graph{title: title}}), do: title
 
   defp final_foothold_counts(runs) do
-    runs
-    |> Enum.map(fn run ->
-      run
-      |> Run.current_attacker_state()
-      |> AttackerState.foothold_nodes()
-      |> length()
-    end)
+    Enum.map(runs, &SimulationObjective.final_foothold_count/1)
   end
 
   defp blast_radius_stats(counts) do
@@ -234,13 +230,6 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       :host_id,
       :compromise_probability
     )
-  end
-
-  defp operational_flows(%Graph{} = graph) do
-    graph
-    |> Graph.edges()
-    |> Enum.filter(&(&1.type == NetworkReachability))
-    |> Enum.map(&%{id: &1.id, from_id: &1.from_id, to_id: &1.to_id})
   end
 
   defp edge_traversal_probabilities(runs, %Graph{} = graph, operational_flows) do

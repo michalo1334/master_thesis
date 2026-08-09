@@ -4,9 +4,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Optimization.{Budget, SimulationObjective, Strategy}
+  alias NetworkDefense.Optimization.{Budget, SimulationObjective, SimulationStrategy, Strategy}
   alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Simulations
 
   defstruct [
     :initial_attacker_state,
@@ -26,27 +25,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
           max_attempts: pos_integer()
         }
 
-  def new(graph, %{simulation_params: simulation_params}) do
-    with :ok <-
-           Simulations.validate_initial_foothold(
-             graph,
-             simulation_params.initial_foothold_node_id
-           ) do
-      {:ok,
-       %__MODULE__{
-         initial_attacker_state:
-           Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
-         rules: Simulations.default_rules(),
-         run_count: simulation_params.monte_carlo_trials,
-         iteration_count: simulation_params.iterations_per_run,
-         seed: simulation_seed(simulation_params),
-         max_attempts: simulation_params.max_attempts
-       }}
-    end
-  end
-
-  defp simulation_seed(%{generate_seed: true}), do: Seed.random()
-  defp simulation_seed(%{seed: seed}), do: seed
+  def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
 
   defimpl Strategy, for: __MODULE__ do
     @max_steps 100
@@ -54,9 +33,12 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Simulation-informed simulated annealing strategy"
 
+    @spec plan?(Strategy.t()) :: boolean()
+    def plan?(_strategy), do: true
+
     @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
     def rank(strategy, action_types, graph, budget) do
-      candidates = candidate_actions(action_types, graph)
+      candidates = SimulationStrategy.candidate_actions(action_types, graph)
       plan_size = min(budget, length(candidates))
 
       if plan_size == 0 do
@@ -64,11 +46,12 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
       else
         random_state = strategy.seed |> Seed.child_seed(0) |> Seed.integer_to_state()
         {initial_plan, random_state} = random_plan(candidates, plan_size, random_state)
+        baseline_score = score(graph, [], strategy)
         initial_score = score(graph, initial_plan, strategy)
         # ponytail: cap candidate evaluations so interactive optimization remains bounded.
         steps = min(@max_steps, max(20, length(candidates) * 2))
 
-        {best_plan, _best_score, _random_state} =
+        {best_plan, best_score, _random_state} =
           anneal(
             graph,
             candidates,
@@ -83,7 +66,11 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
             random_state
           )
 
-        best_plan
+        if best_score < baseline_score do
+          best_plan
+        else
+          []
+        end
       end
     end
 
@@ -136,17 +123,6 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         steps - 1,
         random_state
       )
-    end
-
-    defp candidate_actions(action_types, graph) do
-      Enum.flat_map(action_types, fn action_type ->
-        action = struct!(action_type)
-        eligible_types = DefenseAction.eligible_types(action)
-
-        (Graph.nodes(graph) ++ Graph.edges(graph))
-        |> Enum.filter(&(&1.type in eligible_types))
-        |> Enum.map(&DefenseAction.with_target_id(action, &1.id))
-      end)
     end
 
     defp random_plan(candidates, count, random_state) do

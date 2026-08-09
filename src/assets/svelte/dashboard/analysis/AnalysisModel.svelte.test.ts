@@ -123,6 +123,47 @@ describe("AnalysisModel", () => {
     ]);
   });
 
+  it("requires simulation settings for every strategy that needs them", async () => {
+    const model = new AnalysisModel(api(), new WorkspaceModel());
+
+    await model.selectTarget("revision-1");
+    model.includeOptimization = true;
+
+    model.setStrategies(["topology_segmentation"]);
+    expect(model.runnableStrategies).toEqual(["topology_segmentation"]);
+    expect(model.needsSimulationSettings).toBe(true);
+    expect(model.needsFoothold).toBe(true);
+
+    model.setStrategies(["simulation_informed"]);
+    expect(model.needsSimulationSettings).toBe(true);
+
+    model.setStrategies(["simulated_annealing"]);
+    expect(model.needsSimulationSettings).toBe(true);
+
+    model.setStrategies(["cvss"]);
+    expect(model.needsSimulationSettings).toBe(false);
+  });
+
+  it("surfaces the rejection reason of a standalone simulation", async () => {
+    const dashboardApi = api();
+    vi.mocked(dashboardApi.runSimulation).mockResolvedValue({
+      status: "rejected",
+      graph_revision_id: "revision-1",
+      correlation_id: "simulation-1",
+      reason: "invalid_request",
+    });
+    const workspace = new WorkspaceModel();
+    const model = new AnalysisModel(dashboardApi, workspace);
+
+    await model.selectTarget("revision-1");
+    model.includeSimulation = true;
+
+    await expect(model.run()).resolves.toBe(false);
+    expect(workspace.statusMessage).toBe(
+      "Simulation rejected: invalid_request",
+    );
+  });
+
   it("marks a failed background optimization report unread", async () => {
     const dashboardApi = api();
     vi.mocked(dashboardApi.runOptimization)

@@ -7,7 +7,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Optimizations
-  alias NetworkDefense.Relationships.{NetworkReachability, SegmentReachability}
+  alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -71,8 +71,17 @@ defmodule NetworkDefenseWeb.DashboardLive do
             folders: @folders
           }
         }
-        socket={@socket}
-      />
+      >
+        <:loading>
+          <div
+            role="status"
+            class="dashboard-loading"
+            style="min-height: 100dvh; display: grid; place-items: center; color: var(--ds-color-text); background: var(--ds-color-surface);"
+          >
+            Loading dashboard…
+          </div>
+        </:loading>
+      </.svelte>
     </Layouts.app>
     """
   end
@@ -278,9 +287,17 @@ defmodule NetworkDefenseWeb.DashboardLive do
   def handle_event("fetch_simulation_report", params, socket) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
-        case start_report_fetch(request, params, self()) do
-          {:ok, _pid} -> {:reply, %{status: "processing"}, socket}
-          {:error, _reason} -> {:reply, %{status: "unavailable"}, socket}
+        case start_report_fetch(request, self()) do
+          {:ok, _pid} ->
+            {:reply, %{status: "processing"}, socket}
+
+          {:error, _reason} ->
+            {:reply, %{status: "unavailable"},
+             push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
+               experiment_id: request.experiment_id,
+               graph_revision_id: request.graph_revision_id,
+               reason: "unavailable"
+             })}
         end
 
       {:error, _changeset} ->
@@ -320,9 +337,22 @@ defmodule NetworkDefenseWeb.DashboardLive do
   def handle_event("fetch_optimization_report", params, socket) do
     case FetchOptimizationReportPayload.validate(params) do
       {:ok, request} ->
-        case start_optimization_report_fetch(request, params, self()) do
-          {:ok, _pid} -> {:reply, %{status: "processing"}, socket}
-          {:error, _reason} -> {:reply, %{status: "unavailable"}, socket}
+        case start_optimization_report_fetch(request, self()) do
+          {:ok, _pid} ->
+            {:reply, %{status: "processing"}, socket}
+
+          {:error, _reason} ->
+            {:reply, %{status: "unavailable"},
+             push_contract_event(
+               socket,
+               "optimization_report_error",
+               OptimizationReportErrorEvent,
+               %{
+                 optimization_id: request.optimization_id,
+                 graph_revision_id: request.graph_revision_id,
+                 reason: "unavailable"
+               }
+             )}
         end
 
       {:error, _changeset} ->
@@ -422,16 +452,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     {:noreply, socket}
   end
 
-  defp fetch_simulation_report(params) do
-    case FetchSimulationReportPayload.validate(params) do
-      {:ok, request} ->
-        fetch_report(request)
-
-      {:error, _changeset} ->
-        %{status: "not_found"}
-    end
-  end
-
   defp fetch_report(request) do
     case Simulations.get_report(request.experiment_id) do
       %NetworkDefense.Simulation.SimulationReport{} = report ->
@@ -453,38 +473,23 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  defp start_report_fetch(request, params, owner) do
+  defp start_report_fetch(%FetchSimulationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       send(
         owner,
-        {:report_result, request.experiment_id, request.graph_revision_id, report_result(params)}
+        {:report_result, request.experiment_id, request.graph_revision_id, fetch_report(request)}
       )
     end)
   end
 
-  defp report_result(params) do
-    fetch_simulation_report(params)
-  end
-
-  defp start_optimization_report_fetch(request, params, owner) do
+  defp start_optimization_report_fetch(%FetchOptimizationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       send(
         owner,
         {:optimization_report_result, request.optimization_id, request.graph_revision_id,
-         optimization_report_result(params)}
+         fetch_optimization_report(request)}
       )
     end)
-  end
-
-  defp optimization_report_result(params) do
-    fetch_optimization_report_params(params)
-  end
-
-  defp fetch_optimization_report_params(params) do
-    case FetchOptimizationReportPayload.validate(params) do
-      {:ok, request} -> fetch_optimization_report(request)
-      {:error, _changeset} -> %{status: "not_found"}
-    end
   end
 
   defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request) do
@@ -719,7 +724,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       segments: projection_ids(Graph.nodes(graph), NetworkSegment),
       hosts: projection_ids(Graph.nodes(graph), Host),
       policy_links: projection_links(Graph.edges(graph), SegmentReachability),
-      operational_flows: projection_links(Graph.edges(graph), NetworkReachability)
+      operational_flows: MaterializeReachability.operational_flows(graph)
     }
   end
 

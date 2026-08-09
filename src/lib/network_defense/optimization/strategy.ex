@@ -9,17 +9,24 @@ defprotocol NetworkDefense.Optimization.Strategy do
 
   @type t :: struct()
 
-  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Optimization.Budget
-  alias NetworkDefense.Actions.Action
+  alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
 
   @spec name(t()) :: String.t()
   def name(strategy)
 
   @doc """
+  Whether `rank/4` returns a jointly selected plan (all actions to apply,
+  in order) instead of a ranked candidate list the optimizer picks from
+  one action at a time.
+  """
+  @spec plan?(t()) :: boolean()
+  def plan?(strategy)
+
+  @doc """
   The rank function
   """
-  @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [Action.t()]
+  @spec rank(t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
   def rank(strategy, action_types, graph, budget)
 end

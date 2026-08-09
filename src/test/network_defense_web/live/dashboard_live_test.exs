@@ -24,6 +24,12 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
+    test "renders an accessible loading state while the client dashboard mounts", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      assert has_element?(view, "#dashboard [role='status'].dashboard-loading")
+    end
+
     test "renders hidden recovery flashes", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 

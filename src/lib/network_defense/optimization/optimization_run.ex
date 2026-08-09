@@ -17,7 +17,9 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
           requested_budget: integer() | nil,
           used_budget: integer() | nil,
           runtime_ms: integer() | nil,
-          status: String.t() | nil
+          status: String.t() | nil,
+          seed: integer() | nil,
+          simulation_config: map() | nil
         }
 
   schema "optimization_runs" do
@@ -30,6 +32,8 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     field :used_budget, :integer, default: 0
     field :runtime_ms, :integer, default: 0
     field :status, :string, default: "running"
+    field :seed, :integer
+    field :simulation_config, :map
 
     timestamps(type: :utc_datetime)
   end
@@ -43,12 +47,15 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       :requested_budget,
       :used_budget,
       :runtime_ms,
-      :status
+      :status,
+      :seed,
+      :simulation_config
     ])
     |> validate_required([:graph_revision_id, :strategy, :requested_budget])
     |> validate_number(:requested_budget, greater_than: 0)
     |> validate_number(:used_budget, greater_than_or_equal_to: 0)
     |> validate_number(:runtime_ms, greater_than_or_equal_to: 0)
+    |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, ["running", "completed", "failed"])
     |> validate_output_revision()
     |> foreign_key_constraint(:graph_revision_id)
@@ -65,7 +72,9 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       requested_budget: Map.fetch!(attrs, :requested_budget),
       used_budget: Map.get(attrs, :used_budget, 0),
       runtime_ms: Map.get(attrs, :runtime_ms, 0),
-      status: Map.get(attrs, :status, "running")
+      status: Map.get(attrs, :status, "running"),
+      seed: Map.get(attrs, :seed),
+      simulation_config: Map.get(attrs, :simulation_config)
     }
   end
 

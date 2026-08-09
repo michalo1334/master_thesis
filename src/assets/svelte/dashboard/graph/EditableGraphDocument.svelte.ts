@@ -22,6 +22,16 @@ export interface ConnectionOption {
   target: { id?: string; type: Node["type"] };
 }
 
+export type StartSimulationResult =
+  | {
+      status: "accepted";
+      graphId: string;
+      graphRevisionId: string;
+      correlationId: string;
+      graphTitle: string;
+    }
+  | { status: "rejected"; reason: string | null };
+
 function blankGraph(title: string): LoadedGraph {
   return {
     id: crypto.randomUUID(),
@@ -233,12 +243,7 @@ export class EditableGraphDocument {
   async startSimulation(
     api: DashboardApi,
     params: SimulationParams,
-  ): Promise<{
-    graphId: string;
-    graphRevisionId: string;
-    correlationId: string;
-    graphTitle: string;
-  } | null> {
+  ): Promise<StartSimulationResult | null> {
     if (!this.loadedRevisionId) return null;
     const correlationId = crypto.randomUUID();
     const reply = await api.runSimulation(
@@ -248,13 +253,14 @@ export class EditableGraphDocument {
     );
     if (reply.status === "accepted") {
       return {
+        status: "accepted",
         graphId: this.graph.id,
         graphRevisionId: reply.graph_revision_id,
         correlationId: reply.correlation_id,
         graphTitle: this.title,
       };
     }
-    return null;
+    return { status: "rejected", reason: reply.reason ?? null };
   }
 
   async startOptimization(

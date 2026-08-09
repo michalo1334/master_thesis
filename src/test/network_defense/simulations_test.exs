@@ -132,6 +132,89 @@ defmodule NetworkDefense.SimulationsTest do
            end)
   end
 
+  test "rejects an invalid initial foothold with an error tuple, not task-start success" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Invalid Foothold"))
+
+    assert {:error, "initial foothold must identify a host in the graph"} =
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: "invalid-foothold-request",
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: Ecto.UUID.generate(),
+                 generate_seed: false,
+                 seed: 42,
+                 max_attempts: 1
+               }
+             })
+  end
+
+  test "rejects an experiment persistence failure with an error tuple" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Create Failure"))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    assert {:error, _reason} =
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: "create-failure-request",
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: foothold.id,
+                 generate_seed: false,
+                 seed: nil,
+                 max_attempts: 1
+               }
+             })
+  end
+
+  test "marks the experiment failed and broadcasts failure when persistence errors after creation" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Post Persistence Failure"))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    correlation_id = "post-persistence-failure"
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 42,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 2,
+        initial_foothold_node_id: foothold.id,
+        status: "running"
+      )
+      |> Experiment.changeset(%{})
+      |> Repo.insert!()
+
+    Enum.each(1..2, fn trial_index ->
+      Run.new(
+        graph: graph,
+        experiment_id: experiment.id,
+        seed: trial_index,
+        trial_index: trial_index,
+        initial_attacker_state: AttackerState.new(foothold.id)
+      )
+      |> Run.changeset(%{})
+      |> Repo.insert!()
+    end)
+
+    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+    {:ok, task} = Simulations.resume_async(experiment.id, correlation_id)
+
+    Sandbox.allow(Repo, self(), task)
+
+    assert_receive {:simulation_failed, %{correlation_id: ^correlation_id}}, 5_000
+
+    assert %{status: "failed"} = Experiments.get(experiment.id)
+  end
+
   defp graph(title) do
     graph = Graph.new(title)
 

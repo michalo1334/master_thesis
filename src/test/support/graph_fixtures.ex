@@ -2,6 +2,7 @@ defmodule NetworkDefense.GraphFixtures do
   @moduledoc false
 
   alias NetworkDefense.Graph.{Edge, Graph, Node}
+  alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
@@ -23,6 +24,14 @@ defmodule NetworkDefense.GraphFixtures do
       data: data,
       view_data: %{"x_pos" => 0, "y_pos" => 0}
     }
+  end
+
+  def persisted_credential_graph(graph_id \\ "graph") do
+    graph = Graph.new(graph_id)
+
+    graph
+    |> build_node(Credential, %{"identifier" => "admin", "credential_type" => "password"})
+    |> then(&Graph.add_node(graph, &1))
   end
 
   def edge(id, from, to, type, data \\ %{}) do

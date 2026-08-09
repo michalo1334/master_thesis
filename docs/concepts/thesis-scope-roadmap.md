@@ -1,18 +1,20 @@
-# Thesis Scope Roadmap
+# Future Research Roadmap
 
-## Research Framing
+> This document describes extensions beyond the current thesis. The implemented thesis is limited to a static context graph, finite-horizon attacker simulation, and equal-action-count defensive choices. It does not model mission loss, recovery, or incomplete knowledge.
 
-The thesis develops and evaluates a graph-based method for selecting preventive and recovery controls that preserve critical capabilities during multi-stage cyberattacks.
+## Future Research Framing
+
+The proposed extension would develop and evaluate a graph-based method for selecting preventive and recovery controls that preserve critical capabilities during multi-stage cyberattacks.
 
 Working title:
 
 > Graph-Based Modelling and Optimization of Cyber Resilience in Mission-Critical Enterprise Networks
 
-The contribution is not a generic cyber-resilience platform. It is a reproducible decision method that joins attack propagation, mission dependencies, recovery capacity, and constrained defensive investment.
+The extension would not be a generic cyber-resilience platform. It would be a reproducible decision method joining attack propagation, mission dependencies, recovery capacity, and constrained defensive investment.
 
-Blast radius remains an explanatory measure of attacker reach. The primary outcome is mission loss over time.
+Blast radius would remain an explanatory measure of modeled attacker reach. The primary outcome would be mission loss over time.
 
-Mission and recovery claims are planned extensions, not part of the current thesis scope.
+Mission and recovery claims are not part of the current thesis scope.
 
 ## Research Question
 

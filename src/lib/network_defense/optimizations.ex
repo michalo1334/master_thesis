@@ -36,20 +36,59 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp run_async(graph, request) do
-    with {:ok, strategy} <- strategy_for(graph, request) do
-      run =
-        OptimizationRun.new(
-          graph_revision_id: graph.revision_id,
-          strategy: request.optimization_params.strategy,
-          requested_budget: request.optimization_params.budget
-        )
-
-      case OptimizationRuns.create(run) do
-        {:ok, run} -> start_optimization(graph, request, run, strategy)
-        {:error, reason} -> {:error, persistence_error(reason)}
-      end
+  @doc """
+  Runs an optimization synchronously through the same persistence pipeline as
+  `run_async/1`, returning the completed run (or an error tuple).
+  """
+  def run(%RunOptimizationRequest{} = request) do
+    case Graphs.load_revision(request.graph_revision_id) do
+      nil -> {:error, "graph_not_found"}
+      {:error, _reason} -> {:error, "invalid_graph"}
+      graph -> run_sync(graph, request)
     end
+  end
+
+  defp run_sync(graph, request) do
+    with {:ok, strategy} <- strategy_for(graph, request),
+         {:ok, run} <- persist_run(graph, request, strategy) do
+      {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+      complete_optimization(graph, request, run, result, runtime_us)
+    end
+  end
+
+  defp run_async(graph, request) do
+    with {:ok, strategy} <- strategy_for(graph, request),
+         {:ok, run} <- persist_run(graph, request, strategy) do
+      start_optimization(graph, request, run, strategy)
+    end
+  end
+
+  defp persist_run(graph, request, strategy) do
+    run =
+      OptimizationRun.new(
+        graph_revision_id: graph.revision_id,
+        strategy: request.optimization_params.strategy,
+        requested_budget: request.optimization_params.budget,
+        seed: strategy.seed,
+        simulation_config: simulation_config(request)
+      )
+
+    case OptimizationRuns.create(run) do
+      {:ok, run} -> {:ok, run}
+      {:error, reason} -> {:error, persistence_error(reason)}
+    end
+  end
+
+  defp simulation_config(%RunOptimizationRequest{optimization_params: %{simulation_params: nil}}),
+    do: nil
+
+  defp simulation_config(%RunOptimizationRequest{optimization_params: params}) do
+    %{
+      trials: params.simulation_params.monte_carlo_trials,
+      iterations: params.simulation_params.iterations_per_run,
+      initial_foothold: params.simulation_params.initial_foothold_node_id,
+      max_attempts: params.simulation_params.max_attempts
+    }
   end
 
   defp start_optimization(graph, request, run, strategy) do
@@ -99,11 +138,13 @@ defmodule NetworkDefense.Optimizations do
          end) do
       {:ok, completed_run} ->
         broadcast_completed(graph, request, completed_run)
+        {:ok, completed_run}
 
       {:error, reason} ->
         reason = persistence_error(reason)
         OptimizationRuns.fail(run.id)
         broadcast_failed(graph, request.correlation_id, reason)
+        {:error, reason}
     end
   end
 

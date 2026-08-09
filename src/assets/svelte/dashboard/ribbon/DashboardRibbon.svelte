@@ -66,11 +66,11 @@
 <Ribbon>
   <Ribbon.Tab title="Home">
     <Ribbon.Section title="Tools">
-      <RibbonButton onclick={onCompareGraphs}
+      <RibbonButton onclick={onCompareGraphs} aria-label="Compare graphs"
         ><Icon name="graph" size={22} /><span>Compare graphs</span
         ></RibbonButton
       >
-      <RibbonButton onclick={onOpenAnalysis}
+      <RibbonButton onclick={onOpenAnalysis} aria-label="Analysis"
         ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
       >
     </Ribbon.Section>

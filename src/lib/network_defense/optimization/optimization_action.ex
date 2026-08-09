@@ -46,5 +46,8 @@ defmodule NetworkDefense.Optimization.OptimizationAction do
     |> validate_number(:position, greater_than: 0)
     |> validate_number(:cost, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:optimization_run_id)
+    |> unique_constraint([:optimization_run_id, :position],
+      name: :optimization_actions_optimization_run_id_position_index
+    )
   end
 end

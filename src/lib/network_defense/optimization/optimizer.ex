@@ -31,6 +31,40 @@ defmodule NetworkDefense.Optimization.Optimizer do
   defp do_optimize(graph, strategy, budget, progress_callback) do
     default_actions = [BlockSegmentReachability, PatchVulnerability, RevokeCredential]
 
+    if Strategy.plan?(strategy) do
+      optimize_plan(graph, strategy, default_actions, budget, progress_callback)
+    else
+      optimize_stepwise(graph, strategy, default_actions, budget, progress_callback)
+    end
+  end
+
+  defp optimize_plan(graph, strategy, default_actions, budget, progress_callback) do
+    strategy
+    |> Strategy.rank(default_actions, graph, budget)
+    |> Enum.reduce_while({graph, budget, [], 0}, fn action,
+                                                    {graph, remaining_budget, actions,
+                                                     used_budget} ->
+      cost = DefenseAction.cost(action)
+
+      if cost <= remaining_budget do
+        step = length(actions) + 1
+        progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
+
+        optimized_graph = DefenseAction.apply(action, graph)
+        progress_callback.(step, budget, "Applied defense #{step} of #{budget}")
+
+        {:cont,
+         {optimized_graph, remaining_budget - cost, [action | actions], used_budget + cost}}
+      else
+        {:halt, {graph, remaining_budget, actions, used_budget}}
+      end
+    end)
+    |> then(fn {optimized_graph, _remaining_budget, actions, used_budget} ->
+      %{graph: optimized_graph, actions: Enum.reverse(actions), budget_used: used_budget}
+    end)
+  end
+
+  defp optimize_stepwise(graph, strategy, default_actions, budget, progress_callback) do
     1..budget
     |> Enum.reduce_while({graph, budget, [], 0}, fn step,
                                                     {graph, remaining_budget, actions,

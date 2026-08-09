@@ -2,12 +2,12 @@ defmodule NetworkDefense.Optimization.CvssStrategy do
   @moduledoc false
 
   alias NetworkDefense.Cvss
-  alias NetworkDefense.DefenseActions.PatchVulnerability
+  alias NetworkDefense.DefenseActions.{DefenseAction, PatchVulnerability}
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.{Budget, Strategy}
   alias NetworkDefense.Relationships.HasVulnerability
 
-  defstruct []
+  defstruct seed: nil
 
   def new(_graph, _params), do: {:ok, %__MODULE__{}}
 
@@ -15,7 +15,10 @@ defmodule NetworkDefense.Optimization.CvssStrategy do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "CVSS strategy"
 
-    @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: list()
+    @spec plan?(Strategy.t()) :: boolean()
+    def plan?(_strategy), do: false
+
+    @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
     def rank(_strategy, action_types, graph, _budget) do
       if PatchVulnerability in action_types do
         graph

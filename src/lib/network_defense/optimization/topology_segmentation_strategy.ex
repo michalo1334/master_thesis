@@ -2,12 +2,13 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   @moduledoc false
 
   alias NetworkDefense.DefenseActions.BlockSegmentReachability
+  alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.{Graph, MaterializeReachability}
   alias NetworkDefense.Optimization.{Budget, Strategy}
   alias NetworkDefense.Relationships.{NetworkReachability, Runs, SegmentReachability}
   alias NetworkDefense.Simulations
 
-  defstruct [:initial_foothold_node_id]
+  defstruct [:initial_foothold_node_id, seed: nil]
 
   def new(graph, %{simulation_params: simulation_params}) do
     with :ok <-
@@ -34,7 +35,10 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Topology segmentation strategy"
 
-    @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: list()
+    @spec plan?(Strategy.t()) :: boolean()
+    def plan?(_strategy), do: false
+
+    @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
     def rank(strategy, action_types, graph, _budget) do
       if BlockSegmentReachability in action_types do
         baseline = reachable_host_count(strategy.initial_foothold_node_id, graph)

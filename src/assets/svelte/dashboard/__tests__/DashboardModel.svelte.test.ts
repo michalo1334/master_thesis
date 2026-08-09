@@ -86,6 +86,21 @@ describe("DashboardModel", () => {
     expect(report).toMatchObject({ graphId: "g1", graphRevisionId: "r2" });
   });
 
+  it("surfaces the rejection reason of a standalone simulation", async () => {
+    vi.mocked(dashboardApi.runSimulation).mockResolvedValue({
+      status: "rejected",
+      graph_revision_id: "r1",
+      correlation_id: "simulation-1",
+      reason: "invalid_request",
+    });
+
+    await model.runActiveSimulation();
+
+    expect(model.workspace.statusMessage).toBe(
+      "Simulation rejected: invalid_request",
+    );
+  });
+
   it("routes simulation events by persisted revision ID", () => {
     const report = model.workspace.createPendingReport({
       graphId: "g1",

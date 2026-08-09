@@ -26,6 +26,18 @@ defmodule NetworkDefense.Graph.MaterializeReachability do
     |> add_markers(effective_flows(graph))
   end
 
+  @doc """
+  Serializes the `NetworkReachability` edges of a materialized graph as
+  lightweight `%{id, from_id, to_id}` maps.
+  """
+  @spec operational_flows(Graph.t()) :: [map()]
+  def operational_flows(%Graph{} = graph) do
+    graph
+    |> Graph.edges()
+    |> Enum.filter(&(&1.type == NetworkReachability))
+    |> Enum.map(&%{id: &1.id, from_id: &1.from_id, to_id: &1.to_id})
+  end
+
   defp strip_markers(graph) do
     graph
     |> marker_edges()

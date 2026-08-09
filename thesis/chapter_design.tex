@@ -82,7 +82,7 @@ The graph layer stores the topology as a typed context graph. Hosts, services, a
 \section{Simulation Layer}
 \label{ch:design:sim}
 
-The simulation layer runs a fixed number of Monte Carlo trials. Each trial starts at the configured entry point. At each state transition, the simulator evaluates eligible actions, selects one uniformly, then samples its outcome. Exploit actions use the vulnerability's independently assigned, stylized success probability; credential actions are deterministic when their preconditions hold. The probability is not derived from CVSS and is not calibrated to real-world exploitation. The output of one trial is the set of nodes reached; the aggregate output is a \emph{blast-radius map} $\beta: V \to [0, 1]$, where $\beta(v)$ is the empirical probability that $v$ is reached by this model across the trials.
+The simulation layer runs a fixed number of Monte Carlo trials. Each trial starts at the configured entry point. At each state transition, the simulator evaluates eligible actions, selects one uniformly, then samples its outcome. Exploit actions use the vulnerability's independently assigned, stylized success probability; credential actions are deterministic when their preconditions hold. The probability is not derived from CVSS and is not calibrated to real-world exploitation. One trial reports its final set of compromised host footholds, including the initial foothold. The aggregate report gives their count distribution and the per-host empirical compromise probability.
 
 \section{Optimization Layer}
 \label{ch:design:opt}

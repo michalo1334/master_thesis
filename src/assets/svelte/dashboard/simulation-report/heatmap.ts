@@ -65,18 +65,18 @@ export function simulationHeatmapAppearance(charts: SimulationReportCharts): {
       };
     },
     edgeAppearance(edge) {
-      const probability = edgeProbabilities.get(edge.id);
-      if (probability === undefined) return undefined;
-
-      const tone = heatTone(probability);
-      return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
+      return appearanceForEdge(edge.id);
     },
     flowAppearance(flow) {
-      const probability = edgeProbabilities.get(flow.id);
-      if (probability === undefined) return undefined;
-
-      const tone = heatTone(probability);
-      return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
+      return appearanceForEdge(flow.id);
     },
   };
+
+  function appearanceForEdge(id: string): CanvasEdgeAppearance | undefined {
+    const probability = edgeProbabilities.get(id);
+    if (probability === undefined) return undefined;
+
+    const tone = heatTone(probability);
+    return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
+  }
 }

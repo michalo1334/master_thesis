@@ -2,6 +2,7 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
+  alias Ecto.Changeset
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.MaterializeReachability
@@ -38,10 +39,8 @@ defmodule NetworkDefense.Simulations do
          {:ok, experiment} <- create_experiment(graph, simulation_params) do
       start_async(graph, correlation_id, experiment)
     else
-      {:error, reason} ->
-        TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-          broadcast_simulation_failed(graph, correlation_id, to_string(reason))
-        end)
+      {:error, %Ecto.Changeset{} = changeset} -> {:error, persistence_error(changeset)}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -77,9 +76,16 @@ defmodule NetworkDefense.Simulations do
         "simulation.run_count": experiment.total_trials,
         "simulation.iteration_count": experiment.iteration_count
       } do
-      experiment = run_batches(graph, correlation_id, experiment)
-      Tracer.set_status(OpenTelemetry.status(:ok))
-      broadcast_simulation_completed(graph, experiment, correlation_id)
+      try do
+        experiment = run_batches(graph, correlation_id, experiment)
+        Tracer.set_status(OpenTelemetry.status(:ok))
+        broadcast_simulation_completed(graph, experiment, correlation_id)
+      rescue
+        error ->
+          Tracer.set_status(OpenTelemetry.status(:error))
+          Experiments.fail(experiment.id)
+          broadcast_simulation_failed(graph, correlation_id, Exception.message(error))
+      end
     end
   end
 
@@ -284,5 +290,17 @@ defmodule NetworkDefense.Simulations do
          reason: reason
        }}
     )
+  end
+
+  defp persistence_error(%Changeset{} = changeset) do
+    changeset
+    |> Changeset.traverse_errors(fn {message, options} ->
+      Enum.reduce(options, message, fn {key, value}, message ->
+        String.replace(message, "%{#{key}}", to_string(value))
+      end)
+    end)
+    |> Enum.map_join(", ", fn {field, messages} ->
+      "#{field |> Atom.to_string() |> String.capitalize()} #{Enum.join(messages, ", ")}"
+    end)
   end
 end

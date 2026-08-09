@@ -52,10 +52,12 @@ export class AnalysisModel {
   }
 
   get needsSimulationSettings(): boolean {
-    return this.runnableStrategies.some(
-      (strategy) =>
-        strategy === "simulation_informed" ||
-        strategy === "simulated_annealing",
+    return this.runnableStrategies.some((strategy) =>
+      [
+        "simulation_informed",
+        "topology_segmentation",
+        "simulated_annealing",
+      ].includes(strategy),
     );
   }
 
@@ -187,6 +189,12 @@ export class AnalysisModel {
     try {
       const result = await document.startSimulation(this.api, params);
       if (!result) return false;
+      if (result.status === "rejected") {
+        this.workspace.statusMessage = result.reason
+          ? `Simulation rejected: ${result.reason}`
+          : "Simulation was rejected.";
+        return false;
+      }
       this.workspace.createPendingReport(result);
       return true;
     } catch {

@@ -4,10 +4,7 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Optimization.{Budget, Strategy}
-  alias NetworkDefense.Optimization.SimulationObjective
-  alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Simulations
+  alias NetworkDefense.Optimization.{Budget, SimulationObjective, SimulationStrategy, Strategy}
 
   defstruct [
     :initial_attacker_state,
@@ -27,35 +24,18 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           max_attempts: pos_integer()
         }
 
-  def new(graph, %{simulation_params: simulation_params}) do
-    with :ok <-
-           Simulations.validate_initial_foothold(
-             graph,
-             simulation_params.initial_foothold_node_id
-           ) do
-      {:ok,
-       %__MODULE__{
-         initial_attacker_state:
-           Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
-         rules: Simulations.default_rules(),
-         run_count: simulation_params.monte_carlo_trials,
-         iteration_count: simulation_params.iterations_per_run,
-         seed: simulation_seed(simulation_params),
-         max_attempts: simulation_params.max_attempts
-       }}
-    end
-  end
-
-  defp simulation_seed(%{generate_seed: true}), do: Seed.random()
-  defp simulation_seed(%{seed: seed}), do: seed
+  def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
 
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Simulation-informed greedy strategy"
 
+    @spec plan?(Strategy.t()) :: boolean()
+    def plan?(_strategy), do: false
+
     @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
     def rank(strategy, action_types, graph, _budget) do
-      candidates = candidate_actions(action_types, graph)
+      candidates = SimulationStrategy.candidate_actions(action_types, graph)
 
       case candidates do
         [] ->
@@ -74,22 +54,14 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
                   strategy
                 )
 
-            {action, reduction / DefenseAction.cost(action)}
+            {action, reduction}
           end)
-          |> Enum.sort_by(fn {action, reduction} -> {-reduction, target_id(action)} end)
+          |> Enum.filter(fn {_action, reduction} -> reduction > 0 end)
+          |> Enum.sort_by(fn {action, reduction} ->
+            {-reduction / DefenseAction.cost(action), target_id(action)}
+          end)
           |> Enum.map(&elem(&1, 0))
       end
-    end
-
-    defp candidate_actions(action_types, graph) do
-      Enum.flat_map(action_types, fn action_type ->
-        action = struct!(action_type)
-        eligible_types = DefenseAction.eligible_types(action)
-
-        (Graph.nodes(graph) ++ Graph.edges(graph))
-        |> Enum.filter(&(&1.type in eligible_types))
-        |> Enum.map(&DefenseAction.with_target_id(action, &1.id))
-      end)
     end
 
     defp target_id(action), do: action |> DefenseAction.target() |> elem(1)

@@ -51,6 +51,80 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
     assert radius > 1.0
   end
 
+  test "excludes candidates without a strictly positive modeled reduction" do
+    {graph, source} = mixed_reachability_graph()
+
+    strategy = %SimulationInformedStrategy{
+      initial_attacker_state: AttackerState.new(source.id),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 5,
+      iteration_count: 5,
+      seed: 42
+    }
+
+    assert [%PatchVulnerability{edge_id: "vulnerability-a"}] =
+             Strategy.rank(strategy, [PatchVulnerability], graph, 2)
+  end
+
+  defp mixed_reachability_graph do
+    source = GraphFixtures.node("source", Host, %{"name" => "internet"})
+    host_a = GraphFixtures.node("host-a", Host, %{"name" => "a"})
+    host_isolated = GraphFixtures.node("host-isolated", Host, %{"name" => "isolated"})
+    source_segment = segment("source-segment")
+    segment_a = segment("segment-a")
+    isolated_segment = segment("isolated-segment")
+    service_a = service("service-a")
+    service_isolated = service("service-isolated")
+    vulnerability_a = vulnerability("vulnerability-a")
+    vulnerability_isolated = vulnerability("vulnerability-isolated")
+
+    graph =
+      GraphFixtures.graph(
+        [
+          source_segment,
+          segment_a,
+          isolated_segment,
+          source,
+          host_a,
+          host_isolated,
+          service_a,
+          service_isolated,
+          vulnerability_a,
+          vulnerability_isolated
+        ],
+        [
+          GraphFixtures.edge("contains-source", source_segment, source, Contains),
+          GraphFixtures.edge("contains-a", segment_a, host_a, Contains),
+          GraphFixtures.edge("contains-isolated", isolated_segment, host_isolated, Contains),
+          GraphFixtures.edge(
+            "policy-a",
+            source_segment,
+            segment_a,
+            SegmentReachability,
+            policy()
+          ),
+          GraphFixtures.edge("runs-a", host_a, service_a, Runs),
+          GraphFixtures.edge("runs-isolated", host_isolated, service_isolated, Runs),
+          GraphFixtures.edge(
+            "vulnerability-a",
+            service_a,
+            vulnerability_a,
+            HasVulnerability,
+            privileges()
+          ),
+          GraphFixtures.edge(
+            "vulnerability-isolated",
+            service_isolated,
+            vulnerability_isolated,
+            HasVulnerability,
+            privileges()
+          )
+        ]
+      )
+
+    {graph, source}
+  end
+
   defp graph do
     source = GraphFixtures.node("source", Host, %{"name" => "internet"})
     host_a = GraphFixtures.node("host-a", Host, %{"name" => "a"})
