@@ -3,7 +3,7 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   import Ecto.Query
 
-  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, Graphs, Node}
+  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphRevision, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
@@ -21,6 +21,15 @@ defmodule NetworkDefense.Graph.GraphTest do
 
     assert [_segment, _host, _service] = Graph.nodes(saved)
     assert [_contains, _runs] = Graph.edges(saved)
+  end
+
+  test "normalizes context persistence errors" do
+    assert {:error, :invalid_folder} = Folders.create(" ")
+
+    assert {:ok, graph} = Graphs.insert(Graph.new("Topology"))
+
+    assert {:error, :internal_error} =
+             Graphs.insert(%{Graph.new("Duplicate") | id: graph.id})
   end
 
   test "each save appends an edit revision without changing earlier snapshots" do

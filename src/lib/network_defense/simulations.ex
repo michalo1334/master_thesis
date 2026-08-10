@@ -3,9 +3,10 @@ defmodule NetworkDefense.Simulations do
   Public context module for working with simulation related aspects
   """
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.SimulationReport
@@ -13,6 +14,8 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
+  alias NetworkDefense.Simulation.Contracts.SimulationParams
+  alias NetworkDefense.Simulations.Errors
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   import Ecto.Query
@@ -24,8 +27,12 @@ defmodule NetworkDefense.Simulations do
   @trial_batch_size 500
   @report_timeout 60_000
 
+  @type async_result :: {:ok, pid()} | {:error, Errors.error()}
+
+  @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
 
+  @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
     case Graphs.load_revision(request.graph_revision_id) do
       nil -> {:error, :not_found}
@@ -34,6 +41,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
+  @spec run_async(Graph.t(), String.t(), SimulationParams.t()) :: async_result()
   def run_async(graph, correlation_id, simulation_params) do
     with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
          {:ok, experiment} <- create_experiment(graph, simulation_params) do
@@ -44,6 +52,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
+  @spec resume_async(Ecto.UUID.t(), String.t()) :: async_result()
   def resume_async(experiment_id, correlation_id) do
     with {:ok, experiment} <- Experiments.resume(experiment_id),
          %NetworkDefense.Graph.Graph{} = graph <-
@@ -161,6 +170,7 @@ defmodule NetworkDefense.Simulations do
     |> Experiments.create()
   end
 
+  @spec parallel_map_fn(Enumerable.t(), (term() -> term())) :: Enumerable.t()
   def parallel_map_fn(enum, fun) do
     TaskSupervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun,
       ordered: false,
@@ -168,6 +178,7 @@ defmodule NetworkDefense.Simulations do
     )
   end
 
+  @spec list_experiments([Ecto.UUID.t()] | Ecto.UUID.t()) :: [Experiment.t()]
   def list_experiments(graph_revision_ids) when is_list(graph_revision_ids) do
     query =
       from experiment in Experiment,
@@ -185,7 +196,7 @@ defmodule NetworkDefense.Simulations do
   @doc """
   Returns a generated report for an experiment, or `nil` when it does not exist.
   """
-  @spec get_report(String.t()) :: SimulationReport.t() | nil
+  @spec get_report(Ecto.UUID.t()) :: SimulationReport.t() | nil
   def get_report(experiment_id) do
     case load_for_report(experiment_id) do
       nil -> nil
@@ -193,13 +204,19 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
+  @spec initial_attacker_state(Graph.t(), Ecto.UUID.t()) :: AttackerState.t()
   def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
     case validate_initial_foothold(graph, foothold_id) do
-      :ok -> AttackerState.new(foothold_id)
-      {:error, _reason} -> raise ArgumentError, "initial foothold must identify a host in the graph"
+      :ok ->
+        AttackerState.new(foothold_id)
+
+      {:error, _reason} ->
+        raise ArgumentError, "initial foothold must identify a host in the graph"
     end
   end
 
+  @spec validate_initial_foothold(Graph.t(), Ecto.UUID.t()) ::
+          :ok | {:error, :invalid_initial_foothold}
   def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
     case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
       %{type: NetworkDefense.Nodes.Host} -> :ok
@@ -242,6 +259,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
+  @spec default_rules() :: [Rule.t()]
   def default_rules do
     [
       %NetworkDefense.Rules.RemoteServiceExploitation{},
@@ -293,5 +311,4 @@ defmodule NetworkDefense.Simulations do
        }}
     )
   end
-
 end

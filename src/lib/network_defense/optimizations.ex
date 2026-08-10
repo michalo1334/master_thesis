@@ -15,6 +15,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
+  alias NetworkDefense.Optimizations.Errors
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   require Logger
@@ -27,8 +28,13 @@ defmodule NetworkDefense.Optimizations do
     "simulated_annealing" => SimulatedAnnealingStrategy
   }
 
+  @type async_result :: {:ok, pid()} | {:error, Errors.error()}
+  @type result :: {:ok, OptimizationRun.t()} | {:error, Errors.error()}
+
+  @spec optimization_events_topic() :: String.t()
   def optimization_events_topic, do: @optimization_events_topic
 
+  @spec run_async(RunOptimizationRequest.t()) :: async_result()
   def run_async(%RunOptimizationRequest{} = request) do
     with {:ok, graph} <- load_graph(request), do: run_async(graph, request)
   end
@@ -37,6 +43,7 @@ defmodule NetworkDefense.Optimizations do
   Runs an optimization synchronously through the same persistence pipeline as
   `run_async/1`, returning the completed run (or an error tuple).
   """
+  @spec run(RunOptimizationRequest.t()) :: result()
   def run(%RunOptimizationRequest{} = request) do
     with {:ok, graph} <- load_graph(request), do: run_sync(graph, request)
   end
@@ -80,7 +87,9 @@ defmodule NetworkDefense.Optimizations do
       )
 
     case OptimizationRuns.create(run) do
-      {:ok, run} -> {:ok, run}
+      {:ok, run} ->
+        {:ok, run}
+
       {:error, reason} ->
         Logger.error("Unable to persist optimization run: #{inspect(reason)}")
         {:error, :persistence_failed}
@@ -181,6 +190,7 @@ defmodule NetworkDefense.Optimizations do
 
   defp struct_type(%module{}), do: module
 
+  @spec list_runs([Ecto.UUID.t()] | Ecto.UUID.t()) :: [OptimizationRun.t()]
   def list_runs(graph_revision_ids),
     do: OptimizationRuns.list_by_graph_revisions(graph_revision_ids)
 
@@ -188,7 +198,7 @@ defmodule NetworkDefense.Optimizations do
   Regenerates a report for a completed optimization run, or `nil` when it does not exist
   or its actions reference a retired defense action type.
   """
-  @spec get_report(String.t()) :: OptimizationReport.t() | nil
+  @spec get_report(Ecto.UUID.t()) :: OptimizationReport.t() | nil
   def get_report(optimization_run_id) do
     with %OptimizationRun{status: "completed"} = run <- OptimizationRuns.load(optimization_run_id),
          true <- materializable_run?(run),

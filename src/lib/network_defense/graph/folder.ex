@@ -14,6 +14,11 @@ defmodule NetworkDefense.Graph.Folder do
     timestamps(type: :utc_datetime)
   end
 
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t() | nil,
+          name: String.t() | nil
+        }
+
   def changeset(folder, attrs) do
     folder
     |> cast(attrs, [:name])

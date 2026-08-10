@@ -23,6 +23,15 @@ defmodule NetworkDefense.Graph.Node do
     field :view_data, :map
   end
 
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t() | nil,
+          graph_revision_id: Ecto.UUID.t() | nil,
+          graph_id: Ecto.UUID.t() | nil,
+          type: module() | String.t() | nil,
+          data: map() | nil,
+          view_data: map() | nil
+        }
+
   @doc false
   def changeset(node, attrs) do
     node

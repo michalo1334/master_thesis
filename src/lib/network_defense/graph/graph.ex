@@ -26,7 +26,25 @@ defmodule NetworkDefense.Graph.Graph do
     timestamps(type: :utc_datetime)
   end
 
-  @type t :: %__MODULE__{}
+  @type adjacency_list :: %{
+          optional(Ecto.UUID.t()) => %{
+            incoming: [{Ecto.UUID.t(), Edge.t()}],
+            outgoing: [{Ecto.UUID.t(), Edge.t()}]
+          }
+        }
+
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t() | nil,
+          folder_id: Ecto.UUID.t() | nil,
+          adjacency_list: adjacency_list(),
+          revision_id: Ecto.UUID.t() | nil,
+          parent_revision_id: Ecto.UUID.t() | nil,
+          revision_number: pos_integer() | nil,
+          revision_kind: :initial | :edit | :optimization | nil,
+          title: String.t() | nil,
+          nodes: [Node.t()],
+          edges: [Edge.t()]
+        }
 
   @doc false
   def changeset(graph, attrs) do

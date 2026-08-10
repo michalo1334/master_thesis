@@ -20,6 +20,16 @@ defmodule NetworkDefense.Graph.Edge do
     field :data, :map
   end
 
+  @type t :: %__MODULE__{
+          id: Ecto.UUID.t() | nil,
+          graph_revision_id: Ecto.UUID.t() | nil,
+          graph_id: Ecto.UUID.t() | nil,
+          from_id: Ecto.UUID.t() | nil,
+          to_id: Ecto.UUID.t() | nil,
+          type: module() | String.t() | nil,
+          data: map() | nil
+        }
+
   @doc false
   def changeset(edge, attrs) do
     edge

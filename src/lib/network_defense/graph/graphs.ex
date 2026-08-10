@@ -8,14 +8,34 @@ defmodule NetworkDefense.Graph.Graphs do
   alias Ecto.Changeset
   alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
+  alias NetworkDefense.Graph.Errors, as: GraphErrors
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Repo
 
   @snapshot_insert_batch_size 1_000
 
+  @type graph_summary :: %{
+          graphId: Ecto.UUID.t(),
+          folderId: Ecto.UUID.t() | nil,
+          revisionId: Ecto.UUID.t(),
+          parentRevisionId: Ecto.UUID.t() | nil,
+          title: String.t(),
+          revisionKind: String.t(),
+          revisionNumber: pos_integer(),
+          nodeCount: non_neg_integer(),
+          edgeCount: non_neg_integer(),
+          isFavorite: boolean()
+        }
+
+  @type error :: GraphErrors.code()
+  @type result(value) :: {:ok, value} | {:error, error()}
+  @type append_callback(value) :: (Graph.t() -> {:ok, value} | {:error, term()})
+
+  @spec insert(Graph.t()) :: result(Graph.t())
   def insert(%Graph{} = graph), do: create(graph)
 
+  @spec create(Graph.t()) :: result(Graph.t())
   def create(%Graph{} = graph) do
     case candidate_graph(graph.id, graph_attrs(graph)) do
       {:ok, candidate} ->
@@ -26,6 +46,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  @spec load_revision(Ecto.UUID.t()) :: Graph.t() | {:error, GraphErrors.code()} | nil
   def load_revision(id) do
     with %GraphRevision{} = revision <- Repo.get(GraphRevision, id),
          %Graph{} = graph <- Repo.get(Graph, revision.graph_id),
@@ -34,6 +55,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  @spec load_revision!(Ecto.UUID.t()) :: Graph.t()
   def load_revision!(id) do
     case load_revision(id) do
       nil -> raise Ecto.NoResultsError, queryable: GraphRevision
@@ -41,6 +63,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  @spec list_summaries() :: [graph_summary()]
   def list_summaries do
     node_counts =
       from node in Node,
@@ -80,6 +103,7 @@ defmodule NetworkDefense.Graph.Graphs do
     |> Enum.map(&Map.update!(&1, :revisionKind, fn kind -> Atom.to_string(kind) end))
   end
 
+  @spec set_favorite(Ecto.UUID.t(), boolean()) :: {:ok, boolean()} | {:error, GraphErrors.code()}
   def set_favorite(id, favorite) when is_boolean(favorite) do
     with {:ok, id} <- Ecto.UUID.cast(id),
          %GraphRevision{} <- Repo.get(GraphRevision, id) do
@@ -92,6 +116,7 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def set_favorite(_id, _favorite), do: {:error, :invalid_graph}
 
+  @spec replace(Ecto.UUID.t(), map()) :: result(%{graph: Graph.t()})
   def replace(id, attrs) when is_binary(id) and is_map(attrs) do
     with {:ok, id} <- Ecto.UUID.cast(id),
          {:ok, base_revision_id} <- base_revision_id(attrs),
@@ -102,6 +127,7 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def replace(_id, _attrs), do: {:error, :invalid_graph}
 
+  @spec replace(SaveGraphContract.t()) :: result(%{graph: Graph.t()})
   def replace(%SaveGraphContract{} = request) do
     case SaveGraphContract.to_replace_attrs(request) do
       {:ok, %{id: id, base_revision_id: base_revision_id, attrs: attrs}} ->
@@ -112,8 +138,11 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
+  @spec append_optimization(Graph.t()) :: result(Graph.t())
   def append_optimization(%Graph{} = graph), do: append(graph, :optimization)
 
+  @spec append_optimization(Graph.t(), append_callback(term())) ::
+          result(term())
   def append_optimization(%Graph{} = graph, after_append) when is_function(after_append, 1),
     do: append(graph, :optimization, after_append)
 
@@ -127,8 +156,15 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   defp append_and_after(graph_id, parent_revision_id, candidate, kind, after_append) do
-    with {:ok, persisted} <- append_from_graph(graph_id, parent_revision_id, candidate, kind) do
-      after_append.(persisted)
+    case append_from_graph(graph_id, parent_revision_id, candidate, kind) do
+      {:ok, persisted} ->
+        case after_append.(persisted) do
+          {:ok, _value} = result -> result
+          {:error, _reason} -> {:error, :internal_error}
+        end
+
+      {:error, _reason} = error ->
+        error
     end
   end
 
@@ -149,7 +185,7 @@ defmodule NetworkDefense.Graph.Graphs do
          {:ok, graph} <- hydrate_revision(revision, %Graph{id: graph.id}) do
       {:ok, graph}
     else
-      {:error, %Changeset{} = changeset} -> {:error, {:graph, changeset}}
+      {:error, %Changeset{}} -> {:error, :internal_error}
       {:error, _reason} = error -> error
     end
   end
@@ -173,9 +209,13 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   defp insert_initial_graph(graph) do
-    case Repo.insert(%Graph{id: graph.id}) do
+    %Graph{id: graph.id}
+    |> Changeset.change()
+    |> Changeset.unique_constraint(:id, name: :graphs_pkey)
+    |> Repo.insert()
+    |> case do
       {:ok, _graph} -> append_revision(graph, :initial, nil)
-      {:error, changeset} -> {:error, {:graph, changeset}}
+      {:error, _changeset} -> {:error, :internal_error}
     end
   end
 
@@ -272,7 +312,7 @@ defmodule NetworkDefense.Graph.Graphs do
            |> Changeset.apply_action(:update) do
       Graph.hydrate(graph, nodes, edges)
     else
-      {:error, %Changeset{} = changeset} -> {:error, {:graph, changeset}}
+      {:error, %Changeset{}} -> {:error, :invalid_graph}
       {:error, _reason} = error -> error
       :error -> {:error, :invalid_graph}
     end

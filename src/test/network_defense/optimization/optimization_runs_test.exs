@@ -89,7 +89,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
                )
                |> OptimizationRuns.create()
 
-      assert {:error, %Ecto.Changeset{}} =
+      assert {:error, :internal_error} =
                Graphs.append_optimization(graph, fn persisted ->
                  OptimizationRuns.complete(run, %{
                    actions: [%{action_type: "RevokeCredential"}],
