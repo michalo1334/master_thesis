@@ -36,6 +36,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "nodes: Node[];"
     assert output =~ "graph?: GraphContract | null;"
     assert output =~ "export interface RunSimulationRequest"
+    assert output =~ "export type ErrorCode ="
+    assert output =~ "code: ErrorCode;"
     assert output =~ "correlation_id: string;"
     assert output =~ "status: \"accepted\" | \"rejected\";"
     assert output =~ "export interface SimulationCompletedEvent"

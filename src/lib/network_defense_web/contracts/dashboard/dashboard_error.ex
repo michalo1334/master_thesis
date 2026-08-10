@@ -6,8 +6,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.DashboardError do
   alias NetworkDefense.Errors
 
   @enum_values code: Errors.codes()
+  @enum_type_aliases %{code: "ErrorCode"}
 
-  def contract_meta, do: %{enum_values: @enum_values}
+  def contract_meta,
+    do: %{enum_values: @enum_values, enum_type_aliases: @enum_type_aliases}
 
   embedded_schema do
     field :code, :string

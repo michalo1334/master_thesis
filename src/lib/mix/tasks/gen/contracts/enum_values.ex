@@ -6,9 +6,11 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
 
   @impl true
   def render(%{metadata: %{enum_values: values}} = context) do
+    aliases = Map.get(context.metadata, :enum_type_aliases, %{})
+
     overrides =
       Map.new(values, fn {field, atoms} ->
-        {field, enum_type(field, atoms)}
+        {field, Map.get(aliases, field) || enum_type(field, atoms)}
       end)
 
     {:emit, Renderer.interface(context.ts_name, context.fields, overrides)}

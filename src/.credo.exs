@@ -41,7 +41,7 @@
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
       #
-      requires: [],
+      requires: ["lib/network_defense/credo/error_codes_match_type.ex"],
       #
       # If you want to enforce a style guide and need a more traditional linting
       # experience, you can change `strict` to `true` below:
@@ -72,6 +72,7 @@
             #
             {Credo.Check.Consistency.ExceptionNames, []},
             {Credo.Check.Consistency.LineEndings, []},
+            {NetworkDefense.Credo.ErrorCodesMatchType, []},
             {Credo.Check.Consistency.ParameterPatternMatching, []},
             {Credo.Check.Consistency.SpaceAroundOperators, []},
             {Credo.Check.Consistency.SpaceInParentheses, []},

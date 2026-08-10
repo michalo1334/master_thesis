@@ -1,6 +1,6 @@
-import type { DashboardError } from "./contract";
+import type { ErrorCode } from "./contract";
 
-const messages: Record<DashboardError["code"], string> = {
+const messages: Record<ErrorCode, string> = {
   not_found: "The requested item was not found.",
   invalid_graph: "The graph is invalid.",
   invalid_base_revision: "The selected base graph revision is invalid.",
@@ -24,6 +24,6 @@ const messages: Record<DashboardError["code"], string> = {
   invalid_request: "The request is invalid.",
 };
 
-export function formatDashboardErrorCode(code: DashboardError["code"]): string {
+export function formatDashboardErrorCode(code: ErrorCode): string {
   return messages[code] ?? messages.internal_error;
 }
