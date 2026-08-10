@@ -9,6 +9,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Run
 
@@ -48,7 +49,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   def generate(%Experiment{} = experiment) do
     runs = experiment.runs
     final_counts = final_foothold_counts(runs)
-    stats = blast_radius_stats(final_counts)
+    blast_radius_stats = summary_stats(final_counts)
+    final_mission_impacts = final_mission_impacts(runs, experiment.graph)
+    mission_impact_stats = summary_stats(final_mission_impacts)
 
     operational_flows =
       experiment.graph
@@ -65,13 +68,14 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       run_count: length(runs),
       iteration_count: experiment.iteration_count,
       total_runtime_ms: experiment.runtime_ms,
-      summary: summary(stats, experiment.graph),
+      summary: summary(blast_radius_stats, mission_impact_stats, experiment.graph),
       charts: %Charts{
         histogram: histogram_buckets(final_counts),
         cdf: cdf_series(Enum.sort(final_counts)),
         convergence: convergence_series(final_counts),
         action_success: action_successes(runs),
         host_compromise: host_compromise_probabilities(runs, experiment.graph),
+        capability_impact: capability_impact_probabilities(runs, experiment.graph),
         edge_traversal: edge_traversal_probabilities(runs, experiment.graph, operational_flows)
       }
     }
@@ -83,7 +87,16 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     Enum.map(runs, &SimulationObjective.final_foothold_count/1)
   end
 
-  defp blast_radius_stats(counts) do
+  defp final_mission_impacts(runs, graph) do
+    Enum.map(runs, fn run ->
+      run
+      |> Run.current_attacker_state()
+      |> AttackerState.foothold_nodes()
+      |> then(&MissionImpact.final(graph, &1))
+    end)
+  end
+
+  defp summary_stats(counts) do
     sorted = Enum.sort(counts)
     n = length(sorted)
 
@@ -110,15 +123,22 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     Enum.at(sorted, idx)
   end
 
-  defp summary(stats, graph) do
+  defp summary(blast_radius_stats, mission_impact_stats, graph) do
     %{
-      expected_blast_radius: stats.mean,
-      median_blast_radius: stats.median,
-      blast_radius_p95: stats.p95,
-      blast_radius_p99: stats.p99,
-      min_blast_radius: stats.min,
-      max_blast_radius: stats.max,
-      blast_radius_variance: stats.variance,
+      expected_blast_radius: blast_radius_stats.mean,
+      median_blast_radius: blast_radius_stats.median,
+      blast_radius_p95: blast_radius_stats.p95,
+      blast_radius_p99: blast_radius_stats.p99,
+      min_blast_radius: blast_radius_stats.min,
+      max_blast_radius: blast_radius_stats.max,
+      blast_radius_variance: blast_radius_stats.variance,
+      expected_mission_impact: mission_impact_stats.mean,
+      median_mission_impact: mission_impact_stats.median,
+      mission_impact_p95: mission_impact_stats.p95,
+      mission_impact_p99: mission_impact_stats.p99,
+      min_mission_impact: mission_impact_stats.min,
+      max_mission_impact: mission_impact_stats.max,
+      mission_impact_variance: mission_impact_stats.variance,
       host_count: total_host_count(graph)
     }
   end
@@ -229,6 +249,29 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       end,
       :host_id,
       :compromise_probability
+    )
+  end
+
+  defp capability_impact_probabilities(runs, %Graph{} = graph) do
+    capability_ids =
+      graph
+      |> Graph.nodes()
+      |> Enum.filter(&match?(%{type: NetworkDefense.Nodes.MissionCapability}, &1))
+      |> Enum.map(& &1.id)
+
+    probabilities_for_runs(
+      capability_ids,
+      runs,
+      fn run ->
+        run
+        |> Run.current_attacker_state()
+        |> AttackerState.foothold_nodes()
+        |> then(&MissionImpact.capability_statuses(graph, &1))
+        |> Enum.filter(& &1.down?)
+        |> Enum.map(& &1.capability_id)
+      end,
+      :capability_id,
+      :down_probability
     )
   end
 

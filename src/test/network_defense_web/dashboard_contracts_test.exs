@@ -404,6 +404,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     report = %{
       strategy: "cvss",
+      objective: "blast_radius",
       requested_budget: 2,
       used_budget: 1,
       runtime_ms: 12,
@@ -425,6 +426,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       graph: graph,
       graph_revision_id: run.graph_revision_id,
       strategy: report.strategy,
+      objective: report.objective,
       requested_budget: report.requested_budget,
       used_budget: report.used_budget,
       runtime_ms: report.runtime_ms,
@@ -440,6 +442,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              graph_revision_id: @parent_graph_id,
              report: %{
                strategy: "cvss",
+               objective: "blast_radius",
                used_budget: 1,
                actions: [%{id: "target-1", label: "Patch CVE-1", cvss_score: 7.5, cost: 1}]
              }

@@ -6,8 +6,16 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
-  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs, SegmentReachability}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
+
+  alias NetworkDefense.Relationships.{
+    Contains,
+    NetworkReachability,
+    Runs,
+    SegmentReachability,
+    Supports
+  }
+
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.SimulationReport
@@ -69,6 +77,64 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
              experiment([run("source-host")], graph)
              |> SimulationReport.generate()
              |> FetchSimulationReportReply.from_domain()
+  end
+
+  test "reports and serializes final mission impact and capability disruption probabilities" do
+    graph = Graph.new("Test graph")
+    primary = node(Ecto.UUID.generate(), Host, %{"name" => "primary"}, graph.id)
+    replica = node(Ecto.UUID.generate(), Host, %{"name" => "replica"}, graph.id)
+
+    redundant =
+      node(
+        Ecto.UUID.generate(),
+        MissionCapability,
+        %{"name" => "Orders", "impact_weight" => 2.0, "min_operational_support" => 2},
+        graph.id
+      )
+
+    single =
+      node(
+        Ecto.UUID.generate(),
+        MissionCapability,
+        %{"name" => "Billing", "impact_weight" => 5.0, "min_operational_support" => 1},
+        graph.id
+      )
+
+    graph =
+      graph(
+        [primary, replica, redundant, single],
+        [
+          edge(Ecto.UUID.generate(), primary, redundant, Supports),
+          edge(Ecto.UUID.generate(), replica, redundant, Supports),
+          edge(Ecto.UUID.generate(), primary, single, Supports)
+        ],
+        graph.id
+      )
+      |> Map.put(:title, "Test graph")
+      |> Map.put(:revision_id, Ecto.UUID.generate())
+
+    report =
+      [run(primary.id), run(replica.id)]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    assert %{expected_mission_impact: 4.5, min_mission_impact: 2.0, max_mission_impact: 7.0} =
+             report.summary
+
+    assert report.charts.capability_impact == [
+             %{capability_id: redundant.id, down_probability: 1.0},
+             %{capability_id: single.id, down_probability: 0.5}
+           ]
+
+    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+
+    assert %{summary: %{expected_mission_impact: 4.5}, charts: %{capability_impact: impacts}} =
+             FetchSimulationReportReply.to_wire(reply)
+
+    assert impacts == [
+             %{capability_id: redundant.id, down_probability: 1.0},
+             %{capability_id: single.id, down_probability: 0.5}
+           ]
   end
 
   test "reports derived operational flows and their successful traversal by run" do

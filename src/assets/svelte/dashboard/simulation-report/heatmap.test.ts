@@ -5,6 +5,7 @@ import { simulationHeatmapAppearance } from "./heatmap";
 it("styles reported hosts and traversed edges from their probabilities", () => {
   const charts: SimulationReportCharts = {
     action_success: [],
+    capability_impact: [],
     cdf: [],
     convergence: [],
     edge_traversal: [{ edge_id: "edge-1", traversal_probability: 0.8 }],

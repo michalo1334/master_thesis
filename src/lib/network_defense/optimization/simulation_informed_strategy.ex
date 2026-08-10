@@ -12,6 +12,7 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
     :run_count,
     :iteration_count,
     :seed,
+    objective: :blast_radius,
     max_attempts: 1
   ]
 
@@ -21,6 +22,7 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           run_count: pos_integer(),
           iteration_count: pos_integer(),
           seed: non_neg_integer(),
+          objective: :blast_radius | :mission_impact,
           max_attempts: pos_integer()
         }
 
@@ -42,16 +44,17 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           []
 
         _ ->
-          baseline = SimulationObjective.expected_blast_radius(graph, strategy)
+          baseline = SimulationObjective.expected(graph, strategy, strategy.objective)
 
           # ponytail: evaluate every candidate directly; add pruning or parallelism only after profiling.
           candidates
           |> Enum.map(fn action ->
             reduction =
               baseline -
-                SimulationObjective.expected_blast_radius(
+                SimulationObjective.expected(
                   DefenseAction.apply(action, graph),
-                  strategy
+                  strategy,
+                  strategy.objective
                 )
 
             {action, reduction}

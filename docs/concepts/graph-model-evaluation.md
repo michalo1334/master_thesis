@@ -171,7 +171,7 @@ Partially adopted. The relationship now carries `required_privilege` and `grante
 
 ### Host
 
-The proposed `zone` attribute is superseded by segment containment: `network_segment` nodes with `contains` edges model zones, and `segment_reachability` policy expresses cross-zone rules. `Host` currently carries only `name`; a future `criticality` field (float, default 0.0) would serve as the placeholder that mission impact (Section 7) consumes.
+The proposed `zone` attribute is superseded by segment containment: `network_segment` nodes with `contains` edges model zones, and `segment_reachability` policy expresses cross-zone rules. Host data remains technical. Mission impact belongs to the explicit capability layer in Section 7, rather than a host criticality scalar.
 
 ### Service
 
@@ -259,159 +259,19 @@ The report needs a new comparison: "defender expected blast radius X vs ground t
 
 ---
 
-## 7. Extension Analysis: Mission Impact
+## 7. Mission Impact
 
-**Thesis claim tested:** "Propagation-aware optimization selects more effective controls than CVSS, centrality, random, and no-defense baselines" (claim 2), and "Combining preventive controls with prepared recovery capacity reduces cumulative mission loss and restoration time more effectively than prevention alone" (claim 3).
+Mission impact is implemented as a final-state capability dependency model. A `MissionCapability` carries a positive relative `impact_weight` and `min_operational_support` value. A `Supports` edge connects each supporting host to the capability.
 
-**Research question:** Does the optimizer select different (better) defenses when optimizing for mission loss instead of blast radius? Can the thesis demonstrate that a lower-severity vulnerability is the correct priority when it threatens a mission-critical dependency?
+If a capability has `n` supports and requires `k` operational supports, it is disrupted when fewer than `k` supporting hosts remain uncompromised. This covers all-required (`k = n`), one-sufficient (`k = 1`), and majority (`k = floor(n / 2) + 1`) configurations without ambiguous rule names.
 
-### Why It's the Differentiator
+The final mission impact of a run is the sum of disrupted capability weights. The model treats compromise as unavailable support. This is a declared worst-case scenario assumption, not a claim about real availability.
 
-Existing attack-graph hardening literature (Noel 2003, Wang 2006, Albanese 2012) optimizes to prevent compromise — minimizing the set of reachable hosts. None of them model what the organization actually cares about.
+Simulation reports retain blast-radius measures and add mission-impact statistics plus capability disruption probability. Simulation-informed and annealing strategies can select either expected blast radius or expected mission impact. CVSS and topology segmentation remain fixed baselines that generate defended graph revisions without claiming mission-aware selection.
 
-This is the contribution that distinguishes the thesis from 20 years of prior work:
-- Noel et al.: "Find the cheapest set of patches to prevent attacker from reaching critical asset X"
-- This thesis: "Given budget B, which defenses minimize expected mission disruption, accounting for the fact that not all compromised hosts are equally important?"
+The dashboard can run one browser-owned comparison sequence: simulate the source revision, optimize it, then simulate the resulting revision. All reports read persisted experiments; optimization does not create evaluation simulations.
 
-### New Types Required
-
-**Node: MissionCapability**
-
-A node with a name, description, `criticality_weight` (relative importance, default 1.0), and a `threshold_rule` selecting how many supporting hosts must fail before the capability is down:
-
-- `all` — the capability is down when any supporting host is compromised (no redundancy);
-- `any` — the capability is down only when all supporting hosts are compromised (full redundancy);
-- `majority` — the capability is down when more than half of the supporting hosts are compromised.
-
-**Edge: Supports**
-
-An edge from `Host` to `MissionCapability` (the host supports the capability) carrying a relative contribution `weight` (default 1.0).
-
-These require no database migration — JSONB columns handle new types dynamically.
-
-### Files to Create/Modify
-
-| Area | Files | Effort |
-|------|-------|--------|
-| Domain modules | `nodes/mission_capability.ex` (new), `relationships/supports.ex` (new) | 1h |
-| Registries | `nodes/registry.ex`, `relationships/registry.ex` — add entries | 15m |
-| Data contracts | `contracts/data/mission_capability_data.ex` (new), `contracts/data/supports_data.ex` (new) | 30m |
-| Type contracts | `contracts/node.ex`, `contracts/edge.ex` — add variants | 15m |
-| TypeScript | Auto-generated via `mix gen.contracts` | 5m |
-| Frontend palette | `presentation/nodes/MissionCapabilityNode.ts` (new), `presentation/edges/SupportsEdge.ts` (new) | 1h |
-| Frontend registry | `presentation/registry.ts` — add entries | 15m |
-| Frontend inspector | Inspector component for editing capability data | 2h |
-| **Subtotal (mechanical)** | | **~0.5 days** |
-
-### Simulation Changes
-
-The core change: after each action execution during simulation, compute which mission capabilities are "down" and track cumulative mission loss.
-
-**Current state tracking:**
-
-`AttackerState` tracks the set of foothold host IDs and the set of already attempted action keys.
-
-**New state tracking:**
-
-Two options. Option A extends `AttackerState` with a running cumulative mission loss and the set of currently down capability IDs — simpler, but mixes attack and mission concerns. Option B adds a parallel mission state holding cumulative loss, per-iteration loss, and a per-capability status (`operational` | `degraded` | `down`) — cleaner separation, at the cost of one more struct.
-
-Recommendation: Option A (extend AttackerState). The `AttackerState` is serialized to JSONB anyway. Adding two fields is low-risk. The concern about "mixing concerns" is theoretical — in practice, the simulator updates both sets of information at the same point in the loop. A separate struct adds indirection without benefit.
-
-**Per-iteration computation** (after an action executes):
-
-```text
-for each capability node in the graph:
-    supporting hosts = hosts connected by a Supports edge to the capability
-    compromised = number of supporting hosts that are attacker footholds
-    down = threshold rule satisfied:
-        all      -> compromised > 0
-        any      -> compromised == number of supporting hosts
-        majority -> compromised > number of supporting hosts / 2
-    if down:
-        add the capability's criticality weight to the cumulative mission loss
-        mark the capability as down
-return cumulative mission loss and the set of down capabilities
-```
-
-**Impact on reporting:**
-
-- `final_foothold_counts/1` → splits into `final_blast_radius/1` and `final_mission_loss/1`
-- New metrics: expected mission loss, mission loss p95, time-to-first-capability-down
-- New chart: capability-level breakdown (which capabilities were affected in what % of runs)
-- Existing blast radius metrics remain for comparison (are they correlated with mission loss?)
-
-| Simulation Component | Files | Effort |
-|---------------------|-------|--------|
-| Extend AttackerState | `attacker_state/attacker_state.ex` | 30m |
-| Mission loss computation | New module: `simulation/mission_loss.ex` | 2h |
-| Integrate into perform_iteration | `simulation/simulator.ex` | 1h |
-| Serialization type | `simulation/types/attacker_state.ex` — update | 1h |
-| Tests | `test/simulation/mission_loss_test.exs` | 3h |
-| **Subtotal** | | **~1.5 days** |
-
-### Report Changes
-
-Current `report.ex` (~300 lines):
-
-The report derives final foothold counts per run, computes blast-radius statistics, and emits summary KPIs plus histogram, CDF, convergence, per-action success, per-host compromise, and per-edge traversal charts.
-
-New `report.ex`:
-
-The report would add mission-loss statistics parallel to the blast-radius ones, a per-capability breakdown heatmap, and a blast-radius-versus-mission-loss scatter.
-
-| Report Component | Effort |
-|-----------------|--------|
-| `mission_loss_stats/1` (parallel to `blast_radius_stats/1`) | 1h |
-| Capability breakdown chart | 2h |
-| Blast radius vs mission loss comparison chart | 1h |
-| New contract for mission loss data in report reply | 1h |
-| **Subtotal** | **~0.5 days** |
-
-### Optimization Objective Change
-
-The optimizer's objective changes: candidate evaluation now ranks by expected mission loss instead of expected blast radius, optionally keeping blast radius as a secondary metric. The optimizer loop itself doesn't change structurally — it still generates candidate configurations and evaluates them via simulation. But:
-
-1. The simulation must now return mission loss as the primary output metric
-2. The optimizer needs a new `objective` field: `:blast_radius` or `:mission_loss`
-3. The "ranking by reduction per unit cost" now ranks by mission loss reduction, not blast radius reduction
-
-| Component | Effort |
-|-----------|--------|
-| Objective parameter on optimizer | 30m |
-| Report: both blast radius AND mission loss for each candidate | 1h |
-| **Subtotal** | **~0.25 days** |
-
-### Experiment Design (Non-Code Work)
-
-This is where the real time goes. You need synthetic scenarios where:
-
-1. CVSS says "patch host A (CVSS 9.8)" but mission impact says "patch host B (CVSS 4.3)" — and host B is the correct answer
-2. The optimizer correctly identifies host B when optimizing for mission loss but not when optimizing for blast radius
-3. Multiple capabilities with different redundancy configurations (all/any/majority) produce non-trivial trade-off surfaces
-
-At minimum, design 3-4 scenarios:
-
-| Scenario | Topology | Capabilities | Expected Result |
-|----------|----------|-------------|----------------|
-| Single critical dependency | DMZ web → internal app → database, one capability "Order Processing" depends on database | 1, threshold: any | CVSS patches web server, mission optimizer patches database |
-| Redundant with failover | Two app servers behind load balancer, capability depends on majority | 1, threshold: majority | Both strategies agree until one server falls, then diverge |
-| Multi-capability trade-off | Two capabilities share infrastructure, budget covers only one defense | 2, threshold: any + all | Optimizer must choose which capability to protect |
-| Mixed criticality | 20 hosts, 5 capabilities with varying weights, budget = 3 actions | 5, mixed thresholds | Show ranked defense actions with blast-radius vs mission-loss ranking |
-
-Effort: 2-3 days for scenario design + manual verification before automating.
-
-### Total Effort Estimate
-
-| Phase | Time |
-|-------|------|
-| New node/edge types + contracts + frontend | 0.5 days |
-| Simulation changes (mission loss computation) | 1.5 days |
-| Report changes (new metrics + charts) | 0.5 days |
-| Optimization objective change | 0.25 days |
-| Experiment scenario design | 2-3 days |
-| **Total** | **~5-7 days** |
-
----
+Deferred work: time, detection, recovery, capacity, weighted support contributions, capability-to-capability dependencies, and cumulative loss. Those require explicit operational semantics not present in the current attack model.
 
 ## 8. Implementation Dependency Order
 
@@ -419,7 +279,7 @@ Effort: 2-3 days for scenario design + manual verification before automating.
 flowchart TD
     A[Segment policy + edge data<br/>implemented] --> C[Optimizer end-to-end]
     C --> D[Incomplete graph<br/>Section 6 — 3 days]
-    C --> E[Mission impact<br/>Section 7 — 7 days]
+    C --> E[Mission impact<br/>Section 7 — implemented]
     D --> F[Combined experiment:<br/>incomplete knowledge<br/>+ mission dependencies]
     E --> F
 
@@ -428,11 +288,11 @@ flowchart TD
     style E fill:#99ccff,stroke:#333
 ```
 
-The critical path is the optimizer. The end-to-end optimization loop now exists (`src/lib/network_defense/optimization/`, `src/lib/network_defense/defense_actions/`); its policies are segment-based, and `SimulationObjective` materializes each candidate before scoring.
+The optimizer and mission-impact extension are implemented. Future combined experiments may evaluate incomplete-graph behavior together with mission dependencies.
 
 Remaining work:
 1. Incomplete graph (Section 6) — lower risk, architecture fits
-2. Mission impact (Section 7) — thesis differentiator, higher risk
+2. Combined experiment scenarios — evaluate incomplete graph assumptions and mission dependencies
 
 ---
 
@@ -459,4 +319,4 @@ Items that would be scope creep without a corresponding research claim:
 | Edge data fields (Section 4) | High | 0.5 days | None | Done — SegmentReachability owns protocol/port range |
 | Credential lateral movement (Section 5) | Medium | 1 day | None | Done — credential node with StoresCredential/AuthenticatesTo |
 | Incomplete graph (Section 6) | Medium | 3 days | Low | Do after optimizer works |
-| Mission impact (Section 7) | Medium | 7 days | Medium | Do last — thesis differentiator |
+| Mission impact (Section 7) | Implemented | n/a | Model assumptions documented | Evaluate with controlled scenarios |

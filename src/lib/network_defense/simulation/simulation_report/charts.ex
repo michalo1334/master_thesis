@@ -7,6 +7,7 @@ defmodule NetworkDefense.Simulation.SimulationReport.Charts do
           convergence: [map()],
           action_success: [map()],
           host_compromise: [map()],
+          capability_impact: [map()],
           edge_traversal: [map()]
         }
 
@@ -15,5 +16,6 @@ defmodule NetworkDefense.Simulation.SimulationReport.Charts do
             convergence: [],
             action_success: [],
             host_compromise: [],
+            capability_impact: [],
             edge_traversal: []
 end

@@ -339,20 +339,25 @@ describe("EditableGraphDocument", () => {
 
       await doc.startOptimization(
         api,
-        { strategy: "cvss", budget: 3 },
+        { strategy: "cvss", budget: 3, objective: "blast_radius" },
         "corr-1",
       );
 
       expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", {
         strategy: "cvss",
         budget: 3,
+        objective: "blast_radius",
       });
     });
 
     it("does not call the API for an unloaded graph", async () => {
       const api = { runOptimization: vi.fn() } as unknown as DashboardApi;
 
-      await doc.startOptimization(api, { strategy: "cvss", budget: 3 });
+      await doc.startOptimization(api, {
+        strategy: "cvss",
+        budget: 3,
+        objective: "blast_radius",
+      });
 
       expect(api.runOptimization).not.toHaveBeenCalled();
     });

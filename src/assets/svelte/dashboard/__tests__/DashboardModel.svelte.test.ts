@@ -67,11 +67,13 @@ describe("DashboardModel", () => {
       status: "ok",
       graph: graph({ revision_id: "r2" }),
     });
-    vi.mocked(dashboardApi.runSimulation).mockResolvedValue({
-      status: "accepted",
-      graph_revision_id: "r2",
-      correlation_id: "simulation-1",
-    });
+    vi.mocked(dashboardApi.runSimulation).mockImplementation(
+      async (graphRevisionId, correlationId) => ({
+        status: "accepted",
+        graph_revision_id: graphRevisionId,
+        correlation_id: correlationId,
+      }),
+    );
 
     await model.runActiveSimulation();
 
@@ -101,6 +103,66 @@ describe("DashboardModel", () => {
     );
   });
 
+  it("creates the pending simulation report before synchronous terminal events", async () => {
+    vi.mocked(dashboardApi.runSimulation).mockImplementation(
+      async (graphRevisionId, correlationId) => {
+        const report = model.workspace.documents.find(
+          (document) =>
+            document.kind === "simulation-report" &&
+            document.correlationId === correlationId,
+        );
+        expect(report).toBeDefined();
+
+        model.onSimulationCompleted({
+          correlation_id: correlationId,
+          graph_id: "g1",
+          graph_revision_id: graphRevisionId,
+          experiment_id: "experiment-1",
+        });
+        return {
+          status: "accepted",
+          graph_revision_id: graphRevisionId,
+          correlation_id: correlationId,
+        };
+      },
+    );
+
+    await model.runActiveSimulation();
+
+    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
+      "experiment-1",
+      "r1",
+    );
+  });
+
+  it("routes a synchronous simulation failure to the pending report", async () => {
+    vi.mocked(dashboardApi.runSimulation).mockImplementation(
+      async (graphRevisionId, correlationId) => {
+        model.onSimulationFailed({
+          correlation_id: correlationId,
+          graph_id: "g1",
+          graph_revision_id: graphRevisionId,
+          reason: "worker_failed",
+        });
+        return {
+          status: "accepted",
+          graph_revision_id: graphRevisionId,
+          correlation_id: correlationId,
+        };
+      },
+    );
+
+    await model.runActiveSimulation();
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "simulation-report",
+    );
+    expect(report).toMatchObject({
+      status: "error",
+      errorReason: "worker_failed",
+    });
+  });
+
   it("routes simulation events by persisted revision ID", () => {
     const report = model.workspace.createPendingReport({
       graphId: "g1",
@@ -121,6 +183,57 @@ describe("DashboardModel", () => {
       "r1",
     );
     expect(report.status).toBe("loading");
+  });
+
+  it("forwards lifecycle events to compound analysis without a matching report", () => {
+    const onSimulationCompleted = vi.spyOn(
+      model.analysis,
+      "onSimulationCompleted",
+    );
+    const onSimulationFailed = vi.spyOn(model.analysis, "onSimulationFailed");
+    const onOptimizationCompleted = vi.spyOn(
+      model.analysis,
+      "onOptimizationCompleted",
+    );
+    const onOptimizationFailed = vi.spyOn(
+      model.analysis,
+      "onOptimizationFailed",
+    );
+    const simulationCompleted = {
+      correlation_id: "simulation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      experiment_id: "experiment-1",
+    };
+    const simulationFailed = {
+      correlation_id: "simulation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      reason: "failed",
+    };
+    const optimizationCompleted = {
+      correlation_id: "optimization-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      optimization_id: "optimization-1",
+      output_graph_revision_id: "r2",
+    };
+    const optimizationFailed = {
+      correlation_id: "optimization-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      reason: "failed",
+    };
+
+    model.onSimulationCompleted(simulationCompleted);
+    model.onSimulationFailed(simulationFailed);
+    model.onOptimizationCompleted(optimizationCompleted);
+    model.onOptimizationFailed(optimizationFailed);
+
+    expect(onSimulationCompleted).toHaveBeenCalledWith(simulationCompleted);
+    expect(onSimulationFailed).toHaveBeenCalledWith(simulationFailed);
+    expect(onOptimizationCompleted).toHaveBeenCalledWith(optimizationCompleted);
+    expect(onOptimizationFailed).toHaveBeenCalledWith(optimizationFailed);
   });
 
   it("uses the source and optimized revisions for optimization reports", async () => {
@@ -180,6 +293,7 @@ describe("DashboardModel", () => {
       graph_revision_id: "r1",
       report: {
         strategy: "cvss",
+        objective: "blast_radius",
         requested_budget: 1,
         used_budget: 1,
         runtime_ms: 1,

@@ -131,6 +131,7 @@
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
     footholdHosts={wm.activeFootholdHosts}
+    analysisRunning={model.analysis.isRunning}
   />
 
   {#snippet inspector()}

@@ -20,7 +20,15 @@ vi.stubGlobal(
 
 afterEach(cleanup);
 
-function renderDialog() {
+function renderDialog({
+  includeOptimization = false,
+  selectedStrategies = [],
+  dialogStatusMessage = "",
+}: {
+  includeOptimization?: boolean;
+  selectedStrategies?: string[];
+  dialogStatusMessage?: string;
+} = {}) {
   const openTargetPicker = vi.fn();
   const run = vi.fn().mockResolvedValue(true);
   const closeDialog = vi.fn();
@@ -30,13 +38,14 @@ function renderDialog() {
     targetGraph: undefined,
     targetLabel: "Choose graph",
     includeSimulation: true,
-    includeOptimization: false,
-    selectedStrategies: [],
+    includeOptimization,
+    selectedStrategies,
     isLoadingTarget: false,
     isRunning: false,
     statusMessage: "",
+    dialogStatusMessage,
     targetFootholdHosts: [],
-    runnableStrategies: [],
+    runnableStrategies: selectedStrategies,
     needsSimulationSettings: false,
     needsFoothold: false,
     canRun: true,
@@ -65,6 +74,7 @@ function renderDialog() {
       optimizationParams: {
         budget: 1,
         strategy: "cvss",
+        objective: "blast_radius",
         simulation_params: {
           initial_foothold_node_id: "",
           monte_carlo_trials: 1000,
@@ -96,7 +106,12 @@ function renderDialog() {
     },
   });
 
-  return { closeDialog, openTargetPicker, run };
+  return {
+    closeDialog,
+    onOptimizationParamsChange: model.workspace.onOptimizationParamsChange,
+    openTargetPicker,
+    run,
+  };
 }
 
 describe("AnalysisDialog", () => {
@@ -120,5 +135,38 @@ describe("AnalysisDialog", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(closeDialog).toHaveBeenCalledOnce();
+  });
+
+  it("shows and updates the objective for mission-aware strategies", async () => {
+    const { onOptimizationParamsChange } = renderDialog({
+      includeOptimization: true,
+      selectedStrategies: ["simulation_informed"],
+    });
+
+    await fireEvent.change(
+      screen.getByRole("combobox", { name: "Objective" }),
+      {
+        target: { value: "mission_impact" },
+      },
+    );
+
+    expect(onOptimizationParamsChange).toHaveBeenCalledWith({
+      objective: "mission_impact",
+    });
+  });
+
+  it("shows compound strategy validation", () => {
+    renderDialog({
+      includeOptimization: true,
+      selectedStrategies: ["cvss", "simulation_informed"],
+      dialogStatusMessage:
+        "Select exactly one runnable optimization strategy for the compound sequence.",
+    });
+
+    expect(
+      screen.getByText(
+        "Select exactly one runnable optimization strategy for the compound sequence.",
+      ),
+    ).toBeInTheDocument();
   });
 });

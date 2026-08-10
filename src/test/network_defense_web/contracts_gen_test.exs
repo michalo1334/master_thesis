@@ -8,29 +8,25 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   test "renders contract types from typespecs and metadata" do
     output = Registry.render_all()
 
-    assert output =~
-             """
-             export type Node =
-               | HostNode
-               | ServiceNode
-               | VulnerabilityNode
-               | CredentialNode
-               | NetworkSegmentNode;
-             """
+    assert output =~ "export type Node ="
+    assert output =~ "  | HostNode"
+    assert output =~ "  | ServiceNode"
+    assert output =~ "  | VulnerabilityNode"
+    assert output =~ "  | CredentialNode"
+    assert output =~ "  | NetworkSegmentNode"
+    assert output =~ "  | MissionCapabilityNode;"
 
     assert output =~ "type: \"Host\";"
     assert output =~ "data: HostData;"
 
-    assert output =~
-             """
-             export type Edge =
-               | RunsEdge
-               | SegmentReachabilityEdge
-               | HasVulnerabilityEdge
-               | StoresCredentialEdge
-               | AuthenticatesToEdge
-               | ContainsEdge;
-             """
+    assert output =~ "export type Edge ="
+    assert output =~ "  | RunsEdge"
+    assert output =~ "  | SegmentReachabilityEdge"
+    assert output =~ "  | HasVulnerabilityEdge"
+    assert output =~ "  | StoresCredentialEdge"
+    assert output =~ "  | AuthenticatesToEdge"
+    assert output =~ "  | ContainsEdge"
+    assert output =~ "  | SupportsEdge;"
 
     refute output =~ "NetworkReachability"
 
@@ -100,7 +96,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
                NetworkDefense.Graph.Contracts.Data.ServiceData,
                NetworkDefense.Graph.Contracts.Data.VulnerabilityData,
                NetworkDefense.Graph.Contracts.Data.CredentialData,
-               NetworkDefense.Graph.Contracts.Data.NetworkSegmentData
+               NetworkDefense.Graph.Contracts.Data.NetworkSegmentData,
+               NetworkDefense.Graph.Contracts.Data.MissionCapabilityData
              ])
   end
 

@@ -74,3 +74,21 @@ it("renders structural flows behind nodes and clears canvas selection on click",
   expect(onSelectEdge).not.toHaveBeenCalled();
   expect(onClearSelection).toHaveBeenCalledOnce();
 });
+
+it("offers MissionCapability in the editable node menu", async () => {
+  render(Canvas, {
+    props: {
+      graph,
+      onAddNode: vi.fn(),
+    },
+  });
+
+  await fireEvent.contextMenu(screen.getByRole("application"));
+  const add = screen.getByRole("menuitem", { name: "Add" });
+  await fireEvent.pointerEnter(add);
+  await fireEvent.keyDown(add, { key: "ArrowRight" });
+
+  expect(
+    await screen.findByRole("menuitem", { name: "MissionCapability" }),
+  ).toBeInTheDocument();
+});

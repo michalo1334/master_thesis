@@ -6,6 +6,7 @@ defmodule NetworkDefense.Relationships.Registry do
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Relationships.StoresCredential
+  alias NetworkDefense.Relationships.Supports
   alias NetworkDefense.Registry
 
   @moduledoc """
@@ -25,7 +26,8 @@ defmodule NetworkDefense.Relationships.Registry do
     HasVulnerability,
     StoresCredential,
     AuthenticatesTo,
-    Contains
+    Contains,
+    Supports
   ]
 
   @canonical_types [
@@ -34,7 +36,8 @@ defmodule NetworkDefense.Relationships.Registry do
     HasVulnerability,
     StoresCredential,
     AuthenticatesTo,
-    Contains
+    Contains,
+    Supports
   ]
 
   def module_for(type), do: Registry.module_for(@types, type)

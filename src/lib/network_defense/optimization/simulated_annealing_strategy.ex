@@ -13,6 +13,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     :run_count,
     :iteration_count,
     :seed,
+    objective: :blast_radius,
     max_attempts: 1
   ]
 
@@ -22,6 +23,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
           run_count: pos_integer(),
           iteration_count: pos_integer(),
           seed: non_neg_integer(),
+          objective: :blast_radius | :mission_impact,
           max_attempts: pos_integer()
         }
 
@@ -154,7 +156,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     defp score(graph, plan, strategy) do
       plan
       |> Enum.reduce(graph, &DefenseAction.apply(&1, &2))
-      |> SimulationObjective.expected_blast_radius(strategy)
+      |> SimulationObjective.expected(strategy, strategy.objective)
     end
   end
 end

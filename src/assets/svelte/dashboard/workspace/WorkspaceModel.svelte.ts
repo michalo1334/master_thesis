@@ -57,6 +57,7 @@ export class WorkspaceModel {
   >({
     strategy: "cvss",
     budget: 1,
+    objective: "blast_radius",
     simulation_params: {
       initial_foothold_node_id: "",
       monte_carlo_trials: 1000,
@@ -549,6 +550,13 @@ export class WorkspaceModel {
         document.correlationId === correlationId &&
         document.graphId === graphId,
     ) as OptimizationReportDocument | undefined;
+  }
+
+  markReportReadState(
+    report: SimulationReportDocument | OptimizationReportDocument,
+  ): void {
+    if (this.selectedDocumentId === report.id) report.markRead();
+    else report.markUnread();
   }
 
   onForceParamsChange(change: Partial<ForceParams>): void {

@@ -19,6 +19,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
     embeds_many :host_compromise, NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise,
       on_replace: :delete
 
+    embeds_many :capability_impact,
+                NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityImpact,
+                on_replace: :delete
+
     embeds_many :edge_traversal, NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal,
       on_replace: :delete
   end
@@ -29,6 +33,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
           convergence: [NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint.t()],
           action_success: [NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess.t()],
           host_compromise: [NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise.t()],
+          capability_impact: [
+            NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityImpact.t()
+          ],
           edge_traversal: [NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal.t()]
         }
 
@@ -40,6 +47,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
     |> cast_embed(:convergence)
     |> cast_embed(:action_success)
     |> cast_embed(:host_compromise)
+    |> cast_embed(:capability_impact)
     |> cast_embed(:edge_traversal)
   end
 end

@@ -65,6 +65,7 @@ function renderRibbon({
       optimizationParams: {
         budget: 1,
         strategy: activeOptimizationId,
+        objective: "blast_radius",
         simulation_params: simulationParams,
       },
       onOptimizationParamsChange,
@@ -163,6 +164,9 @@ describe("DashboardRibbon", () => {
       expect(
         screen.getByRole("spinbutton", { name: "Maximum attempts" }),
       ).toBeInTheDocument();
+      expect(
+        screen.getByRole("combobox", { name: "Objective" }),
+      ).toBeInTheDocument();
     },
   );
 
@@ -184,6 +188,9 @@ describe("DashboardRibbon", () => {
     expect(
       screen.queryByRole("spinbutton", { name: "Maximum attempts" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Objective" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows no strategy-specific settings for CVSS", async () => {
@@ -199,6 +206,25 @@ describe("DashboardRibbon", () => {
     expect(
       screen.queryByRole("combobox", { name: "Initial foothold" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Objective" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("updates the optimization objective", async () => {
+    const { onOptimizationParamsChange } = renderRibbon();
+    await openOptimizationTab();
+
+    await fireEvent.change(
+      screen.getByRole("combobox", { name: "Objective" }),
+      {
+        target: { value: "mission_impact" },
+      },
+    );
+
+    expect(onOptimizationParamsChange).toHaveBeenCalledWith({
+      objective: "mission_impact",
+    });
   });
 
   it("keeps non-CVSS optimization disabled without a foothold", async () => {

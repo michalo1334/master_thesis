@@ -12,7 +12,7 @@ The project covers the following areas:
 
 * **Master's thesis** — graph-based attack-propagation simulation and evaluation of automated defense strategies for reducing the impact of network attacks.
 * **Self-development security project** — demonstration of self-hosted infrastructure represented alongside synthetic network components, including vulnerability modeling and the application of patches and network controls.
-* **Future extension for the `Konkurs imienia Mariana Rejewskiego`** — extension of blast-radius evaluation with asset-specific impact weights, allowing compromised hosts to contribute differently to the total attack impact. See `docs/initial/konkurs_rejewski_top_rozszerzenia_pracy.md`.
+* **Mission-impact extension** — evaluates disruption of weighted mission capabilities with declared technical dependencies and redundancy thresholds.
 
 # Master's thesis
 
@@ -53,7 +53,7 @@ Evaluation metrics may include:
 * expected blast radius;
 * median and upper-percentile blast radius;
 * blast-radius variance;
-* probability of compromising critical assets;
+* probability of disrupting each mission capability;
 * expected blast-radius reduction;
 * blast-radius reduction per unit of defensive cost, after non-unit costs are modeled;
 * simulation and optimization runtime;

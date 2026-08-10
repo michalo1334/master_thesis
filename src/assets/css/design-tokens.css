@@ -29,6 +29,7 @@
   --ds-color-node-host: #3b82f6;
   --ds-color-node-service: #22c55e;
   --ds-color-node-vulnerability: #ef4444;
+  --ds-color-node-mission-capability: #7c3aed;
   --ds-color-edge-runs: #64748b;
   --ds-color-edge-segment-reachability: #f59e0b;
   --ds-color-edge-vulnerability: #ef4444;
@@ -100,6 +101,7 @@
   --ds-color-node-host: #3b82f6;
   --ds-color-node-service: #22a84e;
   --ds-color-node-vulnerability: #e0453b;
+  --ds-color-node-mission-capability: #7650b8;
   --ds-color-edge-runs: #64748b;
   --ds-color-edge-segment-reachability: #e0950a;
   --ds-color-edge-vulnerability: #e0453b;
@@ -140,6 +142,7 @@
   --ds-color-node-host: #61a5ff;
   --ds-color-node-service: #5ea67a;
   --ds-color-node-vulnerability: #ff8076;
+  --ds-color-node-mission-capability: #a78bfa;
   --ds-color-edge-runs: #9ba8b8;
   --ds-color-edge-segment-reachability: #e0a945;
   --ds-color-edge-vulnerability: #ff8076;

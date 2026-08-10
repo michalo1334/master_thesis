@@ -1,7 +1,15 @@
 defmodule NetworkDefense.Graph.SemanticConnectivity do
   @moduledoc false
 
-  alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefense.Nodes.{
+    Credential,
+    Host,
+    MissionCapability,
+    NetworkSegment,
+    Service,
+    Vulnerability
+  }
+
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
 
   alias NetworkDefense.Relationships.{
@@ -11,7 +19,8 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     NetworkReachability,
     Runs,
     SegmentReachability,
-    StoresCredential
+    StoresCredential,
+    Supports
   }
 
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
@@ -23,7 +32,8 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     HasVulnerability => [{Host, Vulnerability}, {Service, Vulnerability}],
     StoresCredential => [{Host, Credential}],
     AuthenticatesTo => [{Credential, Service}],
-    Contains => [{NetworkSegment, Host}]
+    Contains => [{NetworkSegment, Host}],
+    Supports => [{Host, MissionCapability}]
   }
 
   @canonical_endpoints %{
@@ -32,7 +42,8 @@ defmodule NetworkDefense.Graph.SemanticConnectivity do
     HasVulnerability => [{Host, Vulnerability}, {Service, Vulnerability}],
     StoresCredential => [{Host, Credential}],
     AuthenticatesTo => [{Credential, Service}],
-    Contains => [{NetworkSegment, Host}]
+    Contains => [{NetworkSegment, Host}],
+    Supports => [{Host, MissionCapability}]
   }
 
   def valid?(relationship_type, from_type, to_type)

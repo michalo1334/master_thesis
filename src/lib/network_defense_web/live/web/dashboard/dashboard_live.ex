@@ -517,6 +517,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       graph_revision_id: run.graph_revision_id,
       graph_title: run.graph_revision.title,
       strategy: run.strategy,
+      objective: run.objective,
       requested_budget: run.requested_budget,
       used_budget: run.used_budget,
       runtime_ms: run.runtime_ms,

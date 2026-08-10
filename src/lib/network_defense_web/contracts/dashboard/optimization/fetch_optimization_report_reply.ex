@@ -39,6 +39,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply do
       report:
         Map.take(report, [
           :strategy,
+          :objective,
           :requested_budget,
           :used_budget,
           :runtime_ms,

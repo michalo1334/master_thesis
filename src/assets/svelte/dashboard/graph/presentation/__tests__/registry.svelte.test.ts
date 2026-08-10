@@ -8,6 +8,7 @@ const nodeTypes = [
   "Vulnerability",
   "Credential",
   "NetworkSegment",
+  "MissionCapability",
 ] as const;
 const edgeTypes = [
   "Runs",
@@ -16,6 +17,7 @@ const edgeTypes = [
   "StoresCredential",
   "AuthenticatesTo",
   "Contains",
+  "Supports",
 ] as const;
 
 describe("presentation registry", () => {

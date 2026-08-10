@@ -71,7 +71,7 @@ describe("DashboardApi", () => {
     const result = await createDashboardApi(live).runOptimization(
       "r1",
       "corr-1",
-      { strategy: "cvss", budget: 3 },
+      { strategy: "cvss", budget: 3, objective: "blast_radius" },
     );
 
     expect(result).toEqual(reply);
@@ -81,7 +81,11 @@ describe("DashboardApi", () => {
         request: {
           graph_revision_id: "r1",
           correlation_id: "corr-1",
-          optimization_params: { strategy: "cvss", budget: 3 },
+          optimization_params: {
+            strategy: "cvss",
+            budget: 3,
+            objective: "blast_radius",
+          },
         },
       },
       expect.any(Function),

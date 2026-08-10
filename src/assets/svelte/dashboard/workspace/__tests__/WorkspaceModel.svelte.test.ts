@@ -66,6 +66,10 @@ describe("WorkspaceModel", () => {
       expect(model.activeDocument).toBeUndefined();
     });
 
+    it("defaults optimization to blast radius", () => {
+      expect(model.optimizationParams.objective).toBe("blast_radius");
+    });
+
     it("stores graph summaries", () => {
       const summaries = [makeGraphSummary({ revision_id: "a" })];
       const m = new WorkspaceModel(summaries);
@@ -231,6 +235,25 @@ describe("WorkspaceModel", () => {
       model.createGraphDocument();
       model.selectDocument(report.id);
 
+      expect(report.hasUnread).toBe(false);
+    });
+
+    it("marks background reports unread and selected reports read", () => {
+      const report = model.createPendingOptimizationReport({
+        graphId: "g1",
+        graphRevisionId: "r1",
+        graphTitle: "Test",
+        correlationId: "corr-optimization",
+        strategy: "cvss",
+        budget: 1,
+      });
+      model.createGraphDocument();
+
+      model.markReportReadState(report);
+      expect(report.hasUnread).toBe(true);
+
+      model.selectDocument(report.id);
+      model.markReportReadState(report);
       expect(report.hasUnread).toBe(false);
     });
   });

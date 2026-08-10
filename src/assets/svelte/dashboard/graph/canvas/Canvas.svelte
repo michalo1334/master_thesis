@@ -34,6 +34,7 @@
     "Vulnerability",
     "Credential",
     "NetworkSegment",
+    "MissionCapability",
   ] as const;
 
   interface Props {

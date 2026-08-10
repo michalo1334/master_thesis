@@ -2,11 +2,16 @@ import type { DashboardApi } from "../dashboard-api";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import type {
   LoadedGraph,
+  OptimizationCompletedEvent,
+  OptimizationFailedEvent,
   OptimizationParams,
   OptimizationStrategy,
+  SimulationCompletedEvent,
+  SimulationFailedEvent,
   SimulationParams,
 } from "../contract";
 import type { WorkspaceModel } from "../workspace/WorkspaceModel.svelte";
+import { AnalysisSequence, type AnalysisJob } from "./AnalysisSequence.svelte";
 
 export class AnalysisModel {
   open = $state(false);
@@ -17,13 +22,26 @@ export class AnalysisModel {
   includeOptimization = $state(false);
   selectedStrategies = $state<OptimizationStrategy[]>([]);
   isLoadingTarget = $state(false);
-  isRunning = $state(false);
+  private isSubmitting = $state(false);
   statusMessage = $state("");
+  sequence: AnalysisSequence;
 
   constructor(
     readonly api: DashboardApi,
     readonly workspace: WorkspaceModel,
-  ) {}
+  ) {
+    this.sequence = new AnalysisSequence({
+      startSimulation: (document, params, job) =>
+        this.startSequenceSimulation(document, params, job),
+      startOptimization: (document, params, job) =>
+        this.startSequenceOptimization(document, params, job),
+      loadOutputGraph: (revisionId) => this.loadSequenceOutputGraph(revisionId),
+    });
+  }
+
+  get isRunning(): boolean {
+    return this.isSubmitting || this.sequence.active;
+  }
 
   get targetFootholdHosts(): { id: string; name: string }[] {
     const graph = this.targetGraph;
@@ -65,14 +83,36 @@ export class AnalysisModel {
     return this.runnableStrategies.some((strategy) => strategy !== "cvss");
   }
 
+  get compoundValidationMessage(): string {
+    if (!this.includeSimulation || !this.includeOptimization) return "";
+    if (this.runnableStrategies.length === 0) {
+      return "Select one runnable optimization strategy for the compound sequence.";
+    }
+    if (this.runnableStrategies.length > 1) {
+      return "Select exactly one runnable optimization strategy for the compound sequence.";
+    }
+    return "";
+  }
+
+  get dialogStatusMessage(): string {
+    return (
+      this.compoundValidationMessage ||
+      this.sequence.statusMessage ||
+      this.statusMessage
+    );
+  }
+
   get canRun(): boolean {
+    const compound = this.includeSimulation && this.includeOptimization;
     return (
       !this.isLoadingTarget &&
       !this.isRunning &&
       !!this.targetGraph &&
       (!this.includeSimulation || this.targetFootholdHosts.length > 0) &&
-      (this.includeSimulation ||
-        (this.includeOptimization && this.runnableStrategies.length > 0))
+      (compound
+        ? this.runnableStrategies.length === 1
+        : this.includeSimulation ||
+          (this.includeOptimization && this.runnableStrategies.length > 0))
     );
   }
 
@@ -145,7 +185,7 @@ export class AnalysisModel {
     const target = await this.targetDocument();
     if (!target) return false;
 
-    this.isRunning = true;
+    this.isSubmitting = true;
     this.statusMessage = "";
     try {
       if (target.isDirty && !(await target.saveIfDirty(this.api))) {
@@ -157,6 +197,24 @@ export class AnalysisModel {
       const optimizationParams = $state.snapshot(
         this.workspace.optimizationParams,
       );
+      if (this.includeSimulation && this.includeOptimization) {
+        const [strategy] = this.runnableStrategies;
+        if (!strategy) return false;
+
+        const started = await this.sequence.start(target, simulationParams, {
+          ...optimizationParams,
+          strategy,
+        });
+        if (!started) {
+          this.statusMessage =
+            this.sequence.error || "Unable to start compound analysis.";
+          return false;
+        }
+
+        this.open = false;
+        return true;
+      }
+
       const tasks: Promise<boolean>[] = [];
       if (this.includeSimulation) {
         tasks.push(this.runSimulation(target, simulationParams));
@@ -178,26 +236,63 @@ export class AnalysisModel {
       this.open = false;
       return true;
     } finally {
-      this.isRunning = false;
+      this.isSubmitting = false;
     }
   }
 
   async runSimulation(
     document: EditableGraphDocument,
     params: SimulationParams,
+    job: AnalysisJob | undefined = undefined,
   ): Promise<boolean> {
+    if (this.sequence.active && !job) {
+      this.workspace.statusMessage = "Compound analysis is in progress.";
+      return false;
+    }
+
+    const expectedJob = job ?? this.createJob(document);
+    if (!expectedJob) return false;
+    const report = this.workspace.createPendingReport({
+      graphId: expectedJob.graphId,
+      graphRevisionId: expectedJob.graphRevisionId,
+      correlationId: expectedJob.correlationId,
+      graphTitle: document.title,
+    });
+
     try {
-      const result = await document.startSimulation(this.api, params);
-      if (!result) return false;
+      const result = await document.startSimulation(
+        this.api,
+        params,
+        expectedJob.correlationId,
+      );
+      if (!result) {
+        report.markError("Simulation failed.");
+        this.workspace.markReportReadState(report);
+        return false;
+      }
       if (result.status === "rejected") {
+        report.markError(result.reason || "Simulation rejected.");
+        this.workspace.markReportReadState(report);
         this.workspace.statusMessage = result.reason
           ? `Simulation rejected: ${result.reason}`
           : "Simulation was rejected.";
         return false;
       }
-      this.workspace.createPendingReport(result);
+      if (
+        result.graphId !== expectedJob.graphId ||
+        result.graphRevisionId !== expectedJob.graphRevisionId ||
+        result.correlationId !== expectedJob.correlationId
+      ) {
+        report.markError("Simulation request returned unexpected identifiers.");
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
+        return false;
+      }
       return true;
     } catch {
+      report.markError("Simulation failed.");
+      this.workspace.markReportReadState(report);
+      this.workspace.statusMessage = report.errorReason;
       return false;
     }
   }
@@ -205,43 +300,76 @@ export class AnalysisModel {
   async runOptimization(
     document: EditableGraphDocument,
     params: OptimizationParams,
+    job: AnalysisJob | undefined = undefined,
   ): Promise<boolean> {
-    if (!document.loadedRevisionId) return false;
+    if (this.sequence.active && !job) {
+      this.workspace.statusMessage = "Compound analysis is in progress.";
+      return false;
+    }
+    const expectedJob = job ?? this.createJob(document);
+    if (!expectedJob) return false;
 
-    const correlationId = crypto.randomUUID();
+    const optimizationParams = this.withSupportedObjective(params);
     const report = this.workspace.createPendingOptimizationReport({
-      graphId: document.graph.id,
-      graphRevisionId: document.loadedRevisionId,
+      graphId: expectedJob.graphId,
+      graphRevisionId: expectedJob.graphRevisionId,
       graphTitle: document.title,
-      correlationId,
-      strategy: params.strategy,
-      budget: params.budget,
+      correlationId: expectedJob.correlationId,
+      strategy: optimizationParams.strategy,
+      budget: optimizationParams.budget,
     });
 
     try {
       const reply = await document.startOptimization(
         this.api,
-        params,
-        correlationId,
+        optimizationParams,
+        expectedJob.correlationId,
       );
       if (!reply) {
         report.markError("Optimization failed.");
-        this.markOptimizationReportReadState(report);
+        this.workspace.markReportReadState(report);
         return false;
       }
       if (reply.status === "rejected") {
         report.markError(reply.reason || "Optimization rejected.");
-        this.markOptimizationReportReadState(report);
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
+        return false;
+      }
+      if (
+        reply.graph_revision_id !== expectedJob.graphRevisionId ||
+        reply.correlation_id !== expectedJob.correlationId
+      ) {
+        report.markError(
+          "Optimization request returned unexpected identifiers.",
+        );
+        this.workspace.markReportReadState(report);
         this.workspace.statusMessage = report.errorReason;
         return false;
       }
       return true;
     } catch {
       report.markError("Optimization failed.");
-      this.markOptimizationReportReadState(report);
+      this.workspace.markReportReadState(report);
       this.workspace.statusMessage = report.errorReason;
       return false;
     }
+  }
+
+  onSimulationCompleted(payload: SimulationCompletedEvent): void {
+    this.sequence.onSimulationCompleted(payload);
+  }
+
+  onSimulationFailed(payload: SimulationFailedEvent): void {
+    this.sequence.onSimulationFailed(payload);
+  }
+
+  onOptimizationCompleted(payload: OptimizationCompletedEvent): void {
+    this.sequence.onOptimizationCompleted(payload);
+  }
+
+  onOptimizationFailed(payload: OptimizationFailedEvent): void {
+    this.sequence.onOptimizationFailed(payload);
   }
 
   private async targetDocument(): Promise<EditableGraphDocument | undefined> {
@@ -255,6 +383,43 @@ export class AnalysisModel {
     const document = new EditableGraphDocument();
     document.replaceFromLoadedGraph(this.targetGraph);
     return document;
+  }
+
+  private async startSequenceSimulation(
+    document: EditableGraphDocument,
+    params: SimulationParams,
+    job: AnalysisJob,
+  ): Promise<boolean> {
+    return this.runSimulation(document, params, job);
+  }
+
+  private async startSequenceOptimization(
+    document: EditableGraphDocument,
+    params: OptimizationParams,
+    job: AnalysisJob,
+  ): Promise<boolean> {
+    return this.runOptimization(document, params, job);
+  }
+
+  private async loadSequenceOutputGraph(
+    revisionId: string,
+  ): Promise<EditableGraphDocument | undefined> {
+    try {
+      const reply = await this.api.openGraph(revisionId);
+      if (
+        reply.status !== "ok" ||
+        !reply.graph ||
+        reply.graph.revision_id !== revisionId
+      ) {
+        return undefined;
+      }
+
+      const document = new EditableGraphDocument();
+      document.replaceFromLoadedGraph(reply.graph);
+      return document;
+    } catch {
+      return undefined;
+    }
   }
 
   private ensureFootholds(): void {
@@ -286,10 +451,26 @@ export class AnalysisModel {
     }
   }
 
-  private markOptimizationReportReadState(
-    report: import("../optimization-report/OptimizationReportDocument.svelte").OptimizationReportDocument,
-  ): void {
-    if (this.workspace.selectedDocumentId === report.id) report.markRead();
-    else report.markUnread();
+  private createJob(document: EditableGraphDocument): AnalysisJob | undefined {
+    const graphRevisionId = document.loadedRevisionId;
+    if (!graphRevisionId) return undefined;
+
+    return {
+      graphId: document.graph.id,
+      graphRevisionId,
+      correlationId: crypto.randomUUID(),
+    };
+  }
+
+  private withSupportedObjective(
+    params: OptimizationParams,
+  ): OptimizationParams {
+    const supportsMissionImpact =
+      params.strategy === "simulation_informed" ||
+      params.strategy === "simulated_annealing";
+    return {
+      ...params,
+      objective: supportsMissionImpact ? params.objective : "blast_radius",
+    };
   }
 }

@@ -243,9 +243,9 @@ export class EditableGraphDocument {
   async startSimulation(
     api: DashboardApi,
     params: SimulationParams,
+    correlationId: string = crypto.randomUUID(),
   ): Promise<StartSimulationResult | null> {
     if (!this.loadedRevisionId) return null;
-    const correlationId = crypto.randomUUID();
     const reply = await api.runSimulation(
       this.loadedRevisionId,
       correlationId,

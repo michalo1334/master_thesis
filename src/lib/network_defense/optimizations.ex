@@ -74,6 +74,7 @@ defmodule NetworkDefense.Optimizations do
       OptimizationRun.new(
         graph_revision_id: graph.revision_id,
         strategy: request.optimization_params.strategy,
+        objective: request.optimization_params.objective,
         requested_budget: request.optimization_params.budget,
         seed: strategy.seed,
         simulation_config: simulation_config(request)

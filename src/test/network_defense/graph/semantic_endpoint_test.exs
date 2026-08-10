@@ -2,8 +2,8 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
-  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
+  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs, Supports}
 
   test "accepts valid directed endpoints" do
     graph = Graph.new("Topology")
@@ -93,6 +93,56 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
 
     assert {:error, :invalid_edge} = Graphs.replace(graph.id, attrs)
     assert %{revision_number: 1} = Graphs.load_revision!(graph.revision_id)
+  end
+
+  test "requires each mission capability to have enough distinct supports" do
+    graph = Graph.new("Topology")
+    host = node(graph, Host, %{"name" => "host"})
+    segment = node(graph, NetworkSegment, %{"name" => "DMZ"})
+
+    capability =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 2
+      })
+
+    edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, capability.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:error, :invalid_mission_capability_support} =
+             Graph.hydrate(graph, [segment, host, capability], edges)
+  end
+
+  test "accepts enough distinct supports and rejects duplicate supports" do
+    graph = Graph.new("Topology")
+    primary = node(graph, Host, %{"name" => "primary"})
+    replica = node(graph, Host, %{"name" => "replica"})
+    segment = node(graph, NetworkSegment, %{"name" => "DMZ"})
+
+    capability =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 2
+      })
+
+    edges = [
+      Edge.new(graph.id, segment.id, primary.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, segment.id, replica.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, primary.id, capability.id, %{type: Atom.to_string(Supports), data: %{}}),
+      Edge.new(graph.id, replica.id, capability.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:ok, _graph} = Graph.hydrate(graph, [segment, primary, replica, capability], edges)
+
+    duplicate =
+      Edge.new(graph.id, primary.id, capability.id, %{type: Atom.to_string(Supports), data: %{}})
+
+    assert {:error, :invalid_mission_capability_support} =
+             Graph.hydrate(graph, [segment, primary, replica, capability], [duplicate | edges])
   end
 
   defp node(graph, type, data) do

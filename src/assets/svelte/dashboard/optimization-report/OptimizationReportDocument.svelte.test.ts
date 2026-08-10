@@ -55,6 +55,7 @@ describe("OptimizationReportDocument", () => {
       graph_revision_id: "r1",
       report: {
         strategy: "simulation_informed",
+        objective: "blast_radius",
         requested_budget: 2,
         used_budget: 1,
         runtime_ms: 25,

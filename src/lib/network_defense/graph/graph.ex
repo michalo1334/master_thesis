@@ -4,9 +4,10 @@ defmodule NetworkDefense.Graph.Graph do
 
   alias NetworkDefense.Graph.{Edge, Folder, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
-  alias NetworkDefense.Nodes.{Host, Service}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, Service}
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.Runs
+  alias NetworkDefense.Relationships.Supports
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -82,6 +83,16 @@ defmodule NetworkDefense.Graph.Graph do
     graph.adjacency_list
     |> Map.get(node_id, empty_adjacency())
     |> Map.fetch!(:incoming)
+  end
+
+  @doc false
+  def supporting_host_ids(graph, capability_id) do
+    graph
+    |> incoming(capability_id)
+    |> Enum.flat_map(fn
+      {host_id, %{type: Supports}} -> [host_id]
+      _ -> []
+    end)
   end
 
   def add_node(graph, %Node{} = node), do: put_node(graph, Node.hydrate!(node))
@@ -230,8 +241,9 @@ defmodule NetworkDefense.Graph.Graph do
   defp validate_membership(_graph, false), do: :ok
 
   defp validate_membership(graph, true) do
-    with :ok <- validate_exactly_one(graph, Host, Contains, :multiple_segments) do
-      validate_exactly_one(graph, Service, Runs, :multiple_runs)
+    with :ok <- validate_exactly_one(graph, Host, Contains, :multiple_segments),
+         :ok <- validate_exactly_one(graph, Service, Runs, :multiple_runs) do
+      validate_mission_capabilities(graph)
     end
   end
 
@@ -247,6 +259,21 @@ defmodule NetworkDefense.Graph.Graph do
     |> Enum.filter(&(&1.type == node_type))
     |> Enum.all?(fn node -> Map.get(memberships, node.id, 0) == 1 end)
     |> if(do: :ok, else: {:error, error_atom})
+  end
+
+  defp validate_mission_capabilities(graph) do
+    graph
+    |> nodes()
+    |> Enum.filter(&(&1.type == MissionCapability))
+    |> Enum.all?(&valid_mission_capability?(graph, &1))
+    |> if(do: :ok, else: {:error, :invalid_mission_capability_support})
+  end
+
+  defp valid_mission_capability?(graph, capability) do
+    support_ids = supporting_host_ids(graph, capability.id)
+
+    length(support_ids) == MapSet.size(MapSet.new(support_ids)) and
+      length(support_ids) >= capability.data.min_operational_support
   end
 
   defp segment_membership_allowed?(_graph, _edge, false), do: :ok

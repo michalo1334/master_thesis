@@ -13,7 +13,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     HasVulnerabilityData,
     RunsData,
     SegmentReachabilityData,
-    StoresCredentialData
+    StoresCredentialData,
+    SupportsData
   }
 
   @discriminant [
@@ -25,7 +26,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
       HasVulnerability: HasVulnerabilityData,
       StoresCredential: StoresCredentialData,
       AuthenticatesTo: AuthenticatesToData,
-      Contains: ContainsData
+      Contains: ContainsData,
+      Supports: SupportsData
     ]
   ]
 
@@ -38,7 +40,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     HasVulnerability: {HasVulnerabilityData, NetworkDefense.Relationships.HasVulnerability},
     StoresCredential: {StoresCredentialData, NetworkDefense.Relationships.StoresCredential},
     AuthenticatesTo: {AuthenticatesToData, NetworkDefense.Relationships.AuthenticatesTo},
-    Contains: {ContainsData, NetworkDefense.Relationships.Contains}
+    Contains: {ContainsData, NetworkDefense.Relationships.Contains},
+    Supports: {SupportsData, NetworkDefense.Relationships.Supports}
   ]
 
   embedded_schema do
@@ -61,6 +64,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
             | StoresCredentialData.t()
             | AuthenticatesToData.t()
             | ContainsData.t()
+            | SupportsData.t()
         }
 
   def changeset(schema, attrs) do

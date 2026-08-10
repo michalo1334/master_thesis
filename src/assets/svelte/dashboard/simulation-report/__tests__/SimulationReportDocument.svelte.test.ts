@@ -9,6 +9,7 @@ function makeReport(
   return {
     charts: {
       action_success: [],
+      capability_impact: [],
       cdf: [],
       convergence: [],
       edge_traversal: [],
@@ -39,6 +40,13 @@ function makeReport(
       max_blast_radius: 5,
       blast_radius_variance: 1.2,
       host_count: 8,
+      expected_mission_impact: 2,
+      median_mission_impact: 2,
+      mission_impact_p95: 4,
+      mission_impact_p99: 5,
+      min_mission_impact: 1,
+      max_mission_impact: 5,
+      mission_impact_variance: 1.2,
     },
     experiment_id: "sim-1",
     run_count: 10,

@@ -4,7 +4,10 @@
   import Canvas from "../graph/canvas/Canvas.svelte";
   import KpiCards from "./KpiCards.svelte";
   import StatisticalChart from "./StatisticalChart.svelte";
-  import { formatSimulationReportKpis } from "./simulation-report";
+  import {
+    formatProbability,
+    formatSimulationReportKpis,
+  } from "./simulation-report";
   import {
     actionSuccessOptions,
     cdfOptions,
@@ -34,6 +37,21 @@
         ).operationalFlows
       : [],
   );
+  let capabilityImpacts = $derived.by(() => {
+    const report = document.reportData;
+    if (!report) return [];
+
+    const names = new Map(
+      report.graph.nodes.flatMap((node) =>
+        node.type === "MissionCapability" ? [[node.id, node.data.name]] : [],
+      ),
+    );
+
+    return report.charts.capability_impact.map((impact) => ({
+      ...impact,
+      name: names.get(impact.capability_id) ?? impact.capability_id,
+    }));
+  });
 </script>
 
 <article class="simulation-report" aria-labelledby="simulation-report-title">
@@ -116,6 +134,35 @@
             document.reportData.run_count,
           )}
         />
+
+        {#if capabilityImpacts.length > 0}
+          <section
+            class="simulation-report-section"
+            aria-labelledby="capability-impact-title"
+          >
+            <h2 id="capability-impact-title">Mission capability disruption</h2>
+            <table class="capability-impact-table">
+              <caption>
+                Probability that each mission capability is disrupted during a
+                simulation run.
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Capability</th>
+                  <th scope="col">Disruption probability</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each capabilityImpacts as impact (impact.capability_id)}
+                  <tr>
+                    <td>{impact.name}</td>
+                    <td>{formatProbability(impact.down_probability)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </section>
+        {/if}
 
         <section
           class="simulation-report-section"
@@ -414,6 +461,37 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--ds-space-3);
+  }
+
+  .capability-impact-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--ds-color-border);
+    background: var(--ds-color-paper);
+    font-size: var(--ds-text-sm);
+  }
+
+  .capability-impact-table caption {
+    padding: var(--ds-space-2) var(--ds-space-3);
+    color: var(--ds-color-text-secondary);
+    text-align: left;
+  }
+
+  .capability-impact-table th,
+  .capability-impact-table td {
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border-top: 1px solid var(--ds-color-border-soft);
+    text-align: left;
+  }
+
+  .capability-impact-table th {
+    color: var(--ds-color-text-secondary);
+    font-weight: 600;
+  }
+
+  .capability-impact-table th:last-child,
+  .capability-impact-table td:last-child {
+    text-align: right;
   }
 
   .simulation-report-heatmap {

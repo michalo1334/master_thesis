@@ -32,6 +32,13 @@ export interface HostData {
   name: string;
 }
 
+export interface MissionCapabilityData {
+  description?: string | null;
+  impact_weight: number;
+  min_operational_support: number;
+  name: string;
+}
+
 export interface NetworkSegmentData {
   cidr?: string | null;
   name: string;
@@ -56,6 +63,8 @@ export interface StoresCredentialData {
   required_privilege: "user" | "administrator";
 }
 
+export type SupportsData = Record<never, never>;
+
 export interface VulnerabilityData {
   cvss: CvssData;
   exploit_probability: number;
@@ -68,7 +77,8 @@ export type Edge =
   | HasVulnerabilityEdge
   | StoresCredentialEdge
   | AuthenticatesToEdge
-  | ContainsEdge;
+  | ContainsEdge
+  | SupportsEdge;
 
 export interface RunsEdge {
   type: "Runs";
@@ -118,6 +128,14 @@ export interface ContainsEdge {
   to_id: string;
 }
 
+export interface SupportsEdge {
+  type: "Supports";
+  data: SupportsData;
+  from_id: string;
+  id: string;
+  to_id: string;
+}
+
 export interface GraphContract {
   edges: Edge[];
   id: string;
@@ -134,7 +152,8 @@ export type Node =
   | ServiceNode
   | VulnerabilityNode
   | CredentialNode
-  | NetworkSegmentNode;
+  | NetworkSegmentNode
+  | MissionCapabilityNode;
 
 export interface HostNode {
   type: "Host";
@@ -171,6 +190,13 @@ export interface NetworkSegmentNode {
   view_data: NodeViewData;
 }
 
+export interface MissionCapabilityNode {
+  type: "MissionCapability";
+  data: MissionCapabilityData;
+  id: string;
+  view_data: NodeViewData;
+}
+
 export interface NodeViewData {
   radius?: number | null;
   x_pos: number;
@@ -187,6 +213,7 @@ export interface SaveGraphContract {
 
 export interface OptimizationParams {
   budget: number;
+  objective: "blast_radius" | "mission_impact";
   simulation_params?: SimulationParams | null;
   strategy:
     | "cvss"
@@ -234,11 +261,17 @@ export interface CreateConnectionDraftPayload {
     | "HasVulnerability"
     | "StoresCredential"
     | "AuthenticatesTo"
-    | "Contains";
+    | "Contains"
+    | "Supports";
   source_id: string;
   source_is_from: boolean;
   source_type:
-    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
+    | "Host"
+    | "Service"
+    | "Vulnerability"
+    | "Credential"
+    | "NetworkSegment"
+    | "MissionCapability";
   target_id?: string | null;
   target_type?: string | null;
   x_pos?: number | null;
@@ -262,7 +295,12 @@ export interface CreateFolderReply {
 
 export interface CreateNodeDraftPayload {
   node_type:
-    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
+    | "Host"
+    | "Service"
+    | "Vulnerability"
+    | "Credential"
+    | "NetworkSegment"
+    | "MissionCapability";
   x_pos: number;
   y_pos: number;
 }
@@ -363,16 +401,27 @@ export interface GraphConnectivityReply {
 
 export interface GraphConnectivityRule {
   from_type:
-    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
+    | "Host"
+    | "Service"
+    | "Vulnerability"
+    | "Credential"
+    | "NetworkSegment"
+    | "MissionCapability";
   relationship_type:
     | "Runs"
     | "SegmentReachability"
     | "HasVulnerability"
     | "StoresCredential"
     | "AuthenticatesTo"
-    | "Contains";
+    | "Contains"
+    | "Supports";
   to_type:
-    "Host" | "Service" | "Vulnerability" | "Credential" | "NetworkSegment";
+    | "Host"
+    | "Service"
+    | "Vulnerability"
+    | "Credential"
+    | "NetworkSegment"
+    | "MissionCapability";
 }
 
 export interface GraphDiffCounts {
@@ -485,6 +534,7 @@ export interface OptimizationProgressEvent {
 
 export interface OptimizationReport {
   actions: OptimizationAction[];
+  objective: "blast_radius" | "mission_impact";
   requested_budget: number;
   runtime_ms: number;
   strategy:
@@ -506,6 +556,7 @@ export interface OptimizationRunSummary {
   graph_revision_id: string;
   graph_title: string;
   id: string;
+  objective: string;
   output_graph_revision_id: string;
   requested_budget: number;
   runtime_ms: number;
@@ -583,6 +634,11 @@ export interface SimulationReportActionSuccess {
   successes: number;
 }
 
+export interface SimulationReportCapabilityImpact {
+  capability_id: string;
+  down_probability: number;
+}
+
 export interface SimulationReportCdfPoint {
   compromised_hosts: number;
   cumulative_probability: number;
@@ -590,6 +646,7 @@ export interface SimulationReportCdfPoint {
 
 export interface SimulationReportCharts {
   action_success: SimulationReportActionSuccess[];
+  capability_impact: SimulationReportCapabilityImpact[];
   cdf: SimulationReportCdfPoint[];
   convergence: SimulationReportConvergencePoint[];
   edge_traversal: SimulationReportEdgeTraversal[];
@@ -629,8 +686,15 @@ export interface SimulationReportSummary {
   blast_radius_p99: number;
   blast_radius_variance: number;
   expected_blast_radius: number;
+  expected_mission_impact: number;
   host_count: number;
   max_blast_radius: number;
+  max_mission_impact: number;
   median_blast_radius: number;
+  median_mission_impact: number;
   min_blast_radius: number;
+  min_mission_impact: number;
+  mission_impact_p95: number;
+  mission_impact_p99: number;
+  mission_impact_variance: number;
 }

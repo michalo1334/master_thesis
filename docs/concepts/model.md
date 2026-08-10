@@ -18,7 +18,8 @@ The thesis baseline uses these node types:
 * `service`, including protocol and port;
 * `vulnerability`, including CVSS severity characteristics and an independently assigned, stylized exploit probability;
 * `network_segment`, a container of hosts;
-* `credential`.
+* `credential`;
+* `mission_capability`, an outcome supported by one or more hosts.
 
 The baseline uses these edge types:
 
@@ -27,11 +28,12 @@ The baseline uses these edge types:
 * `segment_reachability` - a source segment can reach a target segment's services. The policy carries protocol and port range;
 * `has_vulnerability` - a service exposes a vulnerability;
 * `stores_credential` - a host stores a credential;
-* `authenticates_to` - a credential authenticates to a service.
+* `authenticates_to` - a credential authenticates to a service;
+* `supports` - a host supports a mission capability.
 
 Reachability is policy, not a host/service flow. `segment_reachability` is the only authored and persisted reachability edge. Materialization derives an empty, deterministic `network_reachability` (`Host -> Service`) marker edge in memory for each flow the policy admits. The marker is never authored, saved, or part of a contract edge.
 
-A port is a service attribute, not a separate node. Capabilities, containers, and security controls are future extensions.
+A port is a service attribute, not a separate node. Containers and security controls are future extensions.
 
 ```mermaid
 flowchart LR
@@ -84,7 +86,13 @@ blast_radius = count(compromised_resources)
 expected_blast_radius = mean(blast_radius across runs)
 ```
 
-The expected blast radius is the primary optimization metric. Median, percentiles, variance, and per-resource compromise probability describe outcomes within the stated model; they do not validate real attack behavior.
+Mission impact is computed from the terminal footholds of each run. A `mission_capability` has a positive relative `impact_weight` and a `min_operational_support` threshold. A compromised host is treated as unavailable support. A capability is disrupted when fewer than that many supporting hosts remain uncompromised:
+
+```text
+mission_impact = sum(impact_weight for each disrupted capability)
+```
+
+This is a final-state, worst-case dependency model. It does not claim that every host compromise causes an outage, and it does not model duration, recovery, capacity, or cascading capability dependencies. Simulation reports retain blast radius and add mission-impact statistics and per-capability disruption probability.
 
 ## Defense Optimization
 
@@ -99,14 +107,14 @@ For a simulation-informed or annealing candidate configuration, it:
 
 The initial defensive actions are patching a vulnerability, removing a segment reachability policy, and revoking a credential. Each current action has unit cost, so the budget counts actions rather than deployment cost.
 
-The primary objective is:
+Simulation-informed and annealing strategies select one objective:
 
 ```text
-minimize expected blast radius
+minimize expected blast radius or expected mission impact
 subject to total defense cost <= budget
 ```
 
-The optimizer ranks actions by expected blast-radius reduction per unit of the current unit cost. It does not model cost-aware deployment trade-offs.
+They rank actions by reduction in the selected metric per unit of the current unit cost. CVSS and topology segmentation remain fixed baselines: they produce a defended graph without claiming to optimize mission impact.
 
 ## Baseline Strategies
 

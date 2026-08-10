@@ -4,6 +4,7 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Simulation.{Run, Simulator}
+  alias NetworkDefense.Simulation.MissionImpact
 
   @doc "Number of foothold nodes held at the end of a run."
   @spec final_foothold_count(Run.t()) :: non_neg_integer()
@@ -12,6 +13,14 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   end
 
   def expected_blast_radius(graph, strategy) do
+    expected(graph, strategy, :blast_radius)
+  end
+
+  def expected_mission_impact(graph, strategy) do
+    expected(graph, strategy, :mission_impact)
+  end
+
+  def expected(graph, strategy, objective) when objective in [:blast_radius, :mission_impact] do
     graph = MaterializeReachability.materialize(graph)
 
     {_experiment, runs} =
@@ -26,7 +35,16 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
       )
 
     runs
-    |> Enum.map(&final_foothold_count/1)
+    |> Enum.map(&final_metric(&1, graph, objective))
     |> then(&(Enum.sum(&1) / length(&1)))
+  end
+
+  def final_metric(run, _graph, :blast_radius), do: final_foothold_count(run)
+
+  def final_metric(run, graph, :mission_impact) do
+    run
+    |> Run.current_attacker_state()
+    |> AttackerState.foothold_nodes()
+    |> then(&MissionImpact.final(graph, &1))
   end
 end

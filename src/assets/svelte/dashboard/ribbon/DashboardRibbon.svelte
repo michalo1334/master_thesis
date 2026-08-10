@@ -34,6 +34,7 @@
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
+    analysisRunning?: boolean;
   }
 
   let {
@@ -52,6 +53,7 @@
     onSimulationParamsChange,
     simulationParams,
     footholdHosts,
+    analysisRunning = false,
   }: Props = $props();
 
   let availableOptimizationOptions = $derived(
@@ -131,7 +133,9 @@
     <Ribbon.Section title="Attack model">
       <RibbonButton
         onclick={onRunSimulation}
-        disabled={!hasActiveGraph || footholdHosts.length === 0}
+        disabled={!hasActiveGraph ||
+          footholdHosts.length === 0 ||
+          analysisRunning}
         ><Icon name="play" size={22} /><span>Simulate</span></RibbonButton
       >
     </Ribbon.Section>
@@ -186,7 +190,8 @@
     <Ribbon.Section title="Optimization">
       <RibbonButton
         disabled={!hasActiveGraph ||
-          (activeOptimizationId !== "cvss" && footholdHosts.length === 0)}
+          (activeOptimizationId !== "cvss" && footholdHosts.length === 0) ||
+          analysisRunning}
         onclick={() => onOptimize(activeOptimizationId)}
         ><Icon name="play" size={22} /><span>Optimize</span></RibbonButton
       >
@@ -213,6 +218,21 @@
         disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
+      {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
+        <Select
+          label="Objective"
+          value={optimizationParams.objective}
+          disabled={!hasActiveGraph}
+          onchange={(event) =>
+            onOptimizationParamsChange({
+              objective: event.currentTarget
+                .value as OptimizationParams["objective"],
+            })}
+        >
+          <option value="blast_radius">Blast radius</option>
+          <option value="mission_impact">Mission impact</option>
+        </Select>
+      {/if}
     </Ribbon.Section>
     {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
       <Ribbon.Section title="Simulation settings">

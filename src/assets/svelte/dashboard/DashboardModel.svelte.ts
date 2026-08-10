@@ -35,6 +35,10 @@ export class DashboardModel {
 
   /** Cross-model: start simulation on active graph, create pending report. */
   async runActiveSimulation(): Promise<void> {
+    if (this.analysis.sequence.active) {
+      this.workspace.statusMessage = "Compound analysis is in progress.";
+      return;
+    }
     const doc = this.workspace.activeGraph;
     if (!doc) return;
     if (doc.isDirty && !(await doc.saveIfDirty(this.api))) {
@@ -45,6 +49,10 @@ export class DashboardModel {
   }
 
   async runActiveOptimization(): Promise<void> {
+    if (this.analysis.sequence.active) {
+      this.workspace.statusMessage = "Compound analysis is in progress.";
+      return;
+    }
     const doc = this.workspace.activeGraph;
     if (!doc || !doc.loadedRevisionId) {
       return;
@@ -81,8 +89,9 @@ export class DashboardModel {
             payload.output_graph_revision_id,
           ),
       );
-      this.markOptimizationReportReadState(report);
+      this.workspace.markReportReadState(report);
     }
+    this.analysis.onOptimizationCompleted(payload);
   }
 
   onOptimizationFailed(payload: OptimizationFailedEvent): void {
@@ -90,9 +99,11 @@ export class DashboardModel {
       payload.correlation_id,
       payload.graph_id,
     );
-    if (!report) return;
-    report.markError(payload.reason);
-    this.markOptimizationReportReadState(report);
+    if (report) {
+      report.markError(payload.reason);
+      this.workspace.markReportReadState(report);
+    }
+    this.analysis.onOptimizationFailed(payload);
   }
 
   onOptimizationProgress(payload: OptimizationProgressEvent): void {
@@ -121,12 +132,9 @@ export class DashboardModel {
         payload.experiment_id,
         payload.graph_revision_id,
       );
-      if (this.workspace.selectedDocumentId === report.id) {
-        report.markRead();
-      } else {
-        report.markUnread();
-      }
+      this.workspace.markReportReadState(report);
     }
+    this.analysis.onSimulationCompleted(payload);
   }
 
   /** Cross-model: route a server failure event to the matching report. */
@@ -137,13 +145,11 @@ export class DashboardModel {
         d.correlationId === payload.correlation_id &&
         d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
-    if (!report) return;
-    report.markError(payload.reason);
-    if (this.workspace.selectedDocumentId === report.id) {
-      report.markRead();
-    } else {
-      report.markUnread();
+    if (report) {
+      report.markError(payload.reason);
+      this.workspace.markReportReadState(report);
     }
+    this.analysis.onSimulationFailed(payload);
   }
 
   onSimulationProgress(payload: SimulationProgressEvent): void {
@@ -203,15 +209,5 @@ export class DashboardModel {
   /** Delegate force layout to the workspace. */
   applyForceLayout(): void {
     this.workspace.applyForceLayout();
-  }
-
-  private markOptimizationReportReadState(
-    report: OptimizationReportDocument,
-  ): void {
-    if (this.workspace.selectedDocumentId === report.id) {
-      report.markRead();
-    } else {
-      report.markUnread();
-    }
   }
 }
