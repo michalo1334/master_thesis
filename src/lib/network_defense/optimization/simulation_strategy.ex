@@ -9,7 +9,7 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
   @doc """
   Builds a simulation-backed strategy struct for `module` from validated params.
   """
-  @spec new(module(), Graph.t(), map()) :: {:ok, struct()} | {:error, String.t()}
+  @spec new(module(), Graph.t(), map()) :: {:ok, struct()} | {:error, Simulations.Errors.error()}
   def new(module, graph, %{simulation_params: simulation_params} = params) do
     with :ok <-
            Simulations.validate_initial_foothold(

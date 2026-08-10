@@ -135,7 +135,7 @@ defmodule NetworkDefense.SimulationsTest do
   test "rejects an invalid initial foothold with an error tuple, not task-start success" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Invalid Foothold"))
 
-    assert {:error, "initial foothold must identify a host in the graph"} =
+    assert {:error, :invalid_initial_foothold} =
              Simulations.run_async(%RunSimulationRequest{
                graph_revision_id: graph.revision_id,
                correlation_id: "invalid-foothold-request",

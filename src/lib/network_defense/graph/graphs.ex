@@ -160,7 +160,7 @@ defmodule NetworkDefense.Graph.Graphs do
            conflict_target: :graph_revision_id
          ) do
       {:ok, _favorite} -> {:ok, true}
-      {:error, _changeset} -> {:error, :unmapped_error}
+      {:error, _changeset} -> {:error, :internal_error}
     end
   end
 

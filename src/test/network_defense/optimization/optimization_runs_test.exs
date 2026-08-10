@@ -426,7 +426,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         }
       }
 
-      assert {:error, "initial foothold must identify a host in the graph"} =
+      assert {:error, :invalid_initial_foothold} =
                Optimizations.run(request)
 
       assert [] =
@@ -456,7 +456,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         }
       }
 
-      assert {:error, "topology segmentation requires reachability relationships in the graph"} =
+      assert {:error, :reachability_required} =
                Optimizations.run(request)
 
       assert [] =
@@ -474,7 +474,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         optimization_params: %OptimizationParams{strategy: "bogus", budget: 1}
       }
 
-      assert {:error, "unknown_strategy"} = Optimizations.run(request)
+      assert {:error, :unknown_strategy} = Optimizations.run(request)
     end
   end
 

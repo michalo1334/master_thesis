@@ -353,13 +353,13 @@ describe("AnalysisModel", () => {
     expect(model.needsSimulationSettings).toBe(false);
   });
 
-  it("surfaces the rejection reason of a standalone simulation", async () => {
+  it("surfaces the rejection error of a standalone simulation", async () => {
     const dashboardApi = api();
     vi.mocked(dashboardApi.runSimulation).mockResolvedValue({
       status: "rejected",
       graph_revision_id: "revision-1",
       correlation_id: "simulation-1",
-      reason: "invalid_request",
+      error: { code: "invalid_graph" },
     });
     const workspace = new WorkspaceModel();
     const model = new AnalysisModel(dashboardApi, workspace);
@@ -369,7 +369,7 @@ describe("AnalysisModel", () => {
 
     await expect(model.run()).resolves.toBe(false);
     expect(workspace.statusMessage).toBe(
-      "Simulation rejected: invalid_request",
+      "Simulation rejected: The graph is invalid.",
     );
   });
 
@@ -380,7 +380,7 @@ describe("AnalysisModel", () => {
         status: "rejected",
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
-        reason: "Rejected",
+        error: { code: "unknown_strategy" },
       }))
       .mockImplementationOnce(async (graphRevisionId, correlationId) => ({
         status: "accepted",

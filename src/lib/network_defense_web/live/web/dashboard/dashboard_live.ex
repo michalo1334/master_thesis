@@ -1,6 +1,7 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
+  alias NetworkDefense.Errors
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
   alias NetworkDefense.Graph.MaterializeReachability
@@ -49,6 +50,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     RunOptimizationReply,
     RunSimulationReply,
     RunSimulationPayload,
+    ReportRequestReply,
     SaveGraphPayload,
     SaveGraphReply,
     SimulationCompletedEvent,
@@ -221,29 +223,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:ok, _pid} ->
             {:reply,
              simulation_request_reply(
-               "accepted",
-               request.graph_revision_id,
-               request.correlation_id,
-               nil
+                "accepted",
+                request.graph_revision_id,
+                request.correlation_id,
+                nil
              ), put_flash(socket, :info, "Simulation started.")}
 
           {:error, reason} ->
             {:reply,
              simulation_request_reply(
-               "rejected",
-               request.graph_revision_id,
-               request.correlation_id,
-               reason
+                "rejected",
+                request.graph_revision_id,
+                request.correlation_id,
+                reason
              ), socket}
         end
 
       {:error, _changeset} ->
         {:reply,
          simulation_request_reply(
-           "rejected",
-           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-           "invalid_request"
+            "rejected",
+            params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
+            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+            :invalid_request
          ), socket}
     end
   end
@@ -256,29 +258,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:ok, _pid} ->
             {:reply,
              optimization_request_reply(
-               "accepted",
-               request.graph_revision_id,
-               request.correlation_id,
-               nil
+                "accepted",
+                request.graph_revision_id,
+                request.correlation_id,
+                nil
              ), put_flash(socket, :info, "Optimization started.")}
 
           {:error, reason} ->
             {:reply,
              optimization_request_reply(
-               "rejected",
-               request.graph_revision_id,
-               request.correlation_id,
-               reason
+                "rejected",
+                request.graph_revision_id,
+                request.correlation_id,
+                reason
              ), socket}
         end
 
       {:error, _changeset} ->
         {:reply,
          optimization_request_reply(
-           "rejected",
-           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-           "invalid_request"
+            "rejected",
+            params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
+            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+            :invalid_request
          ), socket}
     end
   end
@@ -289,19 +291,19 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, request} ->
         case start_report_fetch(request, self()) do
           {:ok, _pid} ->
-            {:reply, %{status: "processing"}, socket}
+            {:reply, report_request_reply("processing"), socket}
 
           {:error, _reason} ->
-            {:reply, %{status: "unavailable"},
+            {:reply, report_request_reply("unavailable"),
              push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
                experiment_id: request.experiment_id,
                graph_revision_id: request.graph_revision_id,
-               reason: "unavailable"
+               error: dashboard_error(:task_unavailable)
              })}
         end
 
       {:error, _changeset} ->
-        {:reply, %{status: "invalid_params"}, socket}
+        {:reply, report_request_reply("invalid_params"), socket}
     end
   end
 
@@ -339,10 +341,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, request} ->
         case start_optimization_report_fetch(request, self()) do
           {:ok, _pid} ->
-            {:reply, %{status: "processing"}, socket}
+            {:reply, report_request_reply("processing"), socket}
 
           {:error, _reason} ->
-            {:reply, %{status: "unavailable"},
+            {:reply, report_request_reply("unavailable"),
              push_contract_event(
                socket,
                "optimization_report_error",
@@ -350,13 +352,13 @@ defmodule NetworkDefenseWeb.DashboardLive do
                %{
                  optimization_id: request.optimization_id,
                  graph_revision_id: request.graph_revision_id,
-                 reason: "unavailable"
+                 error: dashboard_error(:task_unavailable)
                }
              )}
         end
 
       {:error, _changeset} ->
-        {:reply, %{status: "invalid_params"}, socket}
+        {:reply, report_request_reply("invalid_params"), socket}
     end
   end
 
@@ -389,7 +391,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
        "simulation_failed",
        SimulationFailedEvent,
        "Simulation failed",
-       payload
+       failure_payload(payload)
      )}
   end
 
@@ -410,7 +412,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
        "optimization_failed",
        OptimizationFailedEvent,
        "Optimization failed",
-       payload
+       failure_payload(payload)
      )}
   end
 
@@ -427,7 +429,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
         push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
           experiment_id: experiment_id,
           graph_revision_id: graph_revision_id,
-          reason: to_string((is_map(result) && result[:status]) || "unknown_error")
+          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
         })
       end
 
@@ -445,7 +447,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
         push_contract_event(socket, "optimization_report_error", OptimizationReportErrorEvent, %{
           optimization_id: optimization_id,
           graph_revision_id: graph_revision_id,
-          reason: to_string((is_map(result) && result[:status]) || "unknown_error")
+          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
         })
       end
 
@@ -458,18 +460,18 @@ defmodule NetworkDefenseWeb.DashboardLive do
         if report.graph_revision_id == request.graph_revision_id do
           simulation_report_reply(report)
         else
-          %{status: "not_found"}
+          %{status: :not_found}
         end
 
       _ ->
-        %{status: "not_found"}
+        %{status: :not_found}
     end
   end
 
   defp simulation_report_reply(report) do
     case FetchSimulationReportReply.from_domain(report) do
       {:ok, reply} -> FetchSimulationReportReply.to_wire(reply)
-      {:error, _changeset} -> %{status: "not_found"}
+      {:error, _changeset} -> %{status: :not_found}
     end
   end
 
@@ -499,14 +501,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
         optimization_report_reply(report)
 
       _ ->
-        %{status: "not_found"}
+        %{status: :not_found}
     end
   end
 
   defp optimization_report_reply(report) do
     case FetchOptimizationReportReply.from_domain(report) do
       {:ok, reply} -> FetchOptimizationReportReply.to_wire(reply)
-      {:error, _changeset} -> %{status: "not_found"}
+      {:error, _changeset} -> %{status: :not_found}
     end
   end
 
@@ -643,26 +645,37 @@ defmodule NetworkDefenseWeb.DashboardLive do
     |> assign(:graph_summaries, graph_summaries())
   end
 
-  defp simulation_request_reply(status, graph_revision_id, correlation_id, reason) do
+  defp simulation_request_reply(status, graph_revision_id, correlation_id, error) do
     contract_reply(RunSimulationReply, %{
       status: status,
       graph_revision_id: string_or_empty(graph_revision_id),
       correlation_id: string_or_empty(correlation_id),
-      reason: reason
+      error: dashboard_error(error)
     })
   end
 
-  defp optimization_request_reply(status, graph_revision_id, correlation_id, reason) do
+  defp optimization_request_reply(status, graph_revision_id, correlation_id, error) do
     contract_reply(RunOptimizationReply, %{
       status: status,
       graph_revision_id: string_or_empty(graph_revision_id),
       correlation_id: string_or_empty(correlation_id),
-      reason: reason
+      error: dashboard_error(error)
     })
   end
 
   defp string_or_empty(value) when is_binary(value), do: value
   defp string_or_empty(_value), do: ""
+
+  defp report_request_reply(status), do: contract_reply(ReportRequestReply, %{status: status})
+
+  defp failure_payload(payload) do
+    payload
+    |> Map.delete(:reason)
+    |> Map.put(:error, dashboard_error(Map.get(payload, :reason)))
+  end
+
+  defp dashboard_error(nil), do: nil
+  defp dashboard_error(error), do: %{code: Errors.to_wire(error)}
 
   defp open_graph_reply(status, graph \\ nil) do
     contract_reply(OpenGraphReply, %{status: status, graph: graph})
@@ -782,7 +795,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, event_payload} ->
         socket
         |> push_event(event, contract.to_wire(event_payload))
-        |> put_flash(:error, "#{message}: #{event_payload.reason}")
+        |> put_flash(:error, message)
 
       {:error, _changeset} ->
         socket

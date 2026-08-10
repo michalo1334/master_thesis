@@ -27,7 +27,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
        |> Enum.any?(&(&1.type == SegmentReachability)) do
       :ok
     else
-      {:error, "topology segmentation requires reachability relationships in the graph"}
+      {:error, :reachability_required}
     end
   end
 

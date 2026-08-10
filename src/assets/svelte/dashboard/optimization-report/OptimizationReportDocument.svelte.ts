@@ -1,10 +1,12 @@
 import type {
   OptimizationCompletedEvent,
+  DashboardError,
   OptimizationReport,
   OptimizationStrategy,
   FetchOptimizationReportReply,
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
+import { formatDashboardErrorCode } from "../error-code";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { IconName } from "../types";
 import {
@@ -153,9 +155,13 @@ export class OptimizationReportDocument {
     }
   }
 
-  markError(reason: string): void {
+  markError(error: DashboardError): void {
+    this.markErrorMessage(formatDashboardErrorCode(error.code));
+  }
+
+  markErrorMessage(message: string): void {
     this.status = "error";
-    this.errorReason = reason;
+    this.errorReason = message;
   }
 
   markRead(): void {

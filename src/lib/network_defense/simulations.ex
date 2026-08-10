@@ -2,7 +2,6 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
-  alias Ecto.Changeset
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.MaterializeReachability
@@ -19,6 +18,7 @@ defmodule NetworkDefense.Simulations do
   import Ecto.Query
 
   require OpenTelemetry.Tracer, as: Tracer
+  require Logger
 
   @simulation_events_topic "simulation_events"
   @trial_batch_size 500
@@ -28,8 +28,8 @@ defmodule NetworkDefense.Simulations do
 
   def run_async(%RunSimulationRequest{} = request) do
     case Graphs.load_revision(request.graph_revision_id) do
-      nil -> {:error, "graph_not_found"}
-      {:error, _reason} -> {:error, "invalid_graph"}
+      nil -> {:error, :not_found}
+      {:error, _reason} -> {:error, :invalid_graph}
       graph -> run_async(graph, request.correlation_id, request.simulation_params)
     end
   end
@@ -39,7 +39,7 @@ defmodule NetworkDefense.Simulations do
          {:ok, experiment} <- create_experiment(graph, simulation_params) do
       start_async(graph, correlation_id, experiment)
     else
-      {:error, %Ecto.Changeset{} = changeset} -> {:error, persistence_error(changeset)}
+      {:error, %Ecto.Changeset{}} -> {:error, :persistence_failed}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -50,8 +50,8 @@ defmodule NetworkDefense.Simulations do
            Graphs.load_revision(experiment.graph_revision_id) do
       start_async(graph, correlation_id, experiment)
     else
-      nil -> {:error, "graph_not_found"}
-      {:error, reason} -> {:error, inspect(reason)}
+      nil -> {:error, :not_found}
+      {:error, _reason} -> {:error, :internal_error}
     end
   end
 
@@ -62,9 +62,10 @@ defmodule NetworkDefense.Simulations do
       {:ok, _pid} = started ->
         started
 
-      {:error, _reason} = error ->
+      {:error, reason} ->
+        Logger.error("Unable to start simulation task: #{inspect(reason)}")
         Experiments.fail(experiment.id)
-        error
+        {:error, :task_unavailable}
     end
   end
 
@@ -83,8 +84,9 @@ defmodule NetworkDefense.Simulations do
       rescue
         error ->
           Tracer.set_status(OpenTelemetry.status(:error))
+          Logger.error(Exception.format(:error, error, __STACKTRACE__))
           Experiments.fail(experiment.id)
-          broadcast_simulation_failed(graph, correlation_id, Exception.message(error))
+          broadcast_simulation_failed(graph, correlation_id, :internal_error)
       end
     end
   end
@@ -194,14 +196,14 @@ defmodule NetworkDefense.Simulations do
   def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
     case validate_initial_foothold(graph, foothold_id) do
       :ok -> AttackerState.new(foothold_id)
-      {:error, reason} -> raise ArgumentError, reason
+      {:error, _reason} -> raise ArgumentError, "initial foothold must identify a host in the graph"
     end
   end
 
   def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
     case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
       %{type: NetworkDefense.Nodes.Host} -> :ok
-      _ -> {:error, "initial foothold must identify a host in the graph"}
+      _ -> {:error, :invalid_initial_foothold}
     end
   end
 
@@ -292,15 +294,4 @@ defmodule NetworkDefense.Simulations do
     )
   end
 
-  defp persistence_error(%Changeset{} = changeset) do
-    changeset
-    |> Changeset.traverse_errors(fn {message, options} ->
-      Enum.reduce(options, message, fn {key, value}, message ->
-        String.replace(message, "%{#{key}}", to_string(value))
-      end)
-    end)
-    |> Enum.map_join(", ", fn {field, messages} ->
-      "#{field |> Atom.to_string() |> String.capitalize()} #{Enum.join(messages, ", ")}"
-    end)
-  end
 end

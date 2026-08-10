@@ -118,7 +118,7 @@ describe("AnalysisSequence", () => {
       correlation_id: "other",
       graph_id: "graph-1",
       graph_revision_id: "source-r1",
-      reason: "ignored",
+      error: { code: "internal_error" },
     });
     expect(sequence.stage).toBe("awaiting-baseline");
 
@@ -126,11 +126,13 @@ describe("AnalysisSequence", () => {
       correlation_id: sequence.baselineSimulationCorrelationId!,
       graph_id: "graph-1",
       graph_revision_id: "source-r1",
-      reason: "worker_failed",
+      error: { code: "internal_error" },
     });
 
     expect(sequence.stage).toBe("failed");
-    expect(sequence.error).toBe("Baseline simulation failed: worker_failed");
+    expect(sequence.error).toBe(
+      "Baseline simulation failed: The operation could not be completed.",
+    );
   });
 
   it("fails when the optimization request is rejected", async () => {
@@ -205,7 +207,7 @@ describe("AnalysisSequence", () => {
           correlation_id: job.correlationId,
           graph_id: job.graphId,
           graph_revision_id: job.graphRevisionId,
-          reason: "worker_failed",
+          error: { code: "internal_error" },
         });
         return true;
       }),
@@ -221,6 +223,8 @@ describe("AnalysisSequence", () => {
       ),
     ).resolves.toBe(false);
     expect(sequence.stage).toBe("failed");
-    expect(sequence.error).toBe("Baseline simulation failed: worker_failed");
+    expect(sequence.error).toBe(
+      "Baseline simulation failed: The operation could not be completed.",
+    );
   });
 });

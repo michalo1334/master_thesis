@@ -3,7 +3,6 @@ defmodule NetworkDefense.Optimizations do
   Public context module for working with optimization related aspects
   """
 
-  alias Ecto.Changeset
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.{Graph, Graphs}
@@ -31,11 +30,7 @@ defmodule NetworkDefense.Optimizations do
   def optimization_events_topic, do: @optimization_events_topic
 
   def run_async(%RunOptimizationRequest{} = request) do
-    case Graphs.load_revision(request.graph_revision_id) do
-      nil -> {:error, "graph_not_found"}
-      {:error, _reason} -> {:error, "invalid_graph"}
-      graph -> run_async(graph, request)
-    end
+    with {:ok, graph} <- load_graph(request), do: run_async(graph, request)
   end
 
   @doc """
@@ -43,10 +38,14 @@ defmodule NetworkDefense.Optimizations do
   `run_async/1`, returning the completed run (or an error tuple).
   """
   def run(%RunOptimizationRequest{} = request) do
-    case Graphs.load_revision(request.graph_revision_id) do
-      nil -> {:error, "graph_not_found"}
-      {:error, _reason} -> {:error, "invalid_graph"}
-      graph -> run_sync(graph, request)
+    with {:ok, graph} <- load_graph(request), do: run_sync(graph, request)
+  end
+
+  defp load_graph(%RunOptimizationRequest{graph_revision_id: graph_revision_id}) do
+    case Graphs.load_revision(graph_revision_id) do
+      nil -> {:error, :not_found}
+      {:error, _reason} -> {:error, :invalid_graph}
+      graph -> {:ok, graph}
     end
   end
 
@@ -82,7 +81,9 @@ defmodule NetworkDefense.Optimizations do
 
     case OptimizationRuns.create(run) do
       {:ok, run} -> {:ok, run}
-      {:error, reason} -> {:error, persistence_error(reason)}
+      {:error, reason} ->
+        Logger.error("Unable to persist optimization run: #{inspect(reason)}")
+        {:error, :persistence_failed}
     end
   end
 
@@ -107,9 +108,9 @@ defmodule NetworkDefense.Optimizations do
         started
 
       {:error, reason} ->
-        reason = persistence_error(reason)
+        Logger.error("Unable to start optimization task: #{inspect(reason)}")
         OptimizationRuns.fail(run.id)
-        {:error, reason}
+        {:error, :task_unavailable}
     end
   end
 
@@ -128,7 +129,7 @@ defmodule NetworkDefense.Optimizations do
   defp fail_optimization(run, error, stacktrace) do
     Logger.error(Exception.format(:error, error, stacktrace))
     OptimizationRuns.fail(run.id)
-    "optimization_failed"
+    :internal_error
   end
 
   defp apply_optimization(graph, request, strategy) do
@@ -143,7 +144,7 @@ defmodule NetworkDefense.Optimizations do
   defp strategy_for(graph, %RunOptimizationRequest{optimization_params: params}) do
     case Map.fetch(@strategy_modules, params.strategy) do
       {:ok, strategy_module} -> strategy_module.new(graph, params)
-      :error -> {:error, "unknown_strategy"}
+      :error -> {:error, :unknown_strategy}
     end
   end
 
@@ -161,10 +162,10 @@ defmodule NetworkDefense.Optimizations do
         {:ok, completed_run}
 
       {:error, reason} ->
-        reason = persistence_error(reason)
+        Logger.error("Unable to persist optimization result: #{inspect(reason)}")
         OptimizationRuns.fail(run.id)
-        broadcast_failed(graph, request.correlation_id, reason)
-        {:error, reason}
+        broadcast_failed(graph, request.correlation_id, :persistence_failed)
+        {:error, :persistence_failed}
     end
   end
 
@@ -201,22 +202,6 @@ defmodule NetworkDefense.Optimizations do
   defp materializable_run?(%OptimizationRun{actions: actions}) do
     Enum.all?(actions, &DefenseActionsRegistry.module_for_short(&1.action_type))
   end
-
-  defp persistence_error({:graph, changeset}), do: persistence_error(changeset)
-
-  defp persistence_error(%Changeset{} = changeset) do
-    changeset
-    |> Changeset.traverse_errors(fn {message, options} ->
-      Enum.reduce(options, message, fn {key, value}, message ->
-        String.replace(message, "%{#{key}}", to_string(value))
-      end)
-    end)
-    |> Enum.map_join(", ", fn {field, messages} ->
-      "#{field |> Atom.to_string() |> String.capitalize()} #{Enum.join(messages, ", ")}"
-    end)
-  end
-
-  defp persistence_error(reason), do: inspect(reason)
 
   defp broadcast_completed(graph, request, run) do
     Phoenix.PubSub.broadcast(

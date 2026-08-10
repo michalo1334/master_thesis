@@ -310,6 +310,30 @@ export interface CreateNodeDraftReply {
   status: "ok" | "invalid";
 }
 
+export interface DashboardError {
+  code:
+    | "not_found"
+    | "invalid_graph"
+    | "invalid_base_revision"
+    | "invalid_node"
+    | "invalid_edge"
+    | "invalid_endpoints"
+    | "multiple_segments"
+    | "multiple_runs"
+    | "invalid_mission_capability_support"
+    | "duplicate_ids"
+    | "identity_belongs_to_another_graph"
+    | "invalid_folder"
+    | "folder_not_found"
+    | "internal_error"
+    | "invalid_initial_foothold"
+    | "persistence_failed"
+    | "task_unavailable"
+    | "unknown_strategy"
+    | "reachability_required"
+    | "invalid_request";
+}
+
 export interface DeleteFolderPayload {
   folder_id: string;
 }
@@ -518,9 +542,9 @@ export interface OptimizationCompletedEvent {
 
 export interface OptimizationFailedEvent {
   correlation_id: string;
+  error: DashboardError;
   graph_id: string;
   graph_revision_id: string;
-  reason: string;
 }
 
 export interface OptimizationProgressEvent {
@@ -546,9 +570,9 @@ export interface OptimizationReport {
 }
 
 export interface OptimizationReportErrorEvent {
+  error: DashboardError;
   graph_revision_id: string;
   optimization_id: string;
-  reason: string;
 }
 
 export interface OptimizationRunSummary {
@@ -565,14 +589,18 @@ export interface OptimizationRunSummary {
   used_budget: number;
 }
 
+export interface ReportRequestReply {
+  status: "processing" | "unavailable" | "invalid_params";
+}
+
 export interface RunOptimizationPayload {
   request: RunOptimizationRequest;
 }
 
 export interface RunOptimizationReply {
   correlation_id: string;
+  error?: DashboardError | null;
   graph_revision_id: string;
-  reason?: string | null;
   status: "accepted" | "rejected";
 }
 
@@ -582,8 +610,8 @@ export interface RunSimulationPayload {
 
 export interface RunSimulationReply {
   correlation_id: string;
+  error?: DashboardError | null;
   graph_revision_id: string;
-  reason?: string | null;
   status: "accepted" | "rejected";
 }
 
@@ -615,9 +643,9 @@ export interface SimulationCompletedEvent {
 
 export interface SimulationFailedEvent {
   correlation_id: string;
+  error: DashboardError;
   graph_id: string;
   graph_revision_id: string;
-  reason: string;
 }
 
 export interface SimulationProgressEvent {
@@ -665,9 +693,9 @@ export interface SimulationReportEdgeTraversal {
 }
 
 export interface SimulationReportErrorEvent {
+  error: DashboardError;
   experiment_id: string;
   graph_revision_id: string;
-  reason: string;
 }
 
 export interface SimulationReportHistogramBucket {

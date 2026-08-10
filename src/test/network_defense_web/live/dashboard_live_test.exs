@@ -365,7 +365,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_push_event(view, "simulation_report_error", %{
         experiment_id: ^experiment_id,
         graph_revision_id: ^revised_revision_id,
-        reason: "not_found"
+        error: %{code: "not_found"}
       })
     end
 
@@ -395,7 +395,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "accepted",
         graph_revision_id: graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: nil
+        error: nil
       })
 
       assert has_element?(view, "#flash-info[role='alert']")
@@ -507,7 +507,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: "invalid_request"
+        error: %{code: "invalid_request"}
       })
     end
 
@@ -531,7 +531,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: "not-a-uuid",
         correlation_id: ^correlation_id,
-        reason: "invalid_request"
+        error: %{code: "invalid_request"}
       })
     end
 
@@ -544,7 +544,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: "",
         correlation_id: "",
-        reason: "invalid_request"
+        error: %{code: "invalid_request"}
       })
     end
 
@@ -565,11 +565,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: "request-2",
         graph_id: "graph-2",
         graph_revision_id: "revision-2",
-        reason: "persistence_failed"
+        reason: :persistence_failed
       }
 
       send(view.pid, {:simulation_failed, failed})
-      assert_push_event(view, "simulation_failed", ^failed)
+      assert_push_event(view, "simulation_failed", %{
+        correlation_id: "request-2",
+        graph_id: "graph-2",
+        graph_revision_id: "revision-2",
+        error: %{code: "persistence_failed"}
+      })
       assert has_element?(view, "#flash-error[role='alert']")
     end
   end
@@ -598,7 +603,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "accepted",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: nil
+        error: nil
       })
 
       assert has_element?(view, "#flash-info[role='alert']")
@@ -657,7 +662,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: "topology segmentation requires reachability relationships in the graph"
+        error: %{code: "reachability_required"}
       })
 
       refute_received {:optimization_completed, _}
@@ -693,7 +698,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "accepted",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: nil
+        error: nil
       })
 
       assert_receive {:optimization_completed,
@@ -726,7 +731,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: "invalid_request"
+        error: %{code: "invalid_request"}
       })
     end
 
@@ -749,7 +754,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: "invalid_request"
+        error: %{code: "invalid_request"}
       })
     end
 
@@ -782,7 +787,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "rejected",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
-        reason: "initial foothold must identify a host in the graph"
+        error: %{code: "invalid_initial_foothold"}
       })
     end
 
@@ -804,11 +809,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: "optimization-2",
         graph_id: "graph-2",
         graph_revision_id: "revision-2",
-        reason: "optimization_failed"
+        reason: :internal_error
       }
 
       send(view.pid, {:optimization_failed, failed})
-      assert_push_event(view, "optimization_failed", ^failed)
+      assert_push_event(view, "optimization_failed", %{
+        correlation_id: "optimization-2",
+        graph_id: "graph-2",
+        graph_revision_id: "revision-2",
+        error: %{code: "internal_error"}
+      })
       assert has_element?(view, "#flash-error[role='alert']")
 
       progress = %{
@@ -873,7 +883,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_push_event(view, "optimization_report_error", %{
         optimization_id: ^optimization_id,
         graph_revision_id: ^revised_revision_id,
-        reason: "not_found"
+        error: %{code: "not_found"}
       })
     end
 

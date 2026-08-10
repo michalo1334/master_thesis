@@ -25,7 +25,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
         [GraphFixtures.edge("runs-app", app, app_service, Runs)]
       )
 
-    assert {:error, "topology segmentation requires reachability relationships in the graph"} =
+    assert {:error, :reachability_required} =
              TopologySegmentationStrategy.new(graph, simulation_params(source))
   end
 

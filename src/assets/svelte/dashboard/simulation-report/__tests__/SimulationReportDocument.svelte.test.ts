@@ -111,14 +111,4 @@ describe("SimulationReportDocument", () => {
     expect(document.heatmapSelectedNodeId).toBeUndefined();
     expect(document.heatmapSelectedEdgeId).toBeUndefined();
   });
-
-  it("explains when the topology changed after a simulation", () => {
-    const document = new SimulationReportDocument("Topology", "g1", "r1");
-
-    document.markError("graph_version_mismatch");
-
-    expect(document.errorReason).toBe(
-      "The topology changed after this simulation ran. Run the simulation again.",
-    );
-  });
 });

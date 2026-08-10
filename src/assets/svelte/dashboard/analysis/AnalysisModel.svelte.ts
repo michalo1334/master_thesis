@@ -1,4 +1,5 @@
 import type { DashboardApi } from "../dashboard-api";
+import { formatDashboardErrorCode } from "../error-code";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import type {
   LoadedGraph,
@@ -266,15 +267,19 @@ export class AnalysisModel {
         expectedJob.correlationId,
       );
       if (!result) {
-        report.markError("Simulation failed.");
+        report.markErrorMessage("Simulation failed.");
         this.workspace.markReportReadState(report);
         return false;
       }
       if (result.status === "rejected") {
-        report.markError(result.reason || "Simulation rejected.");
+        if (result.error) {
+          report.markError(result.error);
+        } else {
+          report.markErrorMessage("Simulation rejected.");
+        }
         this.workspace.markReportReadState(report);
-        this.workspace.statusMessage = result.reason
-          ? `Simulation rejected: ${result.reason}`
+        this.workspace.statusMessage = result.error
+          ? `Simulation rejected: ${formatDashboardErrorCode(result.error.code)}`
           : "Simulation was rejected.";
         return false;
       }
@@ -283,14 +288,16 @@ export class AnalysisModel {
         result.graphRevisionId !== expectedJob.graphRevisionId ||
         result.correlationId !== expectedJob.correlationId
       ) {
-        report.markError("Simulation request returned unexpected identifiers.");
+        report.markErrorMessage(
+          "Simulation request returned unexpected identifiers.",
+        );
         this.workspace.markReportReadState(report);
         this.workspace.statusMessage = report.errorReason;
         return false;
       }
       return true;
     } catch {
-      report.markError("Simulation failed.");
+      report.markErrorMessage("Simulation failed.");
       this.workspace.markReportReadState(report);
       this.workspace.statusMessage = report.errorReason;
       return false;
@@ -326,12 +333,16 @@ export class AnalysisModel {
         expectedJob.correlationId,
       );
       if (!reply) {
-        report.markError("Optimization failed.");
+        report.markErrorMessage("Optimization failed.");
         this.workspace.markReportReadState(report);
         return false;
       }
       if (reply.status === "rejected") {
-        report.markError(reply.reason || "Optimization rejected.");
+        if (reply.error) {
+          report.markError(reply.error);
+        } else {
+          report.markErrorMessage("Optimization rejected.");
+        }
         this.workspace.markReportReadState(report);
         this.workspace.statusMessage = report.errorReason;
         return false;
@@ -340,7 +351,7 @@ export class AnalysisModel {
         reply.graph_revision_id !== expectedJob.graphRevisionId ||
         reply.correlation_id !== expectedJob.correlationId
       ) {
-        report.markError(
+        report.markErrorMessage(
           "Optimization request returned unexpected identifiers.",
         );
         this.workspace.markReportReadState(report);
@@ -349,7 +360,7 @@ export class AnalysisModel {
       }
       return true;
     } catch {
-      report.markError("Optimization failed.");
+      report.markErrorMessage("Optimization failed.");
       this.workspace.markReportReadState(report);
       this.workspace.statusMessage = report.errorReason;
       return false;

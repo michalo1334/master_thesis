@@ -1,14 +1,11 @@
-import type { LoadedGraph, SimulationReportData } from "../contract";
+import type {
+  DashboardError,
+  LoadedGraph,
+  SimulationReportData,
+} from "../contract";
 import type { DashboardApi } from "../dashboard-api";
+import { formatDashboardErrorCode } from "../error-code";
 import type { IconName } from "../types";
-
-function formatErrorReason(reason: string): string {
-  if (reason === "graph_version_mismatch") {
-    return "The topology changed after this simulation ran. Run the simulation again.";
-  }
-
-  return reason;
-}
 
 export class SimulationReportDocument {
   readonly kind = "simulation-report" as const;
@@ -68,9 +65,13 @@ export class SimulationReportDocument {
     this.totalRuns = totalRuns;
   }
 
-  markError(reason: string): void {
+  markError(error: DashboardError): void {
+    this.markErrorMessage(formatDashboardErrorCode(error.code));
+  }
+
+  markErrorMessage(message: string): void {
     this.status = "error";
-    this.errorReason = formatErrorReason(reason);
+    this.errorReason = message;
   }
 
   markRead(): void {

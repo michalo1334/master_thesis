@@ -53,6 +53,7 @@ import type {
   FetchGraphProjectionPayload,
   FetchGraphProjectionReply,
   GraphProjectionOperationalFlow,
+  DashboardError,
 } from "../contracts.generated";
 
 export type {
@@ -128,6 +129,7 @@ export type {
   FetchGraphProjectionReply,
   GraphProjectionOperationalFlow,
   SimulationReportErrorEvent,
+  DashboardError,
 } from "../contracts.generated";
 
 export type LoadedGraph = GraphContract;

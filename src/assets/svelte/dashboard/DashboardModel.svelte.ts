@@ -100,7 +100,7 @@ export class DashboardModel {
       payload.graph_id,
     );
     if (report) {
-      report.markError(payload.reason);
+      report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
     this.analysis.onOptimizationFailed(payload);
@@ -146,7 +146,7 @@ export class DashboardModel {
         d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
     if (report) {
-      report.markError(payload.reason);
+      report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
     this.analysis.onSimulationFailed(payload);
@@ -180,7 +180,8 @@ export class DashboardModel {
         d.experimentId === payload.experiment_id,
     ) as SimulationReportDocument | undefined;
     if (!report) return;
-    report.markError(payload.reason);
+    report.markError(payload.error);
+    this.workspace.markReportReadState(report);
   }
 
   onOptimizationReportReady(payload: FetchOptimizationReportReply): void {
@@ -198,7 +199,9 @@ export class DashboardModel {
         d.kind === "optimization-report" &&
         d.optimizationId === payload.optimization_id,
     ) as OptimizationReportDocument | undefined;
-    report?.markError(payload.reason);
+    if (!report) return;
+    report.markError(payload.error);
+    this.workspace.markReportReadState(report);
   }
 
   /** Delegate saving to the workspace. */

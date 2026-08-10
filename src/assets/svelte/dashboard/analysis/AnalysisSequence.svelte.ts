@@ -6,6 +6,7 @@ import type {
   SimulationFailedEvent,
   SimulationParams,
 } from "../contract";
+import { formatDashboardErrorCode } from "../error-code";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 
 export type AnalysisSequenceStage =
@@ -174,7 +175,9 @@ export class AnalysisSequence {
         this.sourceGraphRevisionId,
       )
     ) {
-      this.fail(`Baseline simulation failed: ${payload.reason}`);
+      this.fail(
+        `Baseline simulation failed: ${formatDashboardErrorCode(payload.error.code)}`,
+      );
       return;
     }
 
@@ -187,7 +190,9 @@ export class AnalysisSequence {
         this.afterGraphRevisionId,
       )
     ) {
-      this.fail(`After simulation failed: ${payload.reason}`);
+      this.fail(
+        `After simulation failed: ${formatDashboardErrorCode(payload.error.code)}`,
+      );
     }
   }
 
@@ -220,7 +225,9 @@ export class AnalysisSequence {
         this.sourceGraphRevisionId,
       )
     ) {
-      this.fail(`Optimization failed: ${payload.reason}`);
+      this.fail(
+        `Optimization failed: ${formatDashboardErrorCode(payload.error.code)}`,
+      );
     }
   }
 

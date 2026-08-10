@@ -1,5 +1,6 @@
 import type {
   Edge,
+  DashboardError,
   LoadedGraph,
   Node,
   OptimizationParams,
@@ -30,7 +31,7 @@ export type StartSimulationResult =
       correlationId: string;
       graphTitle: string;
     }
-  | { status: "rejected"; reason: string | null };
+  | { status: "rejected"; error: DashboardError | null };
 
 function blankGraph(title: string): LoadedGraph {
   return {
@@ -260,7 +261,7 @@ export class EditableGraphDocument {
         graphTitle: this.title,
       };
     }
-    return { status: "rejected", reason: reply.reason ?? null };
+    return { status: "rejected", error: reply.error ?? null };
   }
 
   async startOptimization(

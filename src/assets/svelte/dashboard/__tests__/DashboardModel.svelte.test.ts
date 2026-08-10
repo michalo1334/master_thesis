@@ -88,18 +88,18 @@ describe("DashboardModel", () => {
     expect(report).toMatchObject({ graphId: "g1", graphRevisionId: "r2" });
   });
 
-  it("surfaces the rejection reason of a standalone simulation", async () => {
+  it("surfaces the rejection error of a standalone simulation", async () => {
     vi.mocked(dashboardApi.runSimulation).mockResolvedValue({
       status: "rejected",
       graph_revision_id: "r1",
       correlation_id: "simulation-1",
-      reason: "invalid_request",
+      error: { code: "invalid_graph" },
     });
 
     await model.runActiveSimulation();
 
     expect(model.workspace.statusMessage).toBe(
-      "Simulation rejected: invalid_request",
+      "Simulation rejected: The graph is invalid.",
     );
   });
 
@@ -142,7 +142,7 @@ describe("DashboardModel", () => {
           correlation_id: correlationId,
           graph_id: "g1",
           graph_revision_id: graphRevisionId,
-          reason: "worker_failed",
+          error: { code: "internal_error" },
         });
         return {
           status: "accepted",
@@ -159,7 +159,7 @@ describe("DashboardModel", () => {
     );
     expect(report).toMatchObject({
       status: "error",
-      errorReason: "worker_failed",
+      errorReason: "The operation could not be completed.",
     });
   });
 
@@ -209,7 +209,7 @@ describe("DashboardModel", () => {
       correlation_id: "simulation-1",
       graph_id: "g1",
       graph_revision_id: "r1",
-      reason: "failed",
+      error: { code: "internal_error" as const },
     };
     const optimizationCompleted = {
       correlation_id: "optimization-1",
@@ -222,7 +222,7 @@ describe("DashboardModel", () => {
       correlation_id: "optimization-1",
       graph_id: "g1",
       graph_revision_id: "r1",
-      reason: "failed",
+      error: { code: "internal_error" as const },
     };
 
     model.onSimulationCompleted(simulationCompleted);
