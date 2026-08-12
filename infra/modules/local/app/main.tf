@@ -68,7 +68,7 @@ locals {
     { internal = 4001, external = 4001, ip = "127.0.0.1" },
     { internal = 5173, external = 5173, ip = "127.0.0.1" },
     { internal = 9229, external = 9229, ip = "127.0.0.1" }
-  ] : [
+    ] : [
     { internal = var.app.port, external = var.app.port, ip = "127.0.0.1" }
   ]
   volumes = concat(

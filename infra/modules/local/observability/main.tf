@@ -274,8 +274,8 @@ resource "docker_container" "postgres_exporter_init" {
   must_run = false
 
   env = [
-    "PGHOST=postgres",
-    "PGPORT=5432",
+    "PGHOST=${var.postgres_host}",
+    "PGPORT=${var.postgres_port}",
     "PGDATABASE=${var.postgres_database}",
     "PGUSER=${var.postgres_user}"
   ]
@@ -307,7 +307,7 @@ resource "docker_container" "postgres_exporter" {
   ]
 
   env = [
-    "DATA_SOURCE_URI=postgres:5432/${var.postgres_database}?sslmode=disable",
+    "DATA_SOURCE_URI=${var.postgres_host}:${var.postgres_port}/${var.postgres_database}?sslmode=disable",
     "DATA_SOURCE_USER=postgres_exporter",
     "DATA_SOURCE_PASS_FILE=/run/secrets/postgres-exporter-password"
   ]

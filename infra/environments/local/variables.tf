@@ -4,6 +4,11 @@ variable "secret_mount_path" {
 
 variable "app_mode" {
   type = string
+
+  validation {
+    condition     = contains(["dev", "prod"], var.app_mode)
+    error_message = "app_mode must be dev or prod."
+  }
 }
 
 variable "app_image" {

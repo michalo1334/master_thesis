@@ -23,6 +23,7 @@ resource "docker_volume" "pgadmin_data" {
 }
 
 locals {
+  postgres_host  = "postgres"
   postgres_ports = [{ internal = 5432, external = 5433, ip = "127.0.0.1" }]
   pgadmin_ports  = [{ internal = 80, external = 5050, ip = "127.0.0.1" }]
   postgres_volumes = [
@@ -47,7 +48,7 @@ resource "docker_container" "postgres" {
 
   networks_advanced {
     name    = var.network_name
-    aliases = ["postgres"]
+    aliases = [local.postgres_host]
   }
 
   dynamic "ports" {
@@ -141,4 +142,12 @@ resource "docker_container" "pgadmin" {
 
 output "postgres_image" {
   value = docker_image.postgres.image_id
+}
+
+output "postgres_host" {
+  value = local.postgres_host
+}
+
+output "postgres_port" {
+  value = local.postgres_ports[0].internal
 }

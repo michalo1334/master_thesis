@@ -26,6 +26,14 @@ variable "postgres_database" {
   type = string
 }
 
+variable "postgres_host" {
+  type = string
+}
+
+variable "postgres_port" {
+  type = number
+}
+
 variable "postgres_image" {
   type = string
 }

@@ -14,7 +14,7 @@ if ! command -v docker >/dev/null; then
   exit 1
 fi
 
-exec docker run --rm \
+exec docker run --rm --interactive \
   --env-file "$directory/.env" \
   -v "$repository:$repository" \
   -v /var/run/docker.sock:/var/run/docker.sock \
