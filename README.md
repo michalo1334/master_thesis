@@ -64,9 +64,6 @@ Evaluation metrics may include:
 
 ```text
 📁 master_thesis/  — Attack simulation and automated defense optimization
-├── 📁 docker/        — Observability configuration and initialization scripts
-│   ├── 📁 grafana-dashboards/
-│   └── 📁 grafana-provisioning/
 ├── 📁 docs/          — ADRs, concepts, research notes, wireframes, and thesis drafts
 │   ├── 📁 adr/
 │   ├── 📁 concepts/
@@ -74,7 +71,7 @@ Evaluation metrics may include:
 |   ├── 🗎 architecture.md
 |   └── 🗎 infrastructure.md
 ├── 📁 src/           — Elixir simulation engine and web application
-├── 📁 infra/         — Terraform infrastructure
+├── 📁 infra/         — Terraform infrastructure and local runtime configuration
 └── 📁 thesis/        — LaTeX source of the master's thesis
 ```
 

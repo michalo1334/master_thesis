@@ -2,7 +2,7 @@
 #
 # Receives traces and metrics from the Elixir app via OTLP, exports traces
 # to Tempo and metrics to Prometheus. Application logs are shipped to Loki
-# by Grafana Alloy (see docker/alloy-config.alloy), not by this collector.
+# by Grafana Alloy (see alloy-config.alloy), not by this collector.
 
 receivers:
   otlp:

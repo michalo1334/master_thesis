@@ -7,6 +7,7 @@ terraform {
 }
 
 locals {
+  config_path = abspath("${path.module}/config")
   images = {
     alloy             = "grafana/alloy:v1.17.1"
     cadvisor          = "gcr.io/cadvisor/cadvisor:v0.49.2"
@@ -33,14 +34,14 @@ locals {
   }
   container_volumes = {
     otel_collector = [
-      { host_path = "${var.config_path}/otel-collector-config.yaml", container_path = "/etc/otelcol/config.yaml", read_only = true }
+      { host_path = "${local.config_path}/otel-collector-config.yaml", container_path = "/etc/otelcol/config.yaml", read_only = true }
     ]
     tempo = [
-      { host_path = "${var.config_path}/tempo.yaml", container_path = "/etc/tempo.yaml", read_only = true },
+      { host_path = "${local.config_path}/tempo.yaml", container_path = "/etc/tempo.yaml", read_only = true },
       { volume_name = docker_volume.data["tempo"].name, container_path = "/var/tempo" }
     ]
     prometheus = [
-      { host_path = "${var.config_path}/prometheus.yaml", container_path = "/etc/prometheus/prometheus.yaml", read_only = true },
+      { host_path = "${local.config_path}/prometheus.yaml", container_path = "/etc/prometheus/prometheus.yaml", read_only = true },
       { volume_name = docker_volume.data["prometheus"].name, container_path = "/prometheus" }
     ]
     node_exporter = [
@@ -56,26 +57,26 @@ locals {
       { host_path = "/dev/disk", container_path = "/dev/disk", read_only = true }
     ]
     postgres_exporter_init = [
-      { host_path = "${var.config_path}/postgres-exporter-init.sh", container_path = "/usr/local/bin/postgres-exporter-init.sh", read_only = true },
+      { host_path = "${local.config_path}/postgres-exporter-init.sh", container_path = "/usr/local/bin/postgres-exporter-init.sh", read_only = true },
       { host_path = var.secret_mount_path, container_path = "/run/secrets", read_only = true }
     ]
     postgres_exporter = [
-      { host_path = "${var.config_path}/postgres-exporter.yaml", container_path = "/etc/postgres-exporter/postgres-exporter.yaml", read_only = true },
+      { host_path = "${local.config_path}/postgres-exporter.yaml", container_path = "/etc/postgres-exporter/postgres-exporter.yaml", read_only = true },
       { host_path = var.secret_mount_path, container_path = "/run/secrets", read_only = true }
     ]
     loki = [
-      { host_path = "${var.config_path}/loki-config.yaml", container_path = "/etc/loki/loki-config.yaml", read_only = true },
+      { host_path = "${local.config_path}/loki-config.yaml", container_path = "/etc/loki/loki-config.yaml", read_only = true },
       { volume_name = docker_volume.data["loki"].name, container_path = "/loki" }
     ]
     alloy = [
-      { host_path = "${var.config_path}/alloy-config.alloy", container_path = "/etc/alloy/config.alloy", read_only = true },
+      { host_path = "${local.config_path}/alloy-config.alloy", container_path = "/etc/alloy/config.alloy", read_only = true },
       { volume_name = var.log_volume_name, container_path = "/var/log/network_defense", read_only = true },
       { volume_name = docker_volume.data["alloy"].name, container_path = "/var/lib/alloy/data" }
     ]
     grafana = [
       { volume_name = docker_volume.data["grafana"].name, container_path = "/var/lib/grafana" },
-      { host_path = "${var.config_path}/grafana-provisioning", container_path = "/etc/grafana/provisioning", read_only = true },
-      { host_path = "${var.config_path}/grafana-dashboards", container_path = "/var/lib/grafana/dashboards", read_only = true },
+      { host_path = "${local.config_path}/grafana-provisioning", container_path = "/etc/grafana/provisioning", read_only = true },
+      { host_path = "${local.config_path}/grafana-dashboards", container_path = "/var/lib/grafana/dashboards", read_only = true },
       { host_path = var.secret_mount_path, container_path = "/run/secrets", read_only = true }
     ]
   }

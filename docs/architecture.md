@@ -51,7 +51,7 @@ C4Container
 
 ## Level 2 — Container, Observability Stack
 
-The observability wiring in isolation. Traces and metrics leave the app by OTLP through the collector; logs bypass the collector and reach Loki via Alloy tailing the shared JSONL file, which keeps compile noise and framework banners out of Loki (see `docker/alloy-config.alloy` and `docs/infrastructure.md`). Grafana correlates traces with logs through the `trace_id` label. `node-exporter`, `cadvisor`, and `postgres-exporter` are also scraped by Prometheus but omitted here as generic or peripheral infrastructure. The app's log-write path is shown in the Deployment and Observability Pipeline diagrams; here `jsonlLogs` is the file Alloy tails.
+The observability wiring in isolation. Traces and metrics leave the app by OTLP through the collector; logs bypass the collector and reach Loki via Alloy tailing the shared JSONL file, which keeps compile noise and framework banners out of Loki (see `infra/modules/local/observability/config/alloy-config.alloy` and `docs/infrastructure.md`). Grafana correlates traces with logs through `trace_id` structured metadata. `node-exporter`, `cadvisor`, and `postgres-exporter` are also scraped by Prometheus but omitted here as generic or peripheral infrastructure. The app's log-write path is shown in the Deployment and Observability Pipeline diagrams; here `jsonlLogs` is the file Alloy tails.
 
 ```mermaid
 C4Container

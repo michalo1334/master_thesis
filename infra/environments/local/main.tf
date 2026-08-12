@@ -91,7 +91,6 @@ module "observability" {
   source = "../../modules/local/observability"
 
   name_prefix       = local.name_prefix
-  config_path       = abspath("${path.module}/../../../docker")
   network_name      = docker_network.stack.name
   secret_mount_path = local.secret_mount_path
   log_volume_name   = docker_volume.application_logs.name

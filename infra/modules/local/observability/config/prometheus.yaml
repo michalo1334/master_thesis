@@ -1,6 +1,6 @@
 # Prometheus configuration for the attack-graph thesis.
 # Scrapes the OTel Collector's Prometheus exporter for app metrics.
-# Retention: 7 days (set in docker-compose command line).
+# Retention: 7 days (set by the Terraform container command).
 
 global:
   scrape_interval: 15s
