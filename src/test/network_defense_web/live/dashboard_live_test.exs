@@ -569,12 +569,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       }
 
       send(view.pid, {:simulation_failed, failed})
+
       assert_push_event(view, "simulation_failed", %{
         correlation_id: "request-2",
         graph_id: "graph-2",
         graph_revision_id: "revision-2",
         error: %{code: "persistence_failed"}
       })
+
       assert has_element?(view, "#flash-error[role='alert']")
     end
   end
@@ -813,12 +815,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       }
 
       send(view.pid, {:optimization_failed, failed})
+
       assert_push_event(view, "optimization_failed", %{
         correlation_id: "optimization-2",
         graph_id: "graph-2",
         graph_revision_id: "revision-2",
         error: %{code: "internal_error"}
       })
+
       assert has_element?(view, "#flash-error[role='alert']")
 
       progress = %{

@@ -1,8 +1,25 @@
-#!/bin/sh
+#!/usr/bin/env bash
 set -eu
+
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 repository_root=$(git rev-parse --show-toplevel)
 application_root="$repository_root/src"
+
+if ! git diff --cached --quiet --diff-filter=ACMR -- ':(glob)infra/**/*.tf'; then
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Docker is required to format Terraform before committing." >&2
+    exit 1
+  fi
+
+  while IFS= read -r -d '' terraform_file; do
+    docker run --rm \
+      -v "$repository_root:$repository_root" \
+      -w "$repository_root" \
+      hashicorp/terraform:1.15.8 fmt -check "$repository_root/$terraform_file"
+  done < <(git diff --cached --name-only -z --diff-filter=ACMR -- ':(glob)infra/**/*.tf')
+fi
 
 if [ ! -d "$application_root/node_modules" ]; then
   echo "Missing src/node_modules; run mix assets.setup before committing." >&2

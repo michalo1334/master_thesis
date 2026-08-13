@@ -223,29 +223,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:ok, _pid} ->
             {:reply,
              simulation_request_reply(
-                "accepted",
-                request.graph_revision_id,
-                request.correlation_id,
-                nil
+               "accepted",
+               request.graph_revision_id,
+               request.correlation_id,
+               nil
              ), put_flash(socket, :info, "Simulation started.")}
 
           {:error, reason} ->
             {:reply,
              simulation_request_reply(
-                "rejected",
-                request.graph_revision_id,
-                request.correlation_id,
-                reason
+               "rejected",
+               request.graph_revision_id,
+               request.correlation_id,
+               reason
              ), socket}
         end
 
       {:error, _changeset} ->
         {:reply,
          simulation_request_reply(
-            "rejected",
-            params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-            :invalid_request
+           "rejected",
+           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
+           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+           :invalid_request
          ), socket}
     end
   end
@@ -258,29 +258,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:ok, _pid} ->
             {:reply,
              optimization_request_reply(
-                "accepted",
-                request.graph_revision_id,
-                request.correlation_id,
-                nil
+               "accepted",
+               request.graph_revision_id,
+               request.correlation_id,
+               nil
              ), put_flash(socket, :info, "Optimization started.")}
 
           {:error, reason} ->
             {:reply,
              optimization_request_reply(
-                "rejected",
-                request.graph_revision_id,
-                request.correlation_id,
-                reason
+               "rejected",
+               request.graph_revision_id,
+               request.correlation_id,
+               reason
              ), socket}
         end
 
       {:error, _changeset} ->
         {:reply,
          optimization_request_reply(
-            "rejected",
-            params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-            :invalid_request
+           "rejected",
+           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
+           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+           :invalid_request
          ), socket}
     end
   end

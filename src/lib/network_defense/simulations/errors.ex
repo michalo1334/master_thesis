@@ -5,7 +5,8 @@ defmodule NetworkDefense.Simulations.Errors do
 
   @codes [:invalid_initial_foothold, :persistence_failed, :task_unavailable, :internal_error]
 
-  @type code :: :invalid_initial_foothold | :persistence_failed | :task_unavailable | :internal_error
+  @type code ::
+          :invalid_initial_foothold | :persistence_failed | :task_unavailable | :internal_error
   @type error :: GraphErrors.code() | code()
 
   @spec codes() :: [code()]

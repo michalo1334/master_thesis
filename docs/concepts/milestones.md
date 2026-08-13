@@ -42,7 +42,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Simulation report component (SimulationReport.svelte)
 - [x] KPI cards component (KpiCards.svelte)
 - [x] Statistical chart component (StatisticalChart.svelte)
-- [ ] Blast radius heat map on graph nodes
+- [x] Blast radius heat map on graph nodes
 - [x] Data pipeline: simulation results → dashboard UI
 - [x] Compromised host/attack path inspection
 
@@ -86,7 +86,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 ## 4. Defend — Optimize & Apply Defenses
 
 - [x] Greedy defense optimizer
-- [ ] Simulate-only defense evaluation (hypothetical what-if)
+- [x] Simulate-only defense evaluation (hypothetical what-if)
 
 ## 5. Verify — Re-simulate After Defense
 
