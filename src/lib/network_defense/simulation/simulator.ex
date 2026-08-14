@@ -61,7 +61,7 @@ defmodule NetworkDefense.Simulation.Simulator do
     trial_indexes
     |> map_fn.(fn index ->
       Tracer.with_span "simulation.trial",
-        attributes: %{"trial.index": index} do
+        attributes: %{"simulation.trial_index": index} do
         run_single(graph, initial_attacker_state, experiment, opts, index)
       end
     end)

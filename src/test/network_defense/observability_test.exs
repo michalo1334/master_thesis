@@ -79,7 +79,6 @@ defmodule NetworkDefense.ObservabilityTest do
   test "preserves external string logs and normalizes their metadata" do
     reference = make_ref()
 
-    # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
     Logger.warning("external library message", opaque: {:value, self(), reference})
 
     entry =

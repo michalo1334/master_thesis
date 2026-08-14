@@ -82,16 +82,42 @@ defmodule NetworkDefense.Simulations do
     Tracer.with_span "simulation.run",
       attributes: %{
         "graph.id": graph.id,
+        "graph.revision_id": graph.revision_id,
+        "simulation.experiment_id": experiment.id,
         "correlation.id": correlation_id,
         "simulation.run_count": experiment.total_trials,
-        "simulation.iteration_count": experiment.iteration_count
+        "simulation.iteration_count": experiment.iteration_count,
+        "simulation.max_attempts": experiment.max_attempts
       } do
+      Logger.debug("Simulation started",
+        event: "simulation.run.started",
+        experiment_id: experiment.id,
+        graph_id: graph.id,
+        graph_revision_id: graph.revision_id,
+        correlation_id: correlation_id,
+        run_count: experiment.total_trials,
+        iteration_count: experiment.iteration_count
+      )
+
       try do
         experiment = run_batches(graph, correlation_id, experiment)
+        Tracer.set_attributes(%{"simulation.completed_run_count": experiment.completed_trials})
         Tracer.set_status(OpenTelemetry.status(:ok))
+
+        Logger.debug("Simulation completed",
+          event: "simulation.run.completed",
+          experiment_id: experiment.id,
+          graph_id: graph.id,
+          graph_revision_id: graph.revision_id,
+          correlation_id: correlation_id,
+          completed_run_count: experiment.completed_trials,
+          runtime_ms: experiment.runtime_ms
+        )
+
         broadcast_simulation_completed(graph, experiment, correlation_id)
       rescue
         error ->
+          Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
           Logger.error(Exception.format(:error, error, __STACKTRACE__))
           Experiments.fail(experiment.id)
@@ -108,8 +134,15 @@ defmodule NetworkDefense.Simulations do
     (experiment.completed_trials + 1)..experiment.total_trials
     |> Stream.chunk_every(@trial_batch_size)
     |> Enum.reduce(experiment, fn trial_indexes, experiment ->
+      {first_trial_index, last_trial_index} = Enum.min_max(trial_indexes)
+
       {elapsed_us, runs} =
-        Tracer.with_span "simulation.compute" do
+        Tracer.with_span "simulation.compute",
+          attributes: %{
+            "simulation.batch_size": length(trial_indexes),
+            "simulation.first_trial_index": first_trial_index,
+            "simulation.last_trial_index": last_trial_index
+          } do
           :timer.tc(fn ->
             Simulator.run_batch(
               experiment,
@@ -133,6 +166,16 @@ defmodule NetworkDefense.Simulations do
 
       case Experiments.append_batch(experiment, runs, runtime_ms) do
         {:ok, saved} ->
+          Logger.debug("Simulation batch completed",
+            event: "simulation.batch.completed",
+            experiment_id: saved.id,
+            completed_run_count: saved.completed_trials,
+            total_run_count: saved.total_trials,
+            first_trial_index: first_trial_index,
+            last_trial_index: last_trial_index,
+            runtime_ms: runtime_ms
+          )
+
           broadcast_simulation_progress(
             graph,
             correlation_id,

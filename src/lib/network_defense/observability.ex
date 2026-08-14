@@ -35,8 +35,6 @@ defmodule NetworkDefense.Observability do
       }
       |> LogValue.normalize()
 
-    # LoggerJSON emits all metadata; Credo's check only recognizes the legacy console formatter config.
-    # credo:disable-for-next-line Credo.Check.Warning.MissedMetadataKeyInLoggerConfig
     Logger.debug("Telemetry event", event: "telemetry.event", telemetry: details)
   end
 

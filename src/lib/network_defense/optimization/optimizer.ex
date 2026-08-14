@@ -14,7 +14,13 @@ defmodule NetworkDefense.Optimization.Optimizer do
   @spec apply(Graph.t(), term(), Budget.t(), (non_neg_integer(), pos_integer(), String.t() ->
                                                 any())) :: map()
   def apply(graph, strategy, budget, progress_callback \\ fn _, _, _ -> :ok end) do
-    Tracer.with_span "optimizer.apply" do
+    Tracer.with_span "optimizer.apply",
+      attributes: %{
+        "graph.id": graph.id,
+        "optimization.strategy": Strategy.name(strategy),
+        "optimization.requested_budget": budget,
+        "optimization.plan_based": Strategy.plan?(strategy)
+      } do
       {elapsed_us, optimized_graph} =
         :timer.tc(fn -> do_optimize(graph, strategy, budget, progress_callback) end)
 

@@ -18,6 +18,9 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
 
+  require Logger
+  require OpenTelemetry.Tracer, as: Tracer
+
   @type t :: %__MODULE__{
           optimization_id: String.t(),
           graph_id: String.t(),
@@ -52,19 +55,60 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   """
   @spec generate(OptimizationRun.t(), Graph.t()) :: t()
   def generate(%OptimizationRun{} = run, %Graph{} = graph) do
-    %__MODULE__{
-      optimization_id: run.id,
-      graph_id: graph.id,
-      graph_title: graph.title,
-      graph: graph,
-      graph_revision_id: run.graph_revision_id,
-      strategy: run.strategy,
-      objective: run.objective,
-      requested_budget: run.requested_budget,
-      used_budget: run.used_budget,
-      runtime_ms: run.runtime_ms,
-      actions: Enum.map(run.actions, &action_summary(&1, graph))
-    }
+    Tracer.with_span "optimization.report.generate",
+      attributes: %{
+        "optimization.run_id": run.id,
+        "graph.id": graph.id,
+        "graph.revision_id": run.graph_revision_id,
+        "optimization.strategy": run.strategy,
+        "optimization.objective": run.objective,
+        "optimization.action_count": length(run.actions)
+      } do
+      Logger.debug("Optimization report generation started",
+        event: "report.optimization.started",
+        optimization_id: run.id,
+        graph_id: graph.id,
+        graph_revision_id: run.graph_revision_id,
+        strategy: run.strategy,
+        objective: run.objective,
+        action_count: length(run.actions)
+      )
+
+      try do
+        report = %__MODULE__{
+          optimization_id: run.id,
+          graph_id: graph.id,
+          graph_title: graph.title,
+          graph: graph,
+          graph_revision_id: run.graph_revision_id,
+          strategy: run.strategy,
+          objective: run.objective,
+          requested_budget: run.requested_budget,
+          used_budget: run.used_budget,
+          runtime_ms: run.runtime_ms,
+          actions: Enum.map(run.actions, &action_summary(&1, graph))
+        }
+
+        Tracer.set_status(OpenTelemetry.status(:ok))
+
+        Logger.debug("Optimization report generated",
+          event: "report.optimization.completed",
+          optimization_id: report.optimization_id,
+          graph_id: report.graph_id,
+          graph_revision_id: report.graph_revision_id,
+          strategy: report.strategy,
+          objective: report.objective,
+          action_count: length(report.actions)
+        )
+
+        report
+      rescue
+        error ->
+          Tracer.record_exception(error, __STACKTRACE__)
+          Tracer.set_status(OpenTelemetry.status(:error))
+          reraise error, __STACKTRACE__
+      end
+    end
   end
 
   defp action_summary(%OptimizationAction{} = action, graph) do

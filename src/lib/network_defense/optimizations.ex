@@ -19,6 +19,7 @@ defmodule NetworkDefense.Optimizations do
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   require Logger
+  require OpenTelemetry.Tracer, as: Tracer
 
   @optimization_events_topic "optimization_events"
   @strategy_modules %{
@@ -59,11 +60,21 @@ defmodule NetworkDefense.Optimizations do
   defp run_sync(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request),
          {:ok, run} <- persist_run(graph, request, strategy) do
-      try do
-        {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-        complete_optimization(graph, request, run, result, runtime_us)
-      rescue
-        error -> {:error, fail_optimization(run, error, __STACKTRACE__)}
+      Tracer.with_span "optimization.run",
+        attributes: optimization_span_attributes(graph, request, run) do
+        log_optimization_started(graph, request, run)
+
+        try do
+          {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+          result = complete_optimization(graph, request, run, result, runtime_us)
+          set_optimization_span_status(result)
+          result
+        rescue
+          error ->
+            Tracer.record_exception(error, __STACKTRACE__)
+            Tracer.set_status(OpenTelemetry.status(:error))
+            {:error, fail_optimization(run, error, __STACKTRACE__)}
+        end
       end
     end
   end
@@ -124,14 +135,23 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp run_optimization(graph, request, run, strategy) do
-    try do
-      {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-      complete_optimization(graph, request, run, result, runtime_us)
-    rescue
-      error ->
-        reason = fail_optimization(run, error, __STACKTRACE__)
-        broadcast_failed(graph, request.correlation_id, reason)
-        {:error, reason}
+    Tracer.with_span "optimization.run",
+      attributes: optimization_span_attributes(graph, request, run) do
+      log_optimization_started(graph, request, run)
+
+      try do
+        {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+        result = complete_optimization(graph, request, run, result, runtime_us)
+        set_optimization_span_status(result)
+        result
+      rescue
+        error ->
+          Tracer.record_exception(error, __STACKTRACE__)
+          Tracer.set_status(OpenTelemetry.status(:error))
+          reason = fail_optimization(run, error, __STACKTRACE__)
+          broadcast_failed(graph, request.correlation_id, reason)
+          {:error, reason}
+      end
     end
   end
 
@@ -147,6 +167,36 @@ defmodule NetworkDefense.Optimizations do
       strategy,
       request.optimization_params.budget,
       &broadcast_progress(graph, request.correlation_id, &1, &2, &3)
+    )
+  end
+
+  defp optimization_span_attributes(graph, request, run) do
+    %{
+      "graph.id": graph.id,
+      "graph.revision_id": graph.revision_id,
+      "optimization.run_id": run.id,
+      "correlation.id": request.correlation_id,
+      "optimization.strategy": request.optimization_params.strategy,
+      "optimization.objective": request.optimization_params.objective,
+      "optimization.requested_budget": request.optimization_params.budget
+    }
+  end
+
+  defp set_optimization_span_status({:ok, _run}), do: Tracer.set_status(OpenTelemetry.status(:ok))
+
+  defp set_optimization_span_status({:error, _reason}),
+    do: Tracer.set_status(OpenTelemetry.status(:error))
+
+  defp log_optimization_started(graph, request, run) do
+    Logger.debug("Optimization started",
+      event: "optimization.run.started",
+      optimization_id: run.id,
+      graph_id: graph.id,
+      graph_revision_id: graph.revision_id,
+      correlation_id: request.correlation_id,
+      strategy: request.optimization_params.strategy,
+      objective: request.optimization_params.objective,
+      requested_budget: request.optimization_params.budget
     )
   end
 
@@ -167,6 +217,19 @@ defmodule NetworkDefense.Optimizations do
            })
          end) do
       {:ok, completed_run} ->
+        Logger.debug("Optimization completed",
+          event: "optimization.run.completed",
+          optimization_id: completed_run.id,
+          graph_id: graph.id,
+          graph_revision_id: graph.revision_id,
+          correlation_id: request.correlation_id,
+          strategy: completed_run.strategy,
+          objective: completed_run.objective,
+          action_count: length(result.actions),
+          used_budget: completed_run.used_budget,
+          runtime_ms: completed_run.runtime_ms
+        )
+
         broadcast_completed(graph, request, completed_run)
         {:ok, completed_run}
 

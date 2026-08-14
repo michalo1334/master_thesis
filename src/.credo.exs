@@ -147,7 +147,8 @@
             {Credo.Check.Warning.ExpensiveEmptyEnumCheck, []},
             {Credo.Check.Warning.IExPry, []},
             {Credo.Check.Warning.IoInspect, []},
-            {Credo.Check.Warning.MissedMetadataKeyInLoggerConfig, []},
+            # LoggerJSON formatters emit every metadata key configured by the application handlers.
+            {Credo.Check.Warning.MissedMetadataKeyInLoggerConfig, [metadata_keys: :all]},
             {Credo.Check.Warning.OperationOnSameValues, []},
             {Credo.Check.Warning.OperationWithConstantResult, []},
             {Credo.Check.Warning.RaiseInsideRescue, []},
