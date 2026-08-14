@@ -111,6 +111,7 @@
               type="button"
               class="dashboard-document-close"
               aria-label={`Close ${document.title}`}
+              disabled={!model.canCloseDocument(document)}
               onclick={(event) => closeDocument(event, document.id)}
               >&times;</button
             >
@@ -358,6 +359,10 @@
   .dashboard-document-close:hover {
     background: var(--ds-color-accent-soft);
     color: var(--ds-color-text);
+  }
+  .dashboard-document-close:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
   .dashboard-document-tabs-container :global(.dashboard-document-add) {
     width: 2rem;

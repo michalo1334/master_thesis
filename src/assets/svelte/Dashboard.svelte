@@ -11,12 +11,14 @@
   import GraphDiff from "./dashboard/graph/GraphDiff.svelte";
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
+  import ComparisonReport from "./dashboard/comparison-report/ComparisonReport.svelte";
   import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
   import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
   import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
+  import type { ComparisonReportDocument } from "./dashboard/comparison-report/ComparisonReportDocument.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
 
   interface Props {
@@ -162,6 +164,8 @@
       />
     {:else if document.kind === "optimization-report"}
       <OptimizationReport document={document as OptimizationReportDocument} />
+    {:else if document.kind === "comparison-report"}
+      <ComparisonReport document={document as ComparisonReportDocument} />
     {/if}
   {/snippet}
 

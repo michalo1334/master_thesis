@@ -1,0 +1,359 @@
+<script lang="ts">
+  import type { ComparisonReportDocument } from "./ComparisonReportDocument.svelte";
+  import GraphDiff from "../graph/GraphDiff.svelte";
+  import { formatRuntime } from "../format";
+  import {
+    comparisonMetrics,
+    formatDelta,
+    formatPercentDelta,
+    formatStrategy,
+  } from "./comparison-report";
+
+  interface Props {
+    document: ComparisonReportDocument;
+  }
+
+  let { document }: Props = $props();
+  let baseline = $derived(document.baselineReport.reportData);
+  let postOptimization = $derived(document.postOptimizationReport.reportData);
+  let optimization = $derived(document.optimizationReport.reportData);
+  let metrics = $derived(
+    baseline && postOptimization
+      ? comparisonMetrics(baseline, postOptimization)
+      : [],
+  );
+</script>
+
+<article class="comparison-report" aria-labelledby="comparison-report-title">
+  <header>
+    <p>Combined analysis</p>
+    <h1 id="comparison-report-title">{document.title}</h1>
+  </header>
+
+  {#if document.baselineReport.status === "error" || document.postOptimizationReport.status === "error" || document.optimizationReport.status === "error"}
+    <section class="comparison-report-status" aria-live="polite">
+      <p>
+        Unable to complete the comparison because one of its reports failed.
+      </p>
+    </section>
+  {:else if !baseline || !postOptimization || !optimization}
+    <section class="comparison-report-status" aria-live="polite">
+      <span class="comparison-report-spinner" aria-hidden="true"></span>
+      <p>Loading analysis reports...</p>
+    </section>
+  {:else}
+    <section aria-labelledby="comparison-metrics-title">
+      <h2 id="comparison-metrics-title">Baseline and post-optimization</h2>
+      <div class="comparison-report-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Metric</th>
+              <th scope="col">Baseline</th>
+              <th scope="col">Post-optimization</th>
+              <th scope="col">Absolute delta</th>
+              <th scope="col">Percent delta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each metrics as metric (metric.label)}
+              {@const delta = metric.postOptimization - metric.baseline}
+              <tr>
+                <th scope="row">{metric.label}</th>
+                <td>{metric.baseline}</td>
+                <td>{metric.postOptimization}</td>
+                <td>{formatDelta(delta)}</td>
+                <td
+                  >{formatPercentDelta(
+                    metric.baseline,
+                    metric.postOptimization,
+                  )}</td
+                >
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      <ul
+        class="comparison-report-metric-cards"
+        aria-label="Comparison metrics"
+      >
+        {#each metrics as metric (metric.label)}
+          {@const delta = metric.postOptimization - metric.baseline}
+          <li>
+            <h3>{metric.label}</h3>
+            <dl>
+              <div>
+                <dt>Baseline</dt>
+                <dd>{metric.baseline}</dd>
+              </div>
+              <div>
+                <dt>Post-optimization</dt>
+                <dd>{metric.postOptimization}</dd>
+              </div>
+              <div>
+                <dt>Absolute delta</dt>
+                <dd>{formatDelta(delta)}</dd>
+              </div>
+              <div>
+                <dt>Percent delta</dt>
+                <dd>
+                  {formatPercentDelta(metric.baseline, metric.postOptimization)}
+                </dd>
+              </div>
+            </dl>
+          </li>
+        {/each}
+      </ul>
+    </section>
+
+    <section aria-labelledby="optimization-summary-title">
+      <h2 id="optimization-summary-title">Optimization</h2>
+      <dl class="comparison-report-summary">
+        <div>
+          <dt>Strategy</dt>
+          <dd>{formatStrategy(optimization.strategy)}</dd>
+        </div>
+        <div>
+          <dt>Objective</dt>
+          <dd>
+            {optimization.objective === "mission_impact"
+              ? "Mission impact"
+              : "Blast radius"}
+          </dd>
+        </div>
+        <div>
+          <dt>Budget</dt>
+          <dd>
+            {optimization.requested_budget} requested / {optimization.used_budget}
+            used
+          </dd>
+        </div>
+        <div>
+          <dt>Runtime</dt>
+          <dd>{formatRuntime(optimization.runtime_ms)}</dd>
+        </div>
+      </dl>
+      {#if optimization.actions.length > 0}
+        <ul class="comparison-report-actions">
+          {#each optimization.actions as action (action.id)}
+            <li>{action.label} <span>{action.kind}</span></li>
+          {/each}
+        </ul>
+      {:else}
+        <p class="comparison-report-empty">No defenses were selected.</p>
+      {/if}
+    </section>
+
+    <section
+      class="comparison-report-diff"
+      aria-labelledby="comparison-diff-title"
+    >
+      <div>
+        <h2 id="comparison-diff-title">Structural graph diff</h2>
+        <p>Changes made by the selected defenses.</p>
+      </div>
+      {#if document.optimizationReport.graphDiff}
+        <div class="comparison-report-diff-canvas">
+          <GraphDiff document={document.optimizationReport.graphDiff} />
+        </div>
+      {:else if document.optimizationReport.graphDiffStatus === "error"}
+        <button type="button" onclick={() => void document.loadGraphDiff()}
+          >Retry graph diff</button
+        >
+      {:else}
+        <p class="comparison-report-empty">Loading graph diff...</p>
+      {/if}
+    </section>
+  {/if}
+</article>
+
+<style>
+  .comparison-report {
+    height: 100%;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--ds-space-6);
+    scroll-padding-block-start: var(--ds-document-tabs-height);
+    background: var(--ds-color-surface);
+    color: var(--ds-color-text);
+  }
+  header p,
+  h1,
+  h2,
+  p,
+  dl {
+    margin: 0;
+  }
+  header p {
+    color: var(--ds-color-accent);
+    font-size: var(--ds-text-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin-top: var(--ds-space-1);
+    font-size: 1.5rem;
+  }
+  section {
+    max-width: 70rem;
+    margin-top: var(--ds-space-7);
+    scroll-margin-block-start: var(--ds-document-tabs-height);
+  }
+  h2 {
+    margin-bottom: var(--ds-space-3);
+    font-size: var(--ds-text-base);
+  }
+  .comparison-report-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: var(--ds-text-sm);
+  }
+  th,
+  td {
+    padding: var(--ds-space-3);
+    border-bottom: 1px solid var(--ds-color-border);
+    white-space: nowrap;
+  }
+  thead th {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-xs);
+    text-transform: uppercase;
+  }
+  tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  .comparison-report-metric-cards {
+    display: none;
+  }
+  .comparison-report-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--ds-space-3);
+  }
+  .comparison-report-summary div {
+    padding: var(--ds-space-3);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+  }
+  dt {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-xs);
+    text-transform: uppercase;
+  }
+  dd {
+    margin: var(--ds-space-1) 0 0;
+  }
+  .comparison-report-actions {
+    display: grid;
+    gap: var(--ds-space-1);
+    margin: var(--ds-space-3) 0 0;
+    padding-left: 1.25rem;
+    font-size: var(--ds-text-sm);
+  }
+  .comparison-report-actions span {
+    color: var(--ds-color-text-secondary);
+  }
+  .comparison-report-diff {
+    display: grid;
+    grid-template-rows: auto minmax(22rem, 36rem);
+    gap: var(--ds-space-3);
+    min-width: 0;
+  }
+  .comparison-report-diff p,
+  .comparison-report-empty {
+    color: var(--ds-color-text-secondary);
+    font-size: var(--ds-text-sm);
+  }
+  .comparison-report-diff-canvas {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+  }
+  .comparison-report-status {
+    min-height: 16rem;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: var(--ds-space-3);
+    border: 2px dashed var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-text-secondary);
+  }
+  .comparison-report-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--ds-color-border);
+    border-top-color: var(--ds-color-accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  button {
+    min-height: var(--ds-control-height);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    color: inherit;
+    font: inherit;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (max-width: 48em) {
+    .comparison-report {
+      padding: var(--ds-space-4);
+    }
+    .comparison-report-table-wrap {
+      display: none;
+    }
+    .comparison-report-metric-cards {
+      display: grid;
+      gap: var(--ds-space-3);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .comparison-report-metric-cards li {
+      padding: var(--ds-space-3);
+      border: 1px solid var(--ds-color-border);
+      border-radius: var(--ds-radius-md);
+      background: var(--ds-color-paper);
+    }
+    .comparison-report-metric-cards h3 {
+      margin: 0 0 var(--ds-space-3);
+      font-size: var(--ds-text-sm);
+    }
+    .comparison-report-metric-cards dl {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--ds-space-3);
+    }
+    .comparison-report-metric-cards dt {
+      color: var(--ds-color-text-secondary);
+      font-size: var(--ds-text-xs);
+      text-transform: uppercase;
+    }
+    .comparison-report-metric-cards dd {
+      margin: var(--ds-space-1) 0 0;
+      overflow-wrap: anywhere;
+    }
+    .comparison-report-diff {
+      grid-template-rows: auto minmax(18rem, 50dvh);
+    }
+  }
+</style>

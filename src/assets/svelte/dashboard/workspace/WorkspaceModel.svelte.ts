@@ -2,6 +2,7 @@ import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
+import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
   FolderSummary,
@@ -234,9 +235,21 @@ export class WorkspaceModel {
     }
   }
 
+  canCloseDocument(document: WorkspaceDocument): boolean {
+    return (
+      (document.kind !== "simulation-report" &&
+        document.kind !== "optimization-report") ||
+      document.status === "loaded" ||
+      document.status === "error"
+    );
+  }
+
   closeDocument(id: string): void {
-    const currentIdx = this.documents.findIndex((d) => d.id === id);
+    const currentIdx = this.documents.findIndex(
+      (document) => document.id === id,
+    );
     if (currentIdx === -1) return;
+    if (!this.canCloseDocument(this.documents[currentIdx])) return;
 
     this.documents = this.documents.filter((d) => d.id !== id);
 
@@ -540,6 +553,31 @@ export class WorkspaceModel {
     return report;
   }
 
+  openComparisonReport(
+    baselineReport: SimulationReportDocument,
+    optimizationReport: OptimizationReportDocument,
+    postOptimizationReport: SimulationReportDocument,
+  ): ComparisonReportDocument {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "comparison-report" &&
+        document.baselineReport === baselineReport &&
+        document.optimizationReport === optimizationReport &&
+        document.postOptimizationReport === postOptimizationReport,
+    ) as ComparisonReportDocument | undefined;
+    const report =
+      existing ??
+      new ComparisonReportDocument(
+        baselineReport,
+        optimizationReport,
+        postOptimizationReport,
+      );
+    if (!existing) this.documents.push(report);
+    this.selectedDocumentId = report.id;
+    void report.loadGraphDiff();
+    return report;
+  }
+
   findOptimizationReport(
     correlationId: string,
     graphId: string,
@@ -553,7 +591,10 @@ export class WorkspaceModel {
   }
 
   markReportReadState(
-    report: SimulationReportDocument | OptimizationReportDocument,
+    report:
+      | SimulationReportDocument
+      | OptimizationReportDocument
+      | ComparisonReportDocument,
   ): void {
     if (this.selectedDocumentId === report.id) report.markRead();
     else report.markUnread();

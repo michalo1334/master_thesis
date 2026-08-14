@@ -249,6 +249,15 @@ describe("AnalysisModel", () => {
     });
 
     expect(model.sequence.stage).toBe("completed");
+    const comparison = workspace.documents.find(
+      (document) => document.kind === "comparison-report",
+    );
+    expect(comparison).toMatchObject({
+      baselineReport: baseline,
+      optimizationReport: optimization,
+      postOptimizationReport: after,
+    });
+    expect(workspace.selectedDocumentId).toBe(comparison?.id);
   });
 
   it("keeps the saved source revision when the active graph changes during the baseline", async () => {

@@ -67,6 +67,7 @@ Evaluation metrics may include:
 ├── 📁 docs/          — ADRs, concepts, research notes, wireframes, and thesis drafts
 │   ├── 📁 adr/
 │   ├── 📁 concepts/
+│   │   └── 🗎 vocabulary.md
 │   ├── 📁 initial/
 |   ├── 🗎 architecture.md
 |   └── 🗎 infrastructure.md

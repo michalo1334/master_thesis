@@ -211,6 +211,45 @@ describe("WorkspaceModel", () => {
       model.closeDocument("nonexistent");
       expect(model.documents.length).toBe(1);
     });
+
+    it("keeps active analysis reports open until they load or fail", () => {
+      const report = model.createPendingOptimizationReport({
+        graphId: "g1",
+        graphRevisionId: "r1",
+        graphTitle: "Test",
+        correlationId: "corr-optimization",
+        strategy: "cvss",
+        budget: 1,
+      });
+
+      for (const status of [
+        "pending",
+        "completed",
+        "ready",
+        "loading",
+      ] as const) {
+        report.status = status;
+        expect(model.canCloseDocument(report)).toBe(false);
+      }
+      model.closeDocument(report.id);
+      expect(model.documents).toContain(report);
+
+      report.status = "error";
+      expect(model.canCloseDocument(report)).toBe(true);
+      model.closeDocument(report.id);
+      expect(model.documents).not.toContain(report);
+
+      const loadedReport = model.createPendingOptimizationReport({
+        graphId: "g1",
+        graphRevisionId: "r1",
+        graphTitle: "Test",
+        correlationId: "corr-loaded-optimization",
+        strategy: "cvss",
+        budget: 1,
+      });
+      loadedReport.status = "loaded";
+      expect(model.canCloseDocument(loadedReport)).toBe(true);
+    });
   });
 
   describe("selectDocument", () => {

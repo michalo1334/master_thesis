@@ -369,6 +369,7 @@ export class AnalysisModel {
 
   onSimulationCompleted(payload: SimulationCompletedEvent): void {
     this.sequence.onSimulationCompleted(payload);
+    this.openComparisonReport();
   }
 
   onSimulationFailed(payload: SimulationFailedEvent): void {
@@ -394,6 +395,48 @@ export class AnalysisModel {
     const document = new EditableGraphDocument();
     document.replaceFromLoadedGraph(this.targetGraph);
     return document;
+  }
+
+  private openComparisonReport(): void {
+    if (this.sequence.stage !== "completed") return;
+    const baselineCorrelationId = this.sequence.baselineSimulationCorrelationId;
+    const optimizationCorrelationId = this.sequence.optimizationCorrelationId;
+    const afterCorrelationId = this.sequence.afterSimulationCorrelationId;
+    if (
+      !baselineCorrelationId ||
+      !optimizationCorrelationId ||
+      !afterCorrelationId
+    )
+      return;
+
+    const baselineReport = this.workspace.documents.find(
+      (document) =>
+        document.kind === "simulation-report" &&
+        document.correlationId === baselineCorrelationId,
+    );
+    const optimizationReport = this.workspace.findOptimizationReport(
+      optimizationCorrelationId,
+      this.sequence.sourceGraphId,
+    );
+    const postOptimizationReport = this.workspace.documents.find(
+      (document) =>
+        document.kind === "simulation-report" &&
+        document.correlationId === afterCorrelationId,
+    );
+    if (
+      !baselineReport ||
+      !optimizationReport ||
+      !postOptimizationReport ||
+      baselineReport.kind !== "simulation-report" ||
+      postOptimizationReport.kind !== "simulation-report"
+    )
+      return;
+
+    this.workspace.openComparisonReport(
+      baselineReport,
+      optimizationReport,
+      postOptimizationReport,
+    );
   }
 
   private async startSequenceSimulation(

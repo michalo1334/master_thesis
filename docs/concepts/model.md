@@ -6,6 +6,8 @@ The system has three concerns:
 * a simulator that models stochastic attack propagation;
 * a defense optimizer that compares equal-action-count changes to the environment.
 
+Use the canonical terms in [vocabulary.md](vocabulary.md).
+
 The graph is shared by simulation runs. Each run keeps its own attacker state. This separation allows baseline and defended configurations to use the same declared simulation configuration. Planned extensions are described in [`thesis-scope-roadmap.md`](thesis-scope-roadmap.md).
 
 ## Context Graph
