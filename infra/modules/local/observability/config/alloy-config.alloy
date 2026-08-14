@@ -10,15 +10,21 @@
 // `trace` and `span` fields from OTel context propagation.
 
 loki.source.file "network_defense" {
+  // file_match re-scans the filesystem each sync_period, so the log file is
+  // discovered even if it appears after Alloy starts (e.g. app boots later).
   targets = [
     {
-      __path__     = "/var/log/network_defense/network_defense.jsonl",
+      __path__     = "/var/log/network_defense/*.jsonl",
       job          = "network_defense",
       app          = "network_defense",
       service_name = "network_defense",
     },
   ]
   forward_to = [loki.process.network_defense.receiver]
+  file_match {
+    enabled     = true
+    sync_period = "10s"
+  }
   file_watch {
     min_poll_frequency = coalesce(sys.env("ALLOY_LOG_POLL_FREQUENCY"), "250ms")
     max_poll_frequency = coalesce(sys.env("ALLOY_LOG_POLL_FREQUENCY"), "250ms")
