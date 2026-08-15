@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: src
+
+env:
+  MIX_ENV: test
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20.2"
+          otp-version: "29.0.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: |
+            src/deps
+            src/_build
+            ~/.hex
+            ~/.mix
+          key: mix-${{ runner.os }}-${{ hashFiles('src/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: npm ci
+      - run: mix format --check-formatted
+      - run: npm run format:check
+
+  typecheck:
+    name: Type Check
+    needs: format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20.2"
+          otp-version: "29.0.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
+      - uses: actions/cache@v4
+        with:
+          path: |
+            src/deps
+            src/_build
+            ~/.hex
+            ~/.mix
+          key: mix-${{ runner.os }}-${{ hashFiles('src/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: npm ci
+      - run: mix gen.contracts
+      - run: git diff --exit-code -- assets/svelte/contracts.generated.ts
+      - run: npm run typecheck
+      - run: mix assets.build
+
+  test:
+    name: Test
+    needs: typecheck
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20.2"
+          otp-version: "29.0.3"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            src/deps
+            src/_build
+            ~/.hex
+            ~/.mix
+          key: mix-${{ runner.os }}-${{ hashFiles('src/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: mix test
+
+  static-analysis:
+    name: Static Analysis
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: "1.20.2"
+          otp-version: "29.0.3"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            src/deps
+            src/_build
+            ~/.hex
+            ~/.mix
+          key: mix-${{ runner.os }}-${{ hashFiles('src/mix.lock') }}
+          restore-keys: mix-${{ runner.os }}-
+      - run: mix deps.get
+      - run: mix compile --warning-as-errors
+      - run: mix credo
+      - run: mix dialyzer
+      - run: mix sobelow --config --skip
+      - run: mix deps.unlock --unused
+      - run: git diff --exit-code -- mix.lock
+
+  terraform:
+    name: Terraform Format
+    needs: static-analysis
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.8"
+      - run: terraform fmt -check -recursive infra
