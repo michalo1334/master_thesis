@@ -222,17 +222,20 @@ export class WorkspaceModel {
   createGraphDocument(title?: string): EditableGraphDocument {
     const doc = new EditableGraphDocument();
     this.documents.push(doc);
-    this.selectedDocumentId = doc.id;
+    this.activateDocument(doc);
     return doc;
   }
 
   selectDocument(id: string): void {
-    this.selectedDocumentId = id;
-    const doc = this.activeDocument;
-    this.ensureInitialFoothold(doc);
-    if (doc && isReport(doc)) {
-      doc.markRead();
-    }
+    this.activateDocument(
+      this.documents.find((document) => document.id === id),
+    );
+  }
+
+  activateDocument(document: WorkspaceDocument | undefined): void {
+    this.selectedDocumentId = document?.id;
+    this.ensureInitialFoothold(document);
+    if (document && isReport(document)) document.markRead();
   }
 
   canCloseDocument(document: WorkspaceDocument): boolean {
@@ -255,10 +258,10 @@ export class WorkspaceModel {
 
     if (this.selectedDocumentId === id) {
       if (this.documents.length === 0) {
-        this.selectedDocumentId = undefined;
+        this.activateDocument(undefined);
       } else {
         const nextIdx = currentIdx > 0 ? currentIdx - 1 : 0;
-        this.selectedDocumentId = this.documents[nextIdx]?.id;
+        this.activateDocument(this.documents[nextIdx]);
       }
     }
   }
@@ -272,8 +275,7 @@ export class WorkspaceModel {
       (d) => d.kind === "graph" && d.loadedRevisionId === graph.revision_id,
     ) as EditableGraphDocument | undefined;
     if (existing) {
-      this.selectedDocumentId = existing.id;
-      this.ensureInitialFoothold(existing);
+      this.activateDocument(existing);
       return undefined;
     }
 
@@ -283,21 +285,25 @@ export class WorkspaceModel {
 
     if (blankDoc) {
       blankDoc.replaceFromLoadedGraph(graph);
-      this.selectedDocumentId = blankDoc.id;
-      this.ensureInitialFoothold(blankDoc);
+      this.activateDocument(blankDoc);
       return blankDoc;
     }
 
     const doc = new EditableGraphDocument();
     doc.replaceFromLoadedGraph(graph);
     this.documents.push(doc);
-    this.selectedDocumentId = doc.id;
-    this.ensureInitialFoothold(doc);
+    this.activateDocument(doc);
     return doc;
   }
 
   async openGraph(api: DashboardApi, summary: GraphSummary): Promise<boolean> {
     this.topologyPickerStatus = "";
+    const existing = this.findOpenGraph(summary.revision_id);
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
     try {
       const reply = await api.openGraph(summary.revision_id);
       if (reply.status === "ok" && reply.graph) {
@@ -428,25 +434,17 @@ export class WorkspaceModel {
     graphRevisionId: string,
   ): Promise<boolean> {
     this.statusMessage = "";
+    const existing = this.findOpenGraph(graphRevisionId);
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
     try {
       const reply = await api.openGraph(graphRevisionId);
       if (reply.status !== "ok" || !reply.graph) {
         this.statusMessage = "Failed to open graph.";
         return false;
-      }
-
-      const existing = this.documents.find(
-        (document) =>
-          document.kind === "graph" &&
-          document.loadedRevisionId === graphRevisionId,
-      ) as EditableGraphDocument | undefined;
-      if (existing?.isDirty) {
-        const document = new EditableGraphDocument();
-        document.replaceFromLoadedGraph(reply.graph);
-        this.documents.push(document);
-        this.selectedDocumentId = document.id;
-        this.ensureInitialFoothold(document);
-        return true;
       }
 
       await this.openLoadedGraph(reply.graph, api);
@@ -527,7 +525,7 @@ export class WorkspaceModel {
       if (info.correlationId) report.markPending(info.correlationId);
       this.documents.push(report);
     }
-    this.selectedDocumentId = report.id;
+    this.activateDocument(report);
     return report;
   }
 
@@ -547,13 +545,13 @@ export class WorkspaceModel {
         ) as OptimizationReportDocument | undefined)
       : undefined;
     if (existing) {
-      this.selectedDocumentId = existing.id;
+      this.activateDocument(existing);
       return existing;
     }
 
     const report = new OptimizationReportDocument(info);
     this.documents.push(report);
-    this.selectedDocumentId = report.id;
+    this.activateDocument(report);
     return report;
   }
 
@@ -577,7 +575,7 @@ export class WorkspaceModel {
         postOptimizationReport,
       );
     if (!existing) this.documents.push(report);
-    this.selectedDocumentId = report.id;
+    this.activateDocument(report);
     void report.loadGraphDiff();
     return report;
   }
@@ -648,6 +646,16 @@ export class WorkspaceModel {
     }
   }
 
+  private findOpenGraph(
+    graphRevisionId: string,
+  ): EditableGraphDocument | undefined {
+    return this.documents.find(
+      (document) =>
+        document.kind === "graph" &&
+        document.loadedRevisionId === graphRevisionId,
+    ) as EditableGraphDocument | undefined;
+  }
+
   private setGraphFavoriteError(
     status: "not_found" | "invalid_graph" | "unmapped_error",
   ): void {
@@ -683,7 +691,7 @@ export class WorkspaceModel {
       result,
     );
     this.documents.push(document);
-    this.selectedDocumentId = document.id;
+    this.activateDocument(document);
     return document;
   }
 }

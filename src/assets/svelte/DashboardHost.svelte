@@ -5,6 +5,12 @@
   import { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { createDashboardApi } from "./dashboard/dashboard-api";
   import type { LiveServer } from "./dashboard/dashboard-api";
+  import {
+    OptimizationReportError,
+    OptimizationReportReady,
+    SimulationReportError,
+    SimulationReportReady,
+  } from "./dashboard/report-events";
   import Dashboard from "./Dashboard.svelte";
   import type {
     GraphSummary,
@@ -12,12 +18,12 @@
     SimulationCompletedEvent,
     SimulationFailedEvent,
     SimulationProgressEvent,
-    FetchSimulationReportReply,
+    SimulationReportReadyEvent,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
     OptimizationProgressEvent,
     SimulationReportErrorEvent,
-    FetchOptimizationReportReply,
+    OptimizationReportReadyEvent,
     OptimizationReportErrorEvent,
     WorkflowCompletedEvent,
     WorkflowFailedEvent,
@@ -65,19 +71,27 @@
   });
 
   useLiveEvent("simulation_report_ready", (payload: unknown) => {
-    model.onSimulationReportReady(payload as FetchSimulationReportReply);
+    model.onReportEvent(
+      new SimulationReportReady(payload as SimulationReportReadyEvent),
+    );
   });
 
   useLiveEvent("simulation_report_error", (payload: unknown) => {
-    model.onSimulationReportError(payload as SimulationReportErrorEvent);
+    model.onReportEvent(
+      new SimulationReportError(payload as SimulationReportErrorEvent),
+    );
   });
 
   useLiveEvent("optimization_report_ready", (payload: unknown) => {
-    model.onOptimizationReportReady(payload as FetchOptimizationReportReply);
+    model.onReportEvent(
+      new OptimizationReportReady(payload as OptimizationReportReadyEvent),
+    );
   });
 
   useLiveEvent("optimization_report_error", (payload: unknown) => {
-    model.onOptimizationReportError(payload as OptimizationReportErrorEvent);
+    model.onReportEvent(
+      new OptimizationReportError(payload as OptimizationReportErrorEvent),
+    );
   });
 
   useLiveEvent("workflow_completed", (payload: unknown) => {

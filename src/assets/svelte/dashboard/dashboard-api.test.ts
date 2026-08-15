@@ -164,13 +164,22 @@ describe("DashboardApi", () => {
     } as unknown as LiveServer;
     const api = createDashboardApi(live);
 
-    api.requestOptimizationReport("optimization-1", "r1");
+    api.requestReport({
+      type: "optimization",
+      documentId: "document-1",
+      reportId: "optimization-1",
+      graphRevisionId: "r1",
+    });
     await expect(api.fetchOptimizationRuns(["r1"])).resolves.toEqual(reply);
 
     expect(live.pushEvent).toHaveBeenNthCalledWith(
       1,
       "fetch_optimization_report",
-      { optimization_id: "optimization-1", graph_revision_id: "r1" },
+      {
+        document_id: "document-1",
+        optimization_id: "optimization-1",
+        graph_revision_id: "r1",
+      },
     );
     expect(live.pushEvent).toHaveBeenNthCalledWith(
       2,

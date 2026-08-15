@@ -56,25 +56,35 @@ function makeReport(
 }
 
 describe("SimulationReportDocument", () => {
-  it("requests a report without awaiting its LiveView reply", () => {
+  it("requests a report with its document ID without awaiting a reply", () => {
     const api = {
-      requestSimulationReport: vi.fn(),
-    } as unknown as DashboardApi;
+      requestReport: vi.fn(),
+    };
     const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-1", "r1");
+    document.load(api as unknown as DashboardApi, document.id, "sim-1", "r1");
 
     expect(document.status).toBe("loading");
-    expect(api.requestSimulationReport).toHaveBeenCalledWith("sim-1", "r1");
+    expect(api.requestReport).toHaveBeenCalledWith({
+      type: "simulation",
+      documentId: document.id,
+      reportId: "sim-1",
+      graphRevisionId: "r1",
+    });
   });
 
   it("applies a report only for the active experiment", () => {
     const api = {
-      requestSimulationReport: vi.fn(),
-    } as unknown as DashboardApi;
+      requestReport: vi.fn(),
+    };
     const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-current", "r1");
+    document.load(
+      api as unknown as DashboardApi,
+      document.id,
+      "sim-current",
+      "r1",
+    );
     document.setReportData(makeReport({ experiment_id: "sim-stale" }));
 
     expect(document.status).toBe("loading");
@@ -83,11 +93,11 @@ describe("SimulationReportDocument", () => {
 
   it("loads a matching report received through the LiveView event", () => {
     const api = {
-      requestSimulationReport: vi.fn(),
-    } as unknown as DashboardApi;
+      requestReport: vi.fn(),
+    };
     const document = new SimulationReportDocument("Topology", "g1", "r1");
 
-    document.load(api, "sim-1", "r1");
+    document.load(api as unknown as DashboardApi, document.id, "sim-1", "r1");
     document.setReportData(makeReport());
 
     expect(document.status).toBe("loaded");

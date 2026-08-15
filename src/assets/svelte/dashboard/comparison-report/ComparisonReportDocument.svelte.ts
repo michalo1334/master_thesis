@@ -1,8 +1,9 @@
 import type { IconName } from "../types";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
+import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
-export class ComparisonReportDocument {
+export class ComparisonReportDocument extends WorkspaceDocumentBase {
   readonly kind = "comparison-report" as const;
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id = crypto.randomUUID();
@@ -16,9 +17,14 @@ export class ComparisonReportDocument {
     readonly optimizationReport: OptimizationReportDocument,
     readonly postOptimizationReport: SimulationReportDocument,
   ) {
+    super();
     this.graphId = baselineReport.graphId;
     this.graphRevisionId = baselineReport.graphRevisionId;
     this.title = `Comparison for ${baselineReport.title.replace(/^Report for /, "")}`;
+  }
+
+  isReportDocument(): true {
+    return true;
   }
 
   loadGraphDiff(): Promise<boolean> {

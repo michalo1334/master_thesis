@@ -369,7 +369,7 @@ describe("WorkspaceModel", () => {
       expect(model.activeGraph?.loadedRevisionId).toBe("simulated-r1");
     });
 
-    it("opens a clean copy when the same revision has unsaved edits", async () => {
+    it("activates an already-open dirty revision before fetching", async () => {
       const original = makeLoadedGraph({
         title: "Persisted",
         revision_id: "simulated-r1",
@@ -384,9 +384,10 @@ describe("WorkspaceModel", () => {
         true,
       );
 
-      expect(model.documents).toHaveLength(2);
-      expect(model.activeGraph?.title).toBe("Persisted");
-      expect(model.activeGraph?.isDirty).toBe(false);
+      expect(model.documents).toHaveLength(1);
+      expect(model.activeGraph?.title).toBe("Unsaved edit");
+      expect(model.activeGraph?.isDirty).toBe(true);
+      expect(api.openGraph).not.toHaveBeenCalled();
     });
   });
 

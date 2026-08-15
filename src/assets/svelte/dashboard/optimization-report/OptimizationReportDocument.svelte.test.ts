@@ -13,8 +13,10 @@ describe("OptimizationReportDocument", () => {
       strategy: "simulation_informed",
       budget: 2,
     });
-  const api = () =>
-    ({ requestOptimizationReport: vi.fn() }) as unknown as DashboardApi;
+  const api = (): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } =>
+    ({ requestReport: vi.fn() }) as DashboardApi & {
+      requestReport: ReturnType<typeof vi.fn>;
+    };
 
   it("keeps progress scoped to a pending report", () => {
     const document = createDocument();
@@ -44,10 +46,12 @@ describe("OptimizationReportDocument", () => {
 
     expect(document.status).toBe("loading");
     expect(document.optimizationId).toBe("optimization-1");
-    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
-      "optimization-1",
-      "r1",
-    );
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "optimization",
+      documentId: document.id,
+      reportId: "optimization-1",
+      graphRevisionId: "r1",
+    });
     document.setReportData({
       optimization_id: "optimization-1",
       graph_id: "g1",

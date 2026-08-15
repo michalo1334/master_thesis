@@ -423,8 +423,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                })
 
       revised_revision_id = revised.revision_id
+      document_id = Ecto.UUID.generate()
 
       render_hook(view, "fetch_simulation_report", %{
+        "document_id" => document_id,
         "experiment_id" => experiment_id,
         "graph_revision_id" => revised_revision_id
       })
@@ -432,6 +434,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "processing"})
 
       assert_push_event(view, "simulation_report_error", %{
+        document_id: ^document_id,
         experiment_id: ^experiment_id,
         graph_revision_id: ^revised_revision_id,
         error: %{code: "not_found"}
@@ -945,8 +948,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                })
 
       revised_revision_id = revised.revision_id
+      document_id = Ecto.UUID.generate()
 
       render_hook(view, "fetch_optimization_report", %{
+        "document_id" => document_id,
         "optimization_id" => optimization_id,
         "graph_revision_id" => revised_revision_id
       })
@@ -954,6 +959,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "processing"})
 
       assert_push_event(view, "optimization_report_error", %{
+        document_id: ^document_id,
         optimization_id: ^optimization_id,
         graph_revision_id: ^revised_revision_id,
         error: %{code: "not_found"}
@@ -983,7 +989,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
                      5_000
 
+      document_id = Ecto.UUID.generate()
+
       render_hook(view, "fetch_optimization_report", %{
+        "document_id" => document_id,
         "optimization_id" => optimization_id,
         "graph_revision_id" => source_revision_id
       })
@@ -991,11 +1000,14 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "processing"})
 
       assert_push_event(view, "optimization_report_ready", %{
-        optimization_id: ^optimization_id,
-        graph_id: ^graph_id,
-        graph_title: "optimization-report",
-        graph_revision_id: ^source_revision_id,
-        report: %{strategy: "cvss", requested_budget: 1, used_budget: 0, actions: []}
+        document_id: ^document_id,
+        report: %{
+          optimization_id: ^optimization_id,
+          graph_id: ^graph_id,
+          graph_title: "optimization-report",
+          graph_revision_id: ^source_revision_id,
+          report: %{strategy: "cvss", requested_budget: 1, used_budget: 0, actions: []}
+        }
       })
     end
   end

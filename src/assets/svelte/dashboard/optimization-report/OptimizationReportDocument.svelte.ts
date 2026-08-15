@@ -8,13 +8,15 @@ import type {
 import type { DashboardApi } from "../dashboard-api";
 import { formatDashboardErrorCode } from "../error-code";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
+import type { ClientReportEvent, EventResult } from "../report-events";
 import type { IconName } from "../types";
+import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 import {
   toOptimizationAnalysis,
   type OptimizationAnalysis,
 } from "./to-analysis";
 
-export class OptimizationReportDocument {
+export class OptimizationReportDocument extends AsyncReportDocument {
   readonly kind = "optimization-report" as const;
   readonly icon = "shield" as const satisfies IconName;
   readonly id = crypto.randomUUID();
@@ -59,6 +61,7 @@ export class OptimizationReportDocument {
     strategy: OptimizationStrategy;
     budget: number;
   }) {
+    super();
     this.graphId = graphId;
     this.graphRevisionId = graphRevisionId;
     this.correlationId = correlationId;
@@ -92,7 +95,7 @@ export class OptimizationReportDocument {
     this.createGraphDiff = createGraphDiff;
     this.errorReason = "";
     this.status = "completed";
-    this.load(api, payload.optimization_id, this.graphRevisionId);
+    this.load(api, this.id, payload.optimization_id, this.graphRevisionId);
   }
 
   markReady(
@@ -121,15 +124,25 @@ export class OptimizationReportDocument {
     this.status = "loaded";
   }
 
+  accept(event: ClientReportEvent): EventResult {
+    return event.visitOptimization(this);
+  }
+
   load(
     api: DashboardApi,
+    documentId: string,
     optimizationId: string,
     graphRevisionId: string,
   ): void {
     this.optimizationId = optimizationId;
     this.status = "loading";
     this.errorReason = "";
-    api.requestOptimizationReport(optimizationId, graphRevisionId);
+    api.requestReport({
+      type: "optimization",
+      documentId,
+      reportId: optimizationId,
+      graphRevisionId,
+    });
   }
 
   async loadGraphDiff(): Promise<boolean> {

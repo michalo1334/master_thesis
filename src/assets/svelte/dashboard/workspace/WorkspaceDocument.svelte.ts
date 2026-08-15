@@ -3,6 +3,29 @@ import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
+import type { ClientReportEvent, EventResult } from "../report-events";
+
+export class WorkspaceDocumentBase {
+  isReportDocument(): boolean {
+    return false;
+  }
+
+  isAsyncReportDocument(): this is AsyncReportDocument {
+    return false;
+  }
+}
+
+export abstract class AsyncReportDocument extends WorkspaceDocumentBase {
+  isReportDocument(): true {
+    return true;
+  }
+
+  isAsyncReportDocument(): this is AsyncReportDocument {
+    return true;
+  }
+
+  abstract accept(event: ClientReportEvent): EventResult;
+}
 
 export type WorkspaceDocument =
   | EditableGraphDocument
@@ -17,11 +40,7 @@ export function isReport(
   | SimulationReportDocument
   | OptimizationReportDocument
   | ComparisonReportDocument {
-  return (
-    document.kind === "simulation-report" ||
-    document.kind === "optimization-report" ||
-    document.kind === "comparison-report"
-  );
+  return document.isReportDocument();
 }
 
 export function isGraphDiff(

@@ -413,6 +413,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   test "requires optimization report fetch identifiers to be UUIDs" do
     assert {:error, changeset} =
              FetchOptimizationReportPayload.validate(%{
+               "document_id" => @graph_id,
                "optimization_id" => "not-a-uuid",
                "graph_revision_id" => "graph-1"
              })

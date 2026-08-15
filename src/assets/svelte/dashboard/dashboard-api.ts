@@ -37,6 +37,13 @@ import type {
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 
+export type ReportRequest = {
+  type: "simulation" | "optimization";
+  documentId: string;
+  reportId: string;
+  graphRevisionId: string;
+};
+
 export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
     event: string,
@@ -64,11 +71,7 @@ export interface DashboardApi {
     simulationParams: SimulationParams,
     optimizationParams: OptimizationParams,
   ): Promise<RunWorkflowReply>;
-  requestSimulationReport(experimentId: string, graphRevisionId: string): void;
-  requestOptimizationReport(
-    optimizationId: string,
-    graphRevisionId: string,
-  ): void;
+  requestReport(request: ReportRequest): void;
   fetchExperiments(graphRevisionIds: string[]): Promise<FetchExperimentsReply>;
   fetchOptimizationRuns(
     graphRevisionIds: string[],
@@ -183,18 +186,25 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         },
       );
     },
-    requestSimulationReport(experimentId, graphRevisionId) {
-      live.pushEvent<FetchSimulationReportPayload>("fetch_simulation_report", {
-        experiment_id: experimentId,
-        graph_revision_id: graphRevisionId,
-      });
-    },
-    requestOptimizationReport(optimizationId, graphRevisionId) {
+    requestReport(request) {
+      if (request.type === "simulation") {
+        live.pushEvent<FetchSimulationReportPayload>(
+          "fetch_simulation_report",
+          {
+            document_id: request.documentId,
+            experiment_id: request.reportId,
+            graph_revision_id: request.graphRevisionId,
+          },
+        );
+        return;
+      }
+
       live.pushEvent<FetchOptimizationReportPayload>(
         "fetch_optimization_report",
         {
-          optimization_id: optimizationId,
-          graph_revision_id: graphRevisionId,
+          document_id: request.documentId,
+          optimization_id: request.reportId,
+          graph_revision_id: request.graphRevisionId,
         },
       );
     },

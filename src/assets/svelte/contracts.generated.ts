@@ -377,6 +377,7 @@ export interface FetchGraphProjectionReply {
 }
 
 export interface FetchOptimizationReportPayload {
+  document_id: string;
   graph_revision_id: string;
   optimization_id: string;
 }
@@ -398,6 +399,7 @@ export interface FetchOptimizationRunsReply {
 }
 
 export interface FetchSimulationReportPayload {
+  document_id: string;
   experiment_id: string;
   graph_revision_id: string;
 }
@@ -572,9 +574,15 @@ export interface OptimizationReport {
 }
 
 export interface OptimizationReportErrorEvent {
+  document_id: string;
   error: DashboardError;
   graph_revision_id: string;
   optimization_id: string;
+}
+
+export interface OptimizationReportReadyEvent {
+  document_id: string;
+  report: FetchOptimizationReportReply;
 }
 
 export interface OptimizationRunSummary {
@@ -713,6 +721,7 @@ export interface SimulationReportEdgeTraversal {
 }
 
 export interface SimulationReportErrorEvent {
+  document_id: string;
   error: DashboardError;
   experiment_id: string;
   graph_revision_id: string;
@@ -727,6 +736,11 @@ export interface SimulationReportHistogramBucket {
 export interface SimulationReportHostCompromise {
   compromise_probability: number;
   host_id: string;
+}
+
+export interface SimulationReportReadyEvent {
+  document_id: string;
+  report: FetchSimulationReportReply;
 }
 
 export interface SimulationReportSummary {

@@ -48,6 +48,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     OptimizationFailedEvent,
     OptimizationProgressEvent,
     OptimizationReportErrorEvent,
+    OptimizationReportReadyEvent,
     RunOptimizationPayload,
     RunOptimizationReply,
     RunSimulationReply,
@@ -59,6 +60,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SimulationFailedEvent,
     SimulationProgressEvent,
     SimulationReportErrorEvent,
+    SimulationReportReadyEvent,
     RunWorkflowPayload,
     RunWorkflowReply,
     WorkflowCompletedEvent,
@@ -321,6 +323,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
           {:error, _reason} ->
             {:reply, report_request_reply("unavailable"),
              push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
+               document_id: request.document_id,
                experiment_id: request.experiment_id,
                graph_revision_id: request.graph_revision_id,
                error: dashboard_error(:task_unavailable)
@@ -375,6 +378,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
                "optimization_report_error",
                OptimizationReportErrorEvent,
                %{
+                 document_id: request.document_id,
                  optimization_id: request.optimization_id,
                  graph_revision_id: request.graph_revision_id,
                  error: dashboard_error(:task_unavailable)
@@ -466,12 +470,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
      )}
   end
 
-  def handle_info({:report_result, experiment_id, graph_revision_id, result}, socket) do
+  def handle_info({:report_result, document_id, experiment_id, graph_revision_id, result}, socket) do
     socket =
       if is_map(result) and result[:charts] do
-        push_event(socket, "simulation_report_ready", result)
+        push_contract_event(socket, "simulation_report_ready", SimulationReportReadyEvent, %{
+          document_id: document_id,
+          report: result
+        })
       else
         push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
+          document_id: document_id,
           experiment_id: experiment_id,
           graph_revision_id: graph_revision_id,
           error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
@@ -482,14 +490,18 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   def handle_info(
-        {:optimization_report_result, optimization_id, graph_revision_id, result},
+        {:optimization_report_result, document_id, optimization_id, graph_revision_id, result},
         socket
       ) do
     socket =
       if is_map(result) and result[:report] do
-        push_event(socket, "optimization_report_ready", result)
+        push_contract_event(socket, "optimization_report_ready", OptimizationReportReadyEvent, %{
+          document_id: document_id,
+          report: result
+        })
       else
         push_contract_event(socket, "optimization_report_error", OptimizationReportErrorEvent, %{
+          document_id: document_id,
           optimization_id: optimization_id,
           graph_revision_id: graph_revision_id,
           error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
@@ -537,7 +549,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       send(
         owner,
-        {:report_result, request.experiment_id, request.graph_revision_id, fetch_report(request)}
+        {:report_result, request.document_id, request.experiment_id, request.graph_revision_id,
+         fetch_report(request)}
       )
     end)
   end
@@ -546,8 +559,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       send(
         owner,
-        {:optimization_report_result, request.optimization_id, request.graph_revision_id,
-         fetch_optimization_report(request)}
+        {:optimization_report_result, request.document_id, request.optimization_id,
+         request.graph_revision_id, fetch_optimization_report(request)}
       )
     end)
   end

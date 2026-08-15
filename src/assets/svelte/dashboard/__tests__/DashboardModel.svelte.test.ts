@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { LoadedGraph } from "../contract";
+import {
+  OptimizationReportError,
+  OptimizationReportReady,
+  SimulationReportError,
+} from "../report-events";
 
 function graph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
@@ -24,15 +29,14 @@ function graph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   };
 }
 
-function api(): DashboardApi {
+function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
   return {
     openGraph: vi.fn(),
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),
     runOptimization: vi.fn(),
     runWorkflow: vi.fn(),
-    requestSimulationReport: vi.fn(),
-    requestOptimizationReport: vi.fn(),
+    requestReport: vi.fn(),
     fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
     fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
     fetchGraphConnectivity: vi.fn(),
@@ -44,12 +48,12 @@ function api(): DashboardApi {
     createFolder: vi.fn(),
     deleteFolder: vi.fn(),
     moveGraphToFolder: vi.fn(),
-  };
+  } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 
 describe("DashboardModel", () => {
   let model: DashboardModel;
-  let dashboardApi: DashboardApi;
+  let dashboardApi: ReturnType<typeof api>;
 
   beforeEach(async () => {
     dashboardApi = api();
@@ -130,9 +134,12 @@ describe("DashboardModel", () => {
 
     await model.runActiveSimulation();
 
-    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
-      "experiment-1",
-      "r1",
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "simulation",
+        reportId: "experiment-1",
+        graphRevisionId: "r1",
+      }),
     );
   });
 
@@ -179,11 +186,50 @@ describe("DashboardModel", () => {
       experiment_id: "experiment-1",
     });
 
-    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
-      "experiment-1",
-      "r1",
-    );
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "simulation",
+      documentId: report.id,
+      reportId: "experiment-1",
+      graphRevisionId: "r1",
+    });
     expect(report.status).toBe("loading");
+  });
+
+  it("delegates report events by document ID and marks only handled errors unread", () => {
+    const report = model.workspace.createPendingReport({
+      graphId: "g1",
+      graphRevisionId: "r1",
+      graphTitle: "Topology",
+      correlationId: "simulation-1",
+    });
+    model.workspace.selectDocument(model.workspace.documents[0]!.id);
+    const accept = vi.spyOn(report, "accept");
+
+    model.onReportEvent(
+      new OptimizationReportError({
+        document_id: report.id,
+        optimization_id: "optimization-1",
+        graph_revision_id: "r1",
+        error: { code: "internal_error" },
+      }),
+    );
+
+    expect(accept).toHaveBeenCalledOnce();
+    expect(report.status).toBe("pending");
+    expect(report.hasUnread).toBe(false);
+
+    model.onReportEvent(
+      new SimulationReportError({
+        document_id: report.id,
+        experiment_id: "experiment-1",
+        graph_revision_id: "r1",
+        error: { code: "internal_error" },
+      }),
+    );
+
+    expect(report.status).toBe("error");
+    expect(report.errorReason).toBe("The operation could not be completed.");
+    expect(report.hasUnread).toBe(true);
   });
 
   it("forwards workflow events to analysis", () => {
@@ -234,10 +280,12 @@ describe("DashboardModel", () => {
 
     expect(report.graphRevisionId).toBe("r1");
     expect(report.optimizedGraphRevisionId).toBe("optimized-r1");
-    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
-      "optimization-1",
-      "r1",
-    );
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "optimization",
+      documentId: report.id,
+      reportId: "optimization-1",
+      graphRevisionId: "r1",
+    });
     const openOptimizedGraph = vi
       .spyOn(model.workspace, "openOptimizationResult")
       .mockResolvedValue(true);
@@ -258,20 +306,25 @@ describe("DashboardModel", () => {
       "optimized-r1",
     );
 
-    model.onOptimizationReportReady({
-      optimization_id: "optimization-1",
-      graph_id: "g1",
-      graph_title: "Topology",
-      graph_revision_id: "r1",
-      report: {
-        strategy: "cvss",
-        objective: "blast_radius",
-        requested_budget: 1,
-        used_budget: 1,
-        runtime_ms: 1,
-        actions: [],
-      },
-    });
+    model.onReportEvent(
+      new OptimizationReportReady({
+        document_id: report.id,
+        report: {
+          optimization_id: "optimization-1",
+          graph_id: "g1",
+          graph_title: "Topology",
+          graph_revision_id: "r1",
+          report: {
+            strategy: "cvss",
+            objective: "blast_radius",
+            requested_budget: 1,
+            used_budget: 1,
+            runtime_ms: 1,
+            actions: [],
+          },
+        },
+      }),
+    );
     expect(report.status).toBe("loaded");
   });
 });

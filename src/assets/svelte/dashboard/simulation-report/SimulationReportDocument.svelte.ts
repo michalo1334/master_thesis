@@ -5,9 +5,11 @@ import type {
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import { formatDashboardErrorCode } from "../error-code";
+import type { ClientReportEvent, EventResult } from "../report-events";
 import type { IconName } from "../types";
+import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 
-export class SimulationReportDocument {
+export class SimulationReportDocument extends AsyncReportDocument {
   readonly kind = "simulation-report" as const;
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id: string;
@@ -30,6 +32,7 @@ export class SimulationReportDocument {
   totalRuns = $state(0);
 
   constructor(graphTitle: string, graphId: string, graphRevisionId: string) {
+    super();
     this.id = crypto.randomUUID();
     this.title = `Report for ${graphTitle}`;
     this.graphId = graphId;
@@ -112,19 +115,33 @@ export class SimulationReportDocument {
     this.status = "loaded";
   }
 
+  accept(event: ClientReportEvent): EventResult {
+    return event.visitSimulation(this);
+  }
+
   complete(
     api: DashboardApi,
     experimentId: string,
     graphRevisionId: string,
   ): void {
     this.markReady(experimentId);
-    this.load(api, experimentId, graphRevisionId);
+    this.load(api, this.id, experimentId, graphRevisionId);
   }
 
-  load(api: DashboardApi, experimentId: string, graphRevisionId: string): void {
+  load(
+    api: DashboardApi,
+    documentId: string,
+    experimentId: string,
+    graphRevisionId: string,
+  ): void {
     this.experimentId = experimentId;
     this.status = "loading";
     this.errorReason = "";
-    api.requestSimulationReport(experimentId, graphRevisionId);
+    api.requestReport({
+      type: "simulation",
+      documentId,
+      reportId: experimentId,
+      graphRevisionId,
+    });
   }
 }

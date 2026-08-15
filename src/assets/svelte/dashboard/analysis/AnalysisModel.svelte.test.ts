@@ -24,7 +24,7 @@ function graph(): LoadedGraph {
   };
 }
 
-function api(): DashboardApi {
+function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
   return {
     openGraph: vi.fn().mockResolvedValue({ status: "ok", graph: graph() }),
     saveGraph: vi.fn(),
@@ -46,8 +46,7 @@ function api(): DashboardApi {
       status: "accepted",
       workflow_id: "workflow-1",
     }),
-    requestSimulationReport: vi.fn(),
-    requestOptimizationReport: vi.fn(),
+    requestReport: vi.fn(),
     fetchExperiments: vi.fn(),
     fetchOptimizationRuns: vi.fn(),
     fetchGraphConnectivity: vi.fn(),
@@ -59,7 +58,7 @@ function api(): DashboardApi {
     createFolder: vi.fn(),
     deleteFolder: vi.fn(),
     moveGraphToFolder: vi.fn(),
-  };
+  } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 
 describe("AnalysisModel", () => {
@@ -222,18 +221,24 @@ describe("AnalysisModel", () => {
       throw new Error("Missing workflow reports");
     }
 
-    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
-      "baseline-experiment",
-      "revision-1",
-    );
-    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
-      "after-experiment",
-      "optimized-r1",
-    );
-    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
-      "optimization-1",
-      "revision-1",
-    );
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "simulation",
+      documentId: baseline.id,
+      reportId: "baseline-experiment",
+      graphRevisionId: "revision-1",
+    });
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "simulation",
+      documentId: after.id,
+      reportId: "after-experiment",
+      graphRevisionId: "optimized-r1",
+    });
+    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
+      type: "optimization",
+      documentId: optimization.id,
+      reportId: "optimization-1",
+      graphRevisionId: "revision-1",
+    });
     expect(baseline).toMatchObject({
       graphId: "graph-1",
       graphRevisionId: "revision-1",

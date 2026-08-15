@@ -10,15 +10,12 @@ import type {
   SimulationCompletedEvent,
   SimulationFailedEvent,
   SimulationProgressEvent,
-  FetchSimulationReportReply,
-  SimulationReportErrorEvent,
-  FetchOptimizationReportReply,
-  OptimizationReportErrorEvent,
   WorkflowCompletedEvent,
   WorkflowFailedEvent,
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
+import type { ClientReportEvent } from "./report-events";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
@@ -161,45 +158,13 @@ export class DashboardModel {
     report.setProgress(payload.completed_runs, payload.total_runs);
   }
 
-  onSimulationReportReady(payload: FetchSimulationReportReply): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.experimentId === payload.experiment_id,
-    ) as SimulationReportDocument | undefined;
-    if (!report) return;
-    report.setReportData(payload);
-  }
-
-  onSimulationReportError(payload: SimulationReportErrorEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.experimentId === payload.experiment_id,
-    ) as SimulationReportDocument | undefined;
-    if (!report) return;
-    report.markError(payload.error);
-    this.workspace.markReportReadState(report);
-  }
-
-  onOptimizationReportReady(payload: FetchOptimizationReportReply): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "optimization-report" &&
-        d.optimizationId === payload.optimization_id,
-    ) as OptimizationReportDocument | undefined;
-    report?.setReportData(payload);
-  }
-
-  onOptimizationReportError(payload: OptimizationReportErrorEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "optimization-report" &&
-        d.optimizationId === payload.optimization_id,
-    ) as OptimizationReportDocument | undefined;
-    if (!report) return;
-    report.markError(payload.error);
-    this.workspace.markReportReadState(report);
+  onReportEvent(event: ClientReportEvent): void {
+    const document = this.workspace.documents.find(
+      (candidate) => candidate.id === event.documentId,
+    );
+    if (!document?.isAsyncReportDocument()) return;
+    if (event.handle(document) === "error")
+      this.workspace.markReportReadState(document);
   }
 
   onWorkflowCompleted(payload: WorkflowCompletedEvent): void {
