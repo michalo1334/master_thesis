@@ -3,28 +3,35 @@ import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
-import type { ClientReportEvent, EventResult } from "../report-events";
+import type { ReportDataMap, ReportKind } from "../report-events";
+import type { DashboardError } from "../contract";
 
 export class WorkspaceDocumentBase {
   isReportDocument(): boolean {
     return false;
   }
 
-  isAsyncReportDocument(): this is AsyncReportDocument {
+  isAsyncReportDocument(): this is AsyncReportDocument<ReportKind> {
     return false;
   }
 }
 
-export abstract class AsyncReportDocument extends WorkspaceDocumentBase {
+export abstract class AsyncReportDocument<
+  Kind extends ReportKind,
+> extends WorkspaceDocumentBase {
+  abstract readonly reportKind: Kind;
+
   isReportDocument(): true {
     return true;
   }
 
-  isAsyncReportDocument(): this is AsyncReportDocument {
+  isAsyncReportDocument(): this is AsyncReportDocument<Kind> {
     return true;
   }
 
-  abstract accept(event: ClientReportEvent): EventResult;
+  abstract setReportData(data: ReportDataMap[Kind]): void;
+
+  abstract markError(error: DashboardError): void;
 }
 
 export type WorkspaceDocument =

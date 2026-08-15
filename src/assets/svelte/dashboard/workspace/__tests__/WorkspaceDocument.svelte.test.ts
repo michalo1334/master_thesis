@@ -55,6 +55,8 @@ describe("WorkspaceDocument", () => {
     expect(diff.isAsyncReportDocument()).toBe(false);
     expect(simulation.isAsyncReportDocument()).toBe(true);
     expect(optimization.isAsyncReportDocument()).toBe(true);
+    expect(simulation.reportKind).toBe("simulation");
+    expect(optimization.reportKind).toBe("optimization");
     expect(comparison.isAsyncReportDocument()).toBe(false);
   });
 });

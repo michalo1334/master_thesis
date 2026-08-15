@@ -5,12 +5,6 @@
   import { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { createDashboardApi } from "./dashboard/dashboard-api";
   import type { LiveServer } from "./dashboard/dashboard-api";
-  import {
-    OptimizationReportError,
-    OptimizationReportReady,
-    SimulationReportError,
-    SimulationReportReady,
-  } from "./dashboard/report-events";
   import Dashboard from "./Dashboard.svelte";
   import type {
     GraphSummary,
@@ -71,27 +65,31 @@
   });
 
   useLiveEvent("simulation_report_ready", (payload: unknown) => {
-    model.onReportEvent(
-      new SimulationReportReady(payload as SimulationReportReadyEvent),
-    );
+    model.onReportReadyEvent({
+      reportKind: "simulation",
+      payload: payload as SimulationReportReadyEvent,
+    });
   });
 
   useLiveEvent("simulation_report_error", (payload: unknown) => {
-    model.onReportEvent(
-      new SimulationReportError(payload as SimulationReportErrorEvent),
-    );
+    model.onReportErrorEvent({
+      reportKind: "simulation",
+      payload: payload as SimulationReportErrorEvent,
+    });
   });
 
   useLiveEvent("optimization_report_ready", (payload: unknown) => {
-    model.onReportEvent(
-      new OptimizationReportReady(payload as OptimizationReportReadyEvent),
-    );
+    model.onReportReadyEvent({
+      reportKind: "optimization",
+      payload: payload as OptimizationReportReadyEvent,
+    });
   });
 
   useLiveEvent("optimization_report_error", (payload: unknown) => {
-    model.onReportEvent(
-      new OptimizationReportError(payload as OptimizationReportErrorEvent),
-    );
+    model.onReportErrorEvent({
+      reportKind: "optimization",
+      payload: payload as OptimizationReportErrorEvent,
+    });
   });
 
   useLiveEvent("workflow_completed", (payload: unknown) => {

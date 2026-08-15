@@ -15,7 +15,12 @@ import type {
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
-import type { ClientReportEvent } from "./report-events";
+import type {
+  ReportErrorEventType,
+  ReportKind,
+  ReportReadyEventType,
+} from "./report-events";
+import type { AsyncReportDocument } from "./workspace/WorkspaceDocument.svelte";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
@@ -158,13 +163,51 @@ export class DashboardModel {
     report.setProgress(payload.completed_runs, payload.total_runs);
   }
 
-  onReportEvent(event: ClientReportEvent): void {
+  private findReport<Kind extends ReportKind>(
+    documentId: string,
+    reportKind: Kind,
+  ):
+    | (AsyncReportDocument<Kind> & {
+        readonly id: string;
+        markRead(): void;
+        markUnread(): void;
+      })
+    | undefined {
     const document = this.workspace.documents.find(
-      (candidate) => candidate.id === event.documentId,
+      (candidate) =>
+        candidate.isAsyncReportDocument() &&
+        candidate.id === documentId &&
+        candidate.reportKind === reportKind,
     );
-    if (!document?.isAsyncReportDocument()) return;
-    if (event.handle(document) === "error")
-      this.workspace.markReportReadState(document);
+    return document as
+      | (AsyncReportDocument<Kind> & {
+          readonly id: string;
+          markRead(): void;
+          markUnread(): void;
+        })
+      | undefined;
+  }
+
+  onReportReadyEvent<Kind extends ReportKind>(
+    event: ReportReadyEventType<Kind>,
+  ): void {
+    const document = this.findReport(
+      event.payload.document_id,
+      event.reportKind,
+    );
+    document?.setReportData(event.payload.report);
+  }
+
+  onReportErrorEvent<Kind extends ReportKind>(
+    event: ReportErrorEventType<Kind>,
+  ): void {
+    const document = this.findReport(
+      event.payload.document_id,
+      event.reportKind,
+    );
+    if (!document) return;
+    document.markError(event.payload.error);
+    this.workspace.markReportReadState(document);
   }
 
   onWorkflowCompleted(payload: WorkflowCompletedEvent): void {

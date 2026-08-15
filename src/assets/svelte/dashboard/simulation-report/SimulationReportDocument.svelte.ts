@@ -5,12 +5,12 @@ import type {
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import { formatDashboardErrorCode } from "../error-code";
-import type { ClientReportEvent, EventResult } from "../report-events";
 import type { IconName } from "../types";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 
-export class SimulationReportDocument extends AsyncReportDocument {
+export class SimulationReportDocument extends AsyncReportDocument<"simulation"> {
   readonly kind = "simulation-report" as const;
+  readonly reportKind = "simulation" as const;
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id: string;
   readonly graphId: string;
@@ -113,10 +113,6 @@ export class SimulationReportDocument extends AsyncReportDocument {
     this.clearHeatmapSelection();
     this.title = `Report for ${data.graph_title}`;
     this.status = "loaded";
-  }
-
-  accept(event: ClientReportEvent): EventResult {
-    return event.visitSimulation(this);
   }
 
   complete(

@@ -2,11 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { LoadedGraph } from "../contract";
-import {
-  OptimizationReportError,
-  OptimizationReportReady,
-  SimulationReportError,
-} from "../report-events";
 
 function graph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
   return {
@@ -195,7 +190,7 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("loading");
   });
 
-  it("delegates report events by document ID and marks only handled errors unread", () => {
+  it("ignores report errors with a mismatched report kind", () => {
     const report = model.workspace.createPendingReport({
       graphId: "g1",
       graphRevisionId: "r1",
@@ -203,29 +198,28 @@ describe("DashboardModel", () => {
       correlationId: "simulation-1",
     });
     model.workspace.selectDocument(model.workspace.documents[0]!.id);
-    const accept = vi.spyOn(report, "accept");
-
-    model.onReportEvent(
-      new OptimizationReportError({
+    model.onReportErrorEvent({
+      reportKind: "optimization",
+      payload: {
         document_id: report.id,
         optimization_id: "optimization-1",
         graph_revision_id: "r1",
         error: { code: "internal_error" },
-      }),
-    );
+      },
+    });
 
-    expect(accept).toHaveBeenCalledOnce();
     expect(report.status).toBe("pending");
     expect(report.hasUnread).toBe(false);
 
-    model.onReportEvent(
-      new SimulationReportError({
+    model.onReportErrorEvent({
+      reportKind: "simulation",
+      payload: {
         document_id: report.id,
         experiment_id: "experiment-1",
         graph_revision_id: "r1",
         error: { code: "internal_error" },
-      }),
-    );
+      },
+    });
 
     expect(report.status).toBe("error");
     expect(report.errorReason).toBe("The operation could not be completed.");
@@ -306,8 +300,9 @@ describe("DashboardModel", () => {
       "optimized-r1",
     );
 
-    model.onReportEvent(
-      new OptimizationReportReady({
+    model.onReportReadyEvent({
+      reportKind: "optimization",
+      payload: {
         document_id: report.id,
         report: {
           optimization_id: "optimization-1",
@@ -323,8 +318,8 @@ describe("DashboardModel", () => {
             actions: [],
           },
         },
-      }),
-    );
+      },
+    });
     expect(report.status).toBe("loaded");
   });
 });

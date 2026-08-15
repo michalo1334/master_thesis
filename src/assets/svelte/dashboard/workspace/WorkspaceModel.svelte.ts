@@ -592,12 +592,11 @@ export class WorkspaceModel {
     ) as OptimizationReportDocument | undefined;
   }
 
-  markReportReadState(
-    report:
-      | SimulationReportDocument
-      | OptimizationReportDocument
-      | ComparisonReportDocument,
-  ): void {
+  markReportReadState(report: {
+    id: string;
+    markRead(): void;
+    markUnread(): void;
+  }): void {
     if (this.selectedDocumentId === report.id) report.markRead();
     else report.markUnread();
   }
