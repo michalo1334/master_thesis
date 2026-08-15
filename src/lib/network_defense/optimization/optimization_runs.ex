@@ -54,6 +54,23 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     end
   end
 
+  def resume_or_load(run_id) do
+    Repo.transaction(fn ->
+      case lock!(run_id) do
+        nil ->
+          Repo.rollback(:not_found)
+
+        %OptimizationRun{status: "completed"} = run ->
+          run
+
+        %OptimizationRun{} = run ->
+          run
+          |> OptimizationRun.changeset(%{status: "running"})
+          |> Repo.update!()
+      end
+    end)
+  end
+
   def list_by_graph_revisions(graph_revision_ids) when is_list(graph_revision_ids) do
     OptimizationRun
     |> where([run], run.graph_revision_id in ^graph_revision_ids)
@@ -62,9 +79,6 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     |> preload(:graph_revision)
     |> Repo.all()
   end
-
-  def list_by_graph_revision(graph_revision_id),
-    do: list_by_graph_revisions([graph_revision_id])
 
   def load(id) do
     case Repo.get(OptimizationRun, id) do

@@ -92,6 +92,49 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("sends the combined analysis workflow request", async () => {
+    const reply = { status: "accepted" as const, workflow_id: "workflow-1" };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).runWorkflow(
+        "r1",
+        "corr-1",
+        {
+          initial_foothold_node_id: "host-1",
+          monte_carlo_trials: 10,
+          iterations_per_run: 10,
+          max_attempts: 1,
+          generate_seed: false,
+          seed: 1,
+        },
+        { strategy: "cvss", budget: 3, objective: "blast_radius" },
+      ),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "run_workflow_request",
+      {
+        request: {
+          template: "combined_analysis",
+          graph_revision_id: "r1",
+          correlation_id: "corr-1",
+          simulation_params: expect.any(Object),
+          optimization_params: {
+            strategy: "cvss",
+            budget: 3,
+            objective: "blast_radius",
+          },
+        },
+      },
+      expect.any(Function),
+    );
+  });
+
   it("fetches experiments through the LiveView reply callback", async () => {
     const reply = { experiments: [] };
     const live = {

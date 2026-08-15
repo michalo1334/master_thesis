@@ -30,6 +30,7 @@ function api(): DashboardApi {
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),
     runOptimization: vi.fn(),
+    runWorkflow: vi.fn(),
     requestSimulationReport: vi.fn(),
     requestOptimizationReport: vi.fn(),
     fetchExperiments: vi.fn().mockResolvedValue({ experiments: [] }),
@@ -185,55 +186,26 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("loading");
   });
 
-  it("forwards lifecycle events to compound analysis without a matching report", () => {
-    const onSimulationCompleted = vi.spyOn(
-      model.analysis,
-      "onSimulationCompleted",
-    );
-    const onSimulationFailed = vi.spyOn(model.analysis, "onSimulationFailed");
-    const onOptimizationCompleted = vi.spyOn(
-      model.analysis,
-      "onOptimizationCompleted",
-    );
-    const onOptimizationFailed = vi.spyOn(
-      model.analysis,
-      "onOptimizationFailed",
-    );
-    const simulationCompleted = {
-      correlation_id: "simulation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      experiment_id: "experiment-1",
-    };
-    const simulationFailed = {
-      correlation_id: "simulation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      error: { code: "internal_error" as const },
-    };
-    const optimizationCompleted = {
-      correlation_id: "optimization-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
+  it("forwards workflow events to analysis", () => {
+    const onWorkflowCompleted = vi.spyOn(model.analysis, "onWorkflowCompleted");
+    const onWorkflowFailed = vi.spyOn(model.analysis, "onWorkflowFailed");
+    const completed = {
+      workflow_id: "workflow-1",
+      baseline_experiment_id: "baseline-1",
       optimization_id: "optimization-1",
       output_graph_revision_id: "r2",
+      after_experiment_id: "after-1",
     };
-    const optimizationFailed = {
-      correlation_id: "optimization-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
+    const failed = {
+      workflow_id: "workflow-1",
       error: { code: "internal_error" as const },
     };
 
-    model.onSimulationCompleted(simulationCompleted);
-    model.onSimulationFailed(simulationFailed);
-    model.onOptimizationCompleted(optimizationCompleted);
-    model.onOptimizationFailed(optimizationFailed);
+    model.onWorkflowCompleted(completed);
+    model.onWorkflowFailed(failed);
 
-    expect(onSimulationCompleted).toHaveBeenCalledWith(simulationCompleted);
-    expect(onSimulationFailed).toHaveBeenCalledWith(simulationFailed);
-    expect(onOptimizationCompleted).toHaveBeenCalledWith(optimizationCompleted);
-    expect(onOptimizationFailed).toHaveBeenCalledWith(optimizationFailed);
+    expect(onWorkflowCompleted).toHaveBeenCalledWith(completed);
+    expect(onWorkflowFailed).toHaveBeenCalledWith(failed);
   });
 
   it("uses the source and optimized revisions for optimization reports", async () => {

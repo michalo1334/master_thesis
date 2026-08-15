@@ -503,26 +503,28 @@ export class WorkspaceModel {
   createPendingReport(info: {
     graphId: string;
     graphRevisionId: string;
-    correlationId: string;
+    correlationId?: string;
     graphTitle: string;
   }): SimulationReportDocument {
-    const existing = this.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.correlationId === info.correlationId,
-    ) as SimulationReportDocument | undefined;
+    const existing = info.correlationId
+      ? (this.documents.find(
+          (d) =>
+            d.kind === "simulation-report" &&
+            d.correlationId === info.correlationId,
+        ) as SimulationReportDocument | undefined)
+      : undefined;
 
     let report: SimulationReportDocument;
     if (existing) {
       report = existing;
-      report.markPending(info.correlationId);
+      if (info.correlationId) report.markPending(info.correlationId);
     } else {
       report = new SimulationReportDocument(
         info.graphTitle,
         info.graphId,
         info.graphRevisionId,
       );
-      report.markPending(info.correlationId);
+      if (info.correlationId) report.markPending(info.correlationId);
       this.documents.push(report);
     }
     this.selectedDocumentId = report.id;
@@ -533,15 +535,17 @@ export class WorkspaceModel {
     graphId: string;
     graphRevisionId: string;
     graphTitle: string;
-    correlationId: string;
+    correlationId?: string;
     strategy: OptimizationStrategy;
     budget: number;
   }): OptimizationReportDocument {
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "optimization-report" &&
-        document.correlationId === info.correlationId,
-    ) as OptimizationReportDocument | undefined;
+    const existing = info.correlationId
+      ? (this.documents.find(
+          (document) =>
+            document.kind === "optimization-report" &&
+            document.correlationId === info.correlationId,
+        ) as OptimizationReportDocument | undefined)
+      : undefined;
     if (existing) {
       this.selectedDocumentId = existing.id;
       return existing;

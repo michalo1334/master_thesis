@@ -85,7 +85,8 @@ defmodule NetworkDefense.MixProject do
       {:opentelemetry_phoenix, "~> 2.0"},
       {:opentelemetry_bandit, "~> 0.3"},
       {:opentelemetry_ecto, "~> 1.2"},
-      {:opentelemetry_process_propagator, "~> 0.3"}
+      {:opentelemetry_process_propagator, "~> 0.3"},
+      {:oban, "~> 2.19"}
     ]
   end
 

@@ -42,6 +42,7 @@ defmodule NetworkDefense.Application do
           {DNSCluster,
            query: Application.get_env(:network_defense, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub, name: NetworkDefense.PubSub},
+          {Oban, Application.fetch_env!(:network_defense, Oban)},
           # Start a worker by calling: NetworkDefense.Worker.start_link(arg)
           # {NetworkDefense.Worker, arg},
           # Start to serve requests, typically the last entry

@@ -1,6 +1,7 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
+  alias NetworkDefense.Analysis.CombinedAnalysisWorkflow
   alias NetworkDefense.Errors
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
@@ -10,6 +11,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Simulations
+  alias NetworkDefense.Workflows
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   alias NetworkDefenseWeb.Web.Contracts.{
@@ -56,7 +58,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SimulationCompletedEvent,
     SimulationFailedEvent,
     SimulationProgressEvent,
-    SimulationReportErrorEvent
+    SimulationReportErrorEvent,
+    RunWorkflowPayload,
+    RunWorkflowReply,
+    WorkflowCompletedEvent,
+    WorkflowFailedEvent
   }
 
   @impl true
@@ -98,6 +104,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Workflows.workflow_events_topic())
     end
 
     {:ok, socket}
@@ -286,6 +293,24 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("run_workflow_request", params, socket) do
+    case RunWorkflowPayload.validate(params) do
+      {:ok, %{request: request}} ->
+        case start_workflow(request) do
+          {:ok, run} ->
+            {:reply, workflow_request_reply("accepted", run.id, nil),
+             put_flash(socket, :info, "Workflow started.")}
+
+          {:error, reason} ->
+            {:reply, workflow_request_reply("rejected", nil, reason), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, workflow_request_reply("rejected", nil, :invalid_request), socket}
+    end
+  end
+
+  @impl true
   def handle_event("fetch_simulation_report", params, socket) do
     case FetchSimulationReportPayload.validate(params) do
       {:ok, request} ->
@@ -421,6 +446,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
      push_contract_event(socket, "optimization_progress", OptimizationProgressEvent, payload)}
   end
 
+  def handle_info({:workflow_completed, %{workflow_id: workflow_id, outputs: outputs}}, socket) do
+    payload =
+      outputs
+      |> CombinedAnalysisWorkflow.completed_event_payload()
+      |> Map.put(:workflow_id, workflow_id)
+
+    {:noreply, push_contract_event(socket, "workflow_completed", WorkflowCompletedEvent, payload)}
+  end
+
+  def handle_info({:workflow_failed, payload}, socket) do
+    {:noreply,
+     push_failure_event(
+       socket,
+       "workflow_failed",
+       WorkflowFailedEvent,
+       "Workflow failed",
+       failure_payload(payload)
+     )}
+  end
+
   def handle_info({:report_result, experiment_id, graph_revision_id, result}, socket) do
     socket =
       if is_map(result) and result[:charts] do
@@ -452,6 +497,19 @@ defmodule NetworkDefenseWeb.DashboardLive do
       end
 
     {:noreply, socket}
+  end
+
+  defp start_workflow(request) do
+    if request.template == CombinedAnalysisWorkflow.template() do
+      CombinedAnalysisWorkflow.start(
+        request.graph_revision_id,
+        request.correlation_id,
+        request.simulation_params,
+        request.optimization_params
+      )
+    else
+      {:error, :invalid_request}
+    end
   end
 
   defp fetch_report(request) do
@@ -659,6 +717,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
       status: status,
       graph_revision_id: string_or_empty(graph_revision_id),
       correlation_id: string_or_empty(correlation_id),
+      error: dashboard_error(error)
+    })
+  end
+
+  defp workflow_request_reply(status, workflow_id, error) do
+    contract_reply(RunWorkflowReply, %{
+      status: status,
+      workflow_id: workflow_id,
       error: dashboard_error(error)
     })
   end

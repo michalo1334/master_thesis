@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { waitFor } from "@testing-library/svelte";
 import { AnalysisModel } from "./AnalysisModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { LoadedGraph } from "../contract";
@@ -43,6 +42,10 @@ function api(): DashboardApi {
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
       })),
+    runWorkflow: vi.fn().mockResolvedValue({
+      status: "accepted",
+      workflow_id: "workflow-1",
+    }),
     requestSimulationReport: vi.fn(),
     requestOptimizationReport: vi.fn(),
     fetchExperiments: vi.fn(),
@@ -160,28 +163,8 @@ describe("AnalysisModel", () => {
     ]);
   });
 
-  it("runs a compound sequence through pending reports with parameter snapshots", async () => {
+  it("starts one workflow and opens the completed comparison", async () => {
     const dashboardApi = api();
-    vi.mocked(dashboardApi.runSimulation).mockImplementation(
-      async (graphRevisionId, correlationId) => ({
-        status: "accepted",
-        graph_revision_id: graphRevisionId,
-        correlation_id: correlationId,
-      }),
-    );
-    vi.mocked(dashboardApi.runOptimization).mockImplementation(
-      async (graphRevisionId, correlationId) => ({
-        status: "accepted",
-        graph_revision_id: graphRevisionId,
-        correlation_id: correlationId,
-      }),
-    );
-    vi.mocked(dashboardApi.openGraph).mockImplementation(
-      async (revisionId) => ({
-        status: "ok",
-        graph: { ...graph(), revision_id: revisionId },
-      }),
-    );
     const workspace = new WorkspaceModel();
     const model = new AnalysisModel(dashboardApi, workspace);
 
@@ -192,105 +175,93 @@ describe("AnalysisModel", () => {
     model.setStrategies(["cvss"]);
 
     await expect(model.run()).resolves.toBe(true);
-    expect(dashboardApi.runSimulation).toHaveBeenCalledTimes(1);
+    expect(dashboardApi.runWorkflow).toHaveBeenCalledWith(
+      "revision-1",
+      expect.any(String),
+      expect.objectContaining({ seed: 7 }),
+      expect.objectContaining({ strategy: "cvss" }),
+    );
+    expect(dashboardApi.runSimulation).not.toHaveBeenCalled();
     expect(dashboardApi.runOptimization).not.toHaveBeenCalled();
+    expect(model.activeWorkflowId).toBe("workflow-1");
     expect(model.canRun).toBe(false);
 
-    workspace.onSimulationParamsChange({ seed: 99 });
-    const baseline = workspace.documents.find(
-      (document) => document.kind === "simulation-report",
-    );
-    if (!baseline || baseline.kind !== "simulation-report") {
-      throw new Error("Missing baseline simulation report");
-    }
-    model.onSimulationCompleted({
-      correlation_id: baseline.correlationId!,
-      graph_id: "graph-1",
-      graph_revision_id: "revision-1",
-      experiment_id: "baseline-experiment",
+    model.targetRevisionId = "revision-2";
+    model.targetGraph = {
+      ...graph(),
+      id: "graph-2",
+      revision_id: "revision-2",
+      title: "Changed target",
+    };
+    model.setStrategies(["simulation_informed"]);
+    workspace.onOptimizationParamsChange({ budget: 99 });
+
+    model.onWorkflowCompleted({
+      workflow_id: "workflow-1",
+      baseline_experiment_id: "baseline-experiment",
+      optimization_id: "optimization-1",
+      output_graph_revision_id: "optimized-r1",
+      after_experiment_id: "after-experiment",
     });
 
-    await waitFor(() =>
-      expect(model.sequence.stage).toBe("awaiting-optimization"),
+    const [baseline, after] = workspace.documents.filter(
+      (document) => document.kind === "simulation-report",
     );
     const optimization = workspace.documents.find(
       (document) => document.kind === "optimization-report",
     );
-    if (!optimization || optimization.kind !== "optimization-report") {
-      throw new Error("Missing optimization report");
-    }
-    model.onOptimizationCompleted({
-      correlation_id: optimization.correlationId!,
-      graph_id: "graph-1",
-      graph_revision_id: "revision-1",
-      optimization_id: "optimization-1",
-      output_graph_revision_id: "optimized-r1",
-    });
-
-    await waitFor(() => expect(model.sequence.stage).toBe("awaiting-after"));
-    expect(dashboardApi.openGraph).toHaveBeenLastCalledWith("optimized-r1");
-    expect(dashboardApi.runSimulation).toHaveBeenLastCalledWith(
-      "optimized-r1",
-      expect.any(String),
-      expect.objectContaining({ seed: 7 }),
-    );
-
-    const after = workspace.documents.filter(
-      (document) => document.kind === "simulation-report",
-    )[1];
-    if (!after || after.kind !== "simulation-report") {
-      throw new Error("Missing after simulation report");
-    }
-    model.onSimulationCompleted({
-      correlation_id: after.correlationId!,
-      graph_id: "graph-1",
-      graph_revision_id: "optimized-r1",
-      experiment_id: "after-experiment",
-    });
-
-    expect(model.sequence.stage).toBe("completed");
     const comparison = workspace.documents.find(
       (document) => document.kind === "comparison-report",
     );
+    if (
+      !baseline ||
+      !after ||
+      !optimization ||
+      optimization.kind !== "optimization-report"
+    ) {
+      throw new Error("Missing workflow reports");
+    }
+
+    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
+      "baseline-experiment",
+      "revision-1",
+    );
+    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
+      "after-experiment",
+      "optimized-r1",
+    );
+    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
+      "optimization-1",
+      "revision-1",
+    );
+    expect(baseline).toMatchObject({
+      graphId: "graph-1",
+      graphRevisionId: "revision-1",
+      title: "Report for Target graph",
+    });
+    expect(optimization).toMatchObject({
+      graphId: "graph-1",
+      graphRevisionId: "revision-1",
+      strategy: "cvss",
+      budget: 1,
+      title: "Optimization report for Target graph",
+    });
     expect(comparison).toMatchObject({
       baselineReport: baseline,
       optimizationReport: optimization,
       postOptimizationReport: after,
     });
     expect(workspace.selectedDocumentId).toBe(comparison?.id);
+    expect(model.activeWorkflowId).toBeNull();
   });
 
-  it("keeps the saved source revision when the active graph changes during the baseline", async () => {
+  it("reports a rejected workflow without creating reports", async () => {
     const dashboardApi = api();
-    vi.mocked(dashboardApi.openGraph).mockResolvedValue({
-      status: "ok",
-      graph: graph(),
-    });
-    vi.mocked(dashboardApi.runSimulation).mockImplementation(
-      async (graphRevisionId, correlationId) => ({
-        status: "accepted",
-        graph_revision_id: graphRevisionId,
-        correlation_id: correlationId,
-      }),
-    );
-    vi.mocked(dashboardApi.runOptimization).mockImplementation(
-      async (graphRevisionId, correlationId) => ({
-        status: "accepted",
-        graph_revision_id: graphRevisionId,
-        correlation_id: correlationId,
-      }),
-    );
-    vi.mocked(dashboardApi.saveGraph).mockResolvedValue({
-      status: "ok",
-      graph: {
-        ...graph(),
-        revision_id: "revision-2",
-        revision_number: 2,
-      },
+    vi.mocked(dashboardApi.runWorkflow).mockResolvedValue({
+      status: "rejected",
+      error: { code: "invalid_graph" },
     });
     const workspace = new WorkspaceModel();
-    await workspace.openLoadedGraph(graph(), dashboardApi);
-    const activeGraph = workspace.activeGraph!;
     const model = new AnalysisModel(dashboardApi, workspace);
 
     await model.selectTarget("revision-1");
@@ -298,33 +269,39 @@ describe("AnalysisModel", () => {
     model.includeOptimization = true;
     model.setStrategies(["cvss"]);
 
-    await expect(model.run()).resolves.toBe(true);
-    activeGraph.addNode({
-      id: "host-2",
-      type: "Host",
-      data: { name: "Changed during baseline" },
-      view_data: { x_pos: 1, y_pos: 1 },
-    });
-    await expect(activeGraph.save(dashboardApi)).resolves.toBe(true);
-    expect(activeGraph.loadedRevisionId).toBe("revision-2");
+    await expect(model.run()).resolves.toBe(false);
 
-    model.onSimulationCompleted({
-      correlation_id: model.sequence.baselineSimulationCorrelationId!,
-      graph_id: "graph-1",
-      graph_revision_id: "revision-1",
-      experiment_id: "baseline-experiment",
-    });
-
-    await waitFor(() =>
-      expect(dashboardApi.runOptimization).toHaveBeenCalledWith(
-        "revision-1",
-        expect.any(String),
-        expect.anything(),
-      ),
+    expect(model.statusMessage).toBe(
+      "Workflow rejected: The graph is invalid.",
     );
+    expect(model.activeWorkflowId).toBeNull();
+    expect(workspace.documents).toHaveLength(0);
   });
 
-  it("requires one runnable strategy for a compound sequence", async () => {
+  it("reports a matching workflow failure", async () => {
+    const dashboardApi = api();
+    const workspace = new WorkspaceModel();
+    const model = new AnalysisModel(dashboardApi, workspace);
+
+    await model.selectTarget("revision-1");
+    model.includeSimulation = true;
+    model.includeOptimization = true;
+    model.setStrategies(["cvss"]);
+    await expect(model.run()).resolves.toBe(true);
+
+    model.onWorkflowFailed({
+      workflow_id: "workflow-1",
+      error: { code: "internal_error" },
+    });
+
+    expect(model.activeWorkflowId).toBeNull();
+    expect(model.statusMessage).toBe(
+      "Compound analysis failed: The operation could not be completed.",
+    );
+    expect(workspace.documents).toHaveLength(0);
+  });
+
+  it("requires one runnable strategy for a combined workflow", async () => {
     const model = new AnalysisModel(api(), new WorkspaceModel());
 
     await model.selectTarget("revision-1");
@@ -334,7 +311,7 @@ describe("AnalysisModel", () => {
 
     expect(model.canRun).toBe(false);
     expect(model.compoundValidationMessage).toBe(
-      "Select exactly one runnable optimization strategy for the compound sequence.",
+      "Select exactly one runnable optimization strategy for the combined workflow.",
     );
 
     model.setStrategies(["cvss"]);

@@ -3,16 +3,21 @@ import { formatDashboardErrorCode } from "../error-code";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import type {
   LoadedGraph,
-  OptimizationCompletedEvent,
-  OptimizationFailedEvent,
   OptimizationParams,
   OptimizationStrategy,
-  SimulationCompletedEvent,
-  SimulationFailedEvent,
   SimulationParams,
+  WorkflowCompletedEvent,
+  WorkflowFailedEvent,
 } from "../contract";
 import type { WorkspaceModel } from "../workspace/WorkspaceModel.svelte";
-import { AnalysisSequence, type AnalysisJob } from "./AnalysisSequence.svelte";
+
+interface WorkflowSnapshot {
+  sourceGraphId: string;
+  sourceGraphRevisionId: string;
+  sourceGraphTitle: string;
+  strategy: OptimizationStrategy;
+  budget: number;
+}
 
 export class AnalysisModel {
   open = $state(false);
@@ -24,24 +29,17 @@ export class AnalysisModel {
   selectedStrategies = $state<OptimizationStrategy[]>([]);
   isLoadingTarget = $state(false);
   private isSubmitting = $state(false);
+  activeWorkflowId = $state<string | null>(null);
+  private workflowSnapshots = new Map<string, WorkflowSnapshot>();
   statusMessage = $state("");
-  sequence: AnalysisSequence;
 
   constructor(
     readonly api: DashboardApi,
     readonly workspace: WorkspaceModel,
-  ) {
-    this.sequence = new AnalysisSequence({
-      startSimulation: (document, params, job) =>
-        this.startSequenceSimulation(document, params, job),
-      startOptimization: (document, params, job) =>
-        this.startSequenceOptimization(document, params, job),
-      loadOutputGraph: (revisionId) => this.loadSequenceOutputGraph(revisionId),
-    });
-  }
+  ) {}
 
   get isRunning(): boolean {
-    return this.isSubmitting || this.sequence.active;
+    return this.isSubmitting || this.activeWorkflowId !== null;
   }
 
   get targetFootholdHosts(): { id: string; name: string }[] {
@@ -87,20 +85,16 @@ export class AnalysisModel {
   get compoundValidationMessage(): string {
     if (!this.includeSimulation || !this.includeOptimization) return "";
     if (this.runnableStrategies.length === 0) {
-      return "Select one runnable optimization strategy for the compound sequence.";
+      return "Select one runnable optimization strategy for the combined workflow.";
     }
     if (this.runnableStrategies.length > 1) {
-      return "Select exactly one runnable optimization strategy for the compound sequence.";
+      return "Select exactly one runnable optimization strategy for the combined workflow.";
     }
     return "";
   }
 
   get dialogStatusMessage(): string {
-    return (
-      this.compoundValidationMessage ||
-      this.sequence.statusMessage ||
-      this.statusMessage
-    );
+    return this.compoundValidationMessage || this.statusMessage;
   }
 
   get canRun(): boolean {
@@ -193,22 +187,25 @@ export class AnalysisModel {
         this.statusMessage = target.saveStatusMessage;
         return false;
       }
-
       const simulationParams = $state.snapshot(this.workspace.simulationParams);
       const optimizationParams = $state.snapshot(
         this.workspace.optimizationParams,
       );
       if (this.includeSimulation && this.includeOptimization) {
+        if (target.loadedRevisionId) {
+          this.targetRevisionId = target.loadedRevisionId;
+          this.targetGraph = $state.snapshot(target.graph);
+        }
         const [strategy] = this.runnableStrategies;
         if (!strategy) return false;
 
-        const started = await this.sequence.start(target, simulationParams, {
-          ...optimizationParams,
-          strategy,
-        });
+        const workflowOptimizationParams = { ...optimizationParams, strategy };
+        const started = await this.runWorkflow(
+          target,
+          simulationParams,
+          workflowOptimizationParams,
+        );
         if (!started) {
-          this.statusMessage =
-            this.sequence.error || "Unable to start compound analysis.";
           return false;
         }
 
@@ -244,14 +241,13 @@ export class AnalysisModel {
   async runSimulation(
     document: EditableGraphDocument,
     params: SimulationParams,
-    job: AnalysisJob | undefined = undefined,
   ): Promise<boolean> {
-    if (this.sequence.active && !job) {
+    if (this.activeWorkflowId) {
       this.workspace.statusMessage = "Compound analysis is in progress.";
       return false;
     }
 
-    const expectedJob = job ?? this.createJob(document);
+    const expectedJob = this.createJob(document);
     if (!expectedJob) return false;
     const report = this.workspace.createPendingReport({
       graphId: expectedJob.graphId,
@@ -307,13 +303,12 @@ export class AnalysisModel {
   async runOptimization(
     document: EditableGraphDocument,
     params: OptimizationParams,
-    job: AnalysisJob | undefined = undefined,
   ): Promise<boolean> {
-    if (this.sequence.active && !job) {
+    if (this.activeWorkflowId) {
       this.workspace.statusMessage = "Compound analysis is in progress.";
       return false;
     }
-    const expectedJob = job ?? this.createJob(document);
+    const expectedJob = this.createJob(document);
     if (!expectedJob) return false;
 
     const optimizationParams = this.withSupportedObjective(params);
@@ -367,21 +362,84 @@ export class AnalysisModel {
     }
   }
 
-  onSimulationCompleted(payload: SimulationCompletedEvent): void {
-    this.sequence.onSimulationCompleted(payload);
-    this.openComparisonReport();
+  onWorkflowCompleted(payload: WorkflowCompletedEvent): void {
+    if (payload.workflow_id !== this.activeWorkflowId) return;
+
+    const workflow = this.workflowSnapshots.get(payload.workflow_id);
+    this.activeWorkflowId = null;
+    this.workflowSnapshots.delete(payload.workflow_id);
+    if (!workflow) {
+      this.statusMessage = "Workflow completed without its request snapshot.";
+      return;
+    }
+
+    const baselineReport = this.workspace.createPendingReport({
+      graphId: workflow.sourceGraphId,
+      graphRevisionId: workflow.sourceGraphRevisionId,
+      graphTitle: workflow.sourceGraphTitle,
+    });
+    baselineReport.complete(
+      this.api,
+      payload.baseline_experiment_id,
+      workflow.sourceGraphRevisionId,
+    );
+    this.workspace.markReportReadState(baselineReport);
+
+    const optimizationReport = this.workspace.createPendingOptimizationReport({
+      graphId: workflow.sourceGraphId,
+      graphRevisionId: workflow.sourceGraphRevisionId,
+      graphTitle: workflow.sourceGraphTitle,
+      strategy: workflow.strategy,
+      budget: workflow.budget,
+    });
+    optimizationReport.complete(
+      this.api,
+      {
+        correlation_id: "",
+        graph_id: workflow.sourceGraphId,
+        graph_revision_id: workflow.sourceGraphRevisionId,
+        optimization_id: payload.optimization_id,
+        output_graph_revision_id: payload.output_graph_revision_id,
+      },
+      () =>
+        this.workspace.openOptimizationResult(
+          this.api,
+          payload.output_graph_revision_id,
+        ),
+      () =>
+        this.workspace.loadOptimizationGraphDiff(
+          this.api,
+          workflow.sourceGraphRevisionId,
+          payload.output_graph_revision_id,
+        ),
+    );
+    this.workspace.markReportReadState(optimizationReport);
+
+    const postOptimizationReport = this.workspace.createPendingReport({
+      graphId: workflow.sourceGraphId,
+      graphRevisionId: payload.output_graph_revision_id,
+      graphTitle: workflow.sourceGraphTitle,
+    });
+    postOptimizationReport.complete(
+      this.api,
+      payload.after_experiment_id,
+      payload.output_graph_revision_id,
+    );
+    this.workspace.markReportReadState(postOptimizationReport);
+    this.workspace.openComparisonReport(
+      baselineReport,
+      optimizationReport,
+      postOptimizationReport,
+    );
+    this.statusMessage = "Compound analysis completed.";
   }
 
-  onSimulationFailed(payload: SimulationFailedEvent): void {
-    this.sequence.onSimulationFailed(payload);
-  }
+  onWorkflowFailed(payload: WorkflowFailedEvent): void {
+    if (payload.workflow_id !== this.activeWorkflowId) return;
 
-  onOptimizationCompleted(payload: OptimizationCompletedEvent): void {
-    this.sequence.onOptimizationCompleted(payload);
-  }
-
-  onOptimizationFailed(payload: OptimizationFailedEvent): void {
-    this.sequence.onOptimizationFailed(payload);
+    this.activeWorkflowId = null;
+    this.workflowSnapshots.delete(payload.workflow_id);
+    this.statusMessage = `Compound analysis failed: ${formatDashboardErrorCode(payload.error.code)}`;
   }
 
   private async targetDocument(): Promise<EditableGraphDocument | undefined> {
@@ -397,82 +455,44 @@ export class AnalysisModel {
     return document;
   }
 
-  private openComparisonReport(): void {
-    if (this.sequence.stage !== "completed") return;
-    const baselineCorrelationId = this.sequence.baselineSimulationCorrelationId;
-    const optimizationCorrelationId = this.sequence.optimizationCorrelationId;
-    const afterCorrelationId = this.sequence.afterSimulationCorrelationId;
-    if (
-      !baselineCorrelationId ||
-      !optimizationCorrelationId ||
-      !afterCorrelationId
-    )
-      return;
-
-    const baselineReport = this.workspace.documents.find(
-      (document) =>
-        document.kind === "simulation-report" &&
-        document.correlationId === baselineCorrelationId,
-    );
-    const optimizationReport = this.workspace.findOptimizationReport(
-      optimizationCorrelationId,
-      this.sequence.sourceGraphId,
-    );
-    const postOptimizationReport = this.workspace.documents.find(
-      (document) =>
-        document.kind === "simulation-report" &&
-        document.correlationId === afterCorrelationId,
-    );
-    if (
-      !baselineReport ||
-      !optimizationReport ||
-      !postOptimizationReport ||
-      baselineReport.kind !== "simulation-report" ||
-      postOptimizationReport.kind !== "simulation-report"
-    )
-      return;
-
-    this.workspace.openComparisonReport(
-      baselineReport,
-      optimizationReport,
-      postOptimizationReport,
-    );
-  }
-
-  private async startSequenceSimulation(
+  private async runWorkflow(
     document: EditableGraphDocument,
-    params: SimulationParams,
-    job: AnalysisJob,
+    simulationParams: SimulationParams,
+    optimizationParams: OptimizationParams,
   ): Promise<boolean> {
-    return this.runSimulation(document, params, job);
-  }
+    const graphRevisionId = document.loadedRevisionId;
+    if (!graphRevisionId) return false;
 
-  private async startSequenceOptimization(
-    document: EditableGraphDocument,
-    params: OptimizationParams,
-    job: AnalysisJob,
-  ): Promise<boolean> {
-    return this.runOptimization(document, params, job);
-  }
-
-  private async loadSequenceOutputGraph(
-    revisionId: string,
-  ): Promise<EditableGraphDocument | undefined> {
     try {
-      const reply = await this.api.openGraph(revisionId);
-      if (
-        reply.status !== "ok" ||
-        !reply.graph ||
-        reply.graph.revision_id !== revisionId
-      ) {
-        return undefined;
+      const reply = await this.api.runWorkflow(
+        graphRevisionId,
+        crypto.randomUUID(),
+        simulationParams,
+        optimizationParams,
+      );
+      if (reply.status === "rejected") {
+        this.statusMessage = reply.error
+          ? `Workflow rejected: ${formatDashboardErrorCode(reply.error.code)}`
+          : "Workflow was rejected.";
+        return false;
+      }
+      if (!reply.workflow_id) {
+        this.statusMessage = "Workflow request returned no workflow ID.";
+        return false;
       }
 
-      const document = new EditableGraphDocument();
-      document.replaceFromLoadedGraph(reply.graph);
-      return document;
+      this.activeWorkflowId = reply.workflow_id;
+      this.workflowSnapshots.set(reply.workflow_id, {
+        sourceGraphId: document.graph.id,
+        sourceGraphRevisionId: graphRevisionId,
+        sourceGraphTitle: document.title,
+        strategy: optimizationParams.strategy,
+        budget: optimizationParams.budget,
+      });
+      return true;
     } catch {
-      return undefined;
+      this.statusMessage = "Workflow failed to start.";
+      return false;
     }
   }
 
@@ -505,7 +525,11 @@ export class AnalysisModel {
     }
   }
 
-  private createJob(document: EditableGraphDocument): AnalysisJob | undefined {
+  private createJob(
+    document: EditableGraphDocument,
+  ):
+    | { graphId: string; graphRevisionId: string; correlationId: string }
+    | undefined {
     const graphRevisionId = document.loadedRevisionId;
     if (!graphRevisionId) return undefined;
 

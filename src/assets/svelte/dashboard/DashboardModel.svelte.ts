@@ -14,6 +14,8 @@ import type {
   SimulationReportErrorEvent,
   FetchOptimizationReportReply,
   OptimizationReportErrorEvent,
+  WorkflowCompletedEvent,
+  WorkflowFailedEvent,
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
@@ -35,7 +37,7 @@ export class DashboardModel {
 
   /** Cross-model: start simulation on active graph, create pending report. */
   async runActiveSimulation(): Promise<void> {
-    if (this.analysis.sequence.active) {
+    if (this.analysis.isRunning) {
       this.workspace.statusMessage = "Compound analysis is in progress.";
       return;
     }
@@ -49,7 +51,7 @@ export class DashboardModel {
   }
 
   async runActiveOptimization(): Promise<void> {
-    if (this.analysis.sequence.active) {
+    if (this.analysis.isRunning) {
       this.workspace.statusMessage = "Compound analysis is in progress.";
       return;
     }
@@ -91,7 +93,6 @@ export class DashboardModel {
       );
       this.workspace.markReportReadState(report);
     }
-    this.analysis.onOptimizationCompleted(payload);
   }
 
   onOptimizationFailed(payload: OptimizationFailedEvent): void {
@@ -103,7 +104,6 @@ export class DashboardModel {
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
-    this.analysis.onOptimizationFailed(payload);
   }
 
   onOptimizationProgress(payload: OptimizationProgressEvent): void {
@@ -134,7 +134,6 @@ export class DashboardModel {
       );
       this.workspace.markReportReadState(report);
     }
-    this.analysis.onSimulationCompleted(payload);
   }
 
   /** Cross-model: route a server failure event to the matching report. */
@@ -149,7 +148,6 @@ export class DashboardModel {
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
-    this.analysis.onSimulationFailed(payload);
   }
 
   onSimulationProgress(payload: SimulationProgressEvent): void {
@@ -202,6 +200,14 @@ export class DashboardModel {
     if (!report) return;
     report.markError(payload.error);
     this.workspace.markReportReadState(report);
+  }
+
+  onWorkflowCompleted(payload: WorkflowCompletedEvent): void {
+    this.analysis.onWorkflowCompleted(payload);
+  }
+
+  onWorkflowFailed(payload: WorkflowFailedEvent): void {
+    this.analysis.onWorkflowFailed(payload);
   }
 
   /** Delegate saving to the workspace. */

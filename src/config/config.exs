@@ -7,6 +7,16 @@
 # General application configuration
 import Config
 
+config :network_defense, Oban,
+  engine: Oban.Engines.Basic,
+  notifier: Oban.Notifiers.Postgres,
+  queues: [workflows: 10],
+  repo: NetworkDefense.Repo
+
+config :network_defense, :workflow_templates, %{
+  "combined_analysis" => NetworkDefense.Analysis.CombinedAnalysisWorkflow
+}
+
 config :live_svelte, ssr: true
 
 config :phoenix_vite, PhoenixVite.Npm,

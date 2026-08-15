@@ -14,6 +14,8 @@ import type {
   OptimizationParams,
   RunOptimizationPayload,
   RunOptimizationReply,
+  RunWorkflowPayload,
+  RunWorkflowReply,
   SimulationParams,
   GraphConnectivityReply,
   CreateNodeDraftPayload,
@@ -56,6 +58,12 @@ export interface DashboardApi {
     correlationId: string,
     optimizationParams: OptimizationParams,
   ): Promise<RunOptimizationReply>;
+  runWorkflow(
+    graphRevisionId: string,
+    correlationId: string,
+    simulationParams: SimulationParams,
+    optimizationParams: OptimizationParams,
+  ): Promise<RunWorkflowReply>;
   requestSimulationReport(experimentId: string, graphRevisionId: string): void;
   requestOptimizationReport(
     optimizationId: string,
@@ -150,6 +158,26 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
           request: {
             graph_revision_id: graphRevisionId,
             correlation_id: correlationId,
+            optimization_params: optimizationParams,
+          },
+        },
+      );
+    },
+    runWorkflow(
+      graphRevisionId,
+      correlationId,
+      simulationParams,
+      optimizationParams,
+    ) {
+      return requestReply<RunWorkflowPayload, RunWorkflowReply>(
+        live,
+        "run_workflow_request",
+        {
+          request: {
+            template: "combined_analysis",
+            graph_revision_id: graphRevisionId,
+            correlation_id: correlationId,
+            simulation_params: simulationParams,
             optimization_params: optimizationParams,
           },
         },

@@ -617,6 +617,24 @@ export interface RunSimulationReply {
   status: "accepted" | "rejected";
 }
 
+export interface RunWorkflowPayload {
+  request: RunWorkflowRequest;
+}
+
+export interface RunWorkflowReply {
+  error?: DashboardError | null;
+  status: "accepted" | "rejected";
+  workflow_id?: string | null;
+}
+
+export interface RunWorkflowRequest {
+  correlation_id: string;
+  graph_revision_id: string;
+  optimization_params: OptimizationParams;
+  simulation_params: SimulationParams;
+  template: "combined_analysis";
+}
+
 export interface SaveGraphPayload {
   graph: SaveGraphContract;
 }
@@ -727,4 +745,17 @@ export interface SimulationReportSummary {
   mission_impact_p95: number;
   mission_impact_p99: number;
   mission_impact_variance: number;
+}
+
+export interface WorkflowCompletedEvent {
+  after_experiment_id: string;
+  baseline_experiment_id: string;
+  optimization_id: string;
+  output_graph_revision_id: string;
+  workflow_id: string;
+}
+
+export interface WorkflowFailedEvent {
+  error: DashboardError;
+  workflow_id: string;
 }

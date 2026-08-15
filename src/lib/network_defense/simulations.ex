@@ -34,39 +34,58 @@ defmodule NetworkDefense.Simulations do
 
   @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
-    case Graphs.load_revision(request.graph_revision_id) do
-      nil -> {:error, :not_found}
-      {:error, _reason} -> {:error, :invalid_graph}
-      graph -> run_async(graph, request.correlation_id, request.simulation_params)
+    with {:ok, {graph, experiment}} <-
+           prepare_experiment(request.graph_revision_id, request.simulation_params) do
+      start_async(graph, request.correlation_id, experiment)
     end
   end
 
-  @spec run_async(Graph.t(), String.t(), SimulationParams.t()) :: async_result()
-  def run_async(graph, correlation_id, simulation_params) do
+  @spec prepare(Ecto.UUID.t(), SimulationParams.t()) ::
+          {:ok, Experiment.t()} | {:error, Errors.error()}
+  def prepare(graph_revision_id, %SimulationParams{} = simulation_params) do
+    with {:ok, {_graph, experiment}} <- prepare_experiment(graph_revision_id, simulation_params) do
+      {:ok, experiment}
+    end
+  end
+
+  @spec run_or_resume(Ecto.UUID.t(), String.t()) :: {:ok, Experiment.t()} | {:error, term()}
+  def run_or_resume(experiment_id, correlation_id) do
+    case Experiments.resume_or_load(experiment_id) do
+      {:ok, %Experiment{status: "completed"} = experiment} -> {:ok, experiment}
+      {:ok, experiment} -> run_resumed_experiment(experiment, correlation_id)
+      error -> error
+    end
+  end
+
+  defp prepare_experiment(graph_revision_id, simulation_params)
+       when is_binary(graph_revision_id) do
+    with {:ok, graph} <- load_graph(graph_revision_id),
+         {:ok, experiment} <- prepare_experiment(graph, simulation_params) do
+      {:ok, {graph, experiment}}
+    end
+  end
+
+  defp prepare_experiment(%Graph{} = graph, simulation_params) do
     with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
          {:ok, experiment} <- create_experiment(graph, simulation_params) do
-      start_async(graph, correlation_id, experiment)
+      {:ok, experiment}
     else
       {:error, %Ecto.Changeset{}} -> {:error, :persistence_failed}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  @spec resume_async(Ecto.UUID.t(), String.t()) :: async_result()
-  def resume_async(experiment_id, correlation_id) do
-    with {:ok, experiment} <- Experiments.resume(experiment_id),
-         %NetworkDefense.Graph.Graph{} = graph <-
-           Graphs.load_revision(experiment.graph_revision_id) do
-      start_async(graph, correlation_id, experiment)
-    else
+  defp load_graph(graph_revision_id) do
+    case Graphs.load_revision(graph_revision_id) do
       nil -> {:error, :not_found}
-      {:error, _reason} -> {:error, :internal_error}
+      {:error, _reason} -> {:error, :invalid_graph}
+      graph -> {:ok, graph}
     end
   end
 
   defp start_async(graph, correlation_id, experiment) do
     case TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-           do_run_async(graph, correlation_id, experiment)
+           run_experiment(graph, correlation_id, experiment)
          end) do
       {:ok, _pid} = started ->
         started
@@ -78,7 +97,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp do_run_async(graph, correlation_id, experiment) do
+  defp run_experiment(graph, correlation_id, experiment) do
     Tracer.with_span "simulation.run",
       attributes: %{
         "graph.id": graph.id,
@@ -115,15 +134,29 @@ defmodule NetworkDefense.Simulations do
         )
 
         broadcast_simulation_completed(graph, experiment, correlation_id)
+        {:ok, experiment}
       rescue
         error ->
-          Tracer.record_exception(error, __STACKTRACE__)
-          Tracer.set_status(OpenTelemetry.status(:error))
-          Logger.error(Exception.format(:error, error, __STACKTRACE__))
-          Experiments.fail(experiment.id)
-          broadcast_simulation_failed(graph, correlation_id, :internal_error)
+          simulation_failure(graph, correlation_id, experiment, error, __STACKTRACE__)
       end
     end
+  end
+
+  defp run_resumed_experiment(experiment, correlation_id) do
+    case Graphs.load_revision(experiment.graph_revision_id) do
+      %Graph{} = graph -> run_experiment(graph, correlation_id, experiment)
+      nil -> {:error, :not_found}
+      _ -> {:error, :invalid_graph}
+    end
+  end
+
+  defp simulation_failure(graph, correlation_id, experiment, error, stacktrace) do
+    Tracer.record_exception(error, stacktrace)
+    Tracer.set_status(OpenTelemetry.status(:error))
+    Logger.error(Exception.format(:error, error, stacktrace))
+    Experiments.fail(experiment.id)
+    broadcast_simulation_failed(graph, correlation_id, :internal_error)
+    {:error, :internal_error}
   end
 
   defp run_batches(graph, correlation_id, experiment) do
@@ -221,7 +254,7 @@ defmodule NetworkDefense.Simulations do
     )
   end
 
-  @spec list_experiments([Ecto.UUID.t()] | Ecto.UUID.t()) :: [Experiment.t()]
+  @spec list_experiments([Ecto.UUID.t()]) :: [Experiment.t()]
   def list_experiments(graph_revision_ids) when is_list(graph_revision_ids) do
     query =
       from experiment in Experiment,
@@ -233,8 +266,6 @@ defmodule NetworkDefense.Simulations do
 
     Repo.all(query)
   end
-
-  def list_experiments(graph_revision_id), do: list_experiments([graph_revision_id])
 
   @doc """
   Returns a generated report for an experiment, or `nil` when it does not exist.

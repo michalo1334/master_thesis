@@ -80,7 +80,7 @@ defmodule NetworkDefense.SimulationsTest do
     experiment_id = experiment.id
 
     assert [^experiment_id] =
-             graph.revision_id |> Simulations.list_experiments() |> Enum.map(& &1.id)
+             [graph.revision_id] |> Simulations.list_experiments() |> Enum.map(& &1.id)
   end
 
   test "keeps operational reachability as a valid in-memory marker" do
@@ -171,7 +171,7 @@ defmodule NetworkDefense.SimulationsTest do
              })
   end
 
-  test "marks the experiment failed and broadcasts failure when persistence errors after creation" do
+  test "marks a resumed experiment failed when persistence fails" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Post Persistence Failure"))
 
     foothold =
@@ -206,13 +206,36 @@ defmodule NetworkDefense.SimulationsTest do
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-    {:ok, task} = Simulations.resume_async(experiment.id, correlation_id)
-
-    Sandbox.allow(Repo, self(), task)
+    assert {:error, :internal_error} = Simulations.run_or_resume(experiment.id, correlation_id)
 
     assert_receive {:simulation_failed, %{correlation_id: ^correlation_id}}, 5_000
 
     assert %{status: "failed"} = Experiments.get(experiment.id)
+  end
+
+  test "completes a fully persisted running experiment during workflow recovery" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Recovered Completion"))
+    foothold = Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 1,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 1,
+        completed_trials: 1,
+        initial_foothold_node_id: foothold.id,
+        status: "running"
+      )
+      |> Experiment.changeset(%{})
+      |> Repo.insert!()
+
+    assert {:ok, %{id: experiment_id, status: "completed"}} =
+             Simulations.run_or_resume(experiment.id, "recovered-completion")
+
+    assert experiment_id == experiment.id
+    assert %{status: "completed"} = Experiments.get(experiment.id)
   end
 
   defp graph(title) do

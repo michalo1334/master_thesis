@@ -17,16 +17,6 @@ defmodule NetworkDefense.Simulation.Experiments do
   @max_bind_parameters 45_000
   @iteration_batch_size 500
 
-  def insert(%Experiment{runs: runs} = experiment) when is_list(runs) do
-    runtime_ms = experiment.runtime_ms
-    experiment = %{experiment | runtime_ms: 0}
-
-    with {:ok, experiment} <- create(experiment),
-         {:ok, experiment} <- append_batch(experiment, runs, runtime_ms) do
-      complete(experiment)
-    end
-  end
-
   def create(%Experiment{} = experiment) do
     experiment
     |> Map.put(:runs, [])
@@ -105,7 +95,7 @@ defmodule NetworkDefense.Simulation.Experiments do
     end
   end
 
-  def resume(experiment_id) do
+  def resume_or_load(experiment_id) do
     Repo.transaction(
       fn ->
         experiment = lock!(experiment_id)
@@ -114,14 +104,16 @@ defmodule NetworkDefense.Simulation.Experiments do
           is_nil(experiment) ->
             Repo.rollback(:not_found)
 
-          is_nil(experiment.initial_foothold_node_id) ->
-            Repo.rollback(:not_resumable)
-
           experiment.status == "completed" ->
-            Repo.rollback(:completed)
+            experiment
 
           experiment.completed_trials == experiment.total_trials ->
-            Repo.rollback(:completed)
+            experiment
+            |> Experiment.changeset(%{status: "completed"})
+            |> update_or_rollback(:experiment)
+
+          is_nil(experiment.initial_foothold_node_id) ->
+            Repo.rollback(:not_resumable)
 
           true ->
             experiment

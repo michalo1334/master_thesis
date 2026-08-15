@@ -34,6 +34,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     FetchOptimizationRunsPayload,
     OpenGraphReply,
     OptimizationCompletedEvent,
+    RunWorkflowRequest,
     SaveGraphPayload
   }
 
@@ -130,6 +131,35 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{simulation_params: %{monte_carlo_trials: ["must be greater than 0"]}} =
              errors_on(changeset)
+  end
+
+  test "accepts only the combined analysis workflow template" do
+    attrs = %{
+      "template" => "combined_analysis",
+      "graph_revision_id" => @graph_id,
+      "correlation_id" => "workflow-1",
+      "simulation_params" => %{
+        "monte_carlo_trials" => 1,
+        "iterations_per_run" => 1,
+        "initial_foothold_node_id" => @host_id,
+        "seed" => 1,
+        "generate_seed" => false,
+        "max_attempts" => 1
+      },
+      "optimization_params" => %{
+        "strategy" => "cvss",
+        "objective" => "blast_radius",
+        "budget" => 1
+      }
+    }
+
+    assert {:ok, %RunWorkflowRequest{template: "combined_analysis"}} =
+             RunWorkflowRequest.validate(attrs)
+
+    assert {:error, changeset} =
+             RunWorkflowRequest.validate(Map.put(attrs, "template", "two_step"))
+
+    assert %{template: ["is invalid"]} = errors_on(changeset)
   end
 
   test "maps validated graph contracts to canonical graph replacement attributes" do

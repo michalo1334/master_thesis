@@ -19,6 +19,8 @@
     SimulationReportErrorEvent,
     FetchOptimizationReportReply,
     OptimizationReportErrorEvent,
+    WorkflowCompletedEvent,
+    WorkflowFailedEvent,
   } from "./dashboard/contract";
 
   interface Props {
@@ -76,6 +78,14 @@
 
   useLiveEvent("optimization_report_error", (payload: unknown) => {
     model.onOptimizationReportError(payload as OptimizationReportErrorEvent);
+  });
+
+  useLiveEvent("workflow_completed", (payload: unknown) => {
+    model.onWorkflowCompleted(payload as WorkflowCompletedEvent);
+  });
+
+  useLiveEvent("workflow_failed", (payload: unknown) => {
+    model.onWorkflowFailed(payload as WorkflowFailedEvent);
   });
 </script>
 

@@ -46,7 +46,24 @@ defmodule NetworkDefense.Optimizations do
   """
   @spec run(RunOptimizationRequest.t()) :: result()
   def run(%RunOptimizationRequest{} = request) do
-    with {:ok, graph} <- load_graph(request), do: run_sync(graph, request)
+    with {:ok, run} <- prepare(request), do: run_or_resume(run.id, request)
+  end
+
+  @spec prepare(RunOptimizationRequest.t()) :: result()
+  def prepare(%RunOptimizationRequest{} = request) do
+    with {:ok, graph} <- load_graph(request),
+         {:ok, strategy} <- strategy_for(graph, request) do
+      persist_run(graph, request, strategy)
+    end
+  end
+
+  @spec run_or_resume(Ecto.UUID.t(), RunOptimizationRequest.t()) :: result()
+  def run_or_resume(run_id, %RunOptimizationRequest{} = request) do
+    case OptimizationRuns.resume_or_load(run_id) do
+      {:ok, %OptimizationRun{status: "completed"} = run} -> {:ok, run}
+      {:ok, run} -> run_resumed_optimization(run, request)
+      error -> error
+    end
   end
 
   defp load_graph(%RunOptimizationRequest{graph_revision_id: graph_revision_id}) do
@@ -57,25 +74,29 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp run_sync(graph, request) do
-    with {:ok, strategy} <- strategy_for(graph, request),
-         {:ok, run} <- persist_run(graph, request, strategy) do
-      Tracer.with_span "optimization.run",
-        attributes: optimization_span_attributes(graph, request, run) do
-        log_optimization_started(graph, request, run)
+  defp run_sync(graph, request, run, strategy) do
+    Tracer.with_span "optimization.run",
+      attributes: optimization_span_attributes(graph, request, run) do
+      log_optimization_started(graph, request, run)
 
-        try do
-          {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-          result = complete_optimization(graph, request, run, result, runtime_us)
-          set_optimization_span_status(result)
-          result
-        rescue
-          error ->
-            Tracer.record_exception(error, __STACKTRACE__)
-            Tracer.set_status(OpenTelemetry.status(:error))
-            {:error, fail_optimization(run, error, __STACKTRACE__)}
-        end
+      try do
+        {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
+        result = complete_optimization(graph, request, run, result, runtime_us)
+        set_optimization_span_status(result)
+        result
+      rescue
+        error ->
+          Tracer.record_exception(error, __STACKTRACE__)
+          Tracer.set_status(OpenTelemetry.status(:error))
+          {:error, fail_optimization(run, error, __STACKTRACE__)}
       end
+    end
+  end
+
+  defp run_resumed_optimization(run, request) do
+    with {:ok, graph} <- load_graph(request),
+         {:ok, strategy} <- strategy_for(graph, request) do
+      run_sync(graph, request, run, strategy)
     end
   end
 
@@ -253,7 +274,7 @@ defmodule NetworkDefense.Optimizations do
 
   defp struct_type(%module{}), do: module
 
-  @spec list_runs([Ecto.UUID.t()] | Ecto.UUID.t()) :: [OptimizationRun.t()]
+  @spec list_runs([Ecto.UUID.t()]) :: [OptimizationRun.t()]
   def list_runs(graph_revision_ids),
     do: OptimizationRuns.list_by_graph_revisions(graph_revision_ids)
 

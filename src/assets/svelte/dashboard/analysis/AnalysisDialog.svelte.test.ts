@@ -160,12 +160,12 @@ describe("AnalysisDialog", () => {
       includeOptimization: true,
       selectedStrategies: ["cvss", "simulation_informed"],
       dialogStatusMessage:
-        "Select exactly one runnable optimization strategy for the compound sequence.",
+        "Select exactly one runnable optimization strategy for the combined workflow.",
     });
 
     expect(
       screen.getByText(
-        "Select exactly one runnable optimization strategy for the compound sequence.",
+        "Select exactly one runnable optimization strategy for the combined workflow.",
       ),
     ).toBeInTheDocument();
   });
