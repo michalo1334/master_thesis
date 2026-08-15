@@ -122,7 +122,7 @@ resource "docker_container" "setup" {
 
   name     = "${var.name_prefix}-app-setup"
   image    = local.image_id
-  command  = ["sh", "-c", "mix ecto.migrate && mix run priv/repo/seeds.exs"]
+  command  = ["sh", "-c", "mix deps.get && mix ecto.migrate && mix run priv/repo/seeds.exs"]
   attach   = true
   must_run = false
   env      = var.app.environment
