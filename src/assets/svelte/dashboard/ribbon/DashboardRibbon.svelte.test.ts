@@ -40,6 +40,7 @@ function renderRibbon({
   const onOptimizationParamsChange = vi.fn();
   const onCompareGraphs = vi.fn();
   const onOpenAnalysis = vi.fn();
+  const onArrangeNetwork = vi.fn();
 
   render(DashboardRibbon, {
     props: {
@@ -47,6 +48,7 @@ function renderRibbon({
       forceParams: defaultForceParams,
       onForceParamsChange: vi.fn(),
       onForceLayout: vi.fn(),
+      onArrangeNetwork,
       onRunSimulation: vi.fn(),
       onCompareGraphs,
       onOpenAnalysis,
@@ -71,6 +73,7 @@ function renderRibbon({
     onOpenAnalysis,
     onOptimize,
     onOptimizationParamsChange,
+    onArrangeNetwork,
   };
 }
 
@@ -95,6 +98,15 @@ describe("DashboardRibbon", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
 
     expect(onOpenAnalysis).toHaveBeenCalledOnce();
+  });
+
+  it("runs Arrange network from the Layout tab", async () => {
+    const { onArrangeNetwork } = renderRibbon();
+    await fireEvent.click(screen.getByRole("tab", { name: "Layout" }));
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Arrange network" }),
+    );
+    expect(onArrangeNetwork).toHaveBeenCalledOnce();
   });
 
   it("shows Strategy and Optimize in the Optimization tab", async () => {

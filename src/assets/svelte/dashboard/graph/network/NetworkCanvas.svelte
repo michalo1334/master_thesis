@@ -2,11 +2,7 @@
   import type { DashboardApi } from "../../dashboard-api";
   import type { GraphProjectionOperationalFlow } from "../../contract";
   import type { EditableGraphDocument } from "../EditableGraphDocument.svelte";
-  import {
-    layoutHostCards,
-    layoutZones,
-    type ZonePosition,
-  } from "./NetworkCanvasLayout";
+  import { type ZonePosition } from "./NetworkCanvasLayout";
   import { projectNetwork } from "./NetworkCanvasProjection";
   import {
     clampZoom,
@@ -18,17 +14,17 @@
 
   const COLLAPSED_RADIUS = { x: 130, y: 72 };
   const EXPANDED_RADIUS = { x: 235, y: 155 };
-  const HOST_BATCH_SIZE = 6;
   const HOST_WIDTH = 128;
   const HOST_BASE_HEIGHT = 52;
   const HOST_DETAIL_TOP = 8;
   const SERVICE_ROW_HEIGHT = 24;
   const CVE_ROW_HEIGHT = 18;
-  const HOST_GRID_OFFSET = 28;
+  const DRAG_THRESHOLD = 4;
 
   interface Props {
     document: EditableGraphDocument;
     api: DashboardApi;
+    onArrangeNetwork?: () => void;
   }
 
   interface DisplayZone {
@@ -41,18 +37,24 @@
     radius: { x: number; y: number };
   }
 
-  let { document, api }: Props = $props();
+  let { document, api, onArrangeNetwork = undefined }: Props = $props();
   let viewport = $state({ width: 0, height: 0 });
   let view = $state({ zoom: 100, pan: { x: 0, y: 0 } });
-  let expandedSegmentId = $state<string>();
-  let expandedHostId = $state<string>();
-  let visibleHostCount = $state(0);
-  let zonePositions = $state.raw(new Map<string, ZonePosition>());
+  let expandedSegmentIds = $state(new Set<string>());
+  let expandedHostIds = $state(new Set<string>());
   let panDrag = $state<{
     pointerId: number;
     x: number;
     y: number;
     pan: ZonePosition;
+  }>();
+  let nodeDrag = $state<{
+    pointerId: number;
+    element: SVGElement;
+    nodeIds: string[];
+    x: number;
+    y: number;
+    moved: boolean;
   }>();
   let status = $state("");
   let serverFlows = $state<readonly GraphProjectionOperationalFlow[]>();
@@ -69,13 +71,11 @@
   );
   let zones = $derived.by<DisplayZone[]>(() =>
     projection.segments.map((segment) => {
-      const expanded = segment.id === expandedSegmentId;
+      const expanded = expandedSegmentIds.has(segment.id);
       return {
         ...segment,
-        position: zonePositions.get(segment.id) ?? { ...segment.position },
-        radius: expanded
-          ? expandedRadius(visibleHosts(segment))
-          : COLLAPSED_RADIUS,
+        position: { ...segment.position },
+        radius: expanded ? expandedRadius(segment) : COLLAPSED_RADIUS,
       };
     }),
   );
@@ -83,20 +83,37 @@
   let hostById = $derived(
     new Map(projection.hosts.map((host) => [host.id, host])),
   );
-  let hostPositions = $derived.by(() => {
-    const expanded = expandedSegmentId
-      ? zoneById.get(expandedSegmentId)
-      : undefined;
-    return expanded
-      ? gridHosts(expanded, visibleHosts(expanded))
-      : new Map<string, ZonePosition>();
+  let visibleHosts = $derived(
+    projection.hosts.filter((host) => expandedSegmentIds.has(host.segmentId)),
+  );
+  let hostPositions = $derived(
+    new Map(
+      visibleHosts.map((host) => [
+        host.id,
+        { x: host.node.view_data.x_pos, y: host.node.view_data.y_pos },
+      ]),
+    ),
+  );
+  let selectedFlowHostId = $derived.by(() => {
+    const selection = document.selection;
+    if (selection?.type === "Host") return selection.id;
+    if (selection?.type === "Service")
+      return projection.hosts.find((host) =>
+        host.services.some((service) => service.node.id === selection.id),
+      )?.id;
+    return undefined;
   });
   let visibleFlows = $derived(
     projection.operationalFlows.filter(
       (flow) =>
-        hostPositions.has(flow.sourceId) && hostPositions.has(flow.targetId),
+        selectedFlowHostId &&
+        (flow.sourceId === selectedFlowHostId ||
+          flow.targetId === selectedFlowHostId) &&
+        hostPositions.has(flow.sourceId) &&
+        hostPositions.has(flow.targetId),
     ),
   );
+  let visibleFlowIds = $derived(new Set(visibleFlows.map((flow) => flow.id)));
   let selectedHost = $derived(
     document.selection?.type === "Host" ? document.selection : undefined,
   );
@@ -105,7 +122,7 @@
       (document.isDirty || document.loadedRevisionId !== projectedRevisionId),
   );
   let transform = $derived(formatWorldTransform(view));
-  let diagramId = $props.id();
+  let flowArrowId = $props.id();
 
   $effect(() => {
     const revisionId = document.loadedRevisionId;
@@ -159,14 +176,6 @@
     ];
   }
 
-  function visibleHosts(
-    zone: Pick<DisplayZone, "id" | "hosts">,
-  ): DisplayZone["hosts"] {
-    return zone.id === expandedSegmentId
-      ? zone.hosts.slice(0, visibleHostCount)
-      : [];
-  }
-
   function serviceDetailHeight(
     service: (typeof projection.hosts)[number]["services"][number],
   ): number {
@@ -174,7 +183,7 @@
   }
 
   function hostCardHeight(host: (typeof projection.hosts)[number]): number {
-    return host.id === expandedHostId
+    return expandedHostIds.has(host.id)
       ? HOST_BASE_HEIGHT +
           HOST_DETAIL_TOP +
           host.services.reduce(
@@ -197,19 +206,22 @@
       .reduce((offset, service) => offset + serviceDetailHeight(service), 0);
   }
 
-  function expandedRadius(
-    hosts: readonly (typeof projection.hosts)[number][],
-  ): { x: number; y: number } {
-    const positions = layoutHostCards(
-      { x: 0, y: HOST_GRID_OFFSET },
-      hosts.map((host) => ({ id: host.id, height: hostCardHeight(host) })),
-    );
+  function expandedRadius(zone: Pick<DisplayZone, "position" | "hosts">): {
+    x: number;
+    y: number;
+  } {
     let maxX = 0;
     let maxY = 0;
-    for (const host of hosts) {
-      const position = positions.get(host.id)!;
-      maxX = Math.max(maxX, Math.abs(position.x) + HOST_WIDTH / 2);
-      maxY = Math.max(maxY, Math.abs(position.y) + hostCardHeight(host) / 2);
+    for (const host of zone.hosts) {
+      maxX = Math.max(
+        maxX,
+        Math.abs(host.node.view_data.x_pos - zone.position.x) + HOST_WIDTH / 2,
+      );
+      maxY = Math.max(
+        maxY,
+        Math.abs(host.node.view_data.y_pos - zone.position.y) +
+          hostCardHeight(host) / 2,
+      );
     }
     return {
       x: Math.max(EXPANDED_RADIUS.x, (maxX + 12) * Math.SQRT2),
@@ -217,81 +229,31 @@
     };
   }
 
-  function nextHostBatch(zone: DisplayZone): number {
-    const shown = zone.id === expandedSegmentId ? visibleHostCount : 0;
-    return Math.min(HOST_BATCH_SIZE, Math.max(0, zone.hosts.length - shown));
-  }
-
-  function gridHosts(
-    zone: DisplayZone,
-    hosts: readonly (typeof zone.hosts)[number][],
-  ): Map<string, ZonePosition> {
-    return layoutHostCards(
-      { x: zone.position.x, y: zone.position.y + HOST_GRID_OFFSET },
-      hosts.map((host) => ({ id: host.id, height: hostCardHeight(host) })),
-    );
-  }
-
-  function runZoneLayout(nextExpandedId?: string): void {
-    const next = layoutZones(
-      projection.segments.map((segment) => ({
-        id: segment.id,
-        position:
-          nextExpandedId === segment.id
-            ? { ...segment.position }
-            : (zonePositions.get(segment.id) ?? { ...segment.position }),
-        radius:
-          nextExpandedId === segment.id
-            ? expandedRadius(segment.hosts.slice(0, visibleHostCount))
-            : COLLAPSED_RADIUS,
-        pinned: nextExpandedId === segment.id,
-      })),
-      projection.segmentLinks.map((link) => ({
-        sourceId: link.sourceId,
-        targetId: link.targetId,
-      })),
-    );
-    zonePositions = next;
-  }
-
   function toggleZone(segmentId: string): void {
-    const nextExpandedId =
-      expandedSegmentId === segmentId ? undefined : segmentId;
-    const zone = projection.segments.find(
-      (segment) => segment.id === nextExpandedId,
-    );
-    expandedSegmentId = nextExpandedId;
-    expandedHostId = undefined;
-    visibleHostCount = zone ? Math.min(HOST_BATCH_SIZE, zone.hosts.length) : 0;
-    runZoneLayout(nextExpandedId);
-  }
-
-  function showMoreHosts(zone: DisplayZone): void {
-    visibleHostCount = Math.min(
-      zone.hosts.length,
-      visibleHostCount + HOST_BATCH_SIZE,
-    );
-    runZoneLayout(zone.id);
+    const next = new Set(expandedSegmentIds);
+    if (next.has(segmentId)) next.delete(segmentId);
+    else next.add(segmentId);
+    expandedSegmentIds = next;
   }
 
   function toggleHostDetail(hostId: string): void {
-    expandedHostId = expandedHostId === hostId ? undefined : hostId;
-    if (expandedSegmentId) runZoneLayout(expandedSegmentId);
+    const next = new Set(expandedHostIds);
+    if (next.has(hostId)) next.delete(hostId);
+    else next.add(hostId);
+    expandedHostIds = next;
   }
 
-  function selectZone(zone: DisplayZone): void {
-    if (zone.node) document.selectNode(zone.id);
-    else toggleZone(zone.id);
+  function expandAllZones(): void {
+    expandedSegmentIds = new Set(projection.segments.map((zone) => zone.id));
+  }
+
+  function collapseAllZones(): void {
+    expandedSegmentIds = new Set();
+    expandedHostIds = new Set();
   }
 
   function startPan(event: PointerEvent): void {
     const surface = event.currentTarget as SVGSVGElement;
-    const zoneId = (event.target as SVGElement).dataset.zoneId;
-    if (zoneId) {
-      const zone = zoneById.get(zoneId);
-      if (zone) selectZone(zone);
-      return;
-    }
     if (event.target !== surface || event.button !== 0 || !event.isPrimary)
       return;
     surface.setPointerCapture(event.pointerId);
@@ -317,6 +279,114 @@
     if (surface.hasPointerCapture(event.pointerId))
       surface.releasePointerCapture(event.pointerId);
     panDrag = undefined;
+  }
+
+  function startNodeDrag(
+    event: PointerEvent,
+    nodeId: string,
+    nodeIds: string[] = [nodeId],
+  ): void {
+    if (event.button !== 0 || !event.isPrimary) return;
+    event.stopPropagation();
+    const element = event.currentTarget as SVGElement;
+    element.setPointerCapture(event.pointerId);
+    document.selectNode(nodeId);
+    nodeDrag = {
+      pointerId: event.pointerId,
+      element,
+      nodeIds,
+      x: event.clientX,
+      y: event.clientY,
+      moved: false,
+    };
+  }
+
+  function moveNodeDrag(event: PointerEvent): void {
+    if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+    const dx = (event.clientX - nodeDrag.x) / (view.zoom / 100);
+    const dy = (event.clientY - nodeDrag.y) / (view.zoom / 100);
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD / (view.zoom / 100)) return;
+    nodeDrag.moved = true;
+    nodeDrag.x = event.clientX;
+    nodeDrag.y = event.clientY;
+    const ids = new Set(nodeDrag.nodeIds);
+    document.graph = {
+      ...document.graph,
+      nodes: document.graph.nodes.map((node) =>
+        ids.has(node.id)
+          ? {
+              ...node,
+              view_data: {
+                ...node.view_data,
+                x_pos: node.view_data.x_pos + dx,
+                y_pos: node.view_data.y_pos + dy,
+              },
+            }
+          : node,
+      ),
+    };
+  }
+
+  function endNodeDrag(event: PointerEvent): void {
+    if (!nodeDrag || nodeDrag.pointerId !== event.pointerId) return;
+    if (nodeDrag.element.hasPointerCapture(event.pointerId))
+      nodeDrag.element.releasePointerCapture(event.pointerId);
+    nodeDrag = undefined;
+  }
+
+  function cardEdge(
+    source: ZonePosition,
+    target: ZonePosition,
+    height: number,
+  ): ZonePosition {
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const ratio = Math.max(
+      Math.abs(dx) / (HOST_WIDTH / 2),
+      Math.abs(dy) / (height / 2),
+      1,
+    );
+    return { x: source.x + dx / ratio, y: source.y + dy / ratio };
+  }
+
+  function flowPath(flow: (typeof visibleFlows)[number]): {
+    d: string;
+    label: ZonePosition;
+  } {
+    const source = hostPositions.get(flow.sourceId)!;
+    const target = hostPositions.get(flow.targetId)!;
+    if (flow.sourceId === flow.targetId) {
+      const x = source.x + HOST_WIDTH / 2;
+      return {
+        d: `M ${x} ${source.y} C ${x + 56} ${source.y - 56} ${x + 56} ${source.y + 56} ${x} ${source.y + 20}`,
+        label: { x: x + 56, y: source.y },
+      };
+    }
+    const sourceEdge = cardEdge(
+      source,
+      target,
+      hostCardHeight(hostById.get(flow.sourceId)!),
+    );
+    const targetEdge = cardEdge(
+      target,
+      source,
+      hostCardHeight(hostById.get(flow.targetId)!),
+    );
+    const dx = targetEdge.x - sourceEdge.x;
+    const dy = targetEdge.y - sourceEdge.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const reverseVisible = visibleFlowIds.has(
+      `${flow.targetId}:${flow.sourceId}`,
+    );
+    const offset = reverseVisible ? 18 : 0;
+    const control = {
+      x: (sourceEdge.x + targetEdge.x) / 2 - (dy / distance) * offset,
+      y: (sourceEdge.y + targetEdge.y) / 2 + (dx / distance) * offset,
+    };
+    return {
+      d: `M ${sourceEdge.x} ${sourceEdge.y} Q ${control.x} ${control.y} ${targetEdge.x} ${targetEdge.y}`,
+      label: control,
+    };
   }
 
   function setZoom(zoom: number, anchor: ZonePosition): void {
@@ -443,6 +513,11 @@
     <button type="button" onclick={() => addNode("NetworkSegment")}
       >Add segment</button
     >
+    {#if onArrangeNetwork}
+      <button type="button" onclick={onArrangeNetwork}>Arrange network</button>
+    {/if}
+    <button type="button" onclick={expandAllZones}>Expand all zones</button>
+    <button type="button" onclick={collapseAllZones}>Collapse all zones</button>
     {#if selectedHost}
       <select
         aria-label="Assign selected host to a segment"
@@ -483,22 +558,31 @@
     bind:clientWidth={viewport.width}
     bind:clientHeight={viewport.height}
     onpointerdown={startPan}
-    onpointermove={movePan}
-    onpointerup={endPan}
-    onpointercancel={endPan}
+    onpointermove={(event) => {
+      movePan(event);
+      moveNodeDrag(event);
+    }}
+    onpointerup={(event) => {
+      endPan(event);
+      endNodeDrag(event);
+    }}
+    onpointercancel={(event) => {
+      endPan(event);
+      endNodeDrag(event);
+    }}
     onwheel={zoomAtCursor}
   >
     <defs>
-      {#each zones as zone (zone.id)}
-        <clipPath id={`${diagramId}-${zone.id}`} clipPathUnits="userSpaceOnUse">
-          <ellipse
-            cx={zone.position.x}
-            cy={zone.position.y}
-            rx={zone.radius.x}
-            ry={zone.radius.y}
-          />
-        </clipPath>
-      {/each}
+      <marker
+        id={flowArrowId}
+        markerWidth="6"
+        markerHeight="6"
+        refX="5"
+        refY="3"
+        orient="auto"
+      >
+        <path d="M 0 0 L 6 3 L 0 6 z" fill="var(--ds-color-node-service)" />
+      </marker>
     </defs>
     <g {transform}>
       {#each projection.segmentLinks as link (link.id)}
@@ -527,13 +611,20 @@
         {@const selected =
           document.canvasSelection.kind === "node" &&
           document.canvasSelection.nodeId === zone.id}
-        {@const expanded = expandedSegmentId === zone.id}
-        {@const nextBatch = nextHostBatch(zone)}
+        {@const expanded = expandedSegmentIds.has(zone.id)}
         {@const glyphX = zone.position.x + zone.radius.x * 0.82}
         {@const glyphY = zone.position.y - zone.radius.y * 0.57}
         <g
           class={["network-zone", selected && "selected"]}
           data-testid="network-zone"
+          role="group"
+          aria-label={`${zone.name} zone`}
+          onpointerdown={(event) =>
+            zone.node &&
+            startNodeDrag(event, zone.id, [
+              zone.id,
+              ...zone.hosts.map((host) => host.id),
+            ])}
         >
           <ellipse
             data-testid="zone-oval"
@@ -559,170 +650,158 @@
             data-testid="zone-glyph"
             role="button"
             tabindex="0"
-            aria-label={expanded && nextBatch
-              ? `Show ${nextBatch} more hosts in ${zone.name} zone`
-              : expanded
-                ? `Collapse ${zone.name} zone in diagram`
-                : `Show ${nextBatch} hosts in ${zone.name} zone`}
-            onclick={() =>
-              expanded && nextBatch ? showMoreHosts(zone) : toggleZone(zone.id)}
-            onkeydown={(event) =>
-              activateKey(event, () =>
-                expanded && nextBatch
-                  ? showMoreHosts(zone)
-                  : toggleZone(zone.id),
-              )}
+            aria-label={expanded
+              ? `Collapse ${zone.name} zone in diagram`
+              : `Expand ${zone.name} zone in diagram`}
+            onpointerdown={(event) => event.stopPropagation()}
+            onclick={() => toggleZone(zone.id)}
+            onkeydown={(event) => activateKey(event, () => toggleZone(zone.id))}
           >
             <circle cx={glyphX} cy={glyphY} r="12" />
             <path
-              d={`M ${glyphX - 5} ${glyphY} H ${glyphX + 5}${nextBatch ? ` M ${glyphX} ${glyphY - 5} V ${glyphY + 5}` : ""}`}
+              d={`M ${glyphX - 5} ${glyphY} H ${glyphX + 5}${expanded ? "" : ` M ${glyphX} ${glyphY - 5} V ${glyphY + 5}`}`}
             />
-            <text x={glyphX + 18} y={glyphY + 4}
-              >{nextBatch ? `+${nextBatch}` : "−"}</text
-            >
+            <text x={glyphX + 18} y={glyphY + 4}>{expanded ? "−" : "+"}</text>
           </g>
         </g>
       {/each}
 
-      {#if expandedSegmentId}
-        {@const expandedZone = zoneById.get(expandedSegmentId)}
-        {#if expandedZone}
-          <g clip-path={`url(#${diagramId}-${expandedZone.id})`}>
-            {#each visibleFlows as flow (flow.id)}
-              {@const source = hostPositions.get(flow.sourceId)!}
-              {@const target = hostPositions.get(flow.targetId)!}
-              <g
-                class="network-operational-flow"
-                role="img"
-                aria-label={`Operational flow from ${flow.sourceName} to ${flow.serviceName}`}
+      {#each visibleFlows as flow (flow.id)}
+        {@const path = flowPath(flow)}
+        <g
+          class="network-operational-flow"
+          role="img"
+          aria-label={`Operational flow from ${flow.sourceName} to ${flow.targetName}: ${flow.count} ${flow.count === 1 ? "flow" : "flows"} (${flow.serviceNames.join(", ")})`}
+        >
+          <path d={path.d} marker-end={`url(#${flowArrowId})`} />
+          <text x={path.label.x} y={path.label.y - 6}
+            >{flow.serviceNames.length === 1
+              ? flow.serviceNames[0]
+              : `${flow.count} flows`}</text
+          >
+        </g>
+      {/each}
+      {#each zones as zone (zone.id)}
+        {#if expandedSegmentIds.has(zone.id)}
+          {#each zone.hosts as host (host.id)}
+            {@const position = hostPositions.get(host.id)!}
+            {@const height = hostCardHeight(host)}
+            {@const detailExpanded = expandedHostIds.has(host.id)}
+            {@const selected =
+              document.canvasSelection.kind === "node" &&
+              document.canvasSelection.nodeId === host.id}
+            <g
+              class={["network-host", selected && "selected"]}
+              data-testid="host-node"
+              role="group"
+              aria-label={`Host ${host.node.data.name}`}
+              data-host-id={host.id}
+              data-card-height={height}
+              transform={`translate(${position.x - HOST_WIDTH / 2} ${position.y - height / 2})`}
+              onpointerdown={(event) => startNodeDrag(event, host.id)}
+            >
+              <rect width={HOST_WIDTH} {height} rx="7" />
+              <text x="10" y="22">{host.node.data.name}</text>
+              <text class="network-host-meta" x="10" y="40"
+                >{host.services.length} services</text
               >
-                <path
-                  d={`M ${source.x} ${source.y} L ${target.x} ${target.y}`}
-                />
-                <text
-                  x={(source.x + target.x) / 2}
-                  y={(source.y + target.y) / 2 - 6}>{flow.serviceName}</text
+              {#if host.services.length}
+                <g
+                  class="network-host-glyph"
+                  data-testid="host-glyph"
+                  role="button"
+                  tabindex="0"
+                  aria-label={detailExpanded
+                    ? `Collapse details for host ${host.node.data.name}`
+                    : `Expand details for host ${host.node.data.name}`}
+                  onpointerdown={(event) => event.stopPropagation()}
+                  onclick={(event) => {
+                    event.stopPropagation();
+                    toggleHostDetail(host.id);
+                  }}
+                  onkeydown={(event) => {
+                    event.stopPropagation();
+                    activateKey(event, () => toggleHostDetail(host.id));
+                  }}
                 >
-              </g>
-            {/each}
-            {#each visibleHosts(expandedZone) as host (host.id)}
-              {@const position = hostPositions.get(host.id)!}
-              {@const height = hostCardHeight(host)}
-              {@const detailExpanded = expandedHostId === host.id}
-              {@const selected =
-                document.canvasSelection.kind === "node" &&
-                document.canvasSelection.nodeId === host.id}
-              <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-              <g
-                class={["network-host", selected && "selected"]}
-                data-testid="host-node"
-                data-host-id={host.id}
-                data-card-height={height}
-                transform={`translate(${position.x - HOST_WIDTH / 2} ${position.y - height / 2})`}
-                onclick={() => document.selectNode(host.id)}
-              >
-                <rect width={HOST_WIDTH} {height} rx="7" />
-                <text x="10" y="22">{host.node.data.name}</text>
-                <text class="network-host-meta" x="10" y="40"
-                  >{host.services.length} services</text
-                >
-                {#if host.services.length}
+                  <circle cx={HOST_WIDTH - 16} cy="16" r="8" />
+                  <path
+                    d={`M ${HOST_WIDTH - 20} 16 H ${HOST_WIDTH - 12}${detailExpanded ? "" : ` M ${HOST_WIDTH - 16} 12 V 20`}`}
+                  />
+                </g>
+              {/if}
+              {#if detailExpanded}
+                {#each host.services as service (service.node.id)}
+                  {@const serviceY =
+                    HOST_BASE_HEIGHT +
+                    HOST_DETAIL_TOP +
+                    serviceOffset(host.services, service.node.id)}
                   <g
-                    class="network-host-glyph"
-                    data-testid="host-glyph"
+                    class="network-service-row"
+                    data-testid="service-row"
                     role="button"
                     tabindex="0"
-                    aria-label={detailExpanded
-                      ? `Collapse details for host ${host.node.data.name}`
-                      : `Expand details for host ${host.node.data.name}`}
+                    aria-label={`Service ${service.node.data.name}`}
                     onclick={(event) => {
                       event.stopPropagation();
-                      toggleHostDetail(host.id);
+                      document.selectNode(service.node.id);
                     }}
                     onkeydown={(event) => {
                       event.stopPropagation();
-                      activateKey(event, () => toggleHostDetail(host.id));
+                      activateKey(event, () =>
+                        document.selectNode(service.node.id),
+                      );
                     }}
                   >
-                    <circle cx={HOST_WIDTH - 16} cy="16" r="8" />
-                    <path
-                      d={`M ${HOST_WIDTH - 20} 16 H ${HOST_WIDTH - 12}${detailExpanded ? "" : ` M ${HOST_WIDTH - 16} 12 V 20`}`}
+                    <rect
+                      x="8"
+                      y={serviceY}
+                      width={HOST_WIDTH - 16}
+                      height={SERVICE_ROW_HEIGHT}
+                      rx="3"
                     />
+                    <text x="14" y={serviceY + 16}
+                      >{service.node.data.name}:{service.node.data.port}</text
+                    >
                   </g>
-                {/if}
-                {#if detailExpanded}
-                  {#each host.services as service (service.node.id)}
-                    {@const serviceY =
-                      HOST_BASE_HEIGHT +
-                      HOST_DETAIL_TOP +
-                      serviceOffset(host.services, service.node.id)}
+                  {#each service.vulnerabilities as vulnerability, index (vulnerability.id)}
+                    {@const vulnerabilityY =
+                      serviceY + SERVICE_ROW_HEIGHT + index * CVE_ROW_HEIGHT}
                     <g
-                      class="network-service-row"
-                      data-testid="service-row"
+                      class="network-vulnerability-row"
+                      data-testid="cve-row"
                       role="button"
                       tabindex="0"
-                      aria-label={`Service ${service.node.data.name}`}
+                      aria-label={`CVE ${vulnerability.data.identifier}`}
                       onclick={(event) => {
                         event.stopPropagation();
-                        document.selectNode(service.node.id);
+                        document.selectNode(vulnerability.id);
                       }}
                       onkeydown={(event) => {
                         event.stopPropagation();
                         activateKey(event, () =>
-                          document.selectNode(service.node.id),
+                          document.selectNode(vulnerability.id),
                         );
                       }}
                     >
                       <rect
-                        x="8"
-                        y={serviceY}
-                        width={HOST_WIDTH - 16}
-                        height={SERVICE_ROW_HEIGHT}
+                        x="12"
+                        y={vulnerabilityY}
+                        width={HOST_WIDTH - 24}
+                        height={CVE_ROW_HEIGHT}
                         rx="3"
                       />
-                      <text x="14" y={serviceY + 16}
-                        >{service.node.data.name}:{service.node.data.port}</text
+                      <text x="18" y={vulnerabilityY + 13}
+                        >{vulnerability.data.identifier}</text
                       >
                     </g>
-                    {#each service.vulnerabilities as vulnerability, index (vulnerability.id)}
-                      {@const vulnerabilityY =
-                        serviceY + SERVICE_ROW_HEIGHT + index * CVE_ROW_HEIGHT}
-                      <g
-                        class="network-vulnerability-row"
-                        data-testid="cve-row"
-                        role="button"
-                        tabindex="0"
-                        aria-label={`CVE ${vulnerability.data.identifier}`}
-                        onclick={(event) => {
-                          event.stopPropagation();
-                          document.selectNode(vulnerability.id);
-                        }}
-                        onkeydown={(event) => {
-                          event.stopPropagation();
-                          activateKey(event, () =>
-                            document.selectNode(vulnerability.id),
-                          );
-                        }}
-                      >
-                        <rect
-                          x="12"
-                          y={vulnerabilityY}
-                          width={HOST_WIDTH - 24}
-                          height={CVE_ROW_HEIGHT}
-                          rx="3"
-                        />
-                        <text x="18" y={vulnerabilityY + 13}
-                          >{vulnerability.data.identifier}</text
-                        >
-                      </g>
-                    {/each}
                   {/each}
-                {/if}
-              </g>
-            {/each}
-          </g>
+                {/each}
+              {/if}
+            </g>
+          {/each}
         {/if}
-      {/if}
+      {/each}
     </g>
   </svg>
 
@@ -744,7 +823,7 @@
     <summary>Network outline</summary>
     <ul>
       {#each zones as zone (zone.id)}
-        {@const expanded = expandedSegmentId === zone.id}
+        {@const expanded = expandedSegmentIds.has(zone.id)}
         <li>
           {#if zone.node}
             <button type="button" onclick={() => document.selectNode(zone.id)}
@@ -759,7 +838,7 @@
           >
           {#if expanded}
             <ul>
-              {#each visibleHosts(zone) as host (host.id)}
+              {#each zone.hosts as host (host.id)}
                 <li>
                   <button
                     type="button"
@@ -769,13 +848,13 @@
                   {#if host.services.length}
                     <button
                       type="button"
-                      aria-expanded={expandedHostId === host.id}
+                      aria-expanded={expandedHostIds.has(host.id)}
                       onclick={() => toggleHostDetail(host.id)}
-                      >{expandedHostId === host.id ? "Collapse" : "Expand"} details
+                      >{expandedHostIds.has(host.id) ? "Collapse" : "Expand"} details
                       for {host.node.data.name}</button
                     >
                   {/if}
-                  {#if expandedHostId === host.id}
+                  {#if expandedHostIds.has(host.id)}
                     <ul>
                       {#each host.services as service (service.node.id)}
                         <li>
@@ -806,11 +885,6 @@
                 </li>
               {/each}
             </ul>
-            {#if nextHostBatch(zone)}
-              <button type="button" onclick={() => showMoreHosts(zone)}
-                >Show more hosts</button
-              >
-            {/if}
           {/if}
         </li>
       {/each}

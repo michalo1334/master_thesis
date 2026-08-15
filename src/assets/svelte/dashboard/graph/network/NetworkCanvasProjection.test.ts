@@ -152,26 +152,31 @@ describe("projectNetwork operational flows", () => {
     expect(projectNetwork(flowGraph()).operationalFlows).toEqual([]);
   });
 
-  it("combines server flows between valid hosts and services", () => {
+  it("aggregates server flows by directed host pair", () => {
     const projection = projectNetwork(flowGraph(), [
       { id: "flow-1", from_id: "host-a", to_id: "service" },
+      { id: "flow-1b", from_id: "host-a", to_id: "service" },
       { id: "flow-2", from_id: "host-b", to_id: "service-b" },
     ]);
 
     expect(projection.operationalFlows).toEqual([
       expect.objectContaining({
-        id: "flow-1",
+        id: "host-a:host-a",
         sourceId: "host-a",
         targetId: "host-a",
-        serviceId: "service",
-        serviceName: "https",
+        flowIds: ["flow-1", "flow-1b"],
+        serviceIds: ["service"],
+        serviceNames: ["https"],
+        count: 2,
       }),
       expect.objectContaining({
-        id: "flow-2",
+        id: "host-b:host-b",
         sourceId: "host-b",
         targetId: "host-b",
-        serviceId: "service-b",
-        serviceName: "postgres",
+        flowIds: ["flow-2"],
+        serviceIds: ["service-b"],
+        serviceNames: ["postgres"],
+        count: 1,
       }),
     ]);
   });
@@ -182,7 +187,11 @@ describe("projectNetwork operational flows", () => {
     ]);
 
     expect(projection.operationalFlows).toEqual([
-      expect.objectContaining({ id: "cross", targetId: "host-b" }),
+      expect.objectContaining({
+        id: "host-a:host-b",
+        flowIds: ["cross"],
+        targetId: "host-b",
+      }),
     ]);
   });
 

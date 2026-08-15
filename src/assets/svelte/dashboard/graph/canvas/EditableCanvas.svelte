@@ -25,9 +25,15 @@
     document: EditableGraphDocument;
     api: DashboardApi;
     onCompareGraphs?: () => void;
+    onArrangeNetwork?: () => void;
   }
 
-  let { document, api, onCompareGraphs = undefined }: Props = $props();
+  let {
+    document,
+    api,
+    onCompareGraphs = undefined,
+    onArrangeNetwork = undefined,
+  }: Props = $props();
   let connection = $state<ConnectionRequest>();
   let connectionPickerOpen = $state(false);
   let connectivityRules = $state<readonly GraphConnectivityRule[]>([]);
@@ -229,7 +235,7 @@
       {onCompareGraphs}
     />
   {:else}
-    <NetworkCanvas {document} {api} />
+    <NetworkCanvas {document} {api} {onArrangeNetwork} />
   {/if}
 </div>
 

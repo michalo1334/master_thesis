@@ -20,6 +20,7 @@
   import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
   import type { ComparisonReportDocument } from "./dashboard/comparison-report/ComparisonReportDocument.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
+  import { arrangeNetwork } from "./dashboard/graph/network/NetworkCanvasLayout";
 
   interface Props {
     model: DashboardModel;
@@ -64,6 +65,14 @@
 
   function handleForceLayout(): void {
     model.applyForceLayout();
+  }
+
+  function arrangeDocumentNetwork(document: EditableGraphDocument): void {
+    document.graph = arrangeNetwork(document.graph);
+  }
+
+  function handleArrangeNetwork(): void {
+    if (wm.activeGraph) arrangeDocumentNetwork(wm.activeGraph);
   }
 
   async function handleRunSimulation(): Promise<void> {
@@ -121,6 +130,7 @@
     forceParams={wm.forceParams}
     onForceParamsChange={(change) => wm.onForceParamsChange(change)}
     onForceLayout={handleForceLayout}
+    onArrangeNetwork={handleArrangeNetwork}
     onRunSimulation={handleRunSimulation}
     onCompareGraphs={() => wm.beginGraphComparison()}
     onOpenAnalysis={() => model.analysis.openDialog()}
@@ -150,6 +160,8 @@
         {api}
         onCompareGraphs={() =>
           wm.beginGraphComparisonWithActive(document as EditableGraphDocument)}
+        onArrangeNetwork={() =>
+          arrangeDocumentNetwork(document as EditableGraphDocument)}
       />
     {:else if document.kind === "graph-diff"}
       <GraphDiff document={document as GraphDiffDocument} />

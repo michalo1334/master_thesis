@@ -1,116 +1,106 @@
-import { forceCollide, forceLink, forceSimulation } from "d3-force";
+import {
+  forceCollide,
+  forceLink,
+  forceManyBody,
+  forceSimulation,
+  forceX,
+  forceY,
+} from "d3-force";
+import type { LoadedGraph, Node } from "../../contract";
 
 export interface ZonePosition {
   x: number;
   y: number;
 }
 
-export interface ZoneLayoutInput {
+interface LayoutNode {
   id: string;
-  position: ZonePosition;
-  radius: { x: number; y: number };
-  pinned?: boolean;
-}
-
-export interface ZoneLayoutLink {
-  sourceId: string;
-  targetId: string;
-}
-
-export interface HostCardLayoutInput {
-  id: string;
-  height: number;
-}
-
-interface LayoutNode extends ZoneLayoutInput {
   x: number;
   y: number;
-  fx?: number;
-  fy?: number;
 }
 
-const GAP = 24;
-const HOST_COLUMN_GAP = 14;
-const HOST_ROW_GAP = 14;
-const HOST_WIDTH = 128;
+const ZONE_RADIUS = 155;
+const HOST_RADIUS = 90;
 
-export function zoneCollisionRadius(zone: ZoneLayoutInput): number {
-  return Math.max(zone.radius.x, zone.radius.y) + GAP / 2;
-}
-
-export function layoutHostCards(
-  center: ZonePosition,
-  cards: readonly HostCardLayoutInput[],
-  columns = Math.min(3, Math.max(1, Math.ceil(Math.sqrt(cards.length)))),
-): Map<string, ZonePosition> {
-  if (!cards.length) return new Map();
-  const rows = Array.from(
-    { length: Math.ceil(cards.length / columns) },
-    () => 0,
+/** Returns a graph with a persisted, readable network arrangement. */
+export function arrangeNetwork(graph: LoadedGraph): LoadedGraph {
+  const zones = graph.nodes.filter(
+    (node): node is Extract<Node, { type: "NetworkSegment" }> =>
+      node.type === "NetworkSegment",
   );
-  for (const [index, card] of cards.entries()) {
-    const row = Math.floor(index / columns);
-    rows[row] = Math.max(rows[row]!, card.height);
-  }
-  const totalHeight =
-    rows.reduce((height, rowHeight) => height + rowHeight, 0) +
-    HOST_ROW_GAP * (rows.length - 1);
-  const rowTops: number[] = [];
-  let y = center.y - totalHeight / 2;
-  for (const height of rows) {
-    rowTops.push(y);
-    y += height + HOST_ROW_GAP;
-  }
-
-  return new Map(
-    cards.map((card, index) => {
-      const column = index % columns;
-      const row = Math.floor(index / columns);
-      return [
-        card.id,
-        {
-          x:
-            center.x +
-            (column - (columns - 1) / 2) * (HOST_WIDTH + HOST_COLUMN_GAP),
-          y: rowTops[row]! + card.height / 2,
-        },
-      ];
-    }),
-  );
-}
-
-export function layoutZones(
-  zones: readonly ZoneLayoutInput[],
-  links: readonly ZoneLayoutLink[],
-): Map<string, ZonePosition> {
-  const nodes: LayoutNode[] = zones.map((zone) => ({
-    ...zone,
-    position: { ...zone.position },
-    x: zone.position.x,
-    y: zone.position.y,
-    fx: zone.pinned ? zone.position.x : undefined,
-    fy: zone.pinned ? zone.position.y : undefined,
+  const zoneNodes: LayoutNode[] = zones.map((zone) => ({
+    id: zone.id,
+    x: zone.view_data.x_pos,
+    y: zone.view_data.y_pos,
   }));
-  const knownIds = new Set(nodes.map((node) => node.id));
-  const layoutLinks = links
+  const zoneIds = new Set(zones.map((zone) => zone.id));
+  const links = graph.edges
     .filter(
-      (link) => knownIds.has(link.sourceId) && knownIds.has(link.targetId),
+      (edge) =>
+        edge.type === "SegmentReachability" &&
+        zoneIds.has(edge.from_id) &&
+        zoneIds.has(edge.to_id),
     )
-    .map((link) => ({ source: link.sourceId, target: link.targetId }));
-  const simulation = forceSimulation(nodes)
-    .force(
-      "collide",
-      forceCollide<LayoutNode>(zoneCollisionRadius).strength(1).iterations(3),
-    )
+    .map((edge) => ({ source: edge.from_id, target: edge.to_id }));
+
+  forceSimulation(zoneNodes)
+    .force("charge", forceManyBody<LayoutNode>().strength(-260))
+    .force("collide", forceCollide<LayoutNode>(ZONE_RADIUS).iterations(2))
     .force(
       "link",
-      forceLink<LayoutNode, { source: string; target: string }>(layoutLinks)
+      forceLink<LayoutNode, (typeof links)[number]>(links)
         .id((node) => node.id)
-        .distance(300)
-        .strength(0.025),
+        .distance(360)
+        .strength(0.08),
     )
-    .stop();
+    .stop()
+    .tick(160);
 
-  simulation.tick(180);
-  return new Map(nodes.map((node) => [node.id, { x: node.x, y: node.y }]));
+  const zonePosition = new Map(zoneNodes.map((zone) => [zone.id, zone]));
+  const hostZone = new Map<string, string>();
+  for (const edge of graph.edges) {
+    if (edge.type === "Contains" && zoneIds.has(edge.from_id))
+      hostZone.set(edge.to_id, edge.from_id);
+  }
+  const hosts = graph.nodes.filter(
+    (node): node is Extract<Node, { type: "Host" }> => node.type === "Host",
+  );
+  const hostNodes: LayoutNode[] = hosts.map((host) => ({
+    id: host.id,
+    x: host.view_data.x_pos,
+    y: host.view_data.y_pos,
+  }));
+  forceSimulation(hostNodes)
+    .force("charge", forceManyBody<LayoutNode>().strength(-140))
+    .force("collide", forceCollide<LayoutNode>(HOST_RADIUS).iterations(2))
+    .force(
+      "x",
+      forceX<LayoutNode>(
+        (host) => zonePosition.get(hostZone.get(host.id) ?? "")?.x ?? 0,
+      ).strength(0.08),
+    )
+    .force(
+      "y",
+      forceY<LayoutNode>(
+        (host) => zonePosition.get(hostZone.get(host.id) ?? "")?.y ?? 0,
+      ).strength(0.08),
+    )
+    .stop()
+    .tick(180);
+
+  const position = new Map(
+    [...zoneNodes, ...hostNodes].map((node) => [node.id, node]),
+  );
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      const next = position.get(node.id);
+      return next
+        ? {
+            ...node,
+            view_data: { ...node.view_data, x_pos: next.x, y_pos: next.y },
+          }
+        : node;
+    }),
+  };
 }

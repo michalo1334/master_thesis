@@ -21,6 +21,7 @@
     forceParams: ForceParams;
     onForceParamsChange: (change: Partial<ForceParams>) => void;
     onForceLayout: () => void;
+    onArrangeNetwork?: () => void;
     onRunSimulation: () => void;
     onCompareGraphs: () => void;
     onOpenAnalysis: () => void;
@@ -42,6 +43,7 @@
     forceParams,
     onForceParamsChange,
     onForceLayout,
+    onArrangeNetwork = () => {},
     onRunSimulation,
     onCompareGraphs,
     onOpenAnalysis,
@@ -81,6 +83,10 @@
     <Ribbon.Section title="Layout">
       <RibbonButton disabled={!hasActiveGraph} onclick={onForceLayout}
         ><Icon name="squares-2x2" size={22} /><span>Force-directed</span
+        ></RibbonButton
+      >
+      <RibbonButton disabled={!hasActiveGraph} onclick={onArrangeNetwork}
+        ><Icon name="graph" size={22} /><span>Arrange network</span
         ></RibbonButton
       >
     </Ribbon.Section>

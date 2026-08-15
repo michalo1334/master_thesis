@@ -1,82 +1,68 @@
 import { describe, expect, it } from "vitest";
-import {
-  layoutHostCards,
-  layoutZones,
-  zoneCollisionRadius,
-  type ZoneLayoutInput,
-} from "./NetworkCanvasLayout";
+import type { LoadedGraph } from "../../contract";
+import { arrangeNetwork } from "./NetworkCanvasLayout";
 
-const zones: ZoneLayoutInput[] = [
-  {
-    id: "expanded",
-    position: { x: 100, y: 100 },
-    radius: { x: 220, y: 150 },
-    pinned: true,
-  },
-  {
-    id: "nearby",
-    position: { x: 140, y: 110 },
-    radius: { x: 130, y: 72 },
-  },
-  {
-    id: "nearby-2",
-    position: { x: 180, y: 120 },
-    radius: { x: 130, y: 72 },
-  },
-];
+function graph(): LoadedGraph {
+  return {
+    id: "graph",
+    title: "Network",
+    nodes: [
+      {
+        id: "zone",
+        type: "NetworkSegment",
+        data: { name: "DMZ", cidr: null },
+        view_data: { x_pos: 0, y_pos: 0 },
+      },
+      {
+        id: "host-a",
+        type: "Host",
+        data: { name: "A" },
+        view_data: { x_pos: 0, y_pos: 0 },
+      },
+      {
+        id: "host-b",
+        type: "Host",
+        data: { name: "B" },
+        view_data: { x_pos: 0, y_pos: 0 },
+      },
+    ],
+    edges: [
+      {
+        id: "contains-a",
+        type: "Contains",
+        from_id: "zone",
+        to_id: "host-a",
+        data: {},
+      },
+      {
+        id: "contains-b",
+        type: "Contains",
+        from_id: "zone",
+        to_id: "host-b",
+        data: {},
+      },
+    ],
+  };
+}
 
-describe("layoutZones", () => {
-  it("pins the expanded zone at its persisted position", () => {
-    const positions = layoutZones(zones, []);
+describe("arrangeNetwork", () => {
+  it("returns persisted positions without mutating the original graph", () => {
+    const input = graph();
+    const arranged = arrangeNetwork(input);
 
-    expect(positions.get("expanded")).toEqual({ x: 100, y: 100 });
-  });
-
-  it("separates zone collision radii", () => {
-    const positions = layoutZones(zones, []);
-    const values = [...positions.entries()];
-
-    for (let index = 0; index < values.length; index++) {
-      for (let other = index + 1; other < values.length; other++) {
-        const [id, position] = values[index]!;
-        const [otherId, otherPosition] = values[other]!;
-        const zone = zones.find((item) => item.id === id)!;
-        const otherZone = zones.find((item) => item.id === otherId)!;
-        expect(
-          Math.hypot(
-            position.x - otherPosition.x,
-            position.y - otherPosition.y,
-          ),
-        ).toBeGreaterThanOrEqual(
-          zoneCollisionRadius(zone) + zoneCollisionRadius(otherZone) - 0.01,
-        );
-      }
-    }
-  });
-
-  it("does not mutate input positions", () => {
-    const input = structuredClone(zones);
-
-    layoutZones(input, [{ sourceId: "expanded", targetId: "nearby" }]);
-
-    expect(input).toEqual(zones);
-  });
-});
-
-describe("layoutHostCards", () => {
-  it("uses each row's tallest card to avoid overlap", () => {
-    const positions = layoutHostCards(
-      { x: 0, y: 0 },
-      [
-        { id: "expanded", height: 120 },
-        { id: "short", height: 52 },
-        { id: "next-row", height: 52 },
-      ],
-      2,
+    expect(input.nodes.map((node) => node.view_data)).toEqual([
+      { x_pos: 0, y_pos: 0 },
+      { x_pos: 0, y_pos: 0 },
+      { x_pos: 0, y_pos: 0 },
+    ]);
+    const [first, second] = arranged.nodes.filter(
+      (node) => node.type === "Host",
     );
-
-    const expanded = positions.get("expanded")!;
-    const nextRow = positions.get("next-row")!;
-    expect(nextRow.y - 26).toBeGreaterThanOrEqual(expanded.y + 60 + 14);
+    expect(
+      Math.hypot(
+        first!.view_data.x_pos - second!.view_data.x_pos,
+        first!.view_data.y_pos - second!.view_data.y_pos,
+      ),
+    ).toBeGreaterThan(100);
   });
 });

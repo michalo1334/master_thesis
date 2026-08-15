@@ -39,9 +39,13 @@ export interface NetworkOperationalFlow {
   sourceName: string;
   sourcePosition: { x: number; y: number };
   targetId: string;
+  targetName: string;
   targetPosition: { x: number; y: number };
-  serviceId: string;
+  flowIds: string[];
+  serviceIds: string[];
+  serviceNames: string[];
   serviceName: string;
+  count: number;
 }
 
 export interface NetworkProjection {
@@ -174,7 +178,7 @@ export function projectNetwork(
     segmentLinksById.set(id, segmentLink);
   }
 
-  const operationalFlows: NetworkOperationalFlow[] = [];
+  const flowsByHostPair = new Map<string, NetworkOperationalFlow>();
   for (const flow of serverFlows ?? []) {
     const source = nodesById.get(flow.from_id);
     const service = nodesById.get(flow.to_id);
@@ -183,19 +187,31 @@ export function projectNetwork(
       : undefined;
     if (source?.type !== "Host" || service?.type !== "Service") continue;
     if (targetHost?.type !== "Host") continue;
-    operationalFlows.push({
-      id: flow.id,
+    const id = `${source.id}:${targetHost.id}`;
+    const pair = flowsByHostPair.get(id) ?? {
+      id,
       sourceId: source.id,
       sourceName: source.data.name,
       sourcePosition: { x: source.view_data.x_pos, y: source.view_data.y_pos },
       targetId: targetHost.id,
+      targetName: targetHost.data.name,
       targetPosition: {
         x: targetHost.view_data.x_pos,
         y: targetHost.view_data.y_pos,
       },
-      serviceId: service.id,
+      flowIds: [],
+      serviceIds: [],
+      serviceNames: [],
       serviceName: service.data.name,
-    });
+      count: 0,
+    };
+    pair.flowIds.push(flow.id);
+    if (!pair.serviceIds.includes(service.id)) pair.serviceIds.push(service.id);
+    if (!pair.serviceNames.includes(service.data.name))
+      pair.serviceNames.push(service.data.name);
+    pair.serviceName = pair.serviceNames.join(", ");
+    pair.count++;
+    flowsByHostPair.set(id, pair);
   }
 
   return {
@@ -204,6 +220,6 @@ export function projectNetwork(
       (segment) => segment.hosts.length > 0 || segment.node,
     ),
     segmentLinks: [...segmentLinksById.values()],
-    operationalFlows,
+    operationalFlows: [...flowsByHostPair.values()],
   };
 }
