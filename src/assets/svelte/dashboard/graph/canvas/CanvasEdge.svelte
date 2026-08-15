@@ -2,7 +2,7 @@
   import { ContextMenu } from "bits-ui";
   import { edgeEndpoints } from "./geometry";
   import { type Edge, type Node } from "../../contract";
-  import type { Point } from "./canvasState";
+  import { isActivationKey, type Point } from "./canvasState";
   import { edgePresentation } from "../presentation/registry";
   import type { CanvasEdgeAppearance } from "./appearance";
 
@@ -45,7 +45,7 @@
   });
 
   function handleKeydown(event: KeyboardEvent) {
-    if (!onclick || (event.key !== "Enter" && event.key !== " ")) return;
+    if (!onclick || !isActivationKey(event.key)) return;
 
     event.preventDefault();
     onclick(event as unknown as MouseEvent);

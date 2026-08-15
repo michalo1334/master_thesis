@@ -6,9 +6,10 @@ import {
   forceCollide,
 } from "d3-force";
 import type { SimulationNodeDatum, SimulationLinkDatum } from "d3-force";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SvelteMap } from "svelte/reactivity";
 import type { Node, Edge } from "../../contract";
 import type { ForceParams } from "./ForceLayout.types";
+import { resolveOwnership } from "../ownership";
 
 interface SimNode extends SimulationNodeDatum {
   id: string;
@@ -29,45 +30,6 @@ const DEFAULT_EDGE_DISTANCES: Record<string, number> = {
   Runs: 80,
   HasVulnerability: 50,
 };
-
-/**
- * Resolves each node's immediate owner from unambiguous, correctly typed edges.
- * Nodes without exactly one valid parent have no ownership force.
- */
-export function resolveOwnership(
-  nodes: readonly Node[],
-  edges: readonly Edge[],
-): Map<string, string> {
-  const nodesById = new SvelteMap(nodes.map((node) => [node.id, node]));
-  const parentIdsByChildId = new SvelteMap<string, Set<string>>();
-
-  for (const edge of edges) {
-    const parent = nodesById.get(edge.from_id);
-    const child = nodesById.get(edge.to_id);
-    const isValidOwnershipEdge =
-      (edge.type === "Runs" &&
-        parent?.type === "Host" &&
-        child?.type === "Service") ||
-      (edge.type === "HasVulnerability" &&
-        parent?.type === "Service" &&
-        child?.type === "Vulnerability");
-
-    if (!isValidOwnershipEdge || !parent || !child) continue;
-
-    const parentIds =
-      parentIdsByChildId.get(child.id) ?? new SvelteSet<string>();
-    parentIds.add(parent.id);
-    parentIdsByChildId.set(child.id, parentIds);
-  }
-
-  const ownership = new SvelteMap<string, string>();
-  for (const [childId, parentIds] of parentIdsByChildId) {
-    if (parentIds.size === 1)
-      ownership.set(childId, parentIds.values().next().value!);
-  }
-
-  return ownership;
-}
 
 function forceOwnership(
   ownership: ReadonlyMap<string, string>,

@@ -1,31 +1,10 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/svelte";
 import GraphDiff from "./GraphDiff.svelte";
 import { GraphDiffDocument } from "./GraphDiffDocument.svelte";
 import type { GraphDiffResult, LoadedGraph } from "../contract";
 
 afterEach(cleanup);
-
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
-
-afterAll(() => vi.unstubAllGlobals());
 
 function segmentNode(id: string, name: string, xPos: number) {
   return {

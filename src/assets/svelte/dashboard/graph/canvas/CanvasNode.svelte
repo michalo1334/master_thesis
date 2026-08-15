@@ -1,7 +1,8 @@
 <script lang="ts">
   import { ContextMenu } from "bits-ui";
   import type { Node } from "../../contract";
-  import type { Point } from "./canvasState";
+  import { isActivationKey, type Point } from "./canvasState";
+  import { NODE_HEIGHT, NODE_WIDTH } from "./geometry";
   import { nodePresentation } from "../presentation/registry";
   import type { CanvasNodeAppearance } from "./appearance";
 
@@ -42,7 +43,7 @@
   );
 
   function handleKeydown(event: KeyboardEvent) {
-    if (!onclick || (event.key !== "Enter" && event.key !== " ")) return;
+    if (!onclick || !isActivationKey(event.key)) return;
 
     event.preventDefault();
     onclick(event as unknown as MouseEvent);
@@ -78,7 +79,12 @@
     onkeydown={handleKeydown}
   >
     <title>{node.type}</title>
-    <rect class="canvas-node-card" width="120" height="72" rx="7" />
+    <rect
+      class="canvas-node-card"
+      width={NODE_WIDTH}
+      height={NODE_HEIGHT}
+      rx="7"
+    />
     {#if nodeStyle}
       <nodeStyle.component />
     {:else}
@@ -93,7 +99,7 @@
     {#if onconnectorpointerdown}
       <circle
         class="canvas-node-connector"
-        cx="120"
+        cx={NODE_WIDTH}
         cy="36"
         r="6"
         role="button"

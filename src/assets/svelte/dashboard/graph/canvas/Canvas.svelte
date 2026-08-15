@@ -3,7 +3,7 @@
   import { untrack } from "svelte";
   import CanvasEdge from "./CanvasEdge.svelte";
   import CanvasNode from "./CanvasNode.svelte";
-  import { nodeCenter } from "./geometry";
+  import { NODE_HEIGHT, NODE_WIDTH, nodeCenter } from "./geometry";
   import { computeFitState } from "./fitView";
   import type {
     Edge,
@@ -20,12 +20,13 @@
     type DragState,
     type NodeDragState,
     type CanvasState,
+    clampZoom,
+    formatWorldTransform,
+    screenToWorld,
     type Point,
+    ZOOM_STEP,
   } from "./canvasState";
 
-  const MIN_ZOOM = 25;
-  const MAX_ZOOM = 200;
-  const ZOOM_STEP = 10;
   const PAN_STEP = 40;
   const DRAG_THRESHOLD = 4;
   const nodeTypes = [
@@ -107,9 +108,7 @@
   }>();
 
   let gridSize = $derived(20 * (canvasState.zoom / 100));
-  let worldTransform = $derived(
-    `translate(${canvasState.pan.x} ${canvasState.pan.y}) scale(${canvasState.zoom / 100})`,
-  );
+  let worldTransform = $derived(formatWorldTransform(canvasState));
   let connectionSource = $derived(
     graph.nodes.find((node) => node.id === canvasState.connectionSourceId),
   );
@@ -124,10 +123,6 @@
 
   function updateGraph(change: Partial<LoadedGraph>) {
     onGraphChange?.({ ...graph, ...change });
-  }
-
-  function clampZoom(value: number) {
-    return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));
   }
 
   function setZoom(zoom: number) {
@@ -149,8 +144,6 @@
       nodes: graph.nodes,
       viewportWidth: viewport.width,
       viewportHeight: viewport.height,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     });
     if (result) {
       updateCanvasState(result);
@@ -165,11 +158,10 @@
 
   function graphPosition(event: PointerEvent | MouseEvent): Point {
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const scale = canvasState.zoom / 100;
-    return {
-      x: (event.clientX - bounds.left - canvasState.pan.x) / scale,
-      y: (event.clientY - bounds.top - canvasState.pan.y) / scale,
-    };
+    return screenToWorld(
+      { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
+      canvasState,
+    );
   }
 
   function isGraphInteractive(target: EventTarget | null) {
@@ -229,9 +221,9 @@
     return graph.nodes.find(
       (node) =>
         position.x >= node.view_data.x_pos &&
-        position.x <= node.view_data.x_pos + 120 &&
+        position.x <= node.view_data.x_pos + NODE_WIDTH &&
         position.y >= node.view_data.y_pos &&
-        position.y <= node.view_data.y_pos + 72,
+        position.y <= node.view_data.y_pos + NODE_HEIGHT,
     );
   }
 
@@ -308,19 +300,15 @@
     nodeDragState = undefined;
   }
 
-  function handlePointerUp(event: PointerEvent) {
+  function endPointer(event: PointerEvent) {
     if (connectionDragState?.pointerId === event.pointerId)
-      return endConnection(event, true);
+      return endConnection(event, event.type === "pointerup");
     if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
-    if (!dragState || dragState.pointerId !== event.pointerId) return;
-    releasePointer(event);
-    dragState = undefined;
-  }
-
-  function cancelPan(event: PointerEvent) {
-    if (connectionDragState?.pointerId === event.pointerId)
-      return endConnection(event, false);
-    if (nodeDragState?.pointerId === event.pointerId) return endNodeDrag(event);
+    if (
+      event.type === "pointerup" &&
+      (!dragState || dragState.pointerId !== event.pointerId)
+    )
+      return;
     releasePointer(event);
     dragState = undefined;
   }
@@ -447,8 +435,8 @@
         bind:clientHeight={viewport.height}
         onpointerdown={handlePointerDown}
         onpointermove={handlePointerMove}
-        onpointerup={handlePointerUp}
-        onpointercancel={cancelPan}
+        onpointerup={endPointer}
+        onpointercancel={endPointer}
         onwheel={handleWheel}
         onclick={handleBlankCanvasClick}
         onkeydown={handleKeydown}

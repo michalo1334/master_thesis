@@ -9,15 +9,6 @@ import {
 import AnalysisDialog from "./AnalysisDialog.svelte";
 import type { AnalysisModel } from "./AnalysisModel.svelte";
 
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
-
 afterEach(cleanup);
 
 function renderDialog({

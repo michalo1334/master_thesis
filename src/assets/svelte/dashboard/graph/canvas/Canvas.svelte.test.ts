@@ -1,22 +1,9 @@
-import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import Canvas from "./Canvas.svelte";
 import type { LoadedGraph } from "../../contract";
 
 afterEach(cleanup);
-
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
-
-afterAll(() => vi.unstubAllGlobals());
 
 const graph: LoadedGraph = {
   id: "graph",

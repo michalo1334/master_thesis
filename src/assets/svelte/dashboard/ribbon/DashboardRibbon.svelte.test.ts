@@ -4,15 +4,6 @@ import DashboardRibbon from "./DashboardRibbon.svelte";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import type { OptimizationParams, SimulationParams } from "../contract";
 
-vi.stubGlobal(
-  "ResizeObserver",
-  class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  },
-);
-
 type OptimizationOption = {
   id: OptimizationParams["strategy"];
   title: string;

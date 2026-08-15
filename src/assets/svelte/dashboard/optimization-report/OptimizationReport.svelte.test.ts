@@ -1,12 +1,4 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -21,19 +13,6 @@ import type { GraphDiffResult, OptimizationReport } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 
 afterEach(cleanup);
-
-beforeAll(() => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-});
-
-afterAll(() => vi.unstubAllGlobals());
 
 describe("OptimizationReport", () => {
   const api = () =>

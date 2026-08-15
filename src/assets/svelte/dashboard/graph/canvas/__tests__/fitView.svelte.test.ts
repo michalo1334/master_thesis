@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { computeFitState } from "../fitView";
 import type { Node } from "../../../contract";
+import { MAX_ZOOM, MIN_ZOOM } from "../canvasState";
 
 function mkNode(id: string, x: number, y: number): Node {
   return {
@@ -13,9 +14,6 @@ function mkNode(id: string, x: number, y: number): Node {
 
 const VIEW_W = 1200;
 const VIEW_H = 800;
-const MIN_ZOOM = 25;
-const MAX_ZOOM = 200;
-
 describe("computeFitState", () => {
   it("returns null for empty nodes", () => {
     expect(
@@ -23,8 +21,6 @@ describe("computeFitState", () => {
         nodes: [],
         viewportWidth: VIEW_W,
         viewportHeight: VIEW_H,
-        minZoom: MIN_ZOOM,
-        maxZoom: MAX_ZOOM,
       }),
     ).toBeNull();
   });
@@ -34,8 +30,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("n1", 100, 200)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -53,8 +47,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", 0, 0), mkNode("b", 1000, 0)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -73,8 +65,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", -5000, -5000), mkNode("b", 5000, 5000)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -87,8 +77,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", 0, 0), mkNode("b", 10, 10)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -100,8 +88,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", 200, 100), mkNode("b", 400, 300)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -120,8 +106,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", 100, 200)],
       viewportWidth: 0,
       viewportHeight: 0,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -136,8 +120,6 @@ describe("computeFitState", () => {
       nodes: [mkNode("a", 0, 0)],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     })!;
 
     expect(result).not.toBeNull();
@@ -153,15 +135,11 @@ describe("computeFitState", () => {
       nodes,
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     });
     const b = computeFitState({
       nodes: [...nodes],
       viewportWidth: VIEW_W,
       viewportHeight: VIEW_H,
-      minZoom: MIN_ZOOM,
-      maxZoom: MAX_ZOOM,
     });
     expect(b).toEqual(a);
   });

@@ -5,6 +5,7 @@ import type {
   NetworkSegmentNode,
   Node,
 } from "../../contract";
+import { resolveOwnership } from "../ownership";
 
 export interface NetworkHost {
   id: string;
@@ -50,35 +51,6 @@ export interface NetworkProjection {
   operationalFlows: NetworkOperationalFlow[];
 }
 
-function uniqueParents(
-  edges: readonly Edge[],
-  parentType: Node["type"],
-  childType: Node["type"],
-  nodesById: ReadonlyMap<string, Node>,
-): Map<string, string> {
-  const candidates = new Map<string, Set<string>>();
-  for (const edge of edges) {
-    const parent = nodesById.get(edge.from_id);
-    const child = nodesById.get(edge.to_id);
-    if (
-      !parent ||
-      !child ||
-      parent.type !== parentType ||
-      child.type !== childType
-    )
-      continue;
-    const parentIds = candidates.get(child.id) ?? new Set<string>();
-    parentIds.add(parent.id);
-    candidates.set(child.id, parentIds);
-  }
-
-  return new Map(
-    [...candidates].flatMap(([childId, parentIds]) =>
-      parentIds.size === 1 ? [[childId, parentIds.values().next().value!]] : [],
-    ),
-  );
-}
-
 export function projectNetwork(
   graph: LoadedGraph,
   serverFlows?: readonly GraphProjectionOperationalFlow[],
@@ -92,22 +64,11 @@ export function projectNetwork(
     string,
     Extract<Node, { type: "Vulnerability" }>[]
   >();
-  const serviceHostIds = uniqueParents(
-    graph.edges.filter((edge) => edge.type === "Runs"),
-    "Host",
-    "Service",
-    nodesById,
-  );
-  const vulnerabilityServiceIds = uniqueParents(
-    graph.edges.filter((edge) => edge.type === "HasVulnerability"),
-    "Service",
-    "Vulnerability",
-    nodesById,
-  );
+  const ownership = resolveOwnership(graph.nodes, graph.edges);
 
   for (const node of graph.nodes) {
     if (node.type === "Service") {
-      const hostId = serviceHostIds.get(node.id);
+      const hostId = ownership.get(node.id);
       if (hostId)
         (
           servicesByHostId.get(hostId) ??
@@ -115,7 +76,7 @@ export function projectNetwork(
         ).push(node);
     }
     if (node.type === "Vulnerability") {
-      const serviceId = vulnerabilityServiceIds.get(node.id);
+      const serviceId = ownership.get(node.id);
       if (serviceId)
         (
           vulnerabilitiesByServiceId.get(serviceId) ??
@@ -218,7 +179,7 @@ export function projectNetwork(
     const source = nodesById.get(flow.from_id);
     const service = nodesById.get(flow.to_id);
     const targetHost = service
-      ? nodesById.get(serviceHostIds.get(service.id)!)
+      ? nodesById.get(ownership.get(service.id)!)
       : undefined;
     if (source?.type !== "Host" || service?.type !== "Service") continue;
     if (targetHost?.type !== "Host") continue;
@@ -245,52 +206,4 @@ export function projectNetwork(
     segmentLinks: [...segmentLinksById.values()],
     operationalFlows,
   };
-}
-
-export function cullNetworkHosts(
-  hosts: readonly NetworkHost[],
-  viewport: { width: number; height: number },
-  pan: { x: number; y: number },
-  zoom: number,
-  margin = 180,
-  heightFor: (host: NetworkHost) => number = () => 120,
-): NetworkHost[] {
-  if (!viewport.width || !viewport.height) return [];
-  const scale = zoom / 100;
-  const left = (-pan.x - margin) / scale;
-  const top = (-pan.y - margin) / scale;
-  const right = (viewport.width - pan.x + margin) / scale;
-  const bottom = (viewport.height - pan.y + margin) / scale;
-  return hosts.filter((host) => {
-    const { node } = host;
-    const { x_pos, y_pos } = node.view_data;
-    return (
-      x_pos <= right &&
-      x_pos + 160 >= left &&
-      y_pos <= bottom &&
-      y_pos + heightFor(host) >= top
-    );
-  });
-}
-
-export function cullNetworkSegments(
-  segments: readonly NetworkSegment[],
-  viewport: { width: number; height: number },
-  pan: { x: number; y: number },
-  zoom: number,
-  margin = 180,
-): NetworkSegment[] {
-  if (!viewport.width || !viewport.height) return [];
-  const scale = zoom / 100;
-  const left = (-pan.x - margin) / scale;
-  const top = (-pan.y - margin) / scale;
-  const right = (viewport.width - pan.x + margin) / scale;
-  const bottom = (viewport.height - pan.y + margin) / scale;
-  return segments.filter(
-    ({ position }) =>
-      position.x <= right &&
-      position.x + 180 >= left &&
-      position.y <= bottom &&
-      position.y + 80 >= top,
-  );
 }

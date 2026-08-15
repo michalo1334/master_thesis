@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { applyForceLayout, resolveOwnership } from "./ForceLayout.svelte";
+import { applyForceLayout } from "./ForceLayout.svelte";
 import { defaultForceParams } from "./ForceLayout.types";
 import type { Node, Edge } from "../../contract";
+import { resolveOwnership } from "../ownership";
 
 type NodeType = "Host" | "Service" | "Vulnerability" | "NetworkSegment";
 

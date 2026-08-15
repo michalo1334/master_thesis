@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LoadedGraph } from "../../contract";
-import { cullNetworkHosts, projectNetwork } from "./NetworkCanvasProjection";
+import { projectNetwork } from "./NetworkCanvasProjection";
 
 function graph(): LoadedGraph {
   return {
@@ -113,19 +113,6 @@ describe("projectNetwork", () => {
 
   it("projects segment membership", () => {
     expect(projectNetwork(graph()).hosts[0].segmentId).toBe("segment");
-  });
-
-  it("culls hosts outside the transformed viewport", () => {
-    const hosts = projectNetwork(graph()).hosts;
-
-    expect(
-      cullNetworkHosts(
-        hosts,
-        { width: 200, height: 200 },
-        { x: 0, y: 0 },
-        100,
-      ).map((host) => host.id),
-    ).toEqual(["host-a"]);
   });
 });
 
