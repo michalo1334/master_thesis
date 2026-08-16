@@ -16,6 +16,9 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
     variant_names = Enum.map(variants, fn {tag, _module} -> "#{tag}#{context.ts_name}" end)
     type_declaration = union_declaration(context.ts_name, variant_names)
 
+    union_comment =
+      Renderer.source_comment(context.module, "discriminant: #{field}/#{data_field}")
+
     interfaces =
       Enum.map(variants, fn {tag, module} ->
         overrides = %{field => "\"#{tag}\"", data_field => Renderer.type(remote_type(module))}
@@ -28,10 +31,16 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
         properties =
           properties ++ Enum.map(fields, fn {name, type} -> Renderer.property(name, type) end)
 
-        "export interface #{tag}#{context.ts_name} {\n#{Enum.join(properties, "\n")}\n}"
+        comment =
+          Renderer.source_comment(
+            context.module,
+            "variant: #{tag} (data: #{module |> Module.split() |> List.last()})"
+          )
+
+        "#{comment}\nexport interface #{tag}#{context.ts_name} {\n#{Enum.join(properties, "\n")}\n}"
       end)
 
-    {:emit, "#{type_declaration}\n\n#{Enum.join(interfaces, "\n\n")}"}
+    {:emit, "#{union_comment}\n#{type_declaration}\n\n#{Enum.join(interfaces, "\n\n")}"}
   end
 
   def render(_context), do: :skip

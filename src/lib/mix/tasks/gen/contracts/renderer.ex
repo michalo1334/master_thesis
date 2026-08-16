@@ -12,6 +12,12 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
     term: "unknown"
   }
 
+  def source_comment(module, detail \\ nil) do
+    source = module.__info__(:compile)[:source] |> to_string()
+    base = "// #{inspect(module)} (#{Path.relative_to(source, File.cwd!())})"
+    if detail, do: base <> " — " <> detail, else: base
+  end
+
   def interface(name, fields, overrides \\ %{}) do
     properties =
       Enum.map(fields, fn {field, type} ->

@@ -27,7 +27,9 @@ defmodule Mix.Tasks.Gen.Contracts.Registry do
         {:emit, output} -> output
         :skip -> nil
       end
-    end) || Renderer.interface(context.ts_name, context.fields)
+    end) ||
+      Renderer.source_comment(module) <>
+        "\n" <> Renderer.interface(context.ts_name, context.fields)
   end
 
   def generate_all do

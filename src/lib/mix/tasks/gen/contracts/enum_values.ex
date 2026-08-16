@@ -13,7 +13,10 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
         {field, Map.get(aliases, field) || enum_type(field, atoms)}
       end)
 
-    {:emit, Renderer.interface(context.ts_name, context.fields, overrides)}
+    enum_fields = Enum.map_join(values, ", ", fn {field, _} -> field end)
+    comment = Renderer.source_comment(context.module, "enum fields: #{enum_fields}")
+
+    {:emit, "#{comment}\n#{Renderer.interface(context.ts_name, context.fields, overrides)}"}
   end
 
   def render(_context), do: :skip
