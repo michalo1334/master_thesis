@@ -34,6 +34,7 @@ import type {
   MoveGraphToFolderReply,
   FetchGraphProjectionPayload,
   FetchGraphProjectionReply,
+  FetchDocumentCatalogPayload,
   FetchDocumentCatalogReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
@@ -44,6 +45,8 @@ export type ReportRequest = {
   reportId: string;
   graphRevisionId: string;
 };
+
+export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
 
 export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
@@ -81,7 +84,9 @@ export interface DashboardApi {
   fetchGraphProjection(
     graphRevisionId: string,
   ): Promise<FetchGraphProjectionReply>;
-  fetchDocumentCatalog(): Promise<FetchDocumentCatalogReply>;
+  fetchDocumentCatalog(
+    query: DocumentCatalogQuery,
+  ): Promise<FetchDocumentCatalogReply>;
   createNodeDraft(
     payload: CreateNodeDraftPayload,
   ): Promise<CreateNodeDraftReply>;
@@ -238,12 +243,11 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         FetchGraphProjectionReply
       >(live, "fetch_graph_projection", { graph_revision_id: graphRevisionId });
     },
-    fetchDocumentCatalog() {
-      return requestReply<{}, FetchDocumentCatalogReply>(
-        live,
-        "fetch_document_catalog",
-        {},
-      );
+    fetchDocumentCatalog(query) {
+      return requestReply<
+        FetchDocumentCatalogPayload,
+        FetchDocumentCatalogReply
+      >(live, "fetch_document_catalog", query);
     },
     createNodeDraft(payload) {
       return requestReply<CreateNodeDraftPayload, CreateNodeDraftReply>(

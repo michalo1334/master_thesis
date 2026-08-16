@@ -4,7 +4,7 @@ defmodule NetworkDefense.Workflows do
   import Ecto.Query
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Workflows.{StepWorker, WorkflowRun, WorkflowStep}
+  alias NetworkDefense.Workflows.{AnalysisInputRevision, StepWorker, WorkflowRun, WorkflowStep}
 
   @workflow_events_topic "workflow_events"
 
@@ -108,6 +108,7 @@ defmodule NetworkDefense.Workflows do
         |> WorkflowRun.changeset(%{template: template_name, input: input})
         |> Repo.insert!()
 
+      insert_input_revision(run)
       insert_steps_and_enqueue(run, steps)
       run
     end)
@@ -171,6 +172,7 @@ defmodule NetworkDefense.Workflows do
         )
 
       if Repo.exists?(from(run in WorkflowRun, where: run.id == ^candidate.id)) do
+        insert_input_revision(candidate)
         insert_steps_and_enqueue(candidate, steps)
         candidate
       else
@@ -188,6 +190,21 @@ defmodule NetworkDefense.Workflows do
     end)
 
     enqueue(run.id, 1)
+  end
+
+  defp insert_input_revision(run) do
+    case Map.get(run.input, "graph_revision_id") do
+      graph_revision_id when is_binary(graph_revision_id) ->
+        Repo.insert_all(
+          AnalysisInputRevision,
+          [%{workflow_run_id: run.id, graph_revision_id: graph_revision_id}],
+          on_conflict: :nothing,
+          conflict_target: [:workflow_run_id, :graph_revision_id]
+        )
+
+      _ ->
+        {0, nil}
+    end
   end
 
   defp enqueue(run_id, position) do

@@ -126,9 +126,19 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       graph_revision_id = graph.revision_id
 
       {:ok, view, _html} = live(conn, ~p"/")
-      render_hook(view, "fetch_document_catalog", %{})
+      render_hook(view, "fetch_document_catalog", %{"limit" => 1, "offset" => 0})
 
-      assert_reply(view, %{items: items})
+      assert_reply(view, %{items: items, total_count: total_count, filter_options: filter_options})
+
+      assert total_count >= 1
+
+      assert %{
+               types: _types,
+               graphs: _graphs,
+               analysis_ids: _analysis_ids,
+               strategies: _strategies,
+               revision_kinds: _revision_kinds
+             } = filter_options
 
       assert %{
                id: ^graph_revision_id,
@@ -136,13 +146,25 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                graph_id: ^graph_id,
                graph_revision_id: ^graph_revision_id,
                graph_title: "catalog-graph",
-               analysis_id: nil,
+               analysis_ids: [],
                revision_kind: "initial",
                revision_number: 1,
                strategy: nil,
                output_graph_revision_id: nil,
+               output_revision_kind: nil,
+               output_revision_number: nil,
                created_at: _created_at
              } = Enum.find(items, &(&1.id == graph_revision_id))
+    end
+
+    test "replies directly to consecutive catalog queries", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_document_catalog", %{"limit" => 1, "offset" => 0})
+      assert_reply(view, %{items: _items, total_count: _total_count})
+
+      render_hook(view, "fetch_document_catalog", %{"limit" => 1, "offset" => 1})
+      assert_reply(view, %{items: _items, total_count: _total_count})
     end
   end
 

@@ -11,6 +11,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Simulations
+  alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Workflows
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
@@ -25,6 +26,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     CompareGraphsReply,
     FetchGraphProjectionPayload,
     FetchGraphProjectionReply,
+    FetchDocumentCatalogPayload,
     FetchDocumentCatalogReply,
     CreateFolderPayload,
     CreateFolderReply,
@@ -409,9 +411,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("fetch_document_catalog", _params, socket) do
-    {:ok, reply} = FetchDocumentCatalogReply.validate(%{items: document_catalog()})
-    {:reply, FetchDocumentCatalogReply.to_wire(reply), socket}
+  def handle_event("fetch_document_catalog", params, socket) do
+    # Catalog queries reply inline. Do not defer this reply through a task or event.
+    case FetchDocumentCatalogPayload.validate(params) do
+      {:ok, request} ->
+        {:reply, fetch_document_catalog_reply(request), socket}
+
+      {:error, _changeset} ->
+        {:reply, document_catalog_reply(%{items: [], total_count: 0, filter_options: %{}}),
+         socket}
+    end
   end
 
   @impl true
@@ -707,66 +716,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end)
   end
 
-  defp document_catalog do
-    graphs = Graphs.list_summaries()
-    graph_revision_ids = Enum.map(graphs, & &1.revisionId)
+  defp document_catalog_reply(attrs) do
+    {:ok, reply} = FetchDocumentCatalogReply.validate(attrs)
+    FetchDocumentCatalogReply.to_wire(reply)
+  end
 
-    graph_items =
-      Enum.map(graphs, fn graph ->
-        %{
-          id: graph.revisionId,
-          kind: "graph",
-          graph_id: graph.graphId,
-          graph_revision_id: graph.revisionId,
-          graph_title: graph.title,
-          analysis_id: graph.analysisId,
-          revision_kind: graph.revisionKind,
-          revision_number: graph.revisionNumber,
-          strategy: nil,
-          output_graph_revision_id: nil,
-          created_at: DateTime.to_iso8601(graph.insertedAt)
-        }
-      end)
-
-    experiment_items =
-      graph_revision_ids
-      |> Simulations.list_experiments()
-      |> Enum.map(fn experiment ->
-        %{
-          id: experiment.id,
-          kind: "simulation_report",
-          graph_id: experiment.graph_revision.graph_id,
-          graph_revision_id: experiment.graph_revision_id,
-          graph_title: experiment.graph_revision.title,
-          analysis_id: experiment.analysis_id,
-          revision_kind: Atom.to_string(experiment.graph_revision.kind),
-          revision_number: experiment.graph_revision.number,
-          strategy: nil,
-          output_graph_revision_id: nil,
-          created_at: DateTime.to_iso8601(experiment.inserted_at)
-        }
-      end)
-
-    optimization_items =
-      graph_revision_ids
-      |> Optimizations.list_runs()
-      |> Enum.map(fn run ->
-        %{
-          id: run.id,
-          kind: "optimization_report",
-          graph_id: run.graph_revision.graph_id,
-          graph_revision_id: run.graph_revision_id,
-          graph_title: run.graph_revision.title,
-          analysis_id: run.analysis_id,
-          revision_kind: Atom.to_string(run.graph_revision.kind),
-          revision_number: run.graph_revision.number,
-          strategy: run.strategy,
-          output_graph_revision_id: run.output_graph_revision_id,
-          created_at: DateTime.to_iso8601(run.inserted_at)
-        }
-      end)
-
-    graph_items ++ experiment_items ++ optimization_items
+  defp fetch_document_catalog_reply(request) do
+    request
+    |> DocumentCatalog.document_catalog()
+    |> document_catalog_reply()
   end
 
   defp folder_summaries do

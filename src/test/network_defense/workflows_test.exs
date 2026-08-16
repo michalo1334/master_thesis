@@ -14,7 +14,7 @@ defmodule NetworkDefense.WorkflowsTest do
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Workflows
-  alias NetworkDefense.Workflows.{StepWorker, WorkflowRun, WorkflowStep}
+  alias NetworkDefense.Workflows.{AnalysisInputRevision, StepWorker, WorkflowRun, WorkflowStep}
 
   test "runs a generic two-step template linearly" do
     assert {:ok, run} = Workflows.start("two_step", %{})
@@ -105,6 +105,9 @@ defmodule NetworkDefense.WorkflowsTest do
              optimization.output["output_graph_revision_id"]
 
     analysis_id = run.id
+    assert [input_revision_id] = input_revision_ids(run.id)
+    assert input_revision_id == graph.revision_id
+
     assert %{analysis_id: ^analysis_id} = Experiments.get(baseline.output["experiment_id"])
 
     assert %{analysis_id: ^analysis_id} =
@@ -162,6 +165,8 @@ defmodule NetworkDefense.WorkflowsTest do
              )
 
     assert first.id == second.id
+    assert [input_revision_id] = input_revision_ids(first.id)
+    assert input_revision_id == graph.revision_id
 
     assert [job] = all_enqueued(worker: StepWorker)
     assert job.args == %{"workflow_run_id" => first.id, "step_position" => 1}
@@ -224,6 +229,13 @@ defmodule NetworkDefense.WorkflowsTest do
     WorkflowStep
     |> where([step], step.workflow_run_id == ^run_id)
     |> order_by([step], asc: step.position)
+    |> Repo.all()
+  end
+
+  defp input_revision_ids(run_id) do
+    AnalysisInputRevision
+    |> where([input], input.workflow_run_id == ^run_id)
+    |> select([input], input.graph_revision_id)
     |> Repo.all()
   end
 

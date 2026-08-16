@@ -392,9 +392,24 @@ export interface DeleteFolderReply {
   status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
 }
 
+// NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
+export interface DocumentCatalogFilterOptions {
+  analysis_ids: string[];
+  graphs: DocumentCatalogGraphFilterOption[];
+  revision_kinds: string[];
+  strategies: string[];
+  types: string[];
+}
+
+// NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_graph_filter_option.ex)
+export interface DocumentCatalogGraphFilterOption {
+  id: string;
+  title: string;
+}
+
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_item.ex) — enum fields: kind
 export interface DocumentCatalogItem {
-  analysis_id?: string | null;
+  analysis_ids?: string[] | null;
   created_at: string;
   graph_id: string;
   graph_revision_id: string;
@@ -402,6 +417,8 @@ export interface DocumentCatalogItem {
   id: string;
   kind: "graph" | "simulation_report" | "optimization_report";
   output_graph_revision_id?: string | null;
+  output_revision_kind?: string | null;
+  output_revision_number?: number | null;
   revision_kind: string;
   revision_number: number;
   strategy?: string | null;
@@ -420,9 +437,23 @@ export interface ExperimentSummary {
   started_at: string;
 }
 
+// NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_payload.ex)
+export interface FetchDocumentCatalogPayload {
+  analysis_ids: string[];
+  graph_ids: string[];
+  limit: number;
+  offset: number;
+  revision_kinds: string[];
+  search: string;
+  strategies: string[];
+  types: string[];
+}
+
 // NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_reply.ex)
 export interface FetchDocumentCatalogReply {
+  filter_options: DocumentCatalogFilterOptions;
   items: DocumentCatalogItem[];
+  total_count: number;
 }
 
 // NetworkDefenseWeb.Web.Contracts.FetchExperimentsPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_payload.ex)

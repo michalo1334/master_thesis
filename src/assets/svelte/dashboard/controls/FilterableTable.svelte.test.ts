@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -515,5 +515,90 @@ describe("FilterableTable", () => {
 
     const alpha = screen.getByRole("checkbox", { name: /alpha/i });
     expect(alpha).toBeDisabled();
+  });
+
+  it("renders a supplied server page and reports search and page changes", async () => {
+    const onchange = vi.fn();
+    render(TypedFilterableTable, {
+      props: {
+        items: [items[0]],
+        columns,
+        getKey: (i: Item) => i.id,
+        perPage: 5,
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+        server: { totalCount: 10, page: 1, onchange },
+      },
+    });
+
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.queryByText("Beta")).not.toBeInTheDocument();
+    expect(screen.getByText("10 of 10")).toBeInTheDocument();
+
+    await fireEvent.input(screen.getByRole("searchbox"), {
+      target: { value: "remote" },
+    });
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+
+    expect(onchange).toHaveBeenNthCalledWith(1, {
+      search: "remote",
+      page: 1,
+      perPage: 5,
+    });
+    expect(onchange).toHaveBeenNthCalledWith(2, {
+      search: "remote",
+      page: 2,
+      perPage: 5,
+    });
+  });
+
+  it("reports adaptive server page sizes", async () => {
+    const originalClientHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "clientHeight",
+    );
+    let scrollHeight = 200;
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get() {
+        if (this.classList.contains("filterable-table-scroll")) {
+          return scrollHeight;
+        }
+        return this.tagName === "THEAD" ? 40 : 0;
+      },
+    });
+    try {
+      const onchange = vi.fn();
+      render(TypedFilterableTable, {
+        props: {
+          items: [items[0]],
+          columns,
+          getKey: (i: Item) => i.id,
+          perPage: "adaptive",
+          emptyMessage: "Empty",
+          noMatchMessage: "No match",
+          server: { totalCount: 10, page: 1, onchange },
+        },
+      });
+
+      scrollHeight = 240;
+      (globalThis.ResizeObserver as unknown as { notify: () => void }).notify();
+
+      await waitFor(() =>
+        expect(onchange).toHaveBeenCalledWith({
+          search: "",
+          page: 1,
+          perPage: 5,
+        }),
+      );
+    } finally {
+      if (originalClientHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "clientHeight",
+          originalClientHeight,
+        );
+      }
+    }
   });
 });

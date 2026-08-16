@@ -1,9 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import type { DashboardApi } from "../dashboard-api";
-  import type { DocumentCatalogItem } from "../contract";
+  import type { DashboardApi, DocumentCatalogQuery } from "../dashboard-api";
+  import type {
+    DocumentCatalogItem,
+    FetchDocumentCatalogReply,
+  } from "../contract";
   import FilterableTable from "../controls/FilterableTable.svelte";
-  import type { FilterableTableColumn } from "../controls/FilterableTable.types";
+  import type {
+    FilterableTableColumn,
+    FilterableTableServerQuery,
+  } from "../controls/FilterableTable.types";
   import MultiSelectFilter from "../controls/MultiSelectFilter.svelte";
   import type { MultiSelectFilterOption } from "../controls/MultiSelectFilter.svelte";
   import type { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
@@ -16,7 +22,16 @@
 
   let { document, api, onOpen }: Props = $props();
   let items = $state.raw<DocumentCatalogItem[]>([]);
+  let totalCount = $state(0);
+  let filterOptions = $state.raw<FetchDocumentCatalogReply["filter_options"]>({
+    types: [],
+    graphs: [],
+    analysis_ids: [],
+    strategies: [],
+    revision_kinds: [],
+  });
   let selectedKeys = $state<string[]>([]);
+  let visitedItems = $state.raw<Map<string, DocumentCatalogItem>>(new Map());
   let filters = $state({
     kind: [] as string[],
     analysisId: [] as string[],
@@ -26,12 +41,15 @@
   });
   let loadState = $state<"loading" | "ready" | "error">("loading");
   let isOpening = $state(false);
+  let search = $state("");
+  let page = $state(1);
+  let perPage = $state(8);
 
   const columns: readonly FilterableTableColumn<DocumentCatalogItem>[] = [
     {
       key: "kind",
       header: kindHeader,
-      getValue: kindLabel,
+      getValue: (item) => kindLabel(item.kind),
       filterable: true,
     },
     {
@@ -43,13 +61,13 @@
     {
       key: "revision",
       header: revisionKindHeader,
-      getValue: (item) => `${item.revision_kind} #${item.revision_number}`,
+      getValue: revisionLabel,
       filterable: true,
     },
     {
       key: "analysis",
       header: analysisHeader,
-      getValue: (item) => item.analysis_id ?? "",
+      getValue: analysisLabel,
       filterable: true,
     },
     {
@@ -66,40 +84,24 @@
     },
   ];
 
-  const filteredItems = $derived.by(() =>
-    items.filter(
-      (item) =>
-        matches(filters.kind, item.kind) &&
-        matches(filters.analysisId, item.analysis_id) &&
-        matches(filters.graphId, item.graph_id) &&
-        matches(filters.strategy, item.strategy) &&
-        matches(filters.revisionKind, item.revision_kind),
-    ),
+  const selectedItems = $derived.by(() =>
+    selectedKeys.flatMap((key) => {
+      const item = visitedItems.get(key);
+      return item ? [item] : [];
+    }),
   );
-  const selectedItems = $derived(
-    items.filter((item) => selectedKeys.includes(item.id)),
+  const kindOptions = $derived(
+    filterOptions.types.map((value) => ({ value, label: kindLabel(value) })),
   );
-  const kindOptions: readonly MultiSelectFilterOption[] = [
-    { value: "graph", label: "Graph" },
-    { value: "simulation_report", label: "Simulation report" },
-    { value: "optimization_report", label: "Optimization report" },
-  ];
-  const analysisOptions = $derived(optionsFor((item) => item.analysis_id));
-  const graphOptions = $derived.by(() =>
-    [
-      ...new Map(
-        items.map((item) => [item.graph_id, item.graph_title]),
-      ).entries(),
-    ]
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label)),
+  const analysisOptions = $derived(options(filterOptions.analysis_ids));
+  const graphOptions = $derived(
+    filterOptions.graphs.map(({ id, title }) => ({ value: id, label: title })),
   );
-  const strategyOptions = $derived(optionsFor((item) => item.strategy));
-  const revisionKindOptions = $derived(
-    optionsFor((item) => item.revision_kind),
-  );
+  const strategyOptions = $derived(options(filterOptions.strategies));
+  const revisionKindOptions = $derived(options(filterOptions.revision_kinds));
   const hasActiveFilters = $derived(
-    Object.values(filters).some((values) => values.length > 0),
+    search.length > 0 ||
+      Object.values(filters).some((values) => values.length > 0),
   );
   const emptyMessage = $derived(
     loadState === "loading"
@@ -116,59 +118,66 @@
   });
 
   async function loadCatalog(): Promise<void> {
+    const query = catalogQuery();
     loadState = "loading";
     try {
-      const refreshedItems = (await api.fetchDocumentCatalog()).items;
-      const hasValue = (
-        getValue: (item: DocumentCatalogItem) => string | null | undefined,
-        value: string,
-      ) => refreshedItems.some((item) => getValue(item) === value);
+      const reply = await api.fetchDocumentCatalog(query);
 
-      filters.kind = filters.kind.filter((value) =>
-        hasValue((item) => item.kind, value),
-      );
-      filters.analysisId = filters.analysisId.filter((value) =>
-        hasValue((item) => item.analysis_id, value),
-      );
-      filters.graphId = filters.graphId.filter((value) =>
-        hasValue((item) => item.graph_id, value),
-      );
-      filters.strategy = filters.strategy.filter((value) =>
-        hasValue((item) => item.strategy, value),
-      );
-      filters.revisionKind = filters.revisionKind.filter((value) =>
-        hasValue((item) => item.revision_kind, value),
-      );
-      const refreshedKeys = new Set(refreshedItems.map((item) => item.id));
-      selectedKeys = selectedKeys.filter((key) => refreshedKeys.has(key));
-      items = refreshedItems;
+      const finalPage = Math.max(1, Math.ceil(reply.total_count / query.limit));
+      if (reply.total_count > 0 && page > finalPage) {
+        page = finalPage;
+        void loadCatalog();
+        return;
+      }
+
+      items = reply.items;
+      totalCount = reply.total_count;
+      filterOptions = reply.filter_options;
+      visitedItems = new Map([
+        ...visitedItems,
+        ...reply.items.map((item) => [item.id, item] as const),
+      ]);
       loadState = "ready";
     } catch {
       items = [];
+      totalCount = 0;
       loadState = "error";
     }
   }
 
-  function optionsFor(
-    getValue: (item: DocumentCatalogItem) => string | null | undefined,
-  ): MultiSelectFilterOption[] {
-    return [...new Set(items.flatMap((item) => getValue(item) ?? []))]
-      .sort()
-      .map((value) => ({ value, label: value }));
+  function catalogQuery(): DocumentCatalogQuery {
+    return {
+      search,
+      types: [...filters.kind],
+      graph_ids: [...filters.graphId],
+      analysis_ids: [...filters.analysisId],
+      strategies: [...filters.strategy],
+      revision_kinds: [...filters.revisionKind],
+      limit: perPage,
+      offset: (page - 1) * perPage,
+    };
   }
 
-  function matches(
-    selectedValues: readonly string[],
-    value: string | null | undefined,
-  ): boolean {
-    return (
-      selectedValues.length === 0 || (!!value && selectedValues.includes(value))
-    );
+  function options(values: readonly string[]): MultiSelectFilterOption[] {
+    return values.map((value) => ({ value, label: value }));
   }
 
   function setFilter(key: keyof typeof filters, values: string[]): void {
     filters[key] = values;
     selectedKeys = [];
+    page = 1;
+    void loadCatalog();
+  }
+
+  function updateTableQuery({
+    search: nextSearch,
+    page: nextPage,
+    perPage: nextPerPage,
+  }: FilterableTableServerQuery): void {
+    search = nextSearch;
+    page = nextPage;
+    perPage = nextPerPage;
+    void loadCatalog();
   }
 
   async function openSelected(): Promise<void> {
@@ -190,10 +199,23 @@
     }
   }
 
-  function kindLabel(item: DocumentCatalogItem): string {
-    if (item.kind === "simulation_report") return "Simulation report";
-    if (item.kind === "optimization_report") return "Optimization report";
+  function kindLabel(kind: string): string {
+    if (kind === "simulation_report") return "Simulation report";
+    if (kind === "optimization_report") return "Optimization report";
     return "Graph";
+  }
+
+  function analysisLabel(item: DocumentCatalogItem): string {
+    const ids = item.analysis_ids ?? [];
+    return ids.length === 1 ? ids[0] : ids.length > 1 ? "many" : "";
+  }
+
+  function revisionLabel(item: DocumentCatalogItem): string {
+    const source = `${item.revision_kind} #${item.revision_number}`;
+    return item.output_revision_kind != null &&
+      item.output_revision_number != null
+      ? `${source} -> ${item.output_revision_kind} #${item.output_revision_number}`
+      : source;
   }
 </script>
 
@@ -291,12 +313,13 @@
   </header>
 
   <FilterableTable
-    items={filteredItems}
+    {items}
     {columns}
     getKey={(item) => item.id}
     selectionMode="multiple"
     bind:selectedKeys
     perPage="adaptive"
+    server={{ totalCount, page, onchange: updateTableQuery }}
     searchPlaceholder="Search documents…"
     {emptyMessage}
     noMatchMessage="No documents match the search."

@@ -14,7 +14,10 @@
   } from "@tanstack/table-core";
   import { Checkbox, Pagination, RadioGroup } from "bits-ui";
   import { untrack } from "svelte";
-  import type { FilterableTableColumn } from "./FilterableTable.types";
+  import type {
+    FilterableTableColumn,
+    FilterableTableServer,
+  } from "./FilterableTable.types";
 
   interface Props {
     items: readonly Item[];
@@ -28,6 +31,7 @@
     emptyMessage: string;
     noMatchMessage: string;
     disabled?: boolean;
+    server?: FilterableTableServer;
   }
 
   let {
@@ -42,6 +46,7 @@
     emptyMessage,
     noMatchMessage,
     disabled = false,
+    server = undefined,
   }: Props = $props();
 
   let search = $state("");
@@ -49,14 +54,11 @@
   let tableRev = $state(0);
   let scrollAreaHeight = $state(0);
   let headerHeight = $state(0);
+  let reportedServerPerPage: number | undefined;
   const rowHeight = 40;
 
   const effectivePerPage = $derived(
-    perPage === "adaptive"
-      ? scrollAreaHeight > headerHeight
-        ? Math.max(1, Math.floor((scrollAreaHeight - headerHeight) / rowHeight))
-        : 8
-      : perPage,
+    effectivePageSize(scrollAreaHeight, headerHeight),
   );
 
   const selectableKeys = $derived.by(
@@ -80,6 +82,8 @@
     Object.keys(rowSelection).filter((key) => rowSelection[key]),
   );
   const filteredCount = $derived.by(() => {
+    if (server) return server.totalCount;
+
     const query = search.toLowerCase();
     if (!query) return items.length;
 
@@ -95,7 +99,7 @@
     Math.max(0, Math.ceil(filteredCount / effectivePerPage) - 1),
   );
   const clampedPageIndex = $derived(
-    Math.min(Math.max(pageIndex, 0), lastPageIndex),
+    Math.min(Math.max(server ? server.page - 1 : pageIndex, 0), lastPageIndex),
   );
 
   const tanstackColumns = $derived<ColumnDef<Item, string>[]>(
@@ -119,8 +123,10 @@
         return tanstackColumns;
       },
       getCoreRowModel: getCoreRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
+      ...(!server && {
+        getFilteredRowModel: getFilteredRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+      }),
       globalFilterFn: "includesString" as const,
       renderFallbackValue: null,
       get state() {
@@ -157,7 +163,7 @@
     }),
   );
 
-  const totalCount = $derived(items.length);
+  const totalCount = $derived(server?.totalCount ?? items.length);
   const hasStatus = $derived(totalCount === 0 || filteredCount === 0);
   const showPagination = $derived(filteredCount > effectivePerPage);
 
@@ -165,8 +171,43 @@
     void tableRev;
     void clampedPageIndex;
     void effectivePerPage;
-    return table.getRowModel().rows;
+    return server ? table.getCoreRowModel().rows : table.getRowModel().rows;
   });
+
+  function effectivePageSize(scrollHeight: number, headHeight: number): number {
+    return perPage === "adaptive"
+      ? scrollHeight > headHeight
+        ? Math.max(1, Math.floor((scrollHeight - headHeight) / rowHeight))
+        : 8
+      : perPage;
+  }
+
+  function setScrollAreaHeight(height: number): void {
+    scrollAreaHeight = height;
+    reportServerPerPageSize();
+  }
+
+  function setHeaderHeight(height: number): void {
+    headerHeight = height;
+    reportServerPerPageSize();
+  }
+
+  function reportServerPerPageSize(): void {
+    const nextPerPage = effectivePageSize(scrollAreaHeight, headerHeight);
+    if (!server || perPage !== "adaptive") {
+      reportedServerPerPage = undefined;
+    } else if (
+      reportedServerPerPage !== undefined &&
+      reportedServerPerPage !== nextPerPage
+    ) {
+      server.onchange({
+        search,
+        page: clampedPageIndex + 1,
+        perPage: nextPerPage,
+      });
+    }
+    reportedServerPerPage = nextPerPage;
+  }
 
   function setSingleKey(key: string): void {
     if (disabled || selectionMode !== "single") return;
@@ -179,7 +220,32 @@
 
   function setMultiKeys(keys: string[]): void {
     if (disabled || selectionMode !== "multiple") return;
-    selectedKeys = [...new Set(keys)].filter((key) => selectableKeys.has(key));
+    const visibleKeys = [...new Set(keys)].filter((key) =>
+      selectableKeys.has(key),
+    );
+    selectedKeys = server
+      ? [
+          ...selectedKeys.filter((key) => !selectableKeys.has(key)),
+          ...visibleKeys,
+        ]
+      : visibleKeys;
+  }
+
+  function setSearch(value: string): void {
+    search = value;
+    if (server) {
+      server.onchange({ search, page: 1, perPage: effectivePerPage });
+    } else {
+      pageIndex = 0;
+    }
+  }
+
+  function setPage(page: number): void {
+    if (server) {
+      server.onchange({ search, page, perPage: effectivePerPage });
+    } else {
+      pageIndex = page - 1;
+    }
   }
 </script>
 
@@ -195,7 +261,7 @@
       class="filterable-table-search"
       type="search"
       placeholder={searchPlaceholder}
-      bind:value={search}
+      bind:value={() => search, setSearch}
       aria-label="Search"
       {disabled}
     />
@@ -236,7 +302,10 @@
     {/each}
   {/snippet}
 
-  <div class="filterable-table-scroll" bind:clientHeight={scrollAreaHeight}>
+  <div
+    class="filterable-table-scroll"
+    bind:clientHeight={null, setScrollAreaHeight}
+  >
     {#if hasStatus}
       <p class="filterable-table-message" role="status">
         {totalCount === 0 ? emptyMessage : noMatchMessage}
@@ -250,7 +319,7 @@
         onValueChange={setSingleKey}
       >
         <table class="filterable-table-table">
-          <thead bind:clientHeight={headerHeight}>
+          <thead bind:clientHeight={null, setHeaderHeight}>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
               {@render headers()}
@@ -294,7 +363,7 @@
         onValueChange={setMultiKeys}
       >
         <table class="filterable-table-table">
-          <thead bind:clientHeight={headerHeight}>
+          <thead bind:clientHeight={null, setHeaderHeight}>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
               {@render headers()}
@@ -333,7 +402,7 @@
       </Checkbox.Group>
     {:else}
       <table class="filterable-table-table">
-        <thead bind:clientHeight={headerHeight}>
+        <thead bind:clientHeight={null, setHeaderHeight}>
           <tr>
             {@render headers()}
           </tr>
@@ -362,7 +431,7 @@
       <Pagination.Root
         count={filteredCount}
         perPage={effectivePerPage}
-        bind:page={() => clampedPageIndex + 1, (page) => (pageIndex = page - 1)}
+        bind:page={() => clampedPageIndex + 1, setPage}
       >
         {#snippet children({ pages, currentPage })}
           <Pagination.PrevButton class="filterable-table-page-button">

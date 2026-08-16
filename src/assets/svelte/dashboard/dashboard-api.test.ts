@@ -155,7 +155,17 @@ describe("DashboardApi", () => {
   });
 
   it("fetches the document catalog through the LiveView reply callback", async () => {
-    const reply = { items: [] };
+    const reply = {
+      items: [],
+      total_count: 0,
+      filter_options: {
+        types: [],
+        graphs: [],
+        analysis_ids: [],
+        strategies: [],
+        revision_kinds: [],
+      },
+    };
     const live = {
       pushEvent: vi.fn((_, __, onReply) => {
         onReply(reply, 1);
@@ -164,11 +174,29 @@ describe("DashboardApi", () => {
     } as unknown as LiveServer;
 
     await expect(
-      createDashboardApi(live).fetchDocumentCatalog(),
+      createDashboardApi(live).fetchDocumentCatalog({
+        search: "gateway",
+        types: ["graph"],
+        graph_ids: ["graph-1"],
+        analysis_ids: ["analysis-1"],
+        strategies: ["greedy"],
+        revision_kinds: ["original"],
+        limit: 20,
+        offset: 40,
+      }),
     ).resolves.toEqual(reply);
     expect(live.pushEvent).toHaveBeenCalledWith(
       "fetch_document_catalog",
-      {},
+      {
+        search: "gateway",
+        types: ["graph"],
+        graph_ids: ["graph-1"],
+        analysis_ids: ["analysis-1"],
+        strategies: ["greedy"],
+        revision_kinds: ["original"],
+        limit: 20,
+        offset: 40,
+      },
       expect.any(Function),
     );
   });
