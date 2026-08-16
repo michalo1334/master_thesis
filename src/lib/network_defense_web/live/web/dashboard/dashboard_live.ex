@@ -168,7 +168,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
              assign(socket, :graph_summaries, graph_summaries())}
 
           {:error, reason} ->
-            {:reply, set_graph_analyses_reply(graph_analysis_error_status(reason), []), socket}
+            {:reply, set_graph_analyses_reply(status_error(reason, SetGraphAnalysesReply), []),
+             socket}
         end
 
       {:error, _changeset} ->
@@ -185,7 +186,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
             {:reply, set_report_analysis_reply("ok", analysis), socket}
 
           {:error, reason} ->
-            {:reply, set_report_analysis_reply(report_analysis_error_status(reason), nil), socket}
+            {:reply, set_report_analysis_reply(status_error(reason, SetReportAnalysisReply), nil),
+             socket}
         end
 
       {:error, _changeset} ->
@@ -213,7 +215,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
             {:reply, delete_folder_reply("ok"), refresh_folder_assigns(socket)}
 
           {:error, reason} ->
-            {:reply, delete_folder_reply(folder_delete_error_status(reason)), socket}
+            {:reply, delete_folder_reply(status_error(reason, DeleteFolderReply)), socket}
         end
 
       {:error, _changeset} ->
@@ -231,7 +233,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
              assign(socket, :graph_summaries, graph_summaries())}
 
           {:error, reason} ->
-            {:reply, move_graph_to_folder_reply(move_graph_error_status(reason)), socket}
+            {:reply, move_graph_to_folder_reply(status_error(reason, MoveGraphToFolderReply)),
+             socket}
         end
 
       {:error, _changeset} ->
@@ -870,22 +873,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp move_graph_to_folder_reply(status),
     do: contract_reply(MoveGraphToFolderReply, %{status: status})
 
-  defp folder_delete_error_status(:not_found), do: "not_found"
-  defp folder_delete_error_status(:invalid_folder), do: "invalid_folder"
-  defp folder_delete_error_status(_reason), do: "unmapped_error"
-
-  defp move_graph_error_status(:not_found), do: "not_found"
-  defp move_graph_error_status(:invalid_graph), do: "invalid_graph"
-  defp move_graph_error_status(:invalid_folder), do: "invalid_folder"
-  defp move_graph_error_status(:folder_not_found), do: "folder_not_found"
-  defp move_graph_error_status(_reason), do: "unmapped_error"
-
-  defp graph_analysis_error_status(:not_found), do: "not_found"
-  defp graph_analysis_error_status(:invalid_graph), do: "invalid_graph"
-  defp graph_analysis_error_status(:invalid_analyses), do: "invalid_analyses"
-
-  defp report_analysis_error_status(:not_found), do: "not_found"
-  defp report_analysis_error_status(:invalid_analysis), do: "invalid_analysis"
+  defp status_error(reason, reply_contract) do
+    %{enum_values: %{status: statuses}} = reply_contract.contract_meta()
+    if reason in statuses, do: Atom.to_string(reason), else: "unmapped_error"
+  end
 
   defp set_report_analysis(%{kind: "simulation_report"} = request) do
     with {:ok, experiment} <- Simulations.set_analysis(request.report_id, request.analysis_id) do

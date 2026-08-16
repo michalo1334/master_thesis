@@ -22,6 +22,8 @@ export type ErrorCode =
   | "task_unavailable"
   | "unknown_strategy"
   | "reachability_required"
+  | "invalid_analysis"
+  | "invalid_analyses"
   | "invalid_request";
 
 // NetworkDefense.Graph.Contracts.Data.AuthenticatesToData (lib/network_defense/graph/contracts/data/authenticates_to_data.ex) — enum fields: granted_privilege
