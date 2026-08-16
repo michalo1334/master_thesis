@@ -3,6 +3,7 @@ import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
+import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
   FolderSummary,
@@ -12,6 +13,7 @@ import type {
   OptimizationParams,
   SimulationParams,
   OptimizationStrategy,
+  DocumentCatalogItem,
 } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
@@ -224,6 +226,21 @@ export class WorkspaceModel {
     this.documents.push(doc);
     this.activateDocument(doc);
     return doc;
+  }
+
+  openDocumentCatalog(): DocumentCatalogDocument {
+    const existing = this.documents.find(
+      (document) => document.kind === "document-catalog",
+    ) as DocumentCatalogDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return existing;
+    }
+
+    const document = new DocumentCatalogDocument();
+    this.documents.push(document);
+    this.activateDocument(document);
+    return document;
   }
 
   selectDocument(id: string): void {
@@ -455,6 +472,87 @@ export class WorkspaceModel {
     }
   }
 
+  async openCatalogItem(
+    api: DashboardApi,
+    item: DocumentCatalogItem,
+  ): Promise<boolean> {
+    if (item.kind === "graph") {
+      return this.openGraphRevision(api, item.graph_revision_id);
+    }
+
+    if (item.kind === "simulation_report") {
+      return this.openHistoricalSimulationReport(api, item);
+    }
+
+    return this.openHistoricalOptimizationReport(api, item);
+  }
+
+  openHistoricalSimulationReport(
+    api: DashboardApi,
+    item: DocumentCatalogItem,
+  ): boolean {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "simulation-report" &&
+        document.experimentId === item.id,
+    ) as SimulationReportDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
+    const report = new SimulationReportDocument(
+      item.graph_title,
+      item.graph_id,
+      item.graph_revision_id,
+    );
+    this.documents.push(report);
+    this.activateDocument(report);
+    report.load(api, report.id, item.id, item.graph_revision_id);
+    return true;
+  }
+
+  openHistoricalOptimizationReport(
+    api: DashboardApi,
+    item: DocumentCatalogItem,
+  ): boolean {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "optimization-report" &&
+        document.optimizationId === item.id,
+    ) as OptimizationReportDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
+    const report = new OptimizationReportDocument({
+      graphId: item.graph_id,
+      graphRevisionId: item.graph_revision_id,
+      graphTitle: item.graph_title,
+      strategy: catalogOptimizationStrategy(item.strategy),
+      budget: 0,
+    });
+    this.documents.push(report);
+    this.activateDocument(report);
+    const optimizedGraphRevisionId = item.output_graph_revision_id;
+    if (optimizedGraphRevisionId) {
+      report.markReady(
+        item.id,
+        optimizedGraphRevisionId,
+        () => this.openOptimizationResult(api, optimizedGraphRevisionId),
+        () =>
+          this.loadOptimizationGraphDiff(
+            api,
+            item.graph_revision_id,
+            optimizedGraphRevisionId,
+          ),
+      );
+    }
+    report.load(api, report.id, item.id, item.graph_revision_id);
+    return true;
+  }
+
   async openOptimizationResult(
     api: DashboardApi,
     graphRevisionId: string,
@@ -676,6 +774,8 @@ export class WorkspaceModel {
     if (typeId === "graph") {
       this.topologyPickerOpen = true;
       this.topologyPickerStatus = "";
+    } else if (typeId === "document-catalog") {
+      this.openDocumentCatalog();
     }
   }
 
@@ -692,5 +792,19 @@ export class WorkspaceModel {
     this.documents.push(document);
     this.activateDocument(document);
     return document;
+  }
+}
+
+function catalogOptimizationStrategy(
+  strategy: string | null | undefined,
+): OptimizationStrategy {
+  switch (strategy) {
+    case "simulation_informed":
+    case "topology_segmentation":
+    case "simulated_annealing":
+    case "cvss":
+      return strategy;
+    default:
+      return "cvss";
   }
 }

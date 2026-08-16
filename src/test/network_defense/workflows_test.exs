@@ -8,9 +8,11 @@ defmodule NetworkDefense.WorkflowsTest do
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
+  alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Simulation.Contracts.SimulationParams
+  alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Workflows
   alias NetworkDefense.Workflows.{StepWorker, WorkflowRun, WorkflowStep}
 
@@ -101,6 +103,21 @@ defmodule NetworkDefense.WorkflowsTest do
 
     assert post_optimization.output["graph_revision_id"] ==
              optimization.output["output_graph_revision_id"]
+
+    analysis_id = run.id
+    assert %{analysis_id: ^analysis_id} = Experiments.get(baseline.output["experiment_id"])
+
+    assert %{analysis_id: ^analysis_id} =
+             OptimizationRuns.load(optimization.output["optimization_run_id"])
+
+    assert %{analysis_id: ^analysis_id} =
+             Experiments.get(post_optimization.output["experiment_id"])
+
+    assert %{analysisId: ^analysis_id} =
+             Enum.find(
+               Graphs.list_summaries(),
+               &(&1.revisionId == optimization.output["output_graph_revision_id"])
+             )
 
     assert_receive {:workflow_completed, %{workflow_id: workflow_id, outputs: outputs}}
 

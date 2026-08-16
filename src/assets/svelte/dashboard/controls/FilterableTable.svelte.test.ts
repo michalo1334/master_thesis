@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/svelte";
 import type { Component } from "svelte";
 import FilterableTable from "./FilterableTable.svelte";
 import type { FilterableTableColumn } from "./FilterableTable.types";
@@ -217,11 +223,10 @@ describe("FilterableTable", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent("Nothing here");
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(container.querySelector("table")).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      container.querySelector(".filterable-table-root"),
+    ).not.toHaveAttribute("aria-hidden");
     expect(container.querySelectorAll("thead th")).toHaveLength(
       columns.length + 1,
     );
@@ -249,11 +254,10 @@ describe("FilterableTable", () => {
     await fireEvent.input(search, { target: { value: "nothingmatches" } });
 
     expect(screen.getByRole("status")).toHaveTextContent("No matches");
-    expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(container.querySelector("table")).toHaveAttribute(
-      "aria-hidden",
-      "true",
-    );
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(
+      container.querySelector(".filterable-table-root"),
+    ).not.toHaveAttribute("aria-hidden");
     expect(container.querySelectorAll("thead th")).toHaveLength(
       columns.length + 1,
     );
@@ -294,6 +298,89 @@ describe("FilterableTable", () => {
       expect(screen.getByText(`Item ${i}`)).toBeInTheDocument();
     }
     expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
+  });
+
+  it("clamps pagination immediately when filtering reduces the page count", async () => {
+    const manyItems: Item[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `item-${i + 1}`,
+      title: `Item ${i + 1}`,
+      count: i + 1,
+    }));
+    render(TypedFilterableTable, {
+      props: {
+        items: manyItems,
+        columns,
+        getKey: (i: Item) => i.id,
+        perPage: 5,
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+      },
+    });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+    await fireEvent.input(screen.getByRole("searchbox"), {
+      target: { value: "Item 1" },
+    });
+
+    expect(screen.getByText("Item 1")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("clamps the adaptive page after a larger resize", async () => {
+    const originalClientHeight = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "clientHeight",
+    );
+    let scrollHeight = 200;
+
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get() {
+        if (this.classList.contains("filterable-table-scroll")) {
+          return scrollHeight;
+        }
+        return this.tagName === "THEAD" ? 40 : 0;
+      },
+    });
+    try {
+      const manyItems: Item[] = Array.from({ length: 10 }, (_, i) => ({
+        id: `item-${i + 1}`,
+        title: `Item ${i + 1}`,
+        count: i + 1,
+      }));
+      render(TypedFilterableTable, {
+        props: {
+          items: manyItems,
+          columns,
+          getKey: (i: Item) => i.id,
+          perPage: "adaptive",
+          emptyMessage: "Empty",
+          noMatchMessage: "No match",
+        },
+      });
+
+      expect(screen.getByText("Item 4")).toBeInTheDocument();
+      expect(screen.queryByText("Item 5")).not.toBeInTheDocument();
+
+      await fireEvent.click(screen.getByRole("button", { name: "Page 3" }));
+      expect(screen.getByText("Item 9")).toBeInTheDocument();
+
+      scrollHeight = 400;
+      (globalThis.ResizeObserver as unknown as { notify: () => void }).notify();
+
+      await waitFor(() =>
+        expect(screen.getByText("Item 10")).toBeInTheDocument(),
+      );
+      expect(screen.queryByText("Item 1")).not.toBeInTheDocument();
+    } finally {
+      if (originalClientHeight) {
+        Object.defineProperty(
+          HTMLElement.prototype,
+          "clientHeight",
+          originalClientHeight,
+        );
+      }
+    }
   });
 
   it("reserves per-page rows without exposing spacers to assistive technology", async () => {
@@ -382,27 +469,35 @@ describe("FilterableTable", () => {
       },
     });
 
-    await fireEvent.click(screen.getByRole("checkbox", { name: /alpha/i }));
+    const alpha = screen.getByRole("checkbox", { name: /alpha/i });
+    await fireEvent.click(alpha);
     await fireEvent.click(screen.getByRole("checkbox", { name: /beta/i }));
 
-    expect(screen.getByRole("checkbox", { name: /alpha/i })).toBeChecked();
+    expect(alpha).toBeChecked();
+    expect(
+      alpha.querySelector(".filterable-table-checkbox"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /beta/i })).toBeChecked();
   });
 
-  it("seeds initial selection once on mount", () => {
+  it("ignores externally supplied disabled and absent selected keys", () => {
     render(TypedFilterableTable, {
       props: {
         items,
         columns,
         getKey: (i: Item) => i.id,
         selectionMode: "multiple",
-        initialSelectedKeys: ["alpha"],
+        selectedKeys: ["gamma", "missing"],
+        isDisabled: (i: Item) => i.disabled ?? false,
         emptyMessage: "Empty",
         noMatchMessage: "No match",
       },
     });
 
-    expect(screen.getByRole("checkbox", { name: /alpha/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /gamma/i })).not.toBeChecked();
+    expect(
+      document.querySelector('tr[data-selected="true"]'),
+    ).not.toBeInTheDocument();
   });
 
   it("locks selection when the global disabled flag is set", () => {

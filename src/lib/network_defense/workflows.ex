@@ -207,7 +207,7 @@ defmodule NetworkDefense.Workflows do
        do: {step, outputs}
 
   defp prepare_resource(template, run, step, outputs) do
-    case template.prepare(step.name, run.input, outputs, nil) do
+    case template.prepare(step.name, Map.put(run.input, "analysis_id", run.id), outputs, nil) do
       {:ok, resource_id} ->
         step = step |> Ecto.Changeset.change(resource_id: resource_id) |> Repo.update!()
         {step, outputs}

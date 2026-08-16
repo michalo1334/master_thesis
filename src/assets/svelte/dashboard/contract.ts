@@ -59,6 +59,8 @@ import type {
   FetchGraphProjectionPayload,
   FetchGraphProjectionReply,
   GraphProjectionOperationalFlow,
+  FetchDocumentCatalogReply,
+  DocumentCatalogItem,
   DashboardError,
   ErrorCode,
 } from "../contracts.generated";
@@ -141,6 +143,8 @@ export type {
   FetchGraphProjectionPayload,
   FetchGraphProjectionReply,
   GraphProjectionOperationalFlow,
+  FetchDocumentCatalogReply,
+  DocumentCatalogItem,
   SimulationReportErrorEvent,
   DashboardError,
   ErrorCode,

@@ -51,6 +51,7 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     fetchOptimizationRuns: vi.fn(),
     fetchGraphConnectivity: vi.fn(),
     fetchGraphProjection: vi.fn(),
+    fetchDocumentCatalog: vi.fn(),
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
     compareGraphs: vi.fn(),

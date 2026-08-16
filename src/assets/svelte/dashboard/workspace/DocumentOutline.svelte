@@ -20,6 +20,18 @@
     | { type: "folder"; folder: FolderSummary }
     | { type: "reports"; folderId: string | null };
 
+  const documentTypeByKind = {
+    graph: "Graph",
+    "graph-diff": "Comparison",
+    "simulation-report": "Report",
+    "optimization-report": "Report",
+    "comparison-report": "Report",
+    "document-catalog": "Table",
+  } satisfies Record<
+    WorkspaceDocument["kind"],
+    "Graph" | "Comparison" | "Report" | "Table"
+  >;
+
   interface Props {
     documents: readonly WorkspaceDocument[];
     folders?: readonly FolderSummary[];
@@ -136,15 +148,25 @@
     document: WorkspaceDocument,
     graphSummaries: readonly GraphSummary[],
   ): string | null | undefined {
-    const graphId =
-      document.kind === "graph"
-        ? document.graph.id
-        : isReport(document)
-          ? document.graphId
-          : graphSummaries.find(
-              (summary) => summary.revision_id === document.baseRevisionId,
-            )?.graph_id;
-    return graphId ? folderIdForGraphId(graphId, graphSummaries) : undefined;
+    if (document.kind === "graph") {
+      const graphId = document.graph.id;
+      return graphId ? folderIdForGraphId(graphId, graphSummaries) : undefined;
+    }
+
+    if (isReport(document)) {
+      return document.graphId
+        ? folderIdForGraphId(document.graphId, graphSummaries)
+        : undefined;
+    }
+
+    if (document.kind === "graph-diff") {
+      const graphId = graphSummaries.find(
+        (summary) => summary.revision_id === document.baseRevisionId,
+      )?.graph_id;
+      return graphId ? folderIdForGraphId(graphId, graphSummaries) : undefined;
+    }
+
+    return undefined;
   }
 
   function rowKey(row: OutlineRow): string {
@@ -164,6 +186,8 @@
     if (isGraphDiff(document)) {
       return graphsByRevisionId.get(document.baseRevisionId);
     }
+
+    if (document.kind === "document-catalog") return undefined;
 
     if (!document.loadedRevisionId || !document.graph.parent_revision_id)
       return undefined;
@@ -188,10 +212,8 @@
 
   function documentType(
     document: WorkspaceDocument,
-  ): "Graph" | "Comparison" | "Report" {
-    if (document.kind === "graph") return "Graph";
-    if (document.kind === "graph-diff") return "Comparison";
-    return "Report";
+  ): "Graph" | "Comparison" | "Report" | "Table" {
+    return documentTypeByKind[document.kind];
   }
 
   function graphId(document: WorkspaceDocument): string | undefined {

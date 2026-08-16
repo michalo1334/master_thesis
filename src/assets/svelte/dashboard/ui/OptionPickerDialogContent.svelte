@@ -43,20 +43,17 @@
 
   let isConfirming = $state(false);
   let confirmationError = $state("");
-  let draftKeys = $state<string[]>([]);
-  let initialSeeded = $state(false);
+  let draftKeys = $state<string[]>(initialDraftKeys());
 
-  $effect(() => {
-    if (initialSeeded) return;
-    initialSeeded = true;
+  function initialDraftKeys(): string[] {
     const enabledKeys = new Set(
       items.filter((item) => !isDisabled?.(item)).map((item) => getKey(item)),
     );
     const valid = [...new Set(initialSelection)].filter((key) =>
       enabledKeys.has(key),
     );
-    draftKeys = mode === "single" ? valid.slice(0, 1) : valid;
-  });
+    return mode === "single" ? valid.slice(0, 1) : valid;
+  }
 
   const selectedItems = $derived(
     items.filter((item) => draftKeys.includes(getKey(item))),
@@ -102,7 +99,6 @@
         {getKey}
         selectionMode={mode}
         bind:selectedKeys={draftKeys}
-        initialSelectedKeys={initialSelection}
         {isDisabled}
         {perPage}
         {searchPlaceholder}

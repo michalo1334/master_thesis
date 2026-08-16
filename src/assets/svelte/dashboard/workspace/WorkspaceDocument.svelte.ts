@@ -3,6 +3,7 @@ import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
+import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
 
@@ -39,7 +40,8 @@ export type WorkspaceDocument =
   | GraphDiffDocument
   | SimulationReportDocument
   | OptimizationReportDocument
-  | ComparisonReportDocument;
+  | ComparisonReportDocument
+  | DocumentCatalogDocument;
 
 export function isReport(
   document: WorkspaceDocument,

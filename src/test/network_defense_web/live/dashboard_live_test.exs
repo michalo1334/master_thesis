@@ -119,6 +119,33 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
+  describe "fetch_document_catalog" do
+    test "returns persisted graph revisions as catalog items", %{conn: conn} do
+      graph = insert_graph("catalog-graph")
+      graph_id = graph.id
+      graph_revision_id = graph.revision_id
+
+      {:ok, view, _html} = live(conn, ~p"/")
+      render_hook(view, "fetch_document_catalog", %{})
+
+      assert_reply(view, %{items: items})
+
+      assert %{
+               id: ^graph_revision_id,
+               kind: "graph",
+               graph_id: ^graph_id,
+               graph_revision_id: ^graph_revision_id,
+               graph_title: "catalog-graph",
+               analysis_id: nil,
+               revision_kind: "initial",
+               revision_number: 1,
+               strategy: nil,
+               output_graph_revision_id: nil,
+               created_at: _created_at
+             } = Enum.find(items, &(&1.id == graph_revision_id))
+    end
+  end
+
   describe "graph drafts" do
     test "returns a validated node draft", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")

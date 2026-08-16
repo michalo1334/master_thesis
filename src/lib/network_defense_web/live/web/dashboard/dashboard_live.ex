@@ -25,6 +25,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     CompareGraphsReply,
     FetchGraphProjectionPayload,
     FetchGraphProjectionReply,
+    FetchDocumentCatalogReply,
     CreateFolderPayload,
     CreateFolderReply,
     CreateNodeDraftPayload,
@@ -408,6 +409,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
+  def handle_event("fetch_document_catalog", _params, socket) do
+    {:ok, reply} = FetchDocumentCatalogReply.validate(%{items: document_catalog()})
+    {:reply, FetchDocumentCatalogReply.to_wire(reply), socket}
+  end
+
+  @impl true
   def handle_info({:simulation_completed, payload}, socket) do
     {:noreply,
      push_contract_event(socket, "simulation_completed", SimulationCompletedEvent, payload)}
@@ -698,6 +705,68 @@ defmodule NetworkDefenseWeb.DashboardLive do
         {:error, _changeset} -> []
       end
     end)
+  end
+
+  defp document_catalog do
+    graphs = Graphs.list_summaries()
+    graph_revision_ids = Enum.map(graphs, & &1.revisionId)
+
+    graph_items =
+      Enum.map(graphs, fn graph ->
+        %{
+          id: graph.revisionId,
+          kind: "graph",
+          graph_id: graph.graphId,
+          graph_revision_id: graph.revisionId,
+          graph_title: graph.title,
+          analysis_id: graph.analysisId,
+          revision_kind: graph.revisionKind,
+          revision_number: graph.revisionNumber,
+          strategy: nil,
+          output_graph_revision_id: nil,
+          created_at: DateTime.to_iso8601(graph.insertedAt)
+        }
+      end)
+
+    experiment_items =
+      graph_revision_ids
+      |> Simulations.list_experiments()
+      |> Enum.map(fn experiment ->
+        %{
+          id: experiment.id,
+          kind: "simulation_report",
+          graph_id: experiment.graph_revision.graph_id,
+          graph_revision_id: experiment.graph_revision_id,
+          graph_title: experiment.graph_revision.title,
+          analysis_id: experiment.analysis_id,
+          revision_kind: Atom.to_string(experiment.graph_revision.kind),
+          revision_number: experiment.graph_revision.number,
+          strategy: nil,
+          output_graph_revision_id: nil,
+          created_at: DateTime.to_iso8601(experiment.inserted_at)
+        }
+      end)
+
+    optimization_items =
+      graph_revision_ids
+      |> Optimizations.list_runs()
+      |> Enum.map(fn run ->
+        %{
+          id: run.id,
+          kind: "optimization_report",
+          graph_id: run.graph_revision.graph_id,
+          graph_revision_id: run.graph_revision_id,
+          graph_title: run.graph_revision.title,
+          analysis_id: run.analysis_id,
+          revision_kind: Atom.to_string(run.graph_revision.kind),
+          revision_number: run.graph_revision.number,
+          strategy: run.strategy,
+          output_graph_revision_id: run.output_graph_revision_id,
+          created_at: DateTime.to_iso8601(run.inserted_at)
+        }
+      end)
+
+    graph_items ++ experiment_items ++ optimization_items
   end
 
   defp folder_summaries do

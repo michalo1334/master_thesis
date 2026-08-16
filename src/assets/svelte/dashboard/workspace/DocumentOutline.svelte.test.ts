@@ -4,6 +4,7 @@ import type { GraphDiffResult, LoadedGraph } from "../contract";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
+import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import DocumentOutline from "./DocumentOutline.svelte";
 
 function graph(
@@ -209,6 +210,21 @@ describe("DocumentOutline", () => {
     });
 
     expect(depth("Graph Child")).toBe("0");
+  });
+
+  it("shows the Documents catalog as a root Table", () => {
+    const catalog = new DocumentCatalogDocument();
+
+    render(DocumentOutline, {
+      props: {
+        documents: [catalog],
+        collapsed: false,
+        onCollapsedChange: vi.fn(),
+        onSelectDocument: vi.fn(),
+      },
+    });
+
+    expect(depth("Table Documents")).toBe("0");
   });
 
   it("places reports without an open graph in the Reports group", () => {

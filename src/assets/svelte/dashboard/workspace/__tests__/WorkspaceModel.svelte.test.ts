@@ -7,6 +7,7 @@ import type {
 } from "../../contract";
 import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
+import type { DocumentCatalogItem } from "../../contract";
 
 function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   return {
@@ -165,6 +166,122 @@ describe("WorkspaceModel", () => {
     it("no-ops for unknown type", () => {
       model.handleCreateDocument("unknown");
       expect(model.topologyPickerOpen).toBe(false);
+    });
+
+    it("opens one Documents catalog tab", () => {
+      model.handleCreateDocument("document-catalog");
+      const catalog = model.activeDocument;
+      model.handleCreateDocument("document-catalog");
+
+      expect(catalog?.kind).toBe("document-catalog");
+      expect(catalog?.title).toBe("Documents");
+      expect(model.documents).toEqual([catalog]);
+    });
+  });
+
+  describe("openCatalogItem", () => {
+    const simulation: DocumentCatalogItem = {
+      id: "simulation-1",
+      kind: "simulation_report",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      graph_title: "Topology",
+      revision_kind: "original",
+      revision_number: 1,
+      created_at: "2026-01-01T00:00:00Z",
+    };
+
+    const optimization: DocumentCatalogItem = {
+      ...simulation,
+      id: "optimization-1",
+      kind: "optimization_report",
+      strategy: "cvss",
+    };
+
+    it("loads historical reports once and focuses existing tabs", async () => {
+      const api = { requestReport: vi.fn() } as unknown as DashboardApi;
+
+      await model.openCatalogItem(api, simulation);
+      const simulationReport = model.activeDocument;
+      await model.openCatalogItem(api, simulation);
+      await model.openCatalogItem(api, optimization);
+      const optimizationReport = model.activeDocument;
+      await model.openCatalogItem(api, optimization);
+
+      expect(model.documents).toEqual([simulationReport, optimizationReport]);
+      expect(model.activeDocument).toBe(optimizationReport);
+      if (
+        !optimizationReport ||
+        optimizationReport.kind !== "optimization-report"
+      ) {
+        throw new Error("Expected optimization report");
+      }
+      expect(optimizationReport.openOptimizedGraph).toBeUndefined();
+      expect(optimizationReport.graphDiff).toBeUndefined();
+      expect(api.requestReport).toHaveBeenCalledTimes(2);
+      expect(api.requestReport).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          type: "simulation",
+          reportId: "simulation-1",
+        }),
+      );
+      expect(api.requestReport).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          type: "optimization",
+          reportId: "optimization-1",
+        }),
+      );
+    });
+
+    it("prepares optimized graph actions for historical reports with an output revision", async () => {
+      const api = {
+        requestReport: vi.fn(),
+        openGraph: vi.fn((revisionId: string) =>
+          Promise.resolve({
+            status: "ok" as const,
+            graph: makeLoadedGraph({ revision_id: revisionId }),
+          }),
+        ),
+        compareGraphs: vi.fn().mockResolvedValue({
+          status: "ok",
+          result: {
+            graph: makeLoadedGraph(),
+            node_status: [],
+            edge_status: [],
+            node_counts: { added: 0, removed: 0, unchanged: 0 },
+            edge_counts: { added: 0, removed: 0, unchanged: 0 },
+          },
+        }),
+      } as unknown as DashboardApi;
+      const item: DocumentCatalogItem = {
+        ...optimization,
+        output_graph_revision_id: "optimized-r1",
+      };
+
+      await model.openCatalogItem(api, item);
+
+      const report = model.activeDocument;
+      if (!report || report.kind !== "optimization-report") {
+        throw new Error("Expected optimization report");
+      }
+      expect(report.optimizedGraphRevisionId).toBe("optimized-r1");
+      expect(report.status).toBe("loading");
+      expect(api.requestReport).toHaveBeenCalledWith({
+        type: "optimization",
+        documentId: report.id,
+        reportId: "optimization-1",
+        graphRevisionId: "r1",
+      });
+
+      await expect(report.openOptimizedGraph?.()).resolves.toBe(true);
+      expect(model.activeGraph?.loadedRevisionId).toBe("optimized-r1");
+      await expect(report.loadGraphDiff()).resolves.toBe(true);
+
+      expect(api.openGraph).toHaveBeenCalledWith("optimized-r1");
+      expect(api.openGraph).toHaveBeenCalledWith("r1");
+      expect(api.compareGraphs).toHaveBeenCalledWith("r1", "optimized-r1");
     });
   });
 

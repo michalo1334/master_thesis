@@ -4,6 +4,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
 
   alias NetworkDefense.Graph.GraphRevision
   alias NetworkDefense.Optimization.OptimizationAction
+  alias NetworkDefense.Workflows.WorkflowRun
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -11,6 +12,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
   @type t :: %__MODULE__{
           id: String.t() | nil,
           graph_revision_id: String.t() | nil,
+          analysis_id: String.t() | nil,
           output_graph_revision_id: String.t() | nil,
           actions: list(OptimizationAction.t()) | Ecto.Association.NotLoaded.t(),
           strategy: String.t() | nil,
@@ -25,6 +27,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
 
   schema "optimization_runs" do
     belongs_to :graph_revision, GraphRevision
+    belongs_to :analysis, WorkflowRun
     belongs_to :output_graph_revision, GraphRevision
     has_many :actions, OptimizationAction, foreign_key: :optimization_run_id
 
@@ -44,6 +47,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     run
     |> cast(attrs, [
       :graph_revision_id,
+      :analysis_id,
       :output_graph_revision_id,
       :strategy,
       :objective,
@@ -63,6 +67,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     |> validate_inclusion(:status, ["running", "completed", "failed"])
     |> validate_output_revision()
     |> foreign_key_constraint(:graph_revision_id)
+    |> foreign_key_constraint(:analysis_id)
     |> foreign_key_constraint(:output_graph_revision_id)
   end
 
@@ -72,6 +77,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     %__MODULE__{
       id: Ecto.UUID.generate(),
       graph_revision_id: Map.get(attrs, :graph_revision_id),
+      analysis_id: Map.get(attrs, :analysis_id),
       strategy: Map.fetch!(attrs, :strategy),
       objective: Map.get(attrs, :objective, "blast_radius"),
       requested_budget: Map.fetch!(attrs, :requested_budget),

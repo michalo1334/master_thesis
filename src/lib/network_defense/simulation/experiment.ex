@@ -6,6 +6,7 @@ defmodule NetworkDefense.Simulation.Experiment do
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Workflows.WorkflowRun
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -13,6 +14,7 @@ defmodule NetworkDefense.Simulation.Experiment do
   @type t :: %__MODULE__{
           id: String.t() | nil,
           graph_revision_id: String.t() | nil,
+          analysis_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           master_seed: Seed.seed(),
           iteration_count: non_neg_integer(),
@@ -27,6 +29,7 @@ defmodule NetworkDefense.Simulation.Experiment do
 
   schema "experiments" do
     belongs_to :graph_revision, GraphRevision
+    belongs_to :analysis, WorkflowRun
     field :graph, :any, virtual: true
 
     field :master_seed, :integer
@@ -71,6 +74,7 @@ defmodule NetworkDefense.Simulation.Experiment do
     |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, ["running", "failed", "completed"])
     |> foreign_key_constraint(:graph_revision_id)
+    |> foreign_key_constraint(:analysis_id)
   end
 
   def new(attrs) do
@@ -80,6 +84,7 @@ defmodule NetworkDefense.Simulation.Experiment do
       id: Ecto.UUID.generate(),
       graph_revision_id:
         Map.get(attrs, :graph_revision_id) || graph_revision_id(Map.get(attrs, :graph)),
+      analysis_id: Map.get(attrs, :analysis_id),
       graph: Map.get(attrs, :graph),
       master_seed: Map.fetch!(attrs, :master_seed),
       iteration_count: Map.fetch!(attrs, :iteration_count),

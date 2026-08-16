@@ -23,8 +23,10 @@ defmodule NetworkDefense.Graph.Graphs do
           title: String.t(),
           revisionKind: String.t(),
           revisionNumber: pos_integer(),
+          insertedAt: DateTime.t(),
           nodeCount: non_neg_integer(),
           edgeCount: non_neg_integer(),
+          analysisId: Ecto.UUID.t() | nil,
           isFavorite: boolean()
         }
 
@@ -95,8 +97,10 @@ defmodule NetworkDefense.Graph.Graphs do
       title: revision.title,
       revisionKind: revision.kind,
       revisionNumber: revision.number,
+      insertedAt: revision.inserted_at,
       nodeCount: coalesce(node_count.count, 0),
       edgeCount: coalesce(edge_count.count, 0),
+      analysisId: revision.analysis_id,
       isFavorite: not is_nil(favorite.graph_revision_id)
     })
     |> Repo.all()
@@ -139,24 +143,34 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   @spec append_optimization(Graph.t()) :: result(Graph.t())
-  def append_optimization(%Graph{} = graph), do: append(graph, :optimization)
+  def append_optimization(%Graph{} = graph), do: append(graph, :optimization, nil)
 
   @spec append_optimization(Graph.t(), append_callback(term())) ::
           result(term())
   def append_optimization(%Graph{} = graph, after_append) when is_function(after_append, 1),
-    do: append(graph, :optimization, after_append)
+    do: append(graph, :optimization, nil, after_append)
 
-  defp append(%Graph{} = graph, kind, after_append \\ fn persisted -> {:ok, persisted} end) do
+  @spec append_optimization(Graph.t(), Ecto.UUID.t(), append_callback(term())) :: result(term())
+  def append_optimization(%Graph{} = graph, analysis_id, after_append)
+      when (is_nil(analysis_id) or is_binary(analysis_id)) and is_function(after_append, 1),
+      do: append(graph, :optimization, analysis_id, after_append)
+
+  defp append(
+         %Graph{} = graph,
+         kind,
+         analysis_id,
+         after_append \\ fn persisted -> {:ok, persisted} end
+       ) do
     with {:ok, parent_revision_id} <- base_revision_id(%{"revision_id" => graph.revision_id}),
          {:ok, candidate} <- candidate_graph(graph.id, graph_attrs(graph)) do
       transaction(fn ->
-        append_and_after(graph.id, parent_revision_id, candidate, kind, after_append)
+        append_and_after(graph.id, parent_revision_id, candidate, kind, analysis_id, after_append)
       end)
     end
   end
 
-  defp append_and_after(graph_id, parent_revision_id, candidate, kind, after_append) do
-    case append_from_graph(graph_id, parent_revision_id, candidate, kind) do
+  defp append_and_after(graph_id, parent_revision_id, candidate, kind, analysis_id, after_append) do
+    case append_from_graph(graph_id, parent_revision_id, candidate, kind, analysis_id) do
       {:ok, persisted} ->
         case after_append.(persisted) do
           {:ok, _value} = result -> result
@@ -168,14 +182,15 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  defp append_revision(graph, kind, parent_revision_id) do
+  defp append_revision(graph, kind, parent_revision_id, analysis_id \\ nil) do
     number = next_revision_number(graph.id)
 
     revision_changeset =
       %GraphRevision{
         id: Ecto.UUID.generate(),
         graph_id: graph.id,
-        parent_revision_id: parent_revision_id
+        parent_revision_id: parent_revision_id,
+        analysis_id: analysis_id
       }
       |> GraphRevision.changeset(%{number: number, kind: kind, title: graph.title})
 
@@ -239,18 +254,18 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  defp append_from_graph(graph_id, parent_revision_id, candidate, kind) do
+  defp append_from_graph(graph_id, parent_revision_id, candidate, kind, analysis_id) do
     lock_graph(graph_id)
-    |> append_from_locked_graph(parent_revision_id, candidate, kind)
+    |> append_from_locked_graph(parent_revision_id, candidate, kind, analysis_id)
   end
 
-  defp append_from_locked_graph(nil, _parent_revision_id, _candidate, _kind),
+  defp append_from_locked_graph(nil, _parent_revision_id, _candidate, _kind, _analysis_id),
     do: {:error, :not_found}
 
-  defp append_from_locked_graph(graph, parent_revision_id, candidate, kind) do
+  defp append_from_locked_graph(graph, parent_revision_id, candidate, kind, analysis_id) do
     case revision_for_graph(graph.id, parent_revision_id) do
       nil -> {:error, :invalid_base_revision}
-      parent -> append_revision(candidate, kind, parent.id)
+      parent -> append_revision(candidate, kind, parent.id, analysis_id)
     end
   end
 

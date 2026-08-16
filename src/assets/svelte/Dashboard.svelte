@@ -12,6 +12,7 @@
   import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
   import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
   import ComparisonReport from "./dashboard/comparison-report/ComparisonReport.svelte";
+  import DocumentCatalog from "./dashboard/document-catalog/DocumentCatalog.svelte";
   import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
@@ -19,7 +20,9 @@
   import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
   import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
   import type { ComparisonReportDocument } from "./dashboard/comparison-report/ComparisonReportDocument.svelte";
+  import type { DocumentCatalogDocument } from "./dashboard/document-catalog/DocumentCatalogDocument.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
+  import type { IconName } from "./dashboard/types";
   import { arrangeNetwork } from "./dashboard/graph/network/NetworkCanvasLayout";
 
   interface Props {
@@ -31,13 +34,14 @@
   const wm = $derived(model.workspace);
   const api = $derived(model.api);
 
-  type DocType = { id: string; label: string; icon: "graph" | "shield" };
+  type DocType = { id: string; label: string; icon: IconName };
   type OptimizationOption = SplitButtonOption & {
     id: OptimizationParams["strategy"];
   };
 
   const documentTypes: readonly DocType[] = [
     { id: "graph", label: "Graph", icon: "graph" },
+    { id: "document-catalog", label: "Documents", icon: "squares-2x2" },
   ];
 
   const optimizationOptions: readonly OptimizationOption[] = [
@@ -178,6 +182,12 @@
       <OptimizationReport document={document as OptimizationReportDocument} />
     {:else if document.kind === "comparison-report"}
       <ComparisonReport document={document as ComparisonReportDocument} />
+    {:else if document.kind === "document-catalog"}
+      <DocumentCatalog
+        document={document as DocumentCatalogDocument}
+        {api}
+        onOpen={(item) => wm.openCatalogItem(api, item)}
+      />
     {/if}
   {/snippet}
 

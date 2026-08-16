@@ -49,7 +49,7 @@ defmodule NetworkDefense.Analysis.CombinedAnalysisWorkflow do
 
   def prepare(@optimization_step, input, _outputs, nil) do
     with {:ok, request} <- optimization_request(input),
-         {:ok, run} <- Optimizations.prepare(request) do
+         {:ok, run} <- Optimizations.prepare(request, input["analysis_id"]) do
       {:ok, run.id}
     end
   end
@@ -90,7 +90,7 @@ defmodule NetworkDefense.Analysis.CombinedAnalysisWorkflow do
 
   defp prepare_simulation(revision_id, input) do
     with {:ok, params} <- simulation_params(input),
-         {:ok, experiment} <- Simulations.prepare(revision_id, params) do
+         {:ok, experiment} <- Simulations.prepare(revision_id, params, input["analysis_id"]) do
       {:ok, experiment.id}
     end
   end

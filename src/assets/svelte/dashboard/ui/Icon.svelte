@@ -9,6 +9,7 @@
   const iconClasses: Record<IconName, string> = {
     shield: "hero-shield-check",
     search: "hero-magnifying-glass",
+    filter: "hero-funnel",
     help: "hero-question-mark-circle",
     cursor: "hero-cursor-arrow-rays",
     link: "hero-link",

@@ -1,6 +1,7 @@
 export type IconName =
   | "shield"
   | "search"
+  | "filter"
   | "help"
   | "cursor"
   | "link"

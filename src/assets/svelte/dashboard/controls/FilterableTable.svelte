@@ -22,9 +22,8 @@
     getKey: (item: Item) => string;
     selectionMode?: "single" | "multiple" | "none";
     selectedKeys?: string[];
-    initialSelectedKeys?: readonly string[];
     isDisabled?: (item: Item) => boolean;
-    perPage?: number;
+    perPage?: number | "adaptive";
     searchPlaceholder?: string;
     emptyMessage: string;
     noMatchMessage: string;
@@ -37,7 +36,6 @@
     getKey,
     selectionMode = "none",
     selectedKeys = $bindable([]),
-    initialSelectedKeys = [],
     isDisabled = undefined,
     perPage = 8,
     searchPlaceholder = "Search…",
@@ -48,9 +46,57 @@
 
   let search = $state("");
   let pageIndex = $state(0);
-  let rowSelection = $state<RowSelectionState>({});
-  let initialSeeded = $state(false);
   let tableRev = $state(0);
+  let scrollAreaHeight = $state(0);
+  let headerHeight = $state(0);
+  const rowHeight = 40;
+
+  const effectivePerPage = $derived(
+    perPage === "adaptive"
+      ? scrollAreaHeight > headerHeight
+        ? Math.max(1, Math.floor((scrollAreaHeight - headerHeight) / rowHeight))
+        : 8
+      : perPage,
+  );
+
+  const selectableKeys = $derived.by(
+    () =>
+      new Set(
+        items.filter((item) => !isDisabled?.(item)).map((item) => getKey(item)),
+      ),
+  );
+  const rowSelection = $derived.by<RowSelectionState>(() => {
+    if (selectionMode === "none") return {};
+
+    const keys = selectedKeys.filter((key) => selectableKeys.has(key));
+    const selected = selectionMode === "single" ? keys.slice(-1) : keys;
+
+    return Object.fromEntries(selected.map((key) => [key, true]));
+  });
+  const singleSelectedKey = $derived(
+    Object.keys(rowSelection).find((key) => rowSelection[key]) ?? "",
+  );
+  const multipleSelectedKeys = $derived(
+    Object.keys(rowSelection).filter((key) => rowSelection[key]),
+  );
+  const filteredCount = $derived.by(() => {
+    const query = search.toLowerCase();
+    if (!query) return items.length;
+
+    return items.filter((item) =>
+      columns.some(
+        (column) =>
+          column.filterable &&
+          column.getValue(item).toLowerCase().includes(query),
+      ),
+    ).length;
+  });
+  const lastPageIndex = $derived(
+    Math.max(0, Math.ceil(filteredCount / effectivePerPage) - 1),
+  );
+  const clampedPageIndex = $derived(
+    Math.min(Math.max(pageIndex, 0), lastPageIndex),
+  );
 
   const tanstackColumns = $derived<ColumnDef<Item, string>[]>(
     columns.map((c) => ({
@@ -64,150 +110,76 @@
     })),
   );
 
-  const table: Table<Item> = createTable<Item>({
-    get data() {
-      return items as Item[];
-    },
-    get columns() {
-      return tanstackColumns;
-    },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    globalFilterFn: "includesString" as const,
-    renderFallbackValue: null,
-    get state() {
-      return {
-        get globalFilter() {
-          return search;
-        },
-        get pagination() {
-          return { pageIndex, pageSize: perPage };
-        },
-        get rowSelection() {
-          return rowSelection;
-        },
-      };
-    },
-    onStateChange: (updater) => {
-      const oldState = table.getState();
-      const newState: TableState =
-        typeof updater === "function" ? updater(oldState) : updater;
-      untrack(() => {
-        if (newState.globalFilter !== search) search = newState.globalFilter;
-        if (newState.pagination.pageIndex !== pageIndex) {
-          pageIndex = newState.pagination.pageIndex;
-        }
-        if (!rowSelectionEqual(newState.rowSelection, rowSelection)) {
-          rowSelection = newState.rowSelection;
-        }
-        tableRev++;
-      });
-    },
-    enableRowSelection: (row) =>
-      selectionMode !== "none" && !disabled && !isDisabled?.(row.original),
-    get enableMultiRowSelection() {
-      return selectionMode === "multiple";
-    },
-    getRowId: (item: Item, index: number) => getKey(item) || String(index),
-  });
+  const table = $derived.by<Table<Item>>(() =>
+    createTable<Item>({
+      get data() {
+        return items as Item[];
+      },
+      get columns() {
+        return tanstackColumns;
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      globalFilterFn: "includesString" as const,
+      renderFallbackValue: null,
+      get state() {
+        return {
+          get globalFilter() {
+            return search;
+          },
+          get pagination() {
+            return { pageIndex: clampedPageIndex, pageSize: effectivePerPage };
+          },
+          get rowSelection() {
+            return rowSelection;
+          },
+        };
+      },
+      onStateChange: (updater) => {
+        const oldState = table.getState();
+        const newState: TableState =
+          typeof updater === "function" ? updater(oldState) : updater;
+        untrack(() => {
+          if (newState.globalFilter !== search) search = newState.globalFilter;
+          if (newState.pagination.pageIndex !== clampedPageIndex) {
+            pageIndex = newState.pagination.pageIndex;
+          }
+          tableRev++;
+        });
+      },
+      enableRowSelection: (row) =>
+        selectionMode !== "none" && !disabled && !isDisabled?.(row.original),
+      get enableMultiRowSelection() {
+        return selectionMode === "multiple";
+      },
+      getRowId: (item: Item, index: number) => getKey(item) || String(index),
+    }),
+  );
 
-  $effect(() => {
-    const t = table;
-    void tableRev;
-    t.setOptions((prev) => ({
-      ...prev,
-      data: items as Item[],
-      columns: tanstackColumns,
-    }));
-  });
-
-  $effect(() => {
-    if (initialSeeded) return;
-    initialSeeded = true;
-    if (initialSelectedKeys.length === 0) return;
-    const initial: RowSelectionState = {};
-    for (const item of items) {
-      const key = getKey(item);
-      if (initialSelectedKeys.includes(key) && !isDisabled?.(item)) {
-        initial[key] = true;
-      }
-    }
-    untrack(() => {
-      rowSelection = initial;
-      pageIndex = 0;
-      tableRev++;
-    });
-  });
-
-  $effect(() => {
-    if (selectionMode === "none") return;
-    const keys = Object.keys(rowSelection).filter((k) => rowSelection[k]);
-    const normalized =
-      selectionMode === "single"
-        ? keys.length > 0
-          ? [keys[keys.length - 1]]
-          : []
-        : keys;
-    if (
-      selectedKeys.length === normalized.length &&
-      selectedKeys.every((k, i) => k === normalized[i])
-    ) {
-      return;
-    }
-    selectedKeys = normalized;
-  });
-
-  $effect(() => {
-    if (selectionMode === "none") return;
-    const record: RowSelectionState = {};
-    for (const k of selectedKeys) record[k] = true;
-    if (!rowSelectionEqual(rowSelection, record)) {
-      untrack(() => {
-        rowSelection = record;
-        tableRev++;
-      });
-    }
-  });
-
-  const filteredCount = $derived.by(() => {
-    void tableRev;
-    return table.getFilteredRowModel().rows.length;
-  });
   const totalCount = $derived(items.length);
   const hasStatus = $derived(totalCount === 0 || filteredCount === 0);
-  const showPagination = $derived(filteredCount > perPage);
+  const showPagination = $derived(filteredCount > effectivePerPage);
 
   const visibleRows = $derived.by(() => {
     void tableRev;
+    void clampedPageIndex;
+    void effectivePerPage;
     return table.getRowModel().rows;
   });
 
   function setSingleKey(key: string): void {
-    const record: RowSelectionState = key ? { [key]: true } : {};
-    untrack(() => {
-      rowSelection = record;
-      tableRev++;
-    });
+    if (disabled || selectionMode !== "single") return;
+    if (!key) {
+      selectedKeys = [];
+    } else if (selectableKeys.has(key)) {
+      selectedKeys = [key];
+    }
   }
 
   function setMultiKeys(keys: string[]): void {
-    const record: RowSelectionState = {};
-    for (const k of keys) record[k] = true;
-    untrack(() => {
-      rowSelection = record;
-      tableRev++;
-    });
-  }
-
-  function rowSelectionEqual(
-    a: RowSelectionState,
-    b: RowSelectionState,
-  ): boolean {
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
-    return aKeys.every((k) => a[k] === b[k]);
+    if (disabled || selectionMode !== "multiple") return;
+    selectedKeys = [...new Set(keys)].filter((key) => selectableKeys.has(key));
   }
 </script>
 
@@ -215,6 +187,8 @@
   class="filterable-table"
   data-selection={selectionMode}
   data-disabled={disabled || undefined}
+  data-adaptive={perPage === "adaptive" || undefined}
+  style:--filterable-table-row-height={`${rowHeight}px`}
 >
   <div class="filterable-table-toolbar">
     <input
@@ -231,7 +205,7 @@
   </div>
 
   {#snippet spacerRows(columnCount: number)}
-    {#each { length: Math.max(0, perPage - visibleRows.length) }}
+    {#each { length: Math.max(0, effectivePerPage - visibleRows.length) }}
       <tr aria-hidden="true">
         {#if selectionMode !== "none"}
           <td class="filterable-table-select">
@@ -250,7 +224,19 @@
     {/each}
   {/snippet}
 
-  <div class="filterable-table-scroll">
+  {#snippet headers()}
+    {#each columns as col (col.key)}
+      <th class:filterable-table-align-end={col.align === "end"}>
+        {#if typeof col.header === "string"}
+          {col.header}
+        {:else}
+          {@render col.header()}
+        {/if}
+      </th>
+    {/each}
+  {/snippet}
+
+  <div class="filterable-table-scroll" bind:clientHeight={scrollAreaHeight}>
     {#if hasStatus}
       <p class="filterable-table-message" role="status">
         {totalCount === 0 ? emptyMessage : noMatchMessage}
@@ -260,22 +246,14 @@
     {#if selectionMode === "single"}
       <RadioGroup.Root
         class="filterable-table-root"
-        value={Object.keys(rowSelection).find((k) => rowSelection[k]) ?? ""}
+        value={singleSelectedKey}
         onValueChange={setSingleKey}
-        aria-hidden={hasStatus || undefined}
       >
-        <table
-          class="filterable-table-table"
-          aria-hidden={hasStatus || undefined}
-        >
-          <thead>
+        <table class="filterable-table-table">
+          <thead bind:clientHeight={headerHeight}>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
-              {#each columns as col (col.key)}
-                <th class:filterable-table-align-end={col.align === "end"}>
-                  {col.header}
-                </th>
-              {/each}
+              {@render headers()}
             </tr>
           </thead>
           <tbody>
@@ -312,22 +290,14 @@
     {:else if selectionMode === "multiple"}
       <Checkbox.Group
         class="filterable-table-root"
-        value={Object.keys(rowSelection).filter((k) => rowSelection[k])}
+        value={multipleSelectedKeys}
         onValueChange={setMultiKeys}
-        aria-hidden={hasStatus || undefined}
       >
-        <table
-          class="filterable-table-table"
-          aria-hidden={hasStatus || undefined}
-        >
-          <thead>
+        <table class="filterable-table-table">
+          <thead bind:clientHeight={headerHeight}>
             <tr>
               <th class="filterable-table-select" aria-label="Select"></th>
-              {#each columns as col (col.key)}
-                <th class:filterable-table-align-end={col.align === "end"}>
-                  {col.header}
-                </th>
-              {/each}
+              {@render headers()}
             </tr>
           </thead>
           <tbody>
@@ -362,17 +332,10 @@
         </table>
       </Checkbox.Group>
     {:else}
-      <table
-        class="filterable-table-table"
-        aria-hidden={hasStatus || undefined}
-      >
-        <thead>
+      <table class="filterable-table-table">
+        <thead bind:clientHeight={headerHeight}>
           <tr>
-            {#each columns as col (col.key)}
-              <th class:filterable-table-align-end={col.align === "end"}>
-                {col.header}
-              </th>
-            {/each}
+            {@render headers()}
           </tr>
         </thead>
         <tbody>
@@ -398,8 +361,8 @@
     <div class="filterable-table-pagination">
       <Pagination.Root
         count={filteredCount}
-        {perPage}
-        bind:page={() => pageIndex + 1, (page) => (pageIndex = page - 1)}
+        perPage={effectivePerPage}
+        bind:page={() => clampedPageIndex + 1, (page) => (pageIndex = page - 1)}
       >
         {#snippet children({ pages, currentPage })}
           <Pagination.PrevButton class="filterable-table-page-button">
@@ -486,6 +449,10 @@
     background: var(--ds-color-paper);
   }
 
+  .filterable-table[data-adaptive] {
+    height: 100%;
+  }
+
   .filterable-table-message {
     position: absolute;
     z-index: 2;
@@ -523,6 +490,10 @@
     border-bottom: 1px solid var(--ds-color-border-soft);
     color: var(--ds-color-text);
     vertical-align: middle;
+  }
+
+  .filterable-table[data-adaptive] .filterable-table-table tbody tr {
+    height: var(--filterable-table-row-height);
   }
 
   .filterable-table-table tbody tr:last-child td {
@@ -587,8 +558,19 @@
     box-shadow: inset 0 0 0 0.25rem var(--ds-color-paper);
   }
 
-  :global(.filterable-table-control[data-checkbox-root][data-state="checked"]) {
-    box-shadow: inset 0 0 0 0.25rem var(--ds-color-accent);
+  .filterable-table-checkbox {
+    display: block;
+    width: 0.375rem;
+    height: 0.625rem;
+    border-right: 2px solid transparent;
+    border-bottom: 2px solid transparent;
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: border-color 0.1s;
+  }
+
+  :global(.filterable-table-control[data-checkbox-root][data-state="checked"])
+    .filterable-table-checkbox {
+    border-color: var(--ds-color-paper);
   }
 
   :global(.filterable-table-control:focus-visible) {

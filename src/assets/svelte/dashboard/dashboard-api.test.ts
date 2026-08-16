@@ -154,6 +154,25 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("fetches the document catalog through the LiveView reply callback", async () => {
+    const reply = { items: [] };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).fetchDocumentCatalog(),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "fetch_document_catalog",
+      {},
+      expect.any(Function),
+    );
+  });
+
   it("requests an optimization report and fetches saved optimization runs", async () => {
     const reply = { runs: [] };
     const live = {

@@ -51,9 +51,15 @@ defmodule NetworkDefense.Optimizations do
 
   @spec prepare(RunOptimizationRequest.t()) :: result()
   def prepare(%RunOptimizationRequest{} = request) do
+    prepare(request, nil)
+  end
+
+  @spec prepare(RunOptimizationRequest.t(), Ecto.UUID.t() | nil) :: result()
+  def prepare(%RunOptimizationRequest{} = request, analysis_id)
+      when is_nil(analysis_id) or is_binary(analysis_id) do
     with {:ok, graph} <- load_graph(request),
          {:ok, strategy} <- strategy_for(graph, request) do
-      persist_run(graph, request, strategy)
+      persist_run(graph, request, strategy, analysis_id)
     end
   end
 
@@ -102,15 +108,16 @@ defmodule NetworkDefense.Optimizations do
 
   defp run_async(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request),
-         {:ok, run} <- persist_run(graph, request, strategy) do
+         {:ok, run} <- persist_run(graph, request, strategy, nil) do
       start_optimization(graph, request, run, strategy)
     end
   end
 
-  defp persist_run(graph, request, strategy) do
+  defp persist_run(graph, request, strategy, analysis_id) do
     run =
       OptimizationRun.new(
         graph_revision_id: graph.revision_id,
+        analysis_id: analysis_id,
         strategy: request.optimization_params.strategy,
         objective: request.optimization_params.objective,
         requested_budget: request.optimization_params.budget,
@@ -229,7 +236,7 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp complete_optimization(graph, request, run, result, runtime_us) do
-    case Graphs.append_optimization(result.graph, fn persisted_graph ->
+    case Graphs.append_optimization(result.graph, run.analysis_id, fn persisted_graph ->
            OptimizationRuns.complete(run, %{
              actions: Enum.map(result.actions, &action_attrs/1),
              used_budget: result.budget_used,
