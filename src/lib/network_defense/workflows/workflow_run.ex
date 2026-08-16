@@ -10,6 +10,7 @@ defmodule NetworkDefense.Workflows.WorkflowRun do
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
+          title: String.t() | nil,
           template: String.t() | nil,
           correlation_id: String.t() | nil,
           input: map() | nil,
@@ -19,6 +20,7 @@ defmodule NetworkDefense.Workflows.WorkflowRun do
         }
 
   schema "workflow_runs" do
+    field :title, :string
     field :template, :string
     field :correlation_id, :string
     field :input, :map
@@ -32,8 +34,8 @@ defmodule NetworkDefense.Workflows.WorkflowRun do
 
   def changeset(run, attrs) do
     run
-    |> cast(attrs, [:template, :correlation_id, :input, :status, :error])
-    |> validate_required([:template, :input, :status])
+    |> cast(attrs, [:title, :template, :correlation_id, :input, :status, :error])
+    |> validate_required([:title, :template, :input, :status])
     |> validate_inclusion(:status, ["running", "completed", "failed"])
     |> unique_constraint([:template, :correlation_id])
   end

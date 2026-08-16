@@ -4,7 +4,14 @@ defmodule NetworkDefense.Workflows do
   import Ecto.Query
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Workflows.{AnalysisInputRevision, StepWorker, WorkflowRun, WorkflowStep}
+
+  alias NetworkDefense.Workflows.{
+    AnalysisInputRevision,
+    AnalysisTitle,
+    StepWorker,
+    WorkflowRun,
+    WorkflowStep
+  }
 
   @workflow_events_topic "workflow_events"
 
@@ -105,7 +112,11 @@ defmodule NetworkDefense.Workflows do
     Repo.transaction(fn ->
       run =
         %WorkflowRun{}
-        |> WorkflowRun.changeset(%{template: template_name, input: input})
+        |> WorkflowRun.changeset(%{
+          title: AnalysisTitle.generate(),
+          template: template_name,
+          input: input
+        })
         |> Repo.insert!()
 
       insert_input_revision(run)
@@ -160,6 +171,7 @@ defmodule NetworkDefense.Workflows do
       candidate =
         %WorkflowRun{}
         |> WorkflowRun.changeset(%{
+          title: AnalysisTitle.generate(),
           template: template_name,
           correlation_id: correlation_id,
           input: input

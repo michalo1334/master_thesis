@@ -21,7 +21,7 @@ const items: DocumentCatalogItem[] = [
     graph_id: "graph-1",
     graph_revision_id: "revision-1",
     graph_title: "Gateway",
-    analysis_ids: [],
+    analyses: [{ id: "analysis-1", title: "Baseline risk" }],
     revision_kind: "original",
     revision_number: 1,
     created_at: "2026-01-01T00:00:00Z",
@@ -32,7 +32,10 @@ const items: DocumentCatalogItem[] = [
     graph_id: "graph-2",
     graph_revision_id: "revision-2",
     graph_title: "Branch",
-    analysis_ids: ["analysis-1", "analysis-2"],
+    analyses: [
+      { id: "analysis-1", title: "Baseline risk" },
+      { id: "analysis-2", title: "Network hardening" },
+    ],
     revision_kind: "optimization",
     revision_number: 4,
     output_revision_kind: "optimization",
@@ -55,7 +58,10 @@ function reply(
         { id: "graph-1", title: "Gateway" },
         { id: "graph-2", title: "Branch" },
       ],
-      analysis_ids: ["analysis-1", "analysis-2"],
+      analyses: [
+        { id: "analysis-1", title: "Baseline risk" },
+        { id: "analysis-2", title: "Network hardening" },
+      ],
       strategies: ["greedy"],
       revision_kinds: ["original", "optimization"],
     },
@@ -71,28 +77,31 @@ function renderCatalog(api: DashboardApi, onOpen = vi.fn()) {
 afterEach(cleanup);
 
 describe("DocumentCatalog", () => {
-  it("uses catalog replies for rows, options, analysis, and output revisions", async () => {
+  it("shows analysis titles and uses an Analyses filter", async () => {
     const api = {
       fetchDocumentCatalog: vi.fn().mockResolvedValue(reply()),
     } as unknown as DashboardApi;
 
     renderCatalog(api);
 
-    await waitFor(() => expect(screen.getByText("many")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Baseline risk")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Multiple analyses")).toBeInTheDocument();
     expect(
       screen.getByText("optimization #4 -> optimization #23"),
     ).toBeInTheDocument();
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
 
     await fireEvent.click(
-      screen.getByRole("button", { name: "Analysis ID filter, 0 selected" }),
+      screen.getByRole("button", { name: "Analyses filter, 0 selected" }),
     );
     expect(
-      screen.getByRole("checkbox", { name: "analysis-1" }),
+      screen.getByRole("checkbox", { name: "Baseline risk" }),
     ).toBeInTheDocument();
   });
 
-  it("sends filters to the backend and clears the selection", async () => {
+  it("sends selected analysis UUIDs to the backend and clears the selection", async () => {
     const api = {
       fetchDocumentCatalog: vi.fn().mockResolvedValue(reply()),
     } as unknown as DashboardApi;
@@ -107,10 +116,10 @@ describe("DocumentCatalog", () => {
       screen.getByRole("checkbox", { name: "Select graph-1" }),
     );
     await fireEvent.click(
-      screen.getByRole("button", { name: "Type filter, 0 selected" }),
+      screen.getByRole("button", { name: "Analyses filter, 0 selected" }),
     );
     await fireEvent.click(
-      screen.getByRole("checkbox", { name: "Optimization report" }),
+      screen.getByRole("checkbox", { name: "Baseline risk" }),
     );
 
     await waitFor(() =>
@@ -118,9 +127,9 @@ describe("DocumentCatalog", () => {
     );
     expect(api.fetchDocumentCatalog).toHaveBeenLastCalledWith({
       search: "",
-      types: ["optimization_report"],
+      types: [],
       graph_ids: [],
-      analysis_ids: [],
+      analysis_ids: ["analysis-1"],
       strategies: [],
       revision_kinds: [],
       limit: 8,
@@ -136,7 +145,7 @@ describe("DocumentCatalog", () => {
       {
         ...items[1],
         id: "optimization-2",
-        analysis_ids: ["analysis-1"],
+        analyses: [{ id: "analysis-1", title: "Baseline risk" }],
       },
     ];
     const api = {

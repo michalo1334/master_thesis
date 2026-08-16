@@ -15,6 +15,8 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   readonly id: string;
   readonly graphId: string;
   readonly graphRevisionId: string;
+  readonly analysisId?: string;
+  readonly analysisTitle?: string;
 
   title = $state<string>("");
   status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
@@ -31,12 +33,19 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   completedRuns = $state(0);
   totalRuns = $state(0);
 
-  constructor(graphTitle: string, graphId: string, graphRevisionId: string) {
+  constructor(
+    graphTitle: string,
+    graphId: string,
+    graphRevisionId: string,
+    analysis: { analysisId?: string; analysisTitle?: string } = {},
+  ) {
     super();
     this.id = crypto.randomUUID();
     this.title = `Report for ${graphTitle}`;
     this.graphId = graphId;
     this.graphRevisionId = graphRevisionId;
+    this.analysisId = analysis.analysisId;
+    this.analysisTitle = analysis.analysisTitle;
   }
 
   markPending(correlationId: string): void {

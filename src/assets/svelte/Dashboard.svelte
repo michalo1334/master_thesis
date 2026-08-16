@@ -154,6 +154,7 @@
     <DashboardInspector
       document={wm.activeDocument}
       summaries={wm.graphSummaries}
+      onOpenParent={(revisionId) => void wm.openGraphRevision(api, revisionId)}
     />
   {/snippet}
 

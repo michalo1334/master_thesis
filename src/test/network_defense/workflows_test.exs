@@ -18,6 +18,9 @@ defmodule NetworkDefense.WorkflowsTest do
 
   test "runs a generic two-step template linearly" do
     assert {:ok, run} = Workflows.start("two_step", %{})
+    assert is_binary(run.title)
+    assert [first_adjective, second_adjective, _noun] = String.split(run.title, " ")
+    refute first_adjective == second_adjective
 
     assert :ok = perform_job(StepWorker, %{"workflow_run_id" => run.id, "step_position" => 1})
     assert_receive {:workflow_template_prepare, "first", true}

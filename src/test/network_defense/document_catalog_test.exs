@@ -24,8 +24,12 @@ defmodule NetworkDefense.DocumentCatalogTest do
     catalog = DocumentCatalog.document_catalog(filters())
 
     assert catalog.total_count == baseline_count + 5
-    assert %{analysis_ids: [input_id]} = Enum.find(catalog.items, &(&1.id == alpha.revision_id))
+
+    assert %{analyses: [%{id: input_id, title: input_title}]} =
+             Enum.find(catalog.items, &(&1.id == alpha.revision_id))
+
     assert input_id == input.id
+    assert input_title == input.title
 
     assert %{output_revision_kind: nil, output_revision_number: nil} =
              Enum.find(catalog.items, &(&1.id == alpha.revision_id))
@@ -44,7 +48,8 @@ defmodule NetworkDefense.DocumentCatalogTest do
     assert catalog.items
            |> Enum.filter(&(&1.graph_id == alpha.id))
            |> Enum.all?(fn item ->
-             item.analysis_ids
+             item.analyses
+             |> Enum.map(& &1.id)
              |> MapSet.new()
              |> MapSet.subset?(MapSet.new([producer.id, input.id]))
            end)
@@ -52,7 +57,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
     assert %{
              types: types,
              graphs: graphs,
-             analysis_ids: analysis_ids,
+             analyses: analyses,
              strategies: strategies,
              revision_kinds: revision_kinds
            } = catalog.filter_options
@@ -61,8 +66,10 @@ defmodule NetworkDefense.DocumentCatalogTest do
     assert "optimization_report" in types
     assert "simulation_report" in types
     assert Map.fetch!(Map.new(graphs, &{&1.id, &1.title}), alpha.id) == alpha_title
-    assert producer.id in analysis_ids
-    assert input.id in analysis_ids
+
+    assert %{producer.id => producer.title, input.id => input.title} ==
+             Map.new(analyses, &{&1.id, &1.title})
+
     assert "cvss" in strategies
     assert "initial" in revision_kinds
 

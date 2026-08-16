@@ -303,15 +303,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, %{request: request}} ->
         case start_workflow(request) do
           {:ok, run} ->
-            {:reply, workflow_request_reply("accepted", run.id, nil),
+            {:reply, workflow_request_reply("accepted", run.id, run.title, nil),
              put_flash(socket, :info, "Workflow started.")}
 
           {:error, reason} ->
-            {:reply, workflow_request_reply("rejected", nil, reason), socket}
+            {:reply, workflow_request_reply("rejected", nil, nil, reason), socket}
         end
 
       {:error, _changeset} ->
-        {:reply, workflow_request_reply("rejected", nil, :invalid_request), socket}
+        {:reply, workflow_request_reply("rejected", nil, nil, :invalid_request), socket}
     end
   end
 
@@ -761,10 +761,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
     })
   end
 
-  defp workflow_request_reply(status, workflow_id, error) do
+  defp workflow_request_reply(status, workflow_id, title, error) do
     contract_reply(RunWorkflowReply, %{
       status: status,
       workflow_id: workflow_id,
+      title: title,
       error: dashboard_error(error)
     })
   end

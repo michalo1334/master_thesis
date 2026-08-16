@@ -249,6 +249,23 @@ export class WorkspaceModel {
     );
   }
 
+  reorderDocuments(draggedId: string, targetId: string): void {
+    const draggedIndex = this.documents.findIndex(
+      (document) => document.id === draggedId,
+    );
+    const targetIndex = this.documents.findIndex(
+      (document) => document.id === targetId,
+    );
+    if (draggedIndex < 0 || targetIndex < 0 || draggedId === targetId) {
+      return;
+    }
+
+    const documents = [...this.documents];
+    const [dragged] = documents.splice(draggedIndex, 1);
+    documents.splice(targetIndex, 0, dragged!);
+    this.documents = documents;
+  }
+
   activateDocument(document: WorkspaceDocument | undefined): void {
     this.selectedDocumentId = document?.id;
     this.ensureInitialFoothold(document);
@@ -505,6 +522,7 @@ export class WorkspaceModel {
       item.graph_title,
       item.graph_id,
       item.graph_revision_id,
+      catalogAnalysis(item),
     );
     this.documents.push(report);
     this.activateDocument(report);
@@ -532,6 +550,7 @@ export class WorkspaceModel {
       graphTitle: item.graph_title,
       strategy: catalogOptimizationStrategy(item.strategy),
       budget: 0,
+      ...catalogAnalysis(item),
     });
     this.documents.push(report);
     this.activateDocument(report);
@@ -601,6 +620,8 @@ export class WorkspaceModel {
     graphRevisionId: string;
     correlationId?: string;
     graphTitle: string;
+    analysisId?: string;
+    analysisTitle?: string;
   }): SimulationReportDocument {
     const existing = info.correlationId
       ? (this.documents.find(
@@ -619,6 +640,7 @@ export class WorkspaceModel {
         info.graphTitle,
         info.graphId,
         info.graphRevisionId,
+        info,
       );
       if (info.correlationId) report.markPending(info.correlationId);
       this.documents.push(report);
@@ -634,6 +656,8 @@ export class WorkspaceModel {
     correlationId?: string;
     strategy: OptimizationStrategy;
     budget: number;
+    analysisId?: string;
+    analysisTitle?: string;
   }): OptimizationReportDocument {
     const existing = info.correlationId
       ? (this.documents.find(
@@ -807,4 +831,14 @@ function catalogOptimizationStrategy(
     default:
       return "cvss";
   }
+}
+
+function catalogAnalysis(item: DocumentCatalogItem): {
+  analysisId?: string;
+  analysisTitle?: string;
+} {
+  const analysis = item.analyses[0];
+  return analysis
+    ? { analysisId: analysis.id, analysisTitle: analysis.title }
+    : {};
 }

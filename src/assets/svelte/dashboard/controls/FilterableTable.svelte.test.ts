@@ -533,7 +533,7 @@ describe("FilterableTable", () => {
 
     expect(screen.getByText("Alpha")).toBeInTheDocument();
     expect(screen.queryByText("Beta")).not.toBeInTheDocument();
-    expect(screen.getByText("10 of 10")).toBeInTheDocument();
+    expect(screen.getByText("1 of 10")).toBeInTheDocument();
 
     await fireEvent.input(screen.getByRole("searchbox"), {
       target: { value: "remote" },

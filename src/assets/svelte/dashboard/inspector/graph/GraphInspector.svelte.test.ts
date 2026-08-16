@@ -30,4 +30,37 @@ describe("GraphInspector", () => {
     expect(onTitleChange).toHaveBeenCalledOnce();
     expect(title).toHaveValue("Topology");
   });
+
+  it("opens a parent revision and leaves the root as plain text", async () => {
+    const onOpenParent = vi.fn();
+    const graph: LoadedGraph = {
+      id: "graph-1",
+      title: "Topology",
+      revision_id: "revision-2",
+      parent_revision_id: "revision-1",
+      revision_kind: "edit",
+      revision_number: 2,
+      nodes: [],
+      edges: [],
+    };
+
+    const { rerender } = render(GraphInspector, {
+      props: {
+        graph,
+        parentTitle: "Original topology",
+        onTitleChange: vi.fn(),
+        onOpenParent,
+      },
+    });
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Original topology" }),
+    );
+    expect(onOpenParent).toHaveBeenCalledOnce();
+
+    await rerender({ graph: { ...graph, parent_revision_id: null } });
+    expect(screen.getByText("Root revision")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Root revision" }),
+    ).not.toBeInTheDocument();
+  });
 });

@@ -189,6 +189,7 @@ describe("WorkspaceModel", () => {
       revision_kind: "original",
       revision_number: 1,
       created_at: "2026-01-01T00:00:00Z",
+      analyses: [{ id: "analysis-1", title: "Baseline risk" }],
     };
 
     const optimization: DocumentCatalogItem = {
@@ -218,6 +219,10 @@ describe("WorkspaceModel", () => {
       }
       expect(optimizationReport.openOptimizedGraph).toBeUndefined();
       expect(optimizationReport.graphDiff).toBeUndefined();
+      expect(optimizationReport).toMatchObject({
+        analysisId: "analysis-1",
+        analysisTitle: "Baseline risk",
+      });
       expect(api.requestReport).toHaveBeenCalledTimes(2);
       expect(api.requestReport).toHaveBeenNthCalledWith(
         1,
@@ -366,6 +371,30 @@ describe("WorkspaceModel", () => {
       });
       loadedReport.status = "loaded";
       expect(model.canCloseDocument(loadedReport)).toBe(true);
+    });
+  });
+
+  describe("reorderDocuments", () => {
+    it("moves a middle tab right and can move a tab to the final position", () => {
+      const first = model.createGraphDocument();
+      const second = model.createGraphDocument();
+      const third = model.createGraphDocument();
+
+      model.reorderDocuments(second.id, third.id);
+
+      expect(model.documents.map((document) => document.id)).toEqual([
+        first.id,
+        third.id,
+        second.id,
+      ]);
+      expect(model.selectedDocumentId).toBe(third.id);
+
+      model.reorderDocuments(first.id, second.id);
+      expect(model.documents.map((document) => document.id)).toEqual([
+        third.id,
+        second.id,
+        first.id,
+      ]);
     });
   });
 

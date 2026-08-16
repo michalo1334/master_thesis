@@ -26,7 +26,7 @@
   let filterOptions = $state.raw<FetchDocumentCatalogReply["filter_options"]>({
     types: [],
     graphs: [],
-    analysis_ids: [],
+    analyses: [],
     strategies: [],
     revision_kinds: [],
   });
@@ -93,7 +93,12 @@
   const kindOptions = $derived(
     filterOptions.types.map((value) => ({ value, label: kindLabel(value) })),
   );
-  const analysisOptions = $derived(options(filterOptions.analysis_ids));
+  const analysisOptions = $derived(
+    filterOptions.analyses.map(({ id, title }) => ({
+      value: id,
+      label: title,
+    })),
+  );
   const graphOptions = $derived(
     filterOptions.graphs.map(({ id, title }) => ({ value: id, label: title })),
   );
@@ -206,8 +211,12 @@
   }
 
   function analysisLabel(item: DocumentCatalogItem): string {
-    const ids = item.analysis_ids ?? [];
-    return ids.length === 1 ? ids[0] : ids.length > 1 ? "many" : "";
+    const analyses = item.analyses;
+    return analyses.length === 1
+      ? analyses[0]!.title
+      : analyses.length > 1
+        ? "Multiple analyses"
+        : "";
   }
 
   function revisionLabel(item: DocumentCatalogItem): string {
@@ -260,9 +269,9 @@
 
 {#snippet analysisHeader()}
   <div class="catalog-filter-header">
-    <span>Analysis ID</span>
+    <span>Analyses</span>
     <MultiSelectFilter
-      label="Analysis ID"
+      label="Analyses"
       options={analysisOptions}
       selectedValues={filters.analysisId}
       onchange={(values) => setFilter("analysisId", values)}

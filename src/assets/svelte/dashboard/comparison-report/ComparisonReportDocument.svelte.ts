@@ -12,6 +12,14 @@ export class ComparisonReportDocument extends WorkspaceDocumentBase {
   readonly graphRevisionId: string;
   hasUnread = $state(false);
 
+  get analysisId(): string | undefined {
+    return this.baselineReport.analysisId;
+  }
+
+  get analysisTitle(): string | undefined {
+    return this.baselineReport.analysisTitle;
+  }
+
   constructor(
     readonly baselineReport: SimulationReportDocument,
     readonly optimizationReport: OptimizationReportDocument,

@@ -17,6 +17,8 @@ interface WorkflowSnapshot {
   sourceGraphTitle: string;
   strategy: OptimizationStrategy;
   budget: number;
+  analysisId: string;
+  analysisTitle?: string;
 }
 
 export class AnalysisModel {
@@ -377,6 +379,8 @@ export class AnalysisModel {
       graphId: workflow.sourceGraphId,
       graphRevisionId: workflow.sourceGraphRevisionId,
       graphTitle: workflow.sourceGraphTitle,
+      analysisId: workflow.analysisId,
+      analysisTitle: workflow.analysisTitle,
     });
     baselineReport.complete(
       this.api,
@@ -391,6 +395,8 @@ export class AnalysisModel {
       graphTitle: workflow.sourceGraphTitle,
       strategy: workflow.strategy,
       budget: workflow.budget,
+      analysisId: workflow.analysisId,
+      analysisTitle: workflow.analysisTitle,
     });
     optimizationReport.complete(
       this.api,
@@ -419,6 +425,8 @@ export class AnalysisModel {
       graphId: workflow.sourceGraphId,
       graphRevisionId: payload.output_graph_revision_id,
       graphTitle: workflow.sourceGraphTitle,
+      analysisId: workflow.analysisId,
+      analysisTitle: workflow.analysisTitle,
     });
     postOptimizationReport.complete(
       this.api,
@@ -482,12 +490,15 @@ export class AnalysisModel {
       }
 
       this.activeWorkflowId = reply.workflow_id;
+      const analysisTitle = reply.title;
       this.workflowSnapshots.set(reply.workflow_id, {
         sourceGraphId: document.graph.id,
         sourceGraphRevisionId: graphRevisionId,
         sourceGraphTitle: document.title,
         strategy: optimizationParams.strategy,
         budget: optimizationParams.budget,
+        analysisId: reply.workflow_id,
+        ...(analysisTitle ? { analysisTitle } : {}),
       });
       return true;
     } catch {

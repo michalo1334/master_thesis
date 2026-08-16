@@ -249,6 +249,83 @@ describe("DocumentOutline", () => {
     expect(depth(`Report ${report.title}`)).toBe("1");
   });
 
+  it("groups analysis reports globally by analysis title", () => {
+    const baseline = new SimulationReportDocument(
+      "Graph",
+      "graph",
+      "graph-r1",
+      { analysisId: "analysis-1", analysisTitle: "Baseline risk" },
+    );
+    const other = new SimulationReportDocument(
+      "Other graph",
+      "other-graph",
+      "other-r1",
+      { analysisId: "analysis-2", analysisTitle: "Network hardening" },
+    );
+    const standalone = new SimulationReportDocument(
+      "Closed graph",
+      "closed",
+      "closed-r1",
+    );
+
+    render(DocumentOutline, {
+      props: {
+        documents: [baseline, other, standalone],
+        collapsed: false,
+        onCollapsedChange: vi.fn(),
+        onSelectDocument: vi.fn(),
+      },
+    });
+
+    expect(
+      screen.getByRole("heading", { name: "Analyses", hidden: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Baseline risk", hidden: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Network hardening", hidden: true }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Reports", hidden: true }),
+    ).toBeInTheDocument();
+    expect(depth(`Report ${baseline.title}`)).toBe("1");
+  });
+
+  it("keeps analyses with equal titles in separate groups", () => {
+    const first = new SimulationReportDocument("First", "first", "first-r1", {
+      analysisId: "analysis-1",
+      analysisTitle: "Generated analysis",
+    });
+    const second = new SimulationReportDocument(
+      "Second",
+      "second",
+      "second-r1",
+      {
+        analysisId: "analysis-2",
+        analysisTitle: "Generated analysis",
+      },
+    );
+
+    render(DocumentOutline, {
+      props: {
+        documents: [first, second],
+        collapsed: false,
+        onCollapsedChange: vi.fn(),
+        onSelectDocument: vi.fn(),
+      },
+    });
+
+    expect(
+      screen.getAllByRole("heading", {
+        name: "Generated analysis",
+        hidden: true,
+      }),
+    ).toHaveLength(2);
+    expect(depth(`Report ${first.title}`)).toBe("1");
+    expect(depth(`Report ${second.title}`)).toBe("1");
+  });
+
   it("selects a report when clicked", async () => {
     const report = new SimulationReportDocument("Graph", "graph", "graph-r1");
     const onSelectDocument = vi.fn();

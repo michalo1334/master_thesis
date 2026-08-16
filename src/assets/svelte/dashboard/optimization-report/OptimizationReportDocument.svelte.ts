@@ -22,6 +22,8 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   readonly id = crypto.randomUUID();
   readonly graphId: string;
   readonly graphRevisionId: string;
+  readonly analysisId?: string;
+  readonly analysisTitle?: string;
   correlationId = $state<string | null>(null);
 
   title = $state("");
@@ -51,6 +53,8 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     graphRevisionId,
     graphTitle,
     correlationId = null,
+    analysisId,
+    analysisTitle,
     strategy,
     budget,
   }: {
@@ -58,6 +62,8 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     graphRevisionId: string;
     graphTitle: string;
     correlationId?: string | null;
+    analysisId?: string;
+    analysisTitle?: string;
     strategy: OptimizationStrategy;
     budget: number;
   }) {
@@ -65,6 +71,8 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.graphId = graphId;
     this.graphRevisionId = graphRevisionId;
     this.correlationId = correlationId;
+    this.analysisId = analysisId;
+    this.analysisTitle = analysisTitle;
     this.strategy = strategy;
     this.budget = budget;
     this.title = `Optimization report for ${graphTitle}`;

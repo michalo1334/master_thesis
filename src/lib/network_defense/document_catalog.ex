@@ -7,7 +7,7 @@ defmodule NetworkDefense.DocumentCatalog do
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Workflows.AnalysisInputRevision
+  alias NetworkDefense.Workflows.{AnalysisInputRevision, WorkflowRun}
 
   defmacrop analysis_ids(analysis_id, input_analysis_ids) do
     quote do
@@ -33,16 +33,25 @@ defmodule NetworkDefense.DocumentCatalog do
     catalog = catalog_query()
     filtered = filter_catalog(catalog, filters)
 
+    filter_options = filter_options(catalog)
+    titles = Map.new(filter_options.analyses, &{&1.id, &1.title})
+
+    items =
+      filtered
+      |> order_by([item], desc: item.created_at, desc: item.id)
+      |> limit(^filters.limit)
+      |> offset(^filters.offset)
+      |> Repo.all()
+      |> Enum.map(fn item ->
+        item
+        |> Map.update!(:created_at, &DateTime.to_iso8601/1)
+        |> with_analyses(titles)
+      end)
+
     %{
-      items:
-        filtered
-        |> order_by([item], desc: item.created_at, desc: item.id)
-        |> limit(^filters.limit)
-        |> offset(^filters.offset)
-        |> Repo.all()
-        |> Enum.map(fn item -> Map.update!(item, :created_at, &DateTime.to_iso8601/1) end),
+      items: items,
       total_count: filtered |> select([item], count(item.id)) |> Repo.one(),
-      filter_options: filter_options(catalog)
+      filter_options: filter_options
     }
   end
 
@@ -173,7 +182,16 @@ defmodule NetworkDefense.DocumentCatalog do
           item.analysis_ids,
           ^pattern
         ) or
-        fragment("cardinality(?) > 1 AND 'many' ILIKE ? ESCAPE '\\'", item.analysis_ids, ^pattern) or
+        fragment(
+          "EXISTS (SELECT 1 FROM workflow_runs WHERE id = ANY(?) AND title ILIKE ? ESCAPE '\\')",
+          item.analysis_ids,
+          ^pattern
+        ) or
+        fragment(
+          "cardinality(?) > 1 AND 'multiple analyses' ILIKE ? ESCAPE '\\'",
+          item.analysis_ids,
+          ^pattern
+        ) or
         fragment("? ILIKE ? ESCAPE '\\'", item.strategy, ^pattern) or
         fragment(
           "to_char(?, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ILIKE ? ESCAPE '\\'",
@@ -212,12 +230,13 @@ defmodule NetworkDefense.DocumentCatalog do
         |> order_by([item], asc: item.graph_title, asc: item.graph_id)
         |> select([item], %{id: item.graph_id, title: item.graph_title})
         |> Repo.all(),
-      analysis_ids:
+      analyses:
         catalog
         |> select([item], type(fragment("unnest(?)", item.analysis_ids), :binary_id))
         |> distinct(true)
         |> order_by([item], asc: type(fragment("unnest(?)", item.analysis_ids), :binary_id))
-        |> Repo.all(),
+        |> Repo.all()
+        |> analysis_options(),
       strategies: distinct_values(catalog, :strategy, true),
       revision_kinds: distinct_values(catalog, :revision_kind)
     }
@@ -232,5 +251,31 @@ defmodule NetworkDefense.DocumentCatalog do
     |> order_by([item], asc: field(item, ^field))
     |> select([item], field(item, ^field))
     |> Repo.all()
+  end
+
+  defp analysis_options([]), do: []
+
+  defp analysis_options(ids) do
+    from(run in WorkflowRun,
+      where: run.id in ^ids,
+      order_by: [asc: run.title, asc: run.id],
+      select: %{id: run.id, title: run.title}
+    )
+    |> Repo.all()
+  end
+
+  defp with_analyses(item, titles) do
+    analyses =
+      item.analysis_ids
+      |> Enum.flat_map(fn id ->
+        case Map.fetch(titles, id) do
+          {:ok, title} -> [%{id: id, title: title}]
+          :error -> []
+        end
+      end)
+
+    item
+    |> Map.delete(:analysis_ids)
+    |> Map.put(:analyses, analyses)
   end
 end

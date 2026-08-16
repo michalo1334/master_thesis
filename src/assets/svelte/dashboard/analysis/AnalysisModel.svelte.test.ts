@@ -45,6 +45,7 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     runWorkflow: vi.fn().mockResolvedValue({
       status: "accepted",
       workflow_id: "workflow-1",
+      title: "Quarterly review",
     }),
     requestReport: vi.fn(),
     fetchExperiments: vi.fn(),
@@ -256,6 +257,12 @@ describe("AnalysisModel", () => {
       baselineReport: baseline,
       optimizationReport: optimization,
       postOptimizationReport: after,
+      analysisId: "workflow-1",
+      analysisTitle: "Quarterly review",
+    });
+    expect(baseline).toMatchObject({
+      analysisId: "workflow-1",
+      analysisTitle: "Quarterly review",
     });
     expect(workspace.selectedDocumentId).toBe(comparison?.id);
     expect(model.activeWorkflowId).toBeNull();

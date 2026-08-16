@@ -45,8 +45,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
-      assert_reply(view, %{status: "accepted", workflow_id: workflow_id, error: nil})
+      assert_reply(view, %{
+        status: "accepted",
+        workflow_id: workflow_id,
+        title: title,
+        error: nil
+      })
+
       assert is_binary(workflow_id)
+      assert [first_adjective, second_adjective, _noun] = String.split(title, " ")
+      refute first_adjective == second_adjective
       assert has_element?(view, "#flash-info[role='alert']")
     end
 
@@ -135,7 +143,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert %{
                types: _types,
                graphs: _graphs,
-               analysis_ids: _analysis_ids,
+               analyses: _analyses,
                strategies: _strategies,
                revision_kinds: _revision_kinds
              } = filter_options
@@ -146,7 +154,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                graph_id: ^graph_id,
                graph_revision_id: ^graph_revision_id,
                graph_title: "catalog-graph",
-               analysis_ids: [],
+               analyses: [],
                revision_kind: "initial",
                revision_number: 1,
                strategy: nil,

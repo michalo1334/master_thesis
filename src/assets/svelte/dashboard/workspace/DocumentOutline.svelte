@@ -18,7 +18,13 @@
   type OutlineRow =
     | DocumentOutlineRow
     | { type: "folder"; folder: FolderSummary }
-    | { type: "reports"; folderId: string | null };
+    | { type: "reports"; folderId: string | null }
+    | { type: "analyses" }
+    | { type: "analysis"; id: string; title: string };
+  type ReportDocument = Extract<
+    WorkspaceDocument,
+    { kind: "simulation-report" | "optimization-report" | "comparison-report" }
+  >;
 
   const documentTypeByKind = {
     graph: "Graph",
@@ -68,8 +74,12 @@
     graphSummaries: readonly GraphSummary[],
   ): OutlineRow[] {
     const graphsByRevisionId = new SvelteMap<string, WorkspaceDocument>();
+    const analysisReports = documents.filter(hasAnalysisMetadata);
+    const standardDocuments = documents.filter(
+      (document) => !hasAnalysisMetadata(document),
+    );
 
-    for (const document of documents) {
+    for (const document of standardDocuments) {
       if (document.kind === "graph" && document.loadedRevisionId) {
         graphsByRevisionId.set(document.loadedRevisionId, document);
       }
@@ -78,7 +88,7 @@
     const children = new SvelteMap<string, WorkspaceDocument[]>();
     const roots: WorkspaceDocument[] = [];
 
-    for (const document of documents) {
+    for (const document of standardDocuments) {
       const parent = parentDocument(document, graphsByRevisionId);
       if (parent) {
         const siblings = children.get(parent.id) ?? [];
@@ -133,6 +143,25 @@
     }
 
     appendRoots(rootsByFolderId.get(null) ?? [], 0, null);
+
+    if (analysisReports.length) {
+      rows.push({ type: "analyses" });
+      const reportsByAnalysis = new SvelteMap<
+        string,
+        { title: string; reports: WorkspaceDocument[] }
+      >();
+      for (const report of analysisReports) {
+        const title = report.analysisTitle ?? report.analysisId ?? "Analysis";
+        const key = report.analysisId ?? title;
+        const group = reportsByAnalysis.get(key) ?? { title, reports: [] };
+        group.reports.push(report);
+        reportsByAnalysis.set(key, group);
+      }
+      for (const [id, { title, reports }] of reportsByAnalysis) {
+        rows.push({ type: "analysis", id, title });
+        visit(reports, 1);
+      }
+    }
     return rows;
   }
 
@@ -142,6 +171,14 @@
   ): string | null | undefined {
     return graphSummaries.find((summary) => summary.graph_id === graphId)
       ?.folder_id;
+  }
+
+  function hasAnalysisMetadata(
+    document: WorkspaceDocument,
+  ): document is ReportDocument {
+    return (
+      isReport(document) && !!(document.analysisId || document.analysisTitle)
+    );
   }
 
   function folderIdForDocument(
@@ -172,6 +209,8 @@
   function rowKey(row: OutlineRow): string {
     if (row.type === "document") return row.document.id;
     if (row.type === "folder") return `folder-${row.folder.id}`;
+    if (row.type === "analyses") return "analyses";
+    if (row.type === "analysis") return `analysis-${row.id}`;
     return `reports-${row.folderId ?? "root"}`;
   }
 
@@ -288,6 +327,14 @@
         {:else if row.type === "reports"}
           <li class="document-outline-group">
             <span role="heading" aria-level="2">Reports</span>
+          </li>
+        {:else if row.type === "analyses"}
+          <li class="document-outline-group">
+            <span role="heading" aria-level="2">Analyses</span>
+          </li>
+        {:else if row.type === "analysis"}
+          <li class="document-outline-analysis">
+            <span role="heading" aria-level="3">{row.title}</span>
           </li>
         {:else}
           {@const documentGraphId = graphId(row.document)}
@@ -414,6 +461,12 @@
       padding: 0.375rem var(--ds-space-2);
       color: var(--ds-color-text-secondary);
       font-size: var(--ds-text-sm);
+      font-weight: 600;
+    }
+    .document-outline-analysis {
+      padding: 0.25rem var(--ds-space-2);
+      color: var(--ds-color-text-secondary);
+      font-size: var(--ds-text-xs);
       font-weight: 600;
     }
 

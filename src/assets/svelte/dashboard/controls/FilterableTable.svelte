@@ -164,6 +164,7 @@
   );
 
   const totalCount = $derived(server?.totalCount ?? items.length);
+  const visibleCount = $derived(server ? items.length : filteredCount);
   const hasStatus = $derived(totalCount === 0 || filteredCount === 0);
   const showPagination = $derived(filteredCount > effectivePerPage);
 
@@ -266,7 +267,7 @@
       {disabled}
     />
     <span class="filterable-table-count">
-      {filteredCount} of {totalCount}
+      {visibleCount} of {totalCount}
     </span>
   </div>
 

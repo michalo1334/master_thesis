@@ -392,9 +392,15 @@ export interface DeleteFolderReply {
   status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
 }
 
+// NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_analysis.ex)
+export interface DocumentCatalogAnalysis {
+  id: string;
+  title: string;
+}
+
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
 export interface DocumentCatalogFilterOptions {
-  analysis_ids: string[];
+  analyses: DocumentCatalogAnalysis[];
   graphs: DocumentCatalogGraphFilterOption[];
   revision_kinds: string[];
   strategies: string[];
@@ -409,7 +415,7 @@ export interface DocumentCatalogGraphFilterOption {
 
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_item.ex) — enum fields: kind
 export interface DocumentCatalogItem {
-  analysis_ids?: string[] | null;
+  analyses: DocumentCatalogAnalysis[];
   created_at: string;
   graph_id: string;
   graph_revision_id: string;
@@ -773,6 +779,7 @@ export interface RunWorkflowPayload {
 export interface RunWorkflowReply {
   error?: DashboardError | null;
   status: "accepted" | "rejected";
+  title?: string | null;
   workflow_id?: string | null;
 }
 

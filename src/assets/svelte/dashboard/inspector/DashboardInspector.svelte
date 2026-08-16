@@ -7,6 +7,7 @@
   interface Props {
     document: WorkspaceDocument | undefined;
     summaries?: readonly GraphSummary[];
+    onOpenParent?: (revisionId: string) => void;
   }
 
   type InspectorSelection =
@@ -19,7 +20,7 @@
       }
     | undefined;
 
-  let { document, summaries = [] }: Props = $props();
+  let { document, summaries = [], onOpenParent = undefined }: Props = $props();
 
   let selection = $derived.by((): InspectorSelection => {
     if (!document || document.kind !== "graph") return undefined;
@@ -46,6 +47,9 @@
     graph={selection.graph}
     parentTitle={selection.parentTitle}
     onTitleChange={selection.onTitleChange}
+    onOpenParent={selection.graph.parent_revision_id
+      ? () => onOpenParent?.(selection.graph.parent_revision_id!)
+      : undefined}
   />
 {:else if selection?.kind === "selectable" && document?.kind === "graph"}
   <EditableSelectionInspector

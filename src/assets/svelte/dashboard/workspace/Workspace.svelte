@@ -51,6 +51,8 @@
   let folderDialogOpen = $state(false);
   let folderName = $state("");
   let isCreatingFolder = $state(false);
+  let draggedDocumentId = $state<string>();
+  let dropTargetId = $state<string>();
 
   function closeDocument(event: MouseEvent, id: string) {
     event.stopPropagation();
@@ -70,6 +72,45 @@
     } finally {
       isCreatingFolder = false;
     }
+  }
+
+  function startDocumentDrag(event: DragEvent, documentId: string): void {
+    draggedDocumentId = documentId;
+    event.dataTransfer?.setData("text/plain", documentId);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  function allowDocumentDrop(event: DragEvent, targetId: string): void {
+    if (!draggedDocumentId || draggedDocumentId === targetId) return;
+    event.preventDefault();
+    dropTargetId = targetId;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function dropDocument(event: DragEvent, targetId: string): void {
+    event.preventDefault();
+    const draggedId =
+      event.dataTransfer?.getData("text/plain") || draggedDocumentId;
+    if (draggedId) model.reorderDocuments(draggedId, targetId);
+    draggedDocumentId = undefined;
+    dropTargetId = undefined;
+  }
+
+  function reorderDocumentWithKeyboard(
+    event: KeyboardEvent,
+    documentId: string,
+  ): void {
+    if (!event.altKey || !["ArrowLeft", "ArrowRight"].includes(event.key)) {
+      return;
+    }
+    const index = model.documents.findIndex(
+      (document) => document.id === documentId,
+    );
+    const target =
+      model.documents[index + (event.key === "ArrowLeft" ? -1 : 1)];
+    if (!target) return;
+    event.preventDefault();
+    model.reorderDocuments(documentId, target.id);
   }
 </script>
 
@@ -102,8 +143,33 @@
     <div class="dashboard-document-tabs-container">
       <Tabs.List class="dashboard-document-tabs" aria-label="Open documents">
         {#each model.documents as document (document.id)}
-          <div class="dashboard-document-item">
-            <Tabs.Trigger class="dashboard-document-tab" value={document.id}>
+          <div
+            class={[
+              "dashboard-document-item",
+              { "drop-target": dropTargetId === document.id },
+            ]}
+            role="group"
+            aria-label={`Document tab ${document.title}`}
+            draggable="true"
+            ondragstart={(event) => startDocumentDrag(event, document.id)}
+            ondragover={(event) => allowDocumentDrop(event, document.id)}
+            ondragleave={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+                dropTargetId = undefined;
+              }
+            }}
+            ondragend={() => {
+              draggedDocumentId = undefined;
+              dropTargetId = undefined;
+            }}
+            ondrop={(event) => dropDocument(event, document.id)}
+          >
+            <Tabs.Trigger
+              class="dashboard-document-tab"
+              value={document.id}
+              onkeydown={(event) =>
+                reorderDocumentWithKeyboard(event, document.id)}
+            >
               <span class="dashboard-document-dot" aria-hidden="true"></span>
               <span class="dashboard-document-title">{document.title}</span>
             </Tabs.Trigger>
@@ -302,6 +368,10 @@
     display: flex;
     align-items: end;
     flex: none;
+  }
+  .dashboard-document-item.drop-target :global(.dashboard-document-tab) {
+    border-color: var(--ds-color-accent);
+    box-shadow: inset 0 -2px 0 var(--ds-color-accent);
   }
   .dashboard-document-tabs-container :global(.dashboard-document-tab) {
     max-width: 15rem;

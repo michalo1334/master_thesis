@@ -13,7 +13,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     field :graph_id, :string
     field :graph_revision_id, :string
     field :graph_title, :string
-    field :analysis_ids, {:array, :string}, default: []
+
+    embeds_many :analyses, NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis,
+      on_replace: :delete
+
     field :revision_kind, :string
     field :revision_number, :integer
     field :strategy, :string
@@ -29,7 +32,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
           graph_id: String.t(),
           graph_revision_id: String.t(),
           graph_title: String.t(),
-          analysis_ids: [String.t()] | nil,
+          analyses: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis.t()],
           revision_kind: String.t(),
           revision_number: pos_integer(),
           strategy: String.t() | nil,
@@ -47,7 +50,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
       :graph_id,
       :graph_revision_id,
       :graph_title,
-      :analysis_ids,
       :revision_kind,
       :revision_number,
       :strategy,
@@ -70,13 +72,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     |> NetworkDefense.Contracts.validate_uuid(:id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
-    |> validate_change(:analysis_ids, fn :analysis_ids, ids ->
-      if Enum.all?(ids, &match?({:ok, _}, Ecto.UUID.cast(&1))) do
-        []
-      else
-        [analysis_ids: "contains an invalid UUID"]
-      end
-    end)
+    |> cast_embed(:analyses)
     |> NetworkDefense.Contracts.validate_uuid(:output_graph_revision_id)
   end
 end
