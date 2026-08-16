@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
 
   use NetworkDefenseWeb.Contracts, category: :workspace
 
+  alias NetworkDefense.DocumentCatalog.Kind
+
   embedded_schema do
     field :search, :string, default: ""
     field :types, {:array, :string}, default: []
@@ -38,7 +40,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
       :offset
     ])
     |> validate_length(:search, max: 255)
-    |> validate_value_list(:types, ["graph", "simulation_report", "optimization_report"])
+    |> validate_value_list(:types, Kind.strings())
     |> validate_value_list(:revision_kinds, ["initial", "edit", "optimization"])
     |> validate_uuid_list(:graph_ids)
     |> validate_uuid_list(:analysis_ids)

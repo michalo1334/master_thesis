@@ -35,6 +35,10 @@ defmodule NetworkDefense.Optimizations do
   @spec optimization_events_topic() :: String.t()
   def optimization_events_topic, do: @optimization_events_topic
 
+  @spec set_analysis(Ecto.UUID.t(), Ecto.UUID.t() | nil) ::
+          {:ok, OptimizationRun.t()} | {:error, :not_found | :invalid_analysis}
+  def set_analysis(run_id, analysis_id), do: OptimizationRuns.set_analysis(run_id, analysis_id)
+
   @spec run_async(RunOptimizationRequest.t()) :: async_result()
   def run_async(%RunOptimizationRequest{} = request) do
     with {:ok, graph} <- load_graph(request), do: run_async(graph, request)

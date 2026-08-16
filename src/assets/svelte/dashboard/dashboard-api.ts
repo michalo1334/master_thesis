@@ -38,6 +38,13 @@ import type {
   FetchDocumentCatalogReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
+import type {
+  FetchAnalysesReply,
+  SetGraphAnalysesPayload,
+  SetGraphAnalysesReply,
+  SetReportAnalysisPayload,
+  SetReportAnalysisReply,
+} from "../contracts.generated";
 
 export type ReportRequest = {
   type: "simulation" | "optimization";
@@ -47,6 +54,7 @@ export type ReportRequest = {
 };
 
 export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
+export type AnalysisOption = { id: string; title: string };
 
 export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
@@ -107,6 +115,16 @@ export interface DashboardApi {
     graphId: string,
     folderId: string | null,
   ): Promise<MoveGraphToFolderReply>;
+  fetchAnalyses(): Promise<FetchAnalysesReply>;
+  setGraphAnalyses(
+    graphRevisionId: string,
+    analysisIds: string[],
+  ): Promise<SetGraphAnalysesReply>;
+  setReportAnalysis(
+    kind: "simulation_report" | "optimization_report",
+    reportId: string,
+    analysisId: string | null,
+  ): Promise<SetReportAnalysisReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -300,6 +318,30 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         live,
         "move_graph_to_folder",
         { graph_id: graphId, folder_id: folderId },
+      );
+    },
+    fetchAnalyses() {
+      return requestReply<{}, FetchAnalysesReply>(live, "fetch_analyses", {});
+    },
+    setGraphAnalyses(graphRevisionId, analysisIds) {
+      return requestReply<SetGraphAnalysesPayload, SetGraphAnalysesReply>(
+        live,
+        "set_graph_analyses",
+        {
+          graph_revision_id: graphRevisionId,
+          analysis_ids: analysisIds,
+        },
+      );
+    },
+    setReportAnalysis(kind, reportId, analysisId) {
+      return requestReply<SetReportAnalysisPayload, SetReportAnalysisReply>(
+        live,
+        "set_report_analysis",
+        {
+          kind,
+          report_id: reportId,
+          analysis_id: analysisId,
+        },
       );
     },
   };

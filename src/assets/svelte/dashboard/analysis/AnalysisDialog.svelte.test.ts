@@ -52,6 +52,7 @@ function renderDialog({
           revision_kind: "original",
           revision_number: 1,
           is_favorite: false,
+          analysis_ids: [],
         },
       ],
       simulationParams: {

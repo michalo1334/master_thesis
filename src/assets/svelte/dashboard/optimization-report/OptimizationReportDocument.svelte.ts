@@ -17,13 +17,14 @@ import {
 
 export class OptimizationReportDocument extends AsyncReportDocument<"optimization"> {
   readonly kind = "optimization-report" as const;
+  readonly documentLabel = "Report";
   readonly reportKind = "optimization" as const;
   readonly icon = "shield" as const satisfies IconName;
   readonly id = crypto.randomUUID();
   readonly graphId: string;
   readonly graphRevisionId: string;
-  readonly analysisId?: string;
-  readonly analysisTitle?: string;
+  analysisId = $state<string>();
+  analysisTitle = $state<string>();
   correlationId = $state<string | null>(null);
 
   title = $state("");
@@ -76,6 +77,11 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.strategy = strategy;
     this.budget = budget;
     this.title = `Optimization report for ${graphTitle}`;
+  }
+
+  setAnalysis(analysis: { id: string; title: string } | null): void {
+    this.analysisId = analysis?.id;
+    this.analysisTitle = analysis?.title;
   }
 
   setProgress(

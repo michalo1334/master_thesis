@@ -32,6 +32,11 @@ defmodule NetworkDefense.Simulations do
   @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
 
+  @spec set_analysis(Ecto.UUID.t(), Ecto.UUID.t() | nil) ::
+          {:ok, Experiment.t()} | {:error, :not_found | :invalid_analysis}
+  def set_analysis(experiment_id, analysis_id),
+    do: Experiments.set_analysis(experiment_id, analysis_id)
+
   @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
     with {:ok, {graph, experiment}} <-

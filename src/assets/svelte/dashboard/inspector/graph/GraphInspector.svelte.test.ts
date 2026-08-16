@@ -63,4 +63,40 @@ describe("GraphInspector", () => {
       screen.queryByRole("button", { name: "Root revision" }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows assigned analysis titles and saves multiple selections", async () => {
+    const onAnalysesChange = vi.fn().mockResolvedValue(true);
+    const graph: LoadedGraph = {
+      id: "graph-1",
+      title: "Topology",
+      revision_id: "revision-1",
+      parent_revision_id: null,
+      revision_kind: "original",
+      revision_number: 1,
+      nodes: [],
+      edges: [],
+    };
+
+    render(GraphInspector, {
+      props: {
+        graph,
+        onTitleChange: vi.fn(),
+        analyses: [
+          { id: "analysis-1", title: "Baseline" },
+          { id: "analysis-2", title: "Hardening" },
+        ],
+        analysisIds: ["analysis-1", "analysis-2"],
+        onAnalysesChange,
+      },
+    });
+
+    expect(screen.getByText("Baseline")).toBeInTheDocument();
+    expect(screen.getByText("Hardening")).toBeInTheDocument();
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Change analyses" }),
+    );
+    await fireEvent.click(screen.getByRole("button", { name: "Select (2)" }));
+
+    expect(onAnalysesChange).toHaveBeenCalledWith(["analysis-1", "analysis-2"]);
+  });
 });

@@ -3,7 +3,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
 
   use NetworkDefenseWeb.Contracts, category: :workspace
 
-  @enum_values kind: [:graph, :simulation_report, :optimization_report]
+  alias NetworkDefense.DocumentCatalog.Kind
+
+  @enum_values kind: Kind.values()
 
   def contract_meta, do: %{enum_values: @enum_values}
 
@@ -68,7 +70,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
       :revision_number,
       :created_at
     ])
-    |> validate_inclusion(:kind, ["graph", "simulation_report", "optimization_report"])
+    |> validate_inclusion(:kind, Kind.strings())
     |> NetworkDefense.Contracts.validate_uuid(:id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)

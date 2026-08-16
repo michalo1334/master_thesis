@@ -2,25 +2,17 @@
   import { Dialog, DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
   import Icon from "../ui/Icon.svelte";
-  import type { IconName } from "../types";
   import DocumentOutline from "./DocumentOutline.svelte";
   import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
   import type { WorkspaceModel } from "./WorkspaceModel.svelte";
 
   export type { WorkspaceDocument };
 
-  export interface WorkspaceDocumentType {
-    id: string;
-    label: string;
-    icon?: IconName;
-  }
-
   export type WorkspaceOrientation = "horizontal" | "vertical";
 
   interface Props {
     model: WorkspaceModel;
     orientation?: WorkspaceOrientation;
-    documentTypes?: readonly WorkspaceDocumentType[];
     inspector?: Snippet;
     content?: Snippet<[WorkspaceDocument]>;
     onCreateFolder: (name: string) => Promise<boolean> | boolean;
@@ -34,7 +26,6 @@
   let {
     model,
     orientation = "horizontal",
-    documentTypes = [],
     inspector = undefined,
     content = undefined,
     onCreateFolder,
@@ -199,7 +190,7 @@
             sideOffset={4}
             align="start"
           >
-            {#each documentTypes as documentType (documentType.id)}
+            {#each model.documentTypes as documentType (documentType.id)}
               <DropdownMenu.Item
                 onclick={() => model.handleCreateDocument(documentType.id)}
               >

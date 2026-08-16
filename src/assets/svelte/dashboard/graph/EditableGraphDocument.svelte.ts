@@ -45,7 +45,13 @@ function blankGraph(title: string): LoadedGraph {
 
 export class EditableGraphDocument extends WorkspaceDocumentBase {
   readonly kind = "graph" as const;
+  readonly documentLabel = "Graph";
   readonly icon = "graph" as const satisfies IconName;
+  static readonly createOption = {
+    id: "graph",
+    label: "Graph",
+    icon: "graph" as const,
+  };
   readonly id: string;
 
   private _graph = $state<LoadedGraph>(blankGraph("Untitled"));

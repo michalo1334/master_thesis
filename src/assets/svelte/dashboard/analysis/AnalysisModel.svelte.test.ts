@@ -60,6 +60,9 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     createFolder: vi.fn(),
     deleteFolder: vi.fn(),
     moveGraphToFolder: vi.fn(),
+    fetchAnalyses: vi.fn().mockResolvedValue({ analyses: [] }),
+    setGraphAnalyses: vi.fn(),
+    setReportAnalysis: vi.fn(),
   } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 
@@ -92,6 +95,7 @@ describe("AnalysisModel", () => {
         node_count: 1,
         edge_count: 0,
         is_favorite: false,
+        analysis_ids: [],
       },
     ]);
     const model = new AnalysisModel(dashboardApi, workspace);

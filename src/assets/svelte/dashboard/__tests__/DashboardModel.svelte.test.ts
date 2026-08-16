@@ -44,6 +44,9 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     createFolder: vi.fn(),
     deleteFolder: vi.fn(),
     moveGraphToFolder: vi.fn(),
+    fetchAnalyses: vi.fn().mockResolvedValue({ analyses: [] }),
+    setGraphAnalyses: vi.fn(),
+    setReportAnalysis: vi.fn(),
   } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 

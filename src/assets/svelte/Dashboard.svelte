@@ -22,7 +22,6 @@
   import type { ComparisonReportDocument } from "./dashboard/comparison-report/ComparisonReportDocument.svelte";
   import type { DocumentCatalogDocument } from "./dashboard/document-catalog/DocumentCatalogDocument.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
-  import type { IconName } from "./dashboard/types";
   import { arrangeNetwork } from "./dashboard/graph/network/NetworkCanvasLayout";
 
   interface Props {
@@ -34,15 +33,9 @@
   const wm = $derived(model.workspace);
   const api = $derived(model.api);
 
-  type DocType = { id: string; label: string; icon: IconName };
   type OptimizationOption = SplitButtonOption & {
     id: OptimizationParams["strategy"];
   };
-
-  const documentTypes: readonly DocType[] = [
-    { id: "graph", label: "Graph", icon: "graph" },
-    { id: "document-catalog", label: "Documents", icon: "squares-2x2" },
-  ];
 
   const optimizationOptions: readonly OptimizationOption[] = [
     { id: "cvss", icon: "shield", title: "CVSS" },
@@ -154,6 +147,13 @@
     <DashboardInspector
       document={wm.activeDocument}
       summaries={wm.graphSummaries}
+      analyses={wm.analysisOptions}
+      analysesStatus={wm.analysesStatus}
+      onLoadAnalyses={() => wm.loadAnalyses(api)}
+      onGraphAnalysesChange={(revisionId, analysisIds) =>
+        wm.setGraphAnalyses(api, revisionId, analysisIds)}
+      onReportAnalysisChange={(report, analysisId) =>
+        wm.setReportAnalysis(api, report, analysisId)}
       onOpenParent={(revisionId) => void wm.openGraphRevision(api, revisionId)}
     />
   {/snippet}
@@ -194,7 +194,6 @@
 
   <Workspace
     model={wm}
-    {documentTypes}
     {inspector}
     {content}
     onCreateFolder={handleCreateFolder}

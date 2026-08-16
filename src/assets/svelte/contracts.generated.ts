@@ -443,6 +443,14 @@ export interface ExperimentSummary {
   started_at: string;
 }
 
+// NetworkDefenseWeb.Web.Contracts.FetchAnalysesPayload (lib/network_defense_web/contracts/dashboard/workflow/fetch_analyses_payload.ex)
+export type FetchAnalysesPayload = Record<never, never>;
+
+// NetworkDefenseWeb.Web.Contracts.FetchAnalysesReply (lib/network_defense_web/contracts/dashboard/workflow/fetch_analyses_reply.ex)
+export interface FetchAnalysesReply {
+  analyses: DocumentCatalogAnalysis[];
+}
+
 // NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_payload.ex)
 export interface FetchDocumentCatalogPayload {
   analysis_ids: string[];
@@ -619,7 +627,7 @@ export interface GraphProjectionSegment {
 
 // NetworkDefenseWeb.Web.Contracts.GraphSummary (lib/network_defense_web/contracts/dashboard/graph/graph_summary.ex)
 export interface GraphSummary {
-  analysis_id?: string | null;
+  analysis_ids: string[];
   edge_count: number;
   folder_id?: string | null;
   graph_id: string;
@@ -803,6 +811,23 @@ export interface SaveGraphReply {
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
+// NetworkDefenseWeb.Web.Contracts.SetGraphAnalysesPayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_analyses_payload.ex)
+export interface SetGraphAnalysesPayload {
+  analysis_ids: string[];
+  graph_revision_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.SetGraphAnalysesReply (lib/network_defense_web/contracts/dashboard/graph/set_graph_analyses_reply.ex) — enum fields: status
+export interface SetGraphAnalysesReply {
+  analyses: DocumentCatalogAnalysis[];
+  status:
+    | "ok"
+    | "not_found"
+    | "invalid_graph"
+    | "invalid_analyses"
+    | "unmapped_error";
+}
+
 // NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoritePayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_payload.ex)
 export interface SetGraphRevisionFavoritePayload {
   favorite: boolean;
@@ -813,6 +838,19 @@ export interface SetGraphRevisionFavoritePayload {
 export interface SetGraphRevisionFavoriteReply {
   favorite: boolean;
   status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+}
+
+// NetworkDefenseWeb.Web.Contracts.SetReportAnalysisPayload (lib/network_defense_web/contracts/dashboard/workspace/set_report_analysis_payload.ex)
+export interface SetReportAnalysisPayload {
+  analysis_id?: string | null;
+  kind: string;
+  report_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.SetReportAnalysisReply (lib/network_defense_web/contracts/dashboard/workspace/set_report_analysis_reply.ex) — enum fields: status
+export interface SetReportAnalysisReply {
+  analysis?: DocumentCatalogAnalysis | null;
+  status: "ok" | "not_found" | "invalid_analysis" | "unmapped_error";
 }
 
 // NetworkDefenseWeb.Web.Contracts.SimulationCompletedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_completed_event.ex)

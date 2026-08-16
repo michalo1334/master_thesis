@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Workflows.AnalysisInputRevision do
+defmodule NetworkDefense.Workflows.AnalysisGraphRevision do
   use Ecto.Schema
 
   alias NetworkDefense.Graph.GraphRevision
@@ -7,7 +7,7 @@ defmodule NetworkDefense.Workflows.AnalysisInputRevision do
   @primary_key false
   @foreign_key_type :binary_id
 
-  schema "analysis_input_revisions" do
+  schema "analysis_graph_revisions" do
     belongs_to :workflow_run, WorkflowRun, primary_key: true
     belongs_to :graph_revision, GraphRevision, primary_key: true
   end

@@ -19,6 +19,7 @@ const root: GraphSummary = {
   revision_kind: "original",
   revision_number: 1,
   is_favorite: false,
+  analysis_ids: [],
 };
 
 const child: GraphSummary = {
@@ -31,6 +32,7 @@ const child: GraphSummary = {
   revision_kind: "edit",
   revision_number: 2,
   is_favorite: false,
+  analysis_ids: [],
 };
 
 const grandchild: GraphSummary = {
@@ -43,6 +45,7 @@ const grandchild: GraphSummary = {
   revision_kind: "edit",
   revision_number: 3,
   is_favorite: false,
+  analysis_ids: [],
 };
 
 const sibling: GraphSummary = {
@@ -55,6 +58,7 @@ const sibling: GraphSummary = {
   revision_kind: "original",
   revision_number: 1,
   is_favorite: false,
+  analysis_ids: [],
 };
 
 const siblingChild: GraphSummary = {
@@ -67,11 +71,13 @@ const siblingChild: GraphSummary = {
   revision_kind: "edit",
   revision_number: 2,
   is_favorite: false,
+  analysis_ids: [],
 };
 
 const favorite: GraphSummary = {
   ...sibling,
   is_favorite: true,
+  analysis_ids: [],
 };
 
 afterEach(cleanup);

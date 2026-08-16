@@ -4,7 +4,7 @@ import { SimulationReportDocument } from "../simulation-report/SimulationReportD
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
-import type { DashboardApi } from "../dashboard-api";
+import type { AnalysisOption, DashboardApi } from "../dashboard-api";
 import type {
   FolderSummary,
   GraphSummary,
@@ -37,6 +37,9 @@ export class WorkspaceModel {
   /** Graphs available to open, owned by workspace so the picker has them. */
   graphSummaries = $state.raw<GraphSummary[]>([]);
   folders = $state.raw<FolderSummary[]>([]);
+  analysisOptions = $state.raw<AnalysisOption[]>([]);
+  analysesStatus = $state("");
+  private analysesLoaded = false;
 
   documents = $state<WorkspaceDocument[]>([]);
   selectedDocumentId = $state<string | undefined>();
@@ -72,6 +75,11 @@ export class WorkspaceModel {
   });
   statusMessage = $state("");
 
+  readonly documentTypes = [
+    EditableGraphDocument.createOption,
+    DocumentCatalogDocument.createOption,
+  ];
+
   constructor(
     graphSummaries: GraphSummary[] = [],
     folders: FolderSummary[] = [],
@@ -98,6 +106,7 @@ export class WorkspaceModel {
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
       is_favorite: previous?.is_favorite ?? false,
+      analysis_ids: previous?.analysis_ids ?? [],
       ...(graphFolderId === undefined ? {} : { folder_id: graphFolderId }),
     };
     const index = this.graphSummaries.findIndex(
@@ -180,6 +189,74 @@ export class WorkspaceModel {
       return true;
     } catch {
       this.statusMessage = "Could not move graph.";
+      return false;
+    }
+  }
+
+  async loadAnalyses(api: DashboardApi): Promise<boolean> {
+    if (this.analysesLoaded) return true;
+
+    this.analysesStatus = "Loading analyses…";
+    try {
+      const reply = await api.fetchAnalyses();
+      this.analysisOptions = reply.analyses;
+      this.analysesLoaded = true;
+      this.analysesStatus = "";
+      return true;
+    } catch {
+      this.analysesStatus = "Could not load analyses.";
+      return false;
+    }
+  }
+
+  async setGraphAnalyses(
+    api: DashboardApi,
+    graphRevisionId: string,
+    analysisIds: string[],
+  ): Promise<boolean> {
+    try {
+      const reply = await api.setGraphAnalyses(graphRevisionId, analysisIds);
+      if (reply.status !== "ok") return false;
+
+      this.graphSummaries = this.graphSummaries.map((summary) =>
+        summary.revision_id === graphRevisionId
+          ? { ...summary, analysis_ids: analysisIds }
+          : summary,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async setReportAnalysis(
+    api: DashboardApi,
+    report: SimulationReportDocument | OptimizationReportDocument,
+    analysisId: string | null,
+  ): Promise<boolean> {
+    const reportId =
+      report.kind === "simulation-report"
+        ? report.experimentId
+        : report.optimizationId;
+    if (!reportId) return false;
+
+    try {
+      const reply = await api.setReportAnalysis(
+        report.kind === "simulation-report"
+          ? "simulation_report"
+          : "optimization_report",
+        reportId,
+        analysisId,
+      );
+      if (reply.status !== "ok") return false;
+
+      report.setAnalysis(
+        reply.analysis === undefined
+          ? (this.analysisOptions.find(({ id }) => id === analysisId) ?? null)
+          : reply.analysis,
+      );
+      return true;
+    } catch {
       return false;
     }
   }

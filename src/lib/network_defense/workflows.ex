@@ -6,7 +6,7 @@ defmodule NetworkDefense.Workflows do
   alias NetworkDefense.Repo
 
   alias NetworkDefense.Workflows.{
-    AnalysisInputRevision,
+    AnalysisGraphRevision,
     AnalysisTitle,
     StepWorker,
     WorkflowRun,
@@ -119,7 +119,7 @@ defmodule NetworkDefense.Workflows do
         })
         |> Repo.insert!()
 
-      insert_input_revision(run)
+      link_input_graph(run)
       insert_steps_and_enqueue(run, steps)
       run
     end)
@@ -184,7 +184,7 @@ defmodule NetworkDefense.Workflows do
         )
 
       if Repo.exists?(from(run in WorkflowRun, where: run.id == ^candidate.id)) do
-        insert_input_revision(candidate)
+        link_input_graph(candidate)
         insert_steps_and_enqueue(candidate, steps)
         candidate
       else
@@ -204,19 +204,117 @@ defmodule NetworkDefense.Workflows do
     enqueue(run.id, 1)
   end
 
-  defp insert_input_revision(run) do
+  @spec list_analyses() :: [%{id: Ecto.UUID.t(), title: String.t()}]
+  def list_analyses do
+    from(run in WorkflowRun,
+      order_by: [asc: run.title, asc: run.id],
+      select: %{id: run.id, title: run.title}
+    )
+    |> Repo.all()
+  end
+
+  @spec analysis_option(Ecto.UUID.t() | nil) :: %{id: Ecto.UUID.t(), title: String.t()} | nil
+  def analysis_option(nil), do: nil
+
+  def analysis_option(id) do
+    from(run in WorkflowRun, where: run.id == ^id, select: %{id: run.id, title: run.title})
+    |> Repo.one()
+  end
+
+  @spec replace_graph_analyses(Ecto.UUID.t(), [Ecto.UUID.t()]) ::
+          {:ok, [%{id: Ecto.UUID.t(), title: String.t()}]}
+          | {:error, :not_found | :invalid_graph | :invalid_analyses}
+  def replace_graph_analyses(graph_revision_id, analysis_ids)
+      when is_binary(graph_revision_id) and is_list(analysis_ids) do
+    with {:ok, graph_revision_id} <- Ecto.UUID.cast(graph_revision_id),
+         {:ok, analysis_ids} <- cast_analysis_ids(analysis_ids),
+         true <- graph_revision_exists?(graph_revision_id) || {:error, :not_found},
+         true <- analyses_exist?(analysis_ids) || {:error, :invalid_analyses} do
+      Repo.transaction(fn ->
+        from(link in AnalysisGraphRevision, where: link.graph_revision_id == ^graph_revision_id)
+        |> Repo.delete_all()
+
+        insert_graph_analyses(graph_revision_id, analysis_ids)
+
+        analyses_by_ids(analysis_ids)
+      end)
+    end
+  end
+
+  def replace_graph_analyses(_graph_revision_id, _analysis_ids), do: {:error, :invalid_graph}
+
+  @spec link_graph_revision(Ecto.UUID.t() | nil, Ecto.UUID.t()) :: :ok
+  def link_graph_revision(nil, _graph_revision_id), do: :ok
+
+  def link_graph_revision(workflow_run_id, graph_revision_id) do
+    Repo.insert_all(
+      AnalysisGraphRevision,
+      [%{workflow_run_id: workflow_run_id, graph_revision_id: graph_revision_id}],
+      on_conflict: :nothing,
+      conflict_target: [:workflow_run_id, :graph_revision_id]
+    )
+
+    :ok
+  end
+
+  defp link_input_graph(run) do
     case Map.get(run.input, "graph_revision_id") do
       graph_revision_id when is_binary(graph_revision_id) ->
-        Repo.insert_all(
-          AnalysisInputRevision,
-          [%{workflow_run_id: run.id, graph_revision_id: graph_revision_id}],
-          on_conflict: :nothing,
-          conflict_target: [:workflow_run_id, :graph_revision_id]
-        )
+        link_graph_revision(run.id, graph_revision_id)
 
       _ ->
         {0, nil}
     end
+  end
+
+  defp cast_analysis_ids(ids) do
+    ids
+    |> Enum.uniq()
+    |> Enum.reduce_while({:ok, []}, fn id, {:ok, acc} ->
+      case Ecto.UUID.cast(id) do
+        {:ok, id} -> {:cont, {:ok, [id | acc]}}
+        :error -> {:halt, {:error, :invalid_analyses}}
+      end
+    end)
+    |> case do
+      {:ok, ids} -> {:ok, Enum.reverse(ids)}
+      error -> error
+    end
+  end
+
+  defp graph_revision_exists?(id) do
+    Repo.exists?(from(revision in NetworkDefense.Graph.GraphRevision, where: revision.id == ^id))
+  end
+
+  defp analyses_exist?([]), do: true
+
+  defp analyses_exist?(ids) do
+    WorkflowRun
+    |> where([run], run.id in ^ids)
+    |> select([run], count(run.id))
+    |> Repo.one() == length(ids)
+  end
+
+  defp analyses_by_ids([]), do: []
+
+  defp analyses_by_ids(ids) do
+    from(run in WorkflowRun,
+      where: run.id in ^ids,
+      order_by: [asc: run.title, asc: run.id],
+      select: %{id: run.id, title: run.title}
+    )
+    |> Repo.all()
+  end
+
+  defp insert_graph_analyses(_graph_revision_id, []), do: :ok
+
+  defp insert_graph_analyses(graph_revision_id, analysis_ids) do
+    Repo.insert_all(
+      AnalysisGraphRevision,
+      Enum.map(analysis_ids, &%{workflow_run_id: &1, graph_revision_id: graph_revision_id})
+    )
+
+    :ok
   end
 
   defp enqueue(run_id, position) do

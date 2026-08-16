@@ -70,6 +70,7 @@ function summary(graphId: string, revisionId: string, folderId?: string) {
     node_count: 0,
     edge_count: 0,
     is_favorite: false,
+    analysis_ids: [],
     folder_id: folderId,
   };
 }

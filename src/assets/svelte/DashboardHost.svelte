@@ -39,6 +39,7 @@
         folders,
       ),
   );
+  void model.workspace.loadAnalyses(model.api);
 
   useLiveEvent("simulation_completed", (payload: unknown) => {
     model.onSimulationCompleted(payload as SimulationCompletedEvent);

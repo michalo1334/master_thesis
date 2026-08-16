@@ -14,7 +14,7 @@ defmodule NetworkDefense.WorkflowsTest do
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Workflows
-  alias NetworkDefense.Workflows.{AnalysisInputRevision, StepWorker, WorkflowRun, WorkflowStep}
+  alias NetworkDefense.Workflows.{AnalysisGraphRevision, StepWorker, WorkflowRun, WorkflowStep}
 
   test "runs a generic two-step template linearly" do
     assert {:ok, run} = Workflows.start("two_step", %{})
@@ -108,8 +108,9 @@ defmodule NetworkDefense.WorkflowsTest do
              optimization.output["output_graph_revision_id"]
 
     analysis_id = run.id
-    assert [input_revision_id] = input_revision_ids(run.id)
-    assert input_revision_id == graph.revision_id
+
+    assert MapSet.new(analysis_graph_revision_ids(run.id)) ==
+             MapSet.new([graph.revision_id, optimization.output["output_graph_revision_id"]])
 
     assert %{analysis_id: ^analysis_id} = Experiments.get(baseline.output["experiment_id"])
 
@@ -119,7 +120,7 @@ defmodule NetworkDefense.WorkflowsTest do
     assert %{analysis_id: ^analysis_id} =
              Experiments.get(post_optimization.output["experiment_id"])
 
-    assert %{analysisId: ^analysis_id} =
+    assert %{analysisIds: [^analysis_id]} =
              Enum.find(
                Graphs.list_summaries(),
                &(&1.revisionId == optimization.output["output_graph_revision_id"])
@@ -168,7 +169,7 @@ defmodule NetworkDefense.WorkflowsTest do
              )
 
     assert first.id == second.id
-    assert [input_revision_id] = input_revision_ids(first.id)
+    assert [input_revision_id] = analysis_graph_revision_ids(first.id)
     assert input_revision_id == graph.revision_id
 
     assert [job] = all_enqueued(worker: StepWorker)
@@ -235,10 +236,10 @@ defmodule NetworkDefense.WorkflowsTest do
     |> Repo.all()
   end
 
-  defp input_revision_ids(run_id) do
-    AnalysisInputRevision
-    |> where([input], input.workflow_run_id == ^run_id)
-    |> select([input], input.graph_revision_id)
+  defp analysis_graph_revision_ids(run_id) do
+    AnalysisGraphRevision
+    |> where([link], link.workflow_run_id == ^run_id)
+    |> select([link], link.graph_revision_id)
     |> Repo.all()
   end
 

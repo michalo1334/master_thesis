@@ -12,6 +12,7 @@ export type GraphDiffStatus = GraphDiffStatusEntry["status"];
 
 export class GraphDiffDocument extends WorkspaceDocumentBase {
   readonly kind = "graph-diff" as const;
+  readonly documentLabel = "Comparison";
   readonly icon = "graph-diff" as const satisfies IconName;
   readonly id = crypto.randomUUID();
   readonly baseRevisionId: string;

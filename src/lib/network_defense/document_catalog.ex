@@ -4,23 +4,19 @@ defmodule NetworkDefense.DocumentCatalog do
   import Ecto.Query
 
   alias NetworkDefense.Graph.{Graph, GraphRevision}
+  alias NetworkDefense.DocumentCatalog.Kind
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Workflows.{AnalysisInputRevision, WorkflowRun}
+  alias NetworkDefense.Workflows.{AnalysisGraphRevision, WorkflowRun}
 
-  defmacrop analysis_ids(analysis_id, input_analysis_ids) do
-    quote do
-      type(
-        fragment(
-          "array_remove(ARRAY(SELECT DISTINCT unnest(array_append(COALESCE(?, ARRAY[]::uuid[]), ?))), NULL)",
-          unquote(input_analysis_ids),
-          unquote(analysis_id)
-        ),
-        {:array, :binary_id}
-      )
-    end
-  end
+  @graph_kind Kind.value(:graph)
+  @simulation_report_kind Kind.value(:simulation_report)
+  @optimization_report_kind Kind.value(:optimization_report)
+
+  @graph_label Kind.label(:graph)
+  @simulation_report_label Kind.label(:simulation_report)
+  @optimization_report_label Kind.label(:optimization_report)
 
   defmacrop analysis_ids(analysis_id) do
     quote do
@@ -56,37 +52,41 @@ defmodule NetworkDefense.DocumentCatalog do
   end
 
   defp catalog_query do
-    input_analysis_ids = input_analysis_ids_query()
+    graph_analysis_ids = graph_analysis_ids_query()
 
-    graph_items(input_analysis_ids)
+    graph_items(graph_analysis_ids)
     |> union_all(^experiment_items())
     |> union_all(^optimization_items())
     |> subquery()
     |> then(&from(item in &1))
   end
 
-  defp input_analysis_ids_query do
-    from input in AnalysisInputRevision,
-      group_by: input.graph_revision_id,
+  defp graph_analysis_ids_query do
+    from link in AnalysisGraphRevision,
+      group_by: link.graph_revision_id,
       select: %{
-        graph_revision_id: input.graph_revision_id,
-        analysis_ids: fragment("array_agg(DISTINCT ?)", input.workflow_run_id)
+        graph_revision_id: link.graph_revision_id,
+        analysis_ids: fragment("array_agg(DISTINCT ?)", link.workflow_run_id)
       }
   end
 
-  defp graph_items(input_analysis_ids) do
+  defp graph_items(graph_analysis_ids) do
     from revision in GraphRevision,
       join: graph in Graph,
       on: graph.id == revision.graph_id,
-      left_join: input in subquery(input_analysis_ids),
-      on: input.graph_revision_id == revision.id,
+      left_join: analysis in subquery(graph_analysis_ids),
+      on: analysis.graph_revision_id == revision.id,
       select: %{
         id: revision.id,
-        kind: "graph",
+        kind: @graph_kind,
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
-        analysis_ids: analysis_ids(revision.analysis_id, input.analysis_ids),
+        analysis_ids:
+          type(
+            fragment("COALESCE(?, ARRAY[]::uuid[])", analysis.analysis_ids),
+            {:array, :binary_id}
+          ),
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: nil,
@@ -106,7 +106,7 @@ defmodule NetworkDefense.DocumentCatalog do
       where: experiment.status == "completed",
       select: %{
         id: experiment.id,
-        kind: "simulation_report",
+        kind: @simulation_report_kind,
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
@@ -132,7 +132,7 @@ defmodule NetworkDefense.DocumentCatalog do
       where: run.status == "completed",
       select: %{
         id: run.id,
-        kind: "optimization_report",
+        kind: @optimization_report_kind,
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
@@ -166,8 +166,14 @@ defmodule NetworkDefense.DocumentCatalog do
       query,
       [item],
       fragment(
-        "CASE ? WHEN 'graph' THEN 'Graph' WHEN 'simulation_report' THEN 'Simulation report' WHEN 'optimization_report' THEN 'Optimization report' END ILIKE ? ESCAPE '\\'",
+        "CASE ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END ILIKE ? ESCAPE '\\'",
         item.kind,
+        @graph_kind,
+        @graph_label,
+        @simulation_report_kind,
+        @simulation_report_label,
+        @optimization_report_kind,
+        @optimization_report_label,
         ^pattern
       ) or
         fragment(

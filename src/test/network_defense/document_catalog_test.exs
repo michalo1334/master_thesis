@@ -3,6 +3,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
 
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.{Optimizations, Simulations}
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Experiments}
   alias NetworkDefense.Workflows
@@ -136,6 +137,47 @@ defmodule NetworkDefense.DocumentCatalogTest do
              DocumentCatalog.document_catalog(
                filters(%{"graph_ids" => [alpha.id], "limit" => 1, "offset" => 1})
              )
+  end
+
+  test "replaces graph analysis grouping without changing workflow assignment" do
+    assert {:ok, graph} = Graphs.insert(Graph.new("grouped graph"))
+    assert {:ok, first} = Workflows.start("two_step", %{})
+    assert {:ok, second} = Workflows.start("two_step", %{})
+
+    assert {:ok, analyses} =
+             Workflows.replace_graph_analyses(graph.revision_id, [second.id, first.id])
+
+    assert MapSet.new(Enum.map(analyses, & &1.id)) == MapSet.new([first.id, second.id])
+
+    assert %{analysisIds: analysis_ids} =
+             Enum.find(Graphs.list_summaries(), &(&1.revisionId == graph.revision_id))
+
+    assert MapSet.new(analysis_ids) == MapSet.new([first.id, second.id])
+
+    assert %{analyses: catalog_analyses} =
+             DocumentCatalog.document_catalog(filters())
+             |> then(fn catalog -> Enum.find(catalog.items, &(&1.id == graph.revision_id)) end)
+
+    assert MapSet.new(Enum.map(catalog_analyses, & &1.id)) == MapSet.new([first.id, second.id])
+    assert {:ok, []} = Workflows.replace_graph_analyses(graph.revision_id, [])
+  end
+
+  test "changes a completed report analysis or clears it" do
+    assert {:ok, graph} = Graphs.insert(Graph.new("report graph"))
+    assert {:ok, analysis} = Workflows.start("two_step", %{})
+    assert {:ok, output} = Graphs.append_optimization(graph)
+    assert {:ok, experiment} = create_experiment(graph, nil)
+    assert {:ok, optimization} = create_optimization(graph, output.revision_id, nil)
+
+    assert {:ok, experiment} = Simulations.set_analysis(experiment.id, analysis.id)
+    assert experiment.analysis_id == analysis.id
+    assert {:ok, experiment} = Simulations.set_analysis(experiment.id, nil)
+    assert is_nil(experiment.analysis_id)
+
+    assert {:ok, optimization} = Optimizations.set_analysis(optimization.id, analysis.id)
+    assert optimization.analysis_id == analysis.id
+    assert {:ok, optimization} = Optimizations.set_analysis(optimization.id, nil)
+    assert is_nil(optimization.analysis_id)
   end
 
   defp create_experiment(graph, analysis_id) do

@@ -26,18 +26,6 @@
     { kind: "simulation-report" | "optimization-report" | "comparison-report" }
   >;
 
-  const documentTypeByKind = {
-    graph: "Graph",
-    "graph-diff": "Comparison",
-    "simulation-report": "Report",
-    "optimization-report": "Report",
-    "comparison-report": "Report",
-    "document-catalog": "Table",
-  } satisfies Record<
-    WorkspaceDocument["kind"],
-    "Graph" | "Comparison" | "Report" | "Table"
-  >;
-
   interface Props {
     documents: readonly WorkspaceDocument[];
     folders?: readonly FolderSummary[];
@@ -249,12 +237,6 @@
     return parent;
   }
 
-  function documentType(
-    document: WorkspaceDocument,
-  ): "Graph" | "Comparison" | "Report" | "Table" {
-    return documentTypeByKind[document.kind];
-  }
-
   function graphId(document: WorkspaceDocument): string | undefined {
     return document.kind === "graph" && document.loadedRevisionId
       ? document.graph.id
@@ -347,7 +329,7 @@
           >
             <button
               type="button"
-              aria-label={`${documentType(row.document)} ${row.document.title}`}
+              aria-label={`${row.document.documentLabel} ${row.document.title}`}
               aria-current={row.document.id === selectedDocumentId
                 ? "page"
                 : undefined}

@@ -13,7 +13,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
     field :revision_kind, :string
     field :node_count, :integer
     field :edge_count, :integer
-    field :analysis_id, :string
+    field :analysis_ids, {:array, :string}, default: []
     field :is_favorite, :boolean
   end
 
@@ -27,7 +27,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
           revision_kind: String.t(),
           node_count: non_neg_integer(),
           edge_count: non_neg_integer(),
-          analysis_id: String.t() | nil,
+          analysis_ids: [String.t()],
           is_favorite: boolean()
         }
 
@@ -42,7 +42,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       revision_kind: summary.revisionKind,
       node_count: summary.nodeCount,
       edge_count: summary.edgeCount,
-      analysis_id: summary.analysisId,
+      analysis_ids: summary.analysisIds,
       is_favorite: summary.isFavorite
     })
   end
@@ -59,7 +59,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
       :revision_kind,
       :node_count,
       :edge_count,
-      :analysis_id,
+      :analysis_ids,
       :is_favorite
     ])
     |> validate_required([
@@ -76,8 +76,18 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphSummary do
     |> Contracts.validate_uuid(:folder_id)
     |> Contracts.validate_uuid(:revision_id)
     |> Contracts.validate_uuid(:parent_revision_id)
-    |> Contracts.validate_uuid(:analysis_id)
+    |> validate_uuid_list(:analysis_ids)
     |> validate_number(:node_count, greater_than_or_equal_to: 0)
     |> validate_number(:edge_count, greater_than_or_equal_to: 0)
+  end
+
+  defp validate_uuid_list(changeset, field) do
+    validate_change(changeset, field, fn ^field, ids ->
+      if Enum.all?(ids, &match?({:ok, _}, Ecto.UUID.cast(&1))) do
+        []
+      else
+        [{field, "contains an invalid UUID"}]
+      end
+    end)
   end
 end

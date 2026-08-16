@@ -12,6 +12,7 @@ defmodule NetworkDefense.Graph.Graphs do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Repo
+  alias NetworkDefense.Workflows
 
   @snapshot_insert_batch_size 1_000
 
@@ -26,7 +27,7 @@ defmodule NetworkDefense.Graph.Graphs do
           insertedAt: DateTime.t(),
           nodeCount: non_neg_integer(),
           edgeCount: non_neg_integer(),
-          analysisId: Ecto.UUID.t() | nil,
+          analysisIds: [Ecto.UUID.t()],
           isFavorite: boolean()
         }
 
@@ -77,6 +78,15 @@ defmodule NetworkDefense.Graph.Graphs do
         group_by: edge.graph_revision_id,
         select: %{graph_revision_id: edge.graph_revision_id, count: count(edge.id)}
 
+    analysis_ids =
+      from(link in NetworkDefense.Workflows.AnalysisGraphRevision,
+        group_by: link.graph_revision_id,
+        select: %{
+          graph_revision_id: link.graph_revision_id,
+          analysis_ids: fragment("array_agg(DISTINCT ?)", link.workflow_run_id)
+        }
+      )
+
     GraphRevision
     |> join(:inner, [revision], graph in Graph, on: graph.id == revision.graph_id)
     |> join(:left, [revision], node_count in subquery(node_counts),
@@ -88,8 +98,11 @@ defmodule NetworkDefense.Graph.Graphs do
     |> join(:left, [revision], favorite in GraphRevisionFavorite,
       on: favorite.graph_revision_id == revision.id
     )
+    |> join(:left, [revision], analysis in subquery(analysis_ids),
+      on: analysis.graph_revision_id == revision.id
+    )
     |> order_by([revision], asc: revision.graph_id, asc: revision.number)
-    |> select([revision, graph, node_count, edge_count, favorite], %{
+    |> select([revision, graph, node_count, edge_count, favorite, analysis], %{
       graphId: revision.graph_id,
       folderId: graph.folder_id,
       revisionId: revision.id,
@@ -100,7 +113,11 @@ defmodule NetworkDefense.Graph.Graphs do
       insertedAt: revision.inserted_at,
       nodeCount: coalesce(node_count.count, 0),
       edgeCount: coalesce(edge_count.count, 0),
-      analysisId: revision.analysis_id,
+      analysisIds:
+        type(
+          fragment("COALESCE(?, ARRAY[]::uuid[])", analysis.analysis_ids),
+          {:array, :binary_id}
+        ),
       isFavorite: not is_nil(favorite.graph_revision_id)
     })
     |> Repo.all()
@@ -189,12 +206,12 @@ defmodule NetworkDefense.Graph.Graphs do
       %GraphRevision{
         id: Ecto.UUID.generate(),
         graph_id: graph.id,
-        parent_revision_id: parent_revision_id,
-        analysis_id: analysis_id
+        parent_revision_id: parent_revision_id
       }
       |> GraphRevision.changeset(%{number: number, kind: kind, title: graph.title})
 
     with {:ok, revision} <- Repo.insert(revision_changeset),
+         :ok <- Workflows.link_graph_revision(analysis_id, revision.id),
          :ok <- register_identities(graph),
          :ok <- insert_snapshots(graph, revision.id),
          {:ok, graph} <- hydrate_revision(revision, %Graph{id: graph.id}) do

@@ -12,7 +12,7 @@
   } from "../controls/FilterableTable.types";
   import MultiSelectFilter from "../controls/MultiSelectFilter.svelte";
   import type { MultiSelectFilterOption } from "../controls/MultiSelectFilter.svelte";
-  import type { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
+  import { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
 
   interface Props {
     document: DocumentCatalogDocument;
@@ -49,7 +49,7 @@
     {
       key: "kind",
       header: kindHeader,
-      getValue: (item) => kindLabel(item.kind),
+      getValue: (item) => DocumentCatalogDocument.kindLabel(item.kind),
       filterable: true,
     },
     {
@@ -91,7 +91,10 @@
     }),
   );
   const kindOptions = $derived(
-    filterOptions.types.map((value) => ({ value, label: kindLabel(value) })),
+    filterOptions.types.map((value) => ({
+      value,
+      label: DocumentCatalogDocument.kindLabel(value),
+    })),
   );
   const analysisOptions = $derived(
     filterOptions.analyses.map(({ id, title }) => ({
@@ -202,12 +205,6 @@
     } finally {
       isOpening = false;
     }
-  }
-
-  function kindLabel(kind: string): string {
-    if (kind === "simulation_report") return "Simulation report";
-    if (kind === "optimization_report") return "Optimization report";
-    return "Graph";
   }
 
   function analysisLabel(item: DocumentCatalogItem): string {

@@ -28,6 +28,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchGraphProjectionReply,
     FetchDocumentCatalogPayload,
     FetchDocumentCatalogReply,
+    FetchAnalysesPayload,
+    FetchAnalysesReply,
     CreateFolderPayload,
     CreateFolderReply,
     CreateNodeDraftPayload,
@@ -40,9 +42,13 @@ defmodule NetworkDefenseWeb.DashboardLive do
     OpenGraphReply,
     SetGraphRevisionFavoritePayload,
     SetGraphRevisionFavoriteReply,
+    SetGraphAnalysesPayload,
+    SetGraphAnalysesReply,
     GraphSummary,
     MoveGraphToFolderPayload,
     MoveGraphToFolderReply,
+    SetReportAnalysisPayload,
+    SetReportAnalysisReply,
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
@@ -139,6 +145,52 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("set_graph_revision_favorite", params, socket) do
     {:reply, set_graph_revision_favorite(params), socket}
+  end
+
+  @impl true
+  def handle_event("fetch_analyses", params, socket) do
+    case FetchAnalysesPayload.validate(params) do
+      {:ok, _request} ->
+        {:reply, fetch_analyses_reply(Workflows.list_analyses()), socket}
+
+      {:error, _changeset} ->
+        {:reply, fetch_analyses_reply([]), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("set_graph_analyses", params, socket) do
+    case SetGraphAnalysesPayload.validate(params) do
+      {:ok, request} ->
+        case Workflows.replace_graph_analyses(request.graph_revision_id, request.analysis_ids) do
+          {:ok, analyses} ->
+            {:reply, set_graph_analyses_reply("ok", analyses),
+             assign(socket, :graph_summaries, graph_summaries())}
+
+          {:error, reason} ->
+            {:reply, set_graph_analyses_reply(graph_analysis_error_status(reason), []), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, set_graph_analyses_reply("invalid_graph", []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("set_report_analysis", params, socket) do
+    case SetReportAnalysisPayload.validate(params) do
+      {:ok, request} ->
+        case set_report_analysis(request) do
+          {:ok, analysis} ->
+            {:reply, set_report_analysis_reply("ok", analysis), socket}
+
+          {:error, reason} ->
+            {:reply, set_report_analysis_reply(report_analysis_error_status(reason), nil), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, set_report_analysis_reply("invalid_analysis", nil), socket}
+    end
   end
 
   @impl true
@@ -800,6 +852,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
     contract_reply(SetGraphRevisionFavoriteReply, %{status: status, favorite: favorite})
   end
 
+  defp fetch_analyses_reply(analyses),
+    do: contract_reply(FetchAnalysesReply, %{analyses: analyses})
+
+  defp set_graph_analyses_reply(status, analyses),
+    do: contract_reply(SetGraphAnalysesReply, %{status: status, analyses: analyses})
+
+  defp set_report_analysis_reply(status, analysis),
+    do: contract_reply(SetReportAnalysisReply, %{status: status, analysis: analysis})
+
   defp create_folder_reply(status, folder \\ nil) do
     contract_reply(CreateFolderReply, %{status: status, folder: folder})
   end
@@ -818,6 +879,25 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp move_graph_error_status(:invalid_folder), do: "invalid_folder"
   defp move_graph_error_status(:folder_not_found), do: "folder_not_found"
   defp move_graph_error_status(_reason), do: "unmapped_error"
+
+  defp graph_analysis_error_status(:not_found), do: "not_found"
+  defp graph_analysis_error_status(:invalid_graph), do: "invalid_graph"
+  defp graph_analysis_error_status(:invalid_analyses), do: "invalid_analyses"
+
+  defp report_analysis_error_status(:not_found), do: "not_found"
+  defp report_analysis_error_status(:invalid_analysis), do: "invalid_analysis"
+
+  defp set_report_analysis(%{kind: "simulation_report"} = request) do
+    with {:ok, experiment} <- Simulations.set_analysis(request.report_id, request.analysis_id) do
+      {:ok, Workflows.analysis_option(experiment.analysis_id)}
+    end
+  end
+
+  defp set_report_analysis(%{kind: "optimization_report"} = request) do
+    with {:ok, run} <- Optimizations.set_analysis(request.report_id, request.analysis_id) do
+      {:ok, Workflows.analysis_option(run.analysis_id)}
+    end
+  end
 
   defp graph_connectivity_reply do
     contract_reply(GraphConnectivityReply, %{rules: SemanticConnectivity.rules()})

@@ -88,6 +88,22 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     end
   end
 
+  def set_analysis(run_id, analysis_id) when is_binary(run_id) do
+    case Repo.get(OptimizationRun, run_id) do
+      nil ->
+        {:error, :not_found}
+
+      run ->
+        run
+        |> OptimizationRun.changeset(%{analysis_id: analysis_id})
+        |> Repo.update()
+        |> case do
+          {:ok, run} -> {:ok, run}
+          {:error, _changeset} -> {:error, :invalid_analysis}
+        end
+    end
+  end
+
   defp complete_run(%OptimizationRun{} = run, attrs) do
     attrs = Map.take(attrs, [:used_budget, :runtime_ms, :output_graph_revision_id])
 

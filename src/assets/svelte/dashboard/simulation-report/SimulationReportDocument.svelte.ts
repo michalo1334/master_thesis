@@ -10,13 +10,14 @@ import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 
 export class SimulationReportDocument extends AsyncReportDocument<"simulation"> {
   readonly kind = "simulation-report" as const;
+  readonly documentLabel = "Report";
   readonly reportKind = "simulation" as const;
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id: string;
   readonly graphId: string;
   readonly graphRevisionId: string;
-  readonly analysisId?: string;
-  readonly analysisTitle?: string;
+  analysisId = $state<string>();
+  analysisTitle = $state<string>();
 
   title = $state<string>("");
   status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
@@ -46,6 +47,11 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.graphRevisionId = graphRevisionId;
     this.analysisId = analysis.analysisId;
     this.analysisTitle = analysis.analysisTitle;
+  }
+
+  setAnalysis(analysis: { id: string; title: string } | null): void {
+    this.analysisId = analysis?.id;
+    this.analysisTitle = analysis?.title;
   }
 
   markPending(correlationId: string): void {

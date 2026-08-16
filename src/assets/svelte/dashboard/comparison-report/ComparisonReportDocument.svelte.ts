@@ -5,6 +5,7 @@ import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
 export class ComparisonReportDocument extends WorkspaceDocumentBase {
   readonly kind = "comparison-report" as const;
+  readonly documentLabel = "Report";
   readonly icon = "simulation-report" as const satisfies IconName;
   readonly id = crypto.randomUUID();
   readonly title: string;

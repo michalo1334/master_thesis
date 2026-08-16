@@ -1,12 +1,27 @@
 <script lang="ts">
   import type { GraphSummary, LoadedGraph, Selectable } from "../contract";
+  import type { AnalysisOption } from "../dashboard-api";
   import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
+  import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
+  import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
   import GraphInspector from "./graph/GraphInspector.svelte";
   import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
+  import ReportInspector from "./report/ReportInspector.svelte";
 
   interface Props {
     document: WorkspaceDocument | undefined;
     summaries?: readonly GraphSummary[];
+    analyses: readonly AnalysisOption[];
+    analysesStatus: string;
+    onLoadAnalyses: () => Promise<boolean>;
+    onGraphAnalysesChange: (
+      revisionId: string,
+      analysisIds: string[],
+    ) => Promise<boolean>;
+    onReportAnalysisChange: (
+      report: SimulationReportDocument | OptimizationReportDocument,
+      analysisId: string | null,
+    ) => Promise<boolean>;
     onOpenParent?: (revisionId: string) => void;
   }
 
@@ -20,7 +35,16 @@
       }
     | undefined;
 
-  let { document, summaries = [], onOpenParent = undefined }: Props = $props();
+  let {
+    document,
+    summaries = [],
+    analyses,
+    analysesStatus,
+    onLoadAnalyses,
+    onGraphAnalysesChange,
+    onReportAnalysisChange,
+    onOpenParent = undefined,
+  }: Props = $props();
 
   let selection = $derived.by((): InspectorSelection => {
     if (!document || document.kind !== "graph") return undefined;
@@ -50,10 +74,27 @@
     onOpenParent={selection.graph.parent_revision_id
       ? () => onOpenParent?.(selection.graph.parent_revision_id!)
       : undefined}
+    analysisIds={summaries.find(
+      ({ revision_id }) => revision_id === selection.graph.revision_id,
+    )?.analysis_ids ?? []}
+    {analyses}
+    {analysesStatus}
+    {onLoadAnalyses}
+    onAnalysesChange={(analysisIds) =>
+      selection.graph.revision_id
+        ? onGraphAnalysesChange(selection.graph.revision_id, analysisIds)
+        : Promise.resolve(false)}
   />
 {:else if selection?.kind === "selectable" && document?.kind === "graph"}
   <EditableSelectionInspector
     selectable={selection.selectable}
     onUpdate={(selectable) => document.updateSelection(selectable)}
+  />
+{:else if document?.kind === "simulation-report" || document?.kind === "optimization-report"}
+  <ReportInspector
+    {document}
+    {analyses}
+    onAnalysisChange={(analysisId) =>
+      onReportAnalysisChange(document, analysisId)}
   />
 {/if}

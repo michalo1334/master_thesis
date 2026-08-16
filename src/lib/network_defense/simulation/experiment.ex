@@ -56,7 +56,8 @@ defmodule NetworkDefense.Simulation.Experiment do
       :total_trials,
       :completed_trials,
       :status,
-      :initial_foothold_node_id
+      :initial_foothold_node_id,
+      :analysis_id
     ])
     |> validate_required([
       :graph_revision_id,
