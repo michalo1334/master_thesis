@@ -18,8 +18,8 @@
     convergenceOptions,
     histogramOptions,
   } from "./chart-options";
-  import { heatmapLegend, simulationHeatmapAppearance } from "./heatmap";
-  import { projectNetwork } from "../graph/network/NetworkCanvasProjection";
+  import { heatmapLegend } from "./heatmap";
+  import HeatmapCanvas from "./HeatmapCanvas.svelte";
 
   interface Props {
     document: SimulationReportDocument;
@@ -44,19 +44,6 @@
 
   let { document, onOpenSourceGraph = undefined }: Props = $props();
   let activeTab = $state("report");
-  let heatmapAppearance = $derived(
-    document.reportData
-      ? simulationHeatmapAppearance(document.reportData.charts)
-      : undefined,
-  );
-  let heatmapFlows = $derived(
-    document.heatmapGraph && document.reportData
-      ? projectNetwork(
-          document.heatmapGraph,
-          document.reportData.operational_flows,
-        ).operationalFlows
-      : [],
-  );
   let capabilityImpacts = $derived.by(() => {
     const report = document.reportData;
     if (!report) return [];
@@ -406,20 +393,7 @@
             class="simulation-report-heatmap-canvas"
             aria-describedby="heatmap-description"
           >
-            <Canvas
-              graph={document.heatmapGraph}
-              nodeAppearance={heatmapAppearance?.nodeAppearance}
-              edgeAppearance={heatmapAppearance?.edgeAppearance}
-              structuralFlows={heatmapFlows}
-              structuralFlowAppearance={heatmapAppearance?.flowAppearance}
-              selectedNodeId={document.heatmapSelectedNodeId}
-              selectedEdgeId={document.heatmapSelectedEdgeId}
-              onGraphChange={(graph) => (document.heatmapGraph = graph)}
-              onSelectNode={(nodeId) => document.selectHeatmapNode(nodeId)}
-              onSelectEdge={(edgeId) => document.selectHeatmapEdge(edgeId)}
-              onClearSelection={() => document.clearHeatmapSelection()}
-              ariaLabel="Simulation attack-path heatmap"
-            />
+            <HeatmapCanvas {document} />
           </div>
         </section>
       </Tabs.Content>

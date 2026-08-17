@@ -24,12 +24,47 @@ const heatPalette: readonly HeatTone[] = [
 
 export const heatmapLegend: readonly HeatmapLegendItem[] = heatPalette;
 
-function heatTone(probability: number): HeatTone {
+export function heatTone(probability: number): HeatTone {
   const index = Math.min(
     heatPalette.length - 1,
     Math.max(0, Math.floor(Math.max(0, Math.min(1, probability)) * 4)),
   );
   return heatPalette[index];
+}
+
+export function hostHeatAppearance(
+  charts: SimulationReportCharts,
+  hostId: string,
+): CanvasNodeAppearance | undefined {
+  const probability = new Map(
+    charts.host_compromise.map(({ host_id, compromise_probability }) => [
+      host_id,
+      compromise_probability,
+    ]),
+  ).get(hostId);
+  if (probability === undefined) return undefined;
+  const tone = heatTone(probability);
+  return { cardFill: tone.fill, cardStroke: tone.color, cardStrokeWidth: 2.5 };
+}
+
+export function edgeIdsHeatAppearance(
+  charts: SimulationReportCharts,
+  edgeIds: readonly string[],
+): CanvasEdgeAppearance | undefined {
+  let max: number | undefined;
+  const probabilities = new Map(
+    charts.edge_traversal.map(({ edge_id, traversal_probability }) => [
+      edge_id,
+      traversal_probability,
+    ]),
+  );
+  for (const id of edgeIds) {
+    const p = probabilities.get(id);
+    if (p !== undefined) max = max === undefined ? p : Math.max(max, p);
+  }
+  if (max === undefined) return undefined;
+  const tone = heatTone(max);
+  return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
 }
 
 export function simulationHeatmapAppearance(charts: SimulationReportCharts): {

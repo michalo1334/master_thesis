@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { DashboardApi } from "../../dashboard-api";
-  import type { GraphProjectionOperationalFlow } from "../../contract";
+  import type {
+    GraphProjectionOperationalFlow,
+    LoadedGraph,
+  } from "../../contract";
   import type { EditableGraphDocument } from "../EditableGraphDocument.svelte";
   import { type ZonePosition } from "./NetworkCanvasLayout";
   import { projectNetwork } from "./NetworkCanvasProjection";
@@ -11,6 +14,14 @@
     screenToWorld,
     ZOOM_STEP,
   } from "../canvas/canvasState";
+  import type {
+    CanvasEdgeAppearance,
+    CanvasNodeAppearance,
+  } from "../canvas/appearance";
+  import type {
+    NetworkOperationalFlow,
+    NetworkSegmentLink,
+  } from "./NetworkCanvasProjection";
 
   const COLLAPSED_RADIUS = { x: 130, y: 72 };
   const EXPANDED_RADIUS = { x: 235, y: 155 };
@@ -22,8 +33,22 @@
   const DRAG_THRESHOLD = 4;
 
   interface Props {
-    document: EditableGraphDocument;
-    api: DashboardApi;
+    document?: EditableGraphDocument;
+    api?: DashboardApi;
+    graph?: LoadedGraph;
+    operationalFlows?: readonly GraphProjectionOperationalFlow[];
+    selectedNodeId?: string;
+    selectedEdgeId?: string;
+    onSelectNode?: (nodeId: string) => void;
+    onSelectEdge?: (edgeId: string) => void;
+    onGraphChange?: (graph: LoadedGraph) => void;
+    hostAppearance?: (hostId: string) => CanvasNodeAppearance | undefined;
+    policyLinkAppearance?: (
+      link: NetworkSegmentLink,
+    ) => CanvasEdgeAppearance | undefined;
+    operationalFlowAppearance?: (
+      flow: NetworkOperationalFlow,
+    ) => CanvasEdgeAppearance | undefined;
     onArrangeNetwork?: () => void;
   }
 
@@ -37,7 +62,23 @@
     radius: { x: number; y: number };
   }
 
-  let { document, api, onArrangeNetwork = undefined }: Props = $props();
+  let {
+    document = undefined,
+    api = undefined,
+    graph = undefined,
+    operationalFlows = undefined,
+    selectedNodeId = undefined,
+    selectedEdgeId = undefined,
+    onSelectNode = undefined,
+    onSelectEdge = undefined,
+    onGraphChange = undefined,
+    hostAppearance = undefined,
+    policyLinkAppearance = undefined,
+    operationalFlowAppearance = undefined,
+    onArrangeNetwork = undefined,
+  }: Props = $props();
+  let effectiveGraph = $derived(graph ?? document?.graph);
+  let isHeatmapMode = $derived(Boolean(graph));
   let viewport = $state({ width: 0, height: 0 });
   let view = $state({ zoom: 100, pan: { x: 0, y: 0 } });
   let expandedSegmentIds = $state(new Set<string>());
@@ -61,14 +102,25 @@
   let projectedRevisionId = $state<string | null>(null);
   let projectionError = $state("");
 
-  let projection = $derived(
-    projectNetwork(
-      document.graph,
-      document.loadedRevisionId === projectedRevisionId
+  let projection = $derived.by(() => {
+    if (!effectiveGraph) {
+      return {
+        hosts: [],
+        segments: [],
+        segmentLinks: [],
+        operationalFlows: [],
+      };
+    }
+    if (operationalFlows) {
+      return projectNetwork(effectiveGraph, operationalFlows);
+    }
+    return projectNetwork(
+      effectiveGraph,
+      document?.loadedRevisionId === projectedRevisionId
         ? serverFlows
         : undefined,
-    ),
-  );
+    );
+  });
   let zones = $derived.by<DisplayZone[]>(() =>
     projection.segments.map((segment) => {
       const expanded = expandedSegmentIds.has(segment.id);
@@ -94,7 +146,28 @@
       ]),
     ),
   );
+  let effectiveSelectedNodeId = $derived(
+    selectedNodeId ??
+      (document?.canvasSelection.kind === "node"
+        ? document.canvasSelection.nodeId
+        : undefined),
+  );
+  let effectiveSelectedEdgeId = $derived(
+    selectedEdgeId ??
+      (document?.canvasSelection.kind === "edge"
+        ? document.canvasSelection.edgeId
+        : undefined),
+  );
+  let selectionNode = $derived(
+    effectiveGraph?.nodes.find((node) => node.id === effectiveSelectedNodeId),
+  );
   let selectedFlowHostId = $derived.by(() => {
+    if (selectionNode?.type === "Host") return selectionNode.id;
+    if (selectionNode?.type === "Service")
+      return projection.hosts.find((host) =>
+        host.services.some((service) => service.node.id === selectionNode!.id),
+      )?.id;
+    if (!document) return undefined;
     const selection = document.selection;
     if (selection?.type === "Host") return selection.id;
     if (selection?.type === "Service")
@@ -115,25 +188,32 @@
   );
   let visibleFlowIds = $derived(new Set(visibleFlows.map((flow) => flow.id)));
   let selectedHost = $derived(
-    document.selection?.type === "Host" ? document.selection : undefined,
+    selectionNode?.type === "Host"
+      ? selectionNode
+      : document?.selection?.type === "Host"
+        ? document.selection
+        : undefined,
   );
   let projectionStale = $derived(
-    document.loadedRevisionId !== null &&
+    !isHeatmapMode &&
+      document !== undefined &&
+      document.loadedRevisionId !== null &&
       (document.isDirty || document.loadedRevisionId !== projectedRevisionId),
   );
   let transform = $derived(formatWorldTransform(view));
   let flowArrowId = $props.id();
 
   $effect(() => {
-    const revisionId = document.loadedRevisionId;
-    if (!revisionId || revisionId === projectedRevisionId || document.isDirty)
+    if (isHeatmapMode || operationalFlows) return;
+    const revisionId = document?.loadedRevisionId;
+    if (!revisionId || revisionId === projectedRevisionId || document?.isDirty)
       return;
     let active = true;
     void api
-      .fetchGraphProjection(revisionId)
+      ?.fetchGraphProjection(revisionId)
       .then((reply) => {
-        if (!active || document.loadedRevisionId !== revisionId) return;
-        if (reply.status === "ok") {
+        if (!active || document?.loadedRevisionId !== revisionId) return;
+        if (reply?.status === "ok") {
           serverFlows = reply.operational_flows;
           projectedRevisionId = revisionId;
           projectionError = "";
@@ -281,6 +361,26 @@
     panDrag = undefined;
   }
 
+  function selectNode(nodeId: string): void {
+    if (onSelectNode) onSelectNode(nodeId);
+    else document?.selectNode(nodeId);
+  }
+
+  function selectEdge(edgeId: string): void {
+    if (onSelectEdge) onSelectEdge(edgeId);
+    else document?.selectEdge(edgeId);
+  }
+
+  function updateGraph(updater: (graph: LoadedGraph) => LoadedGraph): void {
+    if (onGraphChange && effectiveGraph) {
+      onGraphChange(updater(effectiveGraph));
+      return;
+    }
+    if (document && effectiveGraph) {
+      document.graph = updater(effectiveGraph);
+    }
+  }
+
   function startNodeDrag(
     event: PointerEvent,
     nodeId: string,
@@ -290,7 +390,7 @@
     event.stopPropagation();
     const element = event.currentTarget as SVGElement;
     element.setPointerCapture(event.pointerId);
-    document.selectNode(nodeId);
+    selectNode(nodeId);
     nodeDrag = {
       pointerId: event.pointerId,
       element,
@@ -310,9 +410,9 @@
     nodeDrag.x = event.clientX;
     nodeDrag.y = event.clientY;
     const ids = new Set(nodeDrag.nodeIds);
-    document.graph = {
-      ...document.graph,
-      nodes: document.graph.nodes.map((node) =>
+    updateGraph((graph) => ({
+      ...graph,
+      nodes: graph.nodes.map((node) =>
         ids.has(node.id)
           ? {
               ...node,
@@ -324,7 +424,7 @@
             }
           : node,
       ),
-    };
+    }));
   }
 
   function endNodeDrag(event: PointerEvent): void {
@@ -463,6 +563,10 @@
       status = "A host can belong to only one segment.";
       return;
     }
+    if (!api || !document) {
+      status = "Not available in this view.";
+      return;
+    }
     const reply = await api.createConnectionDraft({
       relationship_type: "Contains",
       source_id: segmentId,
@@ -492,12 +596,35 @@
       { x: viewport.width / 2, y: viewport.height / 2 },
       view,
     );
-    const reply = await api.createNodeDraft({
-      node_type: type,
-      x_pos: position.x,
-      y_pos: position.y,
-    });
-    if (reply.status === "ok" && reply.node) document.addNode(reply.node);
+    if (api && document) {
+      const reply = await api.createNodeDraft({
+        node_type: type,
+        x_pos: position.x,
+        y_pos: position.y,
+      });
+      if (reply.status === "ok" && reply.node) document.addNode(reply.node);
+      return;
+    }
+    if (effectiveGraph && onGraphChange) {
+      // Local draft for heatmap (no server): synthesize minimal node.
+      const id = crypto.randomUUID();
+      const data =
+        type === "Host"
+          ? { name: "Host" }
+          : { name: "Segment", cidr: null as string | null };
+      onGraphChange({
+        ...effectiveGraph,
+        nodes: [
+          ...effectiveGraph.nodes,
+          {
+            id,
+            type,
+            data: data as never,
+            view_data: { x_pos: position.x, y_pos: position.y },
+          },
+        ],
+      });
+    }
   }
 
   function activateKey(event: KeyboardEvent, action: () => void): void {
@@ -509,16 +636,18 @@
 
 <section class="network-canvas" aria-label="Network canvas">
   <div class="network-toolbar">
-    <button type="button" onclick={() => addNode("Host")}>Add host</button>
-    <button type="button" onclick={() => addNode("NetworkSegment")}
-      >Add segment</button
-    >
+    {#if !isHeatmapMode}
+      <button type="button" onclick={() => addNode("Host")}>Add host</button>
+      <button type="button" onclick={() => addNode("NetworkSegment")}
+        >Add segment</button
+      >
+    {/if}
     {#if onArrangeNetwork}
       <button type="button" onclick={onArrangeNetwork}>Arrange network</button>
     {/if}
     <button type="button" onclick={expandAllZones}>Expand all zones</button>
     <button type="button" onclick={collapseAllZones}>Collapse all zones</button>
-    {#if selectedHost}
+    {#if selectedHost && !isHeatmapMode}
       <select
         aria-label="Assign selected host to a segment"
         onchange={assignSelectedHost}
@@ -590,27 +719,29 @@
         {@const target = zoneById.get(link.targetId)}
         {#if source && target}
           {@const boundary = zoneBoundary(source, target)}
+          {@const linkHeat = policyLinkAppearance?.(link)}
           <g
             class="network-policy-link"
             data-testid="policy-link"
             role="button"
             tabindex="0"
             aria-label="Segment reachability"
-            onclick={() => document.selectEdge(link.edgeIds[0]!)}
+            onclick={() => selectEdge(link.edgeIds[0]!)}
             onkeydown={(event) =>
-              activateKey(event, () => document.selectEdge(link.edgeIds[0]!))}
+              activateKey(event, () => selectEdge(link.edgeIds[0]!))}
           >
             <path
               d={`M ${boundary[0].x} ${boundary[0].y} L ${boundary[1].x} ${boundary[1].y}`}
+              style:stroke={linkHeat?.stroke}
+              style:stroke-width={linkHeat?.strokeWidth}
+              style:opacity={linkHeat?.opacity}
             />
           </g>
         {/if}
       {/each}
 
       {#each zones as zone (zone.id)}
-        {@const selected =
-          document.canvasSelection.kind === "node" &&
-          document.canvasSelection.nodeId === zone.id}
+        {@const selected = effectiveSelectedNodeId === zone.id}
         {@const expanded = expandedSegmentIds.has(zone.id)}
         {@const glyphX = zone.position.x + zone.radius.x * 0.82}
         {@const glyphY = zone.position.y - zone.radius.y * 0.57}
@@ -668,12 +799,19 @@
 
       {#each visibleFlows as flow (flow.id)}
         {@const path = flowPath(flow)}
+        {@const flowHeat = operationalFlowAppearance?.(flow)}
         <g
           class="network-operational-flow"
           role="img"
           aria-label={`Operational flow from ${flow.sourceName} to ${flow.targetName}: ${flow.count} ${flow.count === 1 ? "flow" : "flows"} (${flow.serviceNames.join(", ")})`}
         >
-          <path d={path.d} marker-end={`url(#${flowArrowId})`} />
+          <path
+            d={path.d}
+            marker-end={`url(#${flowArrowId})`}
+            style:stroke={flowHeat?.stroke}
+            style:stroke-width={flowHeat?.strokeWidth}
+            style:opacity={flowHeat?.opacity}
+          />
           <text x={path.label.x} y={path.label.y - 6}
             >{flow.serviceNames.length === 1
               ? flow.serviceNames[0]
@@ -687,9 +825,8 @@
             {@const position = hostPositions.get(host.id)!}
             {@const height = hostCardHeight(host)}
             {@const detailExpanded = expandedHostIds.has(host.id)}
-            {@const selected =
-              document.canvasSelection.kind === "node" &&
-              document.canvasSelection.nodeId === host.id}
+            {@const selected = effectiveSelectedNodeId === host.id}
+            {@const heat = hostAppearance?.(host.id)}
             <g
               class={["network-host", selected && "selected"]}
               data-testid="host-node"
@@ -700,7 +837,15 @@
               transform={`translate(${position.x - HOST_WIDTH / 2} ${position.y - height / 2})`}
               onpointerdown={(event) => startNodeDrag(event, host.id)}
             >
-              <rect width={HOST_WIDTH} {height} rx="7" />
+              <rect
+                width={HOST_WIDTH}
+                {height}
+                rx="7"
+                style:fill={heat?.cardFill}
+                style:stroke={heat?.cardStroke}
+                style:stroke-width={heat?.cardStrokeWidth}
+                style:opacity={heat?.cardOpacity}
+              />
               <text x="10" y="22">{host.node.data.name}</text>
               <text class="network-host-meta" x="10" y="40"
                 >{host.services.length} services</text
@@ -744,13 +889,11 @@
                     aria-label={`Service ${service.node.data.name}`}
                     onclick={(event) => {
                       event.stopPropagation();
-                      document.selectNode(service.node.id);
+                      selectNode(service.node.id);
                     }}
                     onkeydown={(event) => {
                       event.stopPropagation();
-                      activateKey(event, () =>
-                        document.selectNode(service.node.id),
-                      );
+                      activateKey(event, () => selectNode(service.node.id));
                     }}
                   >
                     <rect
@@ -775,13 +918,11 @@
                       aria-label={`CVE ${vulnerability.data.identifier}`}
                       onclick={(event) => {
                         event.stopPropagation();
-                        document.selectNode(vulnerability.id);
+                        selectNode(vulnerability.id);
                       }}
                       onkeydown={(event) => {
                         event.stopPropagation();
-                        activateKey(event, () =>
-                          document.selectNode(vulnerability.id),
-                        );
+                        activateKey(event, () => selectNode(vulnerability.id));
                       }}
                     >
                       <rect
@@ -826,7 +967,7 @@
         {@const expanded = expandedSegmentIds.has(zone.id)}
         <li>
           {#if zone.node}
-            <button type="button" onclick={() => document.selectNode(zone.id)}
+            <button type="button" onclick={() => selectNode(zone.id)}
               >Select {zone.name}</button
             >
           {/if}
@@ -840,9 +981,7 @@
             <ul>
               {#each zone.hosts as host (host.id)}
                 <li>
-                  <button
-                    type="button"
-                    onclick={() => document.selectNode(host.id)}
+                  <button type="button" onclick={() => selectNode(host.id)}
                     >Select host {host.node.data.name}</button
                   >
                   {#if host.services.length}
@@ -860,7 +999,7 @@
                         <li>
                           <button
                             type="button"
-                            onclick={() => document.selectNode(service.node.id)}
+                            onclick={() => selectNode(service.node.id)}
                             >Select service {service.node.data.name}</button
                           >
                           {#if service.vulnerabilities.length}
@@ -869,8 +1008,7 @@
                                 <li>
                                   <button
                                     type="button"
-                                    onclick={() =>
-                                      document.selectNode(vulnerability.id)}
+                                    onclick={() => selectNode(vulnerability.id)}
                                     >Select CVE {vulnerability.data
                                       .identifier}</button
                                   >
