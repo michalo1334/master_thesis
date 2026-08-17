@@ -7,6 +7,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
   alias NetworkDefense.Optimization.{Budget, SimulationObjective, SimulationStrategy, Strategy}
   alias NetworkDefense.Simulation.Seed
 
+  require OpenTelemetry.Tracer, as: Tracer
+
   defstruct [
     :initial_attacker_state,
     :rules,
@@ -52,20 +54,37 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         # ponytail: cap candidate evaluations so interactive optimization remains bounded.
         steps = min(@max_steps, max(20, length(candidates) * 2))
 
-        {best_plan, best_score, _random_state} =
-          anneal(
-            graph,
-            candidates,
-            %{
-              current_plan: initial_plan,
-              current_score: initial_score,
-              best_plan: initial_plan,
-              best_score: initial_score
-            },
-            strategy,
-            steps,
-            random_state
-          )
+        {best_plan, best_score, _random_state, _accepted_count} =
+          Tracer.with_span "optimizer.anneal",
+            attributes: %{
+              "optimization.steps": steps,
+              "optimization.plan_size": plan_size,
+              "optimization.baseline_score": inspect(baseline_score),
+              "optimization.initial_score": inspect(initial_score)
+            } do
+            {best_plan, best_score, random_state, accepted_count} =
+              anneal(
+                graph,
+                candidates,
+                %{
+                  current_plan: initial_plan,
+                  current_score: initial_score,
+                  best_plan: initial_plan,
+                  best_score: initial_score,
+                  accepted_count: 0
+                },
+                strategy,
+                steps,
+                random_state
+              )
+
+            Tracer.set_attributes(%{
+              "optimization.accepted_count": accepted_count,
+              "optimization.best_score": inspect(best_score)
+            })
+
+            {best_plan, best_score, random_state, accepted_count}
+          end
 
         if best_score < baseline_score do
           best_plan
@@ -83,7 +102,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
            0,
            random_state
          ),
-         do: {state.best_plan, state.best_score, random_state}
+         do: {state.best_plan, state.best_score, random_state, state.accepted_count}
 
     defp anneal(
            graph,
@@ -106,7 +125,12 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
 
       state =
         if accepted? do
-          %{state | current_plan: candidate_plan, current_score: candidate_score}
+          %{
+            state
+            | current_plan: candidate_plan,
+              current_score: candidate_score,
+              accepted_count: state.accepted_count + 1
+          }
         else
           state
         end

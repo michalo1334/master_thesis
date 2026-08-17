@@ -6,8 +6,6 @@ defmodule NetworkDefense.Simulation.Simulator do
 
    The entrypoint function executes multiple runs to produce blast-radius statistics.
   """
-  require OpenTelemetry.Tracer, as: Tracer
-
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
@@ -60,10 +58,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
     trial_indexes
     |> map_fn.(fn index ->
-      Tracer.with_span "simulation.trial",
-        attributes: %{"simulation.trial_index": index} do
-        run_single(graph, initial_attacker_state, experiment, opts, index)
-      end
+      run_single(graph, initial_attacker_state, experiment, opts, index)
     end)
     |> Enum.map(fn
       {:ok, run} -> run

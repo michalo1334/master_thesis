@@ -2,6 +2,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
   @moduledoc false
 
   alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.BlockSegmentReachability
@@ -22,7 +23,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
         "optimization.requested_budget": budget,
         "optimization.plan_based": Strategy.plan?(strategy)
       } do
-      {elapsed_us, optimized_graph} =
+      {elapsed_us, result} =
         :timer.tc(fn -> do_optimize(graph, strategy, budget, progress_callback) end)
 
       :telemetry.execute(
@@ -31,7 +32,12 @@ defmodule NetworkDefense.Optimization.Optimizer do
         %{}
       )
 
-      optimized_graph
+      Tracer.set_attributes(%{
+        "optimization.action_count": length(result.actions),
+        "optimization.used_budget": result.budget_used
+      })
+
+      result
     end
   end
 
@@ -47,13 +53,22 @@ defmodule NetworkDefense.Optimization.Optimizer do
 
   defp optimize_plan(graph, strategy, default_actions, budget, progress_callback) do
     strategy
-    |> Strategy.rank(default_actions, graph, budget)
+    |> rank_with_span(default_actions, graph, budget)
     |> Enum.reduce_while({graph, budget, [], 0}, fn action, state ->
       apply_plan_action(action, state, budget, progress_callback)
     end)
     |> then(fn {optimized_graph, _remaining_budget, actions, used_budget} ->
       %{graph: optimized_graph, actions: Enum.reverse(actions), budget_used: used_budget}
     end)
+  end
+
+  defp rank_with_span(strategy, default_actions, graph, budget) do
+    Tracer.with_span "optimizer.rank",
+      attributes: %{"optimization.requested_budget": budget} do
+      result = Strategy.rank(strategy, default_actions, graph, budget)
+      Tracer.set_attributes(%{"optimization.ranked_count": length(result)})
+      result
+    end
   end
 
   defp apply_plan_action(
@@ -68,7 +83,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
       step = length(actions) + 1
       progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
 
-      case apply_if_feasible(action, graph) do
+      case apply_plan_action_with_span(action, graph, cost, step) do
         {:ok, optimized_graph} ->
           progress_callback.(step, budget, "Applied defense #{step} of #{budget}")
 
@@ -83,6 +98,29 @@ defmodule NetworkDefense.Optimization.Optimizer do
     end
   end
 
+  defp apply_plan_action_with_span(action, graph, cost, step) do
+    Tracer.with_span "optimizer.apply_action",
+      attributes: action_span_attributes(action, cost, step) do
+      case apply_if_feasible(action, graph) do
+        {:ok, optimized_graph} ->
+          Tracer.set_attributes(%{"optimization.feasible": true})
+          {:ok, optimized_graph}
+
+        :infeasible ->
+          Tracer.set_attributes(%{"optimization.feasible": false})
+          :infeasible
+      end
+    end
+  end
+
+  defp action_span_attributes(action, cost, step) do
+    %{
+      "optimization.step_index": step,
+      "optimization.action_type": DefenseActionsRegistry.short_type_for(action.__struct__),
+      "optimization.action_cost": cost
+    }
+  end
+
   defp optimize_stepwise(graph, strategy, default_actions, budget, progress_callback) do
     1..budget
     |> Enum.reduce_while({graph, budget, [], 0}, fn step,
@@ -91,7 +129,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
       progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
 
       candidate_actions =
-        Strategy.rank(strategy, default_actions, graph, remaining_budget)
+        rank_with_span(strategy, default_actions, graph, remaining_budget)
         |> Enum.reject(fn action -> DefenseAction.cost(action) > remaining_budget end)
         |> Enum.filter(&feasible_after?(&1, graph))
 
@@ -100,8 +138,15 @@ defmodule NetworkDefense.Optimization.Optimizer do
           {:halt, {graph, remaining_budget, actions, used_budget}}
 
         [action | _] ->
-          optimized_graph = DefenseAction.apply(action, graph)
           cost = DefenseAction.cost(action)
+          step = length(actions) + 1
+
+          optimized_graph =
+            Tracer.with_span "optimizer.apply_action",
+              attributes: action_span_attributes(action, cost, step) do
+              DefenseAction.apply(action, graph)
+            end
+
           progress_callback.(step, budget, "Applied defense #{step} of #{budget}")
 
           {:cont,
