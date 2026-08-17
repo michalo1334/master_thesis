@@ -24,7 +24,48 @@ resource "docker_container" "pgadmin" {
     "PGADMIN_DEFAULT_PASSWORD_FILE=/run/secrets/pgadmin-password",
     "PGADMIN_CONFIG_SERVER_MODE=False",
     "PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED=False",
-    "PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED=False"
+    "PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED=False",
+    "PGADMIN_SERVER_JSON_FILE=/pgadmin4/servers.json",
+    "PGADMIN_REPLACE_SERVERS_ON_STARTUP=True",
+    "PGPASS_FILE=/pgpass/pgpass"
+  ]
+
+  upload {
+    file    = "/pgadmin4/servers.json"
+    content = jsonencode({
+      Servers = {
+        "1" = {
+          Name          = var.postgres_database
+          Group         = "Servers"
+          Host          = local.postgres_host
+          Port          = local.postgres_ports[0].internal
+          MaintenanceDB = var.postgres_database
+          Username      = var.postgres_user
+          SSLMode       = "prefer"
+          PassFile      = "/var/lib/pgadmin/.pgpass"
+          Comment       = "Auto-registered from Terraform (local)"
+        }
+      }
+    })
+  }
+
+  upload {
+    file        = "/pgpass/pgpass"
+    content     = "${local.postgres_host}:${local.postgres_ports[0].internal}:${var.postgres_database}:${var.postgres_user}:${chomp(file("${var.secret_mount_path}/postgres-password"))}\n"
+    permissions = "0600"
+  }
+
+  entrypoint = ["/bin/sh", "-c", <<-EOT
+    set -eu
+    PGPASS_USER_FILE="/var/lib/pgadmin/.pgpass"
+    # Keep pgpass in sync on every start (entrypoint.sh copies it only on first DB init).
+    if [ -f "/pgpass/pgpass" ]; then
+      cp /pgpass/pgpass "$PGPASS_USER_FILE"
+      chmod 600 "$PGPASS_USER_FILE"
+      chown 5050:5050 "$PGPASS_USER_FILE" 2>/dev/null || true
+    fi
+    exec /entrypoint.sh
+  EOT
   ]
 
   networks_advanced {
