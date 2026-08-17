@@ -1,10 +1,11 @@
 defmodule NetworkDefense.Graph.QueryTest do
   use ExUnit.Case, async: true
 
+  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
-  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Graph.Query
+  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
@@ -54,6 +55,54 @@ defmodule NetworkDefense.Graph.QueryTest do
     assert match.to == Graph.node(graph, service.id)
     assert match.vuln == Graph.node(graph, vulnerability.id)
     refute Map.has_key?(match, nil)
+  end
+
+  test "join binds each matched service to its own running host without scanning all hosts" do
+    foothold = node("foothold", Host)
+    host_count = 40
+
+    {nodes, edges} =
+      for index <- 1..host_count, reduce: {[], []} do
+        {nodes, edges} ->
+          host = node("host-#{index}", Host)
+          service = node("service-#{index}", Service)
+          vulnerability = node("vulnerability-#{index}", Vulnerability)
+
+          edges = [
+            edge("reachability-#{index}", foothold, service, NetworkReachability),
+            edge("runs-#{index}", host, service, Runs),
+            edge("has-vulnerability-#{index}", service, vulnerability, HasVulnerability, %{
+              "required_privilege" => "none",
+              "granted_privilege" => "user"
+            })
+            | edges
+          ]
+
+          {[host, service, vulnerability | nodes], edges}
+      end
+
+    graph = graph([foothold | nodes], edges)
+
+    matches =
+      Query.match(graph, %{
+        start: {:foothold, Host, &(&1.id == foothold.id)},
+        hops: [
+          %{via: {nil, NetworkReachability}, to: {:service, Service}},
+          %{via: {nil, HasVulnerability}, to: {:vulnerability, Vulnerability}}
+        ],
+        joins: [
+          %{from: {:target_host, Host}, via: {:runs, Runs}, to: {:service, Service}}
+        ]
+      })
+
+    assert length(matches) == host_count
+
+    assert Enum.all?(matches, fn match ->
+             match?(
+               %{target_host: %Node{}, runs: %Edge{}, service: %Node{}, vulnerability: %Node{}},
+               match
+             )
+           end)
   end
 
   defp node(id, Host) do

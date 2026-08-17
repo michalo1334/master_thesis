@@ -22,6 +22,8 @@ defmodule NetworkDefense.Graph.Graph do
     field :title, :string, virtual: true
     field :nodes, {:array, :map}, virtual: true, default: []
     field :edges, {:array, :map}, virtual: true, default: []
+    field :node_index, :map, virtual: true, default: %{}
+    field :edge_index, :map, virtual: true, default: %{}
 
     timestamps(type: :utc_datetime)
   end
@@ -43,7 +45,9 @@ defmodule NetworkDefense.Graph.Graph do
           revision_kind: :initial | :edit | :optimization | nil,
           title: String.t() | nil,
           nodes: [Node.t()],
-          edges: [Edge.t()]
+          edges: [Edge.t()],
+          node_index: %{Ecto.UUID.t() => Node.t()},
+          edge_index: %{{Ecto.UUID.t(), module() | String.t()} => [{Ecto.UUID.t(), Edge.t()}]}
         }
 
   @doc false
@@ -52,6 +56,39 @@ defmodule NetworkDefense.Graph.Graph do
     |> cast(attrs, [:title])
     |> validate_required([:title])
     |> validate_length(:title, min: 1, max: 255)
+  end
+
+  @doc """
+  Returns `graph` with lookup indexes attached, building them only when missing.
+
+  Indexes are built once per materialized graph and reused by every query
+  evaluation; building them per query call dominates when a rule runs nested
+  matches (e.g. credential reuse) for each row.
+  """
+  @spec indexed(t()) :: t()
+  def indexed(%__MODULE__{} = graph) do
+    if map_size(graph.node_index) == 0 and map_size(graph.edge_index) == 0 do
+      %{graph | node_index: node_index(graph), edge_index: edge_index(graph)}
+    else
+      graph
+    end
+  end
+
+  defp node_index(graph) do
+    Map.new(nodes(graph), &{&1.id, &1})
+  end
+
+  defp edge_index(graph) do
+    Enum.reduce(edges(graph), %{}, fn edge, index ->
+      Map.update(
+        index,
+        {edge.to_id, edge.type},
+        [{edge.from_id, edge}],
+        &[
+          {edge.from_id, edge} | &1
+        ]
+      )
+    end)
   end
 
   def new(title) when is_binary(title) and byte_size(title) > 0 do

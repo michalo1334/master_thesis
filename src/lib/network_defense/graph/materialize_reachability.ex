@@ -24,6 +24,7 @@ defmodule NetworkDefense.Graph.MaterializeReachability do
     graph
     |> strip_markers()
     |> add_markers(effective_flows(graph))
+    |> Graph.indexed()
   end
 
   @doc """
