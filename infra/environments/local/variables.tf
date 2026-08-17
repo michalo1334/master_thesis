@@ -1,9 +1,13 @@
-variable "secret_mount_path" {
-  type = string
+variable "app_image" {
+  description = "Container image for the app in prod mode. Required when app_mode is prod."
+  type        = string
+  default     = null
+  nullable    = true
 }
 
 variable "app_mode" {
-  type = string
+  description = "Application run mode."
+  type        = string
 
   validation {
     condition     = contains(["dev", "prod"], var.app_mode)
@@ -11,44 +15,52 @@ variable "app_mode" {
   }
 }
 
-variable "app_image" {
-  type     = string
-  default  = null
-  nullable = true
-}
-
-variable "phx_host" {
-  type = string
-}
-
 variable "app_port" {
-  type = number
-}
-
-variable "otel_endpoint" {
-  type = string
-}
-
-variable "log_file_path" {
-  type = string
-}
-
-variable "log_file_level" {
-  type = string
-}
-
-variable "postgres_user" {
-  type = string
-}
-
-variable "postgres_database" {
-  type = string
+  description = "Application HTTP port."
+  type        = number
 }
 
 variable "grafana_user" {
-  type = string
+  description = "Grafana admin username."
+  type        = string
+}
+
+variable "log_file_level" {
+  description = "Log level for the file logger."
+  type        = string
+}
+
+variable "log_file_path" {
+  description = "Absolute path to the JSONL log file inside the app container."
+  type        = string
+}
+
+variable "otel_endpoint" {
+  description = "OTLP HTTP endpoint for traces and metrics."
+  type        = string
 }
 
 variable "pgadmin_email" {
-  type = string
+  description = "pgAdmin default admin email."
+  type        = string
+}
+
+variable "phx_host" {
+  description = "Phoenix host for URL generation."
+  type        = string
+}
+
+variable "postgres_database" {
+  description = "PostgreSQL database name."
+  type        = string
+}
+
+variable "postgres_user" {
+  description = "PostgreSQL username."
+  type        = string
+}
+
+variable "secret_mount_path" {
+  description = "Host path to the directory containing secret files."
+  type        = string
 }

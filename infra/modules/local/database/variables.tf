@@ -1,23 +1,29 @@
 variable "name_prefix" {
-  type = string
+  description = "Prefix for resource names."
+  type        = string
 }
 
 variable "network_name" {
-  type = string
-}
-
-variable "secret_mount_path" {
-  type = string
-}
-
-variable "postgres_user" {
-  type = string
-}
-
-variable "postgres_database" {
-  type = string
+  description = "Docker network name."
+  type        = string
 }
 
 variable "pgadmin_email" {
-  type = string
+  description = "pgAdmin default admin email."
+  type        = string
+}
+
+variable "postgres_database" {
+  description = "PostgreSQL database name."
+  type        = string
+}
+
+variable "postgres_user" {
+  description = "PostgreSQL username."
+  type        = string
+}
+
+variable "secret_mount_path" {
+  description = "Host path to the directory containing secret files."
+  type        = string
 }
