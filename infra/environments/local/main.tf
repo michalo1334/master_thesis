@@ -19,6 +19,7 @@ module "app" {
   source = "../../modules/local/app"
 
   app               = local.app
+  app_replicas      = local.app_replicas
   app_source_path   = abspath("${path.module}/../../../src")
   log_volume_name   = docker_volume.application_logs.name
   name_prefix       = local.name_prefix

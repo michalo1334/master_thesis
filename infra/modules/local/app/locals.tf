@@ -1,4 +1,11 @@
 locals {
+  cluster_env = [
+    for idx in range(var.app_replicas) : [
+      "DNS_CLUSTER_QUERY=app",
+      "LOG_FILE_PATH=/var/log/network_defense/app-${idx}.jsonl",
+      "OTEL_RESOURCE_ATTRIBUTES=replica=app-${idx},service.instance.id=app-${idx}"
+    ]
+  ]
   image_id = var.app.mode == "dev" ? docker_image.dev[0].image_id : docker_image.prod[0].image_id
   ports = var.app.mode == "dev" ? [
     { external = var.app.port, internal = var.app.port, ip = "127.0.0.1" },

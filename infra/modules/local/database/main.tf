@@ -31,7 +31,7 @@ resource "docker_container" "pgadmin" {
   ]
 
   upload {
-    file    = "/pgadmin4/servers.json"
+    file = "/pgadmin4/servers.json"
     content = jsonencode({
       Servers = {
         "1" = {

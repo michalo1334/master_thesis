@@ -49,8 +49,13 @@ loki.process "network_defense" {
     format = "RFC3339Nano"
   }
 
+  stage.regex {
+    source     = "filename"
+    expression = "app-(?P<replica>[0-9]+)\\.jsonl"
+  }
+
   stage.labels {
-    values = { level = "" }
+    values = { level = "", replica = "" }
   }
 
   stage.structured_metadata {

@@ -87,4 +87,4 @@ EXPOSE 5173
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # start with hot-reload (source code is mounted as a volume at runtime)
-CMD ["sh", "-c", "mix deps.get && iex -S mix phx.server"]
+CMD ["sh", "-c", "if [ -f /run/secrets/erlang-cookie ]; then cp /run/secrets/erlang-cookie ~/.erlang.cookie && chmod 400 ~/.erlang.cookie; fi; elixir --name app@$(hostname -i) -S mix phx.server"]

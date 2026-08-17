@@ -1,5 +1,13 @@
 #!/bin/sh
 set -eu
 
+# Provider-agnostic file secret for Erlang distribution cookie.
+if [ -f /run/secrets/erlang-cookie ]; then
+  export RELEASE_COOKIE
+  RELEASE_COOKIE="$(cat /run/secrets/erlang-cookie)"
+  export RELEASE_DISTRIBUTION="${RELEASE_DISTRIBUTION:-name}"
+  export RELEASE_NODE="${RELEASE_NODE:-app@$(hostname -i)}"
+fi
+
 cd -P -- "$(dirname -- "$0")"
 PHX_SERVER=true exec ./network_defense start

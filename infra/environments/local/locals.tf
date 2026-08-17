@@ -22,14 +22,15 @@ locals {
   ]
   app_environment = concat(local.app_base_environment, local.app_mode_environment)
   app_mode_environment = var.app_mode == "dev" ? [
+    "LOG_FILE_LEVEL=${var.log_file_level}",
     "MIX_BUILD_PATH=/app/_build_docker",
-    "PHX_IP=0.0.0.0",
-    "LOG_FILE_PATH=${var.log_file_path}",
-    "LOG_FILE_LEVEL=${var.log_file_level}"
+    "PHX_IP=0.0.0.0"
     ] : [
     "ECTO_IPV6=true"
   ]
+  app_replicas = var.app_replicas
   app_secret_files = [
+    "erlang-cookie",
     "live-view-signing-salt",
     "postgres-password",
     "secret-key-base"

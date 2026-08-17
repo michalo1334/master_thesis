@@ -17,7 +17,7 @@ scrape_configs:
 
   - job_name: network_defense
     static_configs:
-      - targets: ["network_defense:4001"]
+      - targets: ["app-0:4001", "app-1:4001"]
         labels:
           component: app
 

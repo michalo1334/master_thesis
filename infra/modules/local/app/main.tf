@@ -107,19 +107,22 @@ resource "docker_container" "setup" {
 }
 
 resource "docker_container" "app" {
+  count = var.app_replicas
+
   depends_on = [docker_container.migrate, docker_container.setup]
 
-  env   = var.app.environment
-  image = local.image_id
-  name  = "${var.name_prefix}-app"
+  env      = concat(var.app.environment, local.cluster_env[count.index])
+  hostname = "app-${count.index}"
+  image    = local.image_id
+  name     = "${var.name_prefix}-app-${count.index}"
 
   networks_advanced {
-    aliases = ["network_defense"]
+    aliases = ["app", "app-${count.index}", "network_defense"]
     name    = var.network_name
   }
 
   dynamic "ports" {
-    for_each = local.ports
+    for_each = count.index == 0 ? local.ports : []
     iterator = port
 
     content {
