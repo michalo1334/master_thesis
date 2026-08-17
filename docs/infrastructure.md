@@ -28,20 +28,12 @@ infra/modules/local/{app,database,observability}/{versions.tf, variables.tf, loc
 Variables and outputs are alpha-ordered; `locals.tf` holds derived values; `backend.tf` is explicit `local`; child `versions.tf` declares `kreuzwerker/docker` (pin in root).
 See `docs/azure-dev-plan.md` for deferred Azure production layout.
 
-### App replicas and clustering
+### App replicas
 
-`TF_VAR_app_replicas` (default `2`, `1..5`) in `infra/environments/local/.env` controls `docker_container.app` `count` in `infra/modules/local/app/main.tf`.
-Replicas share DNS alias `app` on `network-defense-local-network`; each also has `app-N`. Primary `app-0` alone publishes host ports `4000,4001,5173,9229` to avoid `127.0.0.1` collision.
-
-Distribution: `infra/modules/local/app/locals.tf` `cluster_env` sets per replica `DNS_CLUSTER_QUERY=app`, `LOG_FILE_PATH=app-N.jsonl`, `OTEL_RESOURCE_ATTRIBUTES=replica=app-N`, and `RELEASE_NODE=app-N@app-N`.
-`dns_cluster` (`src/mix.exs`, `src/config/runtime.exs` `dns_cluster_query` top-level, `src/lib/network_defense/application.ex` `DNSCluster`) forms longnames `app@IP` (see `src/Dockerfile.dev` `elixir --name app@$(hostname -i)` and `src/rel/overlays/bin/server` `erlang-cookie` file secret).
-Single-node still works: `TF_VAR_app_replicas=1` keeps `Node.list()==[]` when `:ignore`.
-
-Observability: `infra/modules/local/observability/config/prometheus.yaml` scrapes `app-0:4001`/`app-1:4001`; `infra/modules/local/observability/config/alloy-config.alloy` extracts `replica` from `filename` (`app-N.jsonl`) on shared `network-defense-local-logs` volume.
-Logs per replica avoid interleave; metrics/traces carry `replica`/`service.instance.id`.
+`TF_VAR_app_replicas` (`1..5`, default `2`) controls `infra/modules/local/app` `count`. Replicas share DNS `app` (`app-N` each); only `app-0` publishes `4000,4001,5173,9229`. Distribution via `dns_cluster` + `erlang-cookie` secret and per-replica `app-N.jsonl`/`replica` label.
 
 Modules used:
- - `app` - application container, `count` via `app_replicas`, dev/prod mode; `erlang-cookie` secret in `infra/environments/local/secrets/` (`0600`)
+ - `app` - application container, `count` via `app_replicas`, dev/prod mode; `erlang-cookie` secret (`0600`)
  - `database` - database, includes containerized Postgres and PGAdmin
  - `observability` - observability stack
 
