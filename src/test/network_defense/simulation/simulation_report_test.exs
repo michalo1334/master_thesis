@@ -187,6 +187,202 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
     refute Enum.any?(edges, &(&1.type == "NetworkReachability"))
   end
 
+  test "reports and serializes pre-attack capability status and feasibility" do
+    graph = Graph.new("Test graph")
+    source_segment = node(Ecto.UUID.generate(), NetworkSegment, %{"name" => "Source"}, graph.id)
+    target_segment = node(Ecto.UUID.generate(), NetworkSegment, %{"name" => "Target"}, graph.id)
+    source_host = node(Ecto.UUID.generate(), Host, %{"name" => "source"}, graph.id)
+    target_host = node(Ecto.UUID.generate(), Host, %{"name" => "target"}, graph.id)
+
+    service =
+      node(
+        Ecto.UUID.generate(),
+        Service,
+        %{"name" => "api", "port" => 8080, "protocol" => "tcp"},
+        graph.id
+      )
+
+    capability =
+      node(
+        Ecto.UUID.generate(),
+        MissionCapability,
+        %{
+          "name" => "Orders",
+          "impact_weight" => 8.0,
+          "min_operational_support" => 1,
+          "required_flows" => [
+            %{"source_segment_id" => source_segment.id, "target_service_id" => service.id}
+          ]
+        },
+        graph.id
+      )
+
+    graph =
+      graph(
+        [source_segment, target_segment, source_host, target_host, service, capability],
+        [
+          edge(Ecto.UUID.generate(), source_segment, source_host, Contains),
+          edge(Ecto.UUID.generate(), target_segment, target_host, Contains),
+          edge(Ecto.UUID.generate(), target_host, service, Runs),
+          edge(Ecto.UUID.generate(), source_host, capability, Supports),
+          edge(
+            Ecto.UUID.generate(),
+            source_segment,
+            target_segment,
+            SegmentReachability,
+            %{"protocol" => "tcp"}
+          )
+        ],
+        graph.id
+      )
+      |> Map.put(:title, "Test graph")
+      |> Map.put(:revision_id, Ecto.UUID.generate())
+
+    report =
+      [run(source_host.id)]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    assert report.pre_attack_feasible
+
+    assert [
+             %{
+               capability_id: capability_id,
+               down?: false,
+               required_flow_count: 1,
+               missing_flow_count: 0,
+               supporting_host_count: 1,
+               min_operational_support: 1
+             }
+           ] = report.pre_attack_capability_statuses
+
+    assert capability_id == capability.id
+
+    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+
+    assert %{
+             feasible: true,
+             capability_statuses: [
+               %{
+                 capability_id: ^capability_id,
+                 operational: true,
+                 required_flow_count: 1,
+                 missing_flow_count: 0,
+                 supporting_host_count: 1,
+                 min_operational_support: 1
+               }
+             ]
+           } = FetchSimulationReportReply.to_wire(reply)
+  end
+
+  test "reports an infeasible pre-attack scenario with a down capability" do
+    graph = Graph.new("Test graph")
+    source_segment = node(Ecto.UUID.generate(), NetworkSegment, %{"name" => "Source"}, graph.id)
+    target_segment = node(Ecto.UUID.generate(), NetworkSegment, %{"name" => "Target"}, graph.id)
+    source_host = node(Ecto.UUID.generate(), Host, %{"name" => "source"}, graph.id)
+    target_host = node(Ecto.UUID.generate(), Host, %{"name" => "target"}, graph.id)
+
+    service =
+      node(
+        Ecto.UUID.generate(),
+        Service,
+        %{"name" => "api", "port" => 8080, "protocol" => "tcp"},
+        graph.id
+      )
+
+    db_segment = node(Ecto.UUID.generate(), NetworkSegment, %{"name" => "DB"}, graph.id)
+    db_host = node(Ecto.UUID.generate(), Host, %{"name" => "db"}, graph.id)
+
+    db =
+      node(
+        Ecto.UUID.generate(),
+        Service,
+        %{"name" => "db", "port" => 5432, "protocol" => "tcp"},
+        graph.id
+      )
+
+    capability =
+      node(
+        Ecto.UUID.generate(),
+        MissionCapability,
+        %{
+          "name" => "Orders",
+          "impact_weight" => 8.0,
+          "min_operational_support" => 1,
+          "required_flows" => [
+            %{"source_segment_id" => source_segment.id, "target_service_id" => service.id},
+            %{"source_segment_id" => db_segment.id, "target_service_id" => db.id}
+          ]
+        },
+        graph.id
+      )
+
+    graph =
+      graph(
+        [
+          source_segment,
+          target_segment,
+          source_host,
+          target_host,
+          service,
+          db_segment,
+          db_host,
+          db,
+          capability
+        ],
+        [
+          edge(Ecto.UUID.generate(), source_segment, source_host, Contains),
+          edge(Ecto.UUID.generate(), target_segment, target_host, Contains),
+          edge(Ecto.UUID.generate(), db_segment, db_host, Contains),
+          edge(Ecto.UUID.generate(), target_host, service, Runs),
+          edge(Ecto.UUID.generate(), db_host, db, Runs),
+          edge(Ecto.UUID.generate(), source_host, capability, Supports),
+          edge(
+            Ecto.UUID.generate(),
+            source_segment,
+            target_segment,
+            SegmentReachability,
+            %{"protocol" => "tcp"}
+          )
+        ],
+        graph.id
+      )
+      |> Map.put(:title, "Test graph")
+      |> Map.put(:revision_id, Ecto.UUID.generate())
+
+    report =
+      [run(source_host.id)]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    refute report.pre_attack_feasible
+
+    assert [
+             %{
+               down?: true,
+               missing_flow_count: 1,
+               required_flow_count: 2,
+               supporting_host_count: 1,
+               min_operational_support: 1
+             }
+           ] = report.pre_attack_capability_statuses
+
+    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+
+    assert %{
+             feasible: false,
+             capability_statuses: [
+               %{
+                 operational: false,
+                 missing_flow_count: 1,
+                 required_flow_count: 2,
+                 supporting_host_count: 1,
+                 min_operational_support: 1
+               }
+             ]
+           } = FetchSimulationReportReply.to_wire(reply)
+  end
+
   defp experiment(
          runs,
          graph \\ %Graph{

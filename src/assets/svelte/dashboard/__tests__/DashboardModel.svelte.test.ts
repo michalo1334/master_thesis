@@ -315,7 +315,6 @@ describe("DashboardModel", () => {
           graph_revision_id: "r1",
           report: {
             strategy: "cvss",
-            objective: "blast_radius",
             requested_budget: 1,
             used_budget: 1,
             runtime_ms: 1,

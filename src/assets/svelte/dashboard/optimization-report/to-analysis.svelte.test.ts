@@ -5,7 +5,6 @@ import { toOptimizationAnalysis } from "./to-analysis";
 
 const report: OptimizationReport = {
   strategy: "topology_segmentation",
-  objective: "blast_radius",
   requested_budget: 3,
   used_budget: 2,
   runtime_ms: 1250,

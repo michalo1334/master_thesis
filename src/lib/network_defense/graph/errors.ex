@@ -11,6 +11,7 @@ defmodule NetworkDefense.Graph.Errors do
     :multiple_segments,
     :multiple_runs,
     :invalid_mission_capability_support,
+    :invalid_required_flow_reference,
     :duplicate_ids,
     :identity_belongs_to_another_graph,
     :invalid_folder,
@@ -28,6 +29,7 @@ defmodule NetworkDefense.Graph.Errors do
           | :multiple_segments
           | :multiple_runs
           | :invalid_mission_capability_support
+          | :invalid_required_flow_reference
           | :duplicate_ids
           | :identity_belongs_to_another_graph
           | :invalid_folder

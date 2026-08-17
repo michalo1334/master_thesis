@@ -145,6 +145,136 @@ defmodule NetworkDefense.Graph.SemanticEndpointTest do
              Graph.hydrate(graph, [segment, primary, replica, capability], [duplicate | edges])
   end
 
+  test "accepts required flows referencing a segment and a service in the graph" do
+    graph = Graph.new("Topology")
+    host = node(graph, Host, %{"name" => "host"})
+    segment = node(graph, NetworkSegment, %{"name" => "DMZ"})
+    service = node(graph, Service, %{"name" => "ssh", "protocol" => "tcp", "port" => 22})
+
+    capability =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{
+            "source_segment_id" => segment.id,
+            "target_service_id" => service.id
+          }
+        ]
+      })
+
+    edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}}),
+      Edge.new(graph.id, host.id, capability.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:ok, _graph} = Graph.hydrate(graph, [segment, host, service, capability], edges)
+  end
+
+  test "rejects required flows referencing a missing segment or service" do
+    graph = Graph.new("Topology")
+    host = node(graph, Host, %{"name" => "host"})
+    segment = node(graph, NetworkSegment, %{"name" => "DMZ"})
+    service = node(graph, Service, %{"name" => "ssh", "protocol" => "tcp", "port" => 22})
+
+    capability =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{
+            "source_segment_id" => Ecto.UUID.generate(),
+            "target_service_id" => service.id
+          }
+        ]
+      })
+
+    edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}}),
+      Edge.new(graph.id, host.id, capability.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:error, :invalid_required_flow_reference} =
+             Graph.hydrate(graph, [segment, host, service, capability], edges)
+
+    missing_target =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{
+            "source_segment_id" => segment.id,
+            "target_service_id" => Ecto.UUID.generate()
+          }
+        ]
+      })
+
+    missing_target_edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}}),
+      Edge.new(graph.id, host.id, missing_target.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:error, :invalid_required_flow_reference} =
+             Graph.hydrate(graph, [segment, host, service, missing_target], missing_target_edges)
+  end
+
+  test "rejects required flows referencing nodes of the wrong type" do
+    graph = Graph.new("Topology")
+    host = node(graph, Host, %{"name" => "host"})
+    segment = node(graph, NetworkSegment, %{"name" => "DMZ"})
+    service = node(graph, Service, %{"name" => "ssh", "protocol" => "tcp", "port" => 22})
+
+    wrong_source =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{
+            "source_segment_id" => host.id,
+            "target_service_id" => service.id
+          }
+        ]
+      })
+
+    edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}}),
+      Edge.new(graph.id, host.id, wrong_source.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:error, :invalid_required_flow_reference} =
+             Graph.hydrate(graph, [segment, host, service, wrong_source], edges)
+
+    wrong_target =
+      node(graph, MissionCapability, %{
+        "name" => "Order processing",
+        "impact_weight" => 5.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{
+            "source_segment_id" => segment.id,
+            "target_service_id" => segment.id
+          }
+        ]
+      })
+
+    wrong_target_edges = [
+      Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}}),
+      Edge.new(graph.id, host.id, service.id, %{type: Atom.to_string(Runs), data: %{}}),
+      Edge.new(graph.id, host.id, wrong_target.id, %{type: Atom.to_string(Supports), data: %{}})
+    ]
+
+    assert {:error, :invalid_required_flow_reference} =
+             Graph.hydrate(graph, [segment, host, service, wrong_target], wrong_target_edges)
+  end
+
   defp node(graph, type, data) do
     Node.new(graph.id, %{
       type: Atom.to_string(type),

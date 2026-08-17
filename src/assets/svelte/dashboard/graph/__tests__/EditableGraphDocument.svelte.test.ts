@@ -339,14 +339,13 @@ describe("EditableGraphDocument", () => {
 
       await doc.startOptimization(
         api,
-        { strategy: "cvss", budget: 3, objective: "blast_radius" },
+        { strategy: "cvss", budget: 3 },
         "corr-1",
       );
 
       expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", {
         strategy: "cvss",
         budget: 3,
-        objective: "blast_radius",
       });
     });
 
@@ -356,7 +355,6 @@ describe("EditableGraphDocument", () => {
       await doc.startOptimization(api, {
         strategy: "cvss",
         budget: 3,
-        objective: "blast_radius",
       });
 
       expect(api.runOptimization).not.toHaveBeenCalled();

@@ -12,12 +12,14 @@ export type ErrorCode =
   | "multiple_segments"
   | "multiple_runs"
   | "invalid_mission_capability_support"
+  | "invalid_required_flow_reference"
   | "duplicate_ids"
   | "identity_belongs_to_another_graph"
   | "invalid_folder"
   | "folder_not_found"
   | "internal_error"
   | "invalid_initial_foothold"
+  | "infeasible_input"
   | "persistence_failed"
   | "task_unavailable"
   | "unknown_strategy"
@@ -69,12 +71,19 @@ export interface MissionCapabilityData {
   impact_weight: number;
   min_operational_support: number;
   name: string;
+  required_flows: RequiredServiceFlowData[];
 }
 
 // NetworkDefense.Graph.Contracts.Data.NetworkSegmentData (lib/network_defense/graph/contracts/data/network_segment_data.ex)
 export interface NetworkSegmentData {
   cidr?: string | null;
   name: string;
+}
+
+// NetworkDefense.Graph.Contracts.Data.RequiredServiceFlowData (lib/network_defense/graph/contracts/data/required_service_flow_data.ex)
+export interface RequiredServiceFlowData {
+  source_segment_id: string;
+  target_service_id: string;
 }
 
 // NetworkDefense.Graph.Contracts.Data.RunsData (lib/network_defense/graph/contracts/data/runs_data.ex)
@@ -268,10 +277,9 @@ export interface SaveGraphContract {
   title: string;
 }
 
-// NetworkDefense.Optimization.Contracts.OptimizationParams (lib/network_defense/optimization/contracts/optimization_params.ex) — enum fields: strategy, objective
+// NetworkDefense.Optimization.Contracts.OptimizationParams (lib/network_defense/optimization/contracts/optimization_params.ex) — enum fields: strategy
 export interface OptimizationParams {
   budget: number;
-  objective: "blast_radius" | "mission_impact";
   simulation_params?: SimulationParams | null;
   strategy:
     | "cvss"
@@ -531,8 +539,10 @@ export interface FetchSimulationReportPayload {
 
 // NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_reply.ex)
 export interface FetchSimulationReportReply {
+  capability_statuses: SimulationReportCapabilityStatus[];
   charts: SimulationReportCharts;
   experiment_id: string;
+  feasible: boolean;
   graph: GraphContract;
   graph_id: string;
   graph_revision_id: string;
@@ -706,10 +716,9 @@ export interface OptimizationProgressEvent {
   total_steps: number;
 }
 
-// NetworkDefenseWeb.Web.Contracts.OptimizationReport (lib/network_defense_web/contracts/dashboard/optimization/optimization_report.ex) — enum fields: strategy, objective
+// NetworkDefenseWeb.Web.Contracts.OptimizationReport (lib/network_defense_web/contracts/dashboard/optimization/optimization_report.ex) — enum fields: strategy
 export interface OptimizationReport {
   actions: OptimizationAction[];
-  objective: "blast_radius" | "mission_impact";
   requested_budget: number;
   runtime_ms: number;
   strategy:
@@ -740,7 +749,6 @@ export interface OptimizationRunSummary {
   graph_revision_id: string;
   graph_title: string;
   id: string;
-  objective: string;
   output_graph_revision_id: string;
   requested_budget: number;
   runtime_ms: number;
@@ -891,6 +899,16 @@ export interface SimulationReportActionSuccess {
 export interface SimulationReportCapabilityImpact {
   capability_id: string;
   down_probability: number;
+}
+
+// NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_capability_status.ex)
+export interface SimulationReportCapabilityStatus {
+  capability_id: string;
+  min_operational_support: number;
+  missing_flow_count: number;
+  operational: boolean;
+  required_flow_count: number;
+  supporting_host_count: number;
 }
 
 // NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_cdf_point.ex)

@@ -313,20 +313,19 @@ export class AnalysisModel {
     const expectedJob = this.createJob(document);
     if (!expectedJob) return false;
 
-    const optimizationParams = this.withSupportedObjective(params);
     const report = this.workspace.createPendingOptimizationReport({
       graphId: expectedJob.graphId,
       graphRevisionId: expectedJob.graphRevisionId,
       graphTitle: document.title,
       correlationId: expectedJob.correlationId,
-      strategy: optimizationParams.strategy,
-      budget: optimizationParams.budget,
+      strategy: params.strategy,
+      budget: params.budget,
     });
 
     try {
       const reply = await document.startOptimization(
         this.api,
-        optimizationParams,
+        params,
         expectedJob.correlationId,
       );
       if (!reply) {
@@ -548,18 +547,6 @@ export class AnalysisModel {
       graphId: document.graph.id,
       graphRevisionId,
       correlationId: crypto.randomUUID(),
-    };
-  }
-
-  private withSupportedObjective(
-    params: OptimizationParams,
-  ): OptimizationParams {
-    const supportsMissionImpact =
-      params.strategy === "simulation_informed" ||
-      params.strategy === "simulated_annealing";
-    return {
-      ...params,
-      objective: supportsMissionImpact ? params.objective : "blast_radius",
     };
   }
 }

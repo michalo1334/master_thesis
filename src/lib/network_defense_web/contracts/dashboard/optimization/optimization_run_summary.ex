@@ -9,7 +9,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary do
     field :graph_revision_id, :string
     field :graph_title, :string
     field :strategy, :string
-    field :objective, :string
     field :requested_budget, :integer
     field :used_budget, :integer
     field :runtime_ms, :integer
@@ -23,7 +22,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary do
           graph_revision_id: String.t(),
           graph_title: String.t(),
           strategy: String.t(),
-          objective: String.t(),
           requested_budget: integer(),
           used_budget: integer(),
           runtime_ms: integer(),
@@ -39,7 +37,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary do
       :graph_revision_id,
       :graph_title,
       :strategy,
-      :objective,
       :requested_budget,
       :used_budget,
       :runtime_ms,
@@ -52,7 +49,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary do
       :graph_revision_id,
       :graph_title,
       :strategy,
-      :objective,
       :requested_budget,
       :used_budget,
       :runtime_ms,

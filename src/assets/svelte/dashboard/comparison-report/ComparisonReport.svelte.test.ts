@@ -35,6 +35,8 @@ function report(): SimulationReportData {
       host_compromise: [],
     },
     operational_flows: [],
+    capability_statuses: [],
+    feasible: true,
     summary: {
       expected_blast_radius: 10,
       median_blast_radius: 8,
@@ -71,7 +73,6 @@ describe("ComparisonReport", () => {
         status: "loaded",
         reportData: {
           strategy: "cvss",
-          objective: "blast_radius",
           requested_budget: 1,
           used_budget: 1,
           runtime_ms: 1,
@@ -90,5 +91,100 @@ describe("ComparisonReport", () => {
     ).toHaveLength(4);
     expect(screen.getAllByText("Absolute delta")).toHaveLength(5);
     expect(screen.getAllByText("-2")).toHaveLength(2);
+  });
+
+  it("renders optional feasibility and capability-status fields", () => {
+    const baseline = {
+      ...report(),
+      graph: {
+        ...report().graph,
+        nodes: [
+          {
+            id: "capability-1",
+            type: "MissionCapability",
+            data: {
+              name: "Order entry",
+              impact_weight: 1,
+              min_operational_support: 1,
+            },
+            view_data: { x_pos: 0, y_pos: 0 },
+          },
+        ],
+      },
+      capability_statuses: [
+        {
+          capability_id: "capability-1",
+          operational: true,
+          required_flow_count: 3,
+          missing_flow_count: 1,
+          supporting_host_count: 2,
+          min_operational_support: 2,
+        },
+      ],
+      charts: {
+        ...report().charts,
+        capability_impact: [
+          { capability_id: "capability-1", down_probability: 0.6 },
+        ],
+      },
+    } as unknown as SimulationReportData;
+    const defended = {
+      ...baseline,
+      feasible: true,
+      capability_statuses: [
+        {
+          capability_id: "capability-1",
+          operational: false,
+          required_flow_count: 3,
+          missing_flow_count: 0,
+          supporting_host_count: 1,
+          min_operational_support: 2,
+        },
+      ],
+      charts: {
+        ...baseline.charts,
+        capability_impact: [
+          { capability_id: "capability-1", down_probability: 0.2 },
+        ],
+      },
+    } as unknown as SimulationReportData;
+    const document = {
+      title: "Comparison for Topology",
+      baselineReport: { status: "loaded", reportData: baseline },
+      postOptimizationReport: { status: "loaded", reportData: defended },
+      optimizationReport: {
+        status: "loaded",
+        reportData: {
+          strategy: "cvss",
+          requested_budget: 1,
+          used_budget: 1,
+          runtime_ms: 1,
+          actions: [],
+        },
+        graphDiff: undefined,
+        graphDiffStatus: "",
+      },
+    } as unknown as ComparisonReportDocument;
+
+    render(ComparisonReport, { props: { document } });
+
+    expect(screen.getByText("Pre-attack feasibility")).toBeInTheDocument();
+    expect(screen.getByText("Feasible")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Mission capability status" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Mission capability disruption probability",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.getByText("20%")).toBeInTheDocument();
+    expect(screen.getByText("-40 pp")).toBeInTheDocument();
+    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(screen.getByText("3 / 3")).toBeInTheDocument();
+    expect(screen.getByText("2 / 2")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
   });
 });

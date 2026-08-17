@@ -63,7 +63,6 @@ export class WorkspaceModel {
   >({
     strategy: "cvss",
     budget: 1,
-    objective: "blast_radius",
     simulation_params: {
       initial_foothold_node_id: "",
       monte_carlo_trials: 1000,

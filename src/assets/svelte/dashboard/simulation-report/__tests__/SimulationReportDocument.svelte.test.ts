@@ -7,6 +7,7 @@ function makeReport(
   overrides: Partial<FetchSimulationReportReply> = {},
 ): FetchSimulationReportReply {
   return {
+    capability_statuses: [],
     charts: {
       action_success: [],
       capability_impact: [],
@@ -29,6 +30,7 @@ function makeReport(
     graph_id: "g1",
     graph_revision_id: "r1",
     graph_title: "Topology",
+    feasible: true,
     iteration_count: 100,
     operational_flows: [],
     summary: {

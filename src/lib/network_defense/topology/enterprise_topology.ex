@@ -16,12 +16,25 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
     * workstations -> restricted (389, LDAP) and (445, SMB)
     * management -> DMZ, internal, restricted (22, SSH on server hosts)
 
+  Mission capabilities declare required flows over the generated segments and
+  services. Each capability is supported by the hosts running its target
+  services. The workstation and management exposures are intentionally not
+  required by any capability.
+
   Topology structure is a pure function of `(title, hosts, seed)`.
   """
 
   alias NetworkDefense.Graph.{Edge, Graph, Node}
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
-  alias NetworkDefense.Relationships.{Contains, HasVulnerability, Runs, SegmentReachability}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service, Vulnerability}
+
+  alias NetworkDefense.Relationships.{
+    Contains,
+    HasVulnerability,
+    Runs,
+    SegmentReachability,
+    Supports
+  }
+
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Topology.VulnerabilityCatalog
 
@@ -119,6 +132,26 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
     {:mgmt, :restricted, 22}
   ]
 
+  @mission_capabilities [
+    %{
+      name: "Public web presence",
+      description: "External clients reach the public web tier.",
+      impact_weight: 3.0,
+      min_operational_support: 1,
+      flows: [{:external, :dmz_web, "https"}]
+    },
+    %{
+      name: "Order processing",
+      description: "Internal API tier serves orders backed by the database.",
+      impact_weight: 5.0,
+      min_operational_support: 1,
+      flows: [
+        {:dmz, :internal_api, "api"},
+        {:internal, :restricted_db, "postgresql"}
+      ]
+    }
+  ]
+
   @doc "Minimum number of enterprise hosts required to cover all zones and roles."
   def minimum_hosts, do: @minimum_hosts
 
@@ -168,6 +201,7 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
 
     graph
     |> add_reachability(segment_ids)
+    |> add_mission_capabilities(segment_ids, hosts_by_role)
   end
 
   defp add_internet_node(graph) do
@@ -325,6 +359,58 @@ defmodule NetworkDefense.Topology.EnterpriseTopology do
         })
       )
     end)
+  end
+
+  defp add_mission_capabilities(graph, segment_ids, hosts_by_role) do
+    @mission_capabilities
+    |> Enum.with_index()
+    |> Enum.reduce(graph, fn {spec, index}, graph ->
+      capability =
+        Node.new(graph.id, %{
+          type: Atom.to_string(MissionCapability),
+          data: capability_data(spec, segment_ids, hosts_by_role),
+          view_data: %{"x_pos" => 0, "y_pos" => -200 - index * 100}
+        })
+
+      graph = Graph.add_node(graph, capability)
+
+      Enum.reduce(supporting_host_ids(spec, hosts_by_role), graph, fn host_id, graph ->
+        Graph.add_edge(
+          graph,
+          Edge.new(graph.id, host_id, capability.id, %{
+            type: Atom.to_string(Supports),
+            data: %{}
+          })
+        )
+      end)
+    end)
+  end
+
+  defp capability_data(spec, segment_ids, hosts_by_role) do
+    %{
+      "name" => spec.name,
+      "description" => spec.description,
+      "impact_weight" => spec.impact_weight,
+      "min_operational_support" => spec.min_operational_support,
+      "required_flows" =>
+        Enum.map(spec.flows, fn {source_zone, target_role, service_name} ->
+          {_host_id, services} = hd(Map.fetch!(hosts_by_role, target_role))
+
+          %{
+            "source_segment_id" => Map.fetch!(segment_ids, source_zone),
+            "target_service_id" => Map.fetch!(services, service_name)
+          }
+        end)
+    }
+  end
+
+  defp supporting_host_ids(spec, hosts_by_role) do
+    spec.flows
+    |> Enum.map(fn {_source_zone, target_role, _service_name} ->
+      {host_id, _services} = hd(Map.fetch!(hosts_by_role, target_role))
+      host_id
+    end)
+    |> Enum.uniq()
   end
 
   defp select_roles(host_count, state) do

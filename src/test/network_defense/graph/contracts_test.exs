@@ -7,6 +7,8 @@ defmodule NetworkDefense.Graph.ContractsTest do
     NetworkSegmentData,
     CvssData,
     HasVulnerabilityData,
+    MissionCapabilityData,
+    RequiredServiceFlowData,
     SegmentReachabilityData,
     StoresCredentialData
   }
@@ -129,6 +131,59 @@ defmodule NetworkDefense.Graph.ContractsTest do
                  "protocol" => "tcp",
                  "port_start" => 443,
                  "port_end" => 80
+               })
+    end
+  end
+
+  describe "RequiredServiceFlowData" do
+    test "requires a source segment and a target service" do
+      segment_id = Ecto.UUID.generate()
+      service_id = Ecto.UUID.generate()
+
+      assert {:ok, _} =
+               RequiredServiceFlowData.validate(%{
+                 "source_segment_id" => segment_id,
+                 "target_service_id" => service_id
+               })
+
+      assert {:error, _} = RequiredServiceFlowData.validate(%{"source_segment_id" => segment_id})
+      assert {:error, _} = RequiredServiceFlowData.validate(%{"target_service_id" => service_id})
+      assert {:error, _} = RequiredServiceFlowData.validate(%{})
+
+      assert {:error, _} =
+               RequiredServiceFlowData.validate(%{
+                 "source_segment_id" => "not-a-uuid",
+                 "target_service_id" => service_id
+               })
+    end
+  end
+
+  describe "MissionCapabilityData" do
+    test "accepts required service flows" do
+      segment_id = Ecto.UUID.generate()
+      service_id = Ecto.UUID.generate()
+
+      assert {:ok, capability} =
+               MissionCapabilityData.validate(%{
+                 "name" => "Orders",
+                 "impact_weight" => 2.0,
+                 "min_operational_support" => 1,
+                 "required_flows" => [
+                   %{"source_segment_id" => segment_id, "target_service_id" => service_id}
+                 ]
+               })
+
+      assert [%{source_segment_id: ^segment_id, target_service_id: ^service_id}] =
+               capability.required_flows
+    end
+
+    test "rejects required flows with missing fields" do
+      assert {:error, _} =
+               MissionCapabilityData.validate(%{
+                 "name" => "Orders",
+                 "impact_weight" => 2.0,
+                 "min_operational_support" => 1,
+                 "required_flows" => [%{"source_segment_id" => Ecto.UUID.generate()}]
                })
     end
   end

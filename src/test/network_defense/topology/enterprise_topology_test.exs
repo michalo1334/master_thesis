@@ -83,7 +83,7 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
       assert MapSet.new(identifiers) ==
                MapSet.new(Enum.map(VulnerabilityCatalog.all(), & &1.identifier))
 
-      assert length(identifiers) == MapSet.size(MapSet.new(identifiers))
+      assert Enum.uniq(identifiers) == identifiers
 
       assert Enum.any?(vulnerability_nodes, fn vulnerability ->
                graph

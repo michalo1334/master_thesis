@@ -28,7 +28,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
           graph: Graph.t(),
           graph_revision_id: String.t(),
           strategy: String.t(),
-          objective: String.t(),
           requested_budget: integer(),
           used_budget: integer(),
           runtime_ms: integer(),
@@ -42,7 +41,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
     :graph,
     :graph_revision_id,
     :strategy,
-    :objective,
     :requested_budget,
     :used_budget,
     :runtime_ms,
@@ -61,7 +59,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
         "graph.id": graph.id,
         "graph.revision_id": run.graph_revision_id,
         "optimization.strategy": run.strategy,
-        "optimization.objective": run.objective,
         "optimization.action_count": length(run.actions)
       } do
       Logger.debug("Optimization report generation started",
@@ -70,7 +67,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
         graph_id: graph.id,
         graph_revision_id: run.graph_revision_id,
         strategy: run.strategy,
-        objective: run.objective,
         action_count: length(run.actions)
       )
 
@@ -82,7 +78,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
           graph: graph,
           graph_revision_id: run.graph_revision_id,
           strategy: run.strategy,
-          objective: run.objective,
           requested_budget: run.requested_budget,
           used_budget: run.used_budget,
           runtime_ms: run.runtime_ms,
@@ -97,7 +92,6 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
           graph_id: report.graph_id,
           graph_revision_id: report.graph_revision_id,
           strategy: report.strategy,
-          objective: report.objective,
           action_count: length(report.actions)
         )
 

@@ -146,6 +146,7 @@
   {#snippet inspector()}
     <DashboardInspector
       document={wm.activeDocument}
+      {api}
       summaries={wm.graphSummaries}
       analyses={wm.analysisOptions}
       analysesStatus={wm.analysesStatus}

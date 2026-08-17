@@ -39,7 +39,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           },
           "optimization_params" => %{
             "strategy" => "cvss",
-            "objective" => "blast_radius",
             "budget" => 1
           }
         }

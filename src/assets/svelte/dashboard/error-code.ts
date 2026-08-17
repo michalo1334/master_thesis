@@ -11,6 +11,8 @@ const messages: Record<ErrorCode, string> = {
   multiple_runs: "Each service must run on exactly one host.",
   invalid_mission_capability_support:
     "Mission capability support requirements are invalid.",
+  invalid_required_flow_reference: "A required flow reference is invalid.",
+  infeasible_input: "The starting scenario is not operationally feasible.",
   duplicate_ids: "The graph contains duplicate IDs.",
   identity_belongs_to_another_graph: "An item belongs to another graph.",
   invalid_folder: "The folder is invalid.",

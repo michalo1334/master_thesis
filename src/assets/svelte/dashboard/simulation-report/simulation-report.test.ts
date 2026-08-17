@@ -1,6 +1,28 @@
 import { expect, it } from "vitest";
 import type { SimulationReportSummary } from "../../contracts.generated";
-import { formatSimulationReportKpis } from "./simulation-report";
+import {
+  formatCapabilityFlows,
+  formatCapabilityStatusExplanation,
+  formatCapabilitySupport,
+  formatFeasibility,
+  formatSimulationReportKpis,
+} from "./simulation-report";
+
+it("formats starting-scenario feasibility", () => {
+  expect(formatFeasibility(true)).toBe("Operationally feasible");
+  expect(formatFeasibility(false)).toBe("Not operationally feasible");
+});
+
+it("formats capability flow and support shortfalls", () => {
+  expect(formatCapabilityFlows(3, 1)).toBe("2 / 3");
+  expect(formatCapabilitySupport(1, 2)).toBe("1 / 2");
+  expect(formatCapabilityStatusExplanation(3, 1, 1, 2)).toBe(
+    "1 required flow unavailable; 1 supporting host required",
+  );
+  expect(formatCapabilityStatusExplanation(0, 0, 0, 0)).toBe(
+    "No flow or support requirement",
+  );
+});
 
 it("formats simulation summary KPIs with their intended tones", () => {
   const summary: SimulationReportSummary = {

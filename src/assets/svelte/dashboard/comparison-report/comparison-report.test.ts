@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   comparisonMetrics,
   formatDelta,
+  formatPercentagePointDelta,
   formatPercentDelta,
 } from "./comparison-report";
 import type { SimulationReportData } from "../contract";
@@ -15,6 +16,8 @@ function report(capabilityImpact = false): SimulationReportData {
     iteration_count: 1,
     run_count: 1,
     total_runtime_ms: 1,
+    feasible: true,
+    capability_statuses: [],
     graph: {
       id: "graph",
       title: "Topology",
@@ -70,5 +73,6 @@ describe("comparison report formatting", () => {
     expect(formatDelta(-2.5)).toBe("-2.5");
     expect(formatPercentDelta(10, 8)).toBe("-20%");
     expect(formatPercentDelta(0, 2)).toBe("—");
+    expect(formatPercentagePointDelta(0.5, 0.25)).toBe("-25 pp");
   });
 });

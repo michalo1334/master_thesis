@@ -10,7 +10,7 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
   Builds a simulation-backed strategy struct for `module` from validated params.
   """
   @spec new(module(), Graph.t(), map()) :: {:ok, struct()} | {:error, Simulations.Errors.error()}
-  def new(module, graph, %{simulation_params: simulation_params} = params) do
+  def new(module, graph, %{simulation_params: simulation_params}) do
     with :ok <-
            Simulations.validate_initial_foothold(
              graph,
@@ -24,7 +24,6 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
          run_count: simulation_params.monte_carlo_trials,
          iteration_count: simulation_params.iterations_per_run,
          seed: simulation_seed(simulation_params),
-         objective: objective(params),
          max_attempts: simulation_params.max_attempts
        )}
     end
@@ -32,9 +31,6 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
 
   defp simulation_seed(%{generate_seed: true}), do: Seed.random()
   defp simulation_seed(%{seed: seed}), do: seed
-
-  defp objective(%{objective: "mission_impact"}), do: :mission_impact
-  defp objective(_params), do: :blast_radius
 
   @doc """
   Enumerates every eligible `{action, target}` candidate across the graph.

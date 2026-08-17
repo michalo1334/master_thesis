@@ -10,6 +10,49 @@ export const formatProbability = (value: number) =>
     maximumFractionDigits: 1,
   }).format(value);
 
+export const formatFeasibility = (feasible: boolean) =>
+  feasible ? "Operationally feasible" : "Not operationally feasible";
+
+const pluralize = (count: number, singular: string) =>
+  `${count} ${singular}${count === 1 ? "" : "s"}`;
+
+export const formatCapabilityFlows = (
+  requiredFlowCount: number,
+  missingFlowCount: number,
+) =>
+  `${Math.max(requiredFlowCount - missingFlowCount, 0)} / ${requiredFlowCount}`;
+
+export const formatCapabilitySupport = (
+  supportingHostCount: number,
+  minOperationalSupport: number,
+) => `${supportingHostCount} / ${minOperationalSupport}`;
+
+export function formatCapabilityStatusExplanation(
+  requiredFlowCount: number,
+  missingFlowCount: number,
+  supportingHostCount: number,
+  minOperationalSupport: number,
+): string {
+  const explanations = [];
+
+  if (missingFlowCount > 0) {
+    explanations.push(
+      `${pluralize(missingFlowCount, "required flow")} unavailable`,
+    );
+  }
+  if (supportingHostCount < minOperationalSupport) {
+    explanations.push(
+      `${pluralize(minOperationalSupport - supportingHostCount, "supporting host")} required`,
+    );
+  }
+
+  return explanations.length > 0
+    ? explanations.join("; ")
+    : requiredFlowCount === 0 && minOperationalSupport === 0
+      ? "No flow or support requirement"
+      : "All requirements met";
+}
+
 export function formatSimulationReportKpis(
   summary: SimulationReportSummary,
   runCount: number,

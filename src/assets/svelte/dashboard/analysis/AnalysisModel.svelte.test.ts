@@ -128,13 +128,12 @@ describe("AnalysisModel", () => {
     ]);
   });
 
-  it("uses blast radius for strategies that do not support mission impact", async () => {
+  it("starts every strategy without an objective", async () => {
     const dashboardApi = api();
     const workspace = new WorkspaceModel();
     const model = new AnalysisModel(dashboardApi, workspace);
 
     await model.selectTarget("revision-1");
-    workspace.onOptimizationParamsChange({ objective: "mission_impact" });
     model.includeOptimization = true;
     model.setStrategies([
       "cvss",
@@ -149,23 +148,14 @@ describe("AnalysisModel", () => {
       .mocked(dashboardApi.runOptimization)
       .mock.calls.map((call) => call[2]);
     expect(params).toEqual([
-      expect.objectContaining({
-        strategy: "cvss",
-        objective: "blast_radius",
-      }),
-      expect.objectContaining({
-        strategy: "topology_segmentation",
-        objective: "blast_radius",
-      }),
-      expect.objectContaining({
-        strategy: "simulation_informed",
-        objective: "mission_impact",
-      }),
-      expect.objectContaining({
-        strategy: "simulated_annealing",
-        objective: "mission_impact",
-      }),
+      expect.objectContaining({ strategy: "cvss" }),
+      expect.objectContaining({ strategy: "topology_segmentation" }),
+      expect.objectContaining({ strategy: "simulation_informed" }),
+      expect.objectContaining({ strategy: "simulated_annealing" }),
     ]);
+    expect(params).not.toContainEqual(
+      expect.objectContaining({ objective: expect.anything() }),
+    );
   });
 
   it("starts one workflow and opens the completed comparison", async () => {

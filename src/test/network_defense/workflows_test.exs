@@ -88,7 +88,7 @@ defmodule NetworkDefense.WorkflowsTest do
                  generate_seed: false,
                  max_attempts: 1
                },
-               %OptimizationParams{strategy: "cvss", objective: "blast_radius", budget: 1}
+               %OptimizationParams{strategy: "cvss", budget: 1}
              )
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Workflows.workflow_events_topic())
@@ -150,7 +150,7 @@ defmodule NetworkDefense.WorkflowsTest do
       max_attempts: 1
     }
 
-    optimization = %OptimizationParams{strategy: "cvss", objective: "blast_radius", budget: 1}
+    optimization = %OptimizationParams{strategy: "cvss", budget: 1}
 
     assert {:ok, first} =
              CombinedAnalysisWorkflow.start(

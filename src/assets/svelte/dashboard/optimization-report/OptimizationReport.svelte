@@ -105,11 +105,6 @@
 
         <Tabs.Content class="optimization-report-tab-panel" value="overview">
           <KpiCards metrics={formatOptimizationKpis(document.reportData)} />
-          <p class="optimization-report-objective">
-            Objective: {document.reportData.objective === "mission_impact"
-              ? "Mission impact"
-              : "Blast radius"}
-          </p>
 
           {#if document.openOptimizedGraph}
             <button
@@ -278,10 +273,6 @@
     background: var(--ds-color-accent);
     color: var(--ds-color-paper);
     font: inherit;
-  }
-  .optimization-report-objective {
-    margin: var(--ds-space-4) 0 0;
-    color: var(--ds-color-text-secondary);
   }
   :global(.optimization-report-tabs) {
     height: 100%;

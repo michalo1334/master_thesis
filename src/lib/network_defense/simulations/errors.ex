@@ -3,10 +3,20 @@ defmodule NetworkDefense.Simulations.Errors do
 
   alias NetworkDefense.Graph.Errors, as: GraphErrors
 
-  @codes [:invalid_initial_foothold, :persistence_failed, :task_unavailable, :internal_error]
+  @codes [
+    :invalid_initial_foothold,
+    :infeasible_input,
+    :persistence_failed,
+    :task_unavailable,
+    :internal_error
+  ]
 
   @type code ::
-          :invalid_initial_foothold | :persistence_failed | :task_unavailable | :internal_error
+          :invalid_initial_foothold
+          | :infeasible_input
+          | :persistence_failed
+          | :task_unavailable
+          | :internal_error
   @type error :: GraphErrors.code() | code()
 
   @spec codes() :: [code()]

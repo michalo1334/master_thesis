@@ -6,10 +6,12 @@
   import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
   import GraphInspector from "./graph/GraphInspector.svelte";
   import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
+  import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
   import ReportInspector from "./report/ReportInspector.svelte";
 
   interface Props {
     document: WorkspaceDocument | undefined;
+    api: import("../dashboard-api").DashboardApi;
     summaries?: readonly GraphSummary[];
     analyses: readonly AnalysisOption[];
     analysesStatus: string;
@@ -37,6 +39,7 @@
 
   let {
     document,
+    api,
     summaries = [],
     analyses,
     analysesStatus,
@@ -85,6 +88,17 @@
         ? onGraphAnalysesChange(selection.graph.revision_id, analysisIds)
         : Promise.resolve(false)}
   />
+{:else if selection?.kind === "selectable" && document?.kind === "graph" && selection.selectable.type === "MissionCapability"}
+  {#key document.loadedRevisionId}
+    <MissionCapabilityInspector
+      selectable={selection.selectable}
+      graph={document.graph}
+      revisionId={document.loadedRevisionId}
+      canEditFlows={!!document.loadedRevisionId && !document.isDirty}
+      {api}
+      onUpdate={(selectable) => document.updateSelection(selectable)}
+    />
+  {/key}
 {:else if selection?.kind === "selectable" && document?.kind === "graph"}
   <EditableSelectionInspector
     selectable={selection.selectable}

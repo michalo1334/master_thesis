@@ -15,10 +15,17 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
     field(:run_count, :integer)
     field(:iteration_count, :integer)
     field(:total_runtime_ms, :integer)
+    field(:feasible, :boolean)
 
     embeds_one(:graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update)
 
     embeds_many(:operational_flows, GraphProjectionOperationalFlow, on_replace: :delete)
+
+    embeds_many(
+      :capability_statuses,
+      NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus,
+      on_replace: :delete
+    )
 
     embeds_one(:summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
       on_replace: :update
@@ -37,8 +44,12 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           run_count: integer(),
           iteration_count: integer(),
           total_runtime_ms: integer(),
+          feasible: boolean(),
           graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
           operational_flows: [GraphProjectionOperationalFlow.t()],
+          capability_statuses: [
+            NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.t()
+          ],
           summary: NetworkDefenseWeb.Web.Contracts.SimulationReportSummary.t(),
           charts: NetworkDefenseWeb.Web.Contracts.SimulationReportCharts.t()
         }
@@ -52,10 +63,12 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :graph_revision_id,
       :run_count,
       :iteration_count,
-      :total_runtime_ms
+      :total_runtime_ms,
+      :feasible
     ])
     |> cast_embed(:graph, required: true)
     |> cast_embed(:operational_flows)
+    |> cast_embed(:capability_statuses)
     |> cast_embed(:summary, required: true)
     |> cast_embed(:charts, required: true)
     |> validate_required([
@@ -65,7 +78,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       :graph_revision_id,
       :run_count,
       :iteration_count,
-      :total_runtime_ms
+      :total_runtime_ms,
+      :feasible
     ])
   end
 
@@ -75,7 +89,22 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
       report
       |> Contracts.to_wire()
       |> Map.put(:graph, wire_graph)
+      |> Map.put(:feasible, report.pre_attack_feasible)
+      |> Map.put(:capability_statuses, capability_statuses(report))
       |> validate()
     end
+  end
+
+  defp capability_statuses(report) do
+    Enum.map(report.pre_attack_capability_statuses, fn status ->
+      %{
+        capability_id: status.capability_id,
+        operational: !status.down?,
+        required_flow_count: status.required_flow_count,
+        missing_flow_count: status.missing_flow_count,
+        supporting_host_count: status.supporting_host_count,
+        min_operational_support: status.min_operational_support
+      }
+    end)
   end
 end

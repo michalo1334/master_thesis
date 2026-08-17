@@ -69,8 +69,8 @@ describe("WorkspaceModel", () => {
       expect(model.activeDocument).toBeUndefined();
     });
 
-    it("defaults optimization to blast radius", () => {
-      expect(model.optimizationParams.objective).toBe("blast_radius");
+    it("does not keep an optimization objective", () => {
+      expect(model.optimizationParams).not.toHaveProperty("objective");
     });
 
     it("stores graph summaries", () => {

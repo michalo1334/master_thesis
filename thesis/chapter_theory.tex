@@ -37,6 +37,14 @@ For $R$ trials, the reported expected blast radius is the sample mean
 
 The host heatmap estimates $\hat{\beta}(h) = R^{-1}\sum_r \mathbb{1}[h \in F_r]$. These are outputs of the specified model, not measurements or forecasts of real attacker movement.
 
+\section{Mission Capabilities}
+
+A mission capability declares required service flows. Each flow identifies a source segment and a target service. A capability is operational when all required flows exist, the target service hosts are not compromised, and enough supporting hosts remain uncompromised. For trial $r$, the modeled mission impact is the weighted sum of capabilities that are not operational at the end of the trial. This is a final-state, worst-case dependency model: it does not model duration, recovery, capacity, or cascading dependencies.
+
+\section{Feasibility Constraint}
+
+The optimizer rejects a defense plan that makes a required capability unavailable before the attack. Valid plans are ranked by expected mission impact, then expected blast radius, then defense cost. The feasibility check and the mission-impact calculation use the same model; both are outputs of the specified model, not measurements of real operational availability.
+
 \section{Defensive Actions}
 
 The system models vulnerability-exposure removal, segment-policy removal, and credential revocation. All current actions have unit cost, so a budget $k$ limits the number of actions rather than deployment cost, operational disruption, or rollback effort. A policy removal can affect many operational flows; it is therefore not economically comparable to patching one exposure.
@@ -45,4 +53,4 @@ Simulation-informed greedy selection keeps only candidates with a strictly posit
 
 \section{Scope}
 
-The model assumes a fixed synthetic topology, policy, vulnerability catalog, attacker rules, and finite horizon. It does not model real exploit likelihood, legitimate traffic, operational availability, asset value, recovery, attacker profiles, topology-density sensitivity, or cost-aware deployment. A future evaluation must preserve the complete scenario, configuration, random seed, selected action list, and per-trial outcomes, then use independent evaluation trials after strategy selection.
+The model assumes a fixed synthetic topology, policy, vulnerability catalog, attacker rules, and finite horizon. It does not model real exploit likelihood, legitimate traffic, operational availability, asset value, recovery, attacker profiles, topology-density sensitivity, or cost-aware deployment. The mission-impact and feasibility model is a declared dependency rule over the same simulation; it is not a claim that multi-objective hardening or mission-impact assessment is new. A future evaluation must preserve the complete scenario, configuration, random seed, selected action list, and per-trial outcomes, then use independent evaluation trials after strategy selection.

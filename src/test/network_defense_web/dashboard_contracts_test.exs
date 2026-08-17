@@ -148,7 +148,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       },
       "optimization_params" => %{
         "strategy" => "cvss",
-        "objective" => "blast_radius",
         "budget" => 1
       }
     }
@@ -435,7 +434,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     report = %{
       strategy: "cvss",
-      objective: "blast_radius",
       requested_budget: 2,
       used_budget: 1,
       runtime_ms: 12,
@@ -457,7 +455,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       graph: graph,
       graph_revision_id: run.graph_revision_id,
       strategy: report.strategy,
-      objective: report.objective,
       requested_budget: report.requested_budget,
       used_budget: report.used_budget,
       runtime_ms: report.runtime_ms,
@@ -473,7 +470,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              graph_revision_id: @parent_graph_id,
              report: %{
                strategy: "cvss",
-               objective: "blast_radius",
                used_budget: 1,
                actions: [%{id: "target-1", label: "Patch CVE-1", cvss_score: 7.5, cost: 1}]
              }
@@ -537,6 +533,40 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   test "rejects a graph projection reply with an unknown status" do
     assert {:error, changeset} = FetchGraphProjectionReply.validate(%{"status" => "stale"})
     assert %{status: ["is invalid"]} = errors_on(changeset)
+  end
+
+  test "requires capability status counts and minimum support" do
+    assert {:error, changeset} =
+             NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.validate(%{
+               "capability_id" => "capability-1",
+               "operational" => true
+             })
+
+    assert %{
+             required_flow_count: ["can't be blank"],
+             missing_flow_count: ["can't be blank"],
+             supporting_host_count: ["can't be blank"],
+             min_operational_support: ["can't be blank"]
+           } = errors_on(changeset)
+
+    assert {:ok, status} =
+             NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.validate(%{
+               "capability_id" => "capability-1",
+               "operational" => true,
+               "required_flow_count" => 2,
+               "missing_flow_count" => 1,
+               "supporting_host_count" => 3,
+               "min_operational_support" => 2
+             })
+
+    assert %{
+             capability_id: "capability-1",
+             operational: true,
+             required_flow_count: 2,
+             missing_flow_count: 1,
+             supporting_host_count: 3,
+             min_operational_support: 2
+           } = NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.to_wire(status)
   end
 
   defp errors_on(changeset) do

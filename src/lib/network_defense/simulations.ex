@@ -9,6 +9,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator
@@ -80,6 +81,7 @@ defmodule NetworkDefense.Simulations do
 
   defp prepare_experiment(%Graph{} = graph, simulation_params, analysis_id) do
     with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
+         :ok <- validate_mission_feasibility(graph),
          {:ok, experiment} <- create_experiment(graph, simulation_params, analysis_id) do
       {:ok, experiment}
     else
@@ -309,6 +311,15 @@ defmodule NetworkDefense.Simulations do
     case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
       %{type: NetworkDefense.Nodes.Host} -> :ok
       _ -> {:error, :invalid_initial_foothold}
+    end
+  end
+
+  @spec validate_mission_feasibility(Graph.t()) :: :ok | {:error, :infeasible_input}
+  def validate_mission_feasibility(graph) do
+    if MissionImpact.pre_attack_feasible?(graph) do
+      :ok
+    else
+      {:error, :infeasible_input}
     end
   end
 

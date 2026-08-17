@@ -4,14 +4,15 @@ defmodule NetworkDefense.SimulationsTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service, Vulnerability}
 
   alias NetworkDefense.Relationships.{
     Contains,
     HasVulnerability,
     NetworkReachability,
     Runs,
-    SegmentReachability
+    SegmentReachability,
+    Supports
   }
 
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
@@ -148,6 +149,77 @@ defmodule NetworkDefense.SimulationsTest do
                  max_attempts: 1
                }
              })
+  end
+
+  test "rejects a graph with declared but unavailable required flows before persisting" do
+    assert {:ok, graph} = Graphs.insert(mission_graph("Infeasible Mission", missing_flow: true))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    assert {:error, :infeasible_input} =
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: "infeasible-mission-request",
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: foothold.id,
+                 generate_seed: false,
+                 seed: 42,
+                 max_attempts: 1
+               }
+             })
+
+    assert Repo.get_by(Experiment, graph_revision_id: graph.revision_id) == nil
+  end
+
+  test "prepare rejects a graph with declared but unavailable required flows" do
+    assert {:ok, graph} = Graphs.insert(mission_graph("Infeasible Prepare", missing_flow: true))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    assert {:error, :infeasible_input} =
+             Simulations.prepare(graph.revision_id, %SimulationParams{
+               monte_carlo_trials: 1,
+               iterations_per_run: 1,
+               initial_foothold_node_id: foothold.id,
+               generate_seed: false,
+               seed: 42,
+               max_attempts: 1
+             })
+
+    assert Repo.get_by(Experiment, graph_revision_id: graph.revision_id) == nil
+  end
+
+  test "runs a graph whose declared required flows are available" do
+    assert {:ok, graph} = Graphs.insert(mission_graph("Feasible Mission"))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    correlation_id = "feasible-mission"
+
+    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+    {:ok, task} =
+      Simulations.run_async(%RunSimulationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: correlation_id,
+        simulation_params: %SimulationParams{
+          monte_carlo_trials: 1,
+          iterations_per_run: 1,
+          initial_foothold_node_id: foothold.id,
+          generate_seed: false,
+          seed: 42,
+          max_attempts: 1
+        }
+      })
+
+    Sandbox.allow(Repo, self(), task)
+
+    assert_receive {:simulation_completed, %{correlation_id: ^correlation_id}}, 5_000
   end
 
   test "rejects an experiment persistence failure with an error tuple" do
@@ -388,6 +460,112 @@ defmodule NetworkDefense.SimulationsTest do
         data: %{"required_privilege" => "none", "granted_privilege" => "user"}
       })
     )
+  end
+
+  defp mission_graph(title, opts \\ []) do
+    graph = Graph.new(title)
+
+    source_segment =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "External"},
+        view_data: %{"x_pos" => 0, "y_pos" => -100}
+      })
+
+    source_host =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Host),
+        data: %{"name" => "source"},
+        view_data: %{"x_pos" => 0, "y_pos" => -50}
+      })
+
+    target_segment =
+      Node.new(graph.id, %{
+        type: Atom.to_string(NetworkSegment),
+        data: %{"name" => "Internal"},
+        view_data: %{"x_pos" => 0, "y_pos" => 0}
+      })
+
+    target_host =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Host),
+        data: %{"name" => "target"},
+        view_data: %{"x_pos" => 0, "y_pos" => 50}
+      })
+
+    service =
+      Node.new(graph.id, %{
+        type: Atom.to_string(Service),
+        data: %{"name" => "ssh", "protocol" => "tcp", "port" => 22},
+        view_data: %{"x_pos" => 100, "y_pos" => 50}
+      })
+
+    capability =
+      Node.new(graph.id, %{
+        type: Atom.to_string(MissionCapability),
+        data: %{
+          "name" => "orders",
+          "impact_weight" => 8.0,
+          "min_operational_support" => 1,
+          "required_flows" => [
+            %{"source_segment_id" => source_segment.id, "target_service_id" => service.id}
+          ]
+        },
+        view_data: %{"x_pos" => 200, "y_pos" => 0}
+      })
+
+    graph
+    |> Graph.add_node(source_segment)
+    |> Graph.add_node(source_host)
+    |> Graph.add_node(target_segment)
+    |> Graph.add_node(target_host)
+    |> Graph.add_node(service)
+    |> Graph.add_node(capability)
+    |> Graph.add_edge(
+      Edge.new(graph.id, source_segment.id, source_host.id, %{
+        type: Atom.to_string(Contains),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, target_segment.id, target_host.id, %{
+        type: Atom.to_string(Contains),
+        data: %{}
+      })
+    )
+    |> maybe_add_policy(source_segment, target_segment, opts)
+    |> Graph.add_edge(
+      Edge.new(graph.id, target_host.id, service.id, %{
+        type: Atom.to_string(Runs),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, source_host.id, capability.id, %{
+        type: Atom.to_string(Supports),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, target_host.id, capability.id, %{
+        type: Atom.to_string(Supports),
+        data: %{}
+      })
+    )
+  end
+
+  defp maybe_add_policy(graph, source_segment, target_segment, opts) do
+    if Keyword.get(opts, :missing_flow) do
+      graph
+    else
+      Graph.add_edge(
+        graph,
+        Edge.new(graph.id, source_segment.id, target_segment.id, %{
+          type: Atom.to_string(SegmentReachability),
+          data: %{"protocol" => "tcp"}
+        })
+      )
+    end
   end
 
   defp cvss do

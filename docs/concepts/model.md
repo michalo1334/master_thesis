@@ -88,7 +88,7 @@ blast_radius = count(compromised_resources)
 expected_blast_radius = mean(blast_radius across runs)
 ```
 
-Mission impact is computed from the terminal footholds of each run. A `mission_capability` has a positive relative `impact_weight` and a `min_operational_support` threshold. A compromised host is treated as unavailable support. A capability is disrupted when fewer than that many supporting hosts remain uncompromised:
+Mission impact is computed from the terminal footholds of each run. A `mission_capability` declares required service flows; each flow identifies a source segment and a target service. A capability is operational when all required flows exist, the target service hosts are not compromised, and at least `min_operational_support` supporting hosts remain uncompromised. A compromised host is treated as unavailable support. A capability is disrupted when fewer than that many supporting hosts remain uncompromised:
 
 ```text
 mission_impact = sum(impact_weight for each disrupted capability)
@@ -109,14 +109,19 @@ For a simulation-informed or annealing candidate configuration, it:
 
 The initial defensive actions are patching a vulnerability, removing a segment reachability policy, and revoking a credential. Each current action has unit cost, so the budget counts actions rather than deployment cost.
 
-Simulation-informed and annealing strategies select one objective:
+The optimizer rejects a defense plan that makes a required capability unavailable before the attack. Valid plans are ranked by expected mission impact, then expected blast radius, then defense cost. The feasibility check and the mission-impact calculation use the same model.
+
+Simulation-informed and annealing strategies score candidates through the simulator:
 
 ```text
-minimize expected blast radius or expected mission impact
+minimize expected mission impact, then expected blast radius
 subject to total defense cost <= budget
+and required capabilities remain feasible before the attack
 ```
 
 They rank actions by reduction in the selected metric per unit of the current unit cost. CVSS and topology segmentation remain fixed baselines: they produce a defended graph without claiming to optimize mission impact.
+
+The model is a controlled simulation comparison. It is not a claim that multi-objective hardening or mission-impact assessment is new.
 
 ## Baseline Strategies
 
@@ -129,3 +134,5 @@ A future evaluation can compare simulation-informed optimization with simpler st
 * greedy simulation-informed selection.
 
 Simulation-informed and annealing strategies evaluate candidates through the simulator; CVSS and topology strategies use direct rankings. A future strategy comparison must evaluate each selected configuration through the same simulation process to use consistent model and action-count metrics.
+
+The comparison covers blast-radius-only ranking, mission-impact-only ranking, and mission-first/blast-radius-second ranking, each with and without the pre-attack feasibility constraint, using paired scenario and evaluation seeds.

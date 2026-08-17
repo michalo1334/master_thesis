@@ -5,13 +5,28 @@
   import {
     comparisonMetrics,
     formatDelta,
+    formatPercentagePointDelta,
     formatPercentDelta,
     formatStrategy,
   } from "./comparison-report";
+  import {
+    formatCapabilityFlows,
+    formatCapabilitySupport,
+    formatProbability,
+  } from "../simulation-report/simulation-report";
 
   interface Props {
     document: ComparisonReportDocument;
   }
+
+  type CapabilityStatus = {
+    capability_id: string;
+    operational: boolean;
+    required_flow_count: number;
+    missing_flow_count: number;
+    supporting_host_count: number;
+    min_operational_support: number;
+  };
 
   let { document }: Props = $props();
   let baseline = $derived(document.baselineReport.reportData);
@@ -22,6 +37,108 @@
       ? comparisonMetrics(baseline, postOptimization)
       : [],
   );
+  let feasibility = $derived(
+    postOptimization
+      ? postOptimization.feasible
+        ? "Feasible"
+        : "Infeasible"
+      : undefined,
+  );
+  let capabilityImpactComparison = $derived.by(() => {
+    if (!baseline || !postOptimization) return [];
+    const names = new Map(
+      [...baseline.graph.nodes, ...postOptimization.graph.nodes].flatMap(
+        (node) =>
+          node.type === "MissionCapability" ? [[node.id, node.data.name]] : [],
+      ),
+    );
+    const baselineImpacts = new Map(
+      baseline.charts.capability_impact.map((impact) => [
+        impact.capability_id,
+        impact.down_probability,
+      ]),
+    );
+    const defendedImpacts = new Map(
+      postOptimization.charts.capability_impact.map((impact) => [
+        impact.capability_id,
+        impact.down_probability,
+      ]),
+    );
+
+    return [
+      ...new Set([...baselineImpacts.keys(), ...defendedImpacts.keys()]),
+    ].map((capabilityId) => ({
+      capabilityId,
+      name: names.get(capabilityId) ?? capabilityId,
+      baseline: baselineImpacts.get(capabilityId) ?? 0,
+      defended: defendedImpacts.get(capabilityId) ?? 0,
+    }));
+  });
+  let capabilityStatusComparison = $derived.by(() => {
+    if (!baseline || !postOptimization) return [];
+    const names = new Map(
+      [...baseline.graph.nodes, ...postOptimization.graph.nodes].flatMap(
+        (node) =>
+          node.type === "MissionCapability" ? [[node.id, node.data.name]] : [],
+      ),
+    );
+    const baselineStatuses = new Map(
+      baseline.capability_statuses.map((value) => {
+        const status = value as CapabilityStatus;
+        return [status.capability_id, status] as const;
+      }),
+    );
+    const defendedStatuses = new Map(
+      postOptimization.capability_statuses.map((value) => {
+        const status = value as CapabilityStatus;
+        return [status.capability_id, status] as const;
+      }),
+    );
+    return [
+      ...new Set([...baselineStatuses.keys(), ...defendedStatuses.keys()]),
+    ].map((capabilityId) => {
+      const baselineStatus = baselineStatuses.get(capabilityId);
+      const defendedStatus = defendedStatuses.get(capabilityId);
+      return {
+        capabilityId,
+        name: names.get(capabilityId) ?? capabilityId,
+        baseline: baselineStatus
+          ? baselineStatus.operational
+            ? "Operational"
+            : "Unavailable"
+          : "—",
+        defended: defendedStatus
+          ? defendedStatus.operational
+            ? "Operational"
+            : "Unavailable"
+          : "—",
+        baselineFlows: baselineStatus
+          ? formatCapabilityFlows(
+              baselineStatus.required_flow_count,
+              baselineStatus.missing_flow_count,
+            )
+          : "—",
+        defendedFlows: defendedStatus
+          ? formatCapabilityFlows(
+              defendedStatus.required_flow_count,
+              defendedStatus.missing_flow_count,
+            )
+          : "—",
+        baselineSupport: baselineStatus
+          ? formatCapabilitySupport(
+              baselineStatus.supporting_host_count,
+              baselineStatus.min_operational_support,
+            )
+          : "—",
+        defendedSupport: defendedStatus
+          ? formatCapabilitySupport(
+              defendedStatus.supporting_host_count,
+              defendedStatus.min_operational_support,
+            )
+          : "—",
+      };
+    });
+  });
 </script>
 
 <article class="comparison-report" aria-labelledby="comparison-report-title">
@@ -44,7 +161,7 @@
   {:else}
     <section aria-labelledby="comparison-metrics-title">
       <h2 id="comparison-metrics-title">Baseline and post-optimization</h2>
-      <div class="comparison-report-table-wrap">
+      <div class="comparison-report-table-wrap comparison-report-metric-table">
         <table>
           <thead>
             <tr>
@@ -114,14 +231,12 @@
           <dt>Strategy</dt>
           <dd>{formatStrategy(optimization.strategy)}</dd>
         </div>
-        <div>
-          <dt>Objective</dt>
-          <dd>
-            {optimization.objective === "mission_impact"
-              ? "Mission impact"
-              : "Blast radius"}
-          </dd>
-        </div>
+        {#if feasibility}
+          <div>
+            <dt>Pre-attack feasibility</dt>
+            <dd>{feasibility}</dd>
+          </div>
+        {/if}
         <div>
           <dt>Budget</dt>
           <dd>
@@ -144,6 +259,77 @@
         <p class="comparison-report-empty">No defenses were selected.</p>
       {/if}
     </section>
+
+    {#if capabilityImpactComparison.length > 0}
+      <section aria-labelledby="capability-impact-comparison-title">
+        <h2 id="capability-impact-comparison-title">
+          Mission capability disruption probability
+        </h2>
+        <div class="comparison-report-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Capability</th>
+                <th scope="col">Baseline</th>
+                <th scope="col">Defended</th>
+                <th scope="col">Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each capabilityImpactComparison as capability (capability.capabilityId)}
+                <tr>
+                  <th scope="row">{capability.name}</th>
+                  <td>{formatProbability(capability.baseline)}</td>
+                  <td>{formatProbability(capability.defended)}</td>
+                  <td>
+                    {formatPercentagePointDelta(
+                      capability.baseline,
+                      capability.defended,
+                    )}
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {/if}
+
+    {#if capabilityStatusComparison.length > 0}
+      <section aria-labelledby="capability-status-comparison-title">
+        <h2 id="capability-status-comparison-title">
+          Mission capability status
+        </h2>
+        <div class="comparison-report-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Capability</th>
+                <th scope="col">Baseline</th>
+                <th scope="col">Defended</th>
+                <th scope="col">Baseline flows</th>
+                <th scope="col">Defended flows</th>
+                <th scope="col">Baseline supports</th>
+                <th scope="col">Defended supports</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each capabilityStatusComparison as capability (capability.capabilityId)}
+                <tr>
+                  <th scope="row">{capability.name}</th>
+                  <td>{capability.baseline}</td>
+                  <td>{capability.defended}</td>
+                  <td>{capability.baselineFlows}</td>
+                  <td>{capability.defendedFlows}</td>
+                  <td>{capability.baselineSupport}</td>
+                  <td>{capability.defendedSupport}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {/if}
 
     <section
       class="comparison-report-diff"
@@ -318,7 +504,7 @@
     .comparison-report {
       padding: var(--ds-space-4);
     }
-    .comparison-report-table-wrap {
+    .comparison-report-metric-table {
       display: none;
     }
     .comparison-report-metric-cards {

@@ -5,7 +5,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, NetworkSegment}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
   alias NetworkDefense.Optimization.Contracts.{OptimizationParams, RunOptimizationRequest}
   alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
@@ -476,9 +476,88 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
       assert {:error, :unknown_strategy} = Optimizations.run(request)
     end
+
+    test "run/1 rejects an input scenario that is infeasible before the attack" do
+      assert {:ok, graph} = Graphs.insert(graph_with_infeasible_capability())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1}
+      }
+
+      assert {:error, :infeasible_input} = Optimizations.run(request)
+
+      assert [] =
+               Repo.all(
+                 from(run in OptimizationRun, where: run.graph_revision_id == ^graph.revision_id)
+               )
+    end
   end
 
   defp graph_with_credential, do: GraphFixtures.persisted_credential_graph("optimization-test")
+
+  defp graph_with_infeasible_capability do
+    graph = Graph.new("optimization-infeasible-test")
+
+    source_segment =
+      GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "source-segment"})
+
+    target_segment =
+      GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "target-segment"})
+
+    source = GraphFixtures.build_node(graph, Host, %{"name" => "source"})
+    target = GraphFixtures.build_node(graph, Host, %{"name" => "target"})
+
+    api =
+      GraphFixtures.build_node(graph, Service, %{
+        "name" => "api",
+        "protocol" => "tcp",
+        "port" => 443
+      })
+
+    capability =
+      GraphFixtures.build_node(graph, MissionCapability, %{
+        "name" => "orders",
+        "impact_weight" => 8.0,
+        "min_operational_support" => 1,
+        "required_flows" => [
+          %{"source_segment_id" => source_segment.id, "target_service_id" => api.id}
+        ]
+      })
+
+    graph
+    |> Graph.add_node(source_segment)
+    |> Graph.add_node(target_segment)
+    |> Graph.add_node(source)
+    |> Graph.add_node(target)
+    |> Graph.add_node(api)
+    |> Graph.add_node(capability)
+    |> Graph.add_edge(
+      Edge.new(graph.id, source_segment.id, source.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.Contains),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, target_segment.id, target.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.Contains),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, target.id, api.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.Runs),
+        data: %{}
+      })
+    )
+    |> Graph.add_edge(
+      Edge.new(graph.id, source.id, capability.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.Supports),
+        data: %{}
+      })
+    )
+  end
 
   defp graph_with_host do
     graph = Graph.new("optimization-host-test")

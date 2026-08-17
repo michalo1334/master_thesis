@@ -16,7 +16,6 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
           output_graph_revision_id: String.t() | nil,
           actions: list(OptimizationAction.t()) | Ecto.Association.NotLoaded.t(),
           strategy: String.t() | nil,
-          objective: String.t() | nil,
           requested_budget: integer() | nil,
           used_budget: integer() | nil,
           runtime_ms: integer() | nil,
@@ -32,7 +31,6 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     has_many :actions, OptimizationAction, foreign_key: :optimization_run_id
 
     field :strategy, :string
-    field :objective, :string, default: "blast_radius"
     field :requested_budget, :integer
     field :used_budget, :integer, default: 0
     field :runtime_ms, :integer, default: 0
@@ -50,7 +48,6 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       :analysis_id,
       :output_graph_revision_id,
       :strategy,
-      :objective,
       :requested_budget,
       :used_budget,
       :runtime_ms,
@@ -58,8 +55,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       :seed,
       :simulation_config
     ])
-    |> validate_required([:graph_revision_id, :strategy, :objective, :requested_budget])
-    |> validate_inclusion(:objective, ["blast_radius", "mission_impact"])
+    |> validate_required([:graph_revision_id, :strategy, :requested_budget])
     |> validate_number(:requested_budget, greater_than: 0)
     |> validate_number(:used_budget, greater_than_or_equal_to: 0)
     |> validate_number(:runtime_ms, greater_than_or_equal_to: 0)
@@ -79,7 +75,6 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       graph_revision_id: Map.get(attrs, :graph_revision_id),
       analysis_id: Map.get(attrs, :analysis_id),
       strategy: Map.fetch!(attrs, :strategy),
-      objective: Map.get(attrs, :objective, "blast_radius"),
       requested_budget: Map.fetch!(attrs, :requested_budget),
       used_budget: Map.get(attrs, :used_budget, 0),
       runtime_ms: Map.get(attrs, :runtime_ms, 0),

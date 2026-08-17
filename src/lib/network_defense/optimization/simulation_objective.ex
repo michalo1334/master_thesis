@@ -2,6 +2,7 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   @moduledoc false
 
   alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Simulation.{Run, Simulator}
   alias NetworkDefense.Simulation.MissionImpact
@@ -12,15 +13,17 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
     run |> Run.current_attacker_state() |> AttackerState.foothold_nodes() |> length()
   end
 
-  def expected_blast_radius(graph, strategy) do
-    expected(graph, strategy, :blast_radius)
+  @doc "Whether every mission capability remains operational before an attack."
+  @spec feasible?(Graph.t()) :: boolean()
+  def feasible?(graph) do
+    graph
+    |> MissionImpact.capability_statuses([])
+    |> Enum.all?(&(not &1.down?))
   end
 
-  def expected_mission_impact(graph, strategy) do
-    expected(graph, strategy, :mission_impact)
-  end
-
-  def expected(graph, strategy, objective) when objective in [:blast_radius, :mission_impact] do
+  @doc "Expected {mission impact, blast radius} from one experiment."
+  @spec expected(Graph.t(), map()) :: {float(), float()}
+  def expected(graph, strategy) do
     graph = MaterializeReachability.materialize(graph)
 
     {_experiment, runs} =
@@ -34,17 +37,15 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
         max_attempts: strategy.max_attempts
       )
 
-    runs
-    |> Enum.map(&final_metric(&1, graph, objective))
-    |> then(&(Enum.sum(&1) / length(&1)))
-  end
+    {mission_impacts, blast_radii} =
+      runs
+      |> Enum.map(fn run ->
+        footholds = run |> Run.current_attacker_state() |> AttackerState.foothold_nodes()
+        {MissionImpact.final(graph, footholds), length(footholds)}
+      end)
+      |> Enum.unzip()
 
-  def final_metric(run, _graph, :blast_radius), do: final_foothold_count(run)
-
-  def final_metric(run, graph, :mission_impact) do
-    run
-    |> Run.current_attacker_state()
-    |> AttackerState.foothold_nodes()
-    |> then(&MissionImpact.final(graph, &1))
+    {Enum.sum(mission_impacts) / length(mission_impacts),
+     Enum.sum(blast_radii) / length(blast_radii)}
   end
 end

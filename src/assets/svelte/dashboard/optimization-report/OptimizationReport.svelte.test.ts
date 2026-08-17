@@ -47,7 +47,6 @@ describe("OptimizationReport", () => {
       graph_revision_id: "r1",
       report: {
         strategy: "cvss",
-        objective: "blast_radius",
         requested_budget: 2,
         used_budget: 1,
         runtime_ms: 25,
@@ -113,7 +112,6 @@ describe("OptimizationReport", () => {
       graph_revision_id: "r1",
       report: {
         strategy: "future_strategy",
-        objective: "mission_impact",
         requested_budget: 2,
         used_budget: 1,
         runtime_ms: 25,
@@ -131,7 +129,7 @@ describe("OptimizationReport", () => {
 
     render(OptimizationReportComponent, { props: { document } });
 
-    expect(screen.getByText("Objective: Mission impact")).toBeInTheDocument();
+    expect(screen.queryByText(/Objective:/)).not.toBeInTheDocument();
 
     await fireEvent.click(
       screen.getByRole("button", { name: "Open optimized graph" }),
@@ -182,7 +180,6 @@ describe("OptimizationReport", () => {
       graph_revision_id: "r1",
       report: {
         strategy: "topology_segmentation",
-        objective: "blast_radius",
         requested_budget: 1,
         used_budget: 1,
         runtime_ms: 25,

@@ -201,7 +201,6 @@ defmodule NetworkDefense.DocumentCatalogTest do
       analysis_id: analysis_id,
       output_graph_revision_id: output_graph_revision_id,
       strategy: "cvss",
-      objective: "blast_radius",
       requested_budget: 1,
       status: "completed"
     })

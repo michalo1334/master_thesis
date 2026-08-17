@@ -67,7 +67,6 @@ defmodule NetworkDefense.Optimization.OptimizationReportTest do
         id: "run-1",
         graph_revision_id: "revision-1",
         strategy: "topology_segmentation",
-        objective: "blast_radius",
         requested_budget: 1,
         used_budget: 1,
         runtime_ms: 1,

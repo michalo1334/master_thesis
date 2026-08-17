@@ -78,6 +78,7 @@ export type {
   StoresCredentialData,
   AuthenticatesToData,
   CredentialNode,
+  MissionCapabilityNode,
   NetworkSegmentNode,
   SegmentReachabilityEdge,
   HasVulnerabilityEdge,
@@ -160,7 +161,6 @@ export type SimulationParams = GeneratedSimulationParams;
 
 export type OptimizationStrategy = GeneratedOptimizationParams["strategy"];
 
-/** Optimization runs own their simulation settings; standalone runs keep theirs. */
 export type OptimizationParams = GeneratedOptimizationParams;
 
 export type Selectable = Node | Edge;

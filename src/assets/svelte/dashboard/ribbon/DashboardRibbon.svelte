@@ -224,21 +224,6 @@
         disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
-      {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
-        <Select
-          label="Objective"
-          value={optimizationParams.objective}
-          disabled={!hasActiveGraph}
-          onchange={(event) =>
-            onOptimizationParamsChange({
-              objective: event.currentTarget
-                .value as OptimizationParams["objective"],
-            })}
-        >
-          <option value="blast_radius">Blast radius</option>
-          <option value="mission_impact">Mission impact</option>
-        </Select>
-      {/if}
     </Ribbon.Section>
     {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
       <Ribbon.Section title="Simulation settings">

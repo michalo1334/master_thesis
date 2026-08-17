@@ -13,7 +13,6 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     :run_count,
     :iteration_count,
     :seed,
-    objective: :blast_radius,
     max_attempts: 1
   ]
 
@@ -23,7 +22,6 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
           run_count: pos_integer(),
           iteration_count: pos_integer(),
           seed: non_neg_integer(),
-          objective: :blast_radius | :mission_impact,
           max_attempts: pos_integer()
         }
 
@@ -31,6 +29,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
 
   defimpl Strategy, for: __MODULE__ do
     @max_steps 100
+    @infeasible_score {1.0e9, 1.0e9, 1.0e9}
 
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Simulation-informed simulated annealing strategy"
@@ -100,8 +99,10 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
       {sample, random_state} = :rand.uniform_s(random_state)
 
       accepted? =
-        candidate_score <= state.current_score or
-          sample < :math.exp((state.current_score - candidate_score) / temperature)
+        candidate_score < @infeasible_score and
+          (candidate_score <= state.current_score or
+             sample <
+               :math.exp((energy(state.current_score) - energy(candidate_score)) / temperature))
 
       state =
         if accepted? do
@@ -126,6 +127,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         random_state
       )
     end
+
+    defp energy({mission_impact, blast_radius, _cost}), do: mission_impact * 1000 + blast_radius
 
     defp random_plan(candidates, count, random_state) do
       Enum.reduce(1..count, {[], candidates, random_state}, fn _,
@@ -154,9 +157,15 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     end
 
     defp score(graph, plan, strategy) do
-      plan
-      |> Enum.reduce(graph, &DefenseAction.apply(&1, &2))
-      |> SimulationObjective.expected(strategy, strategy.objective)
+      graph = Enum.reduce(plan, graph, &DefenseAction.apply(&1, &2))
+
+      if SimulationObjective.feasible?(graph) do
+        {mission_impact, blast_radius} = SimulationObjective.expected(graph, strategy)
+        cost = Enum.sum(Enum.map(plan, &DefenseAction.cost/1))
+        {mission_impact, blast_radius, cost}
+      else
+        @infeasible_score
+      end
     end
   end
 end

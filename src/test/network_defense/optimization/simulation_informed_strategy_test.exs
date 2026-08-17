@@ -33,7 +33,7 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
              Strategy.rank(strategy, [PatchVulnerability], graph, 1)
   end
 
-  test "expected_blast_radius/2 simulates an unmaterialized canonical graph" do
+  test "expected/2 simulates an unmaterialized canonical graph" do
     {graph, source} = graph()
 
     refute Enum.any?(Graph.edges(graph), &(&1.type == NetworkReachability))
@@ -46,9 +46,9 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
       seed: 42
     }
 
-    radius = SimulationObjective.expected_blast_radius(graph, strategy)
+    {_mission_impact, blast_radius} = SimulationObjective.expected(graph, strategy)
 
-    assert radius > 1.0
+    assert blast_radius > 1.0
   end
 
   test "excludes candidates without a strictly positive modeled reduction" do

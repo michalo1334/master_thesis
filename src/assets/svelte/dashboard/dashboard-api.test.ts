@@ -71,7 +71,7 @@ describe("DashboardApi", () => {
     const result = await createDashboardApi(live).runOptimization(
       "r1",
       "corr-1",
-      { strategy: "cvss", budget: 3, objective: "blast_radius" },
+      { strategy: "cvss", budget: 3 },
     );
 
     expect(result).toEqual(reply);
@@ -84,7 +84,6 @@ describe("DashboardApi", () => {
           optimization_params: {
             strategy: "cvss",
             budget: 3,
-            objective: "blast_radius",
           },
         },
       },
@@ -113,7 +112,7 @@ describe("DashboardApi", () => {
           generate_seed: false,
           seed: 1,
         },
-        { strategy: "cvss", budget: 3, objective: "blast_radius" },
+        { strategy: "cvss", budget: 3 },
       ),
     ).resolves.toEqual(reply);
     expect(live.pushEvent).toHaveBeenCalledWith(
@@ -127,7 +126,6 @@ describe("DashboardApi", () => {
           optimization_params: {
             strategy: "cvss",
             budget: 3,
-            objective: "blast_radius",
           },
         },
       },

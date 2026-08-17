@@ -66,7 +66,6 @@ function renderDialog({
       optimizationParams: {
         budget: 1,
         strategy: "cvss",
-        objective: "blast_radius",
         simulation_params: {
           initial_foothold_node_id: "",
           monte_carlo_trials: 1000,
@@ -129,22 +128,15 @@ describe("AnalysisDialog", () => {
     expect(closeDialog).toHaveBeenCalledOnce();
   });
 
-  it("shows and updates the objective for mission-aware strategies", async () => {
-    const { onOptimizationParamsChange } = renderDialog({
+  it("does not render an objective selector", () => {
+    renderDialog({
       includeOptimization: true,
       selectedStrategies: ["simulation_informed"],
     });
 
-    await fireEvent.change(
-      screen.getByRole("combobox", { name: "Objective" }),
-      {
-        target: { value: "mission_impact" },
-      },
-    );
-
-    expect(onOptimizationParamsChange).toHaveBeenCalledWith({
-      objective: "mission_impact",
-    });
+    expect(
+      screen.queryByRole("combobox", { name: "Objective" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows compound strategy validation", () => {

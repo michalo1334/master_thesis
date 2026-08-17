@@ -4,7 +4,7 @@ defmodule NetworkDefense.Graph.Graph do
 
   alias NetworkDefense.Graph.{Edge, Folder, GraphRevision, Node}
   alias NetworkDefense.Graph.SemanticConnectivity
-  alias NetworkDefense.Nodes.{Host, MissionCapability, Service}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.Supports
@@ -260,7 +260,8 @@ defmodule NetworkDefense.Graph.Graph do
 
   defp validate_membership(graph, true) do
     with :ok <- validate_exactly_one(graph, Host, Contains, :multiple_segments),
-         :ok <- validate_exactly_one(graph, Service, Runs, :multiple_runs) do
+         :ok <- validate_exactly_one(graph, Service, Runs, :multiple_runs),
+         :ok <- validate_required_flow_references(graph) do
       validate_mission_capabilities(graph)
     end
   end
@@ -285,6 +286,22 @@ defmodule NetworkDefense.Graph.Graph do
     |> Enum.filter(&(&1.type == MissionCapability))
     |> Enum.all?(&valid_mission_capability?(graph, &1))
     |> if(do: :ok, else: {:error, :invalid_mission_capability_support})
+  end
+
+  defp validate_required_flow_references(graph) do
+    nodes = nodes(graph)
+    segment_ids = MapSet.new(for(%{type: NetworkSegment, id: id} <- nodes, do: id))
+    service_ids = MapSet.new(for(%{type: Service, id: id} <- nodes, do: id))
+
+    graph
+    |> nodes()
+    |> Enum.filter(&(&1.type == MissionCapability))
+    |> Enum.flat_map(& &1.data.required_flows)
+    |> Enum.all?(fn flow ->
+      MapSet.member?(segment_ids, flow.source_segment_id) and
+        MapSet.member?(service_ids, flow.target_service_id)
+    end)
+    |> if(do: :ok, else: {:error, :invalid_required_flow_reference})
   end
 
   defp valid_mission_capability?(graph, capability) do

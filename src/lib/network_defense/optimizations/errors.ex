@@ -7,6 +7,7 @@ defmodule NetworkDefense.Optimizations.Errors do
   @codes [
     :unknown_strategy,
     :reachability_required,
+    :infeasible_input,
     :persistence_failed,
     :task_unavailable,
     :internal_error
@@ -15,6 +16,7 @@ defmodule NetworkDefense.Optimizations.Errors do
   @type code ::
           :unknown_strategy
           | :reachability_required
+          | :infeasible_input
           | :persistence_failed
           | :task_unavailable
           | :internal_error

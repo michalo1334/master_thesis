@@ -47,7 +47,11 @@ The problem of selecting a set of defensive actions to minimize attack impact un
 
 \citeauthor{albanese12}~\cite{albanese12} addressed the computational cost of hardening optimization by introducing a heuristic that prunes irrelevant portions of the attack graph before computing defenses. Their method reduces the search space by identifying ancestors of critical assets that do not lie on any feasible attack path, achieving orders-of-magnitude speedup on networks of several thousand hosts while maintaining solution quality close to the unpruned optimum.
 
-The proposed context-graph and state-transition model is informed by these approaches. Its simulation-informed and annealing strategies use Monte Carlo scoring, while its CVSS-priority and topology-based strategies use direct rankings. A reproducible comparison is pending.
+Hardening has also been treated as a multi-objective problem. \citeauthor{dewri07}~\cite{dewri07} applied multi-objective optimization to attack tree models, trading off security against deployment cost. \citeauthor{enoch22}~\cite{enoch22} integrated security and availability modeling in a multi-objective hardening optimization for dynamic networks. Both works optimize over modeled security and cost objectives; neither is a simulation-based comparison of ranking strategies under a feasibility constraint.
+
+Mission impact has been assessed separately from hardening. \citeauthor{holsopple15}~\cite{holsopple15} evaluated the impact of cyber attacks on missions from network alerts and dependencies. \citeauthor{musman15}~\cite{musman15} presented a cyber mission impact assessment tool that maps cyber effects to mission outcomes. These works establish mission-impact assessment as an existing research area; this thesis does not claim it as a new contribution.
+
+The proposed context-graph and state-transition model is informed by these approaches. Its simulation-informed and annealing strategies use Monte Carlo scoring, while its CVSS-priority and topology-based strategies use direct rankings. The thesis contribution is a controlled simulation comparison of ranking strategies with and without a pre-attack feasibility constraint; it is not a claim that multi-objective hardening or mission-impact assessment is new. A reproducible comparison is pending.
 
 \section{Monte Carlo Methods for Network Security}
 

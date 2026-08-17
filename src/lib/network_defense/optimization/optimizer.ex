@@ -8,6 +8,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Simulation.MissionImpact
 
   require OpenTelemetry.Tracer, as: Tracer
 
@@ -47,27 +48,39 @@ defmodule NetworkDefense.Optimization.Optimizer do
   defp optimize_plan(graph, strategy, default_actions, budget, progress_callback) do
     strategy
     |> Strategy.rank(default_actions, graph, budget)
-    |> Enum.reduce_while({graph, budget, [], 0}, fn action,
-                                                    {graph, remaining_budget, actions,
-                                                     used_budget} ->
-      cost = DefenseAction.cost(action)
-
-      if cost <= remaining_budget do
-        step = length(actions) + 1
-        progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
-
-        optimized_graph = DefenseAction.apply(action, graph)
-        progress_callback.(step, budget, "Applied defense #{step} of #{budget}")
-
-        {:cont,
-         {optimized_graph, remaining_budget - cost, [action | actions], used_budget + cost}}
-      else
-        {:halt, {graph, remaining_budget, actions, used_budget}}
-      end
+    |> Enum.reduce_while({graph, budget, [], 0}, fn action, state ->
+      apply_plan_action(action, state, budget, progress_callback)
     end)
     |> then(fn {optimized_graph, _remaining_budget, actions, used_budget} ->
       %{graph: optimized_graph, actions: Enum.reverse(actions), budget_used: used_budget}
     end)
+  end
+
+  defp apply_plan_action(
+         action,
+         {graph, remaining_budget, actions, used_budget},
+         budget,
+         progress_callback
+       ) do
+    cost = DefenseAction.cost(action)
+
+    if cost <= remaining_budget do
+      step = length(actions) + 1
+      progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
+
+      case apply_if_feasible(action, graph) do
+        {:ok, optimized_graph} ->
+          progress_callback.(step, budget, "Applied defense #{step} of #{budget}")
+
+          {:cont,
+           {optimized_graph, remaining_budget - cost, [action | actions], used_budget + cost}}
+
+        :infeasible ->
+          {:cont, {graph, remaining_budget, actions, used_budget}}
+      end
+    else
+      {:halt, {graph, remaining_budget, actions, used_budget}}
+    end
   end
 
   defp optimize_stepwise(graph, strategy, default_actions, budget, progress_callback) do
@@ -80,6 +93,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
       candidate_actions =
         Strategy.rank(strategy, default_actions, graph, remaining_budget)
         |> Enum.reject(fn action -> DefenseAction.cost(action) > remaining_budget end)
+        |> Enum.filter(&feasible_after?(&1, graph))
 
       case candidate_actions do
         [] ->
@@ -97,5 +111,21 @@ defmodule NetworkDefense.Optimization.Optimizer do
     |> then(fn {optimized_graph, _remaining_budget, actions, used_budget} ->
       %{graph: optimized_graph, actions: Enum.reverse(actions), budget_used: used_budget}
     end)
+  end
+
+  defp apply_if_feasible(action, graph) do
+    optimized_graph = DefenseAction.apply(action, graph)
+
+    if MissionImpact.pre_attack_feasible?(optimized_graph) do
+      {:ok, optimized_graph}
+    else
+      :infeasible
+    end
+  end
+
+  defp feasible_after?(action, graph) do
+    action
+    |> DefenseAction.apply(graph)
+    |> MissionImpact.pre_attack_feasible?()
   end
 end

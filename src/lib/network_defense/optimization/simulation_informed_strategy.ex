@@ -12,7 +12,6 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
     :run_count,
     :iteration_count,
     :seed,
-    objective: :blast_radius,
     max_attempts: 1
   ]
 
@@ -22,13 +21,14 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           run_count: pos_integer(),
           iteration_count: pos_integer(),
           seed: non_neg_integer(),
-          objective: :blast_radius | :mission_impact,
           max_attempts: pos_integer()
         }
 
   def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
 
   defimpl Strategy, for: __MODULE__ do
+    @infeasible_score {1.0e9, 1.0e9}
+
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Simulation-informed greedy strategy"
 
@@ -44,26 +44,26 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
           []
 
         _ ->
-          baseline = SimulationObjective.expected(graph, strategy, strategy.objective)
+          baseline = SimulationObjective.expected(graph, strategy)
 
           # ponytail: evaluate every candidate directly; add pruning or parallelism only after profiling.
           candidates
-          |> Enum.map(fn action ->
-            reduction =
-              baseline -
-                SimulationObjective.expected(
-                  DefenseAction.apply(action, graph),
-                  strategy,
-                  strategy.objective
-                )
-
-            {action, reduction}
-          end)
-          |> Enum.filter(fn {_action, reduction} -> reduction > 0 end)
-          |> Enum.sort_by(fn {action, reduction} ->
-            {-reduction / DefenseAction.cost(action), target_id(action)}
+          |> Enum.map(&score_candidate(&1, graph, strategy))
+          |> Enum.filter(fn {_action, score} -> score < baseline end)
+          |> Enum.sort_by(fn {action, score} ->
+            {score, DefenseAction.cost(action), target_id(action)}
           end)
           |> Enum.map(&elem(&1, 0))
+      end
+    end
+
+    defp score_candidate(action, graph, strategy) do
+      graph = DefenseAction.apply(action, graph)
+
+      if SimulationObjective.feasible?(graph) do
+        {action, SimulationObjective.expected(graph, strategy)}
+      else
+        {action, @infeasible_score}
       end
     end
 

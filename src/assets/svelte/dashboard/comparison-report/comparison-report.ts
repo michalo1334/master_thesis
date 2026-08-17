@@ -24,6 +24,15 @@ export function formatPercentDelta(
   ).format((postOptimization - baseline) / baseline)}`;
 }
 
+export function formatPercentagePointDelta(
+  baseline: number,
+  defended: number,
+): string {
+  return `${defended - baseline > 0 ? "+" : ""}${formatNumber(
+    (defended - baseline) * 100,
+  )} pp`;
+}
+
 export function comparisonMetrics(
   baseline: SimulationReportData,
   postOptimization: SimulationReportData,

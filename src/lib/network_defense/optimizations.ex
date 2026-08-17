@@ -16,6 +16,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias NetworkDefense.Optimizations.Errors
+  alias NetworkDefense.Simulation.MissionImpact
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   require Logger
@@ -80,7 +81,15 @@ defmodule NetworkDefense.Optimizations do
     case Graphs.load_revision(graph_revision_id) do
       nil -> {:error, :not_found}
       {:error, _reason} -> {:error, :invalid_graph}
-      graph -> {:ok, graph}
+      graph -> ensure_pre_attack_feasible(graph)
+    end
+  end
+
+  defp ensure_pre_attack_feasible(graph) do
+    if MissionImpact.pre_attack_feasible?(graph) do
+      {:ok, graph}
+    else
+      {:error, :infeasible_input}
     end
   end
 
@@ -123,7 +132,6 @@ defmodule NetworkDefense.Optimizations do
         graph_revision_id: graph.revision_id,
         analysis_id: analysis_id,
         strategy: request.optimization_params.strategy,
-        objective: request.optimization_params.objective,
         requested_budget: request.optimization_params.budget,
         seed: strategy.seed,
         simulation_config: simulation_config(request)
@@ -209,7 +217,6 @@ defmodule NetworkDefense.Optimizations do
       "optimization.run_id": run.id,
       "correlation.id": request.correlation_id,
       "optimization.strategy": request.optimization_params.strategy,
-      "optimization.objective": request.optimization_params.objective,
       "optimization.requested_budget": request.optimization_params.budget
     }
   end
@@ -227,7 +234,6 @@ defmodule NetworkDefense.Optimizations do
       graph_revision_id: graph.revision_id,
       correlation_id: request.correlation_id,
       strategy: request.optimization_params.strategy,
-      objective: request.optimization_params.objective,
       requested_budget: request.optimization_params.budget
     )
   end
@@ -256,7 +262,6 @@ defmodule NetworkDefense.Optimizations do
           graph_revision_id: graph.revision_id,
           correlation_id: request.correlation_id,
           strategy: completed_run.strategy,
-          objective: completed_run.objective,
           action_count: length(result.actions),
           used_budget: completed_run.used_budget,
           runtime_ms: completed_run.runtime_ms

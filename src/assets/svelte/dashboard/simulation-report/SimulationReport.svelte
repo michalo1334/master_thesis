@@ -6,6 +6,10 @@
   import StatisticalChart from "./StatisticalChart.svelte";
   import {
     formatProbability,
+    formatFeasibility,
+    formatCapabilityFlows,
+    formatCapabilitySupport,
+    formatCapabilityStatusExplanation,
     formatSimulationReportKpis,
   } from "./simulation-report";
   import {
@@ -21,6 +25,22 @@
     document: SimulationReportDocument;
     onOpenSourceGraph?: () => Promise<boolean>;
   }
+
+  type CapabilityStatus = {
+    capability_id: string;
+    operational: boolean;
+    required_flow_count: number;
+    missing_flow_count: number;
+    supporting_host_count: number;
+    min_operational_support: number;
+  };
+
+  type RequiredFlowStatus = {
+    id: string;
+    source: string;
+    target: string;
+    availability: "Available" | "Unavailable";
+  };
 
   let { document, onOpenSourceGraph = undefined }: Props = $props();
   let activeTab = $state("report");
@@ -51,6 +71,74 @@
       ...impact,
       name: names.get(impact.capability_id) ?? impact.capability_id,
     }));
+  });
+  let capabilityStatuses = $derived.by(() => {
+    const report = document.reportData;
+    if (!report) return [];
+    const nodes = new Map(report.graph.nodes.map((node) => [node.id, node]));
+    const hostsBySegment = report.graph.edges.reduce<Record<string, string[]>>(
+      (hosts, edge) => {
+        if (edge.type === "Contains")
+          (hosts[edge.from_id] ??= []).push(edge.to_id);
+        return hosts;
+      },
+      {},
+    );
+
+    return report.capability_statuses.map((value) => {
+      const status = value as CapabilityStatus;
+      const capability = nodes.get(status.capability_id);
+      const requiredFlows =
+        capability?.type === "MissionCapability"
+          ? capability.data.required_flows.map((flow, index) => {
+              const source = nodes.get(flow.source_segment_id);
+              const target = nodes.get(flow.target_service_id);
+              const available = report.operational_flows.some(
+                (operationalFlow) =>
+                  operationalFlow.to_id === flow.target_service_id &&
+                  (hostsBySegment[flow.source_segment_id] ?? []).includes(
+                    operationalFlow.from_id,
+                  ),
+              );
+              return {
+                id: `${flow.source_segment_id}:${flow.target_service_id}:${index}`,
+                source:
+                  source?.type === "NetworkSegment"
+                    ? source.data.name
+                    : flow.source_segment_id,
+                target:
+                  target?.type === "Service"
+                    ? `${target.data.name}:${target.data.port}`
+                    : flow.target_service_id,
+                availability: available ? "Available" : "Unavailable",
+              } satisfies RequiredFlowStatus;
+            })
+          : [];
+
+      return {
+        capabilityId: status.capability_id,
+        name:
+          capability?.type === "MissionCapability"
+            ? capability.data.name
+            : status.capability_id,
+        status: status.operational ? "Operational" : "Unavailable",
+        flows: formatCapabilityFlows(
+          status.required_flow_count,
+          status.missing_flow_count,
+        ),
+        support: formatCapabilitySupport(
+          status.supporting_host_count,
+          status.min_operational_support,
+        ),
+        explanation: formatCapabilityStatusExplanation(
+          status.required_flow_count,
+          status.missing_flow_count,
+          status.supporting_host_count,
+          status.min_operational_support,
+        ),
+        requiredFlows,
+      };
+    });
   });
 </script>
 
@@ -161,6 +249,69 @@
                 {/each}
               </tbody>
             </table>
+          </section>
+        {/if}
+
+        <section
+          class="simulation-report-section"
+          aria-labelledby="scenario-feasibility-title"
+        >
+          <h2 id="scenario-feasibility-title">Starting scenario feasibility</h2>
+          <p class="simulation-report-feasibility">
+            {formatFeasibility(document.reportData.feasible)}
+          </p>
+        </section>
+
+        {#if capabilityStatuses.length > 0}
+          <section
+            class="simulation-report-section"
+            aria-labelledby="capability-status-title"
+          >
+            <h2 id="capability-status-title">Pre-attack capability status</h2>
+            <div class="simulation-report-table-wrap">
+              <table class="capability-impact-table capability-status-table">
+                <caption>
+                  Capability status before the simulated attack starts.
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Capability</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Flows available / required</th>
+                    <th scope="col">Required flows</th>
+                    <th scope="col">Supports available / minimum</th>
+                    <th scope="col">Explanation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each capabilityStatuses as capability (capability.capabilityId)}
+                    <tr>
+                      <td>{capability.name}</td>
+                      <td>{capability.status}</td>
+                      <td>{capability.flows}</td>
+                      <td>
+                        {#if capability.requiredFlows.length > 0}
+                          <ul
+                            class="capability-required-flow-list"
+                            aria-label={`Required flows for ${capability.name}`}
+                          >
+                            {#each capability.requiredFlows as flow (flow.id)}
+                              <li>
+                                {flow.source} to {flow.target}: {flow.availability}
+                              </li>
+                            {/each}
+                          </ul>
+                        {:else}
+                          —
+                        {/if}
+                      </td>
+                      <td>{capability.support}</td>
+                      <td>{capability.explanation}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </section>
         {/if}
 
@@ -457,6 +608,15 @@
     max-width: 62rem;
   }
 
+  .simulation-report-feasibility {
+    padding: var(--ds-space-3);
+    border: 1px solid var(--ds-color-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-color-paper);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+  }
+
   .simulation-report-chart-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -492,6 +652,27 @@
   .capability-impact-table th:last-child,
   .capability-impact-table td:last-child {
     text-align: right;
+  }
+
+  .simulation-report-table-wrap {
+    overflow-x: auto;
+  }
+
+  .capability-status-table {
+    min-width: 68rem;
+  }
+
+  .capability-status-table th:last-child,
+  .capability-status-table td:last-child {
+    text-align: left;
+  }
+
+  .capability-required-flow-list {
+    display: grid;
+    gap: var(--ds-space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .simulation-report-heatmap {

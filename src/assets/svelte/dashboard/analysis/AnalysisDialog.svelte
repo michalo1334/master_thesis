@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Dialog } from "bits-ui";
   import type { AnalysisModel } from "./AnalysisModel.svelte";
-  import type { OptimizationParams, OptimizationStrategy } from "../contract";
+  import type { OptimizationStrategy } from "../contract";
   import Checkbox from "../ui/Checkbox.svelte";
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";
@@ -22,13 +22,6 @@
 
   let controlsDisabled = $derived(model.isLoadingTarget || model.isRunning);
   let statusMessage = $derived(model.dialogStatusMessage);
-  let supportsMissionImpactObjective = $derived(
-    model.runnableStrategies.some(
-      (strategy) =>
-        strategy === "simulation_informed" ||
-        strategy === "simulated_annealing",
-    ),
-  );
 
   function handleOpenChange(open: boolean): void {
     if (!open && !controlsDisabled) model.closeDialog();
@@ -156,21 +149,6 @@
                   onchange={(budget) =>
                     model.workspace.onOptimizationParamsChange({ budget })}
                 />
-                {#if supportsMissionImpactObjective}
-                  <Select
-                    label="Objective"
-                    value={model.workspace.optimizationParams.objective}
-                    disabled={controlsDisabled}
-                    onchange={(event) =>
-                      model.workspace.onOptimizationParamsChange({
-                        objective: event.currentTarget
-                          .value as OptimizationParams["objective"],
-                      })}
-                  >
-                    <option value="blast_radius">Blast radius</option>
-                    <option value="mission_impact">Mission impact</option>
-                  </Select>
-                {/if}
                 {#if model.needsFoothold}
                   <Select
                     label="Initial foothold"

@@ -26,6 +26,8 @@ defmodule NetworkDefense.Simulation.SimulationReport do
           run_count: non_neg_integer(),
           iteration_count: non_neg_integer(),
           total_runtime_ms: non_neg_integer(),
+          pre_attack_capability_statuses: [map()],
+          pre_attack_feasible: boolean(),
           summary: map(),
           charts: Charts.t()
         }
@@ -39,6 +41,8 @@ defmodule NetworkDefense.Simulation.SimulationReport do
     :run_count,
     :iteration_count,
     :total_runtime_ms,
+    pre_attack_capability_statuses: [],
+    pre_attack_feasible: true,
     operational_flows: [],
     summary: %{},
     charts: %Charts{}
@@ -89,6 +93,8 @@ defmodule NetworkDefense.Simulation.SimulationReport do
           run_count: length(runs),
           iteration_count: experiment.iteration_count,
           total_runtime_ms: experiment.runtime_ms,
+          pre_attack_capability_statuses: MissionImpact.pre_attack_status(experiment.graph),
+          pre_attack_feasible: MissionImpact.pre_attack_feasible?(experiment.graph),
           summary: summary(blast_radius_stats, mission_impact_stats, experiment.graph),
           charts: %Charts{
             histogram: histogram_buckets(final_counts),
