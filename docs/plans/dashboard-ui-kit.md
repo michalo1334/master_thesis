@@ -366,6 +366,142 @@ WorkspaceModel activeGraph/hasActiveGraph/ensureInitialFoothold/findOpenGraph �
 
 ---
 
+## 3c. TODO — Inspector generic / Document → Inspector coupling (brainstorm, not yet implemented)
+
+> A3 partially wired `inspectorFor` for the selectable branch only (`DashboardInspector.svelte:103` → `registry.inspectorFor`).
+> Remaining ladder has 3 document/mode branches + heterogeneous inspector props. This TODO designs the fully generic,
+> kit-extractable inspector that also couples `Document → Inspector` (like `Document → View` via `dashboardRegistry`).
+
+### Current state (after A3)
+
+```
+DashboardInspector.svelte:72 — still 4 branches
+
+  {#if selection?.kind === "graph"}                → GraphInspector
+    props: { graph, parentTitle, onTitleChange, onOpenParent, analysisIds, analyses, … }
+  {:else if selectable.type === "MissionCapability"}→ MissionCapabilityInspector
+    props: { selectable: MissionCapabilityNode, graph, revisionId, canEditFlows, api, onUpdate }
+  {:else if selectable}                             → inspectorFor(selectable)  ★ wired in A3
+    props: { selectable: Host|Service|…, onUpdate }  (uniform for 12 types, heterogeneous only for MissionCapability)
+  {:else if isReport}                               → ReportInspector
+    props: { document: SimulationReportDocument|OptimizationReportDocument, analyses, onAnalysisChange }
+
+  Registry: src/assets/svelte/dashboard/graph/presentation/registry.ts:68
+    nodeRegistry (6) + edgeRegistry (7) → allInspectors[selectable.type] → Component<any>
+    inspectorFor(selectable) now used, but only inside one branch. Two other branches bypass it.
+
+  Kit already has: Inspector.svelte + InspectorField.svelte → ui-kit/layout (B4)
+  App has: 12 per-type inspectors in inspector/{hosts,services,credentials,…}/ + ReportInspector + GraphInspector
+```
+
+**Why not yet generic:** document-level inspector depends on `document.kind` (graph vs report) while selectable
+inspector depends on `selectable.type`. Props are heterogeneous: most need `{selectable}`, one needs
+`{selectable, graph, api, revisionId, canEditFlows}`, report needs `{document}`. A generic kit cannot import any
+of these domain types. Same layering problem as `Document → View` — solved there by `dashboardRegistry`.
+
+### Goal
+
+Make `DashboardInspector` a kit component (or leave a thin app `DashboardInspector` that delegates to registry) where
+**both levels are registry-driven and `WorkspaceDocument` optionally couples to its inspector**:
+
+```
+Kit:   InspectorShell + InspectorRegistry<D, Sel, InspectorProps>  (no Selectable import)
+App:   dashboardInspectorRegistry: { documentInspectors: Record<DocumentKind, Component>,
+                                     selectableInspectors: Record<SelectableType, Component> }
+       Document → Inspector via registry (not via class field, to avoid Document ↔ Inspector cycle)
+
+WorkspaceDocument (optional coupling):  abstract getInspectorKind(): string
+       or DocumentRegistry entry already holds  views + inspectors together:
+       dashboardRegistry: { views, inspectors, kinds/create }  → single source of truth
+```
+
+Kit stays `contracts.generated.ts`-free; `Selectable` (`Node|Edge`) is a contract type so the kit registry must be
+generic over `Selectable` as well (`InspectorRegistry<Doc, Sel>`), or accept `string` keys.
+
+### Options — tradeoffs
+
+```
+Option A — Registry owns Inspector (recommended, lazy, mirrors Document→View)
+  ┌─────────────────────────────────────────────────────────────────────────┐
+  │  Kit: ui-kit/workspace/inspector-registry.ts (or workspace-registry.ts) │
+  │    export interface InspectorRegistry<Doc extends UiWorkspaceDocument,   │
+  │      Sel extends { type: string }> {                                    │
+  │      documentInspectors: Record<string, Component<{document: Doc}>>;    │
+  │      selectableInspectors: Record<string, Component<{selectable: Sel,   │
+  │        context: InspectorContext }>>;                                   │
+  │      fallback: Component;  // EditableSelectionInspector or Empty       │
+  │    }                                                                    │
+  │    export type InspectorContext = { graph?: LoadedGraph; api?: unknown; │
+  │      revisionId?: string|null; canEditFlows?: boolean; onUpdate?: fn } │
+  │  App: dashboard/inspector/dashboard-inspector-registry.ts               │
+  │    export const dashboardInspectorRegistry = {                           │
+  │      documentInspectors: { graph: GraphInspector, report: ReportInspector },│
+  │      selectableInspectors: { Host: hostNode.inspector, …,               │
+  │        MissionCapability: MissionCapabilityInspector, … }                │
+  │    }  // reuses presentation nodeRegistry/edgeRegistry + report/graph   │
+  │  DashboardInspector.svelte (kit or thin app wrapper) then:              │
+  │    if (selection?.selectable)                                           │
+  │      {@const C = registry.selectableInspectors[selection.type] ?? fallback} │
+  │      <C selectable={selection} context={{graph, api, revisionId}} />   │
+  │    else if (document) <DocInspector document={document} />              │
+  └─────────────────────────────────────────────────────────────────────────┘
+  Pros: no Document↔Inspector cycle (registry owns both), reuses existing
+        presentation registry, uniform component signature via context bag,
+        kit extractable without contract types (string keys).
+  Cons: MissionCapability still needs extra context; solved by context bag
+        (all inspectors receive same superset, ignore extras). Slight prop
+        widening from strict HostNode to Selectable.
+
+Option B — Document exposes inspector (polymorphic, Document→Inspector coupling)
+  abstract class UiWorkspaceDocument { abstract get inspector(): Component | null; }
+  // or getInspector(selection?: Selectable): Component
+  Pros: true polymorphism, Document knows its inspector.
+  Cons: Document must import Component (runtime) → same cycle risk as Document→View;
+        needs registry indirection anyway to avoid bundling inspectors into model graph;
+        selection-dependent inspector (graph vs selectable) doesn't fit single getter.
+  Verdict: do not use — use Option A registry; keep Document agnostic, registry couples.
+
+Option C — DocumentRegistry holds views + inspectors together (single registry)
+  dashboardRegistry: { views: Record<kind, Component>, inspectors: Record<kind|type, Component> }
+  Pros: one registry file, single import in Dashboard.svelte.
+  Cons: mixes concerns (document chrome vs inspector detail); same as A but co-located.
+  Verdict: acceptable — implement as dashboardRegistry extended with .inspectors if desired.
+```
+
+**Normalization for heterogeneous props (required for any option):**
+
+Current mismatch: `HostInspector: {selectable: HostNode}`, `MissionCapabilityInspector: {selectable, graph, api, revisionId, canEditFlows, onUpdate}`,
+`GraphInspector: {graph, parentTitle, …}` (no selectable), `ReportInspector: {document}`.
+
+Kit uniform signature options:
+- `Component<{ selectable?: Sel; document?: Doc; context?: { graph, api, revisionId, canEditFlows, onUpdate } }>` — all inspectors receive superset.
+- Or two registries: `documentInspectors: Component<{document}>` and `selectableInspectors: Component<{selectable, context}>`.
+
+Either works; pick **two registries + context bag** to keep graph/report level separate from selectable level.
+
+**Recommendation (for A4/B3):**
+
+1. Keep A3's partial `inspectorFor` wiring as is (no regression, 12 types now render correctly).
+2. In **A4** (still in-place) introduce `src/assets/svelte/dashboard/inspector/inspector-registry.ts` (app-side stub)
+   that re-exports `selectableInspectors = { …nodeRegistry, …edgeRegistry }` + `documentInspectors = { graph: GraphInspector, report: ReportInspector }`
+   and change `DashboardInspector.svelte` to read from it (still 3 `{#if}` branches but driven by registry maps, not hard imports).
+3. In **B3** (kit extraction) move `Inspector`/`InspectorField` + `InspectorRegistry` types to `ui-kit/layout/` or `ui-kit/workspace/`,
+   and replace the remaining `{#if selection}` / `{#if isReport}` ladder with registry lookup:
+   ```
+   Before (A3): 4 branches, one registry-driven
+   After (B3):  1 lookup: registry.documentInspectors[document.kind] ?? registry.selectableInspectors[selectable.type] ?? EmptyInspector
+   ```
+   With `documentInspectors` handling `graph` + `report` kinds and `selectableInspectors` handling node/edge types,
+   `DashboardInspector` becomes a 10-line kit-style shell; per-type inspectors stay app-side.
+4. Document→Inspector coupling is thus **registry-based**, not class-field-based — consistent with Document→View
+   and avoids the `Document ↔ Inspector` cycle. If a future `UiWorkspaceDocument.getInspectorKind()` is desired,
+   add it as `abstract get inspectorKind(): string` returning `selectable.type` or `kind`, but still resolve via registry.
+
+Open question for next PR: whether to collapse `GraphInspector` (graph-level) into the same document-inspector registry
+or keep it as a distinct `graphInspector` prop — keep distinct for now (different selection model).
+
+---
+
 ## 4. Target architecture (after all phases)
 
 ```

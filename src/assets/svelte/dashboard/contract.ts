@@ -166,3 +166,10 @@ export type OptimizationParams = GeneratedOptimizationParams;
 export type Selectable = Node | Edge;
 
 export type SimulationReportData = FetchSimulationReportReply;
+
+export type OptimizationParamsChange = Omit<
+  Partial<OptimizationParams>,
+  "simulation_params"
+> & {
+  simulation_params?: Partial<SimulationParams>;
+};

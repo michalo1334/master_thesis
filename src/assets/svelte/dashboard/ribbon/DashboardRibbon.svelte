@@ -4,8 +4,11 @@
   import Ribbon from "../ribbon/Ribbon";
   import Slider from "../ui/Slider.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
-  import type { OptimizationParams, SimulationParams } from "../contract";
-  import type { OptimizationParamsChange } from "../workspace/WorkspaceModel.svelte";
+  import type {
+    OptimizationParams,
+    OptimizationParamsChange,
+    SimulationParams,
+  } from "../contract";
   import Checkbox from "../ui/Checkbox.svelte";
   import NumberInput from "../ui/NumberInput.svelte";
   import Select from "../ui/Select.svelte";

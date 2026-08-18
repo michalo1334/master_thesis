@@ -11,6 +11,7 @@ import type {
   GraphDiffResult,
   LoadedGraph,
   OptimizationParams,
+  OptimizationParamsChange,
   SimulationParams,
   OptimizationStrategy,
   DocumentCatalogItem,
@@ -20,18 +21,12 @@ import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 
 export type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
+export type { OptimizationParamsChange } from "../contract";
 
 export interface FootholdHost {
   id: string;
   name: string;
 }
-
-export type OptimizationParamsChange = Omit<
-  Partial<OptimizationParams>,
-  "simulation_params"
-> & {
-  simulation_params?: Partial<SimulationParams>;
-};
 
 export class WorkspaceModel {
   /** Graphs available to open, owned by workspace so the picker has them. */
@@ -555,19 +550,23 @@ export class WorkspaceModel {
     }
   }
 
+  private readonly catalogOpeners: Record<
+    DocumentCatalogItem["kind"],
+    (api: DashboardApi, item: DocumentCatalogItem) => Promise<boolean> | boolean
+  > = {
+    graph: (api, item) => this.openGraphRevision(api, item.graph_revision_id),
+    simulation_report: (api, item) =>
+      this.openHistoricalSimulationReport(api, item),
+    optimization_report: (api, item) =>
+      this.openHistoricalOptimizationReport(api, item),
+  };
+
   async openCatalogItem(
     api: DashboardApi,
     item: DocumentCatalogItem,
   ): Promise<boolean> {
-    if (item.kind === "graph") {
-      return this.openGraphRevision(api, item.graph_revision_id);
-    }
-
-    if (item.kind === "simulation_report") {
-      return this.openHistoricalSimulationReport(api, item);
-    }
-
-    return this.openHistoricalOptimizationReport(api, item);
+    const opener = this.catalogOpeners[item.kind];
+    return opener ? opener(api, item) : false;
   }
 
   openHistoricalSimulationReport(
@@ -860,13 +859,16 @@ export class WorkspaceModel {
     doc.applyForceLayout(this.forceParams);
   }
 
-  handleCreateDocument(typeId: string): void {
-    if (typeId === "graph") {
+  private readonly documentCreators: Record<string, () => void> = {
+    graph: () => {
       this.topologyPickerOpen = true;
       this.topologyPickerStatus = "";
-    } else if (typeId === "document-catalog") {
-      this.openDocumentCatalog();
-    }
+    },
+    "document-catalog": () => this.openDocumentCatalog(),
+  };
+
+  handleCreateDocument(typeId: string): void {
+    this.documentCreators[typeId]?.();
   }
 
   private openGraphDiff(

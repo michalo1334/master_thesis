@@ -10,6 +10,7 @@ import type {
 import type { DashboardApi } from "../dashboard-api";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
+import { arrangeNetwork as arrangeNetworkLayout } from "./network/NetworkCanvasLayout";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
 export type CanvasSelection =
@@ -284,6 +285,10 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     runForceLayout(this._graph.nodes, this._graph.edges, params);
     this.graph = { ...this._graph };
     this.revision++;
+  }
+
+  arrangeNetwork(): void {
+    this.graph = arrangeNetworkLayout(this._graph);
   }
 
   private _preserveSelection(graph: LoadedGraph): void {

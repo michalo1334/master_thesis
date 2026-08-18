@@ -7,22 +7,10 @@
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
-  import EditableCanvas from "./dashboard/graph/canvas/EditableCanvas.svelte";
-  import GraphDiff from "./dashboard/graph/GraphDiff.svelte";
-  import SimulationReport from "./dashboard/simulation-report/SimulationReport.svelte";
-  import OptimizationReport from "./dashboard/optimization-report/OptimizationReport.svelte";
-  import ComparisonReport from "./dashboard/comparison-report/ComparisonReport.svelte";
-  import DocumentCatalog from "./dashboard/document-catalog/DocumentCatalog.svelte";
   import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
-  import type { EditableGraphDocument } from "./dashboard/graph/EditableGraphDocument.svelte";
-  import type { SimulationReportDocument } from "./dashboard/simulation-report/SimulationReportDocument.svelte";
-  import type { OptimizationReportDocument } from "./dashboard/optimization-report/OptimizationReportDocument.svelte";
-  import type { GraphDiffDocument } from "./dashboard/graph/GraphDiffDocument.svelte";
-  import type { ComparisonReportDocument } from "./dashboard/comparison-report/ComparisonReportDocument.svelte";
-  import type { DocumentCatalogDocument } from "./dashboard/document-catalog/DocumentCatalogDocument.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
-  import { arrangeNetwork } from "./dashboard/graph/network/NetworkCanvasLayout";
+  import { dashboardRegistry } from "./dashboard/workspace/dashboard-registry";
 
   interface Props {
     model: DashboardModel;
@@ -64,12 +52,8 @@
     model.applyForceLayout();
   }
 
-  function arrangeDocumentNetwork(document: EditableGraphDocument): void {
-    document.graph = arrangeNetwork(document.graph);
-  }
-
   function handleArrangeNetwork(): void {
-    if (wm.activeGraph) arrangeDocumentNetwork(wm.activeGraph);
+    wm.activeGraph?.arrangeNetwork();
   }
 
   async function handleRunSimulation(): Promise<void> {
@@ -160,31 +144,9 @@
   {/snippet}
 
   {#snippet content(document: WorkspaceDocument)}
-    {#if document.kind === "graph"}
-      <EditableCanvas
-        {document}
-        {api}
-        onCompareGraphs={() => wm.beginGraphComparisonWithActive(document)}
-        onArrangeNetwork={() => arrangeDocumentNetwork(document)}
-      />
-    {:else if document.kind === "graph-diff"}
-      <GraphDiff {document} />
-    {:else if document.kind === "simulation-report"}
-      <SimulationReport
-        {document}
-        onOpenSourceGraph={() =>
-          wm.openGraphRevision(api, document.graphRevisionId)}
-      />
-    {:else if document.kind === "optimization-report"}
-      <OptimizationReport {document} />
-    {:else if document.kind === "comparison-report"}
-      <ComparisonReport {document} />
-    {:else if document.kind === "document-catalog"}
-      <DocumentCatalog
-        {document}
-        {api}
-        onOpen={(item) => wm.openCatalogItem(api, item)}
-      />
+    {@const View = dashboardRegistry.views[document.kind]}
+    {#if View}
+      <View {document} {api} />
     {/if}
   {/snippet}
 

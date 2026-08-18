@@ -8,6 +8,7 @@
   import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
   import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
   import ReportInspector from "./report/ReportInspector.svelte";
+  import { inspectorFor } from "../graph/presentation/registry";
 
   interface Props {
     document: WorkspaceDocument | undefined;
@@ -100,9 +101,10 @@
     />
   {/key}
 {:else if selection?.kind === "selectable" && document?.kind === "graph"}
-  <EditableSelectionInspector
+  {@const Inspector = inspectorFor(selection.selectable)}
+  <Inspector
     selectable={selection.selectable}
-    onUpdate={(selectable) => document.updateSelection(selectable)}
+    onUpdate={(selectable: Selectable) => document.updateSelection(selectable)}
   />
 {:else if document?.kind === "simulation-report" || document?.kind === "optimization-report"}
   <ReportInspector
