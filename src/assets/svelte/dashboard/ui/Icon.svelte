@@ -1,12 +1,10 @@
 <script lang="ts">
-  import type { IconName } from "../types";
-
   interface Props {
-    name: IconName;
+    name: string;
     size?: number;
   }
 
-  const iconClasses: Record<IconName, string> = {
+  const iconClasses: Record<string, string> = {
     shield: "hero-shield-check",
     search: "hero-magnifying-glass",
     filter: "hero-funnel",

@@ -1,19 +1,4 @@
+import type { UiIconName } from "../ui-kit/types";
+
 export type IconName =
-  | "shield"
-  | "search"
-  | "filter"
-  | "help"
-  | "cursor"
-  | "link"
-  | "play"
-  | "graph"
-  | "simulation-report"
-  | "graph-diff"
-  | "chevron-right"
-  | "chevron-down"
-  | "plus"
-  | "squares-2x2"
-  | "star"
-  | "star-filled"
-  | "folder"
-  | "trash";
+  UiIconName | "shield" | "graph" | "graph-diff" | "simulation-report";

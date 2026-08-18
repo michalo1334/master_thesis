@@ -1,11 +1,10 @@
 <script lang="ts">
   import { DropdownMenu } from "bits-ui";
   import Icon from "./Icon.svelte";
-  import type { IconName } from "../types";
 
   export interface SplitButtonOption {
     id: string;
-    icon?: IconName;
+    icon?: string;
     title: string;
     disabled?: boolean;
   }

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const LINE_RE = /^\s*(--ds-color-[a-z-]+)\s*:\s*(.*?)\s*;?\s*$/;
+const LINE_RE = /^\s*(--(?:ui|ds)-color-[a-z-]+)\s*:\s*(.*?)\s*;?\s*$/;
 const HEX_RE = /#([0-9a-fA-F]{3,8})\b/;
 
 export function normalizeHex(hex) {

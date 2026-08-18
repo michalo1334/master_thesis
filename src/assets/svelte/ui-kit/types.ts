@@ -1,0 +1,15 @@
+export type UiIconName =
+  | "search"
+  | "filter"
+  | "help"
+  | "cursor"
+  | "link"
+  | "play"
+  | "chevron-right"
+  | "chevron-down"
+  | "plus"
+  | "squares-2x2"
+  | "star"
+  | "star-filled"
+  | "folder"
+  | "trash";

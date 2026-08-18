@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Checkbox, Popover } from "bits-ui";
-  import Icon from "../ui/Icon.svelte";
 
   export interface MultiSelectFilterOption {
     value: string;
@@ -32,7 +31,15 @@
     aria-label={`${label} filter, ${selectedCount} selected`}
     {disabled}
   >
-    <Icon name="filter" size={14} />
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"><path d="M3 5h10l-3 3v3l-2 1v-4z" /></svg
+    >
     {#if selectedCount > 0}
       <span class="multi-select-filter-count" aria-hidden="true"
         >{selectedCount}</span
