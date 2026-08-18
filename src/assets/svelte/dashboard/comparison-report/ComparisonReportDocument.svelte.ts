@@ -1,4 +1,3 @@
-import type { IconName } from "../types";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
@@ -6,7 +5,7 @@ import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 export class ComparisonReportDocument extends WorkspaceDocumentBase {
   readonly kind = "comparison-report" as const;
   readonly documentLabel = "Report";
-  readonly icon = "simulation-report" as const satisfies IconName;
+  readonly icon = "simulation-report" as const satisfies string;
   readonly id = crypto.randomUUID();
   readonly title: string;
   readonly graphId: string;

@@ -233,17 +233,12 @@ export class WorkspaceModel {
     report: SimulationReportDocument | OptimizationReportDocument,
     analysisId: string | null,
   ): Promise<boolean> {
-    const reportId =
-      report.kind === "simulation-report"
-        ? report.experimentId
-        : report.optimizationId;
+    const reportId = report.reportId;
     if (!reportId) return false;
 
     try {
       const reply = await api.setReportAnalysis(
-        report.kind === "simulation-report"
-          ? "simulation_report"
-          : "optimization_report",
+        report.reportApiKind,
         reportId,
         analysisId,
       );
@@ -349,12 +344,7 @@ export class WorkspaceModel {
   }
 
   canCloseDocument(document: WorkspaceDocument): boolean {
-    return (
-      (document.kind !== "simulation-report" &&
-        document.kind !== "optimization-report") ||
-      document.status === "loaded" ||
-      document.status === "error"
-    );
+    return document.canClose();
   }
 
   closeDocument(id: string): void {

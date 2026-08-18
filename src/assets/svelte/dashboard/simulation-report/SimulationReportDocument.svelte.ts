@@ -5,14 +5,21 @@ import type {
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 import { formatDashboardErrorCode } from "../error-code";
-import type { IconName } from "../types";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 
 export class SimulationReportDocument extends AsyncReportDocument<"simulation"> {
   readonly kind = "simulation-report" as const;
   readonly documentLabel = "Report";
   readonly reportKind = "simulation" as const;
-  readonly icon = "simulation-report" as const satisfies IconName;
+  readonly icon = "simulation-report" as const satisfies string;
+
+  get reportId(): string | null {
+    return this.experimentId;
+  }
+
+  get reportApiKind(): "simulation_report" | "optimization_report" {
+    return "simulation_report";
+  }
   readonly id: string;
   readonly graphId: string;
   readonly graphRevisionId: string;
@@ -90,6 +97,10 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   markErrorMessage(message: string): void {
     this.status = "error";
     this.errorReason = message;
+  }
+
+  canClose(): boolean {
+    return this.status === "loaded" || this.status === "error";
   }
 
   markRead(): void {

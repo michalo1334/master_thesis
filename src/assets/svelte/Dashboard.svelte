@@ -162,31 +162,26 @@
   {#snippet content(document: WorkspaceDocument)}
     {#if document.kind === "graph"}
       <EditableCanvas
-        document={document as EditableGraphDocument}
+        {document}
         {api}
-        onCompareGraphs={() =>
-          wm.beginGraphComparisonWithActive(document as EditableGraphDocument)}
-        onArrangeNetwork={() =>
-          arrangeDocumentNetwork(document as EditableGraphDocument)}
+        onCompareGraphs={() => wm.beginGraphComparisonWithActive(document)}
+        onArrangeNetwork={() => arrangeDocumentNetwork(document)}
       />
     {:else if document.kind === "graph-diff"}
-      <GraphDiff document={document as GraphDiffDocument} />
+      <GraphDiff {document} />
     {:else if document.kind === "simulation-report"}
       <SimulationReport
-        document={document as SimulationReportDocument}
+        {document}
         onOpenSourceGraph={() =>
-          wm.openGraphRevision(
-            api,
-            (document as SimulationReportDocument).graphRevisionId,
-          )}
+          wm.openGraphRevision(api, document.graphRevisionId)}
       />
     {:else if document.kind === "optimization-report"}
-      <OptimizationReport document={document as OptimizationReportDocument} />
+      <OptimizationReport {document} />
     {:else if document.kind === "comparison-report"}
-      <ComparisonReport document={document as ComparisonReportDocument} />
+      <ComparisonReport {document} />
     {:else if document.kind === "document-catalog"}
       <DocumentCatalog
-        document={document as DocumentCatalogDocument}
+        {document}
         {api}
         onOpen={(item) => wm.openCatalogItem(api, item)}
       />

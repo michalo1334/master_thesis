@@ -5,7 +5,6 @@ import type {
   GraphDiffStatusEntry,
   LoadedGraph,
 } from "../contract";
-import type { IconName } from "../types";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
 export type GraphDiffStatus = GraphDiffStatusEntry["status"];
@@ -13,7 +12,7 @@ export type GraphDiffStatus = GraphDiffStatusEntry["status"];
 export class GraphDiffDocument extends WorkspaceDocumentBase {
   readonly kind = "graph-diff" as const;
   readonly documentLabel = "Comparison";
-  readonly icon = "graph-diff" as const satisfies IconName;
+  readonly icon = "graph-diff" as const satisfies string;
   readonly id = crypto.randomUUID();
   readonly baseRevisionId: string;
   readonly comparisonRevisionId: string;

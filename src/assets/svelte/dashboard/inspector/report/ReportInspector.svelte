@@ -13,11 +13,7 @@
   let { document, analyses, onAnalysisChange }: Props = $props();
   let saving = $state(false);
   let status = $state("");
-  let reportId = $derived(
-    document.kind === "simulation-report"
-      ? document.experimentId
-      : document.optimizationId,
-  );
+  let reportId = $derived(document.reportId);
 
   async function changeAnalysis(event: Event): Promise<void> {
     if (saving) return;

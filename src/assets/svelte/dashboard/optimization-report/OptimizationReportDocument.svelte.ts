@@ -8,7 +8,6 @@ import type {
 import type { DashboardApi } from "../dashboard-api";
 import { formatDashboardErrorCode } from "../error-code";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
-import type { IconName } from "../types";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 import {
   toOptimizationAnalysis,
@@ -19,7 +18,15 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   readonly kind = "optimization-report" as const;
   readonly documentLabel = "Report";
   readonly reportKind = "optimization" as const;
-  readonly icon = "shield" as const satisfies IconName;
+  readonly icon = "shield" as const satisfies string;
+
+  get reportId(): string | null {
+    return this.optimizationId;
+  }
+
+  get reportApiKind(): "simulation_report" | "optimization_report" {
+    return "optimization_report";
+  }
   readonly id = crypto.randomUUID();
   readonly graphId: string;
   readonly graphRevisionId: string;
@@ -185,6 +192,10 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   markErrorMessage(message: string): void {
     this.status = "error";
     this.errorReason = message;
+  }
+
+  canClose(): boolean {
+    return this.status === "loaded" || this.status === "error";
   }
 
   markRead(): void {

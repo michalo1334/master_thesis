@@ -1,4 +1,3 @@
-import type { IconName } from "../types";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 
 export class DocumentCatalogDocument extends WorkspaceDocumentBase {
@@ -12,7 +11,7 @@ export class DocumentCatalogDocument extends WorkspaceDocumentBase {
   readonly documentLabel = "Table";
   readonly id = "document-catalog";
   readonly title = "Documents";
-  readonly icon = "squares-2x2" as const satisfies IconName;
+  readonly icon = "squares-2x2" as const satisfies string;
   static readonly createOption = {
     id: "document-catalog",
     label: "Documents",

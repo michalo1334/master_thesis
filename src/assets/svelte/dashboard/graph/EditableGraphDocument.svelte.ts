@@ -8,7 +8,6 @@ import type {
   SimulationParams,
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
-import type { IconName } from "../types";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
@@ -46,7 +45,7 @@ function blankGraph(title: string): LoadedGraph {
 export class EditableGraphDocument extends WorkspaceDocumentBase {
   readonly kind = "graph" as const;
   readonly documentLabel = "Graph";
-  readonly icon = "graph" as const satisfies IconName;
+  readonly icon = "graph" as const satisfies string;
   static readonly createOption = {
     id: "graph",
     label: "Graph",

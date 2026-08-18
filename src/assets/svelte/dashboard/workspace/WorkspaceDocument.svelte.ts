@@ -7,7 +7,17 @@ import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalo
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
 
-export class WorkspaceDocumentBase {
+export abstract class WorkspaceDocumentBase {
+  abstract readonly id: string;
+  abstract readonly kind: string;
+  abstract readonly title: string;
+  abstract readonly icon: string;
+  abstract readonly documentLabel: string;
+
+  canClose(): boolean {
+    return true;
+  }
+
   isReportDocument(): boolean {
     return false;
   }
@@ -29,6 +39,10 @@ export abstract class AsyncReportDocument<
   isAsyncReportDocument(): this is AsyncReportDocument<Kind> {
     return true;
   }
+
+  abstract get reportId(): string | null;
+
+  abstract get reportApiKind(): "simulation_report" | "optimization_report";
 
   abstract setReportData(data: ReportDataMap[Kind]): void;
 
