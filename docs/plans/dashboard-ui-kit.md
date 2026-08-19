@@ -366,6 +366,251 @@ WorkspaceModel activeGraph/hasActiveGraph/ensureInitialFoothold/findOpenGraph �
 
 ---
 
+## 3d. TODO — DocumentOutline builder generic (algorithm decoupled from concrete documents)
+
+> Analysis by `explorer_fast` (synced from `document-outline.ts` / `DocumentOutline.svelte`).
+> Option chosen: **B — normalized OutlineNode** (kit is a dumb assembler over plain data, app owns domain).
+> Full coupling table + adapter-vs-normalized comparison was in agent scratch; summarized below with diagrams.
+
+### Why the current builder is not generic
+
+```
+                 ┌──────────────────────────────────────────────────┐
+                 │  document-outline.ts  (today, 10 coupled sites) │
+                 │                                                  │
+  FolderSummary ─┼─► buildRows(documents, folders, summaries)       │
+  GraphSummary  ─┤   OutlineRow { document: WorkspaceDocument }     │
+  WorkspaceDoc  ─┤   isReport / isGraphDiff / kind==="graph"        │
+                 │   analysisId, graphRevisionId, baseRevisionId    │
+                 │   parentDocument() via parent_revision_id chain  │
+                 │   folderIdForDocument() via GraphSummary lookup  │
+                 │   rowKey() from document.id                      │
+                 │   SvelteMap / SvelteSet (reactive, not needed)   │
+                 └──────────────┬───────────────────────────────────┘
+                                │ OutlineRow[] with domain objects
+                                ▼
+                 ┌──────────────────────────────────┐
+                 │  DocumentOutline.svelte (shell)   │
+                 │  row.document.title/icon/label    │
+                 │  graphId(row.document) for drag   │
+                 │  row.folder.name/id for headers   │
+                 └──────────────────────────────────┘
+
+  Kit cannot import FolderSummary / GraphSummary / WorkspaceDocument.
+  Tree shape (nesting, buckets, "Reports"/"Analyses" headers, depth, cycle guard)
+  is mixed with domain meaning (which doc is a report, which revision is parent).
+```
+
+**Coupling inventory (10 sites in `document-outline.ts`):**
+
+| # | Code | Domain |
+|---|------|--------|
+| 1 | `buildRows(docs: WorkspaceDocument[], folders: FolderSummary[], summaries: GraphSummary[])` | signature names app types |
+| 2 | `OutlineRow { document: WorkspaceDocument }` | row carries domain object |
+| 3 | `ReportDocument Extract<WorkspaceDocument, {kind: "simulation-report" ...}>` | literal kind union |
+| 4 | `hasAnalysisMetadata(d) = isReport(d) && analysisId` | reads `analysisId/Title` |
+| 5 | `kind==="graph" && loadedRevisionId` → index | revision chain |
+| 6 | `parentDocument()` — report→`graphRevisionId`, diff→`baseRevisionId`, graph→`parent_revision_id` | nesting |
+| 7 | `folderIdForDocument()` via `GraphSummary[]` | folder buckets |
+| 8 | `appendRoots filter isReport` → "Reports" header | section |
+| 9 | `rowKey` from `document.id` / `folder.id` | keys |
+| 10 | `graphIdForDocument()` for drag payload | drag |
+
+Template also reads `documentLabel/icon/title`, `folder.name/id`.
+
+### Generic replacement — Option B (normalized OutlineNode)
+
+```
+App (owns meaning)                          Kit (owns shape, no domain imports)
+─────────────────                           ─────────────────
+documents                                   OutlineNode[] ──┐
+folders  ──► buildDashboardNodes() ──┐                      │
+summaries                            ├─► OutlineNode[] ─────┤
+             buildDashboardGroups() ─┘   OutlineGroup[] ───┤─► buildOutline() ─► OutlineRow[] ─► DocumentOutline
+                                            plain data      │    pure, Map/Set, cycle guard
+                                                            │    flat list, no WorkspaceDocument
+```
+
+**File tree — A4 (in place) vs B3 (kit extract):**
+
+```
+A4 — in place (still dashboard/)              B3 — after kit extract
+──────────────────────────────                ──────────────────────
+dashboard/workspace/                          ui-kit/workspace/
+  document-outline.ts  (helpers only)           outline.ts  ← kit assembler (NEW)
+    parentDocument()                             OutlineNode, OutlineGroup, OutlineRow
+    folderIdForDocument()                        buildOutline(nodes, groups): OutlineRow[]
+    hasAnalysisMetadata()                        → no SvelteMap, plain Map
+    graphIdForDocument()                       DocumentOutline.svelte  (pure shell)
+  build-dashboard-rows.ts (adapter, app)         rows: OutlineRow[] + rowSnippet
+    buildDashboardNodes()                      dashboard/workspace/
+    buildDashboardGroups()                       document-outline.ts (helpers stay)
+    buildDashboardRows()                         build-dashboard-rows.ts (adapter, app)
+  DocumentOutline.svelte (shell, still            DocumentOutline.svelte → re-export kit shell
+    documents/folders props for now)
+```
+
+**Kit interfaces (new in `ui-kit/workspace/outline.ts`):**
+
+```ts
+// ui-kit/workspace/outline.ts — zero app imports, pure data
+
+export interface OutlineNode {
+  id: string;        // document id
+  label: string;     // title
+  icon: string;      // icon string (generic)
+  kind: string;      // document kind, passes through for snippet dispatch
+  groupId: string;   // folder id, "analyses", or "root"
+  parentId?: string; // nesting within same group (revision parent)
+  section?: { key: string; title: string }; // e.g. {key:"reports", title:"Reports"}
+  ariaLabel?: string; // e.g. "Graph Untitled"
+  dragData?: string;  // e.g. graph.id for drag-and-drop
+}
+
+export interface OutlineGroup {
+  id: string;        // folder id or "analyses"
+  label: string;     // folder name
+  icon?: string;
+  depth?: number;    // base document depth (folders=1, analyses=0, root=0)
+}
+
+export type OutlineRow =
+  | { type: "item";   id: string; label: string; icon: string; kind: string;
+      depth: number; ariaLabel?: string; dragData?: string }
+  | { type: "header"; id: string; label: string; icon?: string;
+      kind: "folder" | "section" | "group" };
+
+export function buildOutline(
+  nodes: readonly OutlineNode[],
+  groups: readonly OutlineGroup[],
+): OutlineRow[] {
+  // 1. bucket = groupId if present in groups, else "root"
+  // 2. children = parentId edges, only when parent is in same bucket
+  // 3. cycle guard: node whose parentId chain revisits itself → bucket root
+  // 4. emit per group (in order): header, plain roots at group.depth,
+  //    per section (first-seen): section header, section roots at depth+1
+  // 5. emit root bucket last, depth 0, no header
+}
+```
+
+**App adapter — reuses existing helpers verbatim (no rewrite):**
+
+```ts
+// dashboard/workspace/build-dashboard-rows.ts — domain → normalized
+
+import { buildOutline, type OutlineGroup, type OutlineNode, type OutlineRow } from "../../ui-kit/workspace/outline";
+import { folderIdForDocument, graphIdForDocument, hasAnalysisMetadata, parentDocument } from "./document-outline";
+import type { FolderSummary, GraphSummary } from "../contract";
+import type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
+
+export function buildDashboardNodes(
+  documents: readonly WorkspaceDocument[],
+  folders: readonly FolderSummary[],
+  graphSummaries: readonly GraphSummary[],
+): OutlineNode[] {
+  const graphsByRevisionId = new Map<string, WorkspaceDocument>();
+  const folderIds = new Set(folders.map((f) => f.id));
+  for (const d of documents)
+    if (d.kind === "graph" && d.loadedRevisionId)
+      graphsByRevisionId.set(d.loadedRevisionId, d);
+
+  return documents.map((d) => {
+    if (hasAnalysisMetadata(d)) {
+      // Analysis reports leave the folder tree → "analyses" group, section per analysisId
+      return {
+        id: d.id, label: d.title, icon: d.icon, kind: d.kind,
+        groupId: "analyses",
+        section: { key: d.analysisId ?? d.analysisTitle ?? "Analysis",
+                   title: d.analysisTitle ?? d.analysisId ?? "Analysis" },
+        ariaLabel: `${d.documentLabel} ${d.title}`,
+      };
+    }
+    const parent = parentDocument(d, graphsByRevisionId);
+    const folderId = folderIdForDocument(d, graphSummaries);
+    const groupId = folderId && folderIds.has(folderId) ? folderId : "root";
+    return {
+      id: d.id, label: d.title, icon: d.icon, kind: d.kind,
+      groupId,
+      parentId: parent?.id,
+      section: !parent && isReport(d) ? { key: "reports", title: "Reports" } : undefined,
+      ariaLabel: `${d.documentLabel} ${d.title}`,
+      dragData: graphIdForDocument(d),
+    };
+  });
+}
+
+export function buildDashboardGroups(
+  folders: readonly FolderSummary[],
+  hasAnalyses: boolean,
+): OutlineGroup[] {
+  return [
+    ...folders.map((f) => ({ id: f.id, label: f.name, icon: "folder", depth: 1 })),
+    ...(hasAnalyses ? [{ id: "analyses", label: "Analyses", depth: 0 }] : []),
+  ];
+}
+
+export function buildDashboardRows(
+  documents: readonly WorkspaceDocument[],
+  folders: readonly FolderSummary[],
+  graphSummaries: readonly GraphSummary[],
+): OutlineRow[] {
+  const nodes = buildDashboardNodes(documents, folders, graphSummaries);
+  const groups = buildDashboardGroups(folders, nodes.some((n) => n.groupId === "analyses"));
+  return buildOutline(nodes, groups);
+}
+
+// Before: Document svelte held document objects, template read row.document.title
+// After:  row is plain {label, icon, depth, ariaLabel} — no WorkspaceDocument in kit
+```
+
+**Before / after — DocumentOutline props:**
+
+```svelte
+<!-- BEFORE — A3 and earlier (today after A4 stub) -->
+<DocumentOutline
+  documents={model.documents}
+  folders={model.folders}
+  graphSummaries={model.graphSummaries}
+  selectedDocumentId={model.selectedDocumentId}
+  onSelectDocument={(id) => model.selectDocument(id)}
+  onDeleteFolder={(id) => model.deleteFolder(id)}
+  onMoveGraph={(graphId, folderId) => model.moveGraph(graphId, folderId)}
+/>
+
+<!-- AFTER — B3 (kit) -->
+<script>
+  import { buildDashboardRows } from "./build-dashboard-rows";
+  const rows = $derived(buildDashboardRows(model.documents, model.folders, model.graphSummaries));
+</script>
+
+<DocumentOutline
+  rows={rows}
+  selectedId={model.selectedDocumentId}
+  onSelect={(id) => model.selectDocument(id)}
+  collapsed={outlineCollapsed}
+  onCollapsedChange={(c) => (outlineCollapsed = c)}
+>
+  {#snippet rowSnippet(row)}
+    {#if row.type === "header" && row.kind === "folder"}
+      <span>{row.label}</span>
+      <button onclick={() => model.deleteFolder(row.id)}>Delete</button>
+    {:else if row.type === "item"}
+      <!-- kit default: button with icon + label at depth indent -->
+      <!-- app snippet adds move-menu for row.dragData -->
+    {/if}
+  {/snippet}
+</DocumentOutline>
+```
+
+Depth / grouping preserved: folders emit plain docs at depth 1, orphan reports at depth 2;
+"Analyses" emits reports at depth 1; root emits plain docs at depth 0, orphan reports at depth 1.
+Cycle guard and `SvelteMap`→`Map` change keep the builder pure (called from `$derived`, recomputes wholesale).
+
+See A4 code block below for the kit shell after B3. `document-outline.ts` shrinks to helpers only;
+`build-dashboard-rows.ts` grows normalization; `DocumentOutline.svelte` becomes `rows + rowSnippet`.
+
+---
+
 ## 3c. TODO — Inspector generic / Document → Inspector coupling (brainstorm, not yet implemented)
 
 > A3 partially wired `inspectorFor` for the selectable branch only (`DashboardInspector.svelte:103` → `registry.inspectorFor`).
@@ -994,7 +1239,8 @@ After:   GenericWorkspaceModel<D> ──► UiWorkspaceDocument (interface, no c
 moves to `ui-kit/workspace/` in A3/B3 as `GenericWorkspaceModel<D>`, so `Workspace.svelte` keeps
 `model: GenericWorkspaceModel<D>` (intra-kit prop). The granular `documents/onSelect/onClose/...` split
 previously planned for A4 is unnecessary; both live in the kit. A4 now does only what still matters
-before `B3` extraction.
+before `B3` extraction. Also makes the outline builder **algorithm-generic** (see §3d) so B3's
+`ui-kit/workspace/DocumentOutline` is contract-free and `OutlineRow` no longer carries `WorkspaceDocument`.
 
 **File tree**
 
@@ -1004,15 +1250,16 @@ workspace/Workspace.svelte                   workspace/Workspace.svelte  (still 
   props: model: WorkspaceModel                 props: model: GenericWorkspaceModel<UiWorkspaceDocument>
   reads model.documents/folders/...            reads model.documents/selectedDocumentId/documentTypes
   calls model.close/select/reorder             calls model.close/select/reorder (same — model is now kit type)
-  embeds DocumentOutline with                   embeds DocumentOutline via outlineRows: OutlineRow[] + rowSnippet
+  embeds DocumentOutline with                   embeds DocumentOutline via OutlineRow[] (already normalized)
     folders/graphSummaries directly            // outline no longer receives FolderSummary/GraphSummary
   owns inspector grid slot                      // inspector slot moved to parent:
     grid: inspector at grid-column:2           // Dashboard.svelte grid composes <Workspace> + <Inspector> side-by-side
-workspace/DocumentOutline.svelte              workspace/DocumentOutline.svelte  (shell only)
-  buildRows / parentDocument inline             workspace/document-outline.ts  (NEW, pure, prepares kit helper)
-                                               export function buildRows(docs, folders, summaries): Row[]  (app-side impl)
-                                               workspace/build-dashboard-rows.ts → generic OutlineRow[] builder
+workspace/DocumentOutline.svelte              workspace/DocumentOutline.svelte  (pure shell: rows + rowSnippet)
+  buildRows / parentDocument inline             workspace/document-outline.ts  (app helpers: parentDocument helpers stay)
+                                               workspace/outline.ts  (kit-generic assembler, NEW in B3 stub here)
+                                               workspace/build-dashboard-rows.ts → normalized OutlineNode → OutlineRow
 dashboard/ui/OptionPickerDialog.svelte        // ui→controls dep resolved: inline FilterableTableColumn or note for B2
+inspector/inspector-registry.ts               inspector/inspector-registry.ts  (app stub for §3c TODO)
 ```
 
 **Code — Workspace.svelte stays model-driven (now kit-compatible)**
@@ -1064,30 +1311,102 @@ const outlineRows = $derived(buildDashboardRows(wm.documents, wm.folders, wm.gra
 // <Workspace {model} {outlineRows} outlineRowSnippet={dashboardRowSnippet} inspector={...} content={registrySnippet} />
 ```
 
-**Code — DocumentOutline generic (kit) vs app builder**
+**Diagram — A4 vs B3 outline flow:**
+
+```
+A4 — helpers extracted, still domain-aware          B3 — kit assembler, app adapter normalized
+──────────────────────────────                     ──────────────────────────────
+documents ──┐                                      documents ─┐
+folders   ──┼─► document-outline.ts (helpers)      folders  ─┼─► buildDashboardNodes() ─► OutlineNode[]
+summaries ──┘   buildRows(docs,folders,summaries)  summaries─┘   (app, reuses helpers verbatim)
+                │ OutlineRow{ document }           buildDashboardGroups(folders) ─► OutlineGroup[]
+                ▼                                                         │
+        DocumentOutline(documents,folders,…)                 buildOutline(nodes, groups) ─► OutlineRow[]
+                                                             │  kit/workspace/outline.ts — no WorkspaceDocument
+                                                             │  Map/Set, bucket→children→section, cycle guard
+                                                             ▼
+                                                     DocumentOutline(rows, rowSnippet)
+                                                     │  kit shell: depth indent, ariaLabel, dragData
+                                                     └─► rowSnippet renders folder delete/move
+```
+
+**Code — Outline builder generic (kit) vs app adapter (§3d, Option B):**
 
 ```ts
 // BEFORE — DocumentOutline.svelte inline, coupled to FolderSummary + GraphSummary + WorkspaceDocument
 function buildRows(documents, folders, summaries) { /* folder grouping + revision nesting + report grouping */ }
 function parentDocument(doc) { /* walk parent_revision_id chain with cycle guard */ }
 
-// AFTER — A4: extract pure module (app-side first, then kit generic)
-// workspace/document-outline.ts  (pure, tested, still app-aware in A4)
-export function buildRows(
-  documents: UiWorkspaceDocument[], folders: FolderSummary[], summaries: GraphSummary[]
-): OutlineRow[] { /* same logic, now unit-tested */ }
+// AFTER — A4: extract helpers + introduce normalized nodes (app-side first, then kit generic)
+// workspace/document-outline.ts  (app helpers stay: parentDocument, folderIdForDocument, etc.)
+export function parentDocument(doc, graphsByRevisionId): WorkspaceDocument|undefined { /* unchanged */ }
+export function folderIdForDocument(doc, summaries): string|null|undefined { /* unchanged */ }
 
-// Kit generic Outline — B3: ui-kit/workspace/DocumentOutline.svelte
+// workspace/build-dashboard-rows.ts  (app adapter: domain → normalized)
+// Converts existing helpers into plain data so kit has zero contract imports.
+export interface OutlineNode {
+  id: string; label: string; icon: string; kind: string;
+  groupId: string;            // folder id, "analyses", or "root"
+  parentId?: string;          // revision nesting within same group
+  section?: { key: string; title: string }; // "reports" or analysis grouping
+  ariaLabel?: string; dragData?: string;    // passes through to row
+}
+export function buildDashboardNodes(docs, folders, summaries): OutlineNode[] { /* uses parentDocument etc. */ }
+export function buildDashboardGroups(folders, hasAnalyses): OutlineGroup[] { /* folders → groups */ }
+export function buildDashboardRows(docs, folders, summaries): OutlineRow[] {
+  return buildOutline(buildDashboardNodes(…), buildDashboardGroups(…)); // kit assembler (available after B3 stub)
+}
+
+// Kit generic outline — B3: ui-kit/workspace/outline.ts (pure, no app imports)
+export interface OutlineGroup { id: string; label: string; icon?: string; depth?: number }
+export type OutlineRow =
+  | { type: "item"; id: string; label: string; icon: string; kind: string; depth: number; ariaLabel?: string; dragData?: string }
+  | { type: "header"; id: string; label: string; icon?: string; kind: "folder"|"section"|"group" };
+export function buildOutline(nodes: readonly OutlineNode[], groups: readonly OutlineGroup[]): OutlineRow[] { /* walk parentId, groupId, section, cycle guard */ }
+
+// Kit shell — B3: ui-kit/workspace/DocumentOutline.svelte (pure shell, no business logic)
 // Props: rows: OutlineRow[]  +  rowSnippet?: Snippet<[OutlineRow]>  (svelte/snippet)
-//        No FolderSummary/GraphSummary imports in kit.
 <script lang="ts">
   import type { Snippet } from "svelte";
-  export type OutlineRow = { id: string; label: string; icon: string; children?: OutlineRow[]; kind: string };
-  let { rows, rowSnippet, onSelectDocument }: { rows: OutlineRow[]; rowSnippet?: Snippet<[OutlineRow]>; onSelectDocument: (id:string)=>void } = $props();
+  import type { OutlineRow } from "./outline";
+  let { rows, rowSnippet, selectedId, onSelect, collapsed, onCollapsedChange }:
+    { rows: OutlineRow[]; rowSnippet?: Snippet<[OutlineRow]>; selectedId?: string; onSelect: (id:string)=>void; collapsed:boolean; onCollapsedChange:(c:boolean)=>void } = $props();
 </script>
 {#each rows as row (row.id)}
-  {#if rowSnippet}{@render rowSnippet(row)}{:else}<button onclick={()=>onSelectDocument(row.id)}>{row.label}</button>{/if}
+  {#if rowSnippet}{@render rowSnippet(row)}{:else}<button onclick={()=>onSelect(row.id)}>{row.label}</button>{/if}
 {/each}
+// Default kit row honours ariaLabel/depth/draggable dragData. App snippet renders folder delete/move chrome.
+```
+
+**Before / after — DocumentOutline props + Template coupling:**
+
+```svelte
+<!-- BEFORE — today after A4 stub (still domain objects in rows) -->
+{#each rows as row (rowKey(row))}
+  {#if row.type === "folder"}          <span>{row.folder.name}</span>
+  {:else}                               <button>{row.document.title}</button>
+    <!-- reads row.document.icon / label / folder.name — domain in kit -->
+  {/if}
+{/each}
+
+<!-- AFTER — B3 (kit: plain rows, app snippet owns domain chrome) -->
+{#each rows as row (row.id)}           <!-- row.id already unique: item: / group: / section: -->
+  {#if row.type === "header"}           <span>{row.label}</span>   <!-- kit default -->
+  {:else}                               <button aria-label={row.ariaLabel}
+                                          style:--depth={row.depth}
+                                          draggable={row.dragData ? true : undefined}>
+                                          {row.label}            <!-- icon via row.icon -->
+                                        </button>
+  {/if}
+  {#if rowSnippet} {@render rowSnippet(row)} {/if}  <!-- app snippet adds delete/move menu -->
+{/each}
+
+<!-- Dashboard.svelte / Workspace.svelte wiring -->
+<script>
+  import { buildDashboardRows } from "./workspace/build-dashboard-rows";
+  const rows = $derived(buildDashboardRows(model.documents, model.folders, model.graphSummaries));
+</script>
+<DocumentOutline {rows} selectedId={model.selectedDocumentId} onSelect={(id)=>model.selectDocument(id)} />
 ```
 
 **Dependency**
@@ -1108,8 +1427,8 @@ After:   Workspace.svelte ──► GenericWorkspaceModel<D> (kit, documents onl
 **Checklist**
 
 - [ ] `Workspace.svelte` keeps `model: GenericWorkspaceModel<D>` (intra-kit, no prop explosion); type now resolves to `ui-kit/workspace`
-- [ ] `DocumentOutline` no longer receives `folders/graphSummaries` — receives `rows: OutlineRow[] + rowSnippet` (generic kit contract)
-- [ ] `build-dashboard-rows.ts` / `document-outline.ts` extracted as pure modules with tests; `parentRevisionIdOf` on base if needed
+- [ ] `DocumentOutline` no longer receives `folders/graphSummaries` — receives `rows: OutlineRow[] + rowSnippet` (generic kit contract, `OutlineRow` no longer carries `WorkspaceDocument`)
+- [ ] `build-dashboard-rows.ts` adapter uses `buildDashboardNodes` + `buildDashboardGroups` → `buildOutline` (kit純粋 assembler, §3d Option B); `document-outline.ts` keeps only domain helpers (parentDocument etc.), not `buildRows`
 - [ ] inspector slot moved: `Workspace.svelte` no longer renders inspector at `grid-column:2`; `Dashboard.svelte:246` parent grid composes `<Workspace>` + `<Inspector>` side-by-side
 - [ ] `OptionPickerDialog` ui→controls dep resolved for B2
 - [ ] optional: Ribbon button media queries moved `Ribbon.svelte` → `RibbonButton.svelte`

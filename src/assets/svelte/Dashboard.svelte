@@ -150,14 +150,18 @@
     {/if}
   {/snippet}
 
-  <Workspace
-    model={wm}
-    {inspector}
-    {content}
-    onCreateFolder={handleCreateFolder}
-    onDeleteFolder={handleDeleteFolder}
-    onMoveGraph={handleMoveGraph}
-  />
+  <div class="dashboard-workspace-layout">
+    <Workspace
+      model={wm}
+      {content}
+      onCreateFolder={handleCreateFolder}
+      onDeleteFolder={handleDeleteFolder}
+      onMoveGraph={handleMoveGraph}
+    />
+    <div class="dashboard-inspector-slot">
+      {@render inspector()}
+    </div>
+  </div>
 
   <GraphTreePickerDialog
     open={wm.topologyPickerOpen}
@@ -235,6 +239,30 @@
   .dashboard-app :global(button:not(:disabled)) {
     cursor: pointer;
   }
+  .dashboard-workspace-layout {
+    grid-area: workspace;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--ds-inspector-width);
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .dashboard-inspector-slot {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @media (max-width: 47.5em) {
+    .dashboard-inspector-slot {
+      display: none;
+    }
+    .dashboard-workspace-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .dashboard-app :global(:focus-visible) {
     outline: 2px solid var(--ds-color-focus);
     outline-offset: 2px;

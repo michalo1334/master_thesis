@@ -13,7 +13,6 @@
   interface Props {
     model: WorkspaceModel;
     orientation?: WorkspaceOrientation;
-    inspector?: Snippet;
     content?: Snippet<[WorkspaceDocument]>;
     onCreateFolder: (name: string) => Promise<boolean> | boolean;
     onDeleteFolder: (folderId: string) => Promise<boolean> | boolean;
@@ -26,7 +25,6 @@
   let {
     model,
     orientation = "horizontal",
-    inspector = undefined,
     content = undefined,
     onCreateFolder,
     onDeleteFolder,
@@ -108,7 +106,6 @@
 <main
   class={[
     "dashboard-workspace",
-    "dashboard-workspace-with-inspector",
     { "dashboard-workspace-outline-collapsed": outlineCollapsed },
   ]}
 >
@@ -221,8 +218,6 @@
       </section>
     {/if}
   </Tabs.Root>
-
-  {@render inspector?.()}
 </main>
 
 <Dialog.Root bind:open={folderDialogOpen}>
@@ -316,25 +311,17 @@
     color: var(--ds-color-accent-contrast);
   }
   .dashboard-workspace {
-    grid-area: workspace;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
   }
-  .dashboard-workspace-with-inspector {
-    grid-template-columns: minmax(0, 1fr) var(--ds-inspector-width);
-  }
   :global(.dashboard-document) {
-    grid-column: 1;
     height: 100%;
     display: grid;
     grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
-  }
-  .dashboard-workspace :global(.dashboard-inspector) {
-    grid-column: 2;
   }
   .dashboard-document-tabs-container {
     display: flex;
@@ -479,12 +466,6 @@
     margin: 0;
   }
   @media (max-width: 47.5em) {
-    .dashboard-workspace-with-inspector {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .dashboard-workspace :global(.dashboard-inspector) {
-      display: none;
-    }
     .dashboard-document-tabs-container :global(.dashboard-document-tab) {
       min-width: 6.875rem;
     }
@@ -593,16 +574,8 @@
     .dashboard-workspace {
       grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
     }
-    .dashboard-workspace-with-inspector {
-      grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) var(
-          --ds-inspector-width
-        );
-    }
     .dashboard-workspace-outline-collapsed {
       grid-template-columns: 3rem minmax(0, 1fr);
-    }
-    .dashboard-workspace-with-inspector.dashboard-workspace-outline-collapsed {
-      grid-template-columns: 3rem minmax(0, 1fr) var(--ds-inspector-width);
     }
     :global(.dashboard-document),
     :global(.dashboard-document[data-orientation="vertical"]) {
@@ -610,10 +583,6 @@
       grid-row: 1;
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: var(--ds-document-tabs-height) minmax(0, 1fr);
-    }
-    .dashboard-workspace :global(.dashboard-inspector) {
-      grid-column: 3;
-      grid-row: 1;
     }
   }
 </style>
