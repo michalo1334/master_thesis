@@ -4,11 +4,11 @@
   import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
   import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-  import GraphInspector from "./graph/GraphInspector.svelte";
-  import EditableSelectionInspector from "./graph/EditableSelectionInspector.svelte";
   import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
-  import ReportInspector from "./report/ReportInspector.svelte";
-  import { inspectorRegistry } from "./inspector-registry";
+  import {
+    getDocumentInspector,
+    inspectorRegistry,
+  } from "./inspector-registry";
 
   interface Props {
     document: WorkspaceDocument | undefined;
@@ -71,7 +71,8 @@
 </script>
 
 {#if selection?.kind === "graph"}
-  <GraphInspector
+  {@const DocInspector = getDocumentInspector("graph")}
+  <DocInspector
     graph={selection.graph}
     parentTitle={selection.parentTitle}
     onTitleChange={selection.onTitleChange}
@@ -84,7 +85,7 @@
     {analyses}
     {analysesStatus}
     {onLoadAnalyses}
-    onAnalysesChange={(analysisIds) =>
+    onAnalysesChange={(analysisIds: string[]) =>
       selection.graph.revision_id
         ? onGraphAnalysesChange(selection.graph.revision_id, analysisIds)
         : Promise.resolve(false)}
@@ -109,10 +110,11 @@
     onUpdate={(selectable: Selectable) => document.updateSelection(selectable)}
   />
 {:else if document?.kind === "simulation-report" || document?.kind === "optimization-report"}
-  <ReportInspector
+  {@const DocInspector = getDocumentInspector(document.kind)}
+  <DocInspector
     {document}
     {analyses}
-    onAnalysisChange={(analysisId) =>
+    onAnalysisChange={(analysisId: string | null) =>
       onReportAnalysisChange(document, analysisId)}
   />
 {/if}

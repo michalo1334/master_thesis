@@ -13,19 +13,18 @@ import ReportInspector from "./report/ReportInspector.svelte";
  * App-side inspector registry.
  *
  * Selectable inspectors reuse the presentation registry (nodeRegistry +
- * edgeRegistry → inspectorFor). Document-level inspectors are a separate
- * axis (graph vs report). Keeping both here makes DashboardInspector
- * registry-driven and allows the kit to import InspectorRegistry
- * types without knowing Selectable / contract types (string keys).
+ * edgeRegistry → inspectorFor). Document-level inspectors are keyed by
+ * document kind (graph / simulation-report / optimization-report).
+ * Keeping both here makes DashboardInspector registry-driven and allows
+ * the kit to import InspectorRegistry types without knowing Selectable /
+ * contract types (string keys).
  */
 export interface InspectorRegistry {
   readonly selectableInspectors: {
     forSelectable(selectable: Selectable | undefined): Component<any>;
   };
-  readonly documentInspectors: {
-    readonly graph: typeof GraphInspector;
-    readonly report: typeof ReportInspector;
-  };
+  readonly documentInspectors: Readonly<Record<string, Component<any>>>;
+  readonly fallback: Component<any>;
 }
 
 export const inspectorRegistry: InspectorRegistry = {
@@ -34,9 +33,17 @@ export const inspectorRegistry: InspectorRegistry = {
   },
   documentInspectors: {
     graph: GraphInspector,
-    report: ReportInspector,
+    "simulation-report": ReportInspector,
+    "optimization-report": ReportInspector,
   },
+  fallback: EmptyInspector,
 };
+
+export function getDocumentInspector(kind: string): Component<any> {
+  return (
+    inspectorRegistry.documentInspectors[kind] ?? inspectorRegistry.fallback
+  );
+}
 
 // Re-export for kit extraction.
 export type { NodePresentation, EdgePresentation };
