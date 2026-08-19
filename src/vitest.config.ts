@@ -14,7 +14,7 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
-    include: ["assets/svelte/dashboard/**/*.test.ts"],
+    include: ["assets/svelte/{dashboard,ui-kit}/**/*.test.ts"],
     setupFiles: ["assets/svelte/test-setup.ts"],
     server: {
       deps: {

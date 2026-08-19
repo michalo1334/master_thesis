@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "test": "vitest run assets/svelte/dashboard",
+    "test": "vitest run",
     "typecheck": "svelte-check --tsconfig assets/tsconfig.json",
     "format:check": "prettier --check 'assets/**/*.{svelte,ts,js,css}'",
     "lint:color": "stylelint 'assets/**/*.{css,svelte}' --config assets/.stylelintrc.mjs"
