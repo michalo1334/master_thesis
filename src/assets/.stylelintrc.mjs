@@ -11,5 +11,6 @@ export default {
   ],
   ignoreFiles: [
     'css/design-tokens.css',
+    'svelte/ui-kit/styles/tokens.css',
   ],
 };
