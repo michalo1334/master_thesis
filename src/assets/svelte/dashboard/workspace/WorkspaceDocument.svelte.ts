@@ -6,24 +6,11 @@ import type { ComparisonReportDocument } from "../comparison-report/ComparisonRe
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
+import { UiWorkspaceDocument } from "../../ui-kit/workspace/WorkspaceDocument.svelte";
 
-// ponytail: kit base is src/assets/svelte/ui-kit/workspace/WorkspaceDocument.svelte (UiWorkspaceDocument).
+// ponytail: extends kit UiWorkspaceDocument - domain fields stay here per Option A.
 // This concrete base stays app-side: it adds AsyncReportDocument + report accessors the kit does not have.
-export abstract class WorkspaceDocumentBase {
-  abstract readonly id: string;
-  abstract readonly kind: string;
-  abstract readonly title: string;
-  abstract readonly icon: string;
-  abstract readonly documentLabel: string;
-
-  canClose(): boolean {
-    return true;
-  }
-
-  isReportDocument(): boolean {
-    return false;
-  }
-
+export abstract class WorkspaceDocumentBase extends UiWorkspaceDocument {
   isAsyncReportDocument(): this is AsyncReportDocument<ReportKind> {
     return false;
   }

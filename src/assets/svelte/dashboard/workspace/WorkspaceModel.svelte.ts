@@ -19,18 +19,18 @@ import type {
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
+import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
 
 export type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
 export type { OptimizationParamsChange } from "../contract";
 
-// ponytail: GenericWorkspaceModel is kit/src/assets/svelte/ui-kit/workspace/WorkspaceModel.svelte.ts
-// - compose via DashboardWorkspaceModel when needed. This domain-heavy model stays as-is for now.
+// ponytail: extends kit GenericWorkspaceModel - domain fields stay here per Option A.
 export interface FootholdHost {
   id: string;
   name: string;
 }
 
-export class WorkspaceModel {
+export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
   /** Graphs available to open, owned by workspace so the picker has them. */
   graphSummaries = $state.raw<GraphSummary[]>([]);
   folders = $state.raw<FolderSummary[]>([]);
@@ -80,6 +80,7 @@ export class WorkspaceModel {
     graphSummaries: GraphSummary[] = [],
     folders: FolderSummary[] = [],
   ) {
+    super();
     this.graphSummaries = graphSummaries;
     this.folders = folders;
   }
