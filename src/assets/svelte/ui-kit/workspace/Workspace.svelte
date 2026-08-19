@@ -9,12 +9,14 @@
     model: GenericWorkspaceModel<D>;
     orientation?: "horizontal" | "vertical";
     content?: Snippet<[D]>;
+    tabActions?: Snippet;
   }
 
   let {
     model,
     orientation = "horizontal",
     content = undefined,
+    tabActions = undefined,
   }: Props = $props();
 
   let activeDocument = $derived(model.activeDocument);
@@ -66,7 +68,7 @@
   }
 </script>
 
-<main class="dashboard-workspace">
+<div class="workspace">
   <Tabs.Root
     class="dashboard-document"
     {orientation}
@@ -118,6 +120,7 @@
           </div>
         {/each}
       </Tabs.List>
+      {@render tabActions?.()}
     </div>
 
     {#if activeDocument}
@@ -132,10 +135,10 @@
       </section>
     {/if}
   </Tabs.Root>
-</main>
+</div>
 
 <style>
-  .dashboard-workspace {
+  .workspace {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;

@@ -21,7 +21,7 @@ export function buildDashboardNodes(
   documents: readonly WorkspaceDocument[],
   folders: readonly FolderSummary[],
   graphSummaries: readonly GraphSummary[],
-): OutlineNode[] {
+): OutlineNode<string>[] {
   const graphsByRevisionId = new Map<string, WorkspaceDocument>();
   const folderIds = new Set(folders.map((f) => f.id));
   for (const d of documents)
@@ -47,6 +47,7 @@ export function buildDashboardNodes(
     const parent = parentDocument(d, graphsByRevisionId);
     const folderId = folderIdForDocument(d, graphSummaries);
     const groupId = folderId && folderIds.has(folderId) ? folderId : "root";
+    const graphId = graphIdForDocument(d);
     return {
       id: d.id,
       label: d.title,
@@ -59,7 +60,7 @@ export function buildDashboardNodes(
           ? { key: "reports", title: "Reports" }
           : undefined,
       ariaLabel: `${d.documentLabel} ${d.title}`,
-      dragData: graphIdForDocument(d),
+      drag: graphId ? { data: graphId } : undefined,
     };
   });
 }
@@ -67,13 +68,14 @@ export function buildDashboardNodes(
 export function buildDashboardGroups(
   folders: readonly FolderSummary[],
   hasAnalyses: boolean,
-): OutlineGroup[] {
+): OutlineGroup<string>[] {
   return [
     ...folders.map((f) => ({
       id: f.id,
       label: f.name,
       icon: "folder",
       depth: 1,
+      drop: { data: f.id },
     })),
     ...(hasAnalyses ? [{ id: "analyses", label: "Analyses", depth: 0 }] : []),
   ];
@@ -83,7 +85,7 @@ export function buildDashboardRows(
   documents: readonly WorkspaceDocument[],
   folders: readonly FolderSummary[],
   graphSummaries: readonly GraphSummary[],
-): OutlineRow[] {
+): OutlineRow<string, string>[] {
   const nodes = buildDashboardNodes(documents, folders, graphSummaries);
   const groups = buildDashboardGroups(
     folders,

@@ -1,4 +1,7 @@
-export interface OutlineNode {
+export type OutlineDrag<DragData> = { data: DragData };
+export type OutlineDrop<DropData> = { data: DropData };
+
+export interface OutlineNode<DragData = unknown> {
   id: string;
   label: string;
   icon: string;
@@ -7,17 +10,18 @@ export interface OutlineNode {
   parentId?: string;
   section?: { key: string; title: string };
   ariaLabel?: string;
-  dragData?: string;
+  drag?: OutlineDrag<DragData>;
 }
 
-export interface OutlineGroup {
+export interface OutlineGroup<DropData = unknown> {
   id: string;
   label: string;
   icon?: string;
   depth?: number;
+  drop?: OutlineDrop<DropData>;
 }
 
-export type OutlineRow =
+export type OutlineRow<DragData = unknown, DropData = unknown> =
   | {
       type: "item";
       id: string;
@@ -26,7 +30,7 @@ export type OutlineRow =
       kind: string;
       depth: number;
       ariaLabel?: string;
-      dragData?: string;
+      drag?: OutlineDrag<DragData>;
     }
   | {
       type: "header";
@@ -34,23 +38,25 @@ export type OutlineRow =
       label: string;
       icon?: string;
       kind: "folder" | "section" | "group";
+      level: number;
+      drop?: OutlineDrop<DropData>;
     };
 
-export function buildOutline(
-  nodes: readonly OutlineNode[],
-  groups: readonly OutlineGroup[],
-): OutlineRow[] {
+export function buildOutline<DragData = unknown, DropData = unknown>(
+  nodes: readonly OutlineNode<DragData>[],
+  groups: readonly OutlineGroup<DropData>[],
+): OutlineRow<DragData, DropData>[] {
   const groupsById = new Map(groups.map((group) => [group.id, group]));
   const byId = new Map(nodes.map((node) => [node.id, node]));
-  const bucketIdOf = (node: OutlineNode): string =>
+  const bucketIdOf = (node: OutlineNode<DragData>): string =>
     groupsById.has(node.groupId) ? node.groupId : "root";
 
-  const isRoot = (node: OutlineNode): boolean => {
+  const isRoot = (node: OutlineNode<DragData>): boolean => {
     if (node.parentId === undefined || node.parentId === node.id) return true;
     const parent = byId.get(node.parentId);
     if (!parent || bucketIdOf(parent) !== bucketIdOf(node)) return true;
     const visited = new Set<string>([node.id]);
-    let current: OutlineNode | undefined = parent;
+    let current: OutlineNode<DragData> | undefined = parent;
     while (current) {
       if (visited.has(current.id)) return true;
       visited.add(current.id);
@@ -64,7 +70,7 @@ export function buildOutline(
   };
 
   const rootIds = new Set(nodes.filter(isRoot).map((node) => node.id));
-  const children = new Map<string, OutlineNode[]>();
+  const children = new Map<string, OutlineNode<DragData>[]>();
   for (const node of nodes) {
     if (rootIds.has(node.id)) continue;
     const parent = node.parentId && byId.get(node.parentId);
@@ -75,8 +81,8 @@ export function buildOutline(
     }
   }
 
-  const rows: OutlineRow[] = [];
-  const visit = (node: OutlineNode, depth: number): void => {
+  const rows: OutlineRow<DragData, DropData>[] = [];
+  const visit = (node: OutlineNode<DragData>, depth: number): void => {
     rows.push({
       type: "item",
       id: node.id,
@@ -85,18 +91,18 @@ export function buildOutline(
       kind: node.kind,
       depth,
       ariaLabel: node.ariaLabel,
-      dragData: node.dragData,
+      drag: node.drag,
     });
     for (const child of children.get(node.id) ?? []) visit(child, depth + 1);
   };
 
   const emitBucket = (
     bucketId: string,
-    group: OutlineGroup | undefined,
+    group: OutlineGroup<DropData> | undefined,
     baseDepth: number,
   ): void => {
     const items = nodes.filter((node) => bucketIdOf(node) === bucketId);
-    if (items.length === 0) return;
+    if (items.length === 0 && !group) return;
     if (group) {
       rows.push({
         type: "header",
@@ -104,6 +110,8 @@ export function buildOutline(
         label: group.label,
         icon: group.icon,
         kind: group.icon ? "folder" : "group",
+        level: 2,
+        drop: group.drop,
       });
     }
 
@@ -112,7 +120,10 @@ export function buildOutline(
       if (!node.section) visit(node, baseDepth);
     }
 
-    const sections = new Map<string, { title: string; nodes: OutlineNode[] }>();
+    const sections = new Map<
+      string,
+      { title: string; nodes: OutlineNode<DragData>[] }
+    >();
     for (const node of roots) {
       if (!node.section) continue;
       const group = sections.get(node.section.key) ?? {
@@ -128,6 +139,7 @@ export function buildOutline(
         id: `section:${bucketId}:${key}`,
         label: title,
         kind: "section",
+        level: group ? 3 : 2,
       });
       for (const node of sectionNodes) visit(node, baseDepth + 1);
     }

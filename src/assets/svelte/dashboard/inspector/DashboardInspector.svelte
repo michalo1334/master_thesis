@@ -1,14 +1,10 @@
 <script lang="ts">
-  import type { GraphSummary, LoadedGraph, Selectable } from "../contract";
+  import type { GraphSummary } from "../contract";
   import type { AnalysisOption } from "../dashboard-api";
   import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
   import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
   import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-  import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
-  import {
-    getDocumentInspector,
-    inspectorRegistry,
-  } from "./inspector-registry";
+  import { resolveInspector } from "./inspector-registry";
 
   interface Props {
     document: WorkspaceDocument | undefined;
@@ -28,16 +24,6 @@
     onOpenParent?: (revisionId: string) => void;
   }
 
-  type InspectorSelection =
-    | { kind: "selectable"; selectable: Selectable }
-    | {
-        kind: "graph";
-        graph: LoadedGraph;
-        parentTitle?: string;
-        onTitleChange: (title: string) => void;
-      }
-    | undefined;
-
   let {
     document,
     api,
@@ -50,71 +36,27 @@
     onOpenParent = undefined,
   }: Props = $props();
 
-  let selection = $derived.by((): InspectorSelection => {
-    if (!document || document.kind !== "graph") return undefined;
-    const selectable = document.selection;
-    if (selectable) return { kind: "selectable", selectable };
-
-    const parentTitle = document.graph.parent_revision_id
-      ? summaries.find(
-          ({ revision_id }) =>
-            revision_id === document.graph.parent_revision_id,
-        )?.title
-      : undefined;
-    return {
-      kind: "graph",
-      graph: document.graph,
-      parentTitle,
-      onTitleChange: (title) => document.setTitle(title),
-    };
-  });
+  let request = $derived.by(() =>
+    resolveInspector({
+      document,
+      api,
+      summaries,
+      analyses,
+      analysesStatus,
+      onLoadAnalyses,
+      onGraphAnalysesChange,
+      onReportAnalysisChange,
+      onOpenParent,
+    }),
+  );
 </script>
 
-{#if selection?.kind === "graph"}
-  {@const DocInspector = getDocumentInspector("graph")}
-  <DocInspector
-    graph={selection.graph}
-    parentTitle={selection.parentTitle}
-    onTitleChange={selection.onTitleChange}
-    onOpenParent={selection.graph.parent_revision_id
-      ? () => onOpenParent?.(selection.graph.parent_revision_id!)
-      : undefined}
-    analysisIds={summaries.find(
-      ({ revision_id }) => revision_id === selection.graph.revision_id,
-    )?.analysis_ids ?? []}
-    {analyses}
-    {analysesStatus}
-    {onLoadAnalyses}
-    onAnalysesChange={(analysisIds: string[]) =>
-      selection.graph.revision_id
-        ? onGraphAnalysesChange(selection.graph.revision_id, analysisIds)
-        : Promise.resolve(false)}
-  />
-{:else if selection?.kind === "selectable" && document?.kind === "graph" && selection.selectable.type === "MissionCapability"}
-  {#key document.loadedRevisionId}
-    <MissionCapabilityInspector
-      selectable={selection.selectable}
-      graph={document.graph}
-      revisionId={document.loadedRevisionId}
-      canEditFlows={!!document.loadedRevisionId && !document.isDirty}
-      {api}
-      onUpdate={(selectable) => document.updateSelection(selectable)}
-    />
-  {/key}
-{:else if selection?.kind === "selectable" && document?.kind === "graph"}
-  {@const Inspector = inspectorRegistry.selectableInspectors.forSelectable(
-    selection.selectable,
-  )}
-  <Inspector
-    selectable={selection.selectable}
-    onUpdate={(selectable: Selectable) => document.updateSelection(selectable)}
-  />
-{:else if document?.kind === "simulation-report" || document?.kind === "optimization-report"}
-  {@const DocInspector = getDocumentInspector(document.kind)}
-  <DocInspector
-    {document}
-    {analyses}
-    onAnalysisChange={(analysisId: string | null) =>
-      onReportAnalysisChange(document, analysisId)}
-  />
+{#if request}
+  {#if request.key !== undefined}
+    {#key request.key}
+      <request.Component {...request.props} />
+    {/key}
+  {:else}
+    <request.Component {...request.props} />
+  {/if}
 {/if}

@@ -7,6 +7,8 @@ export {
 export { GenericWorkspaceModel } from "./WorkspaceModel.svelte";
 export {
   buildOutline,
+  type OutlineDrag,
+  type OutlineDrop,
   type OutlineGroup,
   type OutlineNode,
   type OutlineRow,
