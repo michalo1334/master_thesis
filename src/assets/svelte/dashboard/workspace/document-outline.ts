@@ -1,3 +1,5 @@
+// ponytail: new code should use buildDashboardRows -> ui-kit/workspace/outline.
+// buildRows + these helpers are kept for the dashboard DocumentOutline test.
 import type { FolderSummary, GraphSummary } from "../contract";
 import {
   isGraphDiff,

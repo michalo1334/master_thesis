@@ -23,6 +23,8 @@ import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 export type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
 export type { OptimizationParamsChange } from "../contract";
 
+// ponytail: GenericWorkspaceModel is kit/src/assets/svelte/ui-kit/workspace/WorkspaceModel.svelte.ts
+// - compose via DashboardWorkspaceModel when needed. This domain-heavy model stays as-is for now.
 export interface FootholdHost {
   id: string;
   name: string;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  // ponytail: dashboard outline kept for test, kit is src/assets/svelte/ui-kit/workspace/DocumentOutline.svelte
   import { DropdownMenu } from "bits-ui";
   import { Icon } from "../../ui-kit/primitives";
   import type { FolderSummary } from "../contract";

@@ -7,6 +7,8 @@ import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalo
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
 
+// ponytail: kit base is src/assets/svelte/ui-kit/workspace/WorkspaceDocument.svelte (UiWorkspaceDocument).
+// This concrete base stays app-side: it adds AsyncReportDocument + report accessors the kit does not have.
 export abstract class WorkspaceDocumentBase {
   abstract readonly id: string;
   abstract readonly kind: string;
