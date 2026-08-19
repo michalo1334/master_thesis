@@ -1,7 +1,95 @@
-import { buildRows, type OutlineRow } from "./document-outline";
+import {
+  buildOutline,
+  type OutlineGroup,
+  type OutlineNode,
+  type OutlineRow,
+} from "../../ui-kit/workspace/outline";
+import {
+  folderIdForDocument,
+  graphIdForDocument,
+  hasAnalysisMetadata,
+  parentDocument,
+} from "./document-outline";
+import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
+import type { FolderSummary, GraphSummary } from "../contract";
 
 /**
- * App-specific builder: maps domain (documents + folders + graphSummaries)
- * to generic outline rows. Kit's DocumentOutline will take OutlineRow[].
+ * App-specific adapter: maps domain (documents + folders + graphSummaries)
+ * to normalized outline nodes the kit's buildOutline assembles.
  */
-export { buildRows as buildDashboardRows, type OutlineRow };
+export function buildDashboardNodes(
+  documents: readonly WorkspaceDocument[],
+  folders: readonly FolderSummary[],
+  graphSummaries: readonly GraphSummary[],
+): OutlineNode[] {
+  const graphsByRevisionId = new Map<string, WorkspaceDocument>();
+  const folderIds = new Set(folders.map((f) => f.id));
+  for (const d of documents)
+    if (d.kind === "graph" && d.loadedRevisionId)
+      graphsByRevisionId.set(d.loadedRevisionId, d);
+
+  return documents.map((d) => {
+    if (hasAnalysisMetadata(d)) {
+      return {
+        id: d.id,
+        label: d.title,
+        icon: d.icon,
+        kind: d.kind,
+        groupId: "analyses",
+        section: {
+          key: d.analysisId ?? d.analysisTitle ?? "Analysis",
+          title: d.analysisTitle ?? d.analysisId ?? "Analysis",
+        },
+        ariaLabel: `${d.documentLabel} ${d.title}`,
+      };
+    }
+
+    const parent = parentDocument(d, graphsByRevisionId);
+    const folderId = folderIdForDocument(d, graphSummaries);
+    const groupId = folderId && folderIds.has(folderId) ? folderId : "root";
+    return {
+      id: d.id,
+      label: d.title,
+      icon: d.icon,
+      kind: d.kind,
+      groupId,
+      parentId: parent?.id,
+      section:
+        !parent && isReport(d)
+          ? { key: "reports", title: "Reports" }
+          : undefined,
+      ariaLabel: `${d.documentLabel} ${d.title}`,
+      dragData: graphIdForDocument(d),
+    };
+  });
+}
+
+export function buildDashboardGroups(
+  folders: readonly FolderSummary[],
+  hasAnalyses: boolean,
+): OutlineGroup[] {
+  return [
+    ...folders.map((f) => ({
+      id: f.id,
+      label: f.name,
+      icon: "folder",
+      depth: 1,
+    })),
+    ...(hasAnalyses ? [{ id: "analyses", label: "Analyses", depth: 0 }] : []),
+  ];
+}
+
+export function buildDashboardRows(
+  documents: readonly WorkspaceDocument[],
+  folders: readonly FolderSummary[],
+  graphSummaries: readonly GraphSummary[],
+): OutlineRow[] {
+  const nodes = buildDashboardNodes(documents, folders, graphSummaries);
+  const groups = buildDashboardGroups(
+    folders,
+    nodes.some((n) => n.groupId === "analyses"),
+  );
+  return buildOutline(nodes, groups);
+}
+
+export type { OutlineRow };

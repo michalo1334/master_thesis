@@ -3,11 +3,11 @@
   import Icon from "../ui/Icon.svelte";
   import type { FolderSummary } from "../contract";
   import {
+    buildRows,
     graphIdForDocument,
     rowKey,
     type OutlineRow,
   } from "./document-outline";
-  import { buildDashboardRows } from "./build-dashboard-rows";
   import type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
 
   interface Props {
@@ -38,7 +38,7 @@
   }: Props = $props();
 
   let rows: OutlineRow[] = $derived(
-    buildDashboardRows(documents, folders, graphSummaries),
+    buildRows(documents, folders, graphSummaries),
   );
   let dragFolderId = $state<string>();
 
