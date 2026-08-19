@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Dialog, DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
-  import Icon from "../ui/Icon.svelte";
+  import { Icon } from "../../ui-kit/primitives";
   import DocumentOutline from "./DocumentOutline.svelte";
   import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
   import type { WorkspaceModel } from "./WorkspaceModel.svelte";

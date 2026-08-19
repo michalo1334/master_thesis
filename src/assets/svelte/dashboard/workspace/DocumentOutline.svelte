@@ -1,6 +1,6 @@
 <script lang="ts">
   import { DropdownMenu } from "bits-ui";
-  import Icon from "../ui/Icon.svelte";
+  import { Icon } from "../../ui-kit/primitives";
   import type { FolderSummary } from "../contract";
   import {
     buildRows,
