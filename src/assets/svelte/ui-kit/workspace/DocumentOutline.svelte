@@ -39,12 +39,19 @@
     <ul>
       {#each rows as row (row.id)}
         {#if row.type === "header"}
-          <li class="document-outline-group">
-            <span role="heading" aria-level="2">
-              {#if row.icon}<Icon name={row.icon} size={16} />{/if}
-              {row.label}
-            </span>
-          </li>
+          {#if row.kind === "folder" && rowSnippet}
+            <li class="document-outline-folder">
+              {@render rowSnippet(row)}
+            </li>
+          {:else}
+            <li class="document-outline-group">
+              <span role="heading" aria-level="2">
+                {#if row.icon}<Icon name={row.icon} size={16} />{/if}
+                {row.label}
+              </span>
+              {#if rowSnippet}{@render rowSnippet(row)}{/if}
+            </li>
+          {/if}
         {:else}
           <li
             data-depth={row.depth}
@@ -71,9 +78,9 @@
               <Icon name={row.icon} size={16} />
               <span class="document-outline-label">{row.label}</span>
             </button>
+            {#if rowSnippet}{@render rowSnippet(row)}{/if}
           </li>
         {/if}
-        {#if rowSnippet}{@render rowSnippet(row)}{/if}
       {/each}
     </ul>
   {/if}
@@ -146,6 +153,72 @@
       color: var(--ds-color-text-secondary);
       font-size: var(--ds-text-sm);
       font-weight: 600;
+    }
+
+    .document-outline-folder {
+      margin-top: var(--ds-space-3);
+    }
+
+    :global(.document-outline-folder-header) {
+      min-height: var(--ds-control-height);
+      padding: 0.375rem var(--ds-space-2);
+      border-radius: var(--ds-radius-sm);
+      color: var(--ds-color-text-secondary);
+      display: flex;
+      align-items: center;
+      gap: var(--ds-space-2);
+      font-size: var(--ds-text-sm);
+      font-weight: 600;
+    }
+
+    :global(.document-outline-folder-header.drop-target) {
+      background: var(--ds-color-accent-soft);
+      color: var(--ds-color-text);
+    }
+
+    :global(.document-outline-folder-delete),
+    :global(.document-outline-move) {
+      width: 1.75rem;
+      height: 1.75rem;
+      flex: none;
+      padding: 0;
+      border: 0;
+      border-radius: var(--ds-radius-sm);
+      background: transparent;
+      color: var(--ds-color-text-faint);
+      display: grid;
+      place-items: center;
+    }
+
+    :global(.document-outline-folder-delete) {
+      margin-left: auto;
+    }
+
+    :global(.document-outline-folder-delete:hover),
+    :global(.document-outline-move:hover) {
+      background: var(--ds-color-accent-soft);
+      color: var(--ds-color-text);
+    }
+
+    :global(.document-outline-move-menu) {
+      z-index: 100;
+      min-width: 10rem;
+      padding: 0.25rem;
+      border: 1px solid var(--ds-color-border);
+      border-radius: var(--ds-radius-md);
+      background: var(--ds-color-paper);
+      box-shadow: var(--ds-shadow-md);
+    }
+
+    :global(.document-outline-move-menu [role="menuitem"]) {
+      min-height: var(--ds-control-height);
+      padding: 0.25rem 0.5rem;
+      border-radius: var(--ds-radius-sm);
+      outline: 0;
+    }
+
+    :global(.document-outline-move-menu [role="menuitem"][data-highlighted]) {
+      background: var(--ds-color-accent-soft);
     }
 
     .document-outline-row {

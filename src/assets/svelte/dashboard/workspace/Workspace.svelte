@@ -2,7 +2,8 @@
   import { Dialog, DropdownMenu, Tabs } from "bits-ui";
   import type { Snippet } from "svelte";
   import { Icon } from "../../ui-kit/primitives";
-  import DocumentOutline from "./DocumentOutline.svelte";
+  import { DocumentOutline, type OutlineRow } from "../../ui-kit/workspace";
+  import { buildDashboardRows } from "./build-dashboard-rows";
   import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
   import type { WorkspaceModel } from "./WorkspaceModel.svelte";
 
@@ -30,6 +31,24 @@
     onDeleteFolder,
     onMoveGraph,
   }: Props = $props();
+
+  let outlineRows: readonly OutlineRow[] = $derived(
+    buildDashboardRows(model.documents, model.folders, model.graphSummaries),
+  );
+  let dragFolderId = $state<string>();
+
+  function allowFolderDrop(event: DragEvent, folderId: string): void {
+    event.preventDefault();
+    dragFolderId = folderId;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+  }
+
+  function moveDroppedGraph(event: DragEvent, folderId: string): void {
+    event.preventDefault();
+    dragFolderId = undefined;
+    const graphId = event.dataTransfer?.getData("text/plain");
+    if (graphId) void onMoveGraph(graphId, folderId);
+  }
 
   let activeDocument = $derived(
     model.documents.find(
@@ -110,16 +129,73 @@
   ]}
 >
   <DocumentOutline
-    documents={model.documents}
-    folders={model.folders}
-    graphSummaries={model.graphSummaries}
-    selectedDocumentId={model.selectedDocumentId}
-    onSelectDocument={(id) => model.selectDocument(id)}
-    {onDeleteFolder}
-    {onMoveGraph}
+    rows={outlineRows}
+    selectedId={model.selectedDocumentId}
+    onSelect={(id) => model.selectDocument(id)}
     collapsed={outlineCollapsed}
     onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
-  />
+  >
+    {#snippet rowSnippet(row)}
+      {#if row.type === "header" && row.kind === "folder"}
+        <div
+          class={[
+            "document-outline-folder-header",
+            { "drop-target": dragFolderId === row.id.replace("group:", "") },
+          ]}
+          role="heading"
+          aria-level="2"
+          ondragover={(event) => {
+            const fid = row.id.replace("group:", "");
+            allowFolderDrop(event, fid);
+          }}
+          ondragleave={() => (dragFolderId = undefined)}
+          ondrop={(event) => {
+            const fid = row.id.replace("group:", "");
+            moveDroppedGraph(event, fid);
+          }}
+        >
+          <span>{row.label}</span>
+          <button
+            type="button"
+            class="document-outline-folder-delete"
+            aria-label={`Delete ${row.label}`}
+            onclick={(event) => {
+              event.stopPropagation();
+              void onDeleteFolder(row.id.replace("group:", ""));
+            }}
+          >
+            <Icon name="trash" size={15} />
+          </button>
+        </div>
+      {:else if row.type === "item" && row.dragData}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger
+            class="document-outline-move"
+            aria-label={`Move ${row.label}`}
+            title="Move graph"
+          >
+            <Icon name="folder" size={15} />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content class="document-outline-move-menu">
+              <DropdownMenu.Item
+                onclick={() => void onMoveGraph(row.dragData!, null)}
+              >
+                Move to root
+              </DropdownMenu.Item>
+              {#each model.folders as folder (folder.id)}
+                <DropdownMenu.Item
+                  onclick={() => void onMoveGraph(row.dragData!, folder.id)}
+                >
+                  {folder.name}
+                </DropdownMenu.Item>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      {/if}
+    {/snippet}
+  </DocumentOutline>
 
   <Tabs.Root
     class="dashboard-document"
