@@ -2,10 +2,10 @@
   import { Dialog } from "bits-ui";
   import type { AnalysisModel } from "./AnalysisModel.svelte";
   import type { OptimizationStrategy } from "../contract";
-  import Checkbox from "../ui/Checkbox.svelte";
-  import NumberInput from "../ui/NumberInput.svelte";
-  import Select from "../ui/Select.svelte";
-  import Slider from "../ui/Slider.svelte";
+  import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
+  import NumberInput from "../../ui-kit/primitives/NumberInput.svelte";
+  import Select from "../../ui-kit/primitives/Select.svelte";
+  import Slider from "../../ui-kit/primitives/Slider.svelte";
   import StrategyPicker from "./StrategyPicker.svelte";
 
   type OptimizationOption = {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from "../ui/Icon.svelte";
+  import Icon from "../../ui-kit/primitives/Icon.svelte";
 
   interface Props {
     onSave: () => void;

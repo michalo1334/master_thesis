@@ -6,10 +6,10 @@
     MissionCapabilityNode,
   } from "../../contract";
   import type { DashboardApi } from "../../dashboard-api";
-  import type { FilterableTableColumn } from "../../controls/FilterableTable.types";
+  import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
   import Inspector from "../Inspector.svelte";
   import InspectorField from "../InspectorField.svelte";
-  import OptionPickerDialog from "../../ui/OptionPickerDialog.svelte";
+  import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
   import { requiredFlows, type RequiredFlow } from "./mission-feasibility";
 
   interface RequiredFlowOption extends RequiredFlow {

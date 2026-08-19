@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Checkbox from "../ui/Checkbox.svelte";
+  import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
   import type { OptimizationStrategy } from "../contract";
 
   type StrategyOption = {

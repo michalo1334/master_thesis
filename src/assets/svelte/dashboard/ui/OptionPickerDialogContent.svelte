@@ -1,7 +1,7 @@
 <script lang="ts" generics="Item">
   import { Dialog } from "bits-ui";
-  import FilterableTable from "../controls/FilterableTable.svelte";
-  import type { FilterableTableColumn } from "../controls/FilterableTable.types";
+  import FilterableTable from "../../ui-kit/composites/FilterableTable.svelte";
+  import type { FilterableTableColumn } from "../../ui-kit/composites/FilterableTable.types";
 
   interface Props {
     items: readonly Item[];

@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { LoadedGraph } from "../../contract";
   import type { AnalysisOption } from "../../dashboard-api";
-  import type { FilterableTableColumn } from "../../controls/FilterableTable.types";
+  import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
   import Inspector from "../Inspector.svelte";
   import InspectorField from "../InspectorField.svelte";
-  import OptionPickerDialog from "../../ui/OptionPickerDialog.svelte";
+  import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
 
   interface Props {
     graph: LoadedGraph;

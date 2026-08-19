@@ -5,13 +5,13 @@
     DocumentCatalogItem,
     FetchDocumentCatalogReply,
   } from "../contract";
-  import FilterableTable from "../controls/FilterableTable.svelte";
+  import FilterableTable from "../../ui-kit/composites/FilterableTable.svelte";
   import type {
     FilterableTableColumn,
     FilterableTableServerQuery,
-  } from "../controls/FilterableTable.types";
-  import MultiSelectFilter from "../controls/MultiSelectFilter.svelte";
-  import type { MultiSelectFilterOption } from "../controls/MultiSelectFilter.svelte";
+  } from "../../ui-kit/composites/FilterableTable.types";
+  import MultiSelectFilter from "../../ui-kit/composites/MultiSelectFilter.svelte";
+  import type { MultiSelectFilterOption } from "../../ui-kit/composites/MultiSelectFilter.svelte";
   import { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
 
   interface Props {

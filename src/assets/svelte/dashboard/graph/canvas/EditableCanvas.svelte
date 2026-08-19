@@ -12,8 +12,8 @@
     GraphConnectivityRule,
     Node,
   } from "../../contract";
-  import OptionPickerDialog from "../../ui/OptionPickerDialog.svelte";
-  import type { FilterableTableColumn } from "../../controls/FilterableTable.types";
+  import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
+  import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
 
   interface ConnectionRequest {
     position: { x: number; y: number };

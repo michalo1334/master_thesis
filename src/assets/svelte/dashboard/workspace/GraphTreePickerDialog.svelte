@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Button, Dialog } from "bits-ui";
   import { SvelteSet } from "svelte/reactivity";
-  import Icon from "../ui/Icon.svelte";
+  import Icon from "../../ui-kit/primitives/Icon.svelte";
   import type { GraphSummary } from "../contract";
 
   interface Props {

@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { DashboardModel } from "./dashboard/DashboardModel.svelte";
-  import AppBar from "./dashboard/shell/AppBar.svelte";
-  import StatusBar from "./dashboard/shell/StatusBar.svelte";
+  import { AppBar, StatusBar } from "./ui-kit/layout";
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";

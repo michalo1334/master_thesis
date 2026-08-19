@@ -1,17 +1,17 @@
 <script lang="ts">
-  import RibbonButton from "../ui/RibbonButton.svelte";
-  import Icon from "../ui/Icon.svelte";
-  import Ribbon from "../ribbon/Ribbon";
-  import Slider from "../ui/Slider.svelte";
+  import RibbonButton from "../../ui-kit/primitives/RibbonButton.svelte";
+  import Icon from "../../ui-kit/primitives/Icon.svelte";
+  import { Ribbon } from "../../ui-kit/layout";
+  import Slider from "../../ui-kit/primitives/Slider.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type {
     OptimizationParams,
     OptimizationParamsChange,
     SimulationParams,
   } from "../contract";
-  import Checkbox from "../ui/Checkbox.svelte";
-  import NumberInput from "../ui/NumberInput.svelte";
-  import Select from "../ui/Select.svelte";
+  import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
+  import NumberInput from "../../ui-kit/primitives/NumberInput.svelte";
+  import Select from "../../ui-kit/primitives/Select.svelte";
 
   type OptimizationOption = {
     id: OptimizationParams["strategy"];
