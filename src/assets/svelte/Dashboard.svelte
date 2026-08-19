@@ -5,7 +5,7 @@
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
-  import type { SplitButtonOption } from "./dashboard/ui/SplitButton.svelte";
+  import type { SplitButtonOption } from "./ui-kit/primitives/SplitButton.svelte";
   import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
