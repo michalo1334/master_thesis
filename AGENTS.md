@@ -4,7 +4,28 @@ A system for modeling and applying defenses (minimizing blast radius) in compute
 
 SEE README.md FIRST
 
+## General workflow
+
+Your agent type: 
+ - main agent if the prompt doesn't contain any info
+ - subagent if prompt specifies it
+
+Whenever you invoke/delegate to subagent always in prompt specify the subagent delegated to is a subagent.
+
+General workflow is as follows:
+ - always use `explorer_fast` model for exploring, never `Explorer`
+ - use `implementor_fast` for implementation
+ - when you are the main agent your responsibility is general thinking/approaching the problem and orchestrating subagents. For exploration and implementation use subagents as much as possible Pass context (including those from subagents) to subagents via temporary markdown files. You can do small fixes or quick pass reviews.
+
 ## Infrastructure
+
+Project uses Terraform for provisioning infrastructure - `/infra`.
+
+Local environment module contains helper script that preloads local `.env` file. Use it for using Terraform locally - `/infra/environments/local/terraform.sh`
+
+### Observability
+
+Loki, Tempo and Promethesus are used for storing telemetry data.
 
 ### Secrets & inputs
 
@@ -34,7 +55,7 @@ To discuss with user
 ## Documentation
 
 - For interacting with user (this includes also your output regardless of mode) and/or writing documentation (in general) use `writing-clearly-and-concisely` skill.
-- For writing *technical* documentation or acting as subagent (output) always use asd-ste100-skill.
+- For writing *technical* documentation or acting as subagent (output) *always* use `asd-ste100` skill.
 - Always use Mermaid for diagrams, including those embedded inside markdown blocks. See `mermaid-diagrams` for reference. Do not use ASCII art or other languages like PlantUML unless expliticly specified by the user
 - Never copy paste source code or concrete values unless is for example purposes. It gets outdated very quickly. Instead point to relevant file/place for current values. The point is that documentation can get out of sync with aspects that change dynamically like source code
 - Do not document what can be read from the config or source code. Document why, not what.
