@@ -27,30 +27,30 @@
 <style>
   .statistical-chart {
     min-width: 0;
-    padding: var(--ds-space-4);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-sm);
+    padding: var(--ui-space-4);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-sm);
   }
   h3,
   p {
     margin: 0;
   }
   h3 {
-    color: var(--ds-color-text);
-    font-size: var(--ds-text-base);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-base);
     font-weight: 700;
   }
   p {
-    margin-top: var(--ds-space-1);
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    margin-top: var(--ui-space-1);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
     line-height: 1.4;
   }
   .statistical-chart-canvas {
     height: 15rem;
-    margin-top: var(--ds-space-3);
+    margin-top: var(--ui-space-3);
   }
 
   @media (max-width: 34em) {

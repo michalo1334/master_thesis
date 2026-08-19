@@ -74,8 +74,8 @@
   }
 
   .dashboard-number-input-label {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     white-space: nowrap;
   }
@@ -83,13 +83,13 @@
   .dashboard-number-input-control {
     width: 100%;
     min-width: 0;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.1875rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    color: var(--ds-color-text);
-    font-size: var(--ds-text-xs);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-xs);
     font-variant-numeric: tabular-nums;
   }
 
@@ -100,17 +100,17 @@
   }
 
   .dashboard-number-input-control:not(:disabled):hover {
-    border-color: var(--ds-color-accent);
+    border-color: var(--ui-color-accent);
   }
 
   .dashboard-number-input-control:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 2px;
   }
 
   .dashboard-number-input-control:disabled {
-    color: var(--ds-color-text-faint);
-    background: var(--ds-color-surface);
+    color: var(--ui-color-text-faint);
+    background: var(--ui-color-surface);
     cursor: default;
   }
 </style>

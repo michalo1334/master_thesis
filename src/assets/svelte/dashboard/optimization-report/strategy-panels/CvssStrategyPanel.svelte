@@ -33,6 +33,6 @@
 <style>
   .cvss-chart {
     max-width: 62rem;
-    margin-top: var(--ds-space-3);
+    margin-top: var(--ui-space-3);
   }
 </style>

@@ -44,26 +44,26 @@
   }
 
   .dashboard-select-label {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
   }
 
   .dashboard-select-control {
     width: 100%;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.1875rem 1.75rem 0.1875rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
 
   .dashboard-select-control:not(:disabled):hover {
-    border-color: var(--ds-color-accent);
+    border-color: var(--ui-color-accent);
   }
 
   .dashboard-select-control:disabled {
-    color: var(--ds-color-text-faint);
-    background: var(--ds-color-surface);
+    color: var(--ui-color-text-faint);
+    background: var(--ui-color-surface);
   }
 </style>

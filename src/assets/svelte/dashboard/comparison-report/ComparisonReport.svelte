@@ -360,10 +360,10 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    padding: var(--ds-space-6);
-    scroll-padding-block-start: var(--ds-document-tabs-height);
-    background: var(--ds-color-surface);
-    color: var(--ds-color-text);
+    padding: var(--ui-space-6);
+    scroll-padding-block-start: var(--ui-document-tabs-height);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text);
   }
   header p,
   h1,
@@ -373,46 +373,46 @@
     margin: 0;
   }
   header p {
-    color: var(--ds-color-accent);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-accent);
+    font-size: var(--ui-text-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
   h1 {
-    margin-top: var(--ds-space-1);
+    margin-top: var(--ui-space-1);
     font-size: 1.5rem;
   }
   section {
     max-width: 70rem;
-    margin-top: var(--ds-space-7);
-    scroll-margin-block-start: var(--ds-document-tabs-height);
+    margin-top: var(--ui-space-7);
+    scroll-margin-block-start: var(--ui-document-tabs-height);
   }
   h2 {
-    margin-bottom: var(--ds-space-3);
-    font-size: var(--ds-text-base);
+    margin-bottom: var(--ui-space-3);
+    font-size: var(--ui-text-base);
   }
   .comparison-report-table-wrap {
     overflow-x: auto;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
   table {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
   th,
   td {
-    padding: var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border);
+    padding: var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border);
     white-space: nowrap;
   }
   thead th {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     text-transform: uppercase;
   }
   tbody tr:last-child > * {
@@ -424,74 +424,74 @@
   .comparison-report-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
   .comparison-report-summary div {
-    padding: var(--ds-space-3);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    padding: var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
   dt {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     text-transform: uppercase;
   }
   dd {
-    margin: var(--ds-space-1) 0 0;
+    margin: var(--ui-space-1) 0 0;
   }
   .comparison-report-actions {
     display: grid;
-    gap: var(--ds-space-1);
-    margin: var(--ds-space-3) 0 0;
+    gap: var(--ui-space-1);
+    margin: var(--ui-space-3) 0 0;
     padding-left: 1.25rem;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
   .comparison-report-actions span {
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
   }
   .comparison-report-diff {
     display: grid;
     grid-template-rows: auto minmax(22rem, 36rem);
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
     min-width: 0;
   }
   .comparison-report-diff p,
   .comparison-report-empty {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
   .comparison-report-diff-canvas {
     min-width: 0;
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
   }
   .comparison-report-status {
     min-height: 16rem;
     display: grid;
     place-content: center;
     justify-items: center;
-    gap: var(--ds-space-3);
-    border: 2px dashed var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    color: var(--ds-color-text-secondary);
+    gap: var(--ui-space-3);
+    border: 2px dashed var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    color: var(--ui-color-text-secondary);
   }
   .comparison-report-spinner {
     width: 2rem;
     height: 2rem;
-    border: 3px solid var(--ds-color-border);
-    border-top-color: var(--ds-color-accent);
+    border: 3px solid var(--ui-color-border);
+    border-top-color: var(--ui-color-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
   button {
-    min-height: var(--ds-control-height);
-    padding: 0 var(--ds-space-3);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    min-height: var(--ui-control-height);
+    padding: 0 var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
     color: inherit;
     font: inherit;
   }
@@ -502,40 +502,40 @@
   }
   @media (max-width: 48em) {
     .comparison-report {
-      padding: var(--ds-space-4);
+      padding: var(--ui-space-4);
     }
     .comparison-report-metric-table {
       display: none;
     }
     .comparison-report-metric-cards {
       display: grid;
-      gap: var(--ds-space-3);
+      gap: var(--ui-space-3);
       margin: 0;
       padding: 0;
       list-style: none;
     }
     .comparison-report-metric-cards li {
-      padding: var(--ds-space-3);
-      border: 1px solid var(--ds-color-border);
-      border-radius: var(--ds-radius-md);
-      background: var(--ds-color-paper);
+      padding: var(--ui-space-3);
+      border: 1px solid var(--ui-color-border);
+      border-radius: var(--ui-radius-md);
+      background: var(--ui-color-paper);
     }
     .comparison-report-metric-cards h3 {
-      margin: 0 0 var(--ds-space-3);
-      font-size: var(--ds-text-sm);
+      margin: 0 0 var(--ui-space-3);
+      font-size: var(--ui-text-sm);
     }
     .comparison-report-metric-cards dl {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--ds-space-3);
+      gap: var(--ui-space-3);
     }
     .comparison-report-metric-cards dt {
-      color: var(--ds-color-text-secondary);
-      font-size: var(--ds-text-xs);
+      color: var(--ui-color-text-secondary);
+      font-size: var(--ui-text-xs);
       text-transform: uppercase;
     }
     .comparison-report-metric-cards dd {
-      margin: var(--ds-space-1) 0 0;
+      margin: var(--ui-space-1) 0 0;
       overflow-wrap: anywhere;
     }
     .comparison-report-diff {

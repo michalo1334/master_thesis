@@ -339,17 +339,17 @@
     min-height: 0;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
-    gap: var(--ds-space-4);
-    padding: var(--ds-space-6);
+    gap: var(--ui-space-4);
+    padding: var(--ui-space-6);
     overflow: hidden;
-    background: var(--ds-color-surface);
+    background: var(--ui-color-surface);
   }
 
   .document-catalog-header {
     display: flex;
     align-items: end;
     justify-content: space-between;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
 
   .document-catalog-header p,
@@ -358,50 +358,50 @@
   }
 
   .document-catalog-header p {
-    color: var(--ds-color-accent);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-accent);
+    font-size: var(--ui-text-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
   .document-catalog-header h1 {
-    margin-top: var(--ds-space-1);
+    margin-top: var(--ui-space-1);
     font-size: 1.5rem;
   }
 
   .document-catalog-actions {
     display: flex;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
   }
 
   .document-catalog-open {
-    min-height: var(--ds-control-height);
-    padding: 0 var(--ds-space-3);
-    border: 1px solid var(--ds-color-accent);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-accent);
-    color: var(--ds-color-paper);
+    min-height: var(--ui-control-height);
+    padding: 0 var(--ui-space-3);
+    border: 1px solid var(--ui-color-accent);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-accent);
+    color: var(--ui-color-paper);
     font: inherit;
     white-space: nowrap;
   }
 
   .document-catalog-open:disabled {
-    border-color: var(--ds-color-border);
-    background: var(--ds-color-border-soft);
-    color: var(--ds-color-text-faint);
+    border-color: var(--ui-color-border);
+    background: var(--ui-color-border-soft);
+    color: var(--ui-color-text-faint);
     cursor: default;
   }
 
   .catalog-filter-header {
     display: inline-flex;
     align-items: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
 
   @media (max-width: 48em) {
     .document-catalog {
-      padding: var(--ds-space-4);
+      padding: var(--ui-space-4);
     }
 
     .document-catalog-header {

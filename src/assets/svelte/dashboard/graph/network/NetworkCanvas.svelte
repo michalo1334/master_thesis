@@ -710,7 +710,7 @@
         refY="3"
         orient="auto"
       >
-        <path d="M 0 0 L 6 3 L 0 6 z" fill="var(--ds-color-node-service)" />
+        <path d="M 0 0 L 6 3 L 0 6 z" fill="var(--ui-color-node-service)" />
       </marker>
     </defs>
     <g {transform}>
@@ -1036,7 +1036,7 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background: var(--ds-color-canvas);
+    background: var(--ui-color-canvas);
   }
   .network-toolbar,
   .network-controls {
@@ -1045,44 +1045,44 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
-    font-size: var(--ds-text-xs);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    font-size: var(--ui-text-xs);
   }
   .network-toolbar {
-    top: calc(var(--ds-space-3) + 2.5rem);
-    left: var(--ds-space-3);
-    max-inline-size: calc(100% - 2 * var(--ds-space-3));
+    top: calc(var(--ui-space-3) + 2.5rem);
+    left: var(--ui-space-3);
+    max-inline-size: calc(100% - 2 * var(--ui-space-3));
   }
   .network-toolbar button,
   .network-controls button,
   .network-toolbar select {
     border: 0;
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-accent-soft);
-    color: var(--ds-color-text);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-accent-soft);
+    color: var(--ui-color-text);
     padding: 0.25rem 0.5rem;
   }
   .network-toolbar-status {
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
   }
   .network-projection-notice {
     position: absolute;
     z-index: 1;
-    top: calc(var(--ds-space-3) + 5rem);
+    top: calc(var(--ui-space-3) + 5rem);
     left: 50%;
     transform: translateX(-50%);
     padding: 0.25rem 0.5rem;
-    border: 1px solid var(--ds-color-warning);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-warning-bg);
-    color: var(--ds-color-warning-text);
-    font-size: var(--ds-text-xs);
-    box-shadow: var(--ds-shadow-md);
+    border: 1px solid var(--ui-color-warning);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-warning-bg);
+    color: var(--ui-color-warning-text);
+    font-size: var(--ui-text-xs);
+    box-shadow: var(--ui-shadow-md);
   }
   .network-surface {
     display: block;
@@ -1090,7 +1090,7 @@
     height: 100%;
     touch-action: none;
     background-image: radial-gradient(
-      var(--ds-color-border) 1px,
+      var(--ui-color-border) 1px,
       transparent 1px
     );
     background-size: 20px 20px;
@@ -1104,20 +1104,20 @@
   }
   .network-policy-link path {
     fill: none;
-    stroke: var(--ds-color-preview-edge);
+    stroke: var(--ui-color-preview-edge);
     stroke-width: 2;
   }
   .network-zone {
     cursor: pointer;
   }
   .network-zone > ellipse {
-    fill: var(--ds-color-accent-soft);
-    stroke: var(--ds-color-accent);
+    fill: var(--ui-color-accent-soft);
+    stroke: var(--ui-color-accent);
     stroke-width: 2;
   }
   .network-zone.selected > ellipse,
   .network-host.selected > rect {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
   }
   .network-zone-name,
@@ -1127,39 +1127,39 @@
   }
   .network-zone-name,
   .network-host text {
-    fill: var(--ds-color-text);
-    font: 700 var(--ds-text-sm) var(--ds-font-ui);
+    fill: var(--ui-color-text);
+    font: 700 var(--ui-text-sm) var(--ui-font-ui);
   }
   .network-zone-meta,
   .network-host-meta,
   .network-operational-flow text {
-    fill: var(--ds-color-text-secondary);
-    font: var(--ds-text-xs) var(--ds-font-mono);
+    fill: var(--ui-color-text-secondary);
+    font: var(--ui-text-xs) var(--ui-font-mono);
   }
   .network-zone-glyph {
     cursor: pointer;
   }
   .network-zone-glyph circle {
-    fill: var(--ds-color-paper);
-    stroke: var(--ds-color-accent);
+    fill: var(--ui-color-paper);
+    stroke: var(--ui-color-accent);
     stroke-width: 2;
   }
   .network-zone-glyph path {
     fill: none;
-    stroke: var(--ds-color-text);
+    stroke: var(--ui-color-text);
     stroke-width: 2;
   }
   .network-zone-glyph text {
-    fill: var(--ds-color-text);
-    font: 700 var(--ds-text-xs) var(--ds-font-mono);
+    fill: var(--ui-color-text);
+    font: 700 var(--ui-text-xs) var(--ui-font-mono);
     pointer-events: none;
   }
   .network-host {
     cursor: pointer;
   }
   .network-host > rect {
-    fill: var(--ds-color-paper);
-    stroke: var(--ds-color-accent);
+    fill: var(--ui-color-paper);
+    stroke: var(--ui-color-accent);
     stroke-width: 1.5;
   }
   .network-host-glyph,
@@ -1168,33 +1168,33 @@
     cursor: pointer;
   }
   .network-host-glyph circle {
-    fill: var(--ds-color-accent-soft);
-    stroke: var(--ds-color-accent);
+    fill: var(--ui-color-accent-soft);
+    stroke: var(--ui-color-accent);
     stroke-width: 1.5;
   }
   .network-host-glyph path {
     fill: none;
-    stroke: var(--ds-color-text);
+    stroke: var(--ui-color-text);
     stroke-width: 1.5;
   }
   .network-service-row rect {
-    fill: var(--ds-color-accent-soft);
-    stroke: var(--ds-color-accent);
+    fill: var(--ui-color-accent-soft);
+    stroke: var(--ui-color-accent);
     stroke-width: 1;
   }
   .network-vulnerability-row rect {
-    fill: var(--ds-color-paper);
-    stroke: var(--ds-color-border);
+    fill: var(--ui-color-paper);
+    stroke: var(--ui-color-border);
     stroke-width: 1;
   }
   .network-service-row text,
   .network-vulnerability-row text {
-    fill: var(--ds-color-text-secondary);
-    font: var(--ds-text-xs) var(--ds-font-mono);
+    fill: var(--ui-color-text-secondary);
+    font: var(--ui-text-xs) var(--ui-font-mono);
   }
   .network-operational-flow path {
     fill: none;
-    stroke: var(--ds-color-node-service);
+    stroke: var(--ui-color-node-service);
     stroke-width: 1.5;
     stroke-dasharray: 6 4;
     pointer-events: none;
@@ -1203,41 +1203,41 @@
     pointer-events: none;
   }
   .network-controls {
-    right: var(--ds-space-3);
-    bottom: var(--ds-space-3);
+    right: var(--ui-space-3);
+    bottom: var(--ui-space-3);
   }
   .network-controls output {
     min-width: 3rem;
     text-align: center;
-    font-family: var(--ds-font-mono);
+    font-family: var(--ui-font-mono);
   }
   .network-outline {
     position: absolute;
     z-index: 1;
-    top: calc(var(--ds-space-3) + 5rem);
-    right: var(--ds-space-3);
-    max-inline-size: min(18rem, calc(100% - 2 * var(--ds-space-3)));
+    top: calc(var(--ui-space-3) + 5rem);
+    right: var(--ui-space-3);
+    max-inline-size: min(18rem, calc(100% - 2 * var(--ui-space-3)));
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
-    font-size: var(--ds-text-xs);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    font-size: var(--ui-text-xs);
   }
   .network-outline summary {
     cursor: pointer;
     font-weight: 700;
   }
   .network-outline ul {
-    margin: var(--ds-space-2) 0 0;
-    padding-inline-start: var(--ds-space-4);
+    margin: var(--ui-space-2) 0 0;
+    padding-inline-start: var(--ui-space-4);
   }
   .network-outline button {
-    margin: var(--ds-space-1);
+    margin: var(--ui-space-1);
     border: 0;
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-accent-soft);
-    color: var(--ds-color-text);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-accent-soft);
+    color: var(--ui-color-text);
     padding: 0.25rem 0.5rem;
   }
 </style>

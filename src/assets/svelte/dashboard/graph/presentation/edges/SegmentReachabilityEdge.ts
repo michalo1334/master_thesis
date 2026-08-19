@@ -9,7 +9,7 @@ function policyLabel(edge: Edge): string {
 }
 
 export const segmentReachabilityEdge = {
-  color: "var(--ds-color-edge-segment-reachability)",
+  color: "var(--ui-color-edge-segment-reachability)",
   dashArray: "5 3" as string | null,
   inspector: EditableSelectionInspector,
   label: policyLabel,

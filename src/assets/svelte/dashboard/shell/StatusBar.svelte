@@ -27,9 +27,9 @@
     align-items: center;
     gap: 0.875rem;
     padding: 0 0.625rem;
-    color: var(--ds-color-on-dark);
-    background: var(--ds-color-nav-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-on-dark);
+    background: var(--ui-color-nav-secondary);
+    font-size: var(--ui-text-sm);
   }
   .dashboard-status-item {
     display: flex;
@@ -42,7 +42,7 @@
     width: 0.4375rem;
     height: 0.4375rem;
     border-radius: 50%;
-    background: var(--ds-color-status-dot);
+    background: var(--ui-color-status-dot);
   }
   .dashboard-status-selection {
     margin-left: auto;

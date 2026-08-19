@@ -26,11 +26,11 @@
 <style>
   .strategy-panel {
     max-width: 62rem;
-    margin-top: var(--ds-space-6);
-    padding: var(--ds-space-4);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-paper);
+    margin-top: var(--ui-space-6);
+    padding: var(--ui-space-4);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-color-paper);
   }
   h2,
   h3,
@@ -39,20 +39,20 @@
     margin: 0;
   }
   h2 {
-    font-size: var(--ds-text-base);
+    font-size: var(--ui-text-base);
   }
   p,
   li {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
   p,
   h3,
   ul {
-    margin-top: var(--ds-space-2);
+    margin-top: var(--ui-space-2);
   }
   h3 {
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
   ul {
     padding-left: 1.25rem;

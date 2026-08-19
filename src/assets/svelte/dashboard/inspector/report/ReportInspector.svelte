@@ -55,26 +55,26 @@
 <style>
   .report-analysis-field {
     display: grid;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
   .report-analysis-field > span {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
   .report-analysis-field select {
     min-width: 0;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
   }
   .report-analysis-status {
-    margin: var(--ds-space-2) 0 0;
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    margin: var(--ui-space-2) 0 0;
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
 </style>

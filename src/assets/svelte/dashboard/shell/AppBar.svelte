@@ -32,10 +32,10 @@
     grid-area: appbar;
     display: flex;
     align-items: center;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
     padding: 0 0.875rem;
-    color: var(--ds-color-on-dark);
-    background: var(--ds-color-nav);
+    color: var(--ui-color-on-dark);
+    background: var(--ui-color-nav);
   }
 
   .dashboard-brand {
@@ -47,36 +47,36 @@
     white-space: nowrap;
   }
   .dashboard-brand-mark {
-    width: var(--ds-space-6);
-    height: var(--ds-space-6);
+    width: var(--ui-space-6);
+    height: var(--ui-space-6);
     display: grid;
     place-items: center;
     border-radius: 0.3125rem;
-    background: var(--ds-color-accent);
+    background: var(--ui-color-accent);
   }
   .dashboard-appbar-divider {
     width: 1px;
     height: 1.25rem;
-    background: color-mix(in srgb, var(--ds-color-on-dark) 21%, transparent);
+    background: color-mix(in srgb, var(--ui-color-on-dark) 21%, transparent);
   }
   .dashboard-app-actions {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
   .dashboard-app-save {
-    height: var(--ds-control-height);
-    padding: 0 var(--ds-space-2);
+    height: var(--ui-control-height);
+    padding: 0 var(--ui-space-2);
     border: 0;
-    border-radius: var(--ds-radius-md);
-    color: var(--ds-color-on-dark);
+    border-radius: var(--ui-radius-md);
+    color: var(--ui-color-on-dark);
     background: transparent;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
     font-weight: 600;
   }
   .dashboard-app-save:not(:disabled):hover {
-    background: var(--ds-color-on-dark-hover);
+    background: var(--ui-color-on-dark-hover);
   }
   .dashboard-app-save:disabled {
     opacity: 0.6;

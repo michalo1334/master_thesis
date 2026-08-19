@@ -12,9 +12,9 @@
 
 <style>
   .canvas-node-title {
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
     font-weight: 700;
-    fill: var(--ds-color-text);
+    fill: var(--ui-color-text);
     pointer-events: none;
   }
 </style>

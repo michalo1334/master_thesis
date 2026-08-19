@@ -215,39 +215,39 @@
 <style>
   .required-flows {
     display: grid;
-    gap: var(--ds-space-2);
-    margin-top: var(--ds-space-4);
-    padding-top: var(--ds-space-3);
-    border-top: 1px solid var(--ds-color-border-soft);
+    gap: var(--ui-space-2);
+    margin-top: var(--ui-space-4);
+    padding-top: var(--ui-space-3);
+    border-top: 1px solid var(--ui-color-border-soft);
   }
   .required-flows h3,
   .required-flows p {
     margin: 0;
   }
   .required-flows h3 {
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
   .required-flows p {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
   .required-flows ul {
     display: grid;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
     margin: 0;
     padding-left: 1.25rem;
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
   .required-flows button {
     width: fit-content;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
   }
   .required-flows-status {
-    color: var(--ds-color-warning-text) !important;
+    color: var(--ui-color-warning-text) !important;
   }
 </style>

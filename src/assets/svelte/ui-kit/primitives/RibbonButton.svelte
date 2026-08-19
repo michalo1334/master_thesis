@@ -34,20 +34,20 @@
     min-height: 3.875rem;
     padding: 0.3125rem 0.4375rem;
     border: 1px solid transparent;
-    border-radius: var(--ds-radius-md);
+    border-radius: var(--ui-radius-md);
     background: transparent;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--ds-space-1);
-    --dashboard-icon-color: var(--ds-color-accent);
+    gap: var(--ui-space-1);
+    --dashboard-icon-color: var(--ui-color-accent);
   }
 
   .dashboard-button:not(:disabled):hover,
   .dashboard-button[aria-pressed="true"]:not(:disabled) {
-    background: var(--ds-color-accent-soft);
-    border-color: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
+    border-color: var(--ui-color-accent-soft);
   }
 
   .dashboard-button:disabled {
@@ -56,7 +56,7 @@
 
   .dashboard-button-small {
     min-width: 4.625rem;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     flex-direction: row;
     justify-content: flex-start;
   }

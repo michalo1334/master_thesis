@@ -266,7 +266,7 @@
     position: fixed;
     z-index: 200;
     inset: 0;
-    background: color-mix(in srgb, var(--ds-color-nav) 45%, transparent);
+    background: color-mix(in srgb, var(--ui-color-nav) 45%, transparent);
   }
 
   :global(.analysis-dialog) {
@@ -278,51 +278,51 @@
     max-height: calc(100dvh - 2rem);
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-    padding: var(--ds-space-4);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
-    color: var(--ds-color-text);
+    padding: var(--ui-space-4);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-color-text);
     transform: translate(-50%, -50%);
   }
 
   :global(.analysis-dialog [data-dialog-title]) {
     margin: 0;
-    font-size: var(--ds-text-xl);
+    font-size: var(--ui-text-xl);
   }
 
   :global(.analysis-dialog [data-dialog-description]) {
-    margin: var(--ds-space-2) 0 0;
-    color: var(--ds-color-text-secondary);
+    margin: var(--ui-space-2) 0 0;
+    color: var(--ui-color-text-secondary);
   }
 
   .analysis-body {
     display: grid;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
     min-height: 0;
-    margin-top: var(--ds-space-4);
+    margin-top: var(--ui-space-4);
     overflow: auto;
   }
 
   .analysis-section {
-    padding: var(--ds-space-3);
-    border: 1px solid var(--ds-color-border-soft);
-    border-radius: var(--ds-radius-md);
+    padding: var(--ui-space-3);
+    border: 1px solid var(--ui-color-border-soft);
+    border-radius: var(--ui-radius-md);
   }
 
   .analysis-section-title {
-    margin: 0 0 var(--ds-space-2);
-    font-size: var(--ds-text-base);
+    margin: 0 0 var(--ui-space-2);
+    font-size: var(--ui-text-base);
   }
 
   .analysis-target {
     width: 100%;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.75rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-surface);
     color: inherit;
     text-align: left;
   }
@@ -330,39 +330,39 @@
   .analysis-controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--ds-space-2);
-    margin-top: var(--ds-space-2);
+    gap: var(--ui-space-2);
+    margin-top: var(--ui-space-2);
   }
 
   .analysis-status {
-    margin: var(--ds-space-3) 0 0;
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-warning-bg);
-    color: var(--ds-color-warning-text);
-    font-size: var(--ds-text-sm);
+    margin: var(--ui-space-3) 0 0;
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-warning-bg);
+    color: var(--ui-color-warning-text);
+    font-size: var(--ui-text-sm);
   }
 
   .analysis-actions {
     display: flex;
     justify-content: flex-end;
-    gap: var(--ds-space-2);
-    margin-top: var(--ds-space-4);
+    gap: var(--ui-space-2);
+    margin-top: var(--ui-space-4);
   }
 
   .analysis-button {
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.75rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-surface);
     color: inherit;
   }
 
   .analysis-confirm {
-    border-color: var(--ds-color-accent);
-    background: var(--ds-color-accent);
-    color: var(--ds-color-paper);
+    border-color: var(--ui-color-accent);
+    background: var(--ui-color-accent);
+    color: var(--ui-color-paper);
   }
 
   .analysis-target:disabled,
@@ -386,7 +386,7 @@
     :global(.analysis-dialog) {
       width: calc(100vw - 1rem);
       max-height: calc(100dvh - 1rem);
-      padding: var(--ds-space-3);
+      padding: var(--ui-space-3);
     }
 
     .analysis-controls {

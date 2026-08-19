@@ -108,33 +108,33 @@
 <style>
   .editable-selection-fields {
     display: grid;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
   label {
     display: grid;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
   label span {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
   input,
   select {
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     min-width: 0;
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
-    color: var(--ds-color-text);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text);
     font: inherit;
   }
   input:focus-visible,
   select:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 1px;
   }
 </style>

@@ -187,38 +187,38 @@
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: var(--ds-space-2);
+      gap: var(--ui-space-2);
       overflow: auto;
-      padding: var(--ds-space-3) var(--ds-space-2);
-      border-right: 1px solid var(--ds-color-border);
-      background: var(--ds-color-border-soft);
+      padding: var(--ui-space-3) var(--ui-space-2);
+      border-right: 1px solid var(--ui-color-border);
+      background: var(--ui-color-border-soft);
     }
 
     .document-outline.collapsed {
       align-items: center;
-      padding: var(--ds-space-2);
+      padding: var(--ui-space-2);
       overflow: hidden;
     }
 
     .document-outline-toggle {
-      width: var(--ds-control-height);
-      min-height: var(--ds-control-height);
+      width: var(--ui-control-height);
+      min-height: var(--ui-control-height);
       flex: none;
       border: 0;
-      border-radius: var(--ds-radius-sm);
+      border-radius: var(--ui-radius-sm);
       background: transparent;
-      color: var(--ds-color-text-secondary);
+      color: var(--ui-color-text-secondary);
       display: grid;
       place-items: center;
     }
 
     .document-outline-toggle:hover {
-      background: var(--ds-color-accent-soft);
-      color: var(--ds-color-text);
+      background: var(--ui-color-accent-soft);
+      color: var(--ui-color-text);
     }
 
     .document-outline-toggle:focus-visible {
-      outline: 2px solid var(--ds-color-focus);
+      outline: 2px solid var(--ui-color-focus);
       outline-offset: -2px;
     }
 
@@ -239,38 +239,38 @@
     }
 
     .document-outline-group {
-      margin-top: var(--ds-space-3);
-      padding: 0.375rem var(--ds-space-2);
-      color: var(--ds-color-text-secondary);
-      font-size: var(--ds-text-sm);
+      margin-top: var(--ui-space-3);
+      padding: 0.375rem var(--ui-space-2);
+      color: var(--ui-color-text-secondary);
+      font-size: var(--ui-text-sm);
       font-weight: 600;
     }
     .document-outline-analysis {
-      padding: 0.25rem var(--ds-space-2);
-      color: var(--ds-color-text-secondary);
-      font-size: var(--ds-text-xs);
+      padding: 0.25rem var(--ui-space-2);
+      color: var(--ui-color-text-secondary);
+      font-size: var(--ui-text-xs);
       font-weight: 600;
     }
 
     .document-outline-folder {
-      margin-top: var(--ds-space-3);
+      margin-top: var(--ui-space-3);
     }
 
     .document-outline-folder-header {
-      min-height: var(--ds-control-height);
-      padding: 0.375rem var(--ds-space-2);
-      border-radius: var(--ds-radius-sm);
-      color: var(--ds-color-text-secondary);
+      min-height: var(--ui-control-height);
+      padding: 0.375rem var(--ui-space-2);
+      border-radius: var(--ui-radius-sm);
+      color: var(--ui-color-text-secondary);
       display: flex;
       align-items: center;
-      gap: var(--ds-space-2);
-      font-size: var(--ds-text-sm);
+      gap: var(--ui-space-2);
+      font-size: var(--ui-text-sm);
       font-weight: 600;
     }
 
     .document-outline-folder-header.drop-target {
-      background: var(--ds-color-accent-soft);
-      color: var(--ds-color-text);
+      background: var(--ui-color-accent-soft);
+      color: var(--ui-color-text);
     }
 
     .document-outline-folder-delete,
@@ -280,9 +280,9 @@
       flex: none;
       padding: 0;
       border: 0;
-      border-radius: var(--ds-radius-sm);
+      border-radius: var(--ui-radius-sm);
       background: transparent;
-      color: var(--ds-color-text-faint);
+      color: var(--ui-color-text-faint);
       display: grid;
       place-items: center;
     }
@@ -293,32 +293,32 @@
 
     .document-outline-folder-delete:hover,
     :global(.document-outline-move:hover) {
-      background: var(--ds-color-accent-soft);
-      color: var(--ds-color-text);
+      background: var(--ui-color-accent-soft);
+      color: var(--ui-color-text);
     }
 
     .document-outline-row {
       width: 100%;
       flex: 1;
-      min-height: var(--ds-control-height);
-      padding: 0.375rem var(--ds-space-2);
+      min-height: var(--ui-control-height);
+      padding: 0.375rem var(--ui-space-2);
       padding-inline-start: calc(
-        var(--ds-space-2) + var(--depth, 0) * var(--indent-step)
+        var(--ui-space-2) + var(--depth, 0) * var(--indent-step)
       );
       border: 0;
-      border-radius: var(--ds-radius-sm);
+      border-radius: var(--ui-radius-sm);
       background: transparent;
-      color: var(--ds-color-text-secondary);
+      color: var(--ui-color-text-secondary);
       display: flex;
       align-items: center;
-      gap: var(--ds-space-2);
+      gap: var(--ui-space-2);
       text-align: left;
     }
 
     .document-outline-row:hover,
     .document-outline-row.current {
-      background: var(--ds-color-accent-soft);
-      color: var(--ds-color-text);
+      background: var(--ui-color-accent-soft);
+      color: var(--ui-color-text);
     }
 
     .document-outline-row.current {
@@ -326,7 +326,7 @@
     }
 
     .document-outline-row:focus-visible {
-      outline: 2px solid var(--ds-color-focus);
+      outline: 2px solid var(--ui-color-focus);
       outline-offset: -2px;
     }
 
@@ -341,21 +341,21 @@
       z-index: 100;
       min-width: 10rem;
       padding: 0.25rem;
-      border: 1px solid var(--ds-color-border);
-      border-radius: var(--ds-radius-md);
-      background: var(--ds-color-paper);
-      box-shadow: var(--ds-shadow-md);
+      border: 1px solid var(--ui-color-border);
+      border-radius: var(--ui-radius-md);
+      background: var(--ui-color-paper);
+      box-shadow: var(--ui-shadow-md);
     }
 
     :global(.document-outline-move-menu [role="menuitem"]) {
-      min-height: var(--ds-control-height);
+      min-height: var(--ui-control-height);
       padding: 0.25rem 0.5rem;
-      border-radius: var(--ds-radius-sm);
+      border-radius: var(--ui-radius-sm);
       outline: 0;
     }
 
     :global(.document-outline-move-menu [role="menuitem"][data-highlighted]) {
-      background: var(--ds-color-accent-soft);
+      background: var(--ui-color-accent-soft);
     }
   }
 </style>

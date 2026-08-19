@@ -466,46 +466,46 @@
   .filterable-table {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
     min-width: 0;
   }
 
   .filterable-table-toolbar {
     display: flex;
     align-items: center;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
 
   .filterable-table-search {
     flex: 1 1 auto;
     min-width: 0;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.1875rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    color: var(--ds-color-text);
-    font-size: var(--ds-text-sm);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-sm);
   }
 
   .filterable-table-search:not(:disabled):hover {
-    border-color: var(--ds-color-accent);
+    border-color: var(--ui-color-accent);
   }
 
   .filterable-table-search:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 2px;
   }
 
   .filterable-table-search:disabled {
-    color: var(--ds-color-text-faint);
-    background: var(--ds-color-surface);
+    color: var(--ui-color-text-faint);
+    background: var(--ui-color-surface);
     cursor: default;
   }
 
   .filterable-table-count {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
@@ -514,9 +514,9 @@
     position: relative;
     min-height: 0;
     overflow: auto;
-    border: 1px solid var(--ds-color-border-soft);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    border: 1px solid var(--ui-color-border-soft);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
 
   .filterable-table[data-adaptive] {
@@ -530,8 +530,8 @@
     display: grid;
     place-items: center;
     margin: 0;
-    padding: var(--ds-space-4);
-    color: var(--ds-color-text-secondary);
+    padding: var(--ui-space-4);
+    color: var(--ui-color-text-secondary);
     text-align: center;
     pointer-events: none;
   }
@@ -539,26 +539,26 @@
   .filterable-table-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
 
   .filterable-table-table thead th {
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border);
-    background: var(--ds-color-surface);
-    color: var(--ds-color-text-secondary);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text-secondary);
     font-weight: 600;
     text-align: start;
     white-space: nowrap;
   }
 
   .filterable-table-table tbody td {
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border-soft);
-    color: var(--ds-color-text);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border-soft);
+    color: var(--ui-color-text);
     vertical-align: middle;
   }
 
@@ -571,11 +571,11 @@
   }
 
   .filterable-table-table tbody tr[data-selected] {
-    background: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
   }
 
   .filterable-table-table tbody tr[data-disabled] {
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
   }
 
   :global(
@@ -600,8 +600,8 @@
     justify-content: center;
     width: 1.125rem;
     height: 1.125rem;
-    border: 1px solid var(--ds-color-border);
-    background: var(--ds-color-paper);
+    border: 1px solid var(--ui-color-border);
+    background: var(--ui-color-paper);
     cursor: pointer;
   }
 
@@ -614,18 +614,18 @@
   }
 
   :global(.filterable-table-control[data-checkbox-root]) {
-    border-radius: var(--ds-radius-sm);
+    border-radius: var(--ui-radius-sm);
   }
 
   :global(.filterable-table-control[data-state="checked"]) {
-    border-color: var(--ds-color-accent);
-    background: var(--ds-color-accent);
+    border-color: var(--ui-color-accent);
+    background: var(--ui-color-accent);
   }
 
   :global(
     .filterable-table-control[data-radio-group-item][data-state="checked"]
   ) {
-    box-shadow: inset 0 0 0 0.25rem var(--ds-color-paper);
+    box-shadow: inset 0 0 0 0.25rem var(--ui-color-paper);
   }
 
   .filterable-table-checkbox {
@@ -640,11 +640,11 @@
 
   :global(.filterable-table-control[data-checkbox-root][data-state="checked"])
     .filterable-table-checkbox {
-    border-color: var(--ds-color-paper);
+    border-color: var(--ui-color-paper);
   }
 
   :global(.filterable-table-control:focus-visible) {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 2px;
   }
 
@@ -655,34 +655,34 @@
   .filterable-table-pagination {
     display: flex;
     justify-content: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
 
   :global(.filterable-table-page-button) {
     min-width: 1.75rem;
     min-height: 1.75rem;
     padding: 0 0.375rem;
-    border: 1px solid var(--ds-color-border-soft);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-paper);
-    color: var(--ds-color-text);
-    font-size: var(--ds-text-sm);
+    border: 1px solid var(--ui-color-border-soft);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-paper);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-sm);
     cursor: pointer;
   }
 
   :global(.filterable-table-page-button:hover:not(:disabled)) {
-    border-color: var(--ds-color-accent);
+    border-color: var(--ui-color-accent);
   }
 
   :global(.filterable-table-page-button:disabled) {
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
     cursor: default;
   }
 
   :global(.filterable-table-page-current) {
-    border-color: var(--ds-color-accent);
-    background: var(--ds-color-accent);
-    color: var(--ds-color-paper);
+    border-color: var(--ui-color-accent);
+    background: var(--ui-color-accent);
+    color: var(--ui-color-paper);
   }
 
   .filterable-table-ellipsis {
@@ -691,6 +691,6 @@
     justify-content: center;
     min-width: 1.75rem;
     min-height: 1.75rem;
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
   }
 </style>

@@ -3,7 +3,7 @@ import CredentialNodeInfo from "../../../inspector/credentials/CredentialNodeInf
 import CredentialInspector from "../../../inspector/credentials/CredentialInspector.svelte";
 
 export const credentialNode = {
-  color: "var(--ds-color-warning)",
+  color: "var(--ui-color-warning)",
   glyph: CredentialNodeStyle,
   info: CredentialNodeInfo,
   inspector: CredentialInspector,

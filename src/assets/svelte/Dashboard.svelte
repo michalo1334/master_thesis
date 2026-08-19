@@ -211,15 +211,15 @@
     height: 100dvh;
     display: grid;
     grid-template:
-      "appbar" minmax(var(--ds-appbar-height), auto)
-      "ribbon" minmax(var(--ds-ribbon-height), auto)
+      "appbar" minmax(var(--ui-appbar-height), auto)
+      "ribbon" minmax(var(--ui-ribbon-height), auto)
       "workspace" minmax(0, 1fr)
-      "statusbar" minmax(var(--ds-statusbar-height), auto)
+      "statusbar" minmax(var(--ui-statusbar-height), auto)
       / minmax(0, 1fr);
     overflow: hidden;
-    color: var(--ds-color-text);
-    background: var(--ds-color-surface);
-    font: var(--ds-text-lg) / var(--ds-line-height) var(--ds-font-ui);
+    color: var(--ui-color-text);
+    background: var(--ui-color-surface);
+    font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
   }
 
   .dashboard-app :global(*),
@@ -241,7 +241,7 @@
   .dashboard-workspace-layout {
     grid-area: workspace;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) var(--ds-inspector-width);
+    grid-template-columns: minmax(0, 1fr) var(--ui-inspector-width);
     min-width: 0;
     min-height: 0;
   }
@@ -263,7 +263,7 @@
   }
 
   .dashboard-app :global(:focus-visible) {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 2px;
   }
 </style>

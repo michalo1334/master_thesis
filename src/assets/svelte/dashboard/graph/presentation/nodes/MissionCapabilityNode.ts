@@ -3,7 +3,7 @@ import MissionCapabilityNodeInfo from "../../../inspector/mission-capabilities/M
 import MissionCapabilityInspector from "../../../inspector/mission-capabilities/MissionCapabilityInspector.svelte";
 
 export const missionCapabilityNode = {
-  color: "var(--ds-color-node-mission-capability)",
+  color: "var(--ui-color-node-mission-capability)",
   glyph: MissionCapabilityNodeStyle,
   info: MissionCapabilityNodeInfo,
   inspector: MissionCapabilityInspector,

@@ -51,6 +51,6 @@
 <style>
   .strategy-picker {
     display: grid;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
 </style>

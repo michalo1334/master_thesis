@@ -632,7 +632,7 @@
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    background: var(--ds-color-canvas);
+    background: var(--ui-color-canvas);
   }
   :global(.canvas-context-menu-trigger) {
     display: block;
@@ -644,24 +644,24 @@
     touch-action: none;
     cursor: grab;
     outline: 0;
-    background-color: var(--ds-color-canvas);
+    background-color: var(--ui-color-canvas);
     background-image:
       linear-gradient(
-        color-mix(in srgb, var(--ds-color-border) 33%, transparent) 1px,
+        color-mix(in srgb, var(--ui-color-border) 33%, transparent) 1px,
         transparent 1px
       ),
       linear-gradient(
         90deg,
-        color-mix(in srgb, var(--ds-color-border) 33%, transparent) 1px,
+        color-mix(in srgb, var(--ui-color-border) 33%, transparent) 1px,
         transparent 1px
       ),
       linear-gradient(
-        color-mix(in srgb, var(--ds-color-border) 27%, transparent) 1px,
+        color-mix(in srgb, var(--ui-color-border) 27%, transparent) 1px,
         transparent 1px
       ),
       linear-gradient(
         90deg,
-        color-mix(in srgb, var(--ds-color-border) 27%, transparent) 1px,
+        color-mix(in srgb, var(--ui-color-border) 27%, transparent) 1px,
         transparent 1px
       );
     background-position:
@@ -680,7 +680,7 @@
     cursor: grabbing;
   }
   .canvas-surface:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: -2px;
   }
   .canvas-graph {
@@ -691,13 +691,13 @@
   }
   .canvas-preview-edge {
     fill: none;
-    stroke: var(--ds-color-preview-edge);
+    stroke: var(--ui-color-preview-edge);
     stroke-width: 2;
     stroke-dasharray: 6 4;
     pointer-events: none;
   }
   .canvas-preview-arrow {
-    fill: var(--ds-color-preview-edge);
+    fill: var(--ui-color-preview-edge);
   }
   .canvas-structural-flow,
   .canvas-structural-flow path,
@@ -706,39 +706,39 @@
   }
   .canvas-structural-flow path {
     fill: none;
-    stroke: var(--structural-flow-stroke, var(--ds-color-node-service));
+    stroke: var(--structural-flow-stroke, var(--ui-color-node-service));
     stroke-opacity: var(--structural-flow-opacity, 1);
     stroke-width: var(--structural-flow-stroke-width, 2);
     stroke-dasharray: 6 4;
   }
   .canvas-structural-flow text {
-    fill: var(--structural-flow-stroke, var(--ds-color-text-secondary));
-    font: var(--ds-text-xs) var(--ds-font-mono);
+    fill: var(--structural-flow-stroke, var(--ui-color-text-secondary));
+    font: var(--ui-text-xs) var(--ui-font-mono);
   }
   :global(.dashboard-menu-separator) {
     height: 1px;
-    margin: var(--ds-space-1) 0;
-    background: var(--ds-color-border-soft);
+    margin: var(--ui-space-1) 0;
+    background: var(--ui-color-border-soft);
   }
   .canvas-hint,
   .canvas-controls {
     position: absolute;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
   }
   .canvas-hint {
-    left: var(--ds-space-3);
-    bottom: var(--ds-space-3);
+    left: var(--ui-space-3);
+    bottom: var(--ui-space-3);
     margin: 0;
-    padding: 0.3125rem var(--ds-space-2);
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    padding: 0.3125rem var(--ui-space-2);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
   }
   .canvas-controls {
-    right: var(--ds-space-3);
-    bottom: var(--ds-space-3);
+    right: var(--ui-space-3);
+    bottom: var(--ui-space-3);
     display: flex;
     align-items: stretch;
     overflow: hidden;
@@ -749,7 +749,7 @@
     min-height: 2.75rem;
     border: 0;
     background: transparent;
-    color: var(--ds-color-text);
+    color: var(--ui-color-text);
     font: inherit;
   }
   .canvas-controls button {
@@ -758,30 +758,30 @@
     font-size: 1.25rem;
   }
   .canvas-controls button:hover {
-    background: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
   }
   .canvas-controls output {
     display: grid;
     place-items: center;
-    border-inline: 1px solid var(--ds-color-border-soft);
-    font-family: var(--ds-font-mono);
+    border-inline: 1px solid var(--ui-color-border-soft);
+    font-family: var(--ui-font-mono);
     font-variant-numeric: tabular-nums;
   }
   .canvas-controls .canvas-reset {
     width: auto;
-    padding-inline: var(--ds-space-2);
-    border-left: 1px solid var(--ds-color-border-soft);
-    font-size: var(--ds-text-sm);
+    padding-inline: var(--ui-space-2);
+    border-left: 1px solid var(--ui-color-border-soft);
+    font-size: var(--ui-text-sm);
   }
   @media (max-width: 35rem) {
     .canvas-hint {
       max-width: calc(100% - 8rem);
-      left: var(--ds-space-2);
-      bottom: var(--ds-space-2);
+      left: var(--ui-space-2);
+      bottom: var(--ui-space-2);
     }
     .canvas-controls {
-      right: var(--ds-space-2);
-      bottom: var(--ds-space-2);
+      right: var(--ui-space-2);
+      bottom: var(--ui-space-2);
     }
     .canvas-controls .canvas-reset {
       display: none;

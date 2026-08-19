@@ -120,22 +120,22 @@
 <style>
   .canvas-edge-line {
     fill: none;
-    stroke: var(--edge-stroke, var(--edge-color, var(--ds-color-text-muted)));
+    stroke: var(--edge-stroke, var(--edge-color, var(--ui-color-text-muted)));
     stroke-opacity: var(--edge-opacity, 1);
     stroke-width: var(--edge-stroke-width, 2);
     stroke-dasharray: var(--edge-dash, none);
     pointer-events: none;
   }
   .canvas-edge-arrow {
-    fill: var(--edge-stroke, var(--edge-color, var(--ds-color-text-muted)));
+    fill: var(--edge-stroke, var(--edge-color, var(--ui-color-text-muted)));
     fill-opacity: var(--edge-opacity, 1);
   }
   .canvas-edge.selected .canvas-edge-line {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
   }
   .canvas-edge.selected .canvas-edge-arrow {
-    fill: var(--ds-color-focus);
+    fill: var(--ui-color-focus);
   }
   .canvas-edge-hit-target {
     fill: none;
@@ -150,15 +150,15 @@
     outline: none;
   }
   .canvas-edge-hit-target:focus-visible {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-opacity: 0.35;
   }
   .canvas-edge-label {
-    fill: var(--ds-color-nav-secondary);
-    font: 700 var(--ds-text-xs) var(--ds-font-mono);
+    fill: var(--ui-color-nav-secondary);
+    font: 700 var(--ui-text-xs) var(--ui-font-mono);
     paint-order: stroke;
     pointer-events: none;
-    stroke: var(--ds-color-canvas);
+    stroke: var(--ui-color-canvas);
     stroke-linejoin: round;
     stroke-width: 5px;
   }

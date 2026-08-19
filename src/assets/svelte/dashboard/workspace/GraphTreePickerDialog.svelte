@@ -312,7 +312,7 @@
     position: fixed;
     z-index: 200;
     inset: 0;
-    background: color-mix(in srgb, var(--ds-color-nav) 45%, transparent);
+    background: color-mix(in srgb, var(--ui-color-nav) 45%, transparent);
   }
 
   :global(.graph-tree-picker-dialog) {
@@ -325,57 +325,57 @@
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr) auto auto;
     padding: 1.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
-    color: var(--ds-color-text);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-color-text);
     transform: translate(-50%, -50%);
   }
 
   :global(.graph-tree-picker-dialog [data-dialog-title]) {
     margin: 0;
-    font-size: var(--ds-text-xl);
+    font-size: var(--ui-text-xl);
   }
 
   :global(.graph-tree-picker-dialog [data-dialog-description]) {
-    margin: var(--ds-space-2) 0 0;
-    color: var(--ds-color-text-secondary);
+    margin: var(--ui-space-2) 0 0;
+    color: var(--ui-color-text-secondary);
   }
 
   .graph-tree-picker-body {
     min-height: 0;
-    margin-top: var(--ds-space-4);
+    margin-top: var(--ui-space-4);
     overflow: auto;
-    border: 1px solid var(--ds-color-border-soft);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    border: 1px solid var(--ui-color-border-soft);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
 
   .graph-tree-picker-table {
     width: 100%;
     min-width: 36rem;
     border-collapse: collapse;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
 
   .graph-tree-toolbar {
     display: flex;
-    gap: var(--ds-space-2);
-    padding: var(--ds-space-2);
-    border-bottom: 1px solid var(--ds-color-border-soft);
+    gap: var(--ui-space-2);
+    padding: var(--ui-space-2);
+    border-bottom: 1px solid var(--ui-color-border-soft);
   }
 
   .graph-tree-toolbar :global(button),
   :global(.graph-tree-toggle) {
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
     color: inherit;
   }
 
   .graph-tree-toolbar :global(button) {
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.75rem;
   }
 
@@ -383,28 +383,28 @@
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border);
-    background: var(--ds-color-surface);
-    color: var(--ds-color-text-secondary);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text-secondary);
     font-weight: 600;
     text-align: start;
     white-space: nowrap;
   }
 
   .graph-tree-picker-table td {
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border-soft);
-    color: var(--ds-color-text);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border-soft);
+    color: var(--ui-color-text);
     vertical-align: middle;
   }
 
   .graph-tree-section-heading th {
     position: static;
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border-soft);
-    background: var(--ds-color-accent-soft);
-    color: var(--ds-color-text);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border-soft);
+    background: var(--ui-color-accent-soft);
+    color: var(--ui-color-text);
     font-weight: 600;
     text-align: left;
   }
@@ -414,23 +414,23 @@
   }
 
   .graph-tree-picker-table tbody tr:not([data-disabled]):hover {
-    background: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
   }
 
   .graph-tree-picker-table tbody tr[data-selected] {
-    background: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
   }
 
   .graph-tree-picker-table tbody tr[data-selected] .graph-tree-title {
-    color: var(--ds-color-accent);
+    color: var(--ui-color-accent);
   }
 
   .graph-tree-picker-table tbody tr[data-disabled] {
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
   }
 
   .graph-tree-picker-table tbody tr[data-disabled] td {
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
   }
 
   .graph-tree-graph {
@@ -443,9 +443,9 @@
     display: flex;
     align-items: center;
     width: 100%;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding-inline-start: calc(
-      var(--ds-space-3) + var(--depth, 0) * var(--indent-step)
+      var(--ui-space-3) + var(--depth, 0) * var(--indent-step)
     );
   }
 
@@ -461,14 +461,14 @@
     width: 1rem;
     height: 1rem;
     flex: none;
-    margin: 0 var(--ds-space-2);
-    accent-color: var(--ds-color-accent);
+    margin: 0 var(--ui-space-2);
+    accent-color: var(--ui-color-accent);
   }
 
   .graph-tree-select {
     width: 100%;
-    min-height: var(--ds-control-height);
-    padding: var(--ds-space-2) var(--ds-space-3);
+    min-height: var(--ui-control-height);
+    padding: var(--ui-space-2) var(--ui-space-3);
     border: 0;
     background: transparent;
     color: inherit;
@@ -477,23 +477,23 @@
 
   .graph-tree-favorite {
     display: grid;
-    width: var(--ds-control-height);
-    min-height: var(--ds-control-height);
+    width: var(--ui-control-height);
+    min-height: var(--ui-control-height);
     flex: none;
     place-items: center;
     border: 0;
     background: transparent;
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
   }
 
   .graph-tree-favorite[aria-pressed="true"] {
-    color: var(--ds-color-accent);
+    color: var(--ui-color-accent);
   }
 
   :global(.graph-tree-toggle:focus-visible),
   .graph-tree-select:focus-visible,
   .graph-tree-favorite:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: -2px;
   }
 
@@ -502,7 +502,7 @@
   :global(.graph-tree-toggle:disabled),
   .graph-tree-toolbar :global(button:disabled) {
     cursor: default;
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
   }
 
   .graph-tree-title {
@@ -525,33 +525,33 @@
   .graph-tree-empty,
   .graph-tree-status {
     margin: 0;
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-radius: var(--ds-radius-sm);
-    font-size: var(--ds-text-sm);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-radius: var(--ui-radius-sm);
+    font-size: var(--ui-text-sm);
   }
 
   .graph-tree-empty {
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
   }
 
   .graph-tree-status {
-    margin-top: var(--ds-space-3);
-    background: var(--ds-color-warning-bg);
-    color: var(--ds-color-warning-text);
+    margin-top: var(--ui-space-3);
+    background: var(--ui-color-warning-bg);
+    color: var(--ui-color-warning-text);
   }
 
   .graph-tree-picker-actions {
     display: flex;
     justify-content: flex-end;
-    margin-top: var(--ds-space-4);
+    margin-top: var(--ui-space-4);
   }
 
   :global(.graph-tree-picker-button) {
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.75rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-surface);
     color: inherit;
   }
 
@@ -563,7 +563,7 @@
     :global(.graph-tree-picker-dialog) {
       width: calc(100vw - 1rem);
       max-height: calc(100dvh - 1rem);
-      padding: var(--ds-space-3);
+      padding: var(--ui-space-3);
     }
   }
 </style>

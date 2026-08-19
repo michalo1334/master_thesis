@@ -101,21 +101,21 @@
     min-width: 3.125rem;
     min-height: 3.875rem;
     border: 1px solid transparent;
-    border-radius: var(--ds-radius-md);
+    border-radius: var(--ui-radius-md);
     background: transparent;
-    color: var(--ds-color-text);
-    --dashboard-icon-color: var(--ds-color-accent);
+    color: var(--ui-color-text);
+    --dashboard-icon-color: var(--ui-color-accent);
   }
 
   .dashboard-split-button:not(:has(button:disabled)):hover,
   .dashboard-split-button:global(:has([data-state="open"])) {
-    background: var(--ds-color-accent-soft);
-    border-color: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
+    border-color: var(--ui-color-accent-soft);
   }
 
   .dashboard-split-button-small {
     min-width: 4.625rem;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
   }
 
   .dashboard-split-button-main,
@@ -123,7 +123,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
     padding: 0.3125rem 0.4375rem;
     border: 0;
     background: transparent;
@@ -163,7 +163,7 @@
     :global(.dashboard-split-button-chevron) {
     border-left-color: color-mix(
       in srgb,
-      var(--ds-color-accent) 35%,
+      var(--ui-color-accent) 35%,
       transparent
     );
   }
@@ -177,29 +177,29 @@
     z-index: 100;
     min-width: 11rem;
     padding: 0.25rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-md);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
   }
 
   :global(.dashboard-split-button-menu [role="menuitem"]) {
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.25rem 0.5rem;
-    border-radius: var(--ds-radius-sm);
+    border-radius: var(--ui-radius-sm);
     display: flex;
     align-items: center;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
     outline: 0;
     cursor: pointer;
   }
 
   :global(.dashboard-split-button-menu [role="menuitem"][data-highlighted]) {
-    background: var(--ds-color-accent-soft);
+    background: var(--ui-color-accent-soft);
   }
 
   :global(.dashboard-split-button-menu [role="menuitem"][data-disabled]) {
-    color: var(--ds-color-text-faint);
+    color: var(--ui-color-text-faint);
     cursor: default;
   }
 </style>

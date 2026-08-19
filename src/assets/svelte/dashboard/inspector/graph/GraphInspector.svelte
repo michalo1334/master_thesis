@@ -134,38 +134,38 @@
 <style>
   .graph-title-field {
     display: grid;
-    gap: var(--ds-space-1);
-    margin-bottom: var(--ds-space-3);
+    gap: var(--ui-space-1);
+    margin-bottom: var(--ui-space-3);
   }
   .graph-title-field span {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
   }
   .graph-title-field input {
     min-width: 0;
-    min-height: var(--ds-control-height);
+    min-height: var(--ui-control-height);
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
-    color: var(--ds-color-text);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
+    color: var(--ui-color-text);
     font: inherit;
   }
   .graph-title-field input:focus-visible {
-    outline: 2px solid var(--ds-color-focus);
+    outline: 2px solid var(--ui-color-focus);
     outline-offset: 1px;
   }
   .graph-parent-field {
     display: grid;
-    gap: var(--ds-space-1);
-    margin-top: var(--ds-space-3);
+    gap: var(--ui-space-1);
+    margin-top: var(--ui-space-3);
   }
   .graph-parent-field > span:first-child {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -176,24 +176,24 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: var(--ds-color-text);
-    font-family: var(--ds-font-mono);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text);
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-sm);
     text-align: start;
     word-break: break-all;
   }
   .graph-parent-field button {
-    color: var(--ds-color-accent);
+    color: var(--ui-color-accent);
     text-decoration: underline;
   }
   .graph-analyses-field {
     display: grid;
-    gap: var(--ds-space-1);
-    margin-top: var(--ds-space-3);
+    gap: var(--ui-space-1);
+    margin-top: var(--ui-space-3);
   }
   .graph-analyses-field > span:first-child {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
     font-weight: 600;
     letter-spacing: 0.05em;
     text-transform: uppercase;
@@ -204,19 +204,19 @@
     margin: 0;
     padding: 0;
     list-style: none;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
   .graph-analyses-empty {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
   .graph-analyses-field button {
     width: fit-content;
-    min-height: var(--ds-control-height);
-    margin-top: var(--ds-space-1);
+    min-height: var(--ui-control-height);
+    margin-top: var(--ui-space-1);
     padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
-    background: var(--ds-color-surface);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-color-surface);
   }
 </style>

@@ -15,16 +15,16 @@
     if (status === "added") {
       return {
         cardFill:
-          "color-mix(in srgb, var(--ds-color-positive) 14%, var(--ds-color-paper))",
-        cardStroke: "var(--ds-color-positive)",
+          "color-mix(in srgb, var(--ui-color-positive) 14%, var(--ui-color-paper))",
+        cardStroke: "var(--ui-color-positive)",
         cardStrokeWidth: 2.5,
       };
     }
     if (status === "removed") {
       return {
         cardFill:
-          "color-mix(in srgb, var(--ds-color-danger) 12%, var(--ds-color-paper))",
-        cardStroke: "var(--ds-color-danger)",
+          "color-mix(in srgb, var(--ui-color-danger) 12%, var(--ui-color-paper))",
+        cardStroke: "var(--ui-color-danger)",
         cardStrokeWidth: 2.5,
       };
     }
@@ -33,10 +33,10 @@
 
   function edgeAppearance(status: GraphDiffStatus) {
     if (status === "added") {
-      return { stroke: "var(--ds-color-positive)", strokeWidth: 3 };
+      return { stroke: "var(--ui-color-positive)", strokeWidth: 3 };
     }
     if (status === "removed") {
-      return { stroke: "var(--ds-color-danger)", strokeWidth: 3 };
+      return { stroke: "var(--ui-color-danger)", strokeWidth: 3 };
     }
     return { opacity: 0.35 };
   }
@@ -77,16 +77,16 @@
 
   .graph-diff-legend {
     position: absolute;
-    top: var(--ds-space-3);
-    left: var(--ds-space-3);
-    max-width: min(28rem, calc(100% - 2 * var(--ds-space-3)));
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    box-shadow: var(--ds-shadow-sm);
-    color: var(--ds-color-text);
-    font-size: var(--ds-text-sm);
+    top: var(--ui-space-3);
+    left: var(--ui-space-3);
+    max-width: min(28rem, calc(100% - 2 * var(--ui-space-3)));
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-sm);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-sm);
   }
 
   strong,
@@ -97,8 +97,8 @@
   ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--ds-space-2);
-    margin: var(--ds-space-1) 0;
+    gap: var(--ui-space-2);
+    margin: var(--ui-space-1) 0;
     padding: 0;
     list-style: none;
   }
@@ -106,7 +106,7 @@
   li {
     display: flex;
     align-items: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
 
   li span {
@@ -116,15 +116,15 @@
   }
 
   .added {
-    background: var(--ds-color-positive);
+    background: var(--ui-color-positive);
   }
 
   .removed {
-    background: var(--ds-color-danger);
+    background: var(--ui-color-danger);
   }
 
   .unchanged {
-    background: var(--ds-color-text-faint);
+    background: var(--ui-color-text-faint);
     opacity: 0.5;
   }
 </style>

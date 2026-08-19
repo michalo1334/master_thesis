@@ -64,21 +64,21 @@
   .dashboard-ribbon {
     grid-area: ribbon;
     min-width: 0;
-    background: var(--ds-color-paper);
-    border-bottom: 1px solid var(--ds-color-border);
-    box-shadow: var(--ds-shadow-sm);
+    background: var(--ui-color-paper);
+    border-bottom: 1px solid var(--ui-color-border);
+    box-shadow: var(--ui-shadow-sm);
     z-index: 3;
   }
   :global(.dashboard-ribbon-content) {
     min-height: 100%;
     display: grid;
-    grid-template-rows: minmax(var(--ds-ribbon-tabs-height), auto) minmax(
+    grid-template-rows: minmax(var(--ui-ribbon-tabs-height), auto) minmax(
         0,
         1fr
       );
     align-items: end;
-    padding: 0 var(--ds-space-3);
-    border-bottom: 1px solid var(--ds-color-border-soft);
+    padding: 0 var(--ui-space-3);
+    border-bottom: 1px solid var(--ui-color-border-soft);
   }
   :global(.dashboard-ribbon-content .dashboard-ribbon-tabs) {
     grid-row: 1;
@@ -90,18 +90,18 @@
   }
   :global(.dashboard-ribbon-content .dashboard-ribbon-tab) {
     flex: none;
-    min-height: var(--ds-document-tab-height);
+    min-height: var(--ui-document-tab-height);
     padding: 0 0.9375rem;
     border: 0;
     border-bottom: 2px solid transparent;
     background: transparent;
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
   }
   :global(
     .dashboard-ribbon-content .dashboard-ribbon-tab[data-state="active"]
   ) {
-    color: var(--ds-color-accent);
-    border-bottom-color: var(--ds-color-accent);
+    color: var(--ui-color-accent);
+    border-bottom-color: var(--ui-color-accent);
     font-weight: 600;
   }
   :global(
@@ -135,8 +135,8 @@
     display: flex;
     align-items: stretch;
     gap: 0.1875rem;
-    padding: 0 0.625rem var(--ds-space-4);
-    border-right: 1px solid var(--ds-color-border-soft);
+    padding: 0 0.625rem var(--ui-space-4);
+    border-right: 1px solid var(--ui-color-border-soft);
   }
   :global(.dashboard-ribbon-content .dashboard-ribbon-group:first-child) {
     padding-left: 0.1875rem;
@@ -145,8 +145,8 @@
     position: absolute;
     inset: auto 0 0;
     text-align: center;
-    color: var(--ds-color-text-faint);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-text-faint);
+    font-size: var(--ui-text-xs);
   }
   @supports selector(.dashboard-ribbon-group:has(.dashboard-button-small)) {
     :global(
@@ -202,7 +202,7 @@
       min-width: 2rem;
       width: 2rem;
       min-height: 2rem;
-      padding: var(--ds-space-1);
+      padding: var(--ui-space-1);
       justify-content: center;
     }
   }

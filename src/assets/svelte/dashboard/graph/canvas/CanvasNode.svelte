@@ -142,78 +142,78 @@
     cursor: grabbing;
   }
   .canvas-node-card {
-    fill: var(--node-card-fill, var(--ds-color-paper));
+    fill: var(--node-card-fill, var(--ui-color-paper));
     fill-opacity: var(--node-card-opacity, 1);
     stroke: var(
       --node-card-stroke,
-      var(--node-color, var(--ds-color-text-faint))
+      var(--node-color, var(--ui-color-text-faint))
     );
     stroke-width: var(--node-card-stroke-width, 1.2);
     filter: drop-shadow(
-      0 2px 2px color-mix(in srgb, var(--ds-color-nav) 16%, transparent)
+      0 2px 2px color-mix(in srgb, var(--ui-color-nav) 16%, transparent)
     );
   }
   .canvas-node.dragging .canvas-node-card {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
     filter: drop-shadow(
-      0 4px 5px color-mix(in srgb, var(--ds-color-nav) 25%, transparent)
+      0 4px 5px color-mix(in srgb, var(--ui-color-nav) 25%, transparent)
     );
   }
   .canvas-node.selected .canvas-node-card {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
   }
   .canvas-node.source .canvas-node-card {
-    stroke: var(--ds-color-preview-edge);
+    stroke: var(--ui-color-preview-edge);
     stroke-width: 3;
     stroke-dasharray: 5 3;
   }
   .canvas-node.connection-forward .canvas-node-card {
-    stroke: var(--ds-color-preview-edge);
+    stroke: var(--ui-color-preview-edge);
     stroke-width: 3;
   }
   .canvas-node.connection-reverse .canvas-node-card {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
     stroke-dasharray: 5 3;
   }
   .canvas-node.connection-both .canvas-node-card {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
     stroke-dasharray: 2 2 7 2;
   }
   .canvas-node-glyph {
-    fill: var(--ds-color-accent-soft);
-    stroke: var(--node-color, var(--ds-color-accent));
+    fill: var(--ui-color-accent-soft);
+    stroke: var(--node-color, var(--ui-color-accent));
     stroke-width: 1.5;
     pointer-events: none;
   }
   .canvas-node-title {
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
     font-weight: 700;
-    fill: var(--ds-color-text);
+    fill: var(--ui-color-text);
     pointer-events: none;
   }
   .canvas-node-sub {
-    font: var(--ds-text-xs) var(--ds-font-mono);
-    fill: var(--ds-color-text-muted);
+    font: var(--ui-text-xs) var(--ui-font-mono);
+    fill: var(--ui-color-text-muted);
     pointer-events: none;
   }
   .canvas-node-connector {
-    fill: var(--ds-color-paper);
-    stroke: var(--node-color, var(--ds-color-accent));
+    fill: var(--ui-color-paper);
+    stroke: var(--node-color, var(--ui-color-accent));
     stroke-width: 2;
     cursor: crosshair;
   }
   .canvas-node-connector:hover {
-    fill: var(--ds-color-accent-soft);
+    fill: var(--ui-color-accent-soft);
   }
   .canvas-node:focus {
     outline: none;
   }
   .canvas-node:focus-visible .canvas-node-card {
-    stroke: var(--ds-color-focus);
+    stroke: var(--ui-color-focus);
     stroke-width: 3;
   }
   @media (forced-colors: active) {

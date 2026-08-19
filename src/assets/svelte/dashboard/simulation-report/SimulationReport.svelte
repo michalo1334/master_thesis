@@ -408,24 +408,24 @@
     height: 100%;
     min-height: 0;
     overflow: auto;
-    padding: var(--ds-space-6);
-    color: var(--ds-color-text);
-    background: var(--ds-color-surface);
+    padding: var(--ui-space-6);
+    color: var(--ui-color-text);
+    background: var(--ui-color-surface);
   }
 
   .simulation-report-header {
     display: flex;
     align-items: end;
     justify-content: space-between;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
     max-width: 62rem;
-    margin-bottom: var(--ds-space-6);
+    margin-bottom: var(--ui-space-6);
   }
 
   .simulation-report-eyebrow {
     margin: 0;
-    color: var(--ds-color-accent);
-    font-size: var(--ds-text-xs);
+    color: var(--ui-color-accent);
+    font-size: var(--ui-text-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -438,25 +438,25 @@
   }
 
   h1 {
-    margin-top: var(--ds-space-1);
+    margin-top: var(--ui-space-1);
     font-size: 1.5rem;
     line-height: 1.2;
   }
 
   h2 {
-    font-size: var(--ds-text-base);
+    font-size: var(--ui-text-base);
     font-weight: 700;
-    margin-bottom: var(--ds-space-3);
+    margin-bottom: var(--ui-space-3);
   }
 
   .simulation-report-open {
     flex: none;
-    min-height: var(--ds-control-height);
-    padding: 0 var(--ds-space-3);
-    border: 1px solid var(--ds-color-accent);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-accent);
-    color: var(--ds-color-paper);
+    min-height: var(--ui-control-height);
+    padding: 0 var(--ui-space-3);
+    border: 1px solid var(--ui-color-accent);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-accent);
+    color: var(--ui-color-paper);
     font: inherit;
     white-space: nowrap;
   }
@@ -467,31 +467,31 @@
     place-content: center;
     place-items: center;
     min-height: 16rem;
-    border: 2px dashed var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    color: var(--ds-color-text-secondary);
+    border: 2px dashed var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    color: var(--ui-color-text-secondary);
     text-align: center;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
 
   .simulation-report-empty p,
   .simulation-report-waiting p {
     max-width: 20rem;
-    font-size: var(--ds-text-sm);
+    font-size: var(--ui-text-sm);
   }
 
   .simulation-report-spinner {
     width: 2rem;
     height: 2rem;
-    border: 3px solid var(--ds-color-border);
-    border-top-color: var(--ds-color-accent);
+    border: 3px solid var(--ui-color-border);
+    border-top-color: var(--ui-color-accent);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
 
   .simulation-report-progress {
     display: grid;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
     justify-items: center;
     width: 18rem;
   }
@@ -500,28 +500,28 @@
     width: 100%;
     height: 0.5rem;
     border: 0;
-    border-radius: var(--ds-radius-sm);
+    border-radius: var(--ui-radius-sm);
     overflow: hidden;
   }
 
   .simulation-report-progress progress::-webkit-progress-bar {
-    background: var(--ds-color-border);
-    border-radius: var(--ds-radius-sm);
+    background: var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
   }
 
   .simulation-report-progress progress::-webkit-progress-value {
-    background: var(--ds-color-accent);
-    border-radius: var(--ds-radius-sm);
+    background: var(--ui-color-accent);
+    border-radius: var(--ui-radius-sm);
   }
 
   .simulation-report-progress progress::-moz-progress-bar {
-    background: var(--ds-color-accent);
-    border-radius: var(--ds-radius-sm);
+    background: var(--ui-color-accent);
+    border-radius: var(--ui-radius-sm);
   }
 
   .simulation-report-progress-label {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
 
   :global(.simulation-report-tabs) {
@@ -529,7 +529,7 @@
     display: grid;
     grid-template-columns: 8rem minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
-    gap: var(--ds-space-5);
+    gap: var(--ui-space-5);
     align-items: start;
     min-height: 0;
   }
@@ -538,29 +538,29 @@
     position: sticky;
     top: 0;
     display: grid;
-    gap: var(--ds-space-1);
-    padding: var(--ds-space-1);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
+    gap: var(--ui-space-1);
+    padding: var(--ui-space-1);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
   }
 
   :global(.simulation-report-tab) {
     min-height: 2.5rem;
-    padding: 0 var(--ds-space-3);
+    padding: 0 var(--ui-space-3);
     border: 0;
     border-left: 3px solid transparent;
-    border-radius: var(--ds-radius-sm);
+    border-radius: var(--ui-radius-sm);
     background: transparent;
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
     font: inherit;
     text-align: left;
   }
 
   :global(.simulation-report-tab[data-state="active"]) {
-    border-left-color: var(--ds-color-accent);
-    background: var(--ds-color-accent-soft);
-    color: var(--ds-color-accent);
+    border-left-color: var(--ui-color-accent);
+    background: var(--ui-color-accent-soft);
+    color: var(--ui-color-accent);
     font-weight: 700;
   }
 
@@ -578,48 +578,48 @@
   }
 
   .simulation-report-section {
-    margin-top: var(--ds-space-8);
+    margin-top: var(--ui-space-8);
     max-width: 62rem;
   }
 
   .simulation-report-feasibility {
-    padding: var(--ds-space-3);
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
-    background: var(--ds-color-paper);
-    font-size: var(--ds-text-sm);
+    padding: var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    font-size: var(--ui-text-sm);
     font-weight: 600;
   }
 
   .simulation-report-chart-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--ds-space-3);
+    gap: var(--ui-space-3);
   }
 
   .capability-impact-table {
     width: 100%;
     border-collapse: collapse;
-    border: 1px solid var(--ds-color-border);
-    background: var(--ds-color-paper);
-    font-size: var(--ds-text-sm);
+    border: 1px solid var(--ui-color-border);
+    background: var(--ui-color-paper);
+    font-size: var(--ui-text-sm);
   }
 
   .capability-impact-table caption {
-    padding: var(--ds-space-2) var(--ds-space-3);
-    color: var(--ds-color-text-secondary);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    color: var(--ui-color-text-secondary);
     text-align: left;
   }
 
   .capability-impact-table th,
   .capability-impact-table td {
-    padding: var(--ds-space-2) var(--ds-space-3);
-    border-top: 1px solid var(--ds-color-border-soft);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border-top: 1px solid var(--ui-color-border-soft);
     text-align: left;
   }
 
   .capability-impact-table th {
-    color: var(--ds-color-text-secondary);
+    color: var(--ui-color-text-secondary);
     font-weight: 600;
   }
 
@@ -643,7 +643,7 @@
 
   .capability-required-flow-list {
     display: grid;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -652,7 +652,7 @@
   .simulation-report-heatmap {
     display: grid;
     grid-template-rows: auto auto minmax(0, 1fr);
-    gap: var(--ds-space-4);
+    gap: var(--ui-space-4);
     height: 100%;
     min-width: 0;
     min-height: 0;
@@ -660,44 +660,44 @@
 
   .simulation-report-heatmap-header {
     display: grid;
-    gap: var(--ds-space-2);
+    gap: var(--ui-space-2);
     max-width: 48rem;
   }
 
   .simulation-report-heatmap-header p {
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
 
   .simulation-report-heatmap-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--ds-space-2) var(--ds-space-4);
+    gap: var(--ui-space-2) var(--ui-space-4);
     margin: 0;
     padding: 0;
     list-style: none;
-    color: var(--ds-color-text-secondary);
-    font-size: var(--ds-text-sm);
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-sm);
   }
 
   .simulation-report-heatmap-legend li {
     display: flex;
     align-items: center;
-    gap: var(--ds-space-1);
+    gap: var(--ui-space-1);
   }
 
   .simulation-report-heatmap-legend span {
     width: 0.875rem;
     height: 0.875rem;
-    border: 1px solid color-mix(in srgb, var(--ds-color-text) 25%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ui-color-text) 25%, transparent);
     border-radius: 50%;
   }
 
   .simulation-report-heatmap-canvas {
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--ds-color-border);
-    border-radius: var(--ds-radius-md);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
   }
 
   @media (max-width: 68em) {
@@ -708,7 +708,7 @@
 
   @media (max-width: 48em) {
     .simulation-report {
-      padding: var(--ds-space-4);
+      padding: var(--ui-space-4);
     }
 
     .simulation-report-header {
@@ -719,7 +719,7 @@
     :global(.simulation-report-tabs) {
       grid-template-columns: minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
-      gap: var(--ds-space-4);
+      gap: var(--ui-space-4);
     }
 
     :global(.simulation-report-tab-list) {
@@ -737,7 +737,7 @@
     }
 
     :global(.simulation-report-tab[data-state="active"]) {
-      border-bottom-color: var(--ds-color-accent);
+      border-bottom-color: var(--ui-color-accent);
     }
 
     :global(.simulation-report-tab-panel) {

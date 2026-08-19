@@ -107,10 +107,10 @@ describe("GraphDiff", () => {
     });
 
     expect(removedEdge.closest(".canvas-edge")).toHaveStyle({
-      "--edge-stroke": "var(--ds-color-danger)",
+      "--edge-stroke": "var(--ui-color-danger)",
     });
     expect(addedEdge.closest(".canvas-edge")).toHaveStyle({
-      "--edge-stroke": "var(--ds-color-positive)",
+      "--edge-stroke": "var(--ui-color-positive)",
     });
   });
 
