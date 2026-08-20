@@ -36,6 +36,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     CreateNodeDraftReply,
     DeleteFolderPayload,
     DeleteFolderReply,
+    ExecutionProgressEvent,
     FolderSummary,
     GraphConnectivityReply,
     OpenGraphPayload,
@@ -55,7 +56,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchOptimizationRunsReply,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
-    OptimizationProgressEvent,
     OptimizationReportErrorEvent,
     OptimizationReportReadyEvent,
     RunOptimizationPayload,
@@ -67,7 +67,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SaveGraphReply,
     SimulationCompletedEvent,
     SimulationFailedEvent,
-    SimulationProgressEvent,
     SimulationReportErrorEvent,
     SimulationReportReadyEvent,
     RunWorkflowPayload,
@@ -497,7 +496,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:simulation_progress, payload}, socket) do
     {:noreply,
-     push_contract_event(socket, "simulation_progress", SimulationProgressEvent, payload)}
+     push_contract_event(socket, "simulation_progress", ExecutionProgressEvent, payload)}
   end
 
   def handle_info({:optimization_completed, payload}, socket) do
@@ -518,7 +517,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:optimization_progress, payload}, socket) do
     {:noreply,
-     push_contract_event(socket, "optimization_progress", OptimizationProgressEvent, payload)}
+     push_contract_event(socket, "optimization_progress", ExecutionProgressEvent, payload)}
   end
 
   def handle_info({:workflow_completed, %{workflow_id: workflow_id, outputs: outputs}}, socket) do

@@ -11,11 +11,10 @@
     FolderSummary,
     SimulationCompletedEvent,
     SimulationFailedEvent,
-    SimulationProgressEvent,
+    ExecutionProgressEvent,
     SimulationReportReadyEvent,
     OptimizationCompletedEvent,
     OptimizationFailedEvent,
-    OptimizationProgressEvent,
     SimulationReportErrorEvent,
     OptimizationReportReadyEvent,
     OptimizationReportErrorEvent,
@@ -50,7 +49,7 @@
   });
 
   useLiveEvent("simulation_progress", (payload: unknown) => {
-    model.onSimulationProgress(payload as SimulationProgressEvent);
+    model.onProgress("simulation", payload as ExecutionProgressEvent);
   });
 
   useLiveEvent("optimization_completed", (payload: unknown) => {
@@ -62,7 +61,7 @@
   });
 
   useLiveEvent("optimization_progress", (payload: unknown) => {
-    model.onOptimizationProgress(payload as OptimizationProgressEvent);
+    model.onProgress("optimization", payload as ExecutionProgressEvent);
   });
 
   useLiveEvent("simulation_report_ready", (payload: unknown) => {

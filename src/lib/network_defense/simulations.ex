@@ -391,8 +391,8 @@ defmodule NetworkDefense.Simulations do
          correlation_id: correlation_id,
          graph_id: graph.id,
          graph_revision_id: graph.revision_id,
-         completed_runs: completed_runs,
-         total_runs: total_runs
+         completed: completed_runs,
+         total: total_runs
        }}
     )
   end

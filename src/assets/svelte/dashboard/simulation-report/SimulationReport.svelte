@@ -20,6 +20,7 @@
   } from "./chart-options";
   import { heatmapLegend } from "./heatmap";
   import HeatmapCanvas from "./HeatmapCanvas.svelte";
+  import ReportProgress from "../ReportProgress.svelte";
 
   interface Props {
     document: SimulationReportDocument;
@@ -152,26 +153,19 @@
       aria-label="Simulation pending"
       aria-live="polite"
     >
-      {#if document.completedRuns > 0}
-        <div class="simulation-report-progress">
-          <progress
-            max={document.totalRuns}
-            value={document.completedRuns}
-            aria-label="Monte Carlo trials completed"
-          ></progress>
-          <span class="simulation-report-progress-label">
-            {document.completedRuns} of {document.totalRuns} runs completed
-          </span>
-        </div>
-      {:else}
-        <div class="simulation-report-spinner" aria-hidden="true"></div>
-        <p>Simulation requested, waiting for results...</p>
-      {/if}
+      <ReportProgress
+        progress={document.progress}
+        waitingMessage="Simulation requested, waiting for results..."
+        label="runs completed"
+      />
     </section>
   {:else if document.status === "loading"}
     <section class="simulation-report-waiting" aria-label="Loading report">
-      <div class="simulation-report-spinner" aria-hidden="true"></div>
-      <p>Loading report...</p>
+      <ReportProgress
+        progress={null}
+        waitingMessage="Loading report..."
+        label="runs completed"
+      />
     </section>
   {:else if document.status === "error"}
     <section class="simulation-report-empty" aria-label="Report error">
@@ -474,53 +468,8 @@
     gap: var(--ui-space-3);
   }
 
-  .simulation-report-empty p,
-  .simulation-report-waiting p {
+  .simulation-report-empty p {
     max-width: 20rem;
-    font-size: var(--ui-text-sm);
-  }
-
-  .simulation-report-spinner {
-    width: 2rem;
-    height: 2rem;
-    border: 3px solid var(--ui-color-border);
-    border-top-color: var(--ui-color-accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  .simulation-report-progress {
-    display: grid;
-    gap: var(--ui-space-2);
-    justify-items: center;
-    width: 18rem;
-  }
-
-  .simulation-report-progress progress {
-    width: 100%;
-    height: 0.5rem;
-    border: 0;
-    border-radius: var(--ui-radius-sm);
-    overflow: hidden;
-  }
-
-  .simulation-report-progress progress::-webkit-progress-bar {
-    background: var(--ui-color-border);
-    border-radius: var(--ui-radius-sm);
-  }
-
-  .simulation-report-progress progress::-webkit-progress-value {
-    background: var(--ui-color-accent);
-    border-radius: var(--ui-radius-sm);
-  }
-
-  .simulation-report-progress progress::-moz-progress-bar {
-    background: var(--ui-color-accent);
-    border-radius: var(--ui-radius-sm);
-  }
-
-  .simulation-report-progress-label {
-    color: var(--ui-color-text-secondary);
     font-size: var(--ui-text-sm);
   }
 
@@ -569,12 +518,6 @@
     height: 100%;
     min-width: 0;
     min-height: 0;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .simulation-report-section {

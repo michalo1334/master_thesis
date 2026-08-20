@@ -14,6 +14,7 @@
     formatCapabilitySupport,
     formatProbability,
   } from "../simulation-report/simulation-report";
+  import ReportProgress from "../ReportProgress.svelte";
 
   interface Props {
     document: ComparisonReportDocument;
@@ -29,6 +30,13 @@
   };
 
   let { document }: Props = $props();
+  let loadedReports = $derived(
+    [
+      document.baselineReport,
+      document.optimizationReport,
+      document.postOptimizationReport,
+    ].filter((report) => report.status === "loaded").length,
+  );
   let baseline = $derived(document.baselineReport.reportData);
   let postOptimization = $derived(document.postOptimizationReport.reportData);
   let optimization = $derived(document.optimizationReport.reportData);
@@ -155,8 +163,11 @@
     </section>
   {:else if !baseline || !postOptimization || !optimization}
     <section class="comparison-report-status" aria-live="polite">
-      <span class="comparison-report-spinner" aria-hidden="true"></span>
-      <p>Loading analysis reports...</p>
+      <ReportProgress
+        progress={{ completed: loadedReports, total: 3 }}
+        waitingMessage="Loading analysis reports..."
+        label="reports loaded"
+      />
     </section>
   {:else}
     <section aria-labelledby="comparison-metrics-title">
@@ -478,14 +489,6 @@
     border-radius: var(--ui-radius-md);
     color: var(--ui-color-text-secondary);
   }
-  .comparison-report-spinner {
-    width: 2rem;
-    height: 2rem;
-    border: 3px solid var(--ui-color-border);
-    border-top-color: var(--ui-color-accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
   button {
     min-height: var(--ui-control-height);
     padding: 0 var(--ui-space-3);
@@ -494,11 +497,6 @@
     background: var(--ui-color-paper);
     color: inherit;
     font: inherit;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
   @media (max-width: 48em) {
     .comparison-report {

@@ -8,6 +8,7 @@
   import SimulationInformedStrategyPanel from "./strategy-panels/SimulationInformedStrategyPanel.svelte";
   import TopologySegmentationStrategyPanel from "./strategy-panels/TopologySegmentationStrategyPanel.svelte";
   import SimulatedAnnealingStrategyPanel from "./strategy-panels/SimulatedAnnealingStrategyPanel.svelte";
+  import ReportProgress from "../ReportProgress.svelte";
 
   interface Props {
     document: OptimizationReportDocument;
@@ -53,24 +54,19 @@
 
   {#if document.status === "pending"}
     <section class="optimization-report-waiting" aria-live="polite">
-      {#if document.totalSteps > 0}
-        <progress max={document.totalSteps} value={document.completedSteps}
-        ></progress>
-        <span
-          >{document.completedSteps} of {document.totalSteps} steps completed</span
-        >
-      {:else}
-        <span class="optimization-report-spinner" aria-hidden="true"></span>
-        <span
-          >{document.phase ||
-            "Optimization requested, waiting for progress..."}</span
-        >
-      {/if}
+      <ReportProgress
+        progress={document.progress}
+        waitingMessage="Optimization requested, waiting for progress..."
+        label="steps completed"
+      />
     </section>
   {:else if document.status === "loading" || document.status === "ready" || document.status === "completed"}
     <section class="optimization-report-waiting" aria-live="polite">
-      <span class="optimization-report-spinner" aria-hidden="true"></span>
-      <span>Loading optimization report…</span>
+      <ReportProgress
+        progress={null}
+        waitingMessage="Loading optimization report…"
+        label="steps completed"
+      />
     </section>
   {:else if document.status === "error"}
     <section class="optimization-report-waiting">
@@ -251,10 +247,6 @@
     place-content: center;
     justify-items: center;
     gap: var(--ui-space-3);
-  }
-  progress {
-    width: 18rem;
-    accent-color: var(--ui-color-accent);
   }
   .optimization-report-spinner {
     width: 2rem;

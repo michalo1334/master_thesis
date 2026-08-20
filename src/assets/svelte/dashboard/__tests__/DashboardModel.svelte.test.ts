@@ -50,6 +50,15 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
   } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 
+function createSimulationReport(model: DashboardModel) {
+  return model.workspace.createPendingReport({
+    graphId: "g1",
+    graphRevisionId: "r1",
+    graphTitle: "Topology",
+    correlationId: "simulation-1",
+  });
+}
+
 describe("DashboardModel", () => {
   let model: DashboardModel;
   let dashboardApi: ReturnType<typeof api>;
@@ -171,12 +180,7 @@ describe("DashboardModel", () => {
   });
 
   it("routes simulation events by persisted revision ID", () => {
-    const report = model.workspace.createPendingReport({
-      graphId: "g1",
-      graphRevisionId: "r1",
-      graphTitle: "Topology",
-      correlationId: "simulation-1",
-    });
+    const report = createSimulationReport(model);
 
     model.onSimulationCompleted({
       correlation_id: "simulation-1",
@@ -194,13 +198,52 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("loading");
   });
 
-  it("ignores report errors with a mismatched report kind", () => {
-    const report = model.workspace.createPendingReport({
-      graphId: "g1",
-      graphRevisionId: "r1",
-      graphTitle: "Topology",
-      correlationId: "simulation-1",
+  it("routes progress events to the matching report by kind", async () => {
+    const simulation = createSimulationReport(model);
+
+    model.onProgress("simulation", {
+      correlation_id: "simulation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 3,
+      total: 10,
     });
+
+    expect(simulation.progress).toEqual({ completed: 3, total: 10 });
+
+    model.workspace.selectDocument(model.workspace.documents[0]!.id);
+    vi.mocked(dashboardApi.runOptimization).mockImplementation(
+      async (graphRevisionId, correlationId) => ({
+        status: "accepted",
+        graph_revision_id: graphRevisionId,
+        correlation_id: correlationId,
+      }),
+    );
+    await model.runActiveOptimization();
+    const optimization = model.workspace.documents.find(
+      (document) => document.kind === "optimization-report",
+    );
+    if (!optimization || optimization.kind !== "optimization-report")
+      throw new Error("Missing report");
+
+    model.onProgress("optimization", {
+      correlation_id: optimization.correlationId!,
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 2,
+      total: 5,
+      detail: "Scoring defenses",
+    });
+
+    expect(optimization.progress).toEqual({
+      completed: 2,
+      total: 5,
+      detail: "Scoring defenses",
+    });
+  });
+
+  it("ignores report errors with a mismatched report kind", () => {
+    const report = createSimulationReport(model);
     model.workspace.selectDocument(model.workspace.documents[0]!.id);
     model.onReportErrorEvent({
       reportKind: "optimization",

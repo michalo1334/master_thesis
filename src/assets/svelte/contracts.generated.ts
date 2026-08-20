@@ -440,6 +440,16 @@ export interface DocumentCatalogItem {
   strategy?: string | null;
 }
 
+// NetworkDefenseWeb.Web.Contracts.ExecutionProgressEvent (lib/network_defense_web/contracts/dashboard/execution_progress_event.ex)
+export interface ExecutionProgressEvent {
+  completed: number;
+  correlation_id: string;
+  detail?: string | null;
+  graph_id: string;
+  graph_revision_id: string;
+  total: number;
+}
+
 // NetworkDefenseWeb.Web.Contracts.ExperimentSummary (lib/network_defense_web/contracts/dashboard/simulation/experiment_summary.ex)
 export interface ExperimentSummary {
   graph_id: string;
@@ -706,16 +716,6 @@ export interface OptimizationFailedEvent {
   graph_revision_id: string;
 }
 
-// NetworkDefenseWeb.Web.Contracts.OptimizationProgressEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_progress_event.ex)
-export interface OptimizationProgressEvent {
-  completed_steps: number;
-  correlation_id: string;
-  graph_id: string;
-  graph_revision_id: string;
-  phase: string;
-  total_steps: number;
-}
-
 // NetworkDefenseWeb.Web.Contracts.OptimizationReport (lib/network_defense_web/contracts/dashboard/optimization/optimization_report.ex) — enum fields: strategy
 export interface OptimizationReport {
   actions: OptimizationAction[];
@@ -877,15 +877,6 @@ export interface SimulationFailedEvent {
   error: DashboardError;
   graph_id: string;
   graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationProgressEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_progress_event.ex)
-export interface SimulationProgressEvent {
-  completed_runs: number;
-  correlation_id: string;
-  graph_id: string;
-  graph_revision_id: string;
-  total_runs: number;
 }
 
 // NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_action_success.ex)

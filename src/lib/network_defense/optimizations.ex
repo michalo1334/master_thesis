@@ -351,9 +351,9 @@ defmodule NetworkDefense.Optimizations do
          correlation_id: correlation_id,
          graph_id: graph.id,
          graph_revision_id: graph.revision_id,
-         completed_steps: completed_steps,
-         total_steps: total_steps,
-         phase: phase
+         completed: completed_steps,
+         total: total_steps,
+         detail: phase
        }}
     )
   end

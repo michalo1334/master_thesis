@@ -6,10 +6,9 @@ import type {
   FolderSummary,
   OptimizationCompletedEvent,
   OptimizationFailedEvent,
-  OptimizationProgressEvent,
+  ExecutionProgressEvent,
   SimulationCompletedEvent,
   SimulationFailedEvent,
-  SimulationProgressEvent,
   WorkflowCompletedEvent,
   WorkflowFailedEvent,
 } from "./contract";
@@ -108,15 +107,37 @@ export class DashboardModel {
     }
   }
 
-  onOptimizationProgress(payload: OptimizationProgressEvent): void {
+  onProgress(
+    kind: "simulation" | "optimization",
+    payload: ExecutionProgressEvent,
+  ): void {
+    if (kind === "simulation") this.onSimulationProgress(payload);
+    else this.onOptimizationProgress(payload);
+  }
+
+  onSimulationProgress(payload: ExecutionProgressEvent): void {
+    const report = this.workspace.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        d.correlationId === payload.correlation_id &&
+        d.graphRevisionId === payload.graph_revision_id,
+    ) as SimulationReportDocument | undefined;
+    report?.setProgress(
+      payload.completed,
+      payload.total,
+      payload.detail ?? undefined,
+    );
+  }
+
+  onOptimizationProgress(payload: ExecutionProgressEvent): void {
     const report = this.workspace.findOptimizationReport(
       payload.correlation_id,
       payload.graph_id,
     );
     report?.setProgress(
-      payload.completed_steps,
-      payload.total_steps,
-      payload.phase,
+      payload.completed,
+      payload.total,
+      payload.detail ?? undefined,
     );
   }
 
@@ -150,17 +171,6 @@ export class DashboardModel {
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
-  }
-
-  onSimulationProgress(payload: SimulationProgressEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.correlationId === payload.correlation_id &&
-        d.graphRevisionId === payload.graph_revision_id,
-    ) as SimulationReportDocument | undefined;
-    if (!report) return;
-    report.setProgress(payload.completed_runs, payload.total_runs);
   }
 
   private findReport<Kind extends ReportKind>(

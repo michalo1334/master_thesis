@@ -22,9 +22,11 @@ describe("OptimizationReportDocument", () => {
     const document = createDocument();
     document.setProgress(2, 5, "Scoring defenses");
 
-    expect(document.completedSteps).toBe(2);
-    expect(document.totalSteps).toBe(5);
-    expect(document.phase).toBe("Scoring defenses");
+    expect(document.progress).toEqual({
+      completed: 2,
+      total: 5,
+      detail: "Scoring defenses",
+    });
   });
 
   it("requests persisted completion data and exposes, but does not invoke, the open callback", () => {

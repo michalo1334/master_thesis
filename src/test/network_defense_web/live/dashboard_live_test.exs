@@ -957,9 +957,9 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: "optimization-3",
         graph_id: "graph-3",
         graph_revision_id: "revision-3",
-        completed_steps: 1,
-        total_steps: 2,
-        phase: "Applied defense 1 of 2"
+        completed: 1,
+        total: 2,
+        detail: "Applied defense 1 of 2"
       }
 
       send(view.pid, {:optimization_progress, progress})

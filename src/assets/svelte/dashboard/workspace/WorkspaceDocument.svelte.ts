@@ -29,6 +29,15 @@ export abstract class AsyncReportDocument<
     return true;
   }
 
+  status = $state<
+    "pending" | "ready" | "loading" | "loaded" | "error" | "completed"
+  >("pending");
+  progress = $state<{
+    completed: number;
+    total: number;
+    detail?: string;
+  } | null>(null);
+
   abstract get reportId(): string | null;
 
   abstract get reportApiKind(): "simulation_report" | "optimization_report";
@@ -36,6 +45,11 @@ export abstract class AsyncReportDocument<
   abstract setReportData(data: ReportDataMap[Kind]): void;
 
   abstract markError(error: DashboardError): void;
+
+  setProgress(completed: number, total: number, detail?: string): void {
+    if (this.status !== "pending") return;
+    this.progress = { completed, total, ...(detail ? { detail } : {}) };
+  }
 }
 
 export type WorkspaceDocument =

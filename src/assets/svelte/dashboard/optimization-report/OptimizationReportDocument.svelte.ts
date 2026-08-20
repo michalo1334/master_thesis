@@ -35,16 +35,10 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   correlationId = $state<string | null>(null);
 
   title = $state("");
-  status = $state<
-    "pending" | "completed" | "ready" | "loading" | "loaded" | "error"
-  >("pending");
   hasUnread = $state(false);
   optimizationId = $state<string | null>(null);
   strategy: OptimizationStrategy;
   budget: number;
-  completedSteps = $state(0);
-  totalSteps = $state(0);
-  phase = $state("");
   errorReason = $state("");
   optimizedGraphRevisionId = $state<string | undefined>();
   reportData = $state.raw<OptimizationReport | undefined>();
@@ -91,17 +85,6 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.analysisTitle = analysis?.title;
   }
 
-  setProgress(
-    completedSteps: number,
-    totalSteps: number,
-    phase?: string,
-  ): void {
-    if (this.status !== "pending") return;
-    this.completedSteps = completedSteps;
-    this.totalSteps = totalSteps;
-    this.phase = phase ?? "";
-  }
-
   complete(
     api: DashboardApi,
     payload: OptimizationCompletedEvent,
@@ -116,6 +99,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.createGraphDiff = createGraphDiff;
     this.errorReason = "";
     this.status = "completed";
+    this.progress = null;
     this.load(api, this.id, payload.optimization_id, this.graphRevisionId);
   }
 
@@ -135,6 +119,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.reportData = undefined;
     this.analysis = undefined;
     this.errorReason = "";
+    this.progress = null;
   }
 
   setReportData(data: FetchOptimizationReportReply): void {

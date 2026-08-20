@@ -27,6 +27,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   alias NetworkDefenseWeb.Web.Contracts.{
+    ExecutionProgressEvent,
     FetchGraphProjectionPayload,
     FetchGraphProjectionReply,
     FetchOptimizationReportPayload,
@@ -407,6 +408,28 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              })
 
     assert %{optimization_id: ["can't be blank"]} = errors_on(changeset)
+  end
+
+  test "validates execution progress events" do
+    base = %{correlation_id: "request-1", graph_id: "graph-1", graph_revision_id: "revision-1"}
+
+    assert {:ok, %ExecutionProgressEvent{completed: 1, total: 2, detail: "Scoring defenses"}} =
+             ExecutionProgressEvent.validate(
+               Map.merge(base, %{completed: 1, total: 2, detail: "Scoring defenses"})
+             )
+
+    assert {:ok, %ExecutionProgressEvent{completed: 1, total: 2, detail: nil}} =
+             ExecutionProgressEvent.validate(Map.merge(base, %{completed: 1, total: 2}))
+
+    for {attrs, field, message} <- [
+          {%{total: 2}, :completed, "can't be blank"},
+          {%{completed: -1, total: 2}, :completed, "must be greater than or equal to 0"},
+          {%{completed: 1, total: 0}, :total, "must be greater than 0"}
+        ] do
+      assert {:error, changeset} = ExecutionProgressEvent.validate(Map.merge(base, attrs))
+
+      assert %{^field => [^message]} = errors_on(changeset)
+    end
   end
 
   test "requires optimization report fetch identifiers to be UUIDs" do

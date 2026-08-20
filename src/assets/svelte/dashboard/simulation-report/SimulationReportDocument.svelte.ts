@@ -27,9 +27,6 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   analysisTitle = $state<string>();
 
   title = $state<string>("");
-  status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
-    "pending",
-  );
   hasUnread = $state(false);
   experimentId = $state<string | null>(null);
   correlationId = $state<string | null>(null);
@@ -38,8 +35,6 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   heatmapSelectedNodeId = $state<string>();
   heatmapSelectedEdgeId = $state<string>();
   errorReason = $state<string>("");
-  completedRuns = $state(0);
-  totalRuns = $state(0);
 
   constructor(
     graphTitle: string,
@@ -69,8 +64,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.heatmapGraph = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
-    this.completedRuns = 0;
-    this.totalRuns = 0;
+    this.progress = null;
   }
 
   markReady(experimentId: string): void {
@@ -80,14 +74,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.heatmapGraph = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
-    this.completedRuns = 0;
-    this.totalRuns = 0;
-  }
-
-  setProgress(completedRuns: number, totalRuns: number): void {
-    if (this.status !== "pending") return;
-    this.completedRuns = completedRuns;
-    this.totalRuns = totalRuns;
+    this.progress = null;
   }
 
   markError(error: DashboardError): void {
