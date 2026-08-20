@@ -20,7 +20,9 @@ export function hasAnalysisMetadata(
   { kind: "simulation-report" | "optimization-report" | "comparison-report" }
 > {
   return (
-    isReport(document) && !!(document.analysisId || document.analysisTitle)
+    isReport(document) &&
+    document.kind !== "analysis-report" &&
+    !!(document.analysisId || document.analysisTitle)
   );
 }
 

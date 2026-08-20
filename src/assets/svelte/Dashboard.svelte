@@ -6,7 +6,7 @@
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./ui-kit/primitives/SplitButton.svelte";
-  import AnalysisDialog from "./dashboard/analysis/AnalysisDialog.svelte";
+  import ManifestDialog from "./dashboard/manifest/ManifestDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
   import { dashboardRegistry } from "./dashboard/workspace/dashboard-registry";
@@ -19,6 +19,13 @@
 
   const wm = $derived(model.workspace);
   const api = $derived(model.api);
+
+  const downloadResultsHref = $derived.by(() => {
+    const doc = wm.activeDocument;
+    if (doc?.kind !== "analysis-report") return undefined;
+    if (doc.reportData?.status !== "completed") return undefined;
+    return `/evaluations/${doc.runId}/download`;
+  });
 
   type OptimizationOption = SplitButtonOption & {
     id: OptimizationParams["strategy"];
@@ -113,7 +120,7 @@
     onArrangeNetwork={handleArrangeNetwork}
     onRunSimulation={handleRunSimulation}
     onCompareGraphs={() => wm.beginGraphComparison()}
-    onOpenAnalysis={() => model.analysis.openDialog()}
+    onOpenAnalysis={() => model.manifest.openDialog()}
     onOptimize={handleOptimize}
     {optimizationOptions}
     activeOptimizationId={wm.optimizationParams.strategy}
@@ -124,6 +131,7 @@
     simulationParams={wm.simulationParams}
     footholdHosts={wm.activeFootholdHosts}
     analysisRunning={model.analysis.isRunning}
+    {downloadResultsHref}
   />
 
   {#snippet inspector()}
@@ -183,19 +191,7 @@
     onFavoriteChange={handleFavoriteChange}
   />
 
-  <GraphTreePickerDialog
-    open={model.analysis.targetPickerOpen}
-    onOpenChange={(open) => model.analysis.setTargetPickerOpen(open)}
-    summaries={wm.graphSummaries}
-    status={model.analysis.statusMessage}
-    title="Select target graph"
-    description="Select the saved graph to analyze."
-    selectedRevisionId={model.analysis.targetRevisionId || undefined}
-    onSelect={(summary) => model.analysis.selectTarget(summary.revision_id)}
-    onFavoriteChange={handleFavoriteChange}
-  />
-
-  <AnalysisDialog model={model.analysis} {optimizationOptions} />
+  <ManifestDialog model={model.manifest} />
 
   <StatusBar
     documentName={wm.activeDocument?.title ?? ""}

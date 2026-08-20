@@ -7,6 +7,8 @@ defmodule NetworkDefense.Graph.GraphRevision do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
+  @type t :: %__MODULE__{}
+
   schema "graph_revisions" do
     belongs_to :graph, Graph
     belongs_to :parent_revision, __MODULE__

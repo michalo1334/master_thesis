@@ -3,6 +3,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   alias NetworkDefense.Analysis.CombinedAnalysisWorkflow
   alias NetworkDefense.Errors
+  alias NetworkDefense.Evaluation
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
   alias NetworkDefense.Graph.MaterializeReachability
@@ -72,7 +73,20 @@ defmodule NetworkDefenseWeb.DashboardLive do
     RunWorkflowPayload,
     RunWorkflowReply,
     WorkflowCompletedEvent,
-    WorkflowFailedEvent
+    WorkflowFailedEvent,
+    GetManifestPayload,
+    GetManifestReply,
+    ListManifestsPayload,
+    ListManifestsReply,
+    SaveManifestPayload,
+    SaveManifestReply,
+    StartEvaluationPayload,
+    StartEvaluationReply,
+    FetchEvaluationReportPayload,
+    EvaluationCompletedEvent,
+    EvaluationFailedEvent,
+    EvaluationReportErrorEvent,
+    EvaluationReportReadyEvent
   }
 
   @impl true
@@ -115,6 +129,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Workflows.workflow_events_topic())
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
     end
 
     {:ok, socket}
@@ -154,6 +169,108 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, fetch_analyses_reply([]), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("save_manifest", params, socket) do
+    case SaveManifestPayload.validate(params) do
+      {:ok, request} ->
+        case Evaluation.save(%{
+               manifest_id: request.manifest_id,
+               title: request.title,
+               content: request.content
+             }) do
+          {:ok, manifest} ->
+            {:reply, save_manifest_reply("ok", manifest_summary(manifest, content: true), []),
+             socket}
+
+          {:error, errors} when is_list(errors) ->
+            {:reply, save_manifest_reply("invalid_manifest", nil, errors), socket}
+
+          {:error, _reason} ->
+            {:reply, save_manifest_reply("invalid_manifest", nil, []), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, save_manifest_reply("invalid_request", nil, []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("list_manifests", params, socket) do
+    case ListManifestsPayload.validate(params) do
+      {:ok, _request} ->
+        manifests = Enum.map(Evaluation.list(), &manifest_summary/1)
+        {:reply, list_manifests_reply(manifests), socket}
+
+      {:error, _changeset} ->
+        {:reply, list_manifests_reply([]), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("get_manifest", params, socket) do
+    case GetManifestPayload.validate(params) do
+      {:ok, request} ->
+        manifest =
+          case Evaluation.get(request.id) do
+            nil -> nil
+            manifest -> manifest_summary(manifest, content: true)
+          end
+
+        {:reply, get_manifest_reply(manifest), socket}
+
+      {:error, _changeset} ->
+        {:reply, get_manifest_reply(nil), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("start_evaluation", params, socket) do
+    case StartEvaluationPayload.validate(params) do
+      {:ok, request} ->
+        case Evaluation.start(request.manifest_id) do
+          {:ok, run} ->
+            start_evaluation_task(run.id)
+
+            {:reply, start_evaluation_reply("accepted", run.id, []),
+             put_flash(socket, :info, "Evaluation started.")}
+
+          {:error, :not_found} ->
+            {:reply, start_evaluation_reply("not_found", nil, []), socket}
+
+          {:error, errors} when is_list(errors) ->
+            {:reply, start_evaluation_reply("rejected", nil, errors), socket}
+
+          {:error, _reason} ->
+            {:reply, start_evaluation_reply("rejected", nil, []), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, start_evaluation_reply("rejected", nil, []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("fetch_evaluation_report", params, socket) do
+    case FetchEvaluationReportPayload.validate(params) do
+      {:ok, request} ->
+        case start_evaluation_report_fetch(request, self()) do
+          {:ok, _pid} ->
+            {:reply, report_request_reply("processing"), socket}
+
+          {:error, _reason} ->
+            {:reply, report_request_reply("unavailable"),
+             push_contract_event(socket, "evaluation_report_error", EvaluationReportErrorEvent, %{
+               document_id: request.document_id,
+               run_id: request.run_id,
+               error: dashboard_error(:task_unavailable)
+             })}
+        end
+
+      {:error, _changeset} ->
+        {:reply, report_request_reply("invalid_params"), socket}
     end
   end
 
@@ -540,6 +657,45 @@ defmodule NetworkDefenseWeb.DashboardLive do
      )}
   end
 
+  def handle_info({:evaluation_completed, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "evaluation_completed", EvaluationCompletedEvent, payload)}
+  end
+
+  def handle_info({:evaluation_failed, payload}, socket) do
+    {:noreply,
+     push_failure_event(
+       socket,
+       "evaluation_failed",
+       EvaluationFailedEvent,
+       "Evaluation failed",
+       failure_payload(payload)
+     )}
+  end
+
+  def handle_info({:evaluation_progress, payload}, socket) do
+    {:noreply,
+     push_contract_event(socket, "evaluation_progress", ExecutionProgressEvent, payload)}
+  end
+
+  def handle_info({:evaluation_report_result, document_id, run_id, result}, socket) do
+    socket =
+      if is_map(result) and result[:report] do
+        push_contract_event(socket, "evaluation_report_ready", EvaluationReportReadyEvent, %{
+          document_id: document_id,
+          report: result[:report]
+        })
+      else
+        push_contract_event(socket, "evaluation_report_error", EvaluationReportErrorEvent, %{
+          document_id: document_id,
+          run_id: run_id,
+          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
+        })
+      end
+
+    {:noreply, socket}
+  end
+
   def handle_info({:report_result, document_id, experiment_id, graph_revision_id, result}, socket) do
     socket =
       if is_map(result) and result[:charts] do
@@ -633,6 +789,23 @@ defmodule NetworkDefenseWeb.DashboardLive do
          request.graph_revision_id, fetch_optimization_report(request)}
       )
     end)
+  end
+
+  defp start_evaluation_report_fetch(%FetchEvaluationReportPayload{} = request, owner) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      send(
+        owner,
+        {:evaluation_report_result, request.document_id, request.run_id,
+         fetch_evaluation_report(request)}
+      )
+    end)
+  end
+
+  defp fetch_evaluation_report(%FetchEvaluationReportPayload{} = request) do
+    case Evaluation.report(request.run_id) do
+      nil -> %{status: :not_found}
+      report -> %{report: report}
+    end
   end
 
   defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request) do
@@ -855,6 +1028,40 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp fetch_analyses_reply(analyses),
     do: contract_reply(FetchAnalysesReply, %{analyses: analyses})
+
+  defp save_manifest_reply(status, manifest, errors) do
+    contract_reply(SaveManifestReply, %{status: status, manifest: manifest, errors: errors})
+  end
+
+  defp list_manifests_reply(manifests),
+    do: contract_reply(ListManifestsReply, %{manifests: manifests})
+
+  defp get_manifest_reply(manifest),
+    do: contract_reply(GetManifestReply, %{manifest: manifest})
+
+  defp start_evaluation_reply(status, run_id, errors) do
+    contract_reply(StartEvaluationReply, %{status: status, run_id: run_id, errors: errors})
+  end
+
+  defp manifest_summary(manifest, opts \\ []) do
+    summary = %{
+      id: manifest.id,
+      manifest_id: manifest.manifest_id,
+      title: manifest.title
+    }
+
+    if Keyword.get(opts, :content, false) do
+      Map.put(summary, :content, manifest.content)
+    else
+      summary
+    end
+  end
+
+  defp start_evaluation_task(run_id) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      Evaluation.run(run_id)
+    end)
+  end
 
   defp set_graph_analyses_reply(status, analyses),
     do: contract_reply(SetGraphAnalysesReply, %{status: status, analyses: analyses})

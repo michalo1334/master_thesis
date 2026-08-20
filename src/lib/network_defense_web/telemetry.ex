@@ -109,6 +109,24 @@ defmodule NetworkDefenseWeb.Telemetry do
         unit: {:native, :second},
         reporter_options: [buckets: @duration_buckets]
       ),
+      counter("network_defense.evaluation.runs.total",
+        event_name: [:network_defense, :evaluation, :run]
+      ),
+      distribution("network_defense.evaluation.duration.seconds",
+        event_name: [:network_defense, :evaluation, :run],
+        measurement: :duration,
+        unit: {:native, :second},
+        reporter_options: [buckets: @duration_buckets]
+      ),
+      counter("network_defense.evaluation.exports.total",
+        event_name: [:network_defense, :evaluation, :export]
+      ),
+      distribution("network_defense.evaluation.export.duration.seconds",
+        event_name: [:network_defense, :evaluation, :export],
+        measurement: :duration,
+        unit: {:native, :second},
+        reporter_options: [buckets: @duration_buckets]
+      ),
       last_value("vm.memory.total.bytes",
         event_name: [:vm, :memory],
         measurement: :total,

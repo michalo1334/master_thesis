@@ -81,7 +81,9 @@ defmodule NetworkDefense.Simulation.Run do
   end
 
   def current_iteration(%__MODULE__{iterations: []}), do: nil
-  def current_iteration(%__MODULE__{iterations: [iteration | _]}), do: iteration
+
+  def current_iteration(%__MODULE__{iterations: iterations}),
+    do: Enum.max_by(iterations, & &1.index)
 
   def current_attacker_state(%__MODULE__{} = state) do
     case current_iteration(state) do

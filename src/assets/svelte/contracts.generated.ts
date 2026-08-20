@@ -440,6 +440,73 @@ export interface DocumentCatalogItem {
   strategy?: string | null;
 }
 
+// NetworkDefenseWeb.Web.Contracts.EvaluationCompletedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_completed_event.ex)
+export interface EvaluationCompletedEvent {
+  manifest_id: string;
+  manifest_title: string;
+  run_id: string;
+  source_graph_revision_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_experiment_summary.ex)
+export interface EvaluationExperimentSummary {
+  blast_radius_p95: number;
+  blast_radius_p99: number;
+  expected_blast_radius: number;
+  id: string;
+  max_blast_radius: number;
+  median_blast_radius: number;
+  min_blast_radius: number;
+  optimization_run_id?: string | null;
+  trial_count: number;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationFailedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_failed_event.ex)
+export interface EvaluationFailedEvent {
+  error: DashboardError;
+  manifest_id: string;
+  manifest_title: string;
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_plan_summary.ex)
+export interface EvaluationPlanSummary {
+  action_count: number;
+  id: string;
+  requested_budget: number;
+  selection_seed: number;
+  status: string;
+  strategy: string;
+  used_budget: number;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationReport (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report.ex)
+export interface EvaluationReport {
+  experiments: EvaluationExperimentSummary[];
+  failure_reason?: string | null;
+  graph_id: string;
+  manifest_id: string;
+  manifest_title: string;
+  plans: EvaluationPlanSummary[];
+  run_id: string;
+  source_graph_revision_id: string;
+  source_graph_title: string;
+  status: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationReportErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_error_event.ex)
+export interface EvaluationReportErrorEvent {
+  document_id: string;
+  error: DashboardError;
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationReportReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_ready_event.ex)
+export interface EvaluationReportReadyEvent {
+  document_id: string;
+  report: EvaluationReport;
+}
+
 // NetworkDefenseWeb.Web.Contracts.ExecutionProgressEvent (lib/network_defense_web/contracts/dashboard/execution_progress_event.ex)
 export interface ExecutionProgressEvent {
   completed: number;
@@ -488,6 +555,17 @@ export interface FetchDocumentCatalogReply {
   filter_options: DocumentCatalogFilterOptions;
   items: DocumentCatalogItem[];
   total_count: number;
+}
+
+// NetworkDefenseWeb.Web.Contracts.FetchEvaluationReportPayload (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_payload.ex)
+export interface FetchEvaluationReportPayload {
+  document_id: string;
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.FetchEvaluationReportReply (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_reply.ex) — enum fields: status
+export interface FetchEvaluationReportReply {
+  status: "processing" | "unavailable" | "invalid_params";
 }
 
 // NetworkDefenseWeb.Web.Contracts.FetchExperimentsPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_payload.ex)
@@ -568,6 +646,16 @@ export interface FetchSimulationReportReply {
 export interface FolderSummary {
   id: string;
   name: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.GetManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_payload.ex)
+export interface GetManifestPayload {
+  id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.GetManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_reply.ex)
+export interface GetManifestReply {
+  manifest?: ManifestSummary | null;
 }
 
 // NetworkDefenseWeb.Web.Contracts.GraphConnectivityReply (lib/network_defense_web/contracts/dashboard/graph/graph_connectivity_reply.ex)
@@ -659,6 +747,28 @@ export interface GraphSummary {
   revision_id: string;
   revision_kind: string;
   revision_number: number;
+  title: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.ListManifestsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_payload.ex)
+export type ListManifestsPayload = Record<never, never>;
+
+// NetworkDefenseWeb.Web.Contracts.ListManifestsReply (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_reply.ex)
+export interface ListManifestsReply {
+  manifests: ManifestSummary[];
+}
+
+// NetworkDefenseWeb.Web.Contracts.ManifestError (lib/network_defense_web/contracts/dashboard/evaluation/manifest_error.ex)
+export interface ManifestError {
+  message: string;
+  path: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.ManifestSummary (lib/network_defense_web/contracts/dashboard/evaluation/manifest_summary.ex)
+export interface ManifestSummary {
+  content?: unknown | null;
+  id: string;
+  manifest_id: string;
   title: string;
 }
 
@@ -821,6 +931,20 @@ export interface SaveGraphReply {
   status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
 }
 
+// NetworkDefenseWeb.Web.Contracts.SaveManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_payload.ex)
+export interface SaveManifestPayload {
+  content: unknown;
+  manifest_id: string;
+  title: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.SaveManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_reply.ex) — enum fields: status
+export interface SaveManifestReply {
+  errors: ManifestError[];
+  manifest?: ManifestSummary | null;
+  status: "ok" | "invalid_manifest" | "invalid_request";
+}
+
 // NetworkDefenseWeb.Web.Contracts.SetGraphAnalysesPayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_analyses_payload.ex)
 export interface SetGraphAnalysesPayload {
   analysis_ids: string[];
@@ -975,6 +1099,18 @@ export interface SimulationReportSummary {
   mission_impact_p95: number;
   mission_impact_p99: number;
   mission_impact_variance: number;
+}
+
+// NetworkDefenseWeb.Web.Contracts.StartEvaluationPayload (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_payload.ex)
+export interface StartEvaluationPayload {
+  manifest_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.StartEvaluationReply (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_reply.ex) — enum fields: status
+export interface StartEvaluationReply {
+  errors: ManifestError[];
+  run_id?: string | null;
+  status: "accepted" | "rejected" | "not_found";
 }
 
 // NetworkDefenseWeb.Web.Contracts.WorkflowCompletedEvent (lib/network_defense_web/contracts/dashboard/workflow/workflow_completed_event.ex)

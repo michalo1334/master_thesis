@@ -12,6 +12,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulation.Contracts.SimulationParams
+  alias Ecto.Adapters.SQL.Sandbox
 
   describe "OptimizationRuns" do
     test "creates a run as running and completes it atomically with its actions" do
@@ -463,6 +464,29 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
                Repo.all(
                  from(run in OptimizationRun, where: run.graph_revision_id == ^graph.revision_id)
                )
+    end
+
+    test "run_async/1 completes through the same pipeline and broadcasts completion" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2}
+      }
+
+      correlation_id = request.correlation_id
+
+      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+
+      assert {:ok, task} = Optimizations.run_async(request)
+      Sandbox.allow(Repo, self(), task)
+
+      assert_receive {:optimization_completed,
+                      %{correlation_id: ^correlation_id, optimization_id: run_id}},
+                     5_000
+
+      assert %{status: "completed", actions: []} = OptimizationRuns.load(run_id)
     end
 
     test "run/1 rejects an unknown strategy" do

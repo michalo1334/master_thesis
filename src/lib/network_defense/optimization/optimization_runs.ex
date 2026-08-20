@@ -14,12 +14,14 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     |> OptimizationRun.changeset(%{
       graph_revision_id: run.graph_revision_id,
       analysis_id: run.analysis_id,
+      evaluation_run_id: run.evaluation_run_id,
       strategy: run.strategy,
       requested_budget: run.requested_budget,
       used_budget: run.used_budget,
       runtime_ms: run.runtime_ms,
       status: run.status,
       seed: run.seed,
+      selection_seed: run.selection_seed,
       simulation_config: run.simulation_config
     })
     |> Repo.insert()

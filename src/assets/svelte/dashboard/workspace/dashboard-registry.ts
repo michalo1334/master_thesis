@@ -6,6 +6,7 @@ import GraphDiff from "../graph/GraphDiff.svelte";
 import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
 import ComparisonReport from "../comparison-report/ComparisonReport.svelte";
+import AnalysisReport from "../analysis-report/AnalysisReport.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 
 export interface DocumentRegistry<
@@ -35,6 +36,10 @@ export const dashboardRegistry: DocumentRegistry = {
       api: DashboardApi;
     }>,
     "comparison-report": ComparisonReport as unknown as Component<{
+      document: WorkspaceDocument;
+      api: DashboardApi;
+    }>,
+    "analysis-report": AnalysisReport as unknown as Component<{
       document: WorkspaceDocument;
       api: DashboardApi;
     }>,

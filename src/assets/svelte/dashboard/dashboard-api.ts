@@ -36,6 +36,15 @@ import type {
   FetchGraphProjectionReply,
   FetchDocumentCatalogPayload,
   FetchDocumentCatalogReply,
+  GetManifestPayload,
+  GetManifestReply,
+  ListManifestsPayload,
+  ListManifestsReply,
+  SaveManifestPayload,
+  SaveManifestReply,
+  StartEvaluationPayload,
+  StartEvaluationReply,
+  FetchEvaluationReportPayload,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 import type {
@@ -125,6 +134,11 @@ export interface DashboardApi {
     reportId: string,
     analysisId: string | null,
   ): Promise<SetReportAnalysisReply>;
+  listManifests(): Promise<ListManifestsReply>;
+  getManifest(id: string): Promise<GetManifestReply>;
+  saveManifest(payload: SaveManifestPayload): Promise<SaveManifestReply>;
+  startEvaluation(manifestId: string): Promise<StartEvaluationReply>;
+  requestEvaluationReport(documentId: string, runId: string): void;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -343,6 +357,40 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
           analysis_id: analysisId,
         },
       );
+    },
+    listManifests() {
+      return requestReply<ListManifestsPayload, ListManifestsReply>(
+        live,
+        "list_manifests",
+        {},
+      );
+    },
+    getManifest(id) {
+      return requestReply<GetManifestPayload, GetManifestReply>(
+        live,
+        "get_manifest",
+        { id },
+      );
+    },
+    saveManifest(payload) {
+      return requestReply<SaveManifestPayload, SaveManifestReply>(
+        live,
+        "save_manifest",
+        payload,
+      );
+    },
+    startEvaluation(manifestId) {
+      return requestReply<StartEvaluationPayload, StartEvaluationReply>(
+        live,
+        "start_evaluation",
+        { manifest_id: manifestId },
+      );
+    },
+    requestEvaluationReport(documentId, runId) {
+      live.pushEvent<FetchEvaluationReportPayload>("fetch_evaluation_report", {
+        document_id: documentId,
+        run_id: runId,
+      });
     },
   };
 }

@@ -47,6 +47,11 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     fetchAnalyses: vi.fn().mockResolvedValue({ analyses: [] }),
     setGraphAnalyses: vi.fn(),
     setReportAnalysis: vi.fn(),
+    listManifests: vi.fn().mockResolvedValue({ manifests: [] }),
+    getManifest: vi.fn(),
+    saveManifest: vi.fn(),
+    startEvaluation: vi.fn(),
+    requestEvaluationReport: vi.fn(),
   } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 
@@ -196,6 +201,126 @@ describe("DashboardModel", () => {
       graphRevisionId: "r1",
     });
     expect(report.status).toBe("loading");
+  });
+
+  it("handles an evaluation event that arrives before its start reply", () => {
+    model.onEvaluationCompleted({
+      run_id: "evaluation-1",
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+      source_graph_revision_id: "r1",
+    });
+
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(report).toMatchObject({
+      runId: "evaluation-1",
+      status: "loading",
+    });
+    expect(dashboardApi.requestEvaluationReport).toHaveBeenCalledWith(
+      report?.id,
+      "evaluation-1",
+    );
+  });
+
+  it("fetches the failed evaluation report so the failure reason is shown", () => {
+    model.onEvaluationFailed({
+      run_id: "evaluation-1",
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+      error: { code: "internal_error" },
+    });
+
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(report).toMatchObject({
+      runId: "evaluation-1",
+      status: "loading",
+    });
+    expect(dashboardApi.requestEvaluationReport).toHaveBeenCalledWith(
+      report?.id,
+      "evaluation-1",
+    );
+  });
+
+  it("routes evaluation progress to the pending report by run ID", () => {
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    model.onProgress("evaluation", {
+      correlation_id: "evaluation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 4,
+      total: 13,
+      detail: "Baseline attack trials: 3 of 5",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(report).toMatchObject({
+      runId: "evaluation-1",
+      progress: {
+        completed: 4,
+        total: 13,
+        detail: "Baseline attack trials: 3 of 5",
+      },
+    });
+  });
+
+  it("buffers the latest evaluation progress until the report is created", () => {
+    model.onProgress("evaluation", {
+      correlation_id: "evaluation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 1,
+      total: 13,
+      detail: "Selecting plans",
+    });
+    model.onProgress("evaluation", {
+      correlation_id: "evaluation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 4,
+      total: 13,
+      detail: "Baseline attack trials: 3 of 5",
+    });
+
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(report).toMatchObject({
+      runId: "evaluation-1",
+      progress: {
+        completed: 4,
+        total: 13,
+        detail: "Baseline attack trials: 3 of 5",
+      },
+    });
   });
 
   it("routes progress events to the matching report by kind", async () => {

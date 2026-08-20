@@ -174,7 +174,9 @@ defmodule NetworkDefense.Simulations do
     {:error, :internal_error}
   end
 
-  defp run_batches(graph, correlation_id, experiment) do
+  @spec run_batches(Graph.t(), String.t(), Experiment.t(), (Experiment.t() -> any())) ::
+          Experiment.t()
+  def run_batches(graph, correlation_id, experiment, on_batch_saved \\ fn _saved -> :ok end) do
     graph = MaterializeReachability.materialize(graph)
 
     initial_attacker_state = initial_attacker_state(graph, experiment.initial_foothold_node_id)
@@ -230,6 +232,8 @@ defmodule NetworkDefense.Simulations do
             saved.completed_trials,
             saved.total_trials
           )
+
+          on_batch_saved.(saved)
 
           saved
 

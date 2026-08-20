@@ -3,6 +3,7 @@ import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
+import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { AnalysisOption, DashboardApi } from "../dashboard-api";
 import type {
@@ -767,6 +768,25 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
     if (!existing) this.documents.push(report);
     this.activateDocument(report);
     void report.loadGraphDiff();
+    return report;
+  }
+
+  openPendingAnalysisReport(
+    runId: string,
+    manifest: { manifest_id: string; title: string },
+  ): AnalysisReportDocument {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "analysis-report" && document.runId === runId,
+    ) as AnalysisReportDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return existing;
+    }
+
+    const report = new AnalysisReportDocument(runId, manifest);
+    this.documents.push(report);
+    this.activateDocument(report);
     return report;
   }
 

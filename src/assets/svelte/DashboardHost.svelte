@@ -20,6 +20,10 @@
     OptimizationReportErrorEvent,
     WorkflowCompletedEvent,
     WorkflowFailedEvent,
+    EvaluationCompletedEvent,
+    EvaluationFailedEvent,
+    EvaluationReportReadyEvent,
+    EvaluationReportErrorEvent,
   } from "./dashboard/contract";
 
   interface Props {
@@ -98,6 +102,32 @@
 
   useLiveEvent("workflow_failed", (payload: unknown) => {
     model.onWorkflowFailed(payload as WorkflowFailedEvent);
+  });
+
+  useLiveEvent("evaluation_completed", (payload: unknown) => {
+    model.onEvaluationCompleted(payload as EvaluationCompletedEvent);
+  });
+
+  useLiveEvent("evaluation_failed", (payload: unknown) => {
+    model.onEvaluationFailed(payload as EvaluationFailedEvent);
+  });
+
+  useLiveEvent("evaluation_progress", (payload: unknown) => {
+    model.onProgress("evaluation", payload as ExecutionProgressEvent);
+  });
+
+  useLiveEvent("evaluation_report_ready", (payload: unknown) => {
+    model.onReportReadyEvent({
+      reportKind: "evaluation",
+      payload: payload as EvaluationReportReadyEvent,
+    });
+  });
+
+  useLiveEvent("evaluation_report_error", (payload: unknown) => {
+    model.onReportErrorEvent({
+      reportKind: "evaluation",
+      payload: payload as EvaluationReportErrorEvent,
+    });
   });
 </script>
 

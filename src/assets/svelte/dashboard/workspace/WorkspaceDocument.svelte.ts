@@ -4,6 +4,7 @@ import type { SimulationReportDocument } from "../simulation-report/SimulationRe
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
+import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
 import { UiWorkspaceDocument } from "../../ui-kit/workspace/WorkspaceDocument.svelte";
@@ -40,7 +41,8 @@ export abstract class AsyncReportDocument<
 
   abstract get reportId(): string | null;
 
-  abstract get reportApiKind(): "simulation_report" | "optimization_report";
+  abstract get reportApiKind():
+    "simulation_report" | "optimization_report" | "evaluation_report";
 
   abstract setReportData(data: ReportDataMap[Kind]): void;
 
@@ -58,6 +60,7 @@ export type WorkspaceDocument =
   | SimulationReportDocument
   | OptimizationReportDocument
   | ComparisonReportDocument
+  | AnalysisReportDocument
   | DocumentCatalogDocument;
 
 export function isReport(
@@ -65,7 +68,8 @@ export function isReport(
 ): document is
   | SimulationReportDocument
   | OptimizationReportDocument
-  | ComparisonReportDocument {
+  | ComparisonReportDocument
+  | AnalysisReportDocument {
   return document.isReportDocument();
 }
 

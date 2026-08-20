@@ -63,6 +63,11 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     fetchAnalyses: vi.fn().mockResolvedValue({ analyses: [] }),
     setGraphAnalyses: vi.fn(),
     setReportAnalysis: vi.fn(),
+    listManifests: vi.fn().mockResolvedValue({ manifests: [] }),
+    getManifest: vi.fn(),
+    saveManifest: vi.fn(),
+    startEvaluation: vi.fn(),
+    requestEvaluationReport: vi.fn(),
   } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
 }
 

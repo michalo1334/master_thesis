@@ -1,5 +1,7 @@
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import { AnalysisModel } from "./analysis/AnalysisModel.svelte";
+import { ManifestModel } from "./manifest/ManifestModel.svelte";
+import { SvelteMap } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
 import type {
   GraphSummary,
@@ -14,17 +16,31 @@ import type {
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
+import type { AnalysisReportDocument } from "./analysis-report/AnalysisReportDocument.svelte";
 import type {
   ReportErrorEventType,
   ReportKind,
   ReportReadyEventType,
 } from "./report-events";
 import type { AsyncReportDocument } from "./workspace/WorkspaceDocument.svelte";
+import type {
+  EvaluationCompletedEvent,
+  EvaluationFailedEvent,
+} from "./contract";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
   analysis: AnalysisModel;
+  manifest: ManifestModel;
+  private pendingEvaluationEvents = new SvelteMap<
+    string,
+    EvaluationCompletedEvent | EvaluationFailedEvent
+  >();
+  private pendingEvaluationProgressEvents = new SvelteMap<
+    string,
+    ExecutionProgressEvent
+  >();
 
   constructor(
     api: DashboardApi,
@@ -34,6 +50,26 @@ export class DashboardModel {
     this.api = api;
     this.workspace = new WorkspaceModel(graphSummaries, folders);
     this.analysis = new AnalysisModel(api, this.workspace);
+    this.manifest = new ManifestModel(api);
+    this.manifest.onStarted = (runId, manifest) => {
+      const report = this.workspace.openPendingAnalysisReport(runId, manifest);
+      const progress = this.pendingEvaluationProgressEvents.get(runId);
+      if (progress) {
+        this.pendingEvaluationProgressEvents.delete(runId);
+        report.setProgress(
+          progress.completed,
+          progress.total,
+          progress.detail ?? undefined,
+        );
+      }
+
+      const event = this.pendingEvaluationEvents.get(runId);
+      if (!event) return;
+
+      this.pendingEvaluationEvents.delete(runId);
+      if ("error" in event) this.onEvaluationFailed(event);
+      else this.onEvaluationCompleted(event);
+    };
   }
 
   /** Cross-model: start simulation on active graph, create pending report. */
@@ -108,11 +144,12 @@ export class DashboardModel {
   }
 
   onProgress(
-    kind: "simulation" | "optimization",
+    kind: "simulation" | "optimization" | "evaluation",
     payload: ExecutionProgressEvent,
   ): void {
     if (kind === "simulation") this.onSimulationProgress(payload);
-    else this.onOptimizationProgress(payload);
+    else if (kind === "optimization") this.onOptimizationProgress(payload);
+    else this.onEvaluationProgress(payload);
   }
 
   onSimulationProgress(payload: ExecutionProgressEvent): void {
@@ -135,6 +172,23 @@ export class DashboardModel {
       payload.graph_id,
     );
     report?.setProgress(
+      payload.completed,
+      payload.total,
+      payload.detail ?? undefined,
+    );
+  }
+
+  onEvaluationProgress(payload: ExecutionProgressEvent): void {
+    const report = this.workspace.documents.find(
+      (d) => d.kind === "analysis-report" && d.runId === payload.correlation_id,
+    ) as AnalysisReportDocument | undefined;
+    if (!report) {
+      this.pendingEvaluationProgressEvents.set(payload.correlation_id, payload);
+      return;
+    }
+
+    this.pendingEvaluationProgressEvents.delete(payload.correlation_id);
+    report.setProgress(
       payload.completed,
       payload.total,
       payload.detail ?? undefined,
@@ -226,6 +280,32 @@ export class DashboardModel {
 
   onWorkflowFailed(payload: WorkflowFailedEvent): void {
     this.analysis.onWorkflowFailed(payload);
+  }
+
+  onEvaluationCompleted(payload: EvaluationCompletedEvent): void {
+    const report = this.workspace.documents.find(
+      (d) => d.kind === "analysis-report" && d.runId === payload.run_id,
+    ) as AnalysisReportDocument | undefined;
+    if (!report) {
+      this.pendingEvaluationEvents.set(payload.run_id, payload);
+      return;
+    }
+    report.markReady();
+    report.load(this.api, report.id, payload.run_id);
+    this.workspace.markReportReadState(report);
+  }
+
+  onEvaluationFailed(payload: EvaluationFailedEvent): void {
+    const report = this.workspace.documents.find(
+      (d) => d.kind === "analysis-report" && d.runId === payload.run_id,
+    ) as AnalysisReportDocument | undefined;
+    if (!report) {
+      this.pendingEvaluationEvents.set(payload.run_id, payload);
+      return;
+    }
+    report.markReady();
+    report.load(this.api, report.id, payload.run_id);
+    this.workspace.markReportReadState(report);
   }
 
   /** Delegate saving to the workspace. */

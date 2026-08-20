@@ -22,6 +22,7 @@ defmodule NetworkDefenseWeb.Router do
   scope "/", NetworkDefenseWeb do
     pipe_through :browser
     live "/", DashboardLive
+    get "/evaluations/:run_id/download", EvaluationDownloadController, :download
   end
 
   # Other scopes may use custom stacks.

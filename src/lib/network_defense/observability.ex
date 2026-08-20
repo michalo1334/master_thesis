@@ -5,6 +5,16 @@ defmodule NetworkDefense.Observability do
 
   alias NetworkDefense.Observability.LogValue
 
+  def emit_duration(event, started_at) do
+    :telemetry.execute(event, %{duration: System.monotonic_time() - started_at}, %{})
+  end
+
+  def duration_ms(started_at) do
+    started_at
+    |> then(&(System.monotonic_time() - &1))
+    |> System.convert_time_unit(:native, :millisecond)
+  end
+
   @ecto_query_event [:network_defense, :repo, :query]
   @live_view_handle_event [:phoenix, :live_view, :handle_event, :start]
 

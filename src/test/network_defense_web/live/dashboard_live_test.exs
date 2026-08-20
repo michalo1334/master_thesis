@@ -93,6 +93,160 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
+  describe "evaluation manifests" do
+    @valid_manifest %{
+      "schema_version" => 1,
+      "model_version" => "current-model-version",
+      "id" => "fixed-enterprise-v1",
+      "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
+      "attacker" => %{
+        "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
+        "max_attempts" => 1
+      },
+      "model" => %{
+        "objective" => "mission_then_blast_radius",
+        "require_pre_attack_feasibility" => true
+      },
+      "budgets" => [1, 2],
+      "strategies" => ["null", "cvss"],
+      "selection_seeds" => [101, 102],
+      "evaluation" => %{"trials" => 10, "seed" => 9001}
+    }
+
+    test "saves, lists, and gets a manifest", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      manifest_id = "fixed-enterprise-#{System.unique_integer([:positive])}"
+      manifest = Map.put(@valid_manifest, "id", manifest_id)
+
+      render_hook(view, "save_manifest", %{
+        "manifest_id" => manifest_id,
+        "title" => "Fixed enterprise",
+        "content" => manifest
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        manifest: %{
+          id: manifest_record_id,
+          manifest_id: ^manifest_id,
+          title: "Fixed enterprise"
+        }
+      })
+
+      render_hook(view, "list_manifests", %{})
+      assert_reply(view, %{manifests: manifests})
+      assert Enum.any?(manifests, &(&1.manifest_id == manifest_id))
+
+      render_hook(view, "get_manifest", %{"id" => manifest_record_id})
+      assert_reply(view, %{manifest: %{id: ^manifest_record_id, content: content}})
+      assert content["id"] == manifest_id
+    end
+
+    test "rejects an invalid manifest with field-path errors", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_manifest", %{
+        "manifest_id" => "bad",
+        "title" => "Bad",
+        "content" => %{"bogus" => 1}
+      })
+
+      assert_reply(view, %{status: "invalid_manifest", errors: errors})
+      assert Enum.any?(errors, &(&1.path == "$.bogus"))
+    end
+
+    test "starts an evaluation for a saved manifest", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      manifest_id = "fixed-enterprise-#{System.unique_integer([:positive])}"
+
+      manifest =
+        @valid_manifest
+        |> Map.put("id", manifest_id)
+        |> Map.put("budgets", [1])
+        |> Map.put("strategies", ["null"])
+        |> Map.put("selection_seeds", [101])
+        |> put_in(["evaluation", "trials"], 1)
+
+      render_hook(view, "save_manifest", %{
+        "manifest_id" => manifest_id,
+        "title" => "Fixed enterprise",
+        "content" => manifest
+      })
+
+      assert_reply(view, %{status: "ok"})
+
+      render_hook(view, "start_evaluation", %{"manifest_id" => manifest_id})
+
+      assert_reply(view, %{status: "accepted", run_id: run_id})
+      assert is_binary(run_id)
+      assert has_element?(view, "#flash-info[role='alert']")
+      assert_push_event(view, "evaluation_completed", %{run_id: ^run_id})
+    end
+
+    test "returns not_found for an unknown manifest", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "start_evaluation", %{"manifest_id" => "nope"})
+
+      assert_reply(view, %{status: "not_found", run_id: nil})
+    end
+
+    test "forwards a fetched evaluation report as a ready event", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      document_id = Ecto.UUID.generate()
+      run_id = Ecto.UUID.generate()
+
+      report = %{
+        run_id: run_id,
+        status: "completed",
+        failure_reason: nil,
+        manifest_id: "fixed-enterprise-v1",
+        manifest_title: "Fixed enterprise",
+        graph_id: Ecto.UUID.generate(),
+        source_graph_revision_id: Ecto.UUID.generate(),
+        source_graph_title: "Source graph",
+        plans: [],
+        experiments: []
+      }
+
+      send(view.pid, {:evaluation_report_result, document_id, run_id, %{report: report}})
+
+      assert_push_event(view, "evaluation_report_ready", %{
+        document_id: ^document_id,
+        report: ^report
+      })
+    end
+
+    test "forwards evaluation progress events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      progress = %{
+        correlation_id: "evaluation-1",
+        graph_id: "graph-1",
+        graph_revision_id: "revision-1",
+        completed: 0,
+        total: 7,
+        detail: "Selecting plans"
+      }
+
+      send(view.pid, {:evaluation_progress, progress})
+      assert_push_event(view, "evaluation_progress", ^progress)
+
+      batch_progress = %{
+        correlation_id: "evaluation-1",
+        graph_id: "graph-1",
+        graph_revision_id: "revision-1",
+        completed: 4,
+        total: 7,
+        detail: "Baseline attack trials: 3 of 3"
+      }
+
+      send(view.pid, {:evaluation_progress, batch_progress})
+      assert_push_event(view, "evaluation_progress", ^batch_progress)
+    end
+  end
+
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")

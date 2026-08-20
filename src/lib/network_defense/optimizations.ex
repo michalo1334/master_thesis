@@ -3,12 +3,12 @@ defmodule NetworkDefense.Optimizations do
   Public context module for working with optimization related aspects
   """
 
-  alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Optimizer
   alias NetworkDefense.Optimization.OptimizationReport
@@ -94,6 +94,10 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp run_sync(graph, request, run, strategy) do
+    run_sync(graph, request, run, strategy, false)
+  end
+
+  defp run_sync(graph, request, run, strategy, broadcast_failure?) do
     Tracer.with_span "optimization.run",
       attributes: optimization_span_attributes(graph, request, run) do
       log_optimization_started(graph, request, run)
@@ -107,7 +111,9 @@ defmodule NetworkDefense.Optimizations do
         error ->
           Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
-          {:error, fail_optimization(run, error, __STACKTRACE__)}
+          reason = fail_optimization(run, error, __STACKTRACE__)
+          if broadcast_failure?, do: broadcast_failed(graph, request.correlation_id, reason)
+          {:error, reason}
       end
     end
   end
@@ -162,7 +168,7 @@ defmodule NetworkDefense.Optimizations do
   defp start_optimization(graph, request, run, strategy) do
     case TaskSupervisor.start_child(
            NetworkDefense.TaskSupervisor,
-           fn -> run_optimization(graph, request, run, strategy) end
+           fn -> run_sync(graph, request, run, strategy, true) end
          ) do
       {:ok, _pid} = started ->
         started
@@ -171,27 +177,6 @@ defmodule NetworkDefense.Optimizations do
         Logger.error("Unable to start optimization task: #{inspect(reason)}")
         OptimizationRuns.fail(run.id)
         {:error, :task_unavailable}
-    end
-  end
-
-  defp run_optimization(graph, request, run, strategy) do
-    Tracer.with_span "optimization.run",
-      attributes: optimization_span_attributes(graph, request, run) do
-      log_optimization_started(graph, request, run)
-
-      try do
-        {runtime_us, result} = :timer.tc(fn -> apply_optimization(graph, request, strategy) end)
-        result = complete_optimization(graph, request, run, result, runtime_us)
-        set_optimization_span_status(result)
-        result
-      rescue
-        error ->
-          Tracer.record_exception(error, __STACKTRACE__)
-          Tracer.set_status(OpenTelemetry.status(:error))
-          reason = fail_optimization(run, error, __STACKTRACE__)
-          broadcast_failed(graph, request.correlation_id, reason)
-          {:error, reason}
-      end
     end
   end
 
@@ -248,7 +233,7 @@ defmodule NetworkDefense.Optimizations do
   defp complete_optimization(graph, request, run, result, runtime_us) do
     case Graphs.append_optimization(result.graph, run.analysis_id, fn persisted_graph ->
            OptimizationRuns.complete(run, %{
-             actions: Enum.map(result.actions, &action_attrs/1),
+             actions: Enum.map(result.actions, &OptimizationAction.from_domain/1),
              used_budget: result.budget_used,
              runtime_ms: div(runtime_us, 1000),
              output_graph_revision_id: persisted_graph.revision_id
@@ -277,18 +262,6 @@ defmodule NetworkDefense.Optimizations do
         {:error, :persistence_failed}
     end
   end
-
-  defp action_attrs(action) do
-    {_target_type, target_id} = DefenseAction.target(action)
-
-    %{
-      action_type: action |> struct_type() |> DefenseActionsRegistry.short_type_for(),
-      target_id: target_id,
-      cost: DefenseAction.cost(action)
-    }
-  end
-
-  defp struct_type(%module{}), do: module
 
   @spec list_runs([Ecto.UUID.t()]) :: [OptimizationRun.t()]
   def list_runs(graph_revision_ids),

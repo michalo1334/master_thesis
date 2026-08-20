@@ -21,4 +21,25 @@ defmodule NetworkDefense.Simulation.RunsTest do
     assert %{graph_revision_id: revision_id, iterations: [%{index: 1}]} = Runs.load(persisted.id)
     assert revision_id == graph.revision_id
   end
+
+  test "selects the terminal attacker state by iteration index, not list order" do
+    initial = AttackerState.new("source-host")
+    mid = AttackerState.new("mid-host")
+    terminal = AttackerState.new("terminal-host")
+
+    run = %Run{
+      id: Ecto.UUID.generate(),
+      graph_revision_id: Ecto.UUID.generate(),
+      seed: 1,
+      trial_index: 0,
+      initial_attacker_state: initial,
+      iterations: [
+        IterationStep.new(index: 1, success?: false, attacker_state: mid),
+        IterationStep.new(index: 3, success?: false, attacker_state: terminal),
+        IterationStep.new(index: 2, success?: false, attacker_state: mid)
+      ]
+    }
+
+    assert Run.current_attacker_state(run) == terminal
+  end
 end

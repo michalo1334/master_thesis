@@ -311,11 +311,13 @@ defmodule NetworkDefense.Graph.Graphs do
     nodes =
       Node
       |> where([node], node.graph_revision_id == ^revision.id)
+      |> order_by([node], asc: node.id)
       |> Repo.all()
 
     edges =
       Edge
       |> where([edge], edge.graph_revision_id == ^revision.id)
+      |> order_by([edge], asc: edge.id)
       |> Repo.all()
 
     graph

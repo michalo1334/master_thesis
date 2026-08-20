@@ -3,6 +3,8 @@ defmodule NetworkDefense.Simulation.Experiment do
 
   import Ecto.Changeset
 
+  alias NetworkDefense.Evaluation.EvaluationRun
+  alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Simulation.Run
@@ -15,6 +17,8 @@ defmodule NetworkDefense.Simulation.Experiment do
           id: String.t() | nil,
           graph_revision_id: String.t() | nil,
           analysis_id: String.t() | nil,
+          evaluation_run_id: String.t() | nil,
+          optimization_run_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           master_seed: Seed.seed(),
           iteration_count: non_neg_integer(),
@@ -30,6 +34,8 @@ defmodule NetworkDefense.Simulation.Experiment do
   schema "experiments" do
     belongs_to :graph_revision, GraphRevision
     belongs_to :analysis, WorkflowRun
+    belongs_to :evaluation_run, EvaluationRun
+    belongs_to :optimization_run, OptimizationRun
     field :graph, :any, virtual: true
 
     field :master_seed, :integer
@@ -57,7 +63,9 @@ defmodule NetworkDefense.Simulation.Experiment do
       :completed_trials,
       :status,
       :initial_foothold_node_id,
-      :analysis_id
+      :analysis_id,
+      :evaluation_run_id,
+      :optimization_run_id
     ])
     |> validate_required([
       :graph_revision_id,
@@ -76,6 +84,8 @@ defmodule NetworkDefense.Simulation.Experiment do
     |> validate_inclusion(:status, ["running", "failed", "completed"])
     |> foreign_key_constraint(:graph_revision_id)
     |> foreign_key_constraint(:analysis_id)
+    |> foreign_key_constraint(:evaluation_run_id)
+    |> foreign_key_constraint(:optimization_run_id)
   end
 
   def new(attrs) do
@@ -86,6 +96,8 @@ defmodule NetworkDefense.Simulation.Experiment do
       graph_revision_id:
         Map.get(attrs, :graph_revision_id) || graph_revision_id(Map.get(attrs, :graph)),
       analysis_id: Map.get(attrs, :analysis_id),
+      evaluation_run_id: Map.get(attrs, :evaluation_run_id),
+      optimization_run_id: Map.get(attrs, :optimization_run_id),
       graph: Map.get(attrs, :graph),
       master_seed: Map.fetch!(attrs, :master_seed),
       iteration_count: Map.fetch!(attrs, :iteration_count),

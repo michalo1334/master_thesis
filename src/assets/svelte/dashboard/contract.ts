@@ -63,6 +63,23 @@ import type {
   DocumentCatalogItem,
   DashboardError,
   ErrorCode,
+  GetManifestPayload,
+  GetManifestReply,
+  ListManifestsPayload,
+  ListManifestsReply,
+  ManifestError,
+  ManifestSummary,
+  SaveManifestPayload,
+  SaveManifestReply,
+  StartEvaluationPayload,
+  StartEvaluationReply,
+  FetchEvaluationReportPayload,
+  FetchEvaluationReportReply,
+  EvaluationReport,
+  EvaluationCompletedEvent,
+  EvaluationFailedEvent,
+  EvaluationReportReadyEvent,
+  EvaluationReportErrorEvent,
 } from "../contracts.generated";
 
 export type {
@@ -149,6 +166,23 @@ export type {
   SimulationReportErrorEvent,
   DashboardError,
   ErrorCode,
+  GetManifestPayload,
+  GetManifestReply,
+  ListManifestsPayload,
+  ListManifestsReply,
+  ManifestError,
+  ManifestSummary,
+  SaveManifestPayload,
+  SaveManifestReply,
+  StartEvaluationPayload,
+  StartEvaluationReply,
+  FetchEvaluationReportPayload,
+  FetchEvaluationReportReply,
+  EvaluationReport,
+  EvaluationCompletedEvent,
+  EvaluationFailedEvent,
+  EvaluationReportReadyEvent,
+  EvaluationReportErrorEvent,
 } from "../contracts.generated";
 
 export type LoadedGraph = GraphContract;
@@ -164,6 +198,8 @@ export type OptimizationParams = GeneratedOptimizationParams;
 export type Selectable = Node | Edge;
 
 export type SimulationReportData = FetchSimulationReportReply;
+
+export type EvaluationReportData = EvaluationReport;
 
 export type OptimizationParamsChange = Omit<
   Partial<OptimizationParams>,

@@ -12,6 +12,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Statistics
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
@@ -74,9 +75,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       try do
         runs = experiment.runs
         final_counts = final_foothold_counts(runs)
-        blast_radius_stats = summary_stats(final_counts)
+        blast_radius_stats = Statistics.summary(final_counts)
         final_mission_impacts = final_mission_impacts(runs, experiment.graph)
-        mission_impact_stats = summary_stats(final_mission_impacts)
+        mission_impact_stats = Statistics.summary(final_mission_impacts)
 
         operational_flows =
           experiment.graph
@@ -142,33 +143,6 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       |> AttackerState.foothold_nodes()
       |> then(&MissionImpact.final(graph, &1))
     end)
-  end
-
-  defp summary_stats(counts) do
-    sorted = Enum.sort(counts)
-    n = length(sorted)
-
-    if n == 0 do
-      %{mean: 0.0, median: 0, p95: 0, p99: 0, min: 0, max: 0, variance: 0.0}
-    else
-      mean = Enum.sum(sorted) / n
-      variance = Enum.reduce(sorted, 0.0, fn x, acc -> acc + (x - mean) * (x - mean) end) / n
-
-      %{
-        mean: mean,
-        median: percentile(sorted, n, 0.5),
-        p95: percentile(sorted, n, 0.95),
-        p99: percentile(sorted, n, 0.99),
-        min: List.first(sorted),
-        max: Enum.max(sorted),
-        variance: variance
-      }
-    end
-  end
-
-  defp percentile(sorted, n, p) when n > 0 do
-    idx = max(0, Kernel.trunc(p * (n - 1)))
-    Enum.at(sorted, idx)
   end
 
   defp summary(blast_radius_stats, mission_impact_stats, graph) do

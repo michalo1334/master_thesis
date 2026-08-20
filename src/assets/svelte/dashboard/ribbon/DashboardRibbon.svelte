@@ -39,6 +39,7 @@
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
     analysisRunning?: boolean;
+    downloadResultsHref?: string;
   }
 
   let {
@@ -59,6 +60,7 @@
     simulationParams,
     footholdHosts,
     analysisRunning = false,
+    downloadResultsHref = undefined,
   }: Props = $props();
 
   let availableOptimizationOptions = $derived(
@@ -79,6 +81,21 @@
       >
       <RibbonButton onclick={onOpenAnalysis} aria-label="Analysis"
         ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
+      >
+      <RibbonButton
+        disabled={!downloadResultsHref}
+        onclick={() => {
+          if (!downloadResultsHref) return;
+          const anchor = document.createElement("a");
+          anchor.href = downloadResultsHref;
+          anchor.download = "";
+          document.body.appendChild(anchor);
+          anchor.click();
+          anchor.remove();
+        }}
+        aria-label="Download results"
+        ><Icon name="download" size={22} /><span>Download results</span
+        ></RibbonButton
       >
     </Ribbon.Section>
   </Ribbon.Tab>

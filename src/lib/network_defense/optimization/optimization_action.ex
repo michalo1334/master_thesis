@@ -2,6 +2,8 @@ defmodule NetworkDefense.Optimization.OptimizationAction do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Optimization.OptimizationRun
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -27,6 +29,16 @@ defmodule NetworkDefense.Optimization.OptimizationAction do
     timestamps(type: :utc_datetime)
   end
 
+  def from_domain(action) do
+    {_target_type, target_id} = DefenseAction.target(action)
+
+    %{
+      action_type: action |> struct_type() |> DefenseActionsRegistry.short_type_for(),
+      target_id: target_id,
+      cost: DefenseAction.cost(action)
+    }
+  end
+
   def changeset(action, attrs) do
     action
     |> cast(attrs, [
@@ -50,4 +62,6 @@ defmodule NetworkDefense.Optimization.OptimizationAction do
       name: :optimization_actions_optimization_run_id_position_index
     )
   end
+
+  defp struct_type(%module{}), do: module
 end
