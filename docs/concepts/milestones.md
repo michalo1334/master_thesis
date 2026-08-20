@@ -9,7 +9,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 - [x] Basic project structure (src, docs, config, docker, etc.)
 - [x] Telemetry & observability setup (Grafana, Tempo, Loki, Alloy)
 - [x] UI dependencies (LiveSvelte, Bits UI, Svelte 5, Tailwind)
-- [ ] CI/CD pipeline (automated tests on push/PR, git precommit hooks)
+- [x] CI/CD pipeline (automated tests on push/PR, git precommit hooks)
 
 ## 1. Model — Design Network Topology (all use cases)
 
@@ -56,10 +56,10 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 ## Thesis
 
 - [x] Skeleton (LaTeX template, class file)
-- [ ] Chapter — introduction
+- [x] Chapter — introduction
 - [x] Chapter — literature review
-- [ ] Chapter — design
-- [ ] Chapter — implementation
+- [x] Chapter — design
+- [x] Chapter — implementation
 
 # Milestone 2 — Core simulation + analysis pipeline (15.08.2026)
 
@@ -77,7 +77,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## 3. Analyze — Examine Results
 
-- [ ] Blast radius heat map (node coloring by compromise probability)
+- [x] Blast radius heat map (node coloring by compromise probability)
 - [x] Data pipeline: connect simulation output to dashboard
 - [x] Compromised host list (which hosts reached, how often)
 - [x] Attack path visualization (highlighted edges)
@@ -90,9 +90,9 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## 5. Verify — Re-simulate After Defense
 
-- [ ] Re-simulation after applying/hypothesizing a defense
-- [ ] Before/after comparison UI (side-by-side KPIs/overlayed same stats)
-- [ ] Composite action - Run & optimize modal with options
+- [x] Re-simulation after applying/hypothesizing a defense
+- [x] Before/after comparison UI (side-by-side KPIs/overlayed same stats)
+- [x] Composite action - Run & optimize modal with options
 
 ## 6. Report — Export Results
 
@@ -104,16 +104,24 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## Thesis
 
-- [ ] Chapter — design, implementation
-- [ ] Chapter — evaluation
-- [ ] Chapter — conclusion
+- [x] Chapter — design, implementation
+- [x] Chapter — evaluation protocol
+- [x] Chapter — conclusion
+
+## Implemented After The Original Milestones
+
+- [x] Deterministic enterprise topology generator with synthetic vulnerability catalog
+- [x] Mission capabilities, required service flows, support thresholds, and feasibility checks
+- [x] Six defense strategies implemented, including null and random baselines
+- [x] Oban-based workflow that runs baseline simulation, optimization, and post-defense simulation
+- [x] Before/after comparison report with mission-impact and graph-diff views
 
 # Milestone 3 — Full evaluation + thesis (30.09.2026)
 
 ## 4. Defend — Advanced
 
-- [ ] Apply patch vulnerability on a service
-- [ ] Apply segmentation (remove a segment reachability policy)
+- [x] Apply patch vulnerability on a service
+- [x] Apply segmentation (remove a segment reachability policy)
 - [ ] Compare predicted vs actual blast radius reduction
 
 ## 6. Report — Export
