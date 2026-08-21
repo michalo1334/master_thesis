@@ -2,7 +2,7 @@
   import type { AnalysisOption } from "../../dashboard-api";
   import type { OptimizationReportDocument } from "../../optimization-report/OptimizationReportDocument.svelte";
   import type { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
-  import Inspector from "../Inspector.svelte";
+  import Inspector from "../../../ui-kit/layout/Inspector.svelte";
 
   interface Props {
     document: SimulationReportDocument | OptimizationReportDocument;

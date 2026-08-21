@@ -7,8 +7,8 @@
   } from "../../contract";
   import type { DashboardApi } from "../../dashboard-api";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
-  import Inspector from "../Inspector.svelte";
-  import InspectorField from "../InspectorField.svelte";
+  import Inspector from "../../../ui-kit/layout/Inspector.svelte";
+  import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
   import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
   import { requiredFlows, type RequiredFlow } from "./mission-feasibility";
 

@@ -2,8 +2,8 @@
   import type { LoadedGraph } from "../../contract";
   import type { AnalysisOption } from "../../dashboard-api";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
-  import Inspector from "../Inspector.svelte";
-  import InspectorField from "../InspectorField.svelte";
+  import Inspector from "../../../ui-kit/layout/Inspector.svelte";
+  import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
   import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
 
   interface Props {

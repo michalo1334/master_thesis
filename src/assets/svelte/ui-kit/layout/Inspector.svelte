@@ -20,7 +20,9 @@
 
 <style>
   .dashboard-inspector {
+    flex: 1;
     min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--ui-color-border);
@@ -38,6 +40,7 @@
     font-size: var(--ui-text-lg);
   }
   .dashboard-inspector-content {
+    flex: 1;
     min-height: 0;
     padding: var(--ui-space-3);
     overflow: auto;

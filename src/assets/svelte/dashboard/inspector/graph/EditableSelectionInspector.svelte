@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Selectable } from "../../contract";
-  import Inspector from "../Inspector.svelte";
+  import Inspector from "../../../ui-kit/layout/Inspector.svelte";
 
   interface Field {
     path: string[];

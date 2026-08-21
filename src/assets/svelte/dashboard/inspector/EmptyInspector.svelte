@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Selectable } from "../contract";
-  import Inspector from "./Inspector.svelte";
-  import InspectorField from "./InspectorField.svelte";
+  import Inspector from "../../ui-kit/layout/Inspector.svelte";
+  import InspectorField from "../../ui-kit/layout/InspectorField.svelte";
 
   interface Props {
     selectable: Selectable;
