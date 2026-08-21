@@ -60,7 +60,7 @@
         label="steps completed"
       />
     </section>
-  {:else if document.status === "loading" || document.status === "ready" || document.status === "completed"}
+  {:else if document.status === "loading" || document.status === "ready"}
     <section class="optimization-report-waiting" aria-live="polite">
       <ReportProgress
         progress={document.loadProgress}

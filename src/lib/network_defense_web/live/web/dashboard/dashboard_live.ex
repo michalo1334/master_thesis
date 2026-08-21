@@ -390,72 +390,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   @impl true
   def handle_event("run_simulation_request", params, socket) do
-    case RunSimulationPayload.validate(params) do
-      {:ok, %{request: request}} ->
-        case Simulations.run_async(request) do
-          {:ok, _pid} ->
-            {:reply,
-             simulation_request_reply(
-               "accepted",
-               request.graph_revision_id,
-               request.correlation_id,
-               nil
-             ), put_flash(socket, :info, "Simulation started.")}
-
-          {:error, reason} ->
-            {:reply,
-             simulation_request_reply(
-               "rejected",
-               request.graph_revision_id,
-               request.correlation_id,
-               reason
-             ), socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply,
-         simulation_request_reply(
-           "rejected",
-           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-           :invalid_request
-         ), socket}
-    end
+    handle_run_request(
+      params,
+      RunSimulationPayload,
+      &Simulations.run_async/1,
+      &simulation_request_reply/4,
+      "Simulation started.",
+      socket
+    )
   end
 
   @impl true
   def handle_event("run_optimization_request", params, socket) do
-    case RunOptimizationPayload.validate(params) do
-      {:ok, %{request: request}} ->
-        case Optimizations.run_async(request) do
-          {:ok, _pid} ->
-            {:reply,
-             optimization_request_reply(
-               "accepted",
-               request.graph_revision_id,
-               request.correlation_id,
-               nil
-             ), put_flash(socket, :info, "Optimization started.")}
-
-          {:error, reason} ->
-            {:reply,
-             optimization_request_reply(
-               "rejected",
-               request.graph_revision_id,
-               request.correlation_id,
-               reason
-             ), socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply,
-         optimization_request_reply(
-           "rejected",
-           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
-           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-           :invalid_request
-         ), socket}
-    end
+    handle_run_request(
+      params,
+      RunOptimizationPayload,
+      &Optimizations.run_async/1,
+      &optimization_request_reply/4,
+      "Optimization started.",
+      socket
+    )
   end
 
   @impl true
@@ -692,62 +646,70 @@ defmodule NetworkDefenseWeb.DashboardLive do
     do: push_report_progress(socket, "evaluation_report_progress", cid, gid, grev, c, t, d)
 
   def handle_info({:evaluation_report_result, document_id, run_id, result}, socket) do
-    socket =
-      case result do
-        {:ok, report} ->
-          push_contract_event(socket, "evaluation_report_ready", EvaluationReportReadyEvent, %{
-            document_id: document_id,
-            report: report
-          })
-
-        {:error, {reason, _detail}} ->
-          push_contract_event(socket, "evaluation_report_error", EvaluationReportErrorEvent, %{
-            document_id: document_id,
-            run_id: run_id,
-            error: dashboard_error(reason)
-          })
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     push_report_result(
+       socket,
+       result,
+       document_id,
+       run_id,
+       {EvaluationReportReadyEvent, "evaluation_report_ready"},
+       {EvaluationReportErrorEvent, "evaluation_report_error"},
+       :run_id
+     )}
   end
 
   def handle_info({:report_result, document_id, experiment_id, result}, socket) do
-    socket =
-      if is_map(result) and result[:charts] do
-        push_contract_event(socket, "simulation_report_ready", SimulationReportReadyEvent, %{
-          document_id: document_id,
-          report: result
-        })
-      else
-        push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
-          document_id: document_id,
-          experiment_id: experiment_id,
-          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
-        })
-      end
-
-    {:noreply, socket}
+    {:noreply,
+     push_report_result(
+       socket,
+       result,
+       document_id,
+       experiment_id,
+       {SimulationReportReadyEvent, "simulation_report_ready"},
+       {SimulationReportErrorEvent, "simulation_report_error"},
+       :experiment_id
+     )}
   end
 
   def handle_info(
         {:optimization_report_result, document_id, optimization_id, result},
         socket
       ) do
-    socket =
-      if is_map(result) and result[:report] do
-        push_contract_event(socket, "optimization_report_ready", OptimizationReportReadyEvent, %{
-          document_id: document_id,
-          report: result
-        })
-      else
-        push_contract_event(socket, "optimization_report_error", OptimizationReportErrorEvent, %{
-          document_id: document_id,
-          optimization_id: optimization_id,
-          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
-        })
-      end
+    {:noreply,
+     push_report_result(
+       socket,
+       result,
+       document_id,
+       optimization_id,
+       {OptimizationReportReadyEvent, "optimization_report_ready"},
+       {OptimizationReportErrorEvent, "optimization_report_error"},
+       :optimization_id
+     )}
+  end
 
-    {:noreply, socket}
+  defp push_report_result(
+         socket,
+         result,
+         document_id,
+         correlation_id,
+         {ready_contract, ready_event},
+         {error_contract, error_event},
+         id_field
+       ) do
+    case result do
+      {:ok, report} ->
+        push_contract_event(socket, ready_event, ready_contract, %{
+          document_id: document_id,
+          report: report
+        })
+
+      {:error, {reason, _detail}} ->
+        error_payload =
+          %{document_id: document_id, error: dashboard_error(reason)}
+          |> Map.put(id_field, correlation_id)
+
+        push_contract_event(socket, error_event, error_contract, error_payload)
+    end
   end
 
   defp start_workflow(request) do
@@ -769,70 +731,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
         simulation_report_reply(report)
 
       _ ->
-        %{status: :not_found}
+        {:error, {:not_found, nil}}
     end
   end
 
   defp simulation_report_reply(report) do
     case FetchSimulationReportReply.from_domain(report) do
-      {:ok, reply} -> FetchSimulationReportReply.to_wire(reply)
-      {:error, _changeset} -> %{status: :not_found}
+      {:ok, reply} -> {:ok, FetchSimulationReportReply.to_wire(reply)}
+      {:error, _changeset} -> {:error, {:not_found, nil}}
     end
-  end
-
-  defp start_report_fetch(%FetchSimulationReportPayload{} = request, owner) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      result =
-        fetch_report(
-          request,
-          report_progress_sender(owner, :simulation_report_progress, request.experiment_id)
-        )
-
-      send(
-        owner,
-        {:report_result, request.document_id, request.experiment_id, result}
-      )
-    end)
-  end
-
-  defp start_optimization_report_fetch(%FetchOptimizationReportPayload{} = request, owner) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      result =
-        fetch_optimization_report(
-          request,
-          report_progress_sender(owner, :optimization_report_progress, request.optimization_id)
-        )
-
-      send(
-        owner,
-        {:optimization_report_result, request.document_id, request.optimization_id, result}
-      )
-    end)
-  end
-
-  defp start_evaluation_report_fetch(%FetchEvaluationReportPayload{} = request, owner) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      result =
-        try do
-          case Evaluation.report(
-                 request.run_id,
-                 report_progress_sender(owner, :evaluation_report_progress, request.run_id)
-               ) do
-            nil -> {:error, {:not_found, nil}}
-            report -> {:ok, report}
-          end
-        rescue
-          # Expected infra failures become error events; anything else is a bug
-          # and crashes the task (logged by the task supervisor).
-          error in [DBConnection.ConnectionError, Postgrex.Error] ->
-            {:error, {:internal_error, Exception.message(error)}}
-        end
-
-      send(
-        owner,
-        {:evaluation_report_result, request.document_id, request.run_id, result}
-      )
-    end)
   end
 
   defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request, on_progress) do
@@ -841,15 +748,69 @@ defmodule NetworkDefenseWeb.DashboardLive do
         optimization_report_reply(report)
 
       _ ->
-        %{status: :not_found}
+        {:error, {:not_found, nil}}
     end
   end
 
   defp optimization_report_reply(report) do
     case FetchOptimizationReportReply.from_domain(report) do
-      {:ok, reply} -> FetchOptimizationReportReply.to_wire(reply)
-      {:error, _changeset} -> %{status: :not_found}
+      {:ok, reply} -> {:ok, FetchOptimizationReportReply.to_wire(reply)}
+      {:error, _changeset} -> {:error, {:not_found, nil}}
     end
+  end
+
+  defp start_report_fetch(%FetchSimulationReportPayload{} = request, owner) do
+    start_report_task(
+      owner,
+      :simulation_report_progress,
+      request.experiment_id,
+      :report_result,
+      request.document_id,
+      &fetch_report(request, &1)
+    )
+  end
+
+  defp start_optimization_report_fetch(%FetchOptimizationReportPayload{} = request, owner) do
+    start_report_task(
+      owner,
+      :optimization_report_progress,
+      request.optimization_id,
+      :optimization_report_result,
+      request.document_id,
+      &fetch_optimization_report(request, &1)
+    )
+  end
+
+  defp start_evaluation_report_fetch(%FetchEvaluationReportPayload{} = request, owner) do
+    start_report_task(
+      owner,
+      :evaluation_report_progress,
+      request.run_id,
+      :evaluation_report_result,
+      request.document_id,
+      fn on_progress ->
+        case Evaluation.report(request.run_id, on_progress) do
+          nil -> {:error, {:not_found, nil}}
+          report -> {:ok, report}
+        end
+      end
+    )
+  end
+
+  defp start_report_task(owner, progress_tag, correlation_id, result_tag, document_id, fetch_fun) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      result =
+        try do
+          fetch_fun.(report_progress_sender(owner, progress_tag, correlation_id))
+        rescue
+          # Expected infra failures become error events; anything else is a bug
+          # and crashes the task (logged by the task supervisor).
+          error in [DBConnection.ConnectionError, Postgrex.Error] ->
+            {:error, {:internal_error, Exception.message(error)}}
+        end
+
+      send(owner, {result_tag, document_id, correlation_id, result})
+    end)
   end
 
   defp run_summary(run) do
@@ -1008,7 +969,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp simulation_request_reply(status, graph_revision_id, correlation_id, error) do
-    contract_reply(RunSimulationReply, %{
+    run_request_reply(RunSimulationReply, status, graph_revision_id, correlation_id, error)
+  end
+
+  defp optimization_request_reply(status, graph_revision_id, correlation_id, error) do
+    run_request_reply(RunOptimizationReply, status, graph_revision_id, correlation_id, error)
+  end
+
+  defp run_request_reply(contract, status, graph_revision_id, correlation_id, error) do
+    contract_reply(contract, %{
       status: status,
       graph_revision_id: string_or_empty(graph_revision_id),
       correlation_id: string_or_empty(correlation_id),
@@ -1016,13 +985,38 @@ defmodule NetworkDefenseWeb.DashboardLive do
     })
   end
 
-  defp optimization_request_reply(status, graph_revision_id, correlation_id, error) do
-    contract_reply(RunOptimizationReply, %{
-      status: status,
-      graph_revision_id: string_or_empty(graph_revision_id),
-      correlation_id: string_or_empty(correlation_id),
-      error: dashboard_error(error)
-    })
+  defp handle_run_request(params, payload_mod, run_fun, reply_fun, success_flash, socket) do
+    case payload_mod.validate(params) do
+      {:ok, %{request: request}} ->
+        case run_fun.(request) do
+          {:ok, _pid} ->
+            {:reply,
+             reply_fun.(
+               "accepted",
+               request.graph_revision_id,
+               request.correlation_id,
+               nil
+             ), put_flash(socket, :info, success_flash)}
+
+          {:error, reason} ->
+            {:reply,
+             reply_fun.(
+               "rejected",
+               request.graph_revision_id,
+               request.correlation_id,
+               reason
+             ), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply,
+         reply_fun.(
+           "rejected",
+           params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
+           params |> Map.get("request", %{}) |> Map.get("correlation_id"),
+           :invalid_request
+         ), socket}
+    end
   end
 
   defp workflow_request_reply(status, workflow_id, title, error) do

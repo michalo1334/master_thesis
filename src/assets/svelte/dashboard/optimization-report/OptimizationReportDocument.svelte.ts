@@ -148,15 +148,12 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     openOptimizedGraph: () => Promise<boolean>,
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
   ): void {
-    this.optimizationId = payload.optimization_id;
-    this.optimizedGraphRevisionId = payload.output_graph_revision_id;
-    this.openOptimizedGraph = openOptimizedGraph;
-    this.graphDiff = undefined;
-    this.graphDiffStatus = "";
-    this.createGraphDiff = createGraphDiff;
-    this.errorReason = "";
-    this.status = "completed";
-    this.progress = null;
+    this.markReady(
+      payload.optimization_id,
+      payload.output_graph_revision_id,
+      openOptimizedGraph,
+      createGraphDiff,
+    );
     this.load(api, this.id, payload.optimization_id);
   }
 

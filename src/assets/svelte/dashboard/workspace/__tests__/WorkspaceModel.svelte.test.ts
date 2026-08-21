@@ -528,12 +528,7 @@ describe("WorkspaceModel", () => {
         budget: 1,
       });
 
-      for (const status of [
-        "pending",
-        "completed",
-        "ready",
-        "loading",
-      ] as const) {
+      for (const status of ["pending", "ready", "loading"] as const) {
         report.status = status;
         expect(model.canCloseDocument(report)).toBe(false);
       }

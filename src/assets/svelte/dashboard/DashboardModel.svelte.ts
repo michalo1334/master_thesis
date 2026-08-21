@@ -37,6 +37,7 @@ export class DashboardModel {
     string,
     EvaluationCompletedEvent | EvaluationFailedEvent
   >();
+  // ponytail: last-only O(1) buffer — full history if UX needs scrubbing
   private pendingEvaluationProgressEvents = new SvelteMap<
     string,
     ExecutionProgressEvent
@@ -153,12 +154,10 @@ export class DashboardModel {
   }
 
   onSimulationProgress(payload: ExecutionProgressEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.correlationId === payload.correlation_id &&
-        d.graphRevisionId === payload.graph_revision_id,
-    ) as SimulationReportDocument | undefined;
+    const report = this.findSimulationReport(
+      payload.correlation_id,
+      payload.graph_revision_id,
+    );
     report?.setProgress(
       payload.completed,
       payload.total,
@@ -179,9 +178,7 @@ export class DashboardModel {
   }
 
   onEvaluationProgress(payload: ExecutionProgressEvent): void {
-    const report = this.workspace.documents.find(
-      (d) => d.kind === "analysis-report" && d.runId === payload.correlation_id,
-    ) as AnalysisReportDocument | undefined;
+    const report = this.findAnalysisReport(payload.correlation_id);
     if (!report) {
       this.pendingEvaluationProgressEvents.set(payload.correlation_id, payload);
       return;
@@ -217,12 +214,10 @@ export class DashboardModel {
 
   /** Cross-model: route a server completion event to the matching report. */
   onSimulationCompleted(payload: SimulationCompletedEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.correlationId === payload.correlation_id &&
-        d.graphRevisionId === payload.graph_revision_id,
-    ) as SimulationReportDocument | undefined;
+    const report = this.findSimulationReport(
+      payload.correlation_id,
+      payload.graph_revision_id,
+    );
     if (report) {
       report.complete(this.api, payload.experiment_id);
       this.workspace.markReportReadState(report);
@@ -231,12 +226,10 @@ export class DashboardModel {
 
   /** Cross-model: route a server failure event to the matching report. */
   onSimulationFailed(payload: SimulationFailedEvent): void {
-    const report = this.workspace.documents.find(
-      (d) =>
-        d.kind === "simulation-report" &&
-        d.correlationId === payload.correlation_id &&
-        d.graphRevisionId === payload.graph_revision_id,
-    ) as SimulationReportDocument | undefined;
+    const report = this.findSimulationReport(
+      payload.correlation_id,
+      payload.graph_revision_id,
+    );
     if (report) {
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
@@ -309,9 +302,7 @@ export class DashboardModel {
   private announceEvaluationReport(
     payload: EvaluationCompletedEvent | EvaluationFailedEvent,
   ): void {
-    const report = this.workspace.documents.find(
-      (d) => d.kind === "analysis-report" && d.runId === payload.run_id,
-    ) as AnalysisReportDocument | undefined;
+    const report = this.findAnalysisReport(payload.run_id);
     if (!report) {
       this.pendingEvaluationEvents.set(payload.run_id, payload);
       return;
@@ -324,6 +315,26 @@ export class DashboardModel {
     report.markReady();
     report.load(this.api, report.id, payload.run_id);
     this.workspace.markReportReadState(report);
+  }
+
+  private findSimulationReport(
+    correlationId: string,
+    graphRevisionId: string,
+  ): SimulationReportDocument | undefined {
+    return this.workspace.documents.find(
+      (d) =>
+        d.kind === "simulation-report" &&
+        d.correlationId === correlationId &&
+        d.graphRevisionId === graphRevisionId,
+    ) as SimulationReportDocument | undefined;
+  }
+
+  private findAnalysisReport(
+    runId: string,
+  ): AnalysisReportDocument | undefined {
+    return this.workspace.documents.find(
+      (d) => d.kind === "analysis-report" && d.runId === runId,
+    ) as AnalysisReportDocument | undefined;
   }
 
   /** Delegate saving to the workspace. */

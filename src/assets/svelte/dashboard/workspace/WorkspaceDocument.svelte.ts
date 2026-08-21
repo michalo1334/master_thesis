@@ -32,9 +32,9 @@ export abstract class AsyncReportDocument<
     return true;
   }
 
-  status = $state<
-    "pending" | "ready" | "loading" | "loaded" | "error" | "completed"
-  >("pending");
+  status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
+    "pending",
+  );
   progress = $state<{
     completed: number;
     total: number;
