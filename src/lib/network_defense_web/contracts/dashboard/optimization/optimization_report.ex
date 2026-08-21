@@ -4,7 +4,14 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReport do
   use NetworkDefenseWeb.Contracts, category: :optimization
 
   @enum_values [
-    strategy: [:cvss, :simulation_informed, :topology_segmentation, :simulated_annealing]
+    strategy: [
+      :null,
+      :random,
+      :cvss,
+      :simulation_informed,
+      :topology_segmentation,
+      :simulated_annealing
+    ]
   ]
 
   def contract_meta, do: %{enum_values: @enum_values}

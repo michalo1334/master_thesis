@@ -13,6 +13,8 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
 
   defstruct seed: nil
 
+  def new(_graph, _params), do: {:ok, %__MODULE__{}}
+
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Random strategy"

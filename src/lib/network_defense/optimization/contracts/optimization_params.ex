@@ -7,7 +7,14 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
   use NetworkDefense.Contracts, category: :optimization
 
   @enum_values [
-    strategy: [:cvss, :simulation_informed, :topology_segmentation, :simulated_annealing]
+    strategy: [
+      :null,
+      :random,
+      :cvss,
+      :simulation_informed,
+      :topology_segmentation,
+      :simulated_annealing
+    ]
   ]
   @simulation_strategies ["simulation_informed", "topology_segmentation", "simulated_annealing"]
 

@@ -947,11 +947,13 @@ function catalogOptimizationStrategy(
   strategy: string | null | undefined,
 ): OptimizationStrategy {
   switch (strategy) {
+    case "null":
+    case "random":
     case "simulation_informed":
     case "topology_segmentation":
     case "simulated_annealing":
     case "cvss":
-      return strategy;
+      return strategy as OptimizationStrategy;
     default:
       return "cvss";
   }

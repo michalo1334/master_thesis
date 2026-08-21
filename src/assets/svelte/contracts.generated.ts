@@ -282,6 +282,8 @@ export interface OptimizationParams {
   budget: number;
   simulation_params?: SimulationParams | null;
   strategy:
+    | "null"
+    | "random"
     | "cvss"
     | "simulation_informed"
     | "topology_segmentation"
@@ -823,6 +825,8 @@ export interface OptimizationReport {
   requested_budget: number;
   runtime_ms: number;
   strategy:
+    | "null"
+    | "random"
     | "cvss"
     | "simulation_informed"
     | "topology_segmentation"

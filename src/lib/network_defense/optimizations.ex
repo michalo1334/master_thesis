@@ -8,11 +8,13 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.NullStrategy
   alias NetworkDefense.Optimization.OptimizationAction
+  alias NetworkDefense.Optimization.OptimizationReport
+  alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Optimizer
-  alias NetworkDefense.Optimization.OptimizationReport
+  alias NetworkDefense.Optimization.RandomStrategy
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
@@ -25,6 +27,8 @@ defmodule NetworkDefense.Optimizations do
 
   @optimization_events_topic "optimization_events"
   @strategy_modules %{
+    "null" => NullStrategy,
+    "random" => RandomStrategy,
     "cvss" => CvssStrategy,
     "simulation_informed" => SimulationInformedStrategy,
     "topology_segmentation" => TopologySegmentationStrategy,
