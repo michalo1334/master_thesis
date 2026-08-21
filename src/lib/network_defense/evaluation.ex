@@ -25,6 +25,8 @@ defmodule NetworkDefense.Evaluation do
     Preflight
   }
 
+  alias NetworkDefense.ReportProgress
+
   @type error :: %{path: String.t(), message: String.t()}
 
   @evaluation_events_topic "evaluation_events"
@@ -138,11 +140,11 @@ defmodule NetworkDefense.Evaluation do
     end
   end
 
-  @spec report(String.t()) :: map() | nil
-  def report(run_id) do
+  @spec report(String.t(), ReportProgress.progress_callback()) :: map() | nil
+  def report(run_id, on_progress \\ ReportProgress.noop()) do
     case EvaluationRuns.get_with_manifest(run_id) do
       nil -> nil
-      run -> EvaluationReport.generate(run)
+      run -> EvaluationReport.generate(run, on_progress)
     end
   end
 

@@ -289,6 +289,110 @@ describe("DashboardModel", () => {
     });
   });
 
+  it("routes report assembly progress to the loading report by run ID", () => {
+    model.onEvaluationCompleted({
+      run_id: "evaluation-1",
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+      source_graph_revision_id: "r1",
+    });
+
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    model.onReportProgress("evaluation", {
+      correlation_id: "evaluation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 2,
+      total: 4,
+      detail: "Summarizing plans",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(report).toMatchObject({
+      runId: "evaluation-1",
+      status: "loading",
+      loadProgress: { completed: 2, total: 4, detail: "Summarizing plans" },
+    });
+  });
+
+  it("routes simulation report assembly progress to the loading report by experiment ID", () => {
+    const simulation = createSimulationReport(model);
+    model.onSimulationCompleted({
+      correlation_id: "simulation-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      experiment_id: "experiment-1",
+    });
+
+    model.onReportProgress("simulation", {
+      correlation_id: "experiment-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 4,
+      total: 6,
+      detail: "Materializing operational flows",
+    });
+
+    expect(simulation).toMatchObject({
+      status: "loading",
+      loadProgress: {
+        completed: 4,
+        total: 6,
+        detail: "Materializing operational flows",
+      },
+    });
+  });
+
+  it("routes optimization report assembly progress to the loading report by optimization ID", async () => {
+    model.workspace.selectDocument(model.workspace.documents[0]!.id);
+    vi.mocked(dashboardApi.runOptimization).mockImplementation(
+      async (graphRevisionId, correlationId) => ({
+        status: "accepted",
+        graph_revision_id: graphRevisionId,
+        correlation_id: correlationId,
+      }),
+    );
+    await model.runActiveOptimization();
+
+    model.onOptimizationCompleted({
+      correlation_id: model.workspace.documents.find(
+        (document) => document.kind === "optimization-report",
+      )!.correlationId!,
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      output_graph_revision_id: "optimized-r1",
+      optimization_id: "optimization-1",
+    });
+
+    model.onReportProgress("optimization", {
+      correlation_id: "optimization-1",
+      graph_id: "g1",
+      graph_revision_id: "r1",
+      completed: 2,
+      total: 2,
+      detail: "Building action summaries",
+    });
+
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "optimization-report",
+    );
+    expect(report).toMatchObject({
+      status: "loading",
+      loadProgress: {
+        completed: 2,
+        total: 2,
+        detail: "Building action summaries",
+      },
+    });
+  });
+
   it("buffers the latest evaluation progress until the report is created", () => {
     model.onProgress("evaluation", {
       correlation_id: "evaluation-1",

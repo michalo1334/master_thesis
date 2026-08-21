@@ -95,6 +95,10 @@
     });
   });
 
+  useLiveEvent("simulation_report_progress", (payload: unknown) => {
+    model.onReportProgress("simulation", payload as ExecutionProgressEvent);
+  });
+
   useLiveEvent("simulation_report_error", (payload: unknown) => {
     model.onReportErrorEvent({
       reportKind: "simulation",
@@ -107,6 +111,10 @@
       reportKind: "optimization",
       payload: payload as OptimizationReportReadyEvent,
     });
+  });
+
+  useLiveEvent("optimization_report_progress", (payload: unknown) => {
+    model.onReportProgress("optimization", payload as ExecutionProgressEvent);
   });
 
   useLiveEvent("optimization_report_error", (payload: unknown) => {
@@ -141,6 +149,10 @@
       reportKind: "evaluation",
       payload: payload as EvaluationReportReadyEvent,
     });
+  });
+
+  useLiveEvent("evaluation_report_progress", (payload: unknown) => {
+    model.onReportProgress("evaluation", payload as ExecutionProgressEvent);
   });
 
   useLiveEvent("evaluation_report_error", (payload: unknown) => {

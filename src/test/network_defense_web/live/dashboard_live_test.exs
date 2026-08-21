@@ -232,6 +232,69 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       :meck.unload(Oban)
     end
 
+    test "forwards evaluation report assembly progress events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      run_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:evaluation_report_progress, run_id, "graph-1", "revision-1", 1, 4,
+         "Loading source graph"}
+      )
+
+      assert_push_event(view, "evaluation_report_progress", %{
+        correlation_id: ^run_id,
+        graph_id: "graph-1",
+        graph_revision_id: "revision-1",
+        completed: 1,
+        total: 4,
+        detail: "Loading source graph"
+      })
+    end
+
+    test "forwards simulation report assembly progress events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      experiment_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:simulation_report_progress, experiment_id, "graph-1", "revision-1", 4, 6,
+         "Materializing operational flows"}
+      )
+
+      assert_push_event(view, "simulation_report_progress", %{
+        correlation_id: ^experiment_id,
+        graph_id: "graph-1",
+        graph_revision_id: "revision-1",
+        completed: 4,
+        total: 6,
+        detail: "Materializing operational flows"
+      })
+    end
+
+    test "forwards optimization report assembly progress events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      optimization_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:optimization_report_progress, optimization_id, "graph-1", "revision-1", 2, 2,
+         "Building action summaries"}
+      )
+
+      assert_push_event(view, "optimization_report_progress", %{
+        correlation_id: ^optimization_id,
+        graph_id: "graph-1",
+        graph_revision_id: "revision-1",
+        completed: 2,
+        total: 2,
+        detail: "Building action summaries"
+      })
+    end
+
     test "forwards a fetched evaluation report as a ready event", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 

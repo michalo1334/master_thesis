@@ -192,6 +192,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   load(api: DashboardApi, documentId: string, optimizationId: string): void {
     this.optimizationId = optimizationId;
     this.status = "loading";
+    this.loadProgress = null;
     this.errorReason = "";
     api.requestOptimizationReport(documentId, optimizationId);
   }

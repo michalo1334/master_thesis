@@ -93,6 +93,7 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
 
   load(api: DashboardApi, documentId: string, runId: string): void {
     this.status = "loading";
+    this.loadProgress = null;
     this.errorReason = "";
     api.requestEvaluationReport(documentId, runId);
   }

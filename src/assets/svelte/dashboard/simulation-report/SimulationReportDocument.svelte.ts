@@ -143,6 +143,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   load(api: DashboardApi, documentId: string, experimentId: string): void {
     this.experimentId = experimentId;
     this.status = "loading";
+    this.loadProgress = null;
     this.errorReason = "";
     api.requestSimulationReport(documentId, experimentId);
   }

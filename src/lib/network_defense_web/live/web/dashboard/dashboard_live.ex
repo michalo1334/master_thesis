@@ -682,6 +682,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
      push_contract_event(socket, "evaluation_progress", ExecutionProgressEvent, payload)}
   end
 
+  def handle_info({:simulation_report_progress, cid, gid, grev, c, t, d}, socket),
+    do: push_report_progress(socket, "simulation_report_progress", cid, gid, grev, c, t, d)
+
+  def handle_info({:optimization_report_progress, cid, gid, grev, c, t, d}, socket),
+    do: push_report_progress(socket, "optimization_report_progress", cid, gid, grev, c, t, d)
+
+  def handle_info({:evaluation_report_progress, cid, gid, grev, c, t, d}, socket),
+    do: push_report_progress(socket, "evaluation_report_progress", cid, gid, grev, c, t, d)
+
   def handle_info({:evaluation_report_result, document_id, run_id, result}, socket) do
     socket =
       if is_map(result) and result[:report] do
@@ -752,8 +761,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  defp fetch_report(request) do
-    case Simulations.get_report(request.experiment_id) do
+  defp fetch_report(request, on_progress) do
+    case Simulations.get_report(request.experiment_id, on_progress) do
       %NetworkDefense.Simulation.SimulationReport{} = report ->
         simulation_report_reply(report)
 
@@ -771,42 +780,51 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp start_report_fetch(%FetchSimulationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      result =
+        fetch_report(
+          request,
+          report_progress_sender(owner, :simulation_report_progress, request.experiment_id)
+        )
+
       send(
         owner,
-        {:report_result, request.document_id, request.experiment_id, fetch_report(request)}
+        {:report_result, request.document_id, request.experiment_id, result}
       )
     end)
   end
 
   defp start_optimization_report_fetch(%FetchOptimizationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      result =
+        fetch_optimization_report(
+          request,
+          report_progress_sender(owner, :optimization_report_progress, request.optimization_id)
+        )
+
       send(
         owner,
-        {:optimization_report_result, request.document_id, request.optimization_id,
-         fetch_optimization_report(request)}
+        {:optimization_report_result, request.document_id, request.optimization_id, result}
       )
     end)
   end
 
   defp start_evaluation_report_fetch(%FetchEvaluationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      result =
+        Evaluation.report(
+          request.run_id,
+          report_progress_sender(owner, :evaluation_report_progress, request.run_id)
+        )
+
       send(
         owner,
-        {:evaluation_report_result, request.document_id, request.run_id,
-         fetch_evaluation_report(request)}
+        {:evaluation_report_result, request.document_id, request.run_id, result}
       )
     end)
   end
 
-  defp fetch_evaluation_report(%FetchEvaluationReportPayload{} = request) do
-    case Evaluation.report(request.run_id) do
-      nil -> %{status: :not_found}
-      report -> %{report: report}
-    end
-  end
-
-  defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request) do
-    case Optimizations.get_report(request.optimization_id) do
+  defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request, on_progress) do
+    case Optimizations.get_report(request.optimization_id, on_progress) do
       %NetworkDefense.Optimization.OptimizationReport{} = report ->
         optimization_report_reply(report)
 
@@ -1200,6 +1218,33 @@ defmodule NetworkDefenseWeb.DashboardLive do
     case contract.validate(payload) do
       {:ok, event_payload} -> push_event(socket, event, contract.to_wire(event_payload))
       {:error, _changeset} -> socket
+    end
+  end
+
+  defp push_report_progress(
+         socket,
+         event,
+         correlation_id,
+         graph_id,
+         graph_revision_id,
+         completed,
+         total,
+         detail
+       ) do
+    {:noreply,
+     push_contract_event(socket, event, ExecutionProgressEvent, %{
+       correlation_id: correlation_id,
+       graph_id: graph_id,
+       graph_revision_id: graph_revision_id,
+       completed: completed,
+       total: total,
+       detail: detail
+     })}
+  end
+
+  defp report_progress_sender(owner, tag, correlation_id) do
+    fn graph_id, graph_revision_id, completed, total, detail ->
+      send(owner, {tag, correlation_id, graph_id, graph_revision_id, completed, total, detail})
     end
   end
 

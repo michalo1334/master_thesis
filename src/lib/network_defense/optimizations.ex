@@ -5,6 +5,7 @@ defmodule NetworkDefense.Optimizations do
 
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.OptimizationRun
@@ -273,12 +274,13 @@ defmodule NetworkDefense.Optimizations do
   Regenerates a report for a completed optimization run, or `nil` when it does not exist
   or its actions reference a retired defense action type.
   """
-  @spec get_report(Ecto.UUID.t()) :: OptimizationReport.t() | nil
-  def get_report(optimization_run_id) do
+  @spec get_report(Ecto.UUID.t(), ReportProgress.progress_callback()) ::
+          OptimizationReport.t() | nil
+  def get_report(optimization_run_id, on_progress \\ ReportProgress.noop()) do
     with %OptimizationRun{status: "completed"} = run <- OptimizationRuns.load(optimization_run_id),
          true <- materializable_run?(run),
          %Graph{} = graph <- Graphs.load_revision(run.graph_revision_id) do
-      OptimizationReport.generate(run, graph)
+      OptimizationReport.generate(run, graph, on_progress)
     else
       _ -> nil
     end

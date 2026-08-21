@@ -13,14 +13,21 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.SimulationObjective
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Statistics
 
-  @spec generate(EvaluationRun.t()) :: map() | nil
-  def generate(%EvaluationRun{} = run) do
+  @spec generate(EvaluationRun.t(), ReportProgress.progress_callback()) :: map() | nil
+  def generate(%EvaluationRun{} = run, on_progress \\ ReportProgress.noop()) do
     case Graphs.load_revision(run.source_graph_revision_id) do
       %NetworkDefense.Graph.Graph{} = graph ->
+        experiments = experiments(run.id)
+        total = 2 + length(experiments)
+        on_progress.(graph.id, graph.revision_id, 1, total, "Loading source graph")
+        plans = plan_summaries(run.id)
+        on_progress.(graph.id, graph.revision_id, 2, total, "Summarizing plans")
+
         %{
           run_id: run.id,
           status: run.status,
@@ -30,8 +37,8 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
           graph_id: graph.id,
           source_graph_revision_id: run.source_graph_revision_id,
           source_graph_title: graph.title,
-          plans: plan_summaries(run.id),
-          experiments: experiment_summaries(run.id)
+          plans: plans,
+          experiments: experiment_summaries(experiments, graph, on_progress, total)
         }
 
       _ ->
@@ -58,16 +65,31 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
     end)
   end
 
-  defp experiment_summaries(evaluation_run_id) do
+  defp experiments(evaluation_run_id) do
     Experiment
     |> where([experiment], experiment.evaluation_run_id == ^evaluation_run_id)
     |> order_by([experiment], asc: experiment.inserted_at, asc: experiment.id)
     |> preload(runs: :iterations)
     |> Repo.all()
+  end
+
+  defp experiment_summaries(experiments, graph, on_progress, total) do
+    experiment_count = length(experiments)
+
+    experiments
     |> Enum.sort_by(fn experiment ->
       {not is_nil(experiment.optimization_run_id), experiment.id}
     end)
-    |> Enum.map(fn experiment ->
+    |> Enum.with_index(1)
+    |> Enum.map(fn {experiment, index} ->
+      on_progress.(
+        graph.id,
+        graph.revision_id,
+        2 + index,
+        total,
+        "Aggregating experiment #{index} of #{experiment_count}"
+      )
+
       counts = Enum.map(experiment.runs, &SimulationObjective.final_foothold_count/1)
       stats = Statistics.summary(counts)
 

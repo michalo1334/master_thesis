@@ -195,6 +195,26 @@ export class DashboardModel {
     );
   }
 
+  onReportProgress(
+    kind: "simulation" | "optimization" | "evaluation",
+    payload: ExecutionProgressEvent,
+  ): void {
+    const report = this.workspace.documents.find((d) =>
+      kind === "simulation"
+        ? d.kind === "simulation-report" &&
+          d.experimentId === payload.correlation_id
+        : kind === "optimization"
+          ? d.kind === "optimization-report" &&
+            d.optimizationId === payload.correlation_id
+          : d.kind === "analysis-report" && d.runId === payload.correlation_id,
+    ) as AsyncReportDocument<ReportKind> | undefined;
+    report?.setLoadProgress(
+      payload.completed,
+      payload.total,
+      payload.detail ?? undefined,
+    );
+  }
+
   /** Cross-model: route a server completion event to the matching report. */
   onSimulationCompleted(payload: SimulationCompletedEvent): void {
     const report = this.workspace.documents.find(

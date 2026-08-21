@@ -17,6 +17,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.ReportProgress
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
@@ -51,8 +52,12 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   Returns a report from a completed run with preloaded actions (ordered by
   position) and the source graph revision the run was started against.
   """
-  @spec generate(OptimizationRun.t(), Graph.t()) :: t()
-  def generate(%OptimizationRun{} = run, %Graph{} = graph) do
+  @spec generate(OptimizationRun.t(), Graph.t(), ReportProgress.progress_callback()) :: t()
+  def generate(
+        %OptimizationRun{} = run,
+        %Graph{} = graph,
+        on_progress \\ ReportProgress.noop()
+      ) do
     Tracer.with_span "optimization.report.generate",
       attributes: %{
         "optimization.run_id": run.id,
@@ -71,6 +76,10 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
       )
 
       try do
+        on_progress.(graph.id, graph.revision_id, 1, 2, "Loading optimization run")
+        actions = Enum.map(run.actions, &action_summary(&1, graph))
+        on_progress.(graph.id, graph.revision_id, 2, 2, "Building action summaries")
+
         report = %__MODULE__{
           optimization_id: run.id,
           graph_id: graph.id,
@@ -81,7 +90,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
           requested_budget: run.requested_budget,
           used_budget: run.used_budget,
           runtime_ms: run.runtime_ms,
-          actions: Enum.map(run.actions, &action_summary(&1, graph))
+          actions: actions
         }
 
         Tracer.set_status(OpenTelemetry.status(:ok))

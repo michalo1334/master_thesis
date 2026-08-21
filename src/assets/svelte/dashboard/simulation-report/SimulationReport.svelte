@@ -162,9 +162,9 @@
   {:else if document.status === "loading"}
     <section class="simulation-report-waiting" aria-label="Loading report">
       <ReportProgress
-        progress={null}
+        progress={document.loadProgress}
         waitingMessage="Loading report..."
-        label="runs completed"
+        label="assembly steps completed"
       />
     </section>
   {:else if document.status === "error"}

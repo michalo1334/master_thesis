@@ -5,6 +5,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Graph.MaterializeReachability
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Experiment
@@ -294,11 +295,12 @@ defmodule NetworkDefense.Simulations do
   @doc """
   Returns a generated report for an experiment, or `nil` when it does not exist.
   """
-  @spec get_report(Ecto.UUID.t()) :: SimulationReport.t() | nil
-  def get_report(experiment_id) do
+  @spec get_report(Ecto.UUID.t(), ReportProgress.progress_callback()) ::
+          SimulationReport.t() | nil
+  def get_report(experiment_id, on_progress \\ ReportProgress.noop()) do
     case load_for_report(experiment_id) do
       nil -> nil
-      experiment -> SimulationReport.generate(experiment)
+      experiment -> SimulationReport.generate(experiment, on_progress)
     end
   end
 

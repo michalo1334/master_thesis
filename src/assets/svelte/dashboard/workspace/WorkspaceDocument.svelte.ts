@@ -40,6 +40,11 @@ export abstract class AsyncReportDocument<
     total: number;
     detail?: string;
   } | null>(null);
+  loadProgress = $state<{
+    completed: number;
+    total: number;
+    detail?: string;
+  } | null>(null);
   title = $state<string>("");
   hasUnread = $state(false);
   errorReason = $state<string>("");
@@ -79,8 +84,22 @@ export abstract class AsyncReportDocument<
   }
 
   setProgress(completed: number, total: number, detail?: string): void {
-    if (this.status !== "pending") return;
-    this.progress = { completed, total, ...(detail ? { detail } : {}) };
+    this.setProgressField("progress", "pending", completed, total, detail);
+  }
+
+  setLoadProgress(completed: number, total: number, detail?: string): void {
+    this.setProgressField("loadProgress", "loading", completed, total, detail);
+  }
+
+  private setProgressField(
+    field: "progress" | "loadProgress",
+    guardStatus: "pending" | "loading",
+    completed: number,
+    total: number,
+    detail?: string,
+  ): void {
+    if (this.status !== guardStatus) return;
+    this[field] = { completed, total, ...(detail ? { detail } : {}) };
   }
 
   setAnalysis(analysis: { id: string; title: string } | null): void {

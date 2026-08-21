@@ -30,6 +30,31 @@ describe("SimulationReport", () => {
     expect(onOpenSourceGraph).toHaveBeenCalledOnce();
   });
 
+  it("shows report assembly progress while loading", () => {
+    const document = new SimulationReportDocument(
+      "Topology",
+      "graph-1",
+      "revision-1",
+    );
+    document.load(
+      { requestSimulationReport: () => {} } as never,
+      "document-1",
+      "experiment-1",
+    );
+    document.setLoadProgress(4, 6, "Materializing operational flows");
+
+    render(SimulationReport, { props: { document } });
+
+    expect(
+      screen.getByRole("progressbar", {
+        name: "4 of 6 assembly steps completed",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Materializing operational flows"),
+    ).toBeInTheDocument();
+  });
+
   it("shows required flow availability before an attack", () => {
     const document = new SimulationReportDocument(
       "Topology",

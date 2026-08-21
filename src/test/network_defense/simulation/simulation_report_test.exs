@@ -65,6 +65,44 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
            } = report.charts
   end
 
+  test "emits assembly progress through the callback" do
+    report =
+      experiment([])
+      |> SimulationReport.generate(fn graph_id, graph_revision_id, completed, total, detail ->
+        send(self(), {graph_id, graph_revision_id, completed, total, detail})
+        :ok
+      end)
+
+    assert %SimulationReport{} = report
+
+    received = for _ <- 1..6, do: receive(do: (msg -> msg))
+
+    assert Enum.any?(received, fn {graph_id, graph_revision_id, c, t, d} ->
+             graph_id == "graph" and graph_revision_id == "revision" and
+               {c, t, d} == {1, 6, "Loading experiment data"}
+           end)
+
+    assert Enum.any?(received, fn {_, _, c, t, d} ->
+             {c, t, d} == {2, 6, "Computing blast radius statistics"}
+           end)
+
+    assert Enum.any?(received, fn {_, _, c, t, d} ->
+             {c, t, d} == {3, 6, "Computing mission impact statistics"}
+           end)
+
+    assert Enum.any?(received, fn {_, _, c, t, d} ->
+             {c, t, d} == {4, 6, "Materializing operational flows"}
+           end)
+
+    assert Enum.any?(received, fn {_, _, c, t, d} ->
+             {c, t, d} == {5, 6, "Aggregating action results"}
+           end)
+
+    assert Enum.any?(received, fn {_, _, c, t, d} ->
+             {c, t, d} == {6, 6, "Computing compromise probabilities"}
+           end)
+  end
+
   test "maps a typed report to the web contract" do
     graph = %{Graph.new("Test graph") | revision_id: Ecto.UUID.generate()}
 

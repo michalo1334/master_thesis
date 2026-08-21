@@ -57,6 +57,38 @@ describe("OptimizationReport", () => {
     return document;
   }
 
+  it("shows report assembly progress while loading", () => {
+    const document = new OptimizationReportDocument({
+      graphId: "g1",
+      graphRevisionId: "r1",
+      graphTitle: "Topology",
+      correlationId: "corr-1",
+      strategy: "cvss",
+      budget: 2,
+    });
+    document.complete(
+      api(),
+      {
+        correlation_id: "corr-1",
+        graph_id: "g1",
+        graph_revision_id: "r1",
+        output_graph_revision_id: "optimized-r1",
+        optimization_id: "optimization-1",
+      },
+      vi.fn().mockResolvedValue(true),
+    );
+    document.setLoadProgress(1, 2, "Loading optimization run");
+
+    render(OptimizationReportComponent, { props: { document } });
+
+    expect(
+      screen.getByRole("progressbar", {
+        name: "1 of 2 assembly steps completed",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Loading optimization run")).toBeInTheDocument();
+  });
+
   function createGraphDiffDocument(): GraphDiffDocument {
     const graph = {
       id: "g1",

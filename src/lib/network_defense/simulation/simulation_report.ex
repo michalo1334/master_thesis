@@ -8,6 +8,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Optimization.SimulationObjective
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport.Charts
@@ -53,8 +54,8 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   Returns a report from a fully loaded Experiment with preloaded runs
   and their iteration steps (ordered by index descending).
   """
-  @spec generate(Experiment.t()) :: t()
-  def generate(%Experiment{} = experiment) do
+  @spec generate(Experiment.t(), ReportProgress.progress_callback()) :: t()
+  def generate(%Experiment{} = experiment, on_progress \\ ReportProgress.noop()) do
     Tracer.with_span "simulation.report.generate",
       attributes: %{
         "simulation.experiment_id": experiment.id,
@@ -73,39 +74,52 @@ defmodule NetworkDefense.Simulation.SimulationReport do
       )
 
       try do
+        graph = experiment.graph
         runs = experiment.runs
+        on_progress.(graph.id, graph.revision_id, 1, 6, "Loading experiment data")
         final_counts = final_foothold_counts(runs)
         blast_radius_stats = Statistics.summary(final_counts)
-        final_mission_impacts = final_mission_impacts(runs, experiment.graph)
+        on_progress.(graph.id, graph.revision_id, 2, 6, "Computing blast radius statistics")
+        final_mission_impacts = final_mission_impacts(runs, graph)
         mission_impact_stats = Statistics.summary(final_mission_impacts)
+        on_progress.(graph.id, graph.revision_id, 3, 6, "Computing mission impact statistics")
 
         operational_flows =
-          experiment.graph
+          graph
           |> MaterializeReachability.materialize()
           |> MaterializeReachability.operational_flows()
 
+        on_progress.(graph.id, graph.revision_id, 4, 6, "Materializing operational flows")
+
+        action_success = action_successes(runs)
+        on_progress.(graph.id, graph.revision_id, 5, 6, "Aggregating action results")
+
+        host_compromise = host_compromise_probabilities(runs, graph)
+        capability_impact = capability_impact_probabilities(runs, graph)
+        edge_traversal = edge_traversal_probabilities(runs, graph, operational_flows)
+        on_progress.(graph.id, graph.revision_id, 6, 6, "Computing compromise probabilities")
+
         report = %__MODULE__{
           experiment_id: experiment.id,
-          graph_id: experiment.graph.id,
+          graph_id: graph.id,
           graph_title: graph_title(experiment),
-          graph: experiment.graph,
+          graph: graph,
           graph_revision_id: experiment.graph_revision_id,
           operational_flows: operational_flows,
           run_count: length(runs),
           iteration_count: experiment.iteration_count,
           total_runtime_ms: experiment.runtime_ms,
-          pre_attack_capability_statuses: MissionImpact.pre_attack_status(experiment.graph),
-          pre_attack_feasible: MissionImpact.pre_attack_feasible?(experiment.graph),
-          summary: summary(blast_radius_stats, mission_impact_stats, experiment.graph),
+          pre_attack_capability_statuses: MissionImpact.pre_attack_status(graph),
+          pre_attack_feasible: MissionImpact.pre_attack_feasible?(graph),
+          summary: summary(blast_radius_stats, mission_impact_stats, graph),
           charts: %Charts{
             histogram: histogram_buckets(final_counts),
             cdf: cdf_series(Enum.sort(final_counts)),
             convergence: convergence_series(final_counts),
-            action_success: action_successes(runs),
-            host_compromise: host_compromise_probabilities(runs, experiment.graph),
-            capability_impact: capability_impact_probabilities(runs, experiment.graph),
-            edge_traversal:
-              edge_traversal_probabilities(runs, experiment.graph, operational_flows)
+            action_success: action_success,
+            host_compromise: host_compromise,
+            capability_impact: capability_impact,
+            edge_traversal: edge_traversal
           }
         }
 

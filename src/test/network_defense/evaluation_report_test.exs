@@ -66,6 +66,38 @@ defmodule NetworkDefense.EvaluationReportTest do
     assert is_integer(baseline.median_blast_radius)
   end
 
+  test "emits assembly progress through the callback" do
+    run = run_completed_evaluation()
+
+    report =
+      Evaluation.report(run.id, fn graph_id, graph_revision_id, completed, total, detail ->
+        send(self(), {graph_id, graph_revision_id, completed, total, detail})
+        :ok
+      end)
+
+    assert is_map(report)
+
+    steps = for _ <- 1..4, do: receive(do: (msg -> msg))
+
+    assert Enum.any?(steps, fn {graph_id, graph_revision_id, c, t, d} ->
+             graph_id == report.graph_id and
+               graph_revision_id == report.source_graph_revision_id and
+               {c, t, d} == {1, 4, "Loading source graph"}
+           end)
+
+    assert Enum.any?(steps, fn {_, _, c, t, d} ->
+             {c, t, d} == {2, 4, "Summarizing plans"}
+           end)
+
+    assert Enum.any?(steps, fn {_, _, c, t, d} ->
+             {c, t, d} == {3, 4, "Aggregating experiment 1 of 2"}
+           end)
+
+    assert Enum.any?(steps, fn {_, _, c, t, d} ->
+             {c, t, d} == {4, 4, "Aggregating experiment 2 of 2"}
+           end)
+  end
+
   test "returns nil for an unknown run" do
     assert Evaluation.report(Ecto.UUID.generate()) == nil
   end

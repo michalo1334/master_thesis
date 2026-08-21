@@ -63,9 +63,9 @@
   {:else if document.status === "loading" || document.status === "ready" || document.status === "completed"}
     <section class="optimization-report-waiting" aria-live="polite">
       <ReportProgress
-        progress={null}
+        progress={document.loadProgress}
         waitingMessage="Loading optimization report…"
-        label="steps completed"
+        label="assembly steps completed"
       />
     </section>
   {:else if document.status === "error"}
