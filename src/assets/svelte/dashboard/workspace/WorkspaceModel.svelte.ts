@@ -607,6 +607,69 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     return true;
   }
 
+  openAnalysisExperimentReport(
+    api: DashboardApi,
+    experiment: {
+      id: string;
+      graph_id?: string | null;
+      graph_revision_id?: string | null;
+      graph_title?: string | null;
+    },
+  ): boolean {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "simulation-report" &&
+        document.experimentId === experiment.id,
+    ) as SimulationReportDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
+    const report = new SimulationReportDocument(
+      experiment.graph_title ?? "Graph",
+      experiment.graph_id ?? "",
+      experiment.graph_revision_id ?? "",
+    );
+    this.documents.push(report);
+    this.activateDocument(report);
+    report.load(api, report.id, experiment.id);
+    return true;
+  }
+
+  openAnalysisOptimizationReport(
+    api: DashboardApi,
+    plan: { id: string; strategy?: string; requested_budget?: number },
+    graphInfo: {
+      graph_id: string;
+      graph_revision_id: string;
+      graph_title: string;
+    },
+  ): boolean {
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "optimization-report" &&
+        document.optimizationId === plan.id,
+    ) as OptimizationReportDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return true;
+    }
+
+    const report = new OptimizationReportDocument({
+      graphId: graphInfo.graph_id,
+      graphRevisionId: graphInfo.graph_revision_id,
+      graphTitle: graphInfo.graph_title,
+      strategy: catalogOptimizationStrategy(plan.strategy),
+      budget: plan.requested_budget ?? 0,
+    });
+    this.documents.push(report);
+    this.activateDocument(report);
+    report.markReady(plan.id, "", async () => false);
+    report.load(api, report.id, plan.id);
+    return true;
+  }
+
   async openOptimizationResult(
     api: DashboardApi,
     graphRevisionId: string,
@@ -716,14 +779,34 @@ export class WorkspaceModel extends GenericWorkspaceModel<
         document.kind === "analysis-report" && document.runId === runId,
     ) as AnalysisReportDocument | undefined;
     if (existing) {
+      this.bindAnalysisReportNavigation(existing, this.api);
       this.activateDocument(existing);
       return existing;
     }
 
     const report = new AnalysisReportDocument(runId, manifest);
+    this.bindAnalysisReportNavigation(report, this.api);
     this.documents.push(report);
     this.activateDocument(report);
     return report;
+  }
+
+  bindAnalysisReportNavigation(
+    report: AnalysisReportDocument,
+    api: DashboardApi | undefined,
+  ): void {
+    if (!api) return;
+    report.openExperiment = (experiment) =>
+      this.openAnalysisExperimentReport(api, experiment);
+    report.openOptimization = (plan) => {
+      const data = report.reportData;
+      if (!data) return false;
+      return this.openAnalysisOptimizationReport(api, plan, {
+        graph_id: data.graph_id,
+        graph_revision_id: data.source_graph_revision_id,
+        graph_title: data.source_graph_title,
+      });
+    };
   }
 
   findOptimizationReport(

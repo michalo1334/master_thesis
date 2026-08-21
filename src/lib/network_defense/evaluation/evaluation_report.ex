@@ -69,7 +69,7 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
     Experiment
     |> where([experiment], experiment.evaluation_run_id == ^evaluation_run_id)
     |> order_by([experiment], asc: experiment.inserted_at, asc: experiment.id)
-    |> preload(runs: :iterations)
+    |> preload([:graph_revision, runs: :iterations])
     |> Repo.all()
   end
 
@@ -96,6 +96,9 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
       %{
         id: experiment.id,
         optimization_run_id: experiment.optimization_run_id,
+        graph_id: experiment.graph_revision && experiment.graph_revision.graph_id,
+        graph_revision_id: experiment.graph_revision_id,
+        graph_title: experiment.graph_revision && experiment.graph_revision.title,
         trial_count: length(experiment.runs),
         expected_blast_radius: stats.mean,
         median_blast_radius: stats.median,

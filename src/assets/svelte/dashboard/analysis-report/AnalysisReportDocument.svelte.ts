@@ -20,6 +20,23 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
   graphRevisionId = $state("");
 
   reportData = $state<EvaluationReport | null>(null);
+  openExperiment = $state<
+    | ((experiment: {
+        id: string;
+        graph_id?: string | null;
+        graph_revision_id?: string | null;
+        graph_title?: string | null;
+      }) => boolean)
+    | undefined
+  >();
+  openOptimization = $state<
+    | ((plan: {
+        id: string;
+        strategy?: string;
+        requested_budget?: number;
+      }) => boolean)
+    | undefined
+  >();
 
   get reportId(): string | null {
     return this.runId;
@@ -65,6 +82,7 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
   recover(context: DashboardRecoveryContext): void {
     const persisted = this.persistedData as PersistedAnalysisReport | undefined;
     if (!persisted) return;
+    context.workspace.bindAnalysisReportNavigation(this, context.api);
     this.load(context.api, this.id, persisted.ids.runId);
   }
 
@@ -84,10 +102,15 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
 
   setReportData(data: EvaluationReport): void {
     if (data.run_id !== this.runId) return;
-    this.reportData = data;
     this.graphId = data.graph_id;
     this.graphRevisionId = data.source_graph_revision_id;
     this.title = `Analysis for ${data.manifest_title}`;
+    if (data.status === "running") {
+      this.reportData = null;
+      this.status = "pending";
+      return;
+    }
+    this.reportData = data;
     this.status = "loaded";
   }
 

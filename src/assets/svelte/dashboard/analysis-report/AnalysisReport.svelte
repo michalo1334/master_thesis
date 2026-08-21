@@ -20,6 +20,24 @@
         return "Pending";
     }
   });
+
+  function canOpenPlan(plan: { status: string }): boolean {
+    return plan.status === "completed" || plan.status === "failed";
+  }
+
+  function canOpenExperiment(experiment: {
+    optimization_run_id?: string | null;
+  }): boolean {
+    if (!experiment.optimization_run_id) {
+      return document.reportData?.status !== "running";
+    }
+    const linked = document.reportData?.plans.find(
+      (p) => p.id === experiment.optimization_run_id,
+    );
+    return linked
+      ? canOpenPlan(linked)
+      : document.reportData?.status !== "running";
+  }
 </script>
 
 <article class="analysis-report" aria-labelledby="analysis-report-title">
@@ -92,7 +110,24 @@
           <tbody>
             {#each document.reportData.plans as plan (plan.id)}
               <tr>
-                <th scope="row">{plan.strategy}</th>
+                <th scope="row">
+                  {#if document.openOptimization && canOpenPlan(plan)}
+                    <button
+                      type="button"
+                      class="analysis-report-link"
+                      onclick={() => document.openOptimization?.(plan)}
+                      title={plan.id}
+                    >
+                      {plan.strategy}
+                    </button>
+                  {:else}
+                    <span
+                      title={canOpenPlan(plan)
+                        ? plan.id
+                        : "Report not ready yet"}>{plan.strategy}</span
+                    >
+                  {/if}
+                </th>
                 <td>{plan.requested_budget}</td>
                 <td>{plan.selection_seed}</td>
                 <td>{plan.used_budget}</td>
@@ -128,11 +163,57 @@
           <tbody>
             {#each document.reportData.experiments as experiment (experiment.id)}
               <tr>
-                <th scope="row">{experiment.id.slice(0, 8)}</th>
-                <td
-                  >{experiment.optimization_run_id?.slice(0, 8) ??
-                    "baseline"}</td
-                >
+                <th scope="row">
+                  {#if document.openExperiment && canOpenExperiment(experiment)}
+                    <button
+                      type="button"
+                      class="analysis-report-link"
+                      onclick={() => document.openExperiment?.(experiment)}
+                      title={experiment.id}
+                    >
+                      {experiment.id.slice(0, 8)}
+                    </button>
+                  {:else}
+                    <span title={experiment.id}
+                      >{experiment.id.slice(0, 8)}</span
+                    >
+                  {/if}
+                </th>
+                <td>
+                  {#if experiment.optimization_run_id}
+                    {@const linkedPlan = document.reportData.plans.find(
+                      (p) => p.id === experiment.optimization_run_id,
+                    )}
+                    {#if linkedPlan && document.openOptimization && canOpenPlan(linkedPlan)}
+                      <button
+                        type="button"
+                        class="analysis-report-link"
+                        onclick={() => document.openOptimization?.(linkedPlan)}
+                        title={experiment.optimization_run_id}
+                      >
+                        {experiment.optimization_run_id.slice(0, 8)}
+                      </button>
+                    {:else if !linkedPlan && document.openOptimization && document.reportData.status !== "running"}
+                      <button
+                        type="button"
+                        class="analysis-report-link"
+                        onclick={() =>
+                          document.openOptimization?.({
+                            id: experiment.optimization_run_id!,
+                          })}
+                        title={experiment.optimization_run_id}
+                      >
+                        {experiment.optimization_run_id.slice(0, 8)}
+                      </button>
+                    {:else}
+                      <span title={experiment.optimization_run_id}
+                        >{experiment.optimization_run_id.slice(0, 8)}</span
+                      >
+                    {/if}
+                  {:else}
+                    baseline
+                  {/if}
+                </td>
                 <td>{experiment.trial_count}</td>
                 <td>{experiment.expected_blast_radius.toFixed(2)}</td>
                 <td>{experiment.median_blast_radius}</td>
@@ -260,6 +341,27 @@
 
   .analysis-report-table tbody tr:last-child > * {
     border-bottom: 0;
+  }
+
+  .analysis-report-link {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ui-color-accent);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .analysis-report-link:hover {
+    color: var(--ui-color-accent-strong, var(--ui-color-accent));
+  }
+
+  .analysis-report-link:focus-visible {
+    outline: 2px solid var(--ui-color-focus);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 
   @media (max-width: 48em) {

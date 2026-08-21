@@ -6,6 +6,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary do
   embedded_schema do
     field :id, :string
     field :optimization_run_id, :string
+    field :graph_id, :string
+    field :graph_revision_id, :string
+    field :graph_title, :string
     field :trial_count, :integer
     field :expected_blast_radius, :float
     field :median_blast_radius, :integer
@@ -18,6 +21,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary do
   @type t :: %__MODULE__{
           id: String.t(),
           optimization_run_id: String.t() | nil,
+          graph_id: String.t() | nil,
+          graph_revision_id: String.t() | nil,
+          graph_title: String.t() | nil,
           trial_count: integer(),
           expected_blast_radius: float(),
           median_blast_radius: integer(),
@@ -32,6 +38,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary do
     |> cast(attrs, [
       :id,
       :optimization_run_id,
+      :graph_id,
+      :graph_revision_id,
+      :graph_title,
       :trial_count,
       :expected_blast_radius,
       :median_blast_radius,
@@ -43,5 +52,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary do
     |> validate_required([:id, :trial_count])
     |> NetworkDefense.Contracts.validate_uuid(:id)
     |> NetworkDefense.Contracts.validate_uuid(:optimization_run_id)
+    |> NetworkDefense.Contracts.validate_uuid(:graph_id)
+    |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
   end
 end

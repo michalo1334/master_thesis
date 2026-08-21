@@ -445,6 +445,9 @@ export interface EvaluationExperimentSummary {
   blast_radius_p95: number;
   blast_radius_p99: number;
   expected_blast_radius: number;
+  graph_id?: string | null;
+  graph_revision_id?: string | null;
+  graph_title?: string | null;
   id: string;
   max_blast_radius: number;
   median_blast_radius: number;
