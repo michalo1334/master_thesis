@@ -1,79 +1,21 @@
 <script lang="ts">
-  import type { AnalysisOption } from "../../dashboard-api";
   import type { OptimizationReportDocument } from "../../optimization-report/OptimizationReportDocument.svelte";
   import type { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
 
   interface Props {
     document: SimulationReportDocument | OptimizationReportDocument;
-    analyses: readonly AnalysisOption[];
-    onAnalysisChange: (analysisId: string | null) => Promise<boolean>;
   }
 
-  let { document, analyses, onAnalysisChange }: Props = $props();
-  let saving = $state(false);
-  let status = $state("");
-  let reportId = $derived(document.reportId);
-
-  async function changeAnalysis(event: Event): Promise<void> {
-    if (saving) return;
-    const analysisId = (event.currentTarget as HTMLSelectElement).value || null;
-    saving = true;
-    status = "Saving…";
-    try {
-      status = (await onAnalysisChange(analysisId))
-        ? "Saved."
-        : "Could not update analysis.";
-    } catch {
-      status = "Could not update analysis.";
-    } finally {
-      saving = false;
-    }
-  }
+  let { document }: Props = $props();
 </script>
 
 <Inspector title="Report">
-  <label class="report-analysis-field">
-    <span>Analysis</span>
-    <select
-      aria-label="Analysis"
-      value={document.analysisId ?? ""}
-      disabled={saving || !reportId}
-      onchange={changeAnalysis}
-    >
-      <option value="">No analysis</option>
-      {#each analyses as analysis (analysis.id)}
-        <option value={analysis.id}>{analysis.title}</option>
-      {/each}
-    </select>
-  </label>
-  {#if status}
-    <p class="report-analysis-status" role="status">{status}</p>
-  {/if}
+  <p class="report-title">{document.title}</p>
 </Inspector>
 
 <style>
-  .report-analysis-field {
-    display: grid;
-    gap: var(--ui-space-1);
-  }
-  .report-analysis-field > span {
-    color: var(--ui-color-text-secondary);
-    font-size: var(--ui-text-xs);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-  .report-analysis-field select {
-    min-width: 0;
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-color-surface);
-  }
-  .report-analysis-status {
-    margin: var(--ui-space-2) 0 0;
+  .report-title {
     color: var(--ui-color-text-secondary);
     font-size: var(--ui-text-sm);
   }

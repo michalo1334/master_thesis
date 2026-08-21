@@ -91,48 +91,6 @@ describe("DashboardApi", () => {
     );
   });
 
-  it("sends the combined analysis workflow request", async () => {
-    const reply = { status: "accepted" as const, workflow_id: "workflow-1" };
-    const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
-    } as unknown as LiveServer;
-
-    await expect(
-      createDashboardApi(live).runWorkflow(
-        "r1",
-        "corr-1",
-        {
-          initial_foothold_node_id: "host-1",
-          monte_carlo_trials: 10,
-          iterations_per_run: 10,
-          max_attempts: 1,
-          generate_seed: false,
-          seed: 1,
-        },
-        { strategy: "cvss", budget: 3 },
-      ),
-    ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "run_workflow_request",
-      {
-        request: {
-          template: "combined_analysis",
-          graph_revision_id: "r1",
-          correlation_id: "corr-1",
-          simulation_params: expect.any(Object),
-          optimization_params: {
-            strategy: "cvss",
-            budget: 3,
-          },
-        },
-      },
-      expect.any(Function),
-    );
-  });
-
   it("fetches experiments through the LiveView reply callback", async () => {
     const reply = { experiments: [] };
     const live = {
@@ -159,7 +117,6 @@ describe("DashboardApi", () => {
       filter_options: {
         types: [],
         graphs: [],
-        analysis_ids: [],
         strategies: [],
         revision_kinds: [],
       },
@@ -176,7 +133,6 @@ describe("DashboardApi", () => {
         search: "gateway",
         types: ["graph"],
         graph_ids: ["graph-1"],
-        analysis_ids: ["analysis-1"],
         strategies: ["greedy"],
         revision_kinds: ["original"],
         limit: 20,
@@ -189,7 +145,6 @@ describe("DashboardApi", () => {
         search: "gateway",
         types: ["graph"],
         graph_ids: ["graph-1"],
-        analysis_ids: ["analysis-1"],
         strategies: ["greedy"],
         revision_kinds: ["original"],
         limit: 20,
@@ -358,54 +313,6 @@ describe("DashboardApi", () => {
     expect(live.pushEvent).toHaveBeenCalledWith(
       "fetch_graph_connectivity",
       {},
-      expect.any(Function),
-    );
-  });
-
-  it("fetches and updates analysis assignments", async () => {
-    const live = {
-      pushEvent: vi.fn((event, _, onReply) => {
-        onReply(
-          event === "fetch_analyses"
-            ? { analyses: [{ id: "analysis-1", title: "Baseline" }] }
-            : { status: "ok" },
-          1,
-        );
-        return 1;
-      }),
-    } as unknown as LiveServer;
-    const api = createDashboardApi(live);
-
-    await expect(api.fetchAnalyses()).resolves.toEqual({
-      analyses: [{ id: "analysis-1", title: "Baseline" }],
-    });
-    await expect(api.setGraphAnalyses("r1", ["analysis-1"])).resolves.toEqual({
-      status: "ok",
-    });
-    await expect(
-      api.setReportAnalysis("simulation_report", "report-1", null),
-    ).resolves.toEqual({ status: "ok" });
-
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      1,
-      "fetch_analyses",
-      {},
-      expect.any(Function),
-    );
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      2,
-      "set_graph_analyses",
-      { graph_revision_id: "r1", analysis_ids: ["analysis-1"] },
-      expect.any(Function),
-    );
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      3,
-      "set_report_analysis",
-      {
-        kind: "simulation_report",
-        report_id: "report-1",
-        analysis_id: null,
-      },
       expect.any(Function),
     );
   });

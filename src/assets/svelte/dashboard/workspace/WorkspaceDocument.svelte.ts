@@ -2,7 +2,6 @@ import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelt
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import type { RunsDocument } from "../runs/RunsDocument.svelte";
@@ -113,7 +112,6 @@ export type WorkspaceDocument =
   | GraphDiffDocument
   | SimulationReportDocument
   | OptimizationReportDocument
-  | ComparisonReportDocument
   | AnalysisReportDocument
   | DocumentCatalogDocument
   | RunsDocument;
@@ -123,7 +121,6 @@ export function isReport(
 ): document is
   | SimulationReportDocument
   | OptimizationReportDocument
-  | ComparisonReportDocument
   | AnalysisReportDocument {
   return document.isReportDocument();
 }

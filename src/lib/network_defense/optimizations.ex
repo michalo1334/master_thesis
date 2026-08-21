@@ -37,10 +37,6 @@ defmodule NetworkDefense.Optimizations do
   @spec optimization_events_topic() :: String.t()
   def optimization_events_topic, do: @optimization_events_topic
 
-  @spec set_analysis(Ecto.UUID.t(), Ecto.UUID.t() | nil) ::
-          {:ok, OptimizationRun.t()} | {:error, :not_found | :invalid_analysis}
-  def set_analysis(run_id, analysis_id), do: OptimizationRuns.set_analysis(run_id, analysis_id)
-
   @spec run_async(RunOptimizationRequest.t()) :: async_result()
   def run_async(%RunOptimizationRequest{} = request) do
     with {:ok, graph} <- load_graph(request), do: run_async(graph, request)
@@ -57,15 +53,9 @@ defmodule NetworkDefense.Optimizations do
 
   @spec prepare(RunOptimizationRequest.t()) :: result()
   def prepare(%RunOptimizationRequest{} = request) do
-    prepare(request, nil)
-  end
-
-  @spec prepare(RunOptimizationRequest.t(), Ecto.UUID.t() | nil) :: result()
-  def prepare(%RunOptimizationRequest{} = request, analysis_id)
-      when is_nil(analysis_id) or is_binary(analysis_id) do
     with {:ok, graph} <- load_graph(request),
          {:ok, strategy} <- strategy_for(graph, request) do
-      persist_run(graph, request, strategy, analysis_id)
+      persist_run(graph, request, strategy)
     end
   end
 
@@ -128,16 +118,15 @@ defmodule NetworkDefense.Optimizations do
 
   defp run_async(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request),
-         {:ok, run} <- persist_run(graph, request, strategy, nil) do
+         {:ok, run} <- persist_run(graph, request, strategy) do
       enqueue_optimization(request, run)
     end
   end
 
-  defp persist_run(graph, request, strategy, analysis_id) do
+  defp persist_run(graph, request, strategy) do
     run =
       OptimizationRun.new(
         graph_revision_id: graph.revision_id,
-        analysis_id: analysis_id,
         strategy: request.optimization_params.strategy,
         requested_budget: request.optimization_params.budget,
         seed: strategy.seed,
@@ -234,7 +223,7 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp complete_optimization(graph, request, run, result, runtime_us) do
-    case Graphs.append_optimization(result.graph, run.analysis_id, fn persisted_graph ->
+    case Graphs.append_optimization(result.graph, fn persisted_graph ->
            OptimizationRuns.complete(run, %{
              actions: Enum.map(result.actions, &OptimizationAction.from_domain/1),
              used_budget: result.budget_used,

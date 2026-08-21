@@ -37,7 +37,6 @@ function summary(graphId: string, revisionId: string, folderId?: string) {
     node_count: 0,
     edge_count: 0,
     is_favorite: false,
-    analysis_ids: [],
     folder_id: folderId,
   };
 }
@@ -155,59 +154,6 @@ describe("buildDashboardRows", () => {
     expect(reports?.kind).toBe("section");
     expect(reports?.level).toBe(2);
     expect(items(rows)[0]?.depth).toBe(1);
-  });
-
-  it("groups analysis reports globally by analysis title", () => {
-    const baseline = new SimulationReportDocument(
-      "Graph",
-      "graph",
-      "graph-r1",
-      { analysisId: "analysis-1", analysisTitle: "Baseline risk" },
-    );
-    const other = new SimulationReportDocument(
-      "Other graph",
-      "other-graph",
-      "other-r1",
-      { analysisId: "analysis-2", analysisTitle: "Network hardening" },
-    );
-    const standalone = new SimulationReportDocument(
-      "Closed graph",
-      "closed",
-      "closed-r1",
-    );
-    const rows = buildDashboardRows([baseline, other, standalone], [], []);
-
-    const labels = headers(rows).map((row) => row.label);
-    expect(labels).toContain("Analyses");
-    expect(labels).toContain("Baseline risk");
-    expect(labels).toContain("Network hardening");
-    expect(labels).toContain("Reports");
-
-    const analysis = headers(rows).find((row) => row.label === "Baseline risk");
-    expect(analysis?.level).toBe(3);
-    expect(items(rows)[0]?.depth).toBe(1);
-  });
-
-  it("keeps analyses with equal titles in separate groups", () => {
-    const first = new SimulationReportDocument("First", "first", "first-r1", {
-      analysisId: "analysis-1",
-      analysisTitle: "Generated analysis",
-    });
-    const second = new SimulationReportDocument(
-      "Second",
-      "second",
-      "second-r1",
-      {
-        analysisId: "analysis-2",
-        analysisTitle: "Generated analysis",
-      },
-    );
-    const rows = buildDashboardRows([first, second], [], []);
-
-    const analysisHeaders = headers(rows).filter(
-      (row) => row.label === "Generated analysis",
-    );
-    expect(analysisHeaders).toHaveLength(2);
   });
 
   it("marks draggable graphs with their graph id", () => {

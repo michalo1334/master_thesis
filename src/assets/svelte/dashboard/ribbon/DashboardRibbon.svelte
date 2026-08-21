@@ -38,7 +38,6 @@
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
-    analysisRunning?: boolean;
     downloadResultsHref?: string;
   }
 
@@ -59,7 +58,6 @@
     onSimulationParamsChange,
     simulationParams,
     footholdHosts,
-    analysisRunning = false,
     downloadResultsHref = undefined,
   }: Props = $props();
 
@@ -159,9 +157,7 @@
     <Ribbon.Section title="Attack model">
       <RibbonButton
         onclick={onRunSimulation}
-        disabled={!hasActiveGraph ||
-          footholdHosts.length === 0 ||
-          analysisRunning}
+        disabled={!hasActiveGraph || footholdHosts.length === 0}
         ><Icon name="play" size={22} /><span>Simulate</span></RibbonButton
       >
     </Ribbon.Section>
@@ -216,8 +212,7 @@
     <Ribbon.Section title="Optimization">
       <RibbonButton
         disabled={!hasActiveGraph ||
-          (activeOptimizationId !== "cvss" && footholdHosts.length === 0) ||
-          analysisRunning}
+          (activeOptimizationId !== "cvss" && footholdHosts.length === 0)}
         onclick={() => onOptimize(activeOptimizationId)}
         ><Icon name="play" size={22} /><span>Optimize</span></RibbonButton
       >

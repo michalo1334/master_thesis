@@ -9,9 +9,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
     embeds_many :graphs, NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption,
       on_replace: :delete
 
-    embeds_many :analyses, NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis,
-      on_replace: :delete
-
     field :strategies, {:array, :string}, default: []
     field :revision_kinds, {:array, :string}, default: []
   end
@@ -19,7 +16,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
   @type t :: %__MODULE__{
           types: [String.t()],
           graphs: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption.t()],
-          analyses: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis.t()],
           strategies: [String.t()],
           revision_kinds: [String.t()]
         }
@@ -28,6 +24,5 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
     schema
     |> cast(attrs, [:types, :strategies, :revision_kinds])
     |> cast_embed(:graphs)
-    |> cast_embed(:analyses)
   end
 end

@@ -8,7 +8,6 @@ defmodule NetworkDefense.Simulation.Experiment do
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Workflows.WorkflowRun
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -16,7 +15,6 @@ defmodule NetworkDefense.Simulation.Experiment do
   @type t :: %__MODULE__{
           id: String.t() | nil,
           graph_revision_id: String.t() | nil,
-          analysis_id: String.t() | nil,
           evaluation_run_id: String.t() | nil,
           optimization_run_id: String.t() | nil,
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
@@ -33,7 +31,6 @@ defmodule NetworkDefense.Simulation.Experiment do
 
   schema "experiments" do
     belongs_to :graph_revision, GraphRevision
-    belongs_to :analysis, WorkflowRun
     belongs_to :evaluation_run, EvaluationRun
     belongs_to :optimization_run, OptimizationRun
     field :graph, :any, virtual: true
@@ -63,7 +60,6 @@ defmodule NetworkDefense.Simulation.Experiment do
       :completed_trials,
       :status,
       :initial_foothold_node_id,
-      :analysis_id,
       :evaluation_run_id,
       :optimization_run_id
     ])
@@ -83,7 +79,6 @@ defmodule NetworkDefense.Simulation.Experiment do
     |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, ["running", "failed", "completed"])
     |> foreign_key_constraint(:graph_revision_id)
-    |> foreign_key_constraint(:analysis_id)
     |> foreign_key_constraint(:evaluation_run_id)
     |> foreign_key_constraint(:optimization_run_id)
   end
@@ -95,7 +90,6 @@ defmodule NetworkDefense.Simulation.Experiment do
       id: Ecto.UUID.generate(),
       graph_revision_id:
         Map.get(attrs, :graph_revision_id) || graph_revision_id(Map.get(attrs, :graph)),
-      analysis_id: Map.get(attrs, :analysis_id),
       evaluation_run_id: Map.get(attrs, :evaluation_run_id),
       optimization_run_id: Map.get(attrs, :optimization_run_id),
       graph: Map.get(attrs, :graph),

@@ -8,7 +8,6 @@ defmodule NetworkDefense.DocumentCatalog do
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Workflows.{AnalysisGraphRevision, WorkflowRun}
 
   @graph_kind Kind.value(:graph)
   @simulation_report_kind Kind.value(:simulation_report)
@@ -18,19 +17,12 @@ defmodule NetworkDefense.DocumentCatalog do
   @simulation_report_label Kind.label(:simulation_report)
   @optimization_report_label Kind.label(:optimization_report)
 
-  defmacrop analysis_ids(analysis_id) do
-    quote do
-      type(fragment("array_remove(ARRAY[?], NULL)", unquote(analysis_id)), {:array, :binary_id})
-    end
-  end
-
   @spec document_catalog(map()) :: map()
   def document_catalog(filters) do
     catalog = catalog_query()
     filtered = filter_catalog(catalog, filters)
 
     filter_options = filter_options(catalog)
-    titles = Map.new(filter_options.analyses, &{&1.id, &1.title})
 
     items =
       filtered
@@ -39,9 +31,7 @@ defmodule NetworkDefense.DocumentCatalog do
       |> offset(^filters.offset)
       |> Repo.all()
       |> Enum.map(fn item ->
-        item
-        |> Map.update!(:created_at, &DateTime.to_iso8601/1)
-        |> with_analyses(titles)
+        Map.update!(item, :created_at, &DateTime.to_iso8601/1)
       end)
 
     %{
@@ -52,41 +42,23 @@ defmodule NetworkDefense.DocumentCatalog do
   end
 
   defp catalog_query do
-    graph_analysis_ids = graph_analysis_ids_query()
-
-    graph_items(graph_analysis_ids)
+    graph_items()
     |> union_all(^experiment_items())
     |> union_all(^optimization_items())
     |> subquery()
     |> then(&from(item in &1))
   end
 
-  defp graph_analysis_ids_query do
-    from link in AnalysisGraphRevision,
-      group_by: link.graph_revision_id,
-      select: %{
-        graph_revision_id: link.graph_revision_id,
-        analysis_ids: fragment("array_agg(DISTINCT ?)", link.workflow_run_id)
-      }
-  end
-
-  defp graph_items(graph_analysis_ids) do
+  defp graph_items do
     from revision in GraphRevision,
       join: graph in Graph,
       on: graph.id == revision.graph_id,
-      left_join: analysis in subquery(graph_analysis_ids),
-      on: analysis.graph_revision_id == revision.id,
       select: %{
         id: revision.id,
         kind: @graph_kind,
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
-        analysis_ids:
-          type(
-            fragment("COALESCE(?, ARRAY[]::uuid[])", analysis.analysis_ids),
-            {:array, :binary_id}
-          ),
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: nil,
@@ -110,7 +82,6 @@ defmodule NetworkDefense.DocumentCatalog do
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
-        analysis_ids: analysis_ids(experiment.analysis_id),
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: nil,
@@ -136,7 +107,6 @@ defmodule NetworkDefense.DocumentCatalog do
         graph_id: revision.graph_id,
         graph_revision_id: revision.id,
         graph_title: revision.title,
-        analysis_ids: analysis_ids(run.analysis_id),
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: run.strategy,
@@ -152,7 +122,6 @@ defmodule NetworkDefense.DocumentCatalog do
     |> maybe_search(filters.search)
     |> maybe_in(:kind, filters.types)
     |> maybe_in(:graph_id, filters.graph_ids)
-    |> maybe_analysis(filters.analysis_ids)
     |> maybe_in(:strategy, filters.strategies)
     |> maybe_in(:revision_kind, filters.revision_kinds)
   end
@@ -183,21 +152,6 @@ defmodule NetworkDefense.DocumentCatalog do
           ^pattern
         ) or
         fragment("? ILIKE ? ESCAPE '\\'", item.graph_title, ^pattern) or
-        fragment(
-          "EXISTS (SELECT 1 FROM unnest(?) AS analysis_id WHERE analysis_id::text ILIKE ? ESCAPE '\\')",
-          item.analysis_ids,
-          ^pattern
-        ) or
-        fragment(
-          "EXISTS (SELECT 1 FROM workflow_runs WHERE id = ANY(?) AND title ILIKE ? ESCAPE '\\')",
-          item.analysis_ids,
-          ^pattern
-        ) or
-        fragment(
-          "cardinality(?) > 1 AND 'multiple analyses' ILIKE ? ESCAPE '\\'",
-          item.analysis_ids,
-          ^pattern
-        ) or
         fragment("? ILIKE ? ESCAPE '\\'", item.strategy, ^pattern) or
         fragment(
           "to_char(?, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ILIKE ? ESCAPE '\\'",
@@ -217,16 +171,6 @@ defmodule NetworkDefense.DocumentCatalog do
   defp maybe_in(query, _field, []), do: query
   defp maybe_in(query, field, values), do: where(query, [item], field(item, ^field) in ^values)
 
-  defp maybe_analysis(query, []), do: query
-
-  defp maybe_analysis(query, analysis_ids) do
-    where(
-      query,
-      [item],
-      fragment("? && ?", item.analysis_ids, type(^analysis_ids, {:array, :binary_id}))
-    )
-  end
-
   defp filter_options(catalog) do
     %{
       types: distinct_values(catalog, :kind),
@@ -236,13 +180,6 @@ defmodule NetworkDefense.DocumentCatalog do
         |> order_by([item], asc: item.graph_title, asc: item.graph_id)
         |> select([item], %{id: item.graph_id, title: item.graph_title})
         |> Repo.all(),
-      analyses:
-        catalog
-        |> select([item], type(fragment("unnest(?)", item.analysis_ids), :binary_id))
-        |> distinct(true)
-        |> order_by([item], asc: type(fragment("unnest(?)", item.analysis_ids), :binary_id))
-        |> Repo.all()
-        |> analysis_options(),
       strategies: distinct_values(catalog, :strategy, true),
       revision_kinds: distinct_values(catalog, :revision_kind)
     }
@@ -257,31 +194,5 @@ defmodule NetworkDefense.DocumentCatalog do
     |> order_by([item], asc: field(item, ^field))
     |> select([item], field(item, ^field))
     |> Repo.all()
-  end
-
-  defp analysis_options([]), do: []
-
-  defp analysis_options(ids) do
-    from(run in WorkflowRun,
-      where: run.id in ^ids,
-      order_by: [asc: run.title, asc: run.id],
-      select: %{id: run.id, title: run.title}
-    )
-    |> Repo.all()
-  end
-
-  defp with_analyses(item, titles) do
-    analyses =
-      item.analysis_ids
-      |> Enum.flat_map(fn id ->
-        case Map.fetch(titles, id) do
-          {:ok, title} -> [%{id: id, title: title}]
-          :error -> []
-        end
-      end)
-
-    item
-    |> Map.delete(:analysis_ids)
-    |> Map.put(:analyses, analyses)
   end
 end

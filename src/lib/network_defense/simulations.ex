@@ -35,15 +35,10 @@ defmodule NetworkDefense.Simulations do
   @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
 
-  @spec set_analysis(Ecto.UUID.t(), Ecto.UUID.t() | nil) ::
-          {:ok, Experiment.t()} | {:error, :not_found | :invalid_analysis}
-  def set_analysis(experiment_id, analysis_id),
-    do: Experiments.set_analysis(experiment_id, analysis_id)
-
   @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
     with {:ok, {_graph, experiment}} <-
-           prepare_experiment(request.graph_revision_id, request.simulation_params, nil) do
+           prepare_experiment(request.graph_revision_id, request.simulation_params) do
       enqueue_simulation(request.correlation_id, experiment)
     end
   end
@@ -51,15 +46,8 @@ defmodule NetworkDefense.Simulations do
   @spec prepare(Ecto.UUID.t(), SimulationParams.t()) ::
           {:ok, Experiment.t()} | {:error, Errors.error()}
   def prepare(graph_revision_id, %SimulationParams{} = simulation_params) do
-    prepare(graph_revision_id, simulation_params, nil)
-  end
-
-  @spec prepare(Ecto.UUID.t(), SimulationParams.t(), Ecto.UUID.t() | nil) ::
-          {:ok, Experiment.t()} | {:error, Errors.error()}
-  def prepare(graph_revision_id, %SimulationParams{} = simulation_params, analysis_id)
-      when is_nil(analysis_id) or is_binary(analysis_id) do
     with {:ok, {_graph, experiment}} <-
-           prepare_experiment(graph_revision_id, simulation_params, analysis_id) do
+           prepare_experiment(graph_revision_id, simulation_params) do
       {:ok, experiment}
     end
   end
@@ -73,18 +61,18 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp prepare_experiment(graph_revision_id, simulation_params, analysis_id)
+  defp prepare_experiment(graph_revision_id, simulation_params)
        when is_binary(graph_revision_id) do
     with {:ok, graph} <- load_graph(graph_revision_id),
-         {:ok, experiment} <- prepare_experiment(graph, simulation_params, analysis_id) do
+         {:ok, experiment} <- prepare_experiment(graph, simulation_params) do
       {:ok, {graph, experiment}}
     end
   end
 
-  defp prepare_experiment(%Graph{} = graph, simulation_params, analysis_id) do
+  defp prepare_experiment(%Graph{} = graph, simulation_params) do
     with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
          :ok <- validate_mission_feasibility(graph),
-         {:ok, experiment} <- create_experiment(graph, simulation_params, analysis_id) do
+         {:ok, experiment} <- create_experiment(graph, simulation_params) do
       {:ok, experiment}
     else
       {:error, %Ecto.Changeset{}} -> {:error, :persistence_failed}
@@ -256,12 +244,11 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp create_experiment(graph, simulation_params, analysis_id) do
+  defp create_experiment(graph, simulation_params) do
     seed = if simulation_params.generate_seed, do: Seed.random(), else: simulation_params.seed
 
     Experiment.new(
       graph_revision_id: graph.revision_id,
-      analysis_id: analysis_id,
       master_seed: seed,
       iteration_count: simulation_params.iterations_per_run,
       max_attempts: simulation_params.max_attempts,

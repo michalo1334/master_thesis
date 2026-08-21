@@ -130,7 +130,6 @@
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
     footholdHosts={wm.activeFootholdHosts}
-    analysisRunning={model.analysis.isRunning}
     {downloadResultsHref}
   />
 
@@ -139,13 +138,6 @@
       document={wm.activeDocument}
       {api}
       summaries={wm.graphSummaries}
-      analyses={wm.analysisOptions}
-      analysesStatus={wm.analysesStatus}
-      onLoadAnalyses={() => wm.loadAnalyses(api)}
-      onGraphAnalysesChange={(revisionId, analysisIds) =>
-        wm.setGraphAnalyses(api, revisionId, analysisIds)}
-      onReportAnalysisChange={(report, analysisId) =>
-        wm.setReportAnalysis(api, report, analysisId)}
       onOpenParent={(revisionId) => void wm.openGraphRevision(api, revisionId)}
     />
   {/snippet}

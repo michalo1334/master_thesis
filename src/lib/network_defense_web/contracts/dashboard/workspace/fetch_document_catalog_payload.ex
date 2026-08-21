@@ -9,7 +9,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
     field :search, :string, default: ""
     field :types, {:array, :string}, default: []
     field :graph_ids, {:array, :string}, default: []
-    field :analysis_ids, {:array, :string}, default: []
     field :strategies, {:array, :string}, default: []
     field :revision_kinds, {:array, :string}, default: []
     field :limit, :integer, default: 50
@@ -20,7 +19,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
           search: String.t(),
           types: [String.t()],
           graph_ids: [String.t()],
-          analysis_ids: [String.t()],
           strategies: [String.t()],
           revision_kinds: [String.t()],
           limit: pos_integer(),
@@ -33,7 +31,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
       :search,
       :types,
       :graph_ids,
-      :analysis_ids,
       :strategies,
       :revision_kinds,
       :limit,
@@ -43,7 +40,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
     |> validate_value_list(:types, Kind.strings())
     |> validate_value_list(:revision_kinds, ["initial", "edit", "optimization"])
     |> validate_uuid_list(:graph_ids)
-    |> validate_uuid_list(:analysis_ids)
     |> validate_number(:limit, greater_than: 0, less_than_or_equal_to: 100)
     |> validate_number(:offset, greater_than_or_equal_to: 0)
   end

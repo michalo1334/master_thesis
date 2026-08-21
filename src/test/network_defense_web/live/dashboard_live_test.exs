@@ -22,82 +22,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Simulations
   alias NetworkDefense.Simulations.SimulationWorker
 
-  describe "workflow events" do
-    test "accepts a combined analysis workflow request", %{conn: conn} do
-      graph = insert_graph("workflow-request")
-      foothold = insert_node(graph, "entry-host")
-
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      render_hook(view, "run_workflow_request", %{
-        "request" => %{
-          "template" => "combined_analysis",
-          "graph_revision_id" => foothold.graph_revision_id,
-          "correlation_id" => "workflow-request",
-          "simulation_params" => %{
-            "monte_carlo_trials" => 1,
-            "iterations_per_run" => 1,
-            "initial_foothold_node_id" => foothold.id,
-            "seed" => 1,
-            "generate_seed" => false,
-            "max_attempts" => 1
-          },
-          "optimization_params" => %{
-            "strategy" => "cvss",
-            "budget" => 1
-          }
-        }
-      })
-
-      assert_reply(view, %{
-        status: "accepted",
-        workflow_id: workflow_id,
-        title: title,
-        error: nil
-      })
-
-      assert is_binary(workflow_id)
-      assert [first_adjective, second_adjective, _noun] = String.split(title, " ")
-      refute first_adjective == second_adjective
-      assert has_element?(view, "#flash-info[role='alert']")
-    end
-
-    test "forwards workflow terminal events", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      completed = %{
-        workflow_id: "workflow-1",
-        outputs: %{
-          "baseline_simulation" => %{"experiment_id" => "experiment-1"},
-          "optimization" => %{
-            "optimization_run_id" => "optimization-1",
-            "output_graph_revision_id" => "revision-2"
-          },
-          "post_optimization_simulation" => %{"experiment_id" => "experiment-2"}
-        }
-      }
-
-      send(view.pid, {:workflow_completed, completed})
-
-      assert_push_event(view, "workflow_completed", %{
-        workflow_id: "workflow-1",
-        baseline_experiment_id: "experiment-1",
-        optimization_id: "optimization-1",
-        output_graph_revision_id: "revision-2",
-        after_experiment_id: "experiment-2"
-      })
-
-      send(view.pid, {:workflow_failed, %{workflow_id: "workflow-2", reason: :internal_error}})
-
-      assert_push_event(view, "workflow_failed", %{
-        workflow_id: "workflow-2",
-        error: %{code: "internal_error"}
-      })
-
-      assert has_element?(view, "#flash-error[role='alert']")
-    end
-  end
-
   describe "evaluation manifests" do
     @valid_manifest %{
       "schema_version" => 1,
@@ -226,8 +150,9 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{status: "rejected", run_id: nil})
 
-      assert %{status: "failed", failure_reason: "task_unavailable"} =
-               NetworkDefense.Evaluation.EvaluationRuns.latest_for_manifest(manifest_record_id)
+      assert [%{status: "failed", failure_reason: "task_unavailable"}] =
+               NetworkDefense.Evaluation.EvaluationRuns.list_by_manifest(manifest_record_id)
+               |> Enum.filter(&(&1.status == "failed"))
     after
       :meck.unload(Oban)
     end
@@ -437,7 +362,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert %{
                types: _types,
                graphs: _graphs,
-               analyses: _analyses,
                strategies: _strategies,
                revision_kinds: _revision_kinds
              } = filter_options
@@ -448,7 +372,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                graph_id: ^graph_id,
                graph_revision_id: ^graph_revision_id,
                graph_title: "catalog-graph",
-               analyses: [],
                revision_kind: "initial",
                revision_number: 1,
                strategy: nil,
@@ -1453,7 +1376,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       experiment = insert_running_experiment(graph_revision_id)
       optimization = insert_running_optimization(graph_revision_id)
-      workflow = insert_running_workflow()
       evaluation = insert_running_evaluation()
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -1463,7 +1385,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{runs: runs})
 
       assert MapSet.new(Enum.map(runs, & &1.kind)) ==
-               MapSet.new(["simulation", "optimization", "workflow", "evaluation"])
+               MapSet.new(["simulation", "optimization", "evaluation"])
 
       assert %{
                id: ^experiment,
@@ -1479,9 +1401,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert %{id: ^optimization, kind: "optimization", status: "running"} =
                Enum.find(runs, &(&1.id == optimization))
-
-      assert %{id: ^workflow, kind: "workflow", status: "running"} =
-               Enum.find(runs, &(&1.id == workflow))
 
       assert %{id: ^evaluation, kind: "evaluation", status: "running"} =
                Enum.find(runs, &(&1.id == evaluation))
@@ -1824,18 +1743,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       graph_revision_id: graph_revision_id,
       strategy: "cvss",
       requested_budget: 1,
-      status: "running"
-    })
-    |> Repo.insert!()
-    |> Map.fetch!(:id)
-  end
-
-  defp insert_running_workflow do
-    %NetworkDefense.Workflows.WorkflowRun{}
-    |> NetworkDefense.Workflows.WorkflowRun.changeset(%{
-      title: "workflow-title",
-      template: "two_step",
-      input: %{},
       status: "running"
     })
     |> Repo.insert!()

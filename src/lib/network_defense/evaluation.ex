@@ -82,42 +82,23 @@ defmodule NetworkDefense.Evaluation do
           {:ok, %{graph_revision_id: String.t(), entry_host_id: String.t()}} | {:error, [error()]}
   def preflight(manifest), do: Preflight.preflight(manifest)
 
-  @spec input_content_digest(map()) :: String.t()
-  def input_content_digest(content) do
-    :crypto.hash(:sha256, :erlang.term_to_binary(content, [:deterministic]))
-    |> Base.encode16(case: :lower)
-  end
-
   @spec start(String.t()) :: {:ok, EvaluationRun.t()} | {:error, term()}
   def start(manifest_id) do
     with %EvaluationManifest{} = manifest <- EvaluationManifests.get_by_manifest_id(manifest_id),
          {:ok, content} <- ManifestContract.validate(manifest.content) do
-      input_digest = input_content_digest(content)
-
-      start_or_reuse(manifest, content, input_digest)
+      start_new_run(manifest, content)
     else
       nil -> {:error, :not_found}
       {:error, _reason} = error -> error
     end
   end
 
-  defp start_or_reuse(manifest, content, input_digest) do
-    case EvaluationRuns.latest_for_manifest(manifest.id) do
-      %EvaluationRun{input_digest: ^input_digest} = run ->
-        {:ok, run}
-
-      _latest_run ->
-        start_new_run(manifest, content, input_digest)
-    end
-  end
-
-  defp start_new_run(manifest, content, input_digest) do
+  defp start_new_run(manifest, content) do
     with {:ok, resolved} <- Preflight.preflight(content) do
       EvaluationRuns.create(%{
         evaluation_manifest_id: manifest.id,
         source_graph_revision_id: resolved.graph_revision_id,
-        resolved_manifest: resolved_manifest(content, resolved),
-        input_digest: input_digest
+        resolved_manifest: resolved_manifest(content, resolved)
       })
     end
   end
@@ -147,7 +128,7 @@ defmodule NetworkDefense.Evaluation do
   end
 
   # Re-announcing a terminal result keeps listeners (the dashboard) in sync when
-  # a completed run is requested again, e.g. a reusable manifest.
+  # a completed run is requested again.
   defp reannounce_terminal(%EvaluationRun{status: "completed"} = run) do
     broadcast_completed(run)
   end

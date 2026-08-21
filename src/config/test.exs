@@ -1,11 +1,6 @@
 import Config
 config :network_defense, Oban, testing: :manual
 
-config :network_defense, :workflow_templates, %{
-  "combined_analysis" => NetworkDefense.Analysis.CombinedAnalysisWorkflow,
-  "two_step" => NetworkDefense.WorkflowTemplates.TwoStep
-}
-
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

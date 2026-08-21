@@ -13,7 +13,6 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     run
     |> OptimizationRun.changeset(%{
       graph_revision_id: run.graph_revision_id,
-      analysis_id: run.analysis_id,
       evaluation_run_id: run.evaluation_run_id,
       strategy: run.strategy,
       requested_budget: run.requested_budget,
@@ -86,22 +85,6 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     case Repo.get(OptimizationRun, id) do
       nil -> nil
       run -> Repo.preload(run, actions: actions_query())
-    end
-  end
-
-  def set_analysis(run_id, analysis_id) when is_binary(run_id) do
-    case Repo.get(OptimizationRun, run_id) do
-      nil ->
-        {:error, :not_found}
-
-      run ->
-        run
-        |> OptimizationRun.changeset(%{analysis_id: analysis_id})
-        |> Repo.update()
-        |> case do
-          {:ok, run} -> {:ok, run}
-          {:error, _changeset} -> {:error, :invalid_analysis}
-        end
     end
   end
 

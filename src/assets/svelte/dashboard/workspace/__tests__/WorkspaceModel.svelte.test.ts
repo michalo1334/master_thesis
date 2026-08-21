@@ -22,7 +22,6 @@ function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
     revision_kind: "original",
     revision_number: 1,
     is_favorite: false,
-    analysis_ids: [],
     ...overrides,
   };
 }
@@ -253,7 +252,6 @@ describe("WorkspaceModel", () => {
         graph_id: "graph-1",
         graph_revision_id: "r1",
         graph_title: "Gateway",
-        analyses: [],
         revision_kind: "original",
         revision_number: 1,
         created_at: "2026-01-01T00:00:00Z",
@@ -377,7 +375,6 @@ describe("WorkspaceModel", () => {
       revision_kind: "original",
       revision_number: 1,
       created_at: "2026-01-01T00:00:00Z",
-      analyses: [{ id: "analysis-1", title: "Baseline risk" }],
     };
 
     const optimization: DocumentCatalogItem = {
@@ -410,10 +407,6 @@ describe("WorkspaceModel", () => {
       }
       expect(optimizationReport.openOptimizedGraph).toBeUndefined();
       expect(optimizationReport.graphDiff).toBeUndefined();
-      expect(optimizationReport).toMatchObject({
-        analysisId: "analysis-1",
-        analysisTitle: "Baseline risk",
-      });
       expect(api.requestSimulationReport).toHaveBeenCalledTimes(1);
       expect(api.requestSimulationReport).toHaveBeenCalledWith(
         simulationReport!.id,
@@ -923,7 +916,6 @@ describe("WorkspaceModel", () => {
           node_count: 1,
           edge_count: 0,
           is_favorite: false,
-          analysis_ids: [],
         },
       ]);
     });
@@ -967,48 +959,6 @@ describe("WorkspaceModel", () => {
 
       expect(model.graphSummaries[0]?.is_favorite).toBe(false);
       expect(model.topologyPickerStatus).toBe("Graph not found.");
-    });
-  });
-
-  describe("analysis assignments", () => {
-    it("updates the active revision summary after saving graph analyses", async () => {
-      model = new WorkspaceModel([makeGraphSummary()]);
-      const api = {
-        setGraphAnalyses: vi.fn().mockResolvedValue({ status: "ok" }),
-      } as unknown as DashboardApi;
-
-      await expect(
-        model.setGraphAnalyses(api, "r1", ["analysis-1", "analysis-2"]),
-      ).resolves.toBe(true);
-
-      expect(api.setGraphAnalyses).toHaveBeenCalledWith("r1", [
-        "analysis-1",
-        "analysis-2",
-      ]);
-      expect(model.graphSummaries[0]?.analysis_ids).toEqual([
-        "analysis-1",
-        "analysis-2",
-      ]);
-    });
-
-    it("updates report analysis only after the server accepts it", async () => {
-      const report = new SimulationReportDocument("Topology", "g1", "r1");
-      report.markReady("report-1");
-      model.analysisOptions = [{ id: "analysis-1", title: "Baseline" }];
-      const api = {
-        setReportAnalysis: vi.fn().mockResolvedValue({ status: "ok" }),
-      } as unknown as DashboardApi;
-
-      await expect(
-        model.setReportAnalysis(api, report, "analysis-1"),
-      ).resolves.toBe(true);
-
-      expect(api.setReportAnalysis).toHaveBeenCalledWith(
-        "simulation_report",
-        "report-1",
-        "analysis-1",
-      );
-      expect(report.analysisTitle).toBe("Baseline");
     });
   });
 

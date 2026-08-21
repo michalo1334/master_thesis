@@ -127,22 +127,6 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   def get(id), do: Repo.get(Experiment, id)
 
-  def set_analysis(experiment_id, analysis_id) when is_binary(experiment_id) do
-    case Repo.get(Experiment, experiment_id) do
-      nil ->
-        {:error, :not_found}
-
-      experiment ->
-        experiment
-        |> Experiment.changeset(%{analysis_id: analysis_id})
-        |> Repo.update()
-        |> case do
-          {:ok, experiment} -> {:ok, experiment}
-          {:error, _changeset} -> {:error, :invalid_analysis}
-        end
-    end
-  end
-
   defp db_map(%{} = struct, schema, additions) do
     map =
       struct |> Map.take(Map.keys(schema.__schema__(:dump))) |> Map.merge(additions)
@@ -243,7 +227,6 @@ defmodule NetworkDefense.Simulation.Experiments do
       :completed_trials,
       :status,
       :initial_foothold_node_id,
-      :analysis_id,
       :evaluation_run_id,
       :optimization_run_id
     ])

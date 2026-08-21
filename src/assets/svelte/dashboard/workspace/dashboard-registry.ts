@@ -14,7 +14,6 @@ import EditableCanvas from "../graph/canvas/EditableCanvas.svelte";
 import GraphDiff from "../graph/GraphDiff.svelte";
 import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
-import ComparisonReport from "../comparison-report/ComparisonReport.svelte";
 import AnalysisReport from "../analysis-report/AnalysisReport.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
@@ -63,12 +62,6 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
         api: DashboardApi;
       }>,
       fromPersisted: OptimizationReportDocument.fromPersisted,
-    },
-    "comparison-report": {
-      view: ComparisonReport as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
     },
     "analysis-report": {
       view: AnalysisReport as unknown as Component<{

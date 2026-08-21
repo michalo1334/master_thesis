@@ -14,8 +14,6 @@ import type {
   OptimizationParams,
   RunOptimizationPayload,
   RunOptimizationReply,
-  RunWorkflowPayload,
-  RunWorkflowReply,
   SimulationParams,
   GraphConnectivityReply,
   CreateNodeDraftPayload,
@@ -47,18 +45,9 @@ import type {
   FetchEvaluationReportPayload,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
-import type {
-  FetchAnalysesReply,
-  FetchRunsPayload,
-  FetchRunsReply,
-  SetGraphAnalysesPayload,
-  SetGraphAnalysesReply,
-  SetReportAnalysisPayload,
-  SetReportAnalysisReply,
-} from "../contracts.generated";
+import type { FetchRunsPayload, FetchRunsReply } from "../contracts.generated";
 
 export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
-export type AnalysisOption = { id: string; title: string };
 
 export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
@@ -81,12 +70,6 @@ export interface DashboardApi {
     correlationId: string,
     optimizationParams: OptimizationParams,
   ): Promise<RunOptimizationReply>;
-  runWorkflow(
-    graphRevisionId: string,
-    correlationId: string,
-    simulationParams: SimulationParams,
-    optimizationParams: OptimizationParams,
-  ): Promise<RunWorkflowReply>;
   requestSimulationReport(documentId: string, experimentId: string): void;
   requestOptimizationReport(documentId: string, optimizationId: string): void;
   fetchExperiments(graphRevisionIds: string[]): Promise<FetchExperimentsReply>;
@@ -121,16 +104,6 @@ export interface DashboardApi {
     graphId: string,
     folderId: string | null,
   ): Promise<MoveGraphToFolderReply>;
-  fetchAnalyses(): Promise<FetchAnalysesReply>;
-  setGraphAnalyses(
-    graphRevisionId: string,
-    analysisIds: string[],
-  ): Promise<SetGraphAnalysesReply>;
-  setReportAnalysis(
-    kind: "simulation_report" | "optimization_report",
-    reportId: string,
-    analysisId: string | null,
-  ): Promise<SetReportAnalysisReply>;
   listManifests(): Promise<ListManifestsReply>;
   getManifest(id: string): Promise<GetManifestReply>;
   saveManifest(payload: SaveManifestPayload): Promise<SaveManifestReply>;
@@ -197,26 +170,6 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
           request: {
             graph_revision_id: graphRevisionId,
             correlation_id: correlationId,
-            optimization_params: optimizationParams,
-          },
-        },
-      );
-    },
-    runWorkflow(
-      graphRevisionId,
-      correlationId,
-      simulationParams,
-      optimizationParams,
-    ) {
-      return requestReply<RunWorkflowPayload, RunWorkflowReply>(
-        live,
-        "run_workflow_request",
-        {
-          request: {
-            template: "combined_analysis",
-            graph_revision_id: graphRevisionId,
-            correlation_id: correlationId,
-            simulation_params: simulationParams,
             optimization_params: optimizationParams,
           },
         },
@@ -329,30 +282,6 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         live,
         "move_graph_to_folder",
         { graph_id: graphId, folder_id: folderId },
-      );
-    },
-    fetchAnalyses() {
-      return requestReply<{}, FetchAnalysesReply>(live, "fetch_analyses", {});
-    },
-    setGraphAnalyses(graphRevisionId, analysisIds) {
-      return requestReply<SetGraphAnalysesPayload, SetGraphAnalysesReply>(
-        live,
-        "set_graph_analyses",
-        {
-          graph_revision_id: graphRevisionId,
-          analysis_ids: analysisIds,
-        },
-      );
-    },
-    setReportAnalysis(kind, reportId, analysisId) {
-      return requestReply<SetReportAnalysisPayload, SetReportAnalysisReply>(
-        live,
-        "set_report_analysis",
-        {
-          kind,
-          report_id: reportId,
-          analysis_id: analysisId,
-        },
       );
     },
     listManifests() {

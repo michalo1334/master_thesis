@@ -10,13 +10,11 @@ defmodule NetworkDefense.Runs do
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Workflows.WorkflowRun
 
   @spec active() :: [map()]
   def active do
     (active_experiments() ++
        active_optimizations() ++
-       active_workflows() ++
        active_evaluations())
     |> Enum.sort_by(& &1.started_at, {:desc, DateTime})
   end
@@ -55,24 +53,6 @@ defmodule NetworkDefense.Runs do
         completed: nil,
         total: nil,
         started_at: o.inserted_at
-      }
-    end)
-  end
-
-  defp active_workflows do
-    WorkflowRun
-    |> where([w], w.status == "running")
-    |> order_by([w], desc: w.inserted_at)
-    |> Repo.all()
-    |> Enum.map(fn w ->
-      %{
-        id: w.id,
-        kind: "workflow",
-        title: w.title,
-        status: w.status,
-        completed: nil,
-        total: nil,
-        started_at: w.inserted_at
       }
     end)
   end

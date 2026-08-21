@@ -9,7 +9,6 @@ defmodule NetworkDefense.RunsTest do
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
-  alias NetworkDefense.Workflows.WorkflowRun
 
   describe "active/0" do
     test "lists running runs of every kind, newest first" do
@@ -18,13 +17,12 @@ defmodule NetworkDefense.RunsTest do
 
       experiment = insert_experiment(graph_revision_id, "running")
       optimization = insert_optimization(graph_revision_id, "running")
-      workflow = insert_workflow("running")
       evaluation = insert_evaluation("running")
 
       runs = Runs.active()
 
       assert MapSet.new(Enum.map(runs, & &1.kind)) ==
-               MapSet.new(["simulation", "optimization", "workflow", "evaluation"])
+               MapSet.new(["simulation", "optimization", "evaluation"])
 
       assert runs == Enum.sort_by(runs, & &1.started_at, {:desc, DateTime})
 
@@ -49,16 +47,6 @@ defmodule NetworkDefense.RunsTest do
              } = Enum.find(runs, &(&1.id == optimization))
 
       assert %{
-               id: ^workflow,
-               kind: "workflow",
-               title: "workflow-title",
-               status: "running",
-               completed: nil,
-               total: nil,
-               started_at: %DateTime{}
-             } = Enum.find(runs, &(&1.id == workflow))
-
-      assert %{
                id: ^evaluation,
                kind: "evaluation",
                title: "evaluation-title",
@@ -77,8 +65,6 @@ defmodule NetworkDefense.RunsTest do
       insert_experiment(graph_revision_id, "failed")
       insert_optimization(graph_revision_id, "completed")
       insert_optimization(graph_revision_id, "failed")
-      insert_workflow("completed")
-      insert_workflow("failed")
       insert_evaluation("completed")
       insert_evaluation("failed")
 
@@ -124,18 +110,6 @@ defmodule NetworkDefense.RunsTest do
 
     %OptimizationRun{}
     |> OptimizationRun.changeset(attrs)
-    |> Repo.insert!()
-    |> Map.fetch!(:id)
-  end
-
-  defp insert_workflow(status) do
-    %WorkflowRun{}
-    |> WorkflowRun.changeset(%{
-      title: "workflow-title",
-      template: "two_step",
-      input: %{},
-      status: status
-    })
     |> Repo.insert!()
     |> Map.fetch!(:id)
   end

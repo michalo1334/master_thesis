@@ -1,5 +1,5 @@
 import type { Component, ComponentProps } from "svelte";
-import type { AnalysisOption, DashboardApi } from "../dashboard-api";
+import type { DashboardApi } from "../dashboard-api";
 import type { GraphSummary, Selectable } from "../contract";
 import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { inspectorFor as selectableInspectorFor } from "../graph/presentation/registry";
@@ -23,17 +23,6 @@ export interface InspectorContext {
   document: WorkspaceDocument | undefined;
   api: DashboardApi;
   summaries?: readonly GraphSummary[];
-  analyses: readonly AnalysisOption[];
-  analysesStatus: string;
-  onLoadAnalyses: () => Promise<boolean>;
-  onGraphAnalysesChange: (
-    revisionId: string,
-    analysisIds: string[],
-  ) => Promise<boolean>;
-  onReportAnalysisChange: (
-    report: SimulationReportDocument | OptimizationReportDocument,
-    analysisId: string | null,
-  ) => Promise<boolean>;
   onOpenParent?: (revisionId: string) => void;
 }
 
@@ -146,16 +135,6 @@ const graphPerspective: InspectorPerspective = {
       onOpenParent: graph.parent_revision_id
         ? () => context.onOpenParent?.(graph.parent_revision_id!)
         : undefined,
-      analysisIds:
-        summaries.find(({ revision_id }) => revision_id === graph.revision_id)
-          ?.analysis_ids ?? [],
-      analyses: context.analyses,
-      analysesStatus: context.analysesStatus,
-      onLoadAnalyses: context.onLoadAnalyses,
-      onAnalysesChange: (analysisIds: string[]) =>
-        graph.revision_id
-          ? context.onGraphAnalysesChange(graph.revision_id, analysisIds)
-          : Promise.resolve(false),
     });
   },
 };
@@ -163,13 +142,10 @@ const graphPerspective: InspectorPerspective = {
 function reportRequest(
   kind: "simulation-report" | "optimization-report",
   document: SimulationReportDocument | OptimizationReportDocument,
-  context: InspectorContext,
+  _context: InspectorContext,
 ): InspectorRequest {
   return makeRequest(kind, ReportInspector, {
     document,
-    analyses: context.analyses,
-    onAnalysisChange: (analysisId: string | null) =>
-      context.onReportAnalysisChange(document, analysisId),
   });
 }
 

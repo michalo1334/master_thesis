@@ -12,7 +12,6 @@ defmodule NetworkDefense.Graph.Graphs do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Repo
-  alias NetworkDefense.Workflows
 
   @snapshot_insert_batch_size 1_000
 
@@ -27,7 +26,6 @@ defmodule NetworkDefense.Graph.Graphs do
           insertedAt: DateTime.t(),
           nodeCount: non_neg_integer(),
           edgeCount: non_neg_integer(),
-          analysisIds: [Ecto.UUID.t()],
           isFavorite: boolean()
         }
 
@@ -78,15 +76,6 @@ defmodule NetworkDefense.Graph.Graphs do
         group_by: edge.graph_revision_id,
         select: %{graph_revision_id: edge.graph_revision_id, count: count(edge.id)}
 
-    analysis_ids =
-      from(link in NetworkDefense.Workflows.AnalysisGraphRevision,
-        group_by: link.graph_revision_id,
-        select: %{
-          graph_revision_id: link.graph_revision_id,
-          analysis_ids: fragment("array_agg(DISTINCT ?)", link.workflow_run_id)
-        }
-      )
-
     GraphRevision
     |> join(:inner, [revision], graph in Graph, on: graph.id == revision.graph_id)
     |> join(:left, [revision], node_count in subquery(node_counts),
@@ -98,11 +87,8 @@ defmodule NetworkDefense.Graph.Graphs do
     |> join(:left, [revision], favorite in GraphRevisionFavorite,
       on: favorite.graph_revision_id == revision.id
     )
-    |> join(:left, [revision], analysis in subquery(analysis_ids),
-      on: analysis.graph_revision_id == revision.id
-    )
     |> order_by([revision], asc: revision.graph_id, asc: revision.number)
-    |> select([revision, graph, node_count, edge_count, favorite, analysis], %{
+    |> select([revision, graph, node_count, edge_count, favorite], %{
       graphId: revision.graph_id,
       folderId: graph.folder_id,
       revisionId: revision.id,
@@ -113,11 +99,6 @@ defmodule NetworkDefense.Graph.Graphs do
       insertedAt: revision.inserted_at,
       nodeCount: coalesce(node_count.count, 0),
       edgeCount: coalesce(edge_count.count, 0),
-      analysisIds:
-        type(
-          fragment("COALESCE(?, ARRAY[]::uuid[])", analysis.analysis_ids),
-          {:array, :binary_id}
-        ),
       isFavorite: not is_nil(favorite.graph_revision_id)
     })
     |> Repo.all()
@@ -160,34 +141,28 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   @spec append_optimization(Graph.t()) :: result(Graph.t())
-  def append_optimization(%Graph{} = graph), do: append(graph, :optimization, nil)
+  def append_optimization(%Graph{} = graph), do: append(graph, :optimization)
 
   @spec append_optimization(Graph.t(), append_callback(term())) ::
           result(term())
   def append_optimization(%Graph{} = graph, after_append) when is_function(after_append, 1),
-    do: append(graph, :optimization, nil, after_append)
-
-  @spec append_optimization(Graph.t(), Ecto.UUID.t(), append_callback(term())) :: result(term())
-  def append_optimization(%Graph{} = graph, analysis_id, after_append)
-      when (is_nil(analysis_id) or is_binary(analysis_id)) and is_function(after_append, 1),
-      do: append(graph, :optimization, analysis_id, after_append)
+    do: append(graph, :optimization, after_append)
 
   defp append(
          %Graph{} = graph,
          kind,
-         analysis_id,
          after_append \\ fn persisted -> {:ok, persisted} end
        ) do
     with {:ok, parent_revision_id} <- base_revision_id(%{"revision_id" => graph.revision_id}),
          {:ok, candidate} <- candidate_graph(graph.id, graph_attrs(graph)) do
       transaction(fn ->
-        append_and_after(graph.id, parent_revision_id, candidate, kind, analysis_id, after_append)
+        append_and_after(graph.id, parent_revision_id, candidate, kind, after_append)
       end)
     end
   end
 
-  defp append_and_after(graph_id, parent_revision_id, candidate, kind, analysis_id, after_append) do
-    case append_from_graph(graph_id, parent_revision_id, candidate, kind, analysis_id) do
+  defp append_and_after(graph_id, parent_revision_id, candidate, kind, after_append) do
+    case append_from_graph(graph_id, parent_revision_id, candidate, kind) do
       {:ok, persisted} ->
         case after_append.(persisted) do
           {:ok, _value} = result -> result
@@ -199,7 +174,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  defp append_revision(graph, kind, parent_revision_id, analysis_id \\ nil) do
+  defp append_revision(graph, kind, parent_revision_id) do
     number = next_revision_number(graph.id)
 
     revision_changeset =
@@ -211,7 +186,6 @@ defmodule NetworkDefense.Graph.Graphs do
       |> GraphRevision.changeset(%{number: number, kind: kind, title: graph.title})
 
     with {:ok, revision} <- Repo.insert(revision_changeset),
-         :ok <- Workflows.link_graph_revision(analysis_id, revision.id),
          :ok <- register_identities(graph),
          :ok <- insert_snapshots(graph, revision.id),
          {:ok, graph} <- hydrate_revision(revision, %Graph{id: graph.id}) do
@@ -271,18 +245,18 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  defp append_from_graph(graph_id, parent_revision_id, candidate, kind, analysis_id) do
+  defp append_from_graph(graph_id, parent_revision_id, candidate, kind) do
     lock_graph(graph_id)
-    |> append_from_locked_graph(parent_revision_id, candidate, kind, analysis_id)
+    |> append_from_locked_graph(parent_revision_id, candidate, kind)
   end
 
-  defp append_from_locked_graph(nil, _parent_revision_id, _candidate, _kind, _analysis_id),
+  defp append_from_locked_graph(nil, _parent_revision_id, _candidate, _kind),
     do: {:error, :not_found}
 
-  defp append_from_locked_graph(graph, parent_revision_id, candidate, kind, analysis_id) do
+  defp append_from_locked_graph(graph, parent_revision_id, candidate, kind) do
     case revision_for_graph(graph.id, parent_revision_id) do
       nil -> {:error, :invalid_base_revision}
-      parent -> append_revision(candidate, kind, parent.id, analysis_id)
+      parent -> append_revision(candidate, kind, parent.id)
     end
   end
 

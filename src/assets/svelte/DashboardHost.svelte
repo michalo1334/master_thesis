@@ -23,8 +23,6 @@
     SimulationReportErrorEvent,
     OptimizationReportReadyEvent,
     OptimizationReportErrorEvent,
-    WorkflowCompletedEvent,
-    WorkflowFailedEvent,
     EvaluationCompletedEvent,
     EvaluationFailedEvent,
     EvaluationReportReadyEvent,
@@ -53,7 +51,6 @@
   if (model.workspace.selectedDocumentId) {
     model.workspace.selectDocument(model.workspace.selectedDocumentId);
   }
-  void model.workspace.loadAnalyses(model.api);
 
   $effect(() => {
     const persistence = model.workspace.toPersistence();
@@ -122,14 +119,6 @@
       reportKind: "optimization",
       payload: payload as OptimizationReportErrorEvent,
     });
-  });
-
-  useLiveEvent("workflow_completed", (payload: unknown) => {
-    model.onWorkflowCompleted(payload as WorkflowCompletedEvent);
-  });
-
-  useLiveEvent("workflow_failed", (payload: unknown) => {
-    model.onWorkflowFailed(payload as WorkflowFailedEvent);
   });
 
   useLiveEvent("evaluation_completed", (payload: unknown) => {

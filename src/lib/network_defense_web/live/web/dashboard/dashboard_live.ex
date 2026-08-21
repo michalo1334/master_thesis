@@ -1,7 +1,6 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
-  alias NetworkDefense.Analysis.CombinedAnalysisWorkflow
   alias NetworkDefense.Errors
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.EvaluationRuns
@@ -16,7 +15,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulations
   alias NetworkDefense.DocumentCatalog
-  alias NetworkDefense.Workflows
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   alias NetworkDefenseWeb.Web.Contracts.{
@@ -32,8 +30,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     FetchGraphProjectionReply,
     FetchDocumentCatalogPayload,
     FetchDocumentCatalogReply,
-    FetchAnalysesPayload,
-    FetchAnalysesReply,
     CreateFolderPayload,
     CreateFolderReply,
     CreateNodeDraftPayload,
@@ -47,13 +43,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
     OpenGraphReply,
     SetGraphRevisionFavoritePayload,
     SetGraphRevisionFavoriteReply,
-    SetGraphAnalysesPayload,
-    SetGraphAnalysesReply,
     GraphSummary,
     MoveGraphToFolderPayload,
     MoveGraphToFolderReply,
-    SetReportAnalysisPayload,
-    SetReportAnalysisReply,
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
@@ -73,10 +65,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SimulationFailedEvent,
     SimulationReportErrorEvent,
     SimulationReportReadyEvent,
-    RunWorkflowPayload,
-    RunWorkflowReply,
-    WorkflowCompletedEvent,
-    WorkflowFailedEvent,
     GetManifestPayload,
     GetManifestReply,
     ListManifestsPayload,
@@ -133,7 +121,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Workflows.workflow_events_topic())
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
     end
 
@@ -164,17 +151,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("set_graph_revision_favorite", params, socket) do
     {:reply, set_graph_revision_favorite(params), socket}
-  end
-
-  @impl true
-  def handle_event("fetch_analyses", params, socket) do
-    case FetchAnalysesPayload.validate(params) do
-      {:ok, _request} ->
-        {:reply, fetch_analyses_reply(Workflows.list_analyses()), socket}
-
-      {:error, _changeset} ->
-        {:reply, fetch_analyses_reply([]), socket}
-    end
   end
 
   @impl true
@@ -261,43 +237,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, report_request_reply("invalid_params"), socket}
-    end
-  end
-
-  @impl true
-  def handle_event("set_graph_analyses", params, socket) do
-    case SetGraphAnalysesPayload.validate(params) do
-      {:ok, request} ->
-        case Workflows.replace_graph_analyses(request.graph_revision_id, request.analysis_ids) do
-          {:ok, analyses} ->
-            {:reply, set_graph_analyses_reply("ok", analyses),
-             assign(socket, :graph_summaries, graph_summaries())}
-
-          {:error, reason} ->
-            {:reply, set_graph_analyses_reply(status_error(reason, SetGraphAnalysesReply), []),
-             socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply, set_graph_analyses_reply("invalid_graph", []), socket}
-    end
-  end
-
-  @impl true
-  def handle_event("set_report_analysis", params, socket) do
-    case SetReportAnalysisPayload.validate(params) do
-      {:ok, request} ->
-        case set_report_analysis(request) do
-          {:ok, analysis} ->
-            {:reply, set_report_analysis_reply("ok", analysis), socket}
-
-          {:error, reason} ->
-            {:reply, set_report_analysis_reply(status_error(reason, SetReportAnalysisReply), nil),
-             socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply, set_report_analysis_reply("invalid_analysis", nil), socket}
     end
   end
 
@@ -410,24 +349,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
       "Optimization started.",
       socket
     )
-  end
-
-  @impl true
-  def handle_event("run_workflow_request", params, socket) do
-    case RunWorkflowPayload.validate(params) do
-      {:ok, %{request: request}} ->
-        case start_workflow(request) do
-          {:ok, run} ->
-            {:reply, workflow_request_reply("accepted", run.id, run.title, nil),
-             put_flash(socket, :info, "Workflow started.")}
-
-          {:error, reason} ->
-            {:reply, workflow_request_reply("rejected", nil, nil, reason), socket}
-        end
-
-      {:error, _changeset} ->
-        {:reply, workflow_request_reply("rejected", nil, nil, :invalid_request), socket}
-    end
   end
 
   @impl true
@@ -595,26 +516,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
      push_contract_event(socket, "optimization_progress", ExecutionProgressEvent, payload)}
   end
 
-  def handle_info({:workflow_completed, %{workflow_id: workflow_id, outputs: outputs}}, socket) do
-    payload =
-      outputs
-      |> CombinedAnalysisWorkflow.completed_event_payload()
-      |> Map.put(:workflow_id, workflow_id)
-
-    {:noreply, push_contract_event(socket, "workflow_completed", WorkflowCompletedEvent, payload)}
-  end
-
-  def handle_info({:workflow_failed, payload}, socket) do
-    {:noreply,
-     push_failure_event(
-       socket,
-       "workflow_failed",
-       WorkflowFailedEvent,
-       "Workflow failed",
-       failure_payload(payload)
-     )}
-  end
-
   def handle_info({:evaluation_completed, payload}, socket) do
     {:noreply,
      push_contract_event(socket, "evaluation_completed", EvaluationCompletedEvent, payload)}
@@ -709,19 +610,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
           |> Map.put(id_field, correlation_id)
 
         push_contract_event(socket, error_event, error_contract, error_payload)
-    end
-  end
-
-  defp start_workflow(request) do
-    if request.template == CombinedAnalysisWorkflow.template() do
-      CombinedAnalysisWorkflow.start(
-        request.graph_revision_id,
-        request.correlation_id,
-        request.simulation_params,
-        request.optimization_params
-      )
-    else
-      {:error, :invalid_request}
     end
   end
 
@@ -1019,15 +907,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  defp workflow_request_reply(status, workflow_id, title, error) do
-    contract_reply(RunWorkflowReply, %{
-      status: status,
-      workflow_id: workflow_id,
-      title: title,
-      error: dashboard_error(error)
-    })
-  end
-
   defp string_or_empty(value) when is_binary(value), do: value
   defp string_or_empty(_value), do: ""
 
@@ -1057,9 +936,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp graph_revision_favorite_reply(status, favorite) do
     contract_reply(SetGraphRevisionFavoriteReply, %{status: status, favorite: favorite})
   end
-
-  defp fetch_analyses_reply(analyses),
-    do: contract_reply(FetchAnalysesReply, %{analyses: analyses})
 
   defp save_manifest_reply(status, manifest, errors) do
     contract_reply(SaveManifestReply, %{status: status, manifest: manifest, errors: errors})
@@ -1117,12 +993,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  defp set_graph_analyses_reply(status, analyses),
-    do: contract_reply(SetGraphAnalysesReply, %{status: status, analyses: analyses})
-
-  defp set_report_analysis_reply(status, analysis),
-    do: contract_reply(SetReportAnalysisReply, %{status: status, analysis: analysis})
-
   defp create_folder_reply(status, folder \\ nil) do
     contract_reply(CreateFolderReply, %{status: status, folder: folder})
   end
@@ -1135,18 +1005,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp status_error(reason, reply_contract) do
     %{enum_values: %{status: statuses}} = reply_contract.contract_meta()
     if reason in statuses, do: Atom.to_string(reason), else: "unmapped_error"
-  end
-
-  defp set_report_analysis(%{kind: "simulation_report"} = request) do
-    with {:ok, experiment} <- Simulations.set_analysis(request.report_id, request.analysis_id) do
-      {:ok, Workflows.analysis_option(experiment.analysis_id)}
-    end
-  end
-
-  defp set_report_analysis(%{kind: "optimization_report"} = request) do
-    with {:ok, run} <- Optimizations.set_analysis(request.report_id, request.analysis_id) do
-      {:ok, Workflows.analysis_option(run.analysis_id)}
-    end
   end
 
   defp graph_connectivity_reply do

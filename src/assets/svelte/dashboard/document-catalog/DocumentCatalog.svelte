@@ -25,7 +25,6 @@
   let filterOptions = $state.raw<FetchDocumentCatalogReply["filter_options"]>({
     types: [],
     graphs: [],
-    analyses: [],
     strategies: [],
     revision_kinds: [],
   });
@@ -33,7 +32,6 @@
   let visitedItems = $state.raw<Map<string, DocumentCatalogItem>>(new Map());
   let filters = $state({
     kind: [] as string[],
-    analysisId: [] as string[],
     graphId: [] as string[],
     strategy: [] as string[],
     revisionKind: [] as string[],
@@ -64,12 +62,6 @@
       filterable: true,
     },
     {
-      key: "analysis",
-      header: analysisHeader,
-      getValue: analysisLabel,
-      filterable: true,
-    },
-    {
       key: "strategy",
       header: strategyHeader,
       getValue: (item) => item.strategy ?? "",
@@ -93,12 +85,6 @@
     filterOptions.types.map((value) => ({
       value,
       label: DocumentCatalogDocument.kindLabel(value),
-    })),
-  );
-  const analysisOptions = $derived(
-    filterOptions.analyses.map(({ id, title }) => ({
-      value: id,
-      label: title,
     })),
   );
   const graphOptions = $derived(
@@ -157,7 +143,6 @@
       search,
       types: [...filters.kind],
       graph_ids: [...filters.graphId],
-      analysis_ids: [...filters.analysisId],
       strategies: [...filters.strategy],
       revision_kinds: [...filters.revisionKind],
       limit: perPage,
@@ -206,15 +191,6 @@
     }
   }
 
-  function analysisLabel(item: DocumentCatalogItem): string {
-    const analyses = item.analyses;
-    return analyses.length === 1
-      ? analyses[0]!.title
-      : analyses.length > 1
-        ? "Multiple analyses"
-        : "";
-  }
-
   function revisionLabel(item: DocumentCatalogItem): string {
     const source = `${item.revision_kind} #${item.revision_number}`;
     return item.output_revision_kind != null &&
@@ -258,19 +234,6 @@
       options={revisionKindOptions}
       selectedValues={filters.revisionKind}
       onchange={(values) => setFilter("revisionKind", values)}
-      disabled={loadState === "loading" || isOpening}
-    />
-  </div>
-{/snippet}
-
-{#snippet analysisHeader()}
-  <div class="catalog-filter-header">
-    <span>Analyses</span>
-    <MultiSelectFilter
-      label="Analyses"
-      options={analysisOptions}
-      selectedValues={filters.analysisId}
-      onchange={(values) => setFilter("analysisId", values)}
       disabled={loadState === "loading" || isOpening}
     />
   </div>

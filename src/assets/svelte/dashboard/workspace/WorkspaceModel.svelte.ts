@@ -2,11 +2,10 @@ import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
-import type { AnalysisOption, DashboardApi } from "../dashboard-api";
+import type { DashboardApi } from "../dashboard-api";
 import type {
   FolderSummary,
   GraphSummary,
@@ -47,9 +46,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   /** Graphs available to open, owned by workspace so the picker has them. */
   graphSummaries = $state.raw<GraphSummary[]>([]);
   folders = $state.raw<FolderSummary[]>([]);
-  analysisOptions = $state.raw<AnalysisOption[]>([]);
-  analysesStatus = $state("");
-  private analysesLoaded = false;
 
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
@@ -137,7 +133,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       node_count: graph.nodes.length,
       edge_count: graph.edges.length,
       is_favorite: previous?.is_favorite ?? false,
-      analysis_ids: previous?.analysis_ids ?? [],
       ...(graphFolderId === undefined ? {} : { folder_id: graphFolderId }),
     };
     const index = this.graphSummaries.findIndex(
@@ -220,69 +215,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       return true;
     } catch {
       this.statusMessage = "Could not move graph.";
-      return false;
-    }
-  }
-
-  async loadAnalyses(api: DashboardApi): Promise<boolean> {
-    if (this.analysesLoaded) return true;
-
-    this.analysesStatus = "Loading analyses…";
-    try {
-      const reply = await api.fetchAnalyses();
-      this.analysisOptions = reply.analyses;
-      this.analysesLoaded = true;
-      this.analysesStatus = "";
-      return true;
-    } catch {
-      this.analysesStatus = "Could not load analyses.";
-      return false;
-    }
-  }
-
-  async setGraphAnalyses(
-    api: DashboardApi,
-    graphRevisionId: string,
-    analysisIds: string[],
-  ): Promise<boolean> {
-    try {
-      const reply = await api.setGraphAnalyses(graphRevisionId, analysisIds);
-      if (reply.status !== "ok") return false;
-
-      this.graphSummaries = this.graphSummaries.map((summary) =>
-        summary.revision_id === graphRevisionId
-          ? { ...summary, analysis_ids: analysisIds }
-          : summary,
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  async setReportAnalysis(
-    api: DashboardApi,
-    report: SimulationReportDocument | OptimizationReportDocument,
-    analysisId: string | null,
-  ): Promise<boolean> {
-    const reportId = report.reportId;
-    if (!reportId) return false;
-
-    try {
-      const reply = await api.setReportAnalysis(
-        report.reportApiKind,
-        reportId,
-        analysisId,
-      );
-      if (reply.status !== "ok") return false;
-
-      report.setAnalysis(
-        reply.analysis === undefined
-          ? (this.analysisOptions.find(({ id }) => id === analysisId) ?? null)
-          : reply.analysis,
-      );
-      return true;
-    } catch {
       return false;
     }
   }
@@ -628,7 +560,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       item.graph_title,
       item.graph_id,
       item.graph_revision_id,
-      catalogAnalysis(item),
     );
     this.documents.push(report);
     this.activateDocument(report);
@@ -656,7 +587,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       graphTitle: item.graph_title,
       strategy: catalogOptimizationStrategy(item.strategy),
       budget: 0,
-      ...catalogAnalysis(item),
     });
     this.documents.push(report);
     this.activateDocument(report);
@@ -725,8 +655,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     graphRevisionId: string;
     correlationId?: string;
     graphTitle: string;
-    analysisId?: string;
-    analysisTitle?: string;
   }): SimulationReportDocument {
     const existing = info.correlationId
       ? (this.documents.find(
@@ -745,7 +673,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
         info.graphTitle,
         info.graphId,
         info.graphRevisionId,
-        info,
       );
       if (info.correlationId) report.markPending(info.correlationId);
       this.documents.push(report);
@@ -761,8 +688,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     correlationId?: string;
     strategy: OptimizationStrategy;
     budget: number;
-    analysisId?: string;
-    analysisTitle?: string;
   }): OptimizationReportDocument {
     const existing = info.correlationId
       ? (this.documents.find(
@@ -779,31 +704,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     const report = new OptimizationReportDocument(info);
     this.documents.push(report);
     this.activateDocument(report);
-    return report;
-  }
-
-  openComparisonReport(
-    baselineReport: SimulationReportDocument,
-    optimizationReport: OptimizationReportDocument,
-    postOptimizationReport: SimulationReportDocument,
-  ): ComparisonReportDocument {
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "comparison-report" &&
-        document.baselineReport === baselineReport &&
-        document.optimizationReport === optimizationReport &&
-        document.postOptimizationReport === postOptimizationReport,
-    ) as ComparisonReportDocument | undefined;
-    const report =
-      existing ??
-      new ComparisonReportDocument(
-        baselineReport,
-        optimizationReport,
-        postOptimizationReport,
-      );
-    if (!existing) this.documents.push(report);
-    this.activateDocument(report);
-    void report.loadGraphDiff();
     return report;
   }
 
@@ -972,14 +872,4 @@ function catalogOptimizationStrategy(
     default:
       return "cvss";
   }
-}
-
-function catalogAnalysis(item: DocumentCatalogItem): {
-  analysisId?: string;
-  analysisTitle?: string;
-} {
-  const analysis = item.analyses[0];
-  return analysis
-    ? { analysisId: analysis.id, analysisTitle: analysis.title }
-    : {};
 }

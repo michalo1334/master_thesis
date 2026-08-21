@@ -14,7 +14,6 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
           evaluation_manifest_id: String.t() | nil,
           evaluation_manifest: EvaluationManifest.t() | Ecto.Association.NotLoaded.t() | nil,
           source_graph_revision_id: String.t() | nil,
-          input_digest: String.t() | nil,
           source_graph_revision: GraphRevision.t() | Ecto.Association.NotLoaded.t() | nil,
           resolved_manifest: map() | nil,
           status: String.t() | nil,
@@ -25,7 +24,6 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
     belongs_to :evaluation_manifest, EvaluationManifest
     belongs_to :source_graph_revision, GraphRevision
 
-    field :input_digest, :string
     field :resolved_manifest, :map
     field :status, :string, default: "running"
     field :failure_reason, :string
@@ -38,7 +36,6 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
     |> cast(attrs, [
       :evaluation_manifest_id,
       :source_graph_revision_id,
-      :input_digest,
       :resolved_manifest,
       :status,
       :failure_reason

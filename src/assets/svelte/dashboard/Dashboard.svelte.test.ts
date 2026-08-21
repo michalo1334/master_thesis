@@ -70,7 +70,6 @@ describe("Dashboard document content", () => {
             graph_id: "graph-1",
             graph_revision_id: "revision-1",
             graph_title: "Gateway",
-            analyses: [],
             revision_kind: "original",
             revision_number: 1,
             created_at: "2026-01-01T00:00:00Z",
@@ -80,7 +79,6 @@ describe("Dashboard document content", () => {
         filter_options: {
           types: ["graph"],
           graphs: [{ id: "graph-1", title: "Gateway" }],
-          analyses: [],
           strategies: [],
           revision_kinds: ["original"],
         },

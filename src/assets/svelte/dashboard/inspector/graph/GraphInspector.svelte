@@ -1,21 +1,13 @@
 <script lang="ts">
   import type { LoadedGraph } from "../../contract";
-  import type { AnalysisOption } from "../../dashboard-api";
-  import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
   import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
-  import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
 
   interface Props {
     graph: LoadedGraph;
     parentTitle?: string;
     onTitleChange: (title: string) => void;
     onOpenParent?: () => void;
-    analyses?: readonly AnalysisOption[];
-    analysisIds?: readonly string[];
-    analysesStatus?: string;
-    onLoadAnalyses?: () => Promise<boolean>;
-    onAnalysesChange?: (analysisIds: string[]) => Promise<boolean>;
   }
 
   let {
@@ -23,28 +15,7 @@
     parentTitle = undefined,
     onTitleChange,
     onOpenParent = undefined,
-    analyses = [],
-    analysisIds = [],
-    analysesStatus = "",
-    onLoadAnalyses = async () => true,
-    onAnalysesChange = undefined,
   }: Props = $props();
-
-  const analysisColumns: readonly FilterableTableColumn<AnalysisOption>[] = [
-    {
-      key: "title",
-      header: "Title",
-      getValue: (analysis) => analysis.title,
-      filterable: true,
-    },
-  ];
-  let analysisPickerOpen = $state(false);
-  let selectedAnalyses = $derived(
-    analysisIds.map(
-      (id) =>
-        analyses.find((analysis) => analysis.id === id) ?? { id, title: id },
-    ),
-  );
 
   function updateTitle(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
@@ -53,11 +24,6 @@
       return;
     }
     onTitleChange(input.value);
-  }
-
-  async function openAnalysisPicker(): Promise<void> {
-    await onLoadAnalyses();
-    analysisPickerOpen = true;
   }
 </script>
 
@@ -95,41 +61,7 @@
       </span>
     {/if}
   </div>
-  <div class="graph-analyses-field">
-    <span>Analyses</span>
-    {#if selectedAnalyses.length}
-      <ul>
-        {#each selectedAnalyses as analysis (analysis.id)}
-          <li>{analysis.title}</li>
-        {/each}
-      </ul>
-    {:else}
-      <span class="graph-analyses-empty">No analyses</span>
-    {/if}
-    <button
-      type="button"
-      disabled={!onAnalysesChange}
-      onclick={openAnalysisPicker}>Change analyses</button
-    >
-  </div>
 </Inspector>
-
-<OptionPickerDialog
-  open={analysisPickerOpen}
-  onOpenChange={(open) => (analysisPickerOpen = open)}
-  items={analyses}
-  title="Change analyses"
-  description="Select analyses for this graph revision."
-  getKey={(analysis) => analysis.id}
-  columns={analysisColumns}
-  mode="multiple"
-  initialSelection={analysisIds}
-  minSelections={0}
-  emptyMessage="No analyses available."
-  status={analysesStatus}
-  onConfirm={(selected) =>
-    onAnalysesChange?.(selected.map(({ id }) => id)) ?? false}
-/>
 
 <style>
   .graph-title-field {
@@ -185,38 +117,5 @@
   .graph-parent-field button {
     color: var(--ui-color-accent);
     text-decoration: underline;
-  }
-  .graph-analyses-field {
-    display: grid;
-    gap: var(--ui-space-1);
-    margin-top: var(--ui-space-3);
-  }
-  .graph-analyses-field > span:first-child {
-    color: var(--ui-color-text-secondary);
-    font-size: var(--ui-text-xs);
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-  .graph-analyses-field ul {
-    display: grid;
-    gap: 0.125rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    font-size: var(--ui-text-sm);
-  }
-  .graph-analyses-empty {
-    color: var(--ui-color-text-secondary);
-    font-size: var(--ui-text-sm);
-  }
-  .graph-analyses-field button {
-    width: fit-content;
-    min-height: var(--ui-control-height);
-    margin-top: var(--ui-space-1);
-    padding: 0.375rem 0.5rem;
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-color-surface);
   }
 </style>

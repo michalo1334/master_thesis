@@ -16,9 +16,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     field :graph_revision_id, :string
     field :graph_title, :string
 
-    embeds_many :analyses, NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis,
-      on_replace: :delete
-
     field :revision_kind, :string
     field :revision_number, :integer
     field :strategy, :string
@@ -34,7 +31,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
           graph_id: String.t(),
           graph_revision_id: String.t(),
           graph_title: String.t(),
-          analyses: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis.t()],
           revision_kind: String.t(),
           revision_number: pos_integer(),
           strategy: String.t() | nil,
@@ -74,7 +70,6 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     |> NetworkDefense.Contracts.validate_uuid(:id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
-    |> cast_embed(:analyses)
     |> NetworkDefense.Contracts.validate_uuid(:output_graph_revision_id)
   end
 end

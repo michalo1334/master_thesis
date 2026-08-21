@@ -48,11 +48,6 @@ function makeContext(
     document: makeGraphDocument(),
     api: {} as DashboardApi,
     summaries: [],
-    analyses: [{ id: "analysis-1", title: "Baseline" }],
-    analysesStatus: "",
-    onLoadAnalyses: vi.fn().mockResolvedValue(true),
-    onGraphAnalysesChange: vi.fn().mockResolvedValue(true),
-    onReportAnalysisChange: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -86,7 +81,6 @@ describe("resolveInspector", () => {
       document,
       summaries: [
         {
-          analysis_ids: ["analysis-1"],
           edge_count: 0,
           folder_id: null,
           graph_id: "graph-1",
@@ -108,8 +102,6 @@ describe("resolveInspector", () => {
     expect(request?.Component).toBe(GraphInspector);
     const props = propsOf(request);
     expect(props.graph).toBe(document.graph);
-    expect(props.analysisIds).toEqual(["analysis-1"]);
-    expect(props.analyses).toBe(context.analyses);
     expect(typeof props.onTitleChange).toBe("function");
     const onOpenParentProp = props.onOpenParent as () => void;
     onOpenParentProp();
@@ -236,33 +228,6 @@ describe("resolveInspector", () => {
     expect(optRequest?.Component).toBe(ReportInspector);
     expect(propsOf(simRequest).document).toBe(simulation);
     expect(propsOf(optRequest).document).toBe(optimization);
-    expect(propsOf(simRequest).analyses).toBe(context.analyses);
-    expect(propsOf(optRequest).analyses).toBe(context.analyses);
-  });
-
-  it("routes report analysis changes through onReportAnalysisChange", async () => {
-    const simulation = new SimulationReportDocument(
-      "Topology",
-      "graph-1",
-      "revision-1",
-    );
-    const onReportAnalysisChange = vi.fn().mockResolvedValue(true);
-    const context = makeContext({
-      document: simulation,
-      onReportAnalysisChange,
-    });
-
-    const request = resolveInspector(context);
-    const onAnalysisChange = propsOf(request).onAnalysisChange as (
-      analysisId: string | null,
-    ) => Promise<boolean>;
-
-    await onAnalysisChange("analysis-2");
-
-    expect(onReportAnalysisChange).toHaveBeenCalledWith(
-      simulation,
-      "analysis-2",
-    );
   });
 
   it("returns undefined for no document and unsupported documents", () => {

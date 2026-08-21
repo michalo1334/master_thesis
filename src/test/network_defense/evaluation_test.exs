@@ -192,17 +192,16 @@ defmodule NetworkDefense.EvaluationTest do
       assert get_in(resolved, ["attacker", "entry_host", "type"]) == "node_id"
     end
 
-    test "start reuses unchanged content without creating a graph revision" do
+    test "start always creates a new run even for unchanged content" do
       id = manifest_id()
-      assert {:ok, manifest} = save_manifest(id)
+      assert {:ok, _manifest} = save_manifest(id)
 
       assert {:ok, run} = Evaluation.start(id)
       revisions_after_first_start = graph_revision_count()
 
-      assert {:ok, reused} = Evaluation.start(id)
-      assert reused.id == run.id
-      assert reused.input_digest == Evaluation.input_content_digest(manifest.content)
-      assert graph_revision_count() == revisions_after_first_start
+      assert {:ok, second} = Evaluation.start(id)
+      assert second.id != run.id
+      assert graph_revision_count() == revisions_after_first_start + 1
     end
 
     test "start creates a new run when strategies or budgets change" do
@@ -214,14 +213,12 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, _manifest} = save_manifest(id, strategies_changed)
       assert {:ok, second} = Evaluation.start(id)
       assert second.id != first.id
-      assert second.input_digest != first.input_digest
       assert second.resolved_manifest["strategies"] == ["null"]
 
       budgets_changed = Map.put(@valid_manifest, "budgets", [1])
       assert {:ok, _manifest} = save_manifest(id, budgets_changed)
       assert {:ok, third} = Evaluation.start(id)
       assert third.id != second.id
-      assert third.input_digest != second.input_digest
       assert third.resolved_manifest["budgets"] == [1]
     end
 
@@ -241,21 +238,6 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, third} = Evaluation.start(id)
       assert third.id != second.id
       assert third.source_graph_revision_id != second.source_graph_revision_id
-    end
-
-    test "start does not reuse a legacy run without an input digest" do
-      id = manifest_id()
-      assert {:ok, _manifest} = save_manifest(id)
-      assert {:ok, first} = Evaluation.start(id)
-      revisions_after_first_start = graph_revision_count()
-
-      {1, nil} =
-        from(run in EvaluationRun, where: run.id == ^first.id)
-        |> Repo.update_all(set: [input_digest: nil])
-
-      assert {:ok, second} = Evaluation.start(id)
-      assert second.id != first.id
-      assert graph_revision_count() == revisions_after_first_start + 1
     end
 
     test "start returns not_found for an unknown manifest id" do
@@ -425,16 +407,16 @@ defmodule NetworkDefense.EvaluationTest do
       assert simulation_run_count(run.id) == trial_count
     end
 
-    test "start is resume-safe and returns the existing run" do
+    test "start always creates a new run even after completion" do
       id = manifest_id()
       assert {:ok, _manifest} = save_manifest(id, @eval_manifest)
 
       assert {:ok, run} = Evaluation.start(id)
       assert {:ok, _} = Evaluation.run(run.id)
 
-      assert {:ok, resumed} = Evaluation.start(id)
-      assert resumed.id == run.id
-      assert resumed.status == "completed"
+      assert {:ok, second} = Evaluation.start(id)
+      assert second.id != run.id
+      assert second.status == "running"
     end
 
     test "evaluation worker enqueues and executes a run" do

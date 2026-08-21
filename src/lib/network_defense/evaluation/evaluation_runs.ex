@@ -30,14 +30,6 @@ defmodule NetworkDefense.Evaluation.EvaluationRuns do
     |> Repo.all()
   end
 
-  def latest_for_manifest(manifest_id) do
-    EvaluationRun
-    |> where([run], run.evaluation_manifest_id == ^manifest_id)
-    |> order_by([run], desc: run.inserted_at)
-    |> limit(1)
-    |> Repo.one()
-  end
-
   def complete(%EvaluationRun{} = run) do
     run
     |> EvaluationRun.changeset(%{status: "completed"})

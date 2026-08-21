@@ -1,5 +1,4 @@
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
-import { AnalysisModel } from "./analysis/AnalysisModel.svelte";
 import { ManifestModel } from "./manifest/ManifestModel.svelte";
 import { SvelteMap } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
@@ -11,8 +10,6 @@ import type {
   ExecutionProgressEvent,
   SimulationCompletedEvent,
   SimulationFailedEvent,
-  WorkflowCompletedEvent,
-  WorkflowFailedEvent,
 } from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
@@ -27,11 +24,13 @@ import type {
   EvaluationCompletedEvent,
   EvaluationFailedEvent,
 } from "./contract";
+import { formatDashboardErrorCode } from "./error-code";
+import type { OptimizationParams, SimulationParams } from "./contract";
+import type { EditableGraphDocument } from "./graph/EditableGraphDocument.svelte";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
-  analysis: AnalysisModel;
   manifest: ManifestModel;
   private pendingEvaluationEvents = new SvelteMap<
     string,
@@ -50,7 +49,6 @@ export class DashboardModel {
   ) {
     this.api = api;
     this.workspace = new WorkspaceModel(graphSummaries, folders, api);
-    this.analysis = new AnalysisModel(api, this.workspace);
     this.manifest = new ManifestModel(api);
     this.manifest.onStarted = (runId, manifest) => {
       const report = this.workspace.openPendingAnalysisReport(runId, manifest);
@@ -75,24 +73,16 @@ export class DashboardModel {
 
   /** Cross-model: start simulation on active graph, create pending report. */
   async runActiveSimulation(): Promise<void> {
-    if (this.analysis.isRunning) {
-      this.workspace.statusMessage = "Compound analysis is in progress.";
-      return;
-    }
     const doc = this.workspace.activeGraph;
     if (!doc) return;
     if (doc.isDirty && !(await doc.saveIfDirty(this.api))) {
       this.workspace.statusMessage = doc.saveStatusMessage;
       return;
     }
-    await this.analysis.runSimulation(doc, this.workspace.simulationParams);
+    await this.runSimulation(doc, this.workspace.simulationParams);
   }
 
   async runActiveOptimization(): Promise<void> {
-    if (this.analysis.isRunning) {
-      this.workspace.statusMessage = "Compound analysis is in progress.";
-      return;
-    }
     const doc = this.workspace.activeGraph;
     if (!doc || !doc.loadedRevisionId) {
       return;
@@ -102,10 +92,139 @@ export class DashboardModel {
       return;
     }
 
-    await this.analysis.runOptimization(
+    await this.runOptimization(
       doc,
       $state.snapshot(this.workspace.optimizationParams),
     );
+  }
+
+  private async runSimulation(
+    document: EditableGraphDocument,
+    params: SimulationParams,
+  ): Promise<boolean> {
+    const expectedJob = this.createJob(document);
+    if (!expectedJob) return false;
+    const report = this.workspace.createPendingReport({
+      graphId: expectedJob.graphId,
+      graphRevisionId: expectedJob.graphRevisionId,
+      correlationId: expectedJob.correlationId,
+      graphTitle: document.title,
+    });
+
+    try {
+      const result = await document.startSimulation(
+        this.api,
+        params,
+        expectedJob.correlationId,
+      );
+      if (!result) {
+        report.markErrorMessage("Simulation failed.");
+        this.workspace.markReportReadState(report);
+        return false;
+      }
+      if (result.status === "rejected") {
+        if (result.error) {
+          report.markError(result.error);
+        } else {
+          report.markErrorMessage("Simulation rejected.");
+        }
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = result.error
+          ? `Simulation rejected: ${formatDashboardErrorCode(result.error.code)}`
+          : "Simulation was rejected.";
+        return false;
+      }
+      if (
+        result.graphId !== expectedJob.graphId ||
+        result.graphRevisionId !== expectedJob.graphRevisionId ||
+        result.correlationId !== expectedJob.correlationId
+      ) {
+        report.markErrorMessage(
+          "Simulation request returned unexpected identifiers.",
+        );
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
+        return false;
+      }
+      return true;
+    } catch {
+      report.markErrorMessage("Simulation failed.");
+      this.workspace.markReportReadState(report);
+      this.workspace.statusMessage = report.errorReason;
+      return false;
+    }
+  }
+
+  private async runOptimization(
+    document: EditableGraphDocument,
+    params: OptimizationParams,
+  ): Promise<boolean> {
+    const expectedJob = this.createJob(document);
+    if (!expectedJob) return false;
+
+    const report = this.workspace.createPendingOptimizationReport({
+      graphId: expectedJob.graphId,
+      graphRevisionId: expectedJob.graphRevisionId,
+      graphTitle: document.title,
+      correlationId: expectedJob.correlationId,
+      strategy: params.strategy,
+      budget: params.budget,
+    });
+
+    try {
+      const reply = await document.startOptimization(
+        this.api,
+        params,
+        expectedJob.correlationId,
+      );
+      if (!reply) {
+        report.markErrorMessage("Optimization failed.");
+        this.workspace.markReportReadState(report);
+        return false;
+      }
+      if (reply.status === "rejected") {
+        if (reply.error) {
+          report.markError(reply.error);
+        } else {
+          report.markErrorMessage("Optimization rejected.");
+        }
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
+        return false;
+      }
+      if (
+        reply.graph_revision_id !== expectedJob.graphRevisionId ||
+        reply.correlation_id !== expectedJob.correlationId
+      ) {
+        report.markErrorMessage(
+          "Optimization request returned unexpected identifiers.",
+        );
+        this.workspace.markReportReadState(report);
+        this.workspace.statusMessage = report.errorReason;
+        return false;
+      }
+      return true;
+    } catch {
+      report.markErrorMessage("Optimization failed.");
+      this.workspace.markReportReadState(report);
+      this.workspace.statusMessage = report.errorReason;
+      return false;
+    }
+  }
+
+  private createJob(
+    document: EditableGraphDocument,
+  ):
+    | { graphId: string; graphRevisionId: string; correlationId: string }
+    | undefined {
+    const graphRevisionId = document.loadedRevisionId;
+    if (!graphRevisionId) return undefined;
+
+    return {
+      graphId: document.graph.id,
+      graphRevisionId,
+      correlationId: crypto.randomUUID(),
+    };
   }
 
   onOptimizationCompleted(payload: OptimizationCompletedEvent): void {
@@ -281,14 +400,6 @@ export class DashboardModel {
     if (!document) return;
     document.markError(event.payload.error);
     this.workspace.markReportReadState(document);
-  }
-
-  onWorkflowCompleted(payload: WorkflowCompletedEvent): void {
-    this.analysis.onWorkflowCompleted(payload);
-  }
-
-  onWorkflowFailed(payload: WorkflowFailedEvent): void {
-    this.analysis.onWorkflowFailed(payload);
   }
 
   onEvaluationCompleted(payload: EvaluationCompletedEvent): void {

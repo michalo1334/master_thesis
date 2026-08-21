@@ -10,12 +10,8 @@ import Config
 config :network_defense, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [simulations: 1, optimizations: 1, evaluations: 1, workflows: 10],
+  queues: [simulations: 1, optimizations: 1, evaluations: 1],
   repo: NetworkDefense.Repo
-
-config :network_defense, :workflow_templates, %{
-  "combined_analysis" => NetworkDefense.Analysis.CombinedAnalysisWorkflow
-}
 
 config :live_svelte, ssr: true
 

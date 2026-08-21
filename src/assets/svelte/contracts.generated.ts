@@ -402,15 +402,8 @@ export interface DeleteFolderReply {
   status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
 }
 
-// NetworkDefenseWeb.Web.Contracts.DocumentCatalogAnalysis (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_analysis.ex)
-export interface DocumentCatalogAnalysis {
-  id: string;
-  title: string;
-}
-
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
 export interface DocumentCatalogFilterOptions {
-  analyses: DocumentCatalogAnalysis[];
   graphs: DocumentCatalogGraphFilterOption[];
   revision_kinds: string[];
   strategies: string[];
@@ -425,7 +418,6 @@ export interface DocumentCatalogGraphFilterOption {
 
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_item.ex) — enum fields: kind
 export interface DocumentCatalogItem {
-  analyses: DocumentCatalogAnalysis[];
   created_at: string;
   graph_id: string;
   graph_revision_id: string;
@@ -530,17 +522,8 @@ export interface ExperimentSummary {
   started_at: string;
 }
 
-// NetworkDefenseWeb.Web.Contracts.FetchAnalysesPayload (lib/network_defense_web/contracts/dashboard/workflow/fetch_analyses_payload.ex)
-export type FetchAnalysesPayload = Record<never, never>;
-
-// NetworkDefenseWeb.Web.Contracts.FetchAnalysesReply (lib/network_defense_web/contracts/dashboard/workflow/fetch_analyses_reply.ex)
-export interface FetchAnalysesReply {
-  analyses: DocumentCatalogAnalysis[];
-}
-
 // NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_payload.ex)
 export interface FetchDocumentCatalogPayload {
-  analysis_ids: string[];
   graph_ids: string[];
   limit: number;
   offset: number;
@@ -743,7 +726,6 @@ export interface GraphProjectionSegment {
 
 // NetworkDefenseWeb.Web.Contracts.GraphSummary (lib/network_defense_web/contracts/dashboard/graph/graph_summary.ex)
 export interface GraphSummary {
-  analysis_ids: string[];
   edge_count: number;
   folder_id?: string | null;
   graph_id: string;
@@ -914,28 +896,6 @@ export interface RunSummary {
   total?: number | null;
 }
 
-// NetworkDefenseWeb.Web.Contracts.RunWorkflowPayload (lib/network_defense_web/contracts/dashboard/workflow/run_workflow_payload.ex)
-export interface RunWorkflowPayload {
-  request: RunWorkflowRequest;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunWorkflowReply (lib/network_defense_web/contracts/dashboard/workflow/run_workflow_reply.ex) — enum fields: status
-export interface RunWorkflowReply {
-  error?: DashboardError | null;
-  status: "accepted" | "rejected";
-  title?: string | null;
-  workflow_id?: string | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunWorkflowRequest (lib/network_defense_web/contracts/dashboard/workflow/run_workflow_request.ex) — enum fields: template
-export interface RunWorkflowRequest {
-  correlation_id: string;
-  graph_revision_id: string;
-  optimization_params: OptimizationParams;
-  simulation_params: SimulationParams;
-  template: "combined_analysis";
-}
-
 // NetworkDefenseWeb.Web.Contracts.SaveGraphPayload (lib/network_defense_web/contracts/dashboard/graph/save_graph_payload.ex)
 export interface SaveGraphPayload {
   graph: SaveGraphContract;
@@ -961,23 +921,6 @@ export interface SaveManifestReply {
   status: "ok" | "invalid_manifest" | "invalid_request";
 }
 
-// NetworkDefenseWeb.Web.Contracts.SetGraphAnalysesPayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_analyses_payload.ex)
-export interface SetGraphAnalysesPayload {
-  analysis_ids: string[];
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SetGraphAnalysesReply (lib/network_defense_web/contracts/dashboard/graph/set_graph_analyses_reply.ex) — enum fields: status
-export interface SetGraphAnalysesReply {
-  analyses: DocumentCatalogAnalysis[];
-  status:
-    | "ok"
-    | "not_found"
-    | "invalid_graph"
-    | "invalid_analyses"
-    | "unmapped_error";
-}
-
 // NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoritePayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_payload.ex)
 export interface SetGraphRevisionFavoritePayload {
   favorite: boolean;
@@ -988,19 +931,6 @@ export interface SetGraphRevisionFavoritePayload {
 export interface SetGraphRevisionFavoriteReply {
   favorite: boolean;
   status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.SetReportAnalysisPayload (lib/network_defense_web/contracts/dashboard/workspace/set_report_analysis_payload.ex)
-export interface SetReportAnalysisPayload {
-  analysis_id?: string | null;
-  kind: string;
-  report_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SetReportAnalysisReply (lib/network_defense_web/contracts/dashboard/workspace/set_report_analysis_reply.ex) — enum fields: status
-export interface SetReportAnalysisReply {
-  analysis?: DocumentCatalogAnalysis | null;
-  status: "ok" | "not_found" | "invalid_analysis" | "unmapped_error";
 }
 
 // NetworkDefenseWeb.Web.Contracts.SimulationCompletedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_completed_event.ex)
@@ -1126,19 +1056,4 @@ export interface StartEvaluationReply {
   errors: ManifestError[];
   run_id?: string | null;
   status: "accepted" | "rejected" | "not_found";
-}
-
-// NetworkDefenseWeb.Web.Contracts.WorkflowCompletedEvent (lib/network_defense_web/contracts/dashboard/workflow/workflow_completed_event.ex)
-export interface WorkflowCompletedEvent {
-  after_experiment_id: string;
-  baseline_experiment_id: string;
-  optimization_id: string;
-  output_graph_revision_id: string;
-  workflow_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.WorkflowFailedEvent (lib/network_defense_web/contracts/dashboard/workflow/workflow_failed_event.ex)
-export interface WorkflowFailedEvent {
-  error: DashboardError;
-  workflow_id: string;
 }
