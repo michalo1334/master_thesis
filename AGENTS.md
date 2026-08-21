@@ -13,9 +13,11 @@ Your agent type:
 Whenever you invoke/delegate to subagent always in prompt specify the subagent delegated to is a subagent.
 
 General workflow is as follows:
- - always use `explorer_fast` model for exploring, never `Explorer`
+ - always use `explorer_fast` model for exploring and review, never `Explorer`
  - use `implementor_fast` for implementation
  - when you are the main agent your responsibility is general thinking/approaching the problem and orchestrating subagents. For exploration and implementation use subagents as much as possible Pass context (including those from subagents) to subagents via temporary markdown files. You can do small fixes or quick pass reviews.
+ - split plan (designed during planning mode) into reasonably small but logical chunks (e.g. BE chunk, FE chunk OR BE + FE chunk, vertical slice style). Handoff each chunk to implementation subagent along with relevant context
+- do not write dry plan texts with plenty of bullets point and dry text. Add Diagrams IF relevant (that is flow visualization), code examples, architecture examples or diagrams if needed, interfaces in code, function signatures (conceptual), use cases, pseudocode, file tree layout, other. In general: use visualization tools that complements the plan in implementation hints AND example-oriented (for human).
 
 ## Infrastructure
 
@@ -67,9 +69,11 @@ To discuss with user
 
 | Agent | File | Model | Purpose |
 |-------|------|-------|---------|
-| `explorer_fast` | `.opencode/agents/explorer_fast.md` | `opencode-go/deepseek-v4-flash` | Fast codebase exploration, read-only |
-| `svelte-file-editor` | `.opencode/agents/svelte-file-editor.md` | `opencode-go/deepseek-v4-pro` | Svelte 5 component authoring with MCP docs |
-| `visual-verifier` | `.opencode/agents/visual-verifier.md` | `opencode-go/minimax-m3` | Cheap UI verification via playwright-cli |
+| `explorer_fast` | `.opencode/agents/explorer_fast.md` | global | Fast codebase exploration, read-only |
+| `svelte-file-editor` | `.opencode/agents/svelte-file-editor.md` | global | Svelte 5 component authoring with MCP docs |
+| `visual-verifier` | `.opencode/agents/visual-verifier.md` | `commandcode/xiaomi/mimo-v2.5-pro` | Cheap UI verification via playwright-cli |
+
+All agents use the single model set globally (CLI/config). `visual-verifier` is the only one with a per-agent model override.
 
 Invoke subagents with `@name` (e.g. `@visual-verifier check the login page`).
 

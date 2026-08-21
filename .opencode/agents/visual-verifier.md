@@ -1,7 +1,7 @@
 ---
 description: Visual verification interpreter. Receives a prompt and screenshots, interprets what's visible against the prompt's expectations, and reports findings. Delegates browser navigation and interaction commands to explorer_fast. Acts as the "eyes" for other agents — cheap and fast for visual checks.
 mode: subagent
-model: opencode-go/minimax-m3
+model: opencode-go/mimo-2.5-pro
 permission:
   read: allow
 ---

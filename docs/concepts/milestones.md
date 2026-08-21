@@ -67,6 +67,7 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 - [x] IaC — Terraform local dev environment
 - [ ] IaC — Terraform Azure dev environment
+- [ ] IaC - Terraform/Ansible Pioneer cloud environment
 
 ## 2. Simulate — Run Attack Simulation
 
@@ -104,9 +105,9 @@ Progress tracking: use cases mapped to milestones. Use case IDs reference `docs/
 
 ## Thesis
 
-- [x] Chapter — design, implementation
-- [x] Chapter — evaluation protocol
-- [x] Chapter — conclusion
+- [] Chapter — design, implementation
+- [] Chapter — evaluation protocol
+- [] Chapter — conclusion
 
 ## Implemented After The Original Milestones
 
