@@ -134,10 +134,26 @@ defmodule NetworkDefense.Evaluation do
   @spec run(String.t()) :: {:ok, EvaluationRun.t()} | {:error, term()}
   def run(run_id) do
     case EvaluationRuns.get(run_id) do
-      nil -> {:error, :not_found}
-      %EvaluationRun{status: status} = run when status in ["completed", "failed"] -> {:ok, run}
-      %EvaluationRun{} = run -> run_evaluator(run)
+      nil ->
+        {:error, :not_found}
+
+      %EvaluationRun{status: status} = run when status in ["completed", "failed"] ->
+        reannounce_terminal(run)
+        {:ok, run}
+
+      %EvaluationRun{} = run ->
+        run_evaluator(run)
     end
+  end
+
+  # Re-announcing a terminal result keeps listeners (the dashboard) in sync when
+  # a completed run is requested again, e.g. a reusable manifest.
+  defp reannounce_terminal(%EvaluationRun{status: "completed"} = run) do
+    broadcast_completed(run)
+  end
+
+  defp reannounce_terminal(%EvaluationRun{status: "failed"} = run) do
+    broadcast_failed(run)
   end
 
   @spec report(String.t(), ReportProgress.progress_callback()) :: map() | nil

@@ -596,4 +596,72 @@ describe("DashboardModel", () => {
     });
     expect(report.status).toBe("loaded");
   });
+
+  it("does not re-request an evaluation report that is already loaded", () => {
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    )!;
+
+    model.onReportReadyEvent({
+      reportKind: "evaluation",
+      payload: {
+        document_id: report.id,
+        report: {
+          run_id: "evaluation-1",
+          status: "completed",
+          failure_reason: null,
+          manifest_id: "manifest-1",
+          manifest_title: "Evaluation manifest",
+          graph_id: "g1",
+          source_graph_revision_id: "r1",
+          source_graph_title: "Topology",
+          plans: [],
+          experiments: [],
+        },
+      },
+    });
+    expect(report.status).toBe("loaded");
+
+    const before = vi.mocked(dashboardApi.requestEvaluationReport).mock.calls
+      .length;
+    model.onEvaluationCompleted({
+      run_id: "evaluation-1",
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+      source_graph_revision_id: "r1",
+    });
+
+    expect(
+      vi.mocked(dashboardApi.requestEvaluationReport).mock.calls.length,
+    ).toBe(before);
+    expect(report.status).toBe("loaded");
+  });
+
+  it("surfaces a not_found evaluation report error without treating it as an internal crash", () => {
+    model.manifest.onStarted?.("evaluation-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    )!;
+
+    model.onReportErrorEvent({
+      reportKind: "evaluation",
+      payload: {
+        document_id: report.id,
+        run_id: "evaluation-1",
+        error: { code: "not_found" },
+      },
+    });
+
+    expect(report.status).toBe("error");
+    expect(report.errorReason).toBe("The requested item was not found.");
+  });
 });

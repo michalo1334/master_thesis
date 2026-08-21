@@ -693,17 +693,19 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   def handle_info({:evaluation_report_result, document_id, run_id, result}, socket) do
     socket =
-      if is_map(result) and result[:report] do
-        push_contract_event(socket, "evaluation_report_ready", EvaluationReportReadyEvent, %{
-          document_id: document_id,
-          report: result[:report]
-        })
-      else
-        push_contract_event(socket, "evaluation_report_error", EvaluationReportErrorEvent, %{
-          document_id: document_id,
-          run_id: run_id,
-          error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
-        })
+      case result do
+        {:ok, report} ->
+          push_contract_event(socket, "evaluation_report_ready", EvaluationReportReadyEvent, %{
+            document_id: document_id,
+            report: report
+          })
+
+        {:error, {reason, _detail}} ->
+          push_contract_event(socket, "evaluation_report_error", EvaluationReportErrorEvent, %{
+            document_id: document_id,
+            run_id: run_id,
+            error: dashboard_error(reason)
+          })
       end
 
     {:noreply, socket}
@@ -811,10 +813,20 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp start_evaluation_report_fetch(%FetchEvaluationReportPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       result =
-        Evaluation.report(
-          request.run_id,
-          report_progress_sender(owner, :evaluation_report_progress, request.run_id)
-        )
+        try do
+          case Evaluation.report(
+                 request.run_id,
+                 report_progress_sender(owner, :evaluation_report_progress, request.run_id)
+               ) do
+            nil -> {:error, {:not_found, nil}}
+            report -> {:ok, report}
+          end
+        rescue
+          # Expected infra failures become error events; anything else is a bug
+          # and crashes the task (logged by the task supervisor).
+          error in [DBConnection.ConnectionError, Postgrex.Error] ->
+            {:error, {:internal_error, Exception.message(error)}}
+        end
 
       send(
         owner,

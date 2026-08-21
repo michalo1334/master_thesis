@@ -314,11 +314,48 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         experiments: []
       }
 
-      send(view.pid, {:evaluation_report_result, document_id, run_id, %{report: report}})
+      send(view.pid, {:evaluation_report_result, document_id, run_id, {:ok, report}})
 
       assert_push_event(view, "evaluation_report_ready", %{
         document_id: ^document_id,
         report: ^report
+      })
+    end
+
+    test "maps a missing evaluation run to not_found, not an internal error", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      document_id = Ecto.UUID.generate()
+      run_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:evaluation_report_result, document_id, run_id, {:error, {:not_found, nil}}}
+      )
+
+      assert_push_event(view, "evaluation_report_error", %{
+        document_id: ^document_id,
+        run_id: ^run_id,
+        error: %{code: "not_found"}
+      })
+    end
+
+    test "maps a failed report fetch to an internal error", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      document_id = Ecto.UUID.generate()
+      run_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:evaluation_report_result, document_id, run_id,
+         {:error, {:internal_error, "connection lost"}}}
+      )
+
+      assert_push_event(view, "evaluation_report_error", %{
+        document_id: ^document_id,
+        run_id: ^run_id,
+        error: %{code: "internal_error"}
       })
     end
 

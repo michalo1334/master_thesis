@@ -299,6 +299,16 @@ export class DashboardModel {
   }
 
   onEvaluationCompleted(payload: EvaluationCompletedEvent): void {
+    this.announceEvaluationReport(payload);
+  }
+
+  onEvaluationFailed(payload: EvaluationFailedEvent): void {
+    this.announceEvaluationReport(payload);
+  }
+
+  private announceEvaluationReport(
+    payload: EvaluationCompletedEvent | EvaluationFailedEvent,
+  ): void {
     const report = this.workspace.documents.find(
       (d) => d.kind === "analysis-report" && d.runId === payload.run_id,
     ) as AnalysisReportDocument | undefined;
@@ -306,17 +316,9 @@ export class DashboardModel {
       this.pendingEvaluationEvents.set(payload.run_id, payload);
       return;
     }
-    report.markReady();
-    report.load(this.api, report.id, payload.run_id);
-    this.workspace.markReportReadState(report);
-  }
-
-  onEvaluationFailed(payload: EvaluationFailedEvent): void {
-    const report = this.workspace.documents.find(
-      (d) => d.kind === "analysis-report" && d.runId === payload.run_id,
-    ) as AnalysisReportDocument | undefined;
-    if (!report) {
-      this.pendingEvaluationEvents.set(payload.run_id, payload);
+    // Already loaded: the server re-announces terminal runs; don't refetch.
+    if (report.status === "loaded") {
+      this.workspace.markReportReadState(report);
       return;
     }
     report.markReady();
