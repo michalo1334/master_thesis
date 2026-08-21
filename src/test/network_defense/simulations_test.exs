@@ -1,7 +1,7 @@
 defmodule NetworkDefense.SimulationsTest do
   use NetworkDefense.DataCase, async: true
+  use Oban.Testing, repo: NetworkDefense.Repo
 
-  alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service, Vulnerability}
@@ -18,6 +18,7 @@ defmodule NetworkDefense.SimulationsTest do
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
   alias NetworkDefense.Simulation.{Experiment, Experiments, IterationStep, Run, SimulationReport}
   alias NetworkDefense.Simulations
+  alias NetworkDefense.Simulations.SimulationWorker
 
   test "reports load the graph revision pinned by the experiment" do
     assert {:ok, graph} = Graphs.insert(graph("Original"))
@@ -103,24 +104,37 @@ defmodule NetworkDefense.SimulationsTest do
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-    {:ok, task} =
-      Simulations.run_async(%RunSimulationRequest{
-        graph_revision_id: graph.revision_id,
-        correlation_id: correlation_id,
-        simulation_params: %SimulationParams{
-          monte_carlo_trials: 5,
-          iterations_per_run: 1,
-          initial_foothold_node_id: foothold.id,
-          generate_seed: false,
-          seed: 42,
-          max_attempts: 1
-        }
-      })
+    assert {:ok, _job} =
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: correlation_id,
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 5,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: foothold.id,
+                 generate_seed: false,
+                 seed: 42,
+                 max_attempts: 1
+               }
+             })
 
-    Sandbox.allow(Repo, self(), task)
+    assert [
+             %{
+               args: %{"experiment_id" => experiment_id, "correlation_id" => ^correlation_id},
+               queue: "simulations",
+               max_attempts: 1,
+               meta: %{"traceparent" => _}
+             }
+           ] = all_enqueued(worker: SimulationWorker)
+
+    assert :ok =
+             perform_job(SimulationWorker, %{
+               "experiment_id" => experiment_id,
+               "correlation_id" => correlation_id
+             })
 
     assert_receive {:simulation_completed,
-                    %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
+                    %{correlation_id: ^correlation_id, experiment_id: ^experiment_id}},
                    5_000
 
     assert %{status: "completed", total_trials: 5, completed_trials: 5} =
@@ -203,21 +217,34 @@ defmodule NetworkDefense.SimulationsTest do
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-    {:ok, task} =
-      Simulations.run_async(%RunSimulationRequest{
-        graph_revision_id: graph.revision_id,
-        correlation_id: correlation_id,
-        simulation_params: %SimulationParams{
-          monte_carlo_trials: 1,
-          iterations_per_run: 1,
-          initial_foothold_node_id: foothold.id,
-          generate_seed: false,
-          seed: 42,
-          max_attempts: 1
-        }
-      })
+    assert {:ok, _job} =
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: correlation_id,
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: foothold.id,
+                 generate_seed: false,
+                 seed: 42,
+                 max_attempts: 1
+               }
+             })
 
-    Sandbox.allow(Repo, self(), task)
+    assert [
+             %{
+               args: %{"experiment_id" => experiment_id, "correlation_id" => ^correlation_id},
+               queue: "simulations",
+               max_attempts: 1,
+               meta: %{"traceparent" => _}
+             }
+           ] = all_enqueued(worker: SimulationWorker)
+
+    assert :ok =
+             perform_job(SimulationWorker, %{
+               "experiment_id" => experiment_id,
+               "correlation_id" => correlation_id
+             })
 
     assert_receive {:simulation_completed, %{correlation_id: ^correlation_id}}, 5_000
   end
@@ -281,6 +308,34 @@ defmodule NetworkDefense.SimulationsTest do
     assert {:error, :internal_error} = Simulations.run_or_resume(experiment.id, correlation_id)
 
     assert_receive {:simulation_failed, %{correlation_id: ^correlation_id}}, 5_000
+
+    assert %{status: "failed"} = Experiments.get(experiment.id)
+  end
+
+  test "simulation worker marks a running experiment failed when run_or_resume errors" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Worker Failure"))
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 42,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 2,
+        completed_trials: 0,
+        status: "running"
+      )
+      |> Experiment.changeset(%{})
+      |> Repo.insert!()
+
+    assert {:error, :not_resumable} =
+             Simulations.run_or_resume(experiment.id, "worker-failure-correlation")
+
+    assert {:error, :failed} =
+             perform_job(SimulationWorker, %{
+               "experiment_id" => experiment.id,
+               "correlation_id" => "worker-failure-correlation"
+             })
 
     assert %{status: "failed"} = Experiments.get(experiment.id)
   end

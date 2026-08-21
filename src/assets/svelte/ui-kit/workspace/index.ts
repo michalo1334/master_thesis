@@ -4,7 +4,21 @@ export {
   UiWorkspaceDocument,
   UiWorkspaceDocument as WorkspaceDocumentBase,
 } from "./WorkspaceDocument.svelte";
-export { GenericWorkspaceModel } from "./WorkspaceModel.svelte";
+export {
+  GenericWorkspaceModel,
+  type DocumentFactory,
+  type DocumentFactoryRegistry,
+  type WorkspacePersistenceConfig,
+} from "./WorkspaceModel.svelte";
+export {
+  createWorkspaceEnvelope,
+  persistedDocumentKey,
+  readWorkspaceEnvelope,
+  writeWorkspaceEnvelope,
+  type PersistedWorkspaceDocument,
+  type StorageLike,
+  type WorkspaceEnvelope,
+} from "./workspace-persistence";
 export {
   buildOutline,
   type OutlineDrag,

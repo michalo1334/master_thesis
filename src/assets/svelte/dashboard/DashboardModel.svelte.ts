@@ -48,7 +48,7 @@ export class DashboardModel {
     folders: FolderSummary[] = [],
   ) {
     this.api = api;
-    this.workspace = new WorkspaceModel(graphSummaries, folders);
+    this.workspace = new WorkspaceModel(graphSummaries, folders, api);
     this.analysis = new AnalysisModel(api, this.workspace);
     this.manifest = new ManifestModel(api);
     this.manifest.onStarted = (runId, manifest) => {
@@ -204,11 +204,7 @@ export class DashboardModel {
         d.graphRevisionId === payload.graph_revision_id,
     ) as SimulationReportDocument | undefined;
     if (report) {
-      report.complete(
-        this.api,
-        payload.experiment_id,
-        payload.graph_revision_id,
-      );
+      report.complete(this.api, payload.experiment_id);
       this.workspace.markReportReadState(report);
     }
   }

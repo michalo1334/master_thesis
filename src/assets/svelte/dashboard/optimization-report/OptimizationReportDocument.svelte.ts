@@ -1,14 +1,17 @@
 import type {
   OptimizationCompletedEvent,
-  DashboardError,
   OptimizationReport,
   OptimizationStrategy,
   FetchOptimizationReportReply,
 } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
-import { formatDashboardErrorCode } from "../error-code";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
+import type { DashboardRecoveryContext } from "../workspace/recovery-context";
+import {
+  isPersistedDocumentOfKind,
+  type PersistedWorkspaceDocument,
+} from "../../ui-kit/workspace/workspace-persistence";
 import {
   toOptimizationAnalysis,
   type OptimizationAnalysis,
@@ -28,18 +31,13 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     return "optimization_report";
   }
   readonly id = crypto.randomUUID();
-  readonly graphId: string;
-  readonly graphRevisionId: string;
-  analysisId = $state<string>();
-  analysisTitle = $state<string>();
+  graphId = $state("");
+  graphRevisionId = $state("");
   correlationId = $state<string | null>(null);
 
-  title = $state("");
-  hasUnread = $state(false);
   optimizationId = $state<string | null>(null);
   strategy: OptimizationStrategy;
   budget: number;
-  errorReason = $state("");
   optimizedGraphRevisionId = $state<string | undefined>();
   reportData = $state.raw<OptimizationReport | undefined>();
   analysis = $state.raw<OptimizationAnalysis | undefined>();
@@ -80,9 +78,68 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.title = `Optimization report for ${graphTitle}`;
   }
 
-  setAnalysis(analysis: { id: string; title: string } | null): void {
-    this.analysisId = analysis?.id;
-    this.analysisTitle = analysis?.title;
+  static fromPersisted(
+    data: unknown,
+    _context: DashboardRecoveryContext,
+  ): OptimizationReportDocument | undefined {
+    if (!isOptimizationReportPersisted(data)) return undefined;
+    const report = new OptimizationReportDocument({
+      graphId: data.ids.graphId,
+      graphRevisionId: data.ids.graphRevisionId,
+      graphTitle: data.title,
+      strategy: "cvss",
+      budget: 0,
+    });
+    report.title = data.title;
+    report.markReady(
+      data.ids.optimizationId,
+      data.ids.optimizedGraphRevisionId ?? "",
+      async () => false,
+    );
+    report.setPersisted(data);
+    return report;
+  }
+
+  toPersisted(): PersistedWorkspaceDocument | undefined {
+    if (!this.optimizationId) return undefined;
+    return {
+      kind: "optimization-report",
+      ids: {
+        optimizationId: this.optimizationId,
+        graphId: this.graphId,
+        graphRevisionId: this.graphRevisionId,
+        ...(this.optimizedGraphRevisionId
+          ? { optimizedGraphRevisionId: this.optimizedGraphRevisionId }
+          : {}),
+      },
+      title: this.title,
+    };
+  }
+
+  recover(context: DashboardRecoveryContext): void {
+    const persisted = this.persistedData as
+      PersistedOptimizationReport | undefined;
+    if (!persisted) return;
+    if (persisted.ids.optimizedGraphRevisionId) {
+      this.markReady(
+        persisted.ids.optimizationId,
+        persisted.ids.optimizedGraphRevisionId,
+        () =>
+          context.workspace.openOptimizationResult(
+            context.api,
+            persisted.ids.optimizedGraphRevisionId!,
+          ),
+        () =>
+          context.workspace.loadOptimizationGraphDiff(
+            context.api,
+            this.graphRevisionId,
+            persisted.ids.optimizedGraphRevisionId!,
+          ),
+      );
+    } else {
+      this.markReady(persisted.ids.optimizationId, "", async () => false);
+    }
+    this.load(context.api, this.id, persisted.ids.optimizationId);
   }
 
   complete(
@@ -100,7 +157,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.errorReason = "";
     this.status = "completed";
     this.progress = null;
-    this.load(api, this.id, payload.optimization_id, this.graphRevisionId);
+    this.load(api, this.id, payload.optimization_id);
   }
 
   markReady(
@@ -126,25 +183,17 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     if (data.optimization_id !== this.optimizationId) return;
     this.reportData = data.report;
     this.analysis = toOptimizationAnalysis(data.report);
+    this.graphId = data.graph_id;
+    this.graphRevisionId = data.graph_revision_id;
     this.title = `Optimization report for ${data.graph_title}`;
     this.status = "loaded";
   }
 
-  load(
-    api: DashboardApi,
-    documentId: string,
-    optimizationId: string,
-    graphRevisionId: string,
-  ): void {
+  load(api: DashboardApi, documentId: string, optimizationId: string): void {
     this.optimizationId = optimizationId;
     this.status = "loading";
     this.errorReason = "";
-    api.requestReport({
-      type: "optimization",
-      documentId,
-      reportId: optimizationId,
-      graphRevisionId,
-    });
+    api.requestOptimizationReport(documentId, optimizationId);
   }
 
   async loadGraphDiff(): Promise<boolean> {
@@ -169,25 +218,23 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
       return false;
     }
   }
+}
 
-  markError(error: DashboardError): void {
-    this.markErrorMessage(formatDashboardErrorCode(error.code));
-  }
+type PersistedOptimizationReport = PersistedWorkspaceDocument & {
+  ids: {
+    optimizationId: string;
+    graphId: string;
+    graphRevisionId: string;
+    optimizedGraphRevisionId?: string;
+  };
+};
 
-  markErrorMessage(message: string): void {
-    this.status = "error";
-    this.errorReason = message;
-  }
-
-  canClose(): boolean {
-    return this.status === "loaded" || this.status === "error";
-  }
-
-  markRead(): void {
-    this.hasUnread = false;
-  }
-
-  markUnread(): void {
-    this.hasUnread = true;
-  }
+function isOptimizationReportPersisted(
+  value: unknown,
+): value is PersistedOptimizationReport {
+  return isPersistedDocumentOfKind<PersistedOptimizationReport["ids"]>(
+    value,
+    "optimization-report",
+    ["optimizationId", "graphId", "graphRevisionId"],
+  );
 }

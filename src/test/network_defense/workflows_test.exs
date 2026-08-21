@@ -172,8 +172,8 @@ defmodule NetworkDefense.WorkflowsTest do
     assert [input_revision_id] = analysis_graph_revision_ids(first.id)
     assert input_revision_id == graph.revision_id
 
-    assert [job] = all_enqueued(worker: StepWorker)
-    assert job.args == %{"workflow_run_id" => first.id, "step_position" => 1}
+    assert [%{args: args, meta: %{"traceparent" => _}}] = all_enqueued(worker: StepWorker)
+    assert args == %{"workflow_run_id" => first.id, "step_position" => 1}
   end
 
   test "marks the workflow failed and broadcasts after the final retry" do

@@ -43,29 +43,35 @@
 </script>
 
 <section class="graph-diff" aria-label={document.title}>
-  <Canvas
-    graph={document.graph}
-    fitVersion={1}
-    nodeAppearance={(node) =>
-      nodeAppearance(document.nodeStatusById.get(node.id) ?? "unchanged")}
-    edgeAppearance={(edge) =>
-      edgeAppearance(document.edgeStatusById.get(edge.id) ?? "unchanged")}
-    ariaLabel="Read-only graph comparison canvas"
-  />
-  <aside class="graph-diff-legend" aria-label="Graph comparison legend">
-    <strong>Graph comparison</strong>
-    <ul>
-      <li><span class="added" aria-hidden="true"></span>Added</li>
-      <li><span class="removed" aria-hidden="true"></span>Removed</li>
-      <li><span class="unchanged" aria-hidden="true"></span>Unchanged</li>
-    </ul>
-    <p>
-      Nodes: {document.nodeCounts.added} added, {document.nodeCounts.removed} removed,
-      {document.nodeCounts.unchanged} unchanged. Edges: {document.edgeCounts
-        .added} added,
-      {document.edgeCounts.removed} removed, {document.edgeCounts.unchanged} unchanged.
-    </p>
-  </aside>
+  {#if document.status === "loading"}
+    <p class="graph-diff-status">Loading graph comparison…</p>
+  {:else if document.status === "error"}
+    <p class="graph-diff-status">Could not load graph comparison.</p>
+  {:else}
+    <Canvas
+      graph={document.graph}
+      fitVersion={1}
+      nodeAppearance={(node) =>
+        nodeAppearance(document.nodeStatusById.get(node.id) ?? "unchanged")}
+      edgeAppearance={(edge) =>
+        edgeAppearance(document.edgeStatusById.get(edge.id) ?? "unchanged")}
+      ariaLabel="Read-only graph comparison canvas"
+    />
+    <aside class="graph-diff-legend" aria-label="Graph comparison legend">
+      <strong>Graph comparison</strong>
+      <ul>
+        <li><span class="added" aria-hidden="true"></span>Added</li>
+        <li><span class="removed" aria-hidden="true"></span>Removed</li>
+        <li><span class="unchanged" aria-hidden="true"></span>Unchanged</li>
+      </ul>
+      <p>
+        Nodes: {document.nodeCounts.added} added, {document.nodeCounts.removed} removed,
+        {document.nodeCounts.unchanged} unchanged. Edges: {document.edgeCounts
+          .added} added,
+        {document.edgeCounts.removed} removed, {document.edgeCounts.unchanged} unchanged.
+      </p>
+    </aside>
+  {/if}
 </section>
 
 <style>
@@ -87,6 +93,9 @@
     box-shadow: var(--ui-shadow-sm);
     color: var(--ui-color-text);
     font-size: var(--ui-text-sm);
+  }
+  .graph-diff-status {
+    padding: var(--ui-space-3);
   }
 
   strong,

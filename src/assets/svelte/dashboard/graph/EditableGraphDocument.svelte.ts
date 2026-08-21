@@ -12,6 +12,11 @@ import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
 import { arrangeNetwork as arrangeNetworkLayout } from "./network/NetworkCanvasLayout";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
+import type { DashboardRecoveryContext } from "../workspace/recovery-context";
+import {
+  isPersistedDocumentOfKind,
+  type PersistedWorkspaceDocument,
+} from "../../ui-kit/workspace/workspace-persistence";
 
 export type CanvasSelection =
   | { kind: "none" }
@@ -66,9 +71,54 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   isSaving = $state(false);
   saveStatusMessage = $state("");
 
-  constructor() {
+  constructor(title = "Untitled") {
     super();
+    this._graph = blankGraph(title);
+    this._title = title;
     this.id = crypto.randomUUID();
+  }
+
+  static fromPersisted(
+    data: unknown,
+    _context: DashboardRecoveryContext,
+  ): EditableGraphDocument | undefined {
+    if (!isGraphPersisted(data)) return undefined;
+    const document = new EditableGraphDocument(data.title);
+    document.setPersisted(data);
+    return document;
+  }
+
+  toPersisted(): PersistedWorkspaceDocument | undefined {
+    if (!this.loaded || !this.loadedRevisionId || this.isDirty)
+      return undefined;
+    return {
+      kind: "graph",
+      ids: { revisionId: this.loadedRevisionId },
+      title: this.title,
+    };
+  }
+
+  needsRecovery(): boolean {
+    return !this.loaded && this.persistedData !== undefined;
+  }
+
+  recover(context: DashboardRecoveryContext): void {
+    const persisted = this.persistedData as PersistedGraph | undefined;
+    if (!persisted) return;
+    void (async () => {
+      try {
+        const reply = await context.api.openGraph(persisted.ids.revisionId);
+        if (reply.status !== "ok" || !reply.graph) {
+          context.workspace.statusMessage = "Failed to open graph.";
+          return;
+        }
+        this.replaceFromLoadedGraph(reply.graph);
+        context.workspace.upsertGraphSummary(reply.graph);
+        context.workspace.ensureInitialFoothold(this);
+      } catch {
+        context.workspace.statusMessage = "Failed to open graph.";
+      }
+    })();
   }
 
   get title(): string {
@@ -299,6 +349,16 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
       return;
     this._selection = { kind: "none" };
   }
+}
+
+type PersistedGraph = PersistedWorkspaceDocument & {
+  ids: { revisionId: string };
+};
+
+function isGraphPersisted(value: unknown): value is PersistedGraph {
+  return isPersistedDocumentOfKind<PersistedGraph["ids"]>(value, "graph", [
+    "revisionId",
+  ]);
 }
 
 function revisionMetadata(

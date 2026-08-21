@@ -17,6 +17,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulations.Errors
+  alias NetworkDefense.Simulations.SimulationWorker
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   import Ecto.Query
@@ -28,7 +29,7 @@ defmodule NetworkDefense.Simulations do
   @trial_batch_size 500
   @report_timeout 60_000
 
-  @type async_result :: {:ok, pid()} | {:error, Errors.error()}
+  @type async_result :: {:ok, Oban.Job.t()} | {:error, Errors.error()}
 
   @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
@@ -40,9 +41,9 @@ defmodule NetworkDefense.Simulations do
 
   @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
-    with {:ok, {graph, experiment}} <-
+    with {:ok, {_graph, experiment}} <-
            prepare_experiment(request.graph_revision_id, request.simulation_params, nil) do
-      start_async(graph, request.correlation_id, experiment)
+      enqueue_simulation(request.correlation_id, experiment)
     end
   end
 
@@ -98,15 +99,18 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp start_async(graph, correlation_id, experiment) do
-    case TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-           run_experiment(graph, correlation_id, experiment)
-         end) do
-      {:ok, _pid} = started ->
-        started
+  defp enqueue_simulation(correlation_id, experiment) do
+    case OpentelemetryOban.insert(
+           SimulationWorker.new(%{
+             "experiment_id" => experiment.id,
+             "correlation_id" => correlation_id
+           })
+         ) do
+      {:ok, _job} = inserted ->
+        inserted
 
       {:error, reason} ->
-        Logger.error("Unable to start simulation task: #{inspect(reason)}")
+        Logger.error("Unable to enqueue simulation job: #{inspect(reason)}")
         Experiments.fail(experiment.id)
         {:error, :task_unavailable}
     end

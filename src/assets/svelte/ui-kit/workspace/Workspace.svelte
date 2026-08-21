@@ -6,7 +6,7 @@
   import type { UiWorkspaceDocument } from "./WorkspaceDocument.svelte";
 
   interface Props {
-    model: GenericWorkspaceModel<D>;
+    model: GenericWorkspaceModel<D, any, any>;
     orientation?: "horizontal" | "vertical";
     content?: Snippet<[D]>;
     tabActions?: Snippet;

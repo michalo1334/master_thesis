@@ -15,7 +15,8 @@ import type { DashboardApi } from "../dashboard-api";
 afterEach(cleanup);
 
 describe("OptimizationReport", () => {
-  const api = () => ({ requestReport: vi.fn() }) as unknown as DashboardApi;
+  const api = () =>
+    ({ requestOptimizationReport: vi.fn() }) as unknown as DashboardApi;
 
   function createDocument(
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,

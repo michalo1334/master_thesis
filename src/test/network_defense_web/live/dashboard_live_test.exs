@@ -1,8 +1,10 @@
 defmodule NetworkDefenseWeb.DashboardLiveTest do
   use NetworkDefenseWeb.ConnCase
+  use Oban.Testing, repo: NetworkDefense.Repo
 
   import Phoenix.LiveViewTest
 
+  alias NetworkDefense.Evaluation.EvaluationWorker
   alias NetworkDefense.Graph.{Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
@@ -10,12 +12,15 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.SegmentReachability
+  alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
+  alias NetworkDefense.Simulations.SimulationWorker
 
   describe "workflow events" do
     test "accepts a combined analysis workflow request", %{conn: conn} do
@@ -180,6 +185,9 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "accepted", run_id: run_id})
       assert is_binary(run_id)
       assert has_element?(view, "#flash-info[role='alert']")
+
+      assert run_id == perform_evaluation_job()
+
       assert_push_event(view, "evaluation_completed", %{run_id: ^run_id})
     end
 
@@ -189,6 +197,39 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "start_evaluation", %{"manifest_id" => "nope"})
 
       assert_reply(view, %{status: "not_found", run_id: nil})
+    end
+
+    test "rejects and fails the run when the evaluation job cannot be enqueued", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      manifest_id = "fixed-enterprise-#{System.unique_integer([:positive])}"
+
+      manifest =
+        @valid_manifest
+        |> Map.put("id", manifest_id)
+        |> Map.put("budgets", [1])
+        |> Map.put("strategies", ["null"])
+        |> Map.put("selection_seeds", [101])
+        |> put_in(["evaluation", "trials"], 1)
+
+      render_hook(view, "save_manifest", %{
+        "manifest_id" => manifest_id,
+        "title" => "Fixed enterprise",
+        "content" => manifest
+      })
+
+      assert_reply(view, %{status: "ok", manifest: %{id: manifest_record_id}})
+
+      :meck.new(Oban, [:passthrough])
+      :meck.expect(Oban, :insert, fn _name, _changeset -> {:error, :unavailable} end)
+
+      render_hook(view, "start_evaluation", %{"manifest_id" => manifest_id})
+
+      assert_reply(view, %{status: "rejected", run_id: nil})
+
+      assert %{status: "failed", failure_reason: "task_unavailable"} =
+               NetworkDefense.Evaluation.EvaluationRuns.latest_for_manifest(manifest_record_id)
+    after
+      :meck.unload(Oban)
     end
 
     test "forwards a fetched evaluation report as a ready event", %{conn: conn} do
@@ -601,9 +642,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "invalid_params"})
     end
 
-    test "rejects a report request for another graph revision", %{conn: conn} do
+    test "returns a report pinned to the experiment's graph revision", %{conn: conn} do
       graph = insert_graph("versioned-report")
       foothold = insert_node(graph, "entry-host")
+      foothold_revision_id = foothold.graph_revision_id
       correlation_id = "versioned-report-request"
 
       {:ok, view, _html} = live(conn, ~p"/")
@@ -622,32 +664,30 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
+      perform_simulation_job()
+
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
                      5_000
 
-      assert {:ok, revised} =
+      assert {:ok, _revised} =
                Graphs.append_optimization(%{
                  Graphs.load_revision!(foothold.graph_revision_id)
                  | title: "changed topology"
                })
 
-      revised_revision_id = revised.revision_id
       document_id = Ecto.UUID.generate()
 
       render_hook(view, "fetch_simulation_report", %{
         "document_id" => document_id,
-        "experiment_id" => experiment_id,
-        "graph_revision_id" => revised_revision_id
+        "experiment_id" => experiment_id
       })
 
       assert_reply(view, %{status: "processing"})
 
-      assert_push_event(view, "simulation_report_error", %{
+      assert_push_event(view, "simulation_report_ready", %{
         document_id: ^document_id,
-        experiment_id: ^experiment_id,
-        graph_revision_id: ^revised_revision_id,
-        error: %{code: "not_found"}
+        report: %{experiment_id: ^experiment_id, graph_revision_id: ^foothold_revision_id}
       })
     end
 
@@ -681,6 +721,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       })
 
       assert has_element?(view, "#flash-info[role='alert']")
+
+      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{
@@ -716,6 +758,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           }
         }
       })
+
+      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
@@ -758,6 +802,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           }
         }
       })
+
+      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
@@ -894,6 +940,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert graph_id == graph.id
 
+      perform_optimization_job()
+
       assert_receive {:optimization_completed,
                       %{
                         correlation_id: ^correlation_id,
@@ -984,6 +1032,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         correlation_id: ^correlation_id,
         error: nil
       })
+
+      perform_optimization_job()
 
       assert_receive {:optimization_completed,
                       %{
@@ -1130,7 +1180,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "invalid_params"})
     end
 
-    test "rejects a report request for another graph revision", %{conn: conn} do
+    test "returns a report pinned to the run's source graph revision", %{conn: conn} do
       graph = insert_graph("versioned-optimization-report")
       foothold = insert_node(graph, "entry-host")
       source_revision_id = Graphs.load_revision!(foothold.graph_revision_id).revision_id
@@ -1147,32 +1197,34 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
+      perform_optimization_job()
+
       assert_receive {:optimization_completed,
                       %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
                      5_000
 
-      assert {:ok, revised} =
+      assert {:ok, _revised} =
                Graphs.append_optimization(%{
                  Graphs.load_revision!(source_revision_id)
                  | title: "changed topology"
                })
 
-      revised_revision_id = revised.revision_id
       document_id = Ecto.UUID.generate()
 
       render_hook(view, "fetch_optimization_report", %{
         "document_id" => document_id,
-        "optimization_id" => optimization_id,
-        "graph_revision_id" => revised_revision_id
+        "optimization_id" => optimization_id
       })
 
       assert_reply(view, %{status: "processing"})
 
-      assert_push_event(view, "optimization_report_error", %{
+      assert_push_event(view, "optimization_report_ready", %{
         document_id: ^document_id,
-        optimization_id: ^optimization_id,
-        graph_revision_id: ^revised_revision_id,
-        error: %{code: "not_found"}
+        report: %{
+          optimization_id: ^optimization_id,
+          graph_revision_id: ^source_revision_id,
+          report: %{strategy: "cvss", requested_budget: 1, used_budget: 0, actions: []}
+        }
       })
     end
 
@@ -1195,6 +1247,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
+      perform_optimization_job()
+
       assert_receive {:optimization_completed,
                       %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
                      5_000
@@ -1203,8 +1257,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "fetch_optimization_report", %{
         "document_id" => document_id,
-        "optimization_id" => optimization_id,
-        "graph_revision_id" => source_revision_id
+        "optimization_id" => optimization_id
       })
 
       assert_reply(view, %{status: "processing"})
@@ -1241,6 +1294,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
         }
       })
+
+      perform_optimization_job()
 
       assert_receive {:optimization_completed,
                       %{correlation_id: ^correlation_id, optimization_id: optimization_id}},
@@ -1288,6 +1343,65 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       render_hook(view, "fetch_optimization_runs", %{"graph_revision_ids" => ["not-a-uuid"]})
 
       assert_reply(view, %{runs: []})
+    end
+  end
+
+  describe "fetch_runs" do
+    test "returns active runs of every kind", %{conn: conn} do
+      graph = insert_graph("active-runs")
+      graph_revision_id = graph.revision_id
+
+      experiment = insert_running_experiment(graph_revision_id)
+      optimization = insert_running_optimization(graph_revision_id)
+      workflow = insert_running_workflow()
+      evaluation = insert_running_evaluation()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_runs", %{})
+
+      assert_reply(view, %{runs: runs})
+
+      assert MapSet.new(Enum.map(runs, & &1.kind)) ==
+               MapSet.new(["simulation", "optimization", "workflow", "evaluation"])
+
+      assert %{
+               id: ^experiment,
+               kind: "simulation",
+               title: "active-runs",
+               status: "running",
+               completed: 0,
+               total: 10,
+               started_at: started_at
+             } = Enum.find(runs, &(&1.id == experiment))
+
+      assert is_binary(started_at)
+
+      assert %{id: ^optimization, kind: "optimization", status: "running"} =
+               Enum.find(runs, &(&1.id == optimization))
+
+      assert %{id: ^workflow, kind: "workflow", status: "running"} =
+               Enum.find(runs, &(&1.id == workflow))
+
+      assert %{id: ^evaluation, kind: "evaluation", status: "running"} =
+               Enum.find(runs, &(&1.id == evaluation))
+    end
+
+    test "omits completed and failed runs", %{conn: conn} do
+      graph = insert_graph("inactive-runs")
+      graph_revision_id = graph.revision_id
+
+      insert_running_experiment(graph_revision_id)
+      insert_completed_experiment(graph_revision_id)
+      insert_failed_experiment(graph_revision_id)
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "fetch_runs", %{})
+
+      assert_reply(view, %{runs: runs})
+      assert Enum.all?(runs, &(&1.status == "running"))
+      assert [_] = runs
     end
   end
 
@@ -1576,6 +1690,81 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     graph
   end
 
+  defp insert_running_experiment(graph_revision_id) do
+    insert_experiment(graph_revision_id, "running", 0)
+  end
+
+  defp insert_completed_experiment(graph_revision_id) do
+    insert_experiment(graph_revision_id, "completed", 10)
+  end
+
+  defp insert_failed_experiment(graph_revision_id) do
+    insert_experiment(graph_revision_id, "failed", 0)
+  end
+
+  defp insert_experiment(graph_revision_id, status, completed_trials) do
+    experiment =
+      NetworkDefense.Simulation.Experiment.new(
+        graph_revision_id: graph_revision_id,
+        master_seed: 1,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 10,
+        completed_trials: completed_trials,
+        status: status
+      )
+
+    assert {:ok, experiment} = Experiments.create(experiment)
+    experiment.id
+  end
+
+  defp insert_running_optimization(graph_revision_id) do
+    %NetworkDefense.Optimization.OptimizationRun{}
+    |> NetworkDefense.Optimization.OptimizationRun.changeset(%{
+      graph_revision_id: graph_revision_id,
+      strategy: "cvss",
+      requested_budget: 1,
+      status: "running"
+    })
+    |> Repo.insert!()
+    |> Map.fetch!(:id)
+  end
+
+  defp insert_running_workflow do
+    %NetworkDefense.Workflows.WorkflowRun{}
+    |> NetworkDefense.Workflows.WorkflowRun.changeset(%{
+      title: "workflow-title",
+      template: "two_step",
+      input: %{},
+      status: "running"
+    })
+    |> Repo.insert!()
+    |> Map.fetch!(:id)
+  end
+
+  defp insert_running_evaluation do
+    manifest =
+      %NetworkDefense.Evaluation.EvaluationManifest{}
+      |> NetworkDefense.Evaluation.EvaluationManifest.changeset(%{
+        manifest_id: "manifest-#{System.unique_integer([:positive])}",
+        title: "evaluation-title",
+        content: %{}
+      })
+      |> Repo.insert!()
+
+    graph = insert_graph("evaluation-graph")
+
+    %NetworkDefense.Evaluation.EvaluationRun{}
+    |> NetworkDefense.Evaluation.EvaluationRun.changeset(%{
+      evaluation_manifest_id: manifest.id,
+      source_graph_revision_id: graph.revision_id,
+      resolved_manifest: %{},
+      status: "running"
+    })
+    |> Repo.insert!()
+    |> Map.fetch!(:id)
+  end
+
   defp assert_strategy_optimization(conn, strategy, _strategy_name) do
     graph = insert_graph("#{strategy}-test")
     foothold = insert_node(graph, "entry-host")
@@ -1604,6 +1793,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     })
 
     assert_reply(view, %{status: "accepted", correlation_id: ^correlation_id})
+
+    perform_optimization_job()
 
     assert_receive {:optimization_completed,
                     %{
@@ -1688,5 +1879,37 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       Graphs.list_summaries() |> Enum.filter(&(&1.graphId == id)) |> List.last()
     end)
     |> then(&Graphs.load_revision!(&1.revisionId))
+  end
+
+  defp perform_simulation_job do
+    assert [%{args: %{"experiment_id" => experiment_id, "correlation_id" => correlation_id}}] =
+             all_enqueued(worker: SimulationWorker)
+
+    assert :ok =
+             perform_job(SimulationWorker, %{
+               "experiment_id" => experiment_id,
+               "correlation_id" => correlation_id
+             })
+
+    {experiment_id, correlation_id}
+  end
+
+  defp perform_optimization_job do
+    assert [%{args: %{"run_id" => run_id, "request" => request_params}}] =
+             all_enqueued(worker: OptimizationWorker)
+
+    assert :ok =
+             perform_job(OptimizationWorker, %{
+               "run_id" => run_id,
+               "request" => request_params
+             })
+
+    run_id
+  end
+
+  defp perform_evaluation_job do
+    assert [%{args: %{"run_id" => run_id}}] = all_enqueued(worker: EvaluationWorker)
+    assert :ok = perform_job(EvaluationWorker, %{"run_id" => run_id})
+    run_id
   end
 end

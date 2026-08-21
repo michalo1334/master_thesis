@@ -6,6 +6,11 @@
   import { createDashboardApi } from "./dashboard/dashboard-api";
   import type { LiveServer } from "./dashboard/dashboard-api";
   import Dashboard from "./Dashboard.svelte";
+  import {
+    readWorkspaceEnvelope,
+    writeWorkspaceEnvelope,
+  } from "./ui-kit/workspace/workspace-persistence";
+  import { isDashboardWorkspaceState } from "./dashboard/workspace/persisted-documents";
   import type {
     GraphSummary,
     FolderSummary,
@@ -42,7 +47,22 @@
         folders,
       ),
   );
+  model.workspace.restorePersistence(
+    readWorkspaceEnvelope("dashboard.workspace.v1", isDashboardWorkspaceState),
+  );
+  if (model.workspace.selectedDocumentId) {
+    model.workspace.selectDocument(model.workspace.selectedDocumentId);
+  }
   void model.workspace.loadAnalyses(model.api);
+
+  $effect(() => {
+    const persistence = model.workspace.toPersistence();
+    if (persistence) {
+      untrack(() =>
+        writeWorkspaceEnvelope("dashboard.workspace.v1", persistence),
+      );
+    }
+  });
 
   useLiveEvent("simulation_completed", (payload: unknown) => {
     model.onSimulationCompleted(payload as SimulationCompletedEvent);

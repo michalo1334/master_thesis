@@ -3,7 +3,15 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
   alias Mix.Tasks.Gen.Contracts.{Registry, TypespecParser}
 
-  @dashboard_categories [:graph, :simulation, :optimization, :workflow, :workspace, :evaluation]
+  @dashboard_categories [
+    :graph,
+    :simulation,
+    :optimization,
+    :workflow,
+    :workspace,
+    :evaluation,
+    :runs
+  ]
 
   test "renders contract types from typespecs and metadata" do
     output = Registry.render_all()

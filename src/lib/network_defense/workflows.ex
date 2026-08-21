@@ -318,7 +318,9 @@ defmodule NetworkDefense.Workflows do
   end
 
   defp enqueue(run_id, position) do
-    case Oban.insert(StepWorker.new(%{"workflow_run_id" => run_id, "step_position" => position})) do
+    case OpentelemetryOban.insert(
+           StepWorker.new(%{"workflow_run_id" => run_id, "step_position" => position})
+         ) do
       {:ok, _job} -> :ok
       {:error, reason} -> Repo.rollback(reason)
     end

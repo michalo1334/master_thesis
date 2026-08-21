@@ -11,6 +11,7 @@ defmodule NetworkDefense.Application do
     OpentelemetryBandit.setup()
     OpentelemetryPhoenix.setup(adapter: :bandit)
     OpentelemetryEcto.setup([:network_defense, :repo])
+    OpentelemetryOban.setup(job: [span_relationship: :link])
     NetworkDefense.Observability.attach()
 
     # Registers the :file_log handler from `config :network_defense, :logger`

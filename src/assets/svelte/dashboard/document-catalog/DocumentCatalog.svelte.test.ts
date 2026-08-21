@@ -70,7 +70,10 @@ function reply(
 
 function renderCatalog(api: DashboardApi, onOpen = vi.fn()) {
   return render(DocumentCatalog, {
-    props: { document: new DocumentCatalogDocument(), api, onOpen },
+    props: {
+      document: new DocumentCatalogDocument(onOpen),
+      api,
+    },
   });
 }
 

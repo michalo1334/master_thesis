@@ -9,6 +9,7 @@ import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.sv
 import type { DashboardApi } from "../../dashboard-api";
 import type { DocumentCatalogItem } from "../../contract";
 import { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
+import { createWorkspaceEnvelope } from "../../../ui-kit/workspace/workspace-persistence";
 
 function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   return {
@@ -88,6 +89,181 @@ describe("WorkspaceModel", () => {
       const folders = [{ id: "folder-1", name: "Threat models" }];
       const workspace = new WorkspaceModel([], folders);
       expect(workspace.folders).toBe(folders);
+    });
+  });
+
+  describe("persistence restoration", () => {
+    it("restores durable stubs and loads them only when activated", async () => {
+      const persistence = createWorkspaceEnvelope(
+        {
+          state: {
+            forceParams: {
+              repulsion: -100,
+              linkDistance: 120,
+              collisionRadius: 40,
+              centerStrength: 0.1,
+              alphaDecay: 0.03,
+            },
+            simulationParams: {
+              initial_foothold_node_id: "host-1",
+              monte_carlo_trials: 10,
+              iterations_per_run: 20,
+              max_attempts: 1,
+              generate_seed: false,
+              seed: 0,
+            },
+            optimizationParams: {
+              strategy: "cvss" as const,
+              budget: 2,
+              simulation_params: {
+                initial_foothold_node_id: "host-1",
+                monte_carlo_trials: 10,
+                iterations_per_run: 20,
+                max_attempts: 1,
+                generate_seed: false,
+                seed: 0,
+              },
+            },
+          },
+          documents: [
+            {
+              kind: "graph",
+              ids: { revisionId: "r1" },
+              title: "Topology",
+            },
+            {
+              kind: "simulation-report",
+              ids: {
+                experimentId: "experiment-1",
+                graphId: "g1",
+                graphRevisionId: "r1",
+              },
+              title: "Report for Topology",
+            },
+            { kind: "runs", ids: {}, title: "Runs" },
+          ],
+          selectedDocumentKey:
+            "simulation-report:experimentId:experiment-1,graphId:g1,graphRevisionId:r1",
+        },
+        1,
+      );
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph(),
+        }),
+        requestSimulationReport: vi.fn(),
+      } as unknown as DashboardApi;
+
+      model = new WorkspaceModel([], [], api);
+      model.restorePersistence(persistence);
+      const [graph, report, runs] = model.documents;
+
+      expect(model.selectedDocumentId).toBe(report?.id);
+      expect(model.forceParams.repulsion).toBe(-100);
+      expect(api.openGraph).not.toHaveBeenCalled();
+      expect(api.requestSimulationReport).toHaveBeenCalledWith(
+        report!.id,
+        "experiment-1",
+      );
+
+      model.selectDocument(graph!.id);
+      expect(api.openGraph).toHaveBeenCalledWith("r1");
+      await vi.waitFor(() =>
+        expect(model.activeGraph?.loadedRevisionId).toBe("r1"),
+      );
+
+      model.selectDocument(runs!.id);
+      expect(model.activeDocument?.kind).toBe("runs");
+      expect(model.toPersistence()?.documents).toContainEqual({
+        kind: "runs",
+        ids: {},
+        title: "Runs",
+      });
+      expect(model.toPersistence()?.selectedDocumentKey).toBe("runs:");
+    });
+
+    it("does not persist unsaved graphs", () => {
+      const unsaved = model.createGraphDocument();
+      const saved = model.createGraphDocument();
+      saved.replaceFromLoadedGraph(makeLoadedGraph());
+      saved.setTitle("Unsaved change");
+
+      expect(model.toPersistence()?.documents).not.toContainEqual(
+        expect.objectContaining({ kind: "graph" }),
+      );
+      expect(unsaved.loaded).toBe(false);
+    });
+
+    it("restores a catalog document whose opener delegates to the workspace API", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "r1" }),
+        }),
+      } as unknown as DashboardApi;
+      model = new WorkspaceModel([], [], api);
+      model.restorePersistence(
+        createWorkspaceEnvelope(
+          {
+            state: {
+              forceParams: {
+                repulsion: -100,
+                linkDistance: 120,
+                collisionRadius: 40,
+                centerStrength: 0.1,
+                alphaDecay: 0.03,
+              },
+              simulationParams: {
+                initial_foothold_node_id: "",
+                monte_carlo_trials: 10,
+                iterations_per_run: 20,
+                max_attempts: 1,
+                generate_seed: false,
+                seed: 0,
+              },
+              optimizationParams: {
+                strategy: "cvss" as const,
+                budget: 2,
+                simulation_params: {
+                  initial_foothold_node_id: "",
+                  monte_carlo_trials: 10,
+                  iterations_per_run: 20,
+                  max_attempts: 1,
+                  generate_seed: false,
+                  seed: 0,
+                },
+              },
+            },
+            documents: [
+              { kind: "document-catalog", ids: {}, title: "Documents" },
+            ],
+            selectedDocumentKey: "document-catalog:",
+          },
+          1,
+        ),
+      );
+
+      const catalog = model.activeDocument;
+      expect(catalog?.kind).toBe("document-catalog");
+
+      const item: DocumentCatalogItem = {
+        id: "graph-1",
+        kind: "graph",
+        graph_id: "graph-1",
+        graph_revision_id: "r1",
+        graph_title: "Gateway",
+        analyses: [],
+        revision_kind: "original",
+        revision_number: 1,
+        created_at: "2026-01-01T00:00:00Z",
+      };
+      await expect(
+        (catalog as { openItem(item: DocumentCatalogItem): unknown }).openItem(
+          item,
+        ),
+      ).resolves.toBe(true);
+      expect(api.openGraph).toHaveBeenCalledWith("r1");
     });
   });
 
@@ -179,6 +355,16 @@ describe("WorkspaceModel", () => {
       expect(catalog?.title).toBe("Documents");
       expect(model.documents).toEqual([catalog]);
     });
+
+    it("opens one Runs tab", () => {
+      model.handleCreateDocument("runs");
+      const runs = model.activeDocument;
+      model.handleCreateDocument("runs");
+
+      expect(runs?.kind).toBe("runs");
+      expect(runs?.title).toBe("Runs");
+      expect(model.documents).toEqual([runs]);
+    });
   });
 
   describe("openCatalogItem", () => {
@@ -202,7 +388,10 @@ describe("WorkspaceModel", () => {
     };
 
     it("loads historical reports once and focuses existing tabs", async () => {
-      const api = { requestReport: vi.fn() } as unknown as DashboardApi;
+      const api = {
+        requestSimulationReport: vi.fn(),
+        requestOptimizationReport: vi.fn(),
+      } as unknown as DashboardApi;
 
       await model.openCatalogItem(api, simulation);
       const simulationReport = model.activeDocument;
@@ -225,26 +414,21 @@ describe("WorkspaceModel", () => {
         analysisId: "analysis-1",
         analysisTitle: "Baseline risk",
       });
-      expect(api.requestReport).toHaveBeenCalledTimes(2);
-      expect(api.requestReport).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          type: "simulation",
-          reportId: "simulation-1",
-        }),
+      expect(api.requestSimulationReport).toHaveBeenCalledTimes(1);
+      expect(api.requestSimulationReport).toHaveBeenCalledWith(
+        simulationReport!.id,
+        "simulation-1",
       );
-      expect(api.requestReport).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          type: "optimization",
-          reportId: "optimization-1",
-        }),
+      expect(api.requestOptimizationReport).toHaveBeenCalledTimes(1);
+      expect(api.requestOptimizationReport).toHaveBeenCalledWith(
+        optimizationReport.id,
+        "optimization-1",
       );
     });
 
     it("prepares optimized graph actions for historical reports with an output revision", async () => {
       const api = {
-        requestReport: vi.fn(),
+        requestOptimizationReport: vi.fn(),
         openGraph: vi.fn((revisionId: string) =>
           Promise.resolve({
             status: "ok" as const,
@@ -275,12 +459,10 @@ describe("WorkspaceModel", () => {
       }
       expect(report.optimizedGraphRevisionId).toBe("optimized-r1");
       expect(report.status).toBe("loading");
-      expect(api.requestReport).toHaveBeenCalledWith({
-        type: "optimization",
-        documentId: report.id,
-        reportId: "optimization-1",
-        graphRevisionId: "r1",
-      });
+      expect(api.requestOptimizationReport).toHaveBeenCalledWith(
+        report.id,
+        "optimization-1",
+      );
 
       await expect(report.openOptimizedGraph?.()).resolves.toBe(true);
       expect(model.activeGraph?.loadedRevisionId).toBe("optimized-r1");

@@ -33,6 +33,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
+    FetchRunsPayload,
+    FetchRunsReply,
     OpenGraphReply,
     OptimizationCompletedEvent,
     RunWorkflowRequest,
@@ -436,12 +438,10 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     assert {:error, changeset} =
              FetchOptimizationReportPayload.validate(%{
                "document_id" => @graph_id,
-               "optimization_id" => "not-a-uuid",
-               "graph_revision_id" => "graph-1"
+               "optimization_id" => "not-a-uuid"
              })
 
-    assert %{optimization_id: ["is invalid"], graph_revision_id: ["is invalid"]} =
-             errors_on(changeset)
+    assert %{optimization_id: ["is invalid"]} = errors_on(changeset)
   end
 
   test "rejects non-UUID graph revision ids in optimization run fetch" do
@@ -449,6 +449,53 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              FetchOptimizationRunsPayload.validate(%{"graph_revision_ids" => ["not-a-uuid"]})
 
     assert %{graph_revision_ids: ["contains an invalid UUID"]} = errors_on(changeset)
+  end
+
+  test "accepts an empty fetch runs payload" do
+    assert {:ok, %FetchRunsPayload{}} = FetchRunsPayload.validate(%{})
+  end
+
+  test "round trips a fetch runs reply with run summaries" do
+    attrs = %{
+      "runs" => [
+        %{
+          "id" => @graph_id,
+          "kind" => "simulation",
+          "title" => "Test graph",
+          "status" => "running",
+          "completed" => 2,
+          "total" => 10,
+          "started_at" => "2026-01-01T00:00:00Z"
+        }
+      ]
+    }
+
+    assert {:ok, reply} = FetchRunsReply.validate(attrs)
+
+    assert %{
+             runs: [
+               %{
+                 id: @graph_id,
+                 kind: "simulation",
+                 title: "Test graph",
+                 status: "running",
+                 completed: 2,
+                 total: 10,
+                 started_at: "2026-01-01T00:00:00Z"
+               }
+             ]
+           } = FetchRunsReply.to_wire(reply)
+  end
+
+  test "rejects a run summary without required fields" do
+    assert {:error, changeset} = FetchRunsReply.validate(%{"runs" => [%{"title" => "x"}]})
+
+    assert %{
+             runs: [
+               %{id: ["can't be blank"], kind: ["can't be blank"], status: ["can't be blank"]}
+             ]
+           } =
+             errors_on(changeset)
   end
 
   test "maps a persisted optimization run report to the web contract" do

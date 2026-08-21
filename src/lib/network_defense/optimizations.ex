@@ -16,8 +16,8 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias NetworkDefense.Optimizations.Errors
+  alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Simulation.MissionImpact
-  alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer
@@ -30,7 +30,7 @@ defmodule NetworkDefense.Optimizations do
     "simulated_annealing" => SimulatedAnnealingStrategy
   }
 
-  @type async_result :: {:ok, pid()} | {:error, Errors.error()}
+  @type async_result :: {:ok, Oban.Job.t()} | {:error, Errors.error()}
   @type result :: {:ok, OptimizationRun.t()} | {:error, Errors.error()}
 
   @spec optimization_events_topic() :: String.t()
@@ -128,7 +128,7 @@ defmodule NetworkDefense.Optimizations do
   defp run_async(graph, request) do
     with {:ok, strategy} <- strategy_for(graph, request),
          {:ok, run} <- persist_run(graph, request, strategy, nil) do
-      start_optimization(graph, request, run, strategy)
+      enqueue_optimization(request, run)
     end
   end
 
@@ -165,16 +165,18 @@ defmodule NetworkDefense.Optimizations do
     }
   end
 
-  defp start_optimization(graph, request, run, strategy) do
-    case TaskSupervisor.start_child(
-           NetworkDefense.TaskSupervisor,
-           fn -> run_sync(graph, request, run, strategy, true) end
-         ) do
-      {:ok, _pid} = started ->
-        started
+  defp enqueue_optimization(request, run) do
+    args = %{
+      "run_id" => run.id,
+      "request" => RunOptimizationRequest.to_params(request)
+    }
+
+    case OpentelemetryOban.insert(OptimizationWorker.new(args)) do
+      {:ok, _job} = inserted ->
+        inserted
 
       {:error, reason} ->
-        Logger.error("Unable to start optimization task: #{inspect(reason)}")
+        Logger.error("Unable to enqueue optimization job: #{inspect(reason)}")
         OptimizationRuns.fail(run.id)
         {:error, :task_unavailable}
     end

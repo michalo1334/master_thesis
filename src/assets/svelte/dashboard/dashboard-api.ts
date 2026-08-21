@@ -49,18 +49,13 @@ import type {
 import type { LoadedGraph } from "./contract";
 import type {
   FetchAnalysesReply,
+  FetchRunsPayload,
+  FetchRunsReply,
   SetGraphAnalysesPayload,
   SetGraphAnalysesReply,
   SetReportAnalysisPayload,
   SetReportAnalysisReply,
 } from "../contracts.generated";
-
-export type ReportRequest = {
-  type: "simulation" | "optimization";
-  documentId: string;
-  reportId: string;
-  graphRevisionId: string;
-};
 
 export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
 export type AnalysisOption = { id: string; title: string };
@@ -92,7 +87,8 @@ export interface DashboardApi {
     simulationParams: SimulationParams,
     optimizationParams: OptimizationParams,
   ): Promise<RunWorkflowReply>;
-  requestReport(request: ReportRequest): void;
+  requestSimulationReport(documentId: string, experimentId: string): void;
+  requestOptimizationReport(documentId: string, optimizationId: string): void;
   fetchExperiments(graphRevisionIds: string[]): Promise<FetchExperimentsReply>;
   fetchOptimizationRuns(
     graphRevisionIds: string[],
@@ -104,6 +100,7 @@ export interface DashboardApi {
   fetchDocumentCatalog(
     query: DocumentCatalogQuery,
   ): Promise<FetchDocumentCatalogReply>;
+  fetchRuns(): Promise<FetchRunsReply>;
   createNodeDraft(
     payload: CreateNodeDraftPayload,
   ): Promise<CreateNodeDraftReply>;
@@ -225,25 +222,18 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         },
       );
     },
-    requestReport(request) {
-      if (request.type === "simulation") {
-        live.pushEvent<FetchSimulationReportPayload>(
-          "fetch_simulation_report",
-          {
-            document_id: request.documentId,
-            experiment_id: request.reportId,
-            graph_revision_id: request.graphRevisionId,
-          },
-        );
-        return;
-      }
-
+    requestSimulationReport(documentId, experimentId) {
+      live.pushEvent<FetchSimulationReportPayload>("fetch_simulation_report", {
+        document_id: documentId,
+        experiment_id: experimentId,
+      });
+    },
+    requestOptimizationReport(documentId, optimizationId) {
       live.pushEvent<FetchOptimizationReportPayload>(
         "fetch_optimization_report",
         {
-          document_id: request.documentId,
-          optimization_id: request.reportId,
-          graph_revision_id: request.graphRevisionId,
+          document_id: documentId,
+          optimization_id: optimizationId,
         },
       );
     },
@@ -280,6 +270,13 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         FetchDocumentCatalogPayload,
         FetchDocumentCatalogReply
       >(live, "fetch_document_catalog", query);
+    },
+    fetchRuns() {
+      return requestReply<FetchRunsPayload, FetchRunsReply>(
+        live,
+        "fetch_runs",
+        {},
+      );
     },
     createNodeDraft(payload) {
       return requestReply<CreateNodeDraftPayload, CreateNodeDraftReply>(

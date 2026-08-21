@@ -5,8 +5,10 @@ import type { OptimizationReportDocument } from "../optimization-report/Optimiza
 import type { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
+import type { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import type { DashboardError } from "../contract";
+import { formatDashboardErrorCode } from "../error-code";
 import { UiWorkspaceDocument } from "../../ui-kit/workspace/WorkspaceDocument.svelte";
 
 // ponytail: extends kit UiWorkspaceDocument - domain fields stay here per Option A.
@@ -38,6 +40,11 @@ export abstract class AsyncReportDocument<
     total: number;
     detail?: string;
   } | null>(null);
+  title = $state<string>("");
+  hasUnread = $state(false);
+  errorReason = $state<string>("");
+  analysisId = $state<string>();
+  analysisTitle = $state<string>();
 
   abstract get reportId(): string | null;
 
@@ -46,11 +53,39 @@ export abstract class AsyncReportDocument<
 
   abstract setReportData(data: ReportDataMap[Kind]): void;
 
-  abstract markError(error: DashboardError): void;
+  needsRecovery(): boolean {
+    return this.status === "ready" && this.persistedData !== undefined;
+  }
+
+  canClose(): boolean {
+    return this.status === "loaded" || this.status === "error";
+  }
+
+  markRead(): void {
+    this.hasUnread = false;
+  }
+
+  markUnread(): void {
+    this.hasUnread = true;
+  }
+
+  markError(error: DashboardError): void {
+    this.markErrorMessage(formatDashboardErrorCode(error.code));
+  }
+
+  markErrorMessage(message: string): void {
+    this.status = "error";
+    this.errorReason = message;
+  }
 
   setProgress(completed: number, total: number, detail?: string): void {
     if (this.status !== "pending") return;
     this.progress = { completed, total, ...(detail ? { detail } : {}) };
+  }
+
+  setAnalysis(analysis: { id: string; title: string } | null): void {
+    this.analysisId = analysis?.id;
+    this.analysisTitle = analysis?.title;
   }
 }
 
@@ -61,7 +96,8 @@ export type WorkspaceDocument =
   | OptimizationReportDocument
   | ComparisonReportDocument
   | AnalysisReportDocument
-  | DocumentCatalogDocument;
+  | DocumentCatalogDocument
+  | RunsDocument;
 
 export function isReport(
   document: WorkspaceDocument,

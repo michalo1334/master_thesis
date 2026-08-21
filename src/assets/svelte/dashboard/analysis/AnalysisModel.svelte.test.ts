@@ -24,7 +24,10 @@ function graph(): LoadedGraph {
   };
 }
 
-function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
+function api(): DashboardApi & {
+  requestSimulationReport: ReturnType<typeof vi.fn>;
+  requestOptimizationReport: ReturnType<typeof vi.fn>;
+} {
   return {
     openGraph: vi.fn().mockResolvedValue({ status: "ok", graph: graph() }),
     saveGraph: vi.fn(),
@@ -47,9 +50,11 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
       workflow_id: "workflow-1",
       title: "Quarterly review",
     }),
-    requestReport: vi.fn(),
+    requestSimulationReport: vi.fn(),
+    requestOptimizationReport: vi.fn(),
     fetchExperiments: vi.fn(),
     fetchOptimizationRuns: vi.fn(),
+    fetchRuns: vi.fn(),
     fetchGraphConnectivity: vi.fn(),
     fetchGraphProjection: vi.fn(),
     fetchDocumentCatalog: vi.fn(),
@@ -68,7 +73,10 @@ function api(): DashboardApi & { requestReport: ReturnType<typeof vi.fn> } {
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
     requestEvaluationReport: vi.fn(),
-  } as DashboardApi & { requestReport: ReturnType<typeof vi.fn> };
+  } as DashboardApi & {
+    requestSimulationReport: ReturnType<typeof vi.fn>;
+    requestOptimizationReport: ReturnType<typeof vi.fn>;
+  };
 }
 
 describe("AnalysisModel", () => {
@@ -222,24 +230,18 @@ describe("AnalysisModel", () => {
       throw new Error("Missing workflow reports");
     }
 
-    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
-      type: "simulation",
-      documentId: baseline.id,
-      reportId: "baseline-experiment",
-      graphRevisionId: "revision-1",
-    });
-    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
-      type: "simulation",
-      documentId: after.id,
-      reportId: "after-experiment",
-      graphRevisionId: "optimized-r1",
-    });
-    expect(dashboardApi.requestReport).toHaveBeenCalledWith({
-      type: "optimization",
-      documentId: optimization.id,
-      reportId: "optimization-1",
-      graphRevisionId: "revision-1",
-    });
+    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
+      baseline.id,
+      "baseline-experiment",
+    );
+    expect(dashboardApi.requestSimulationReport).toHaveBeenCalledWith(
+      after.id,
+      "after-experiment",
+    );
+    expect(dashboardApi.requestOptimizationReport).toHaveBeenCalledWith(
+      optimization.id,
+      "optimization-1",
+    );
     expect(baseline).toMatchObject({
       graphId: "graph-1",
       graphRevisionId: "revision-1",

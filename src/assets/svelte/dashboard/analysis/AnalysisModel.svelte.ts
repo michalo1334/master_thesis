@@ -381,11 +381,7 @@ export class AnalysisModel {
       analysisId: workflow.analysisId,
       analysisTitle: workflow.analysisTitle,
     });
-    baselineReport.complete(
-      this.api,
-      payload.baseline_experiment_id,
-      workflow.sourceGraphRevisionId,
-    );
+    baselineReport.complete(this.api, payload.baseline_experiment_id);
     this.workspace.markReportReadState(baselineReport);
 
     const optimizationReport = this.workspace.createPendingOptimizationReport({
@@ -427,11 +423,7 @@ export class AnalysisModel {
       analysisId: workflow.analysisId,
       analysisTitle: workflow.analysisTitle,
     });
-    postOptimizationReport.complete(
-      this.api,
-      payload.after_experiment_id,
-      payload.output_graph_revision_id,
-    );
+    postOptimizationReport.complete(this.api, payload.after_experiment_id);
     this.workspace.markReportReadState(postOptimizationReport);
     this.workspace.openComparisonReport(
       baselineReport,

@@ -17,10 +17,9 @@
   interface Props {
     document: DocumentCatalogDocument;
     api: DashboardApi;
-    onOpen: (item: DocumentCatalogItem) => Promise<boolean> | boolean;
   }
 
-  let { document, api, onOpen }: Props = $props();
+  let { document, api }: Props = $props();
   let items = $state.raw<DocumentCatalogItem[]>([]);
   let totalCount = $state(0);
   let filterOptions = $state.raw<FetchDocumentCatalogReply["filter_options"]>({
@@ -197,7 +196,7 @@
     try {
       for (const item of selectedItems) {
         try {
-          await onOpen(item);
+          await document.openItem(item);
         } catch {
           // Continue opening the remaining selected documents.
         }

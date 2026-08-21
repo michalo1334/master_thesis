@@ -595,7 +595,6 @@ export interface FetchGraphProjectionReply {
 // NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportPayload (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_report_payload.ex)
 export interface FetchOptimizationReportPayload {
   document_id: string;
-  graph_revision_id: string;
   optimization_id: string;
 }
 
@@ -618,11 +617,18 @@ export interface FetchOptimizationRunsReply {
   runs: OptimizationRunSummary[];
 }
 
+// NetworkDefenseWeb.Web.Contracts.FetchRunsPayload (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_payload.ex)
+export type FetchRunsPayload = Record<never, never>;
+
+// NetworkDefenseWeb.Web.Contracts.FetchRunsReply (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_reply.ex)
+export interface FetchRunsReply {
+  runs: RunSummary[];
+}
+
 // NetworkDefenseWeb.Web.Contracts.FetchSimulationReportPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_payload.ex)
 export interface FetchSimulationReportPayload {
   document_id: string;
   experiment_id: string;
-  graph_revision_id: string;
 }
 
 // NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_reply.ex)
@@ -843,7 +849,6 @@ export interface OptimizationReport {
 export interface OptimizationReportErrorEvent {
   document_id: string;
   error: DashboardError;
-  graph_revision_id: string;
   optimization_id: string;
 }
 
@@ -896,6 +901,17 @@ export interface RunSimulationReply {
   error?: DashboardError | null;
   graph_revision_id: string;
   status: "accepted" | "rejected";
+}
+
+// NetworkDefenseWeb.Web.Contracts.RunSummary (lib/network_defense_web/contracts/dashboard/runs/run_summary.ex)
+export interface RunSummary {
+  completed?: number | null;
+  id: string;
+  kind: string;
+  started_at?: string | null;
+  status: string;
+  title?: string | null;
+  total?: number | null;
 }
 
 // NetworkDefenseWeb.Web.Contracts.RunWorkflowPayload (lib/network_defense_web/contracts/dashboard/workflow/run_workflow_payload.ex)
@@ -1060,7 +1076,6 @@ export interface SimulationReportErrorEvent {
   document_id: string;
   error: DashboardError;
   experiment_id: string;
-  graph_revision_id: string;
 }
 
 // NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_histogram_bucket.ex)

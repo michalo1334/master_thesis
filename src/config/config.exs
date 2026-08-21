@@ -10,7 +10,7 @@ import Config
 config :network_defense, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [workflows: 10],
+  queues: [simulations: 1, optimizations: 1, evaluations: 1, workflows: 10],
   repo: NetworkDefense.Repo
 
 config :network_defense, :workflow_templates, %{

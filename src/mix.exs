@@ -61,6 +61,7 @@ defmodule NetworkDefense.MixProject do
       {:phoenix_live_reload, "~> 1.2", only: :dev},
       {:phoenix_live_view, "~> 1.1.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
+      {:meck, "~> 0.9", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:heroicons,
        github: "tailwindlabs/heroicons",
@@ -86,6 +87,7 @@ defmodule NetworkDefense.MixProject do
       {:opentelemetry_bandit, "~> 0.3"},
       {:opentelemetry_ecto, "~> 1.2"},
       {:opentelemetry_process_propagator, "~> 0.3"},
+      {:opentelemetry_oban, "~> 1.0"},
       {:oban, "~> 2.19"}
     ]
   end

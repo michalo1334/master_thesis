@@ -1,9 +1,17 @@
 defmodule NetworkDefense.EvaluationTest do
   use NetworkDefense.DataCase, async: true
+  use Oban.Testing, repo: NetworkDefense.Repo
 
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
-  alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun, SeedSchedule}
+
+  alias NetworkDefense.Evaluation.{
+    EvaluationManifest,
+    EvaluationRun,
+    EvaluationWorker,
+    SeedSchedule
+  }
+
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Simulation.Seed
 
@@ -427,6 +435,29 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, resumed} = Evaluation.start(id)
       assert resumed.id == run.id
       assert resumed.status == "completed"
+    end
+
+    test "evaluation worker enqueues and executes a run" do
+      id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(id, @eval_manifest)
+
+      assert {:ok, run} = Evaluation.start(id)
+      run_id = run.id
+
+      assert {:ok, _job} = OpentelemetryOban.insert(EvaluationWorker.new(%{"run_id" => run_id}))
+
+      assert [
+               %{
+                 args: %{"run_id" => ^run_id},
+                 queue: "evaluations",
+                 max_attempts: 1,
+                 meta: %{"traceparent" => _}
+               }
+             ] = all_enqueued(worker: EvaluationWorker)
+
+      assert :ok = perform_job(EvaluationWorker, %{"run_id" => run_id})
+
+      assert %{status: "completed"} = Repo.get!(EvaluationRun, run_id)
     end
 
     test "the database rejects a duplicate plan for the same selection seed" do

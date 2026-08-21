@@ -63,7 +63,7 @@ export function parentDocument(
     return graphsByRevisionId.get(document.baseRevisionId);
   }
 
-  if (document.kind === "document-catalog") return undefined;
+  if (document.kind !== "graph") return undefined;
 
   if (!document.loadedRevisionId || !document.graph.parent_revision_id)
     return undefined;

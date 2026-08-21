@@ -151,7 +151,7 @@
   {/snippet}
 
   {#snippet content(document: WorkspaceDocument)}
-    {@const View = dashboardRegistry.views[document.kind]}
+    {@const View = dashboardRegistry[document.kind]?.view}
     {#if View}
       <View {document} {api} />
     {/if}

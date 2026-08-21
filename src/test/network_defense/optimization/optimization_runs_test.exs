@@ -1,5 +1,6 @@
 defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   use NetworkDefense.DataCase, async: true
+  use Oban.Testing, repo: NetworkDefense.Repo
 
   import Ecto.Query
 
@@ -11,8 +12,8 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Simulation.Contracts.SimulationParams
-  alias Ecto.Adapters.SQL.Sandbox
 
   describe "OptimizationRuns" do
     test "creates a run as running and completes it atomically with its actions" do
@@ -479,14 +480,57 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
 
-      assert {:ok, task} = Optimizations.run_async(request)
-      Sandbox.allow(Repo, self(), task)
+      assert {:ok, _job} = Optimizations.run_async(request)
+
+      assert [
+               %{
+                 args: %{"run_id" => run_id, "request" => request_params},
+                 queue: "optimizations",
+                 max_attempts: 1,
+                 meta: %{"traceparent" => _}
+               }
+             ] = all_enqueued(worker: OptimizationWorker)
+
+      assert :ok =
+               perform_job(OptimizationWorker, %{
+                 "run_id" => run_id,
+                 "request" => request_params
+               })
 
       assert_receive {:optimization_completed,
-                      %{correlation_id: ^correlation_id, optimization_id: run_id}},
+                      %{correlation_id: ^correlation_id, optimization_id: ^run_id}},
                      5_000
 
       assert %{status: "completed", actions: []} = OptimizationRuns.load(run_id)
+    end
+
+    test "optimization worker marks a running run failed when run_or_resume errors" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 strategy: "cvss",
+                 requested_budget: 1
+               )
+               |> OptimizationRuns.create()
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: Ecto.UUID.generate(),
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1}
+      }
+
+      assert {:error, :not_found} =
+               Optimizations.run_or_resume(run.id, request)
+
+      assert {:error, :failed} =
+               perform_job(OptimizationWorker, %{
+                 "run_id" => run.id,
+                 "request" => RunOptimizationRequest.to_params(request)
+               })
+
+      assert %{status: "failed"} = OptimizationRuns.load(run.id)
     end
 
     test "run/1 rejects an unknown strategy" do

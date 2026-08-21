@@ -5,6 +5,7 @@ import { OptimizationReportDocument } from "../optimization-report/OptimizationR
 import { ComparisonReportDocument } from "../comparison-report/ComparisonReportDocument.svelte";
 import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
+import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { AnalysisOption, DashboardApi } from "../dashboard-api";
 import type {
   FolderSummary,
@@ -21,6 +22,13 @@ import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
+import { dashboardRegistry } from "./dashboard-registry";
+import type { DashboardRecoveryContext } from "./recovery-context";
+import {
+  isDashboardWorkspaceState,
+  type DashboardWorkspaceState,
+} from "./persisted-documents";
+import type { WorkspaceEnvelope } from "../../ui-kit/workspace/workspace-persistence";
 
 export type { WorkspaceDocument } from "./WorkspaceDocument.svelte";
 export type { OptimizationParamsChange } from "../contract";
@@ -31,16 +39,17 @@ export interface FootholdHost {
   name: string;
 }
 
-export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
+export class WorkspaceModel extends GenericWorkspaceModel<
+  WorkspaceDocument,
+  DashboardWorkspaceState,
+  DashboardRecoveryContext
+> {
   /** Graphs available to open, owned by workspace so the picker has them. */
   graphSummaries = $state.raw<GraphSummary[]>([]);
   folders = $state.raw<FolderSummary[]>([]);
   analysisOptions = $state.raw<AnalysisOption[]>([]);
   analysesStatus = $state("");
   private analysesLoaded = false;
-
-  documents = $state<WorkspaceDocument[]>([]);
-  selectedDocumentId = $state<string | undefined>();
 
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
@@ -72,18 +81,42 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
   });
   statusMessage = $state("");
 
-  readonly documentTypes = [
-    EditableGraphDocument.createOption,
-    DocumentCatalogDocument.createOption,
-  ];
+  readonly documentTypes = Object.values(dashboardRegistry).flatMap(
+    (registration) =>
+      registration.createOption ? [registration.createOption] : [],
+  );
+
+  private readonly api?: DashboardApi;
 
   constructor(
     graphSummaries: GraphSummary[] = [],
     folders: FolderSummary[] = [],
+    api?: DashboardApi,
   ) {
     super();
     this.graphSummaries = graphSummaries;
     this.folders = folders;
+    this.api = api;
+    this.configurePersistence({
+      version: 1,
+      snapshotState: () => this.snapshotState(),
+      restoreState: (state) => this.restoreState(state),
+      validateState: isDashboardWorkspaceState,
+      documentFactory: new Map(
+        Object.entries(dashboardRegistry).flatMap(([kind, registration]) =>
+          registration.fromPersisted
+            ? [[kind, registration.fromPersisted]]
+            : [],
+        ),
+      ) as ReadonlyMap<
+        string,
+        (
+          data: unknown,
+          context: DashboardRecoveryContext,
+        ) => WorkspaceDocument | undefined
+      >,
+      recoveryContext: { api: api!, workspace: this },
+    });
   }
 
   upsertGraphSummary(graph: LoadedGraph): void {
@@ -307,33 +340,51 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
       return existing;
     }
 
-    const document = new DocumentCatalogDocument();
+    const document = this.createCatalogDocument();
+    this.documents.push(document);
+    this.activateDocument(document);
+    return document;
+  }
+
+  private createCatalogDocument(): DocumentCatalogDocument {
+    const api = this.api;
+    return new DocumentCatalogDocument(
+      api ? (item) => this.openCatalogItem(api, item) : undefined,
+    );
+  }
+
+  openRuns(): RunsDocument {
+    const existing = this.documents.find(
+      (document) => document.kind === "runs",
+    ) as RunsDocument | undefined;
+    if (existing) {
+      this.activateDocument(existing);
+      return existing;
+    }
+
+    const document = new RunsDocument();
     this.documents.push(document);
     this.activateDocument(document);
     return document;
   }
 
   selectDocument(id: string): void {
-    this.activateDocument(
-      this.documents.find((document) => document.id === id),
-    );
+    super.selectDocument(id);
+    this.activateDocument(this.activeDocument);
+  }
+
+  toPersistence(): WorkspaceEnvelope<DashboardWorkspaceState> | undefined {
+    return this.snapshot();
+  }
+
+  restorePersistence(
+    persistence: WorkspaceEnvelope<DashboardWorkspaceState> | undefined,
+  ): void {
+    this.restore(persistence);
   }
 
   reorderDocuments(draggedId: string, targetId: string): void {
-    const draggedIndex = this.documents.findIndex(
-      (document) => document.id === draggedId,
-    );
-    const targetIndex = this.documents.findIndex(
-      (document) => document.id === targetId,
-    );
-    if (draggedIndex < 0 || targetIndex < 0 || draggedId === targetId) {
-      return;
-    }
-
-    const documents = [...this.documents];
-    const [dragged] = documents.splice(draggedIndex, 1);
-    documents.splice(targetIndex, 0, dragged!);
-    this.documents = documents;
+    super.reorderDocuments(draggedId, targetId);
   }
 
   activateDocument(document: WorkspaceDocument | undefined): void {
@@ -347,22 +398,8 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
   }
 
   closeDocument(id: string): void {
-    const currentIdx = this.documents.findIndex(
-      (document) => document.id === id,
-    );
-    if (currentIdx === -1) return;
-    if (!this.canCloseDocument(this.documents[currentIdx])) return;
-
-    this.documents = this.documents.filter((d) => d.id !== id);
-
-    if (this.selectedDocumentId === id) {
-      if (this.documents.length === 0) {
-        this.activateDocument(undefined);
-      } else {
-        const nextIdx = currentIdx > 0 ? currentIdx - 1 : 0;
-        this.activateDocument(this.documents[nextIdx]);
-      }
-    }
+    super.closeDocument(id);
+    this.activateDocument(this.activeDocument);
   }
 
   async openLoadedGraph(
@@ -595,7 +632,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
     );
     this.documents.push(report);
     this.activateDocument(report);
-    report.load(api, report.id, item.id, item.graph_revision_id);
+    report.load(api, report.id, item.id);
     return true;
   }
 
@@ -623,21 +660,20 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
     });
     this.documents.push(report);
     this.activateDocument(report);
-    const optimizedGraphRevisionId = item.output_graph_revision_id;
-    if (optimizedGraphRevisionId) {
+    if (item.output_graph_revision_id) {
       report.markReady(
         item.id,
-        optimizedGraphRevisionId,
-        () => this.openOptimizationResult(api, optimizedGraphRevisionId),
+        item.output_graph_revision_id,
+        () => this.openOptimizationResult(api, item.output_graph_revision_id!),
         () =>
           this.loadOptimizationGraphDiff(
             api,
-            item.graph_revision_id,
-            optimizedGraphRevisionId,
+            report.graphRevisionId,
+            item.output_graph_revision_id!,
           ),
       );
     }
-    report.load(api, report.id, item.id, item.graph_revision_id);
+    report.load(api, report.id, item.id);
     return true;
   }
 
@@ -832,7 +868,29 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
     });
   }
 
-  private ensureInitialFoothold(document: WorkspaceDocument | undefined): void {
+  private snapshotState(): DashboardWorkspaceState {
+    return {
+      forceParams: { ...this.forceParams },
+      simulationParams: { ...this.simulationParams },
+      optimizationParams: {
+        ...this.optimizationParams,
+        simulation_params: { ...this.optimizationParams.simulation_params },
+      },
+    };
+  }
+
+  private restoreState(state: DashboardWorkspaceState): void {
+    Object.assign(this.forceParams, state.forceParams);
+    Object.assign(this.simulationParams, state.simulationParams);
+    Object.assign(this.optimizationParams, {
+      ...state.optimizationParams,
+      simulation_params: {
+        ...state.optimizationParams.simulation_params,
+      },
+    });
+  }
+
+  ensureInitialFoothold(document: WorkspaceDocument | undefined): void {
     if (document?.kind !== "graph") return;
 
     const hosts = document.graph.nodes.filter((node) => node.type === "Host");
@@ -882,16 +940,8 @@ export class WorkspaceModel extends GenericWorkspaceModel<WorkspaceDocument> {
     doc.applyForceLayout(this.forceParams);
   }
 
-  private readonly documentCreators: Record<string, () => void> = {
-    graph: () => {
-      this.topologyPickerOpen = true;
-      this.topologyPickerStatus = "";
-    },
-    "document-catalog": () => this.openDocumentCatalog(),
-  };
-
   handleCreateDocument(typeId: string): void {
-    this.documentCreators[typeId]?.();
+    dashboardRegistry[typeId]?.create?.(this);
   }
 
   private openGraphDiff(

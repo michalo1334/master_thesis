@@ -1,11 +1,11 @@
-import type {
-  DashboardError,
-  LoadedGraph,
-  SimulationReportData,
-} from "../contract";
+import type { LoadedGraph, SimulationReportData } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
-import { formatDashboardErrorCode } from "../error-code";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
+import type { DashboardRecoveryContext } from "../workspace/recovery-context";
+import {
+  isPersistedDocumentOfKind,
+  type PersistedWorkspaceDocument,
+} from "../../ui-kit/workspace/workspace-persistence";
 
 export class SimulationReportDocument extends AsyncReportDocument<"simulation"> {
   readonly kind = "simulation-report" as const;
@@ -21,20 +21,15 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     return "simulation_report";
   }
   readonly id: string;
-  readonly graphId: string;
-  readonly graphRevisionId: string;
-  analysisId = $state<string>();
-  analysisTitle = $state<string>();
+  graphId = $state("");
+  graphRevisionId = $state("");
 
-  title = $state<string>("");
-  hasUnread = $state(false);
   experimentId = $state<string | null>(null);
   correlationId = $state<string | null>(null);
   reportData = $state<SimulationReportData | null>(null);
   heatmapGraph = $state<LoadedGraph | null>(null);
   heatmapSelectedNodeId = $state<string>();
   heatmapSelectedEdgeId = $state<string>();
-  errorReason = $state<string>("");
 
   constructor(
     graphTitle: string,
@@ -51,9 +46,40 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.analysisTitle = analysis.analysisTitle;
   }
 
-  setAnalysis(analysis: { id: string; title: string } | null): void {
-    this.analysisId = analysis?.id;
-    this.analysisTitle = analysis?.title;
+  static fromPersisted(
+    data: unknown,
+    _context: DashboardRecoveryContext,
+  ): SimulationReportDocument | undefined {
+    if (!isSimulationReportPersisted(data)) return undefined;
+    const report = new SimulationReportDocument(
+      data.title,
+      data.ids.graphId,
+      data.ids.graphRevisionId,
+    );
+    report.title = data.title;
+    report.markReady(data.ids.experimentId);
+    report.setPersisted(data);
+    return report;
+  }
+
+  toPersisted(): PersistedWorkspaceDocument | undefined {
+    if (!this.experimentId) return undefined;
+    return {
+      kind: "simulation-report",
+      ids: {
+        experimentId: this.experimentId,
+        graphId: this.graphId,
+        graphRevisionId: this.graphRevisionId,
+      },
+      title: this.title,
+    };
+  }
+
+  recover(context: DashboardRecoveryContext): void {
+    const persisted = this.persistedData as
+      PersistedSimulationReport | undefined;
+    if (!persisted) return;
+    this.load(context.api, this.id, persisted.ids.experimentId);
   }
 
   markPending(correlationId: string): void {
@@ -77,27 +103,6 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.progress = null;
   }
 
-  markError(error: DashboardError): void {
-    this.markErrorMessage(formatDashboardErrorCode(error.code));
-  }
-
-  markErrorMessage(message: string): void {
-    this.status = "error";
-    this.errorReason = message;
-  }
-
-  canClose(): boolean {
-    return this.status === "loaded" || this.status === "error";
-  }
-
-  markRead(): void {
-    this.hasUnread = false;
-  }
-
-  markUnread(): void {
-    this.hasUnread = true;
-  }
-
   selectHeatmapNode(nodeId: string): void {
     this.heatmapSelectedNodeId = nodeId;
     this.heatmapSelectedEdgeId = undefined;
@@ -116,6 +121,8 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   setReportData(data: SimulationReportData): void {
     if (data.experiment_id !== this.experimentId) return;
     this.reportData = data;
+    this.graphId = data.graph_id;
+    this.graphRevisionId = data.graph_revision_id;
     this.heatmapGraph = {
       ...data.graph,
       nodes: data.graph.nodes.map((node) => ({
@@ -128,29 +135,33 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.status = "loaded";
   }
 
-  complete(
-    api: DashboardApi,
-    experimentId: string,
-    graphRevisionId: string,
-  ): void {
+  complete(api: DashboardApi, experimentId: string): void {
     this.markReady(experimentId);
-    this.load(api, this.id, experimentId, graphRevisionId);
+    this.load(api, this.id, experimentId);
   }
 
-  load(
-    api: DashboardApi,
-    documentId: string,
-    experimentId: string,
-    graphRevisionId: string,
-  ): void {
+  load(api: DashboardApi, documentId: string, experimentId: string): void {
     this.experimentId = experimentId;
     this.status = "loading";
     this.errorReason = "";
-    api.requestReport({
-      type: "simulation",
-      documentId,
-      reportId: experimentId,
-      graphRevisionId,
-    });
+    api.requestSimulationReport(documentId, experimentId);
   }
+}
+
+type PersistedSimulationReport = PersistedWorkspaceDocument & {
+  ids: {
+    experimentId: string;
+    graphId: string;
+    graphRevisionId: string;
+  };
+};
+
+function isSimulationReportPersisted(
+  value: unknown,
+): value is PersistedSimulationReport {
+  return isPersistedDocumentOfKind<PersistedSimulationReport["ids"]>(
+    value,
+    "simulation-report",
+    ["experimentId", "graphId", "graphRevisionId"],
+  );
 }

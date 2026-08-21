@@ -4,6 +4,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Analysis.CombinedAnalysisWorkflow
   alias NetworkDefense.Errors
   alias NetworkDefense.Evaluation
+  alias NetworkDefense.Evaluation.EvaluationRuns
+  alias NetworkDefense.Evaluation.EvaluationWorker
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
   alias NetworkDefense.Graph.MaterializeReachability
@@ -11,6 +13,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Relationships.SegmentReachability
+  alias NetworkDefense.Runs
   alias NetworkDefense.Simulations
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Workflows
@@ -86,7 +89,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
     EvaluationCompletedEvent,
     EvaluationFailedEvent,
     EvaluationReportErrorEvent,
-    EvaluationReportReadyEvent
+    EvaluationReportReadyEvent,
+    FetchRunsPayload,
+    FetchRunsReply
   }
 
   @impl true
@@ -230,22 +235,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   def handle_event("start_evaluation", params, socket) do
     case StartEvaluationPayload.validate(params) do
       {:ok, request} ->
-        case Evaluation.start(request.manifest_id) do
-          {:ok, run} ->
-            start_evaluation_task(run.id)
-
-            {:reply, start_evaluation_reply("accepted", run.id, []),
-             put_flash(socket, :info, "Evaluation started.")}
-
-          {:error, :not_found} ->
-            {:reply, start_evaluation_reply("not_found", nil, []), socket}
-
-          {:error, errors} when is_list(errors) ->
-            {:reply, start_evaluation_reply("rejected", nil, errors), socket}
-
-          {:error, _reason} ->
-            {:reply, start_evaluation_reply("rejected", nil, []), socket}
-        end
+        start_evaluation(request.manifest_id, socket)
 
       {:error, _changeset} ->
         {:reply, start_evaluation_reply("rejected", nil, []), socket}
@@ -499,7 +489,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
              push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
                document_id: request.document_id,
                experiment_id: request.experiment_id,
-               graph_revision_id: request.graph_revision_id,
                error: dashboard_error(:task_unavailable)
              })}
         end
@@ -554,7 +543,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
                %{
                  document_id: request.document_id,
                  optimization_id: request.optimization_id,
-                 graph_revision_id: request.graph_revision_id,
                  error: dashboard_error(:task_unavailable)
                }
              )}
@@ -578,6 +566,22 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         {:reply, FetchOptimizationRunsReply.to_wire(%FetchOptimizationRunsReply{runs: []}),
          socket}
+    end
+  end
+
+  @impl true
+  def handle_event("fetch_runs", params, socket) do
+    case FetchRunsPayload.validate(params) do
+      {:ok, _request} ->
+        runs =
+          Runs.active()
+          |> Enum.map(&run_summary/1)
+
+        {:ok, reply} = FetchRunsReply.validate(%{runs: runs})
+        {:reply, FetchRunsReply.to_wire(reply), socket}
+
+      {:error, _changeset} ->
+        {:reply, FetchRunsReply.to_wire(%FetchRunsReply{runs: []}), socket}
     end
   end
 
@@ -696,7 +700,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     {:noreply, socket}
   end
 
-  def handle_info({:report_result, document_id, experiment_id, graph_revision_id, result}, socket) do
+  def handle_info({:report_result, document_id, experiment_id, result}, socket) do
     socket =
       if is_map(result) and result[:charts] do
         push_contract_event(socket, "simulation_report_ready", SimulationReportReadyEvent, %{
@@ -707,7 +711,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
         push_contract_event(socket, "simulation_report_error", SimulationReportErrorEvent, %{
           document_id: document_id,
           experiment_id: experiment_id,
-          graph_revision_id: graph_revision_id,
           error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
         })
       end
@@ -716,7 +719,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   def handle_info(
-        {:optimization_report_result, document_id, optimization_id, graph_revision_id, result},
+        {:optimization_report_result, document_id, optimization_id, result},
         socket
       ) do
     socket =
@@ -729,7 +732,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
         push_contract_event(socket, "optimization_report_error", OptimizationReportErrorEvent, %{
           document_id: document_id,
           optimization_id: optimization_id,
-          graph_revision_id: graph_revision_id,
           error: dashboard_error((is_map(result) && result[:status]) || :internal_error)
         })
       end
@@ -753,11 +755,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp fetch_report(request) do
     case Simulations.get_report(request.experiment_id) do
       %NetworkDefense.Simulation.SimulationReport{} = report ->
-        if report.graph_revision_id == request.graph_revision_id do
-          simulation_report_reply(report)
-        else
-          %{status: :not_found}
-        end
+        simulation_report_reply(report)
 
       _ ->
         %{status: :not_found}
@@ -775,8 +773,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       send(
         owner,
-        {:report_result, request.document_id, request.experiment_id, request.graph_revision_id,
-         fetch_report(request)}
+        {:report_result, request.document_id, request.experiment_id, fetch_report(request)}
       )
     end)
   end
@@ -786,7 +783,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       send(
         owner,
         {:optimization_report_result, request.document_id, request.optimization_id,
-         request.graph_revision_id, fetch_optimization_report(request)}
+         fetch_optimization_report(request)}
       )
     end)
   end
@@ -810,8 +807,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request) do
     case Optimizations.get_report(request.optimization_id) do
-      %{graph_revision_id: graph_revision_id} = report
-      when graph_revision_id == request.graph_revision_id ->
+      %NetworkDefense.Optimization.OptimizationReport{} = report ->
         optimization_report_reply(report)
 
       _ ->
@@ -824,6 +820,18 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, reply} -> FetchOptimizationReportReply.to_wire(reply)
       {:error, _changeset} -> %{status: :not_found}
     end
+  end
+
+  defp run_summary(run) do
+    %{
+      id: run.id,
+      kind: run.kind,
+      title: run.title,
+      status: run.status,
+      completed: run.completed,
+      total: run.total,
+      started_at: run.started_at && DateTime.to_iso8601(run.started_at)
+    }
   end
 
   defp optimization_run_summary(run) do
@@ -1058,9 +1066,31 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp start_evaluation_task(run_id) do
-    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-      Evaluation.run(run_id)
-    end)
+    OpentelemetryOban.insert(EvaluationWorker.new(%{"run_id" => run_id}))
+  end
+
+  defp start_evaluation(manifest_id, socket) do
+    case Evaluation.start(manifest_id) do
+      {:ok, run} ->
+        case start_evaluation_task(run.id) do
+          {:ok, _job} ->
+            {:reply, start_evaluation_reply("accepted", run.id, []),
+             put_flash(socket, :info, "Evaluation started.")}
+
+          {:error, _reason} ->
+            EvaluationRuns.fail(run, "task_unavailable")
+            {:reply, start_evaluation_reply("rejected", nil, []), socket}
+        end
+
+      {:error, :not_found} ->
+        {:reply, start_evaluation_reply("not_found", nil, []), socket}
+
+      {:error, errors} when is_list(errors) ->
+        {:reply, start_evaluation_reply("rejected", nil, errors), socket}
+
+      {:error, _reason} ->
+        {:reply, start_evaluation_reply("rejected", nil, []), socket}
+    end
   end
 
   defp set_graph_analyses_reply(status, analyses),

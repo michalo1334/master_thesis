@@ -199,6 +199,23 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("fetches active runs through the LiveView reply callback", async () => {
+    const reply = { runs: [] };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(createDashboardApi(live).fetchRuns()).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "fetch_runs",
+      {},
+      expect.any(Function),
+    );
+  });
+
   it("requests an optimization report and fetches saved optimization runs", async () => {
     const reply = { runs: [] };
     const live = {
@@ -209,12 +226,7 @@ describe("DashboardApi", () => {
     } as unknown as LiveServer;
     const api = createDashboardApi(live);
 
-    api.requestReport({
-      type: "optimization",
-      documentId: "document-1",
-      reportId: "optimization-1",
-      graphRevisionId: "r1",
-    });
+    api.requestOptimizationReport("document-1", "optimization-1");
     await expect(api.fetchOptimizationRuns(["r1"])).resolves.toEqual(reply);
 
     expect(live.pushEvent).toHaveBeenNthCalledWith(
@@ -223,7 +235,6 @@ describe("DashboardApi", () => {
       {
         document_id: "document-1",
         optimization_id: "optimization-1",
-        graph_revision_id: "r1",
       },
     );
     expect(live.pushEvent).toHaveBeenNthCalledWith(

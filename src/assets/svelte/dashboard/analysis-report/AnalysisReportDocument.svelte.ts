@@ -1,7 +1,11 @@
-import type { DashboardError, EvaluationReport } from "../contract";
+import type { EvaluationReport } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
-import { formatDashboardErrorCode } from "../error-code";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
+import type { DashboardRecoveryContext } from "../workspace/recovery-context";
+import {
+  isPersistedDocumentOfKind,
+  type PersistedWorkspaceDocument,
+} from "../../ui-kit/workspace/workspace-persistence";
 
 export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
   readonly kind = "analysis-report" as const;
@@ -15,10 +19,7 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
   graphId = $state("");
   graphRevisionId = $state("");
 
-  title = $state<string>("");
-  hasUnread = $state(false);
   reportData = $state<EvaluationReport | null>(null);
-  errorReason = $state<string>("");
 
   get reportId(): string | null {
     return this.runId;
@@ -36,6 +37,35 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     this.manifestId = manifest.manifest_id;
     this.manifestTitle = manifest.title;
     this.title = `Analysis for ${manifest.title}`;
+  }
+
+  static fromPersisted(
+    data: unknown,
+    _context: DashboardRecoveryContext,
+  ): AnalysisReportDocument | undefined {
+    if (!isAnalysisReportPersisted(data)) return undefined;
+    const report = new AnalysisReportDocument(data.ids.runId, {
+      manifest_id: data.ids.manifestId,
+      title: "",
+    });
+    report.title = data.title;
+    report.markReady();
+    report.setPersisted(data);
+    return report;
+  }
+
+  toPersisted(): PersistedWorkspaceDocument | undefined {
+    return {
+      kind: "analysis-report",
+      ids: { runId: this.runId, manifestId: this.manifestId },
+      title: this.title,
+    };
+  }
+
+  recover(context: DashboardRecoveryContext): void {
+    const persisted = this.persistedData as PersistedAnalysisReport | undefined;
+    if (!persisted) return;
+    this.load(context.api, this.id, persisted.ids.runId);
   }
 
   markPending(): void {
@@ -61,26 +91,23 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     this.status = "loaded";
   }
 
-  markError(error: DashboardError): void {
-    this.status = "error";
-    this.errorReason = formatDashboardErrorCode(error.code);
-  }
-
-  canClose(): boolean {
-    return this.status === "loaded" || this.status === "error";
-  }
-
-  markRead(): void {
-    this.hasUnread = false;
-  }
-
-  markUnread(): void {
-    this.hasUnread = true;
-  }
-
   load(api: DashboardApi, documentId: string, runId: string): void {
     this.status = "loading";
     this.errorReason = "";
     api.requestEvaluationReport(documentId, runId);
   }
+}
+
+type PersistedAnalysisReport = PersistedWorkspaceDocument & {
+  ids: { runId: string; manifestId: string };
+};
+
+function isAnalysisReportPersisted(
+  value: unknown,
+): value is PersistedAnalysisReport {
+  return isPersistedDocumentOfKind<PersistedAnalysisReport["ids"]>(
+    value,
+    "analysis-report",
+    ["runId", "manifestId"],
+  );
 }
