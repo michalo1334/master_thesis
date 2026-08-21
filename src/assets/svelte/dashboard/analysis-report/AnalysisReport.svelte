@@ -82,7 +82,20 @@
         </div>
         <div>
           <dt>Source graph</dt>
-          <dd>{document.reportData.source_graph_title}</dd>
+          <dd>
+            {#if document.openSourceGraph}
+              <button
+                type="button"
+                class="analysis-report-link"
+                onclick={() => void document.openSourceGraph?.()}
+                title={document.reportData.source_graph_revision_id}
+              >
+                {document.reportData.source_graph_title}
+              </button>
+            {:else}
+              {document.reportData.source_graph_title}
+            {/if}
+          </dd>
         </div>
         {#if document.reportData.failure_reason}
           <div>

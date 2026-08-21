@@ -807,6 +807,13 @@ export class WorkspaceModel extends GenericWorkspaceModel<
         graph_title: data.source_graph_title,
       });
     };
+    report.openSourceGraph = () => {
+      const revisionId =
+        report.reportData?.source_graph_revision_id ?? report.graphRevisionId;
+      if (!revisionId) return false;
+      void this.openGraphRevision(api, revisionId);
+      return true;
+    };
   }
 
   findOptimizationReport(
