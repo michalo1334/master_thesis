@@ -75,6 +75,7 @@ describe("Dashboard document content", () => {
             created_at: "2026-01-01T00:00:00Z",
           },
         ],
+        related_items: [],
         total_count: 1,
         filter_options: {
           types: ["graph"],

@@ -425,10 +425,11 @@ export interface DocumentCatalogItem {
   graph_revision_id: string;
   graph_title: string;
   id: string;
-  kind: "graph" | "simulation_report" | "optimization_report";
+  kind: "graph" | "optimization_report" | "simulation_report";
   output_graph_revision_id?: string | null;
   output_revision_kind?: string | null;
   output_revision_number?: number | null;
+  parent_revision_id?: string | null;
   revision_kind: string;
   revision_number: number;
   strategy?: string | null;
@@ -532,6 +533,7 @@ export interface FetchDocumentCatalogPayload {
   graph_ids: string[];
   limit: number;
   offset: number;
+  related_graph_ids: string[];
   revision_kinds: string[];
   search: string;
   strategies: string[];
@@ -542,6 +544,7 @@ export interface FetchDocumentCatalogPayload {
 export interface FetchDocumentCatalogReply {
   filter_options: DocumentCatalogFilterOptions;
   items: DocumentCatalogItem[];
+  related_items: DocumentCatalogItem[];
   total_count: number;
 }
 

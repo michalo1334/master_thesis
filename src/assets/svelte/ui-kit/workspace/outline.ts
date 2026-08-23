@@ -10,6 +10,7 @@ export interface OutlineNode<DragData = unknown> {
   parentId?: string;
   section?: { key: string; title: string };
   ariaLabel?: string;
+  pressed?: boolean;
   drag?: OutlineDrag<DragData>;
 }
 
@@ -30,6 +31,7 @@ export type OutlineRow<DragData = unknown, DropData = unknown> =
       kind: string;
       depth: number;
       ariaLabel?: string;
+      pressed?: boolean;
       drag?: OutlineDrag<DragData>;
     }
   | {
@@ -91,6 +93,7 @@ export function buildOutline<DragData = unknown, DropData = unknown>(
       kind: node.kind,
       depth,
       ariaLabel: node.ariaLabel,
+      pressed: node.pressed,
       drag: node.drag,
     });
     for (const child of children.get(node.id) ?? []) visit(child, depth + 1);

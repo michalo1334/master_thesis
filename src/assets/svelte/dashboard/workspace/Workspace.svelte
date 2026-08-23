@@ -7,7 +7,10 @@
     Workspace as WorkspaceShell,
     type OutlineRow,
   } from "../../ui-kit/workspace";
-  import { buildDashboardRows } from "./build-dashboard-rows";
+  import {
+    buildDashboardRows,
+    dispatchDashboardOutlineSelect,
+  } from "./build-dashboard-rows";
   import type { WorkspaceDocument } from "./WorkspaceModel.svelte";
   import type { WorkspaceModel } from "./WorkspaceModel.svelte";
 
@@ -59,6 +62,12 @@
       isCreatingFolder = false;
     }
   }
+
+  function selectOutline(id: string, event: MouseEvent): void {
+    dispatchDashboardOutlineSelect(model.documents, id, event, (documentId) =>
+      model.selectDocument(documentId),
+    );
+  }
 </script>
 
 <main
@@ -70,7 +79,7 @@
   <DocumentOutline
     rows={outlineRows}
     selectedId={model.selectedDocumentId}
-    onSelect={(id) => model.selectDocument(id)}
+    onSelect={selectOutline}
     collapsed={outlineCollapsed}
     onCollapsedChange={(collapsed) => (outlineCollapsed = collapsed)}
     onDrop={(graphId, folderId) => void onMoveGraph(graphId, folderId)}

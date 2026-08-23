@@ -25,6 +25,8 @@
     getKey: (item: Item) => string;
     selectionMode?: "single" | "multiple" | "none";
     selectedKeys?: string[];
+    bulkSelectionKeys?: readonly string[];
+    bulkSelectionLabel?: string;
     isDisabled?: (item: Item) => boolean;
     perPage?: number | "adaptive";
     searchPlaceholder?: string;
@@ -40,6 +42,8 @@
     getKey,
     selectionMode = "none",
     selectedKeys = $bindable([]),
+    bulkSelectionKeys = undefined,
+    bulkSelectionLabel = "Select visible rows",
     isDisabled = undefined,
     perPage = 8,
     searchPlaceholder = "Search…",
@@ -78,9 +82,8 @@
   const singleSelectedKey = $derived(
     Object.keys(rowSelection).find((key) => rowSelection[key]) ?? "",
   );
-  const multipleSelectedKeys = $derived(
-    Object.keys(rowSelection).filter((key) => rowSelection[key]),
-  );
+  const selectedKeySet = $derived(new Set(selectedKeys));
+  const selectedCount = $derived(selectedKeySet.size);
   const filteredCount = $derived.by(() => {
     if (server) return server.totalCount;
 
@@ -174,6 +177,21 @@
     void effectivePerPage;
     return server ? table.getCoreRowModel().rows : table.getRowModel().rows;
   });
+  const bulkScopeKeys = $derived.by(() => [
+    ...new Set(
+      bulkSelectionKeys ??
+        visibleRows
+          .filter((row) => !isDisabled?.(row.original))
+          .map((row) => row.id),
+    ),
+  ]);
+  const bulkSelectedCount = $derived(
+    bulkScopeKeys.filter((key) => selectedKeySet.has(key)).length,
+  );
+  const bulkChecked = $derived(
+    bulkScopeKeys.length > 0 && bulkSelectedCount === bulkScopeKeys.length,
+  );
+  const bulkIndeterminate = $derived(bulkSelectedCount > 0 && !bulkChecked);
 
   function effectivePageSize(scrollHeight: number, headHeight: number): number {
     return perPage === "adaptive"
@@ -219,17 +237,27 @@
     }
   }
 
-  function setMultiKeys(keys: string[]): void {
+  function setMultiKey(key: string, checked: boolean): void {
     if (disabled || selectionMode !== "multiple") return;
-    const visibleKeys = [...new Set(keys)].filter((key) =>
-      selectableKeys.has(key),
-    );
-    selectedKeys = server
-      ? [
-          ...selectedKeys.filter((key) => !selectableKeys.has(key)),
-          ...visibleKeys,
-        ]
-      : visibleKeys;
+    if (!selectableKeys.has(key)) return;
+
+    selectedKeys = checked
+      ? [...new Set([...selectedKeys, key])]
+      : selectedKeys.filter((selectedKey) => selectedKey !== key);
+  }
+
+  function toggleBulkSelection(): void {
+    if (
+      disabled ||
+      selectionMode !== "multiple" ||
+      bulkScopeKeys.length === 0
+    ) {
+      return;
+    }
+
+    selectedKeys = bulkChecked
+      ? []
+      : [...new Set([...selectedKeys, ...bulkScopeKeys])];
   }
 
   function setSearch(value: string): void {
@@ -267,6 +295,9 @@
       {disabled}
     />
     <span class="filterable-table-count">
+      {#if selectionMode === "multiple"}
+        {selectedCount} selected ·
+      {/if}
       {visibleCount} of {totalCount}
     </span>
   </div>
@@ -358,15 +389,25 @@
         </table>
       </RadioGroup.Root>
     {:else if selectionMode === "multiple"}
-      <Checkbox.Group
-        class="filterable-table-root"
-        value={multipleSelectedKeys}
-        onValueChange={setMultiKeys}
-      >
+      <div class="filterable-table-root">
         <table class="filterable-table-table">
           <thead bind:clientHeight={null, setHeaderHeight}>
             <tr>
-              <th class="filterable-table-select" aria-label="Select"></th>
+              <th class="filterable-table-select">
+                <Checkbox.Root
+                  class="filterable-table-control"
+                  checked={bulkChecked}
+                  indeterminate={bulkIndeterminate}
+                  disabled={disabled || bulkScopeKeys.length === 0}
+                  aria-label={bulkChecked
+                    ? "Clear all selections"
+                    : bulkSelectionLabel}
+                  onCheckedChange={toggleBulkSelection}
+                >
+                  <span class="filterable-table-checkbox" aria-hidden="true"
+                  ></span>
+                </Checkbox.Root>
+              </th>
               {@render headers()}
             </tr>
           </thead>
@@ -382,8 +423,11 @@
                     <Checkbox.Root
                       class="filterable-table-control"
                       value={row.id}
+                      checked={row.getIsSelected()}
                       disabled={rowDisabled || disabled}
                       aria-label={`Select ${row.id}`}
+                      onCheckedChange={(checked) =>
+                        setMultiKey(row.id, checked)}
                     >
                       <span class="filterable-table-checkbox" aria-hidden="true"
                       ></span>
@@ -400,7 +444,7 @@
             {@render spacerRows(columns.length + 1)}
           </tbody>
         </table>
-      </Checkbox.Group>
+      </div>
     {:else}
       <table class="filterable-table-table">
         <thead bind:clientHeight={null, setHeaderHeight}>
@@ -617,7 +661,8 @@
     border-radius: var(--ui-radius-sm);
   }
 
-  :global(.filterable-table-control[data-state="checked"]) {
+  :global(.filterable-table-control[data-state="checked"]),
+  :global(.filterable-table-control[data-state="indeterminate"]) {
     border-color: var(--ui-color-accent);
     background: var(--ui-color-accent);
   }
@@ -641,6 +686,17 @@
   :global(.filterable-table-control[data-checkbox-root][data-state="checked"])
     .filterable-table-checkbox {
     border-color: var(--ui-color-paper);
+  }
+
+  :global(
+      .filterable-table-control[data-checkbox-root][data-state="indeterminate"]
+    )
+    .filterable-table-checkbox {
+    width: 0.5rem;
+    height: 0;
+    border-right: 0;
+    border-bottom-color: var(--ui-color-paper);
+    transform: none;
   }
 
   :global(.filterable-table-control:focus-visible) {

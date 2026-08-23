@@ -14,6 +14,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     field :kind, :string
     field :graph_id, :string
     field :graph_revision_id, :string
+    field :parent_revision_id, :string
     field :graph_title, :string
 
     field :revision_kind, :string
@@ -30,6 +31,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
           kind: String.t(),
           graph_id: String.t(),
           graph_revision_id: String.t(),
+          parent_revision_id: String.t() | nil,
           graph_title: String.t(),
           revision_kind: String.t(),
           revision_number: pos_integer(),
@@ -47,6 +49,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
       :kind,
       :graph_id,
       :graph_revision_id,
+      :parent_revision_id,
       :graph_title,
       :revision_kind,
       :revision_number,
@@ -70,6 +73,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
     |> NetworkDefense.Contracts.validate_uuid(:id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_id)
     |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
+    |> NetworkDefense.Contracts.validate_uuid(:parent_revision_id)
     |> NetworkDefense.Contracts.validate_uuid(:output_graph_revision_id)
   end
 end

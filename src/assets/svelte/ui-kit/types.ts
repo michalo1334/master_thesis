@@ -12,4 +12,5 @@ export type UiIconName =
   | "star"
   | "star-filled"
   | "folder"
-  | "trash";
+  | "trash"
+  | "check";

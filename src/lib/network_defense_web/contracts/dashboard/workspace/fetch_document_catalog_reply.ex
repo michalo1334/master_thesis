@@ -5,6 +5,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply do
 
   embedded_schema do
     embeds_many :items, NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem, on_replace: :delete
+
+    embeds_many :related_items, NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem,
+      on_replace: :delete
+
     field :total_count, :integer, default: 0
 
     embeds_one :filter_options, NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions,
@@ -13,6 +17,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply do
 
   @type t :: %__MODULE__{
           items: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem.t()],
+          related_items: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem.t()],
           total_count: non_neg_integer(),
           filter_options: NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions.t()
         }
@@ -21,6 +26,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply do
     schema
     |> cast(attrs, [:total_count])
     |> cast_embed(:items)
+    |> cast_embed(:related_items)
     |> cast_embed(:filter_options, required: true)
     |> validate_number(:total_count, greater_than_or_equal_to: 0)
   end

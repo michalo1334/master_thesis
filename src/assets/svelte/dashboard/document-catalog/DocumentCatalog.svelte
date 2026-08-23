@@ -28,8 +28,6 @@
     strategies: [],
     revision_kinds: [],
   });
-  let selectedKeys = $state<string[]>([]);
-  let visitedItems = $state.raw<Map<string, DocumentCatalogItem>>(new Map());
   let filters = $state({
     kind: [] as string[],
     graphId: [] as string[],
@@ -41,6 +39,7 @@
   let search = $state("");
   let page = $state(1);
   let perPage = $state(8);
+  let loadSequence = 0;
 
   const columns: readonly FilterableTableColumn<DocumentCatalogItem>[] = [
     {
@@ -75,11 +74,16 @@
     },
   ];
 
-  const selectedItems = $derived.by(() =>
-    selectedKeys.flatMap((key) => {
-      const item = visitedItems.get(key);
-      return item ? [item] : [];
-    }),
+  const selectedItems = $derived(document.chosenItems);
+  const bulkSelectionKeys = $derived(
+    document.showingRelated
+      ? document.relatedItems.map((item) => item.id)
+      : undefined,
+  );
+  const bulkSelectionLabel = $derived(
+    document.showingRelated
+      ? "Select related documents"
+      : "Select visible documents",
   );
   const kindOptions = $derived(
     filterOptions.types.map((value) => ({
@@ -111,10 +115,12 @@
   });
 
   async function loadCatalog(): Promise<void> {
+    const sequence = ++loadSequence;
     const query = catalogQuery();
     loadState = "loading";
     try {
       const reply = await api.fetchDocumentCatalog(query);
+      if (sequence !== loadSequence) return;
 
       const finalPage = Math.max(1, Math.ceil(reply.total_count / query.limit));
       if (reply.total_count > 0 && page > finalPage) {
@@ -126,12 +132,10 @@
       items = reply.items;
       totalCount = reply.total_count;
       filterOptions = reply.filter_options;
-      visitedItems = new Map([
-        ...visitedItems,
-        ...reply.items.map((item) => [item.id, item] as const),
-      ]);
+      document.rememberItems(reply.items, reply.related_items);
       loadState = "ready";
     } catch {
+      if (sequence !== loadSequence) return;
       items = [];
       totalCount = 0;
       loadState = "error";
@@ -143,6 +147,7 @@
       search,
       types: [...filters.kind],
       graph_ids: [...filters.graphId],
+      related_graph_ids: [...document.relatedGraphIds],
       strategies: [...filters.strategy],
       revision_kinds: [...filters.revisionKind],
       limit: perPage,
@@ -156,7 +161,17 @@
 
   function setFilter(key: keyof typeof filters, values: string[]): void {
     filters[key] = values;
-    selectedKeys = [];
+    page = 1;
+    void loadCatalog();
+  }
+
+  function toggleRelated(): void {
+    if (document.showingRelated) {
+      document.hideRelated();
+    } else if (!document.showRelated()) {
+      return;
+    }
+
     page = 1;
     void loadCatalog();
   }
@@ -268,6 +283,17 @@
         Refresh
       </button>
       <button
+        class="document-catalog-toggle"
+        type="button"
+        aria-pressed={document.showingRelated}
+        disabled={loadState === "loading" ||
+          isOpening ||
+          (!document.showingRelated && selectedItems.length === 0)}
+        onclick={toggleRelated}
+      >
+        Show related
+      </button>
+      <button
         class="document-catalog-open"
         type="button"
         disabled={selectedItems.length === 0 ||
@@ -285,7 +311,11 @@
     {columns}
     getKey={(item) => item.id}
     selectionMode="multiple"
-    bind:selectedKeys
+    bind:selectedKeys={
+      () => document.chosenKeys, (keys) => document.setChosenKeys(keys)
+    }
+    {bulkSelectionKeys}
+    {bulkSelectionLabel}
     perPage="adaptive"
     server={{ totalCount, page, onchange: updateTableQuery }}
     searchPlaceholder="Search documents…"
@@ -346,6 +376,27 @@
     color: var(--ui-color-paper);
     font: inherit;
     white-space: nowrap;
+  }
+
+  .document-catalog-toggle {
+    min-height: var(--ui-control-height);
+    padding: 0 var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    color: var(--ui-color-text);
+    font: inherit;
+    white-space: nowrap;
+  }
+
+  .document-catalog-toggle[aria-pressed="true"] {
+    border-color: var(--ui-color-accent);
+    background: var(--ui-color-accent-soft);
+  }
+
+  .document-catalog-toggle:disabled {
+    color: var(--ui-color-text-faint);
+    cursor: default;
   }
 
   .document-catalog-open:disabled {

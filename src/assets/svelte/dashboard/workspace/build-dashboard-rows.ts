@@ -12,6 +12,12 @@ import {
 } from "./document-outline";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 import type { FolderSummary, GraphSummary } from "../contract";
+import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
+
+export interface OutlineSelectModifiers {
+  ctrlKey: boolean;
+  metaKey: boolean;
+}
 
 /**
  * App-specific adapter: maps domain (documents + folders + graphSummaries)
@@ -28,7 +34,7 @@ export function buildDashboardNodes(
     if (d.kind === "graph" && d.loadedRevisionId)
       graphsByRevisionId.set(d.loadedRevisionId, d);
 
-  return documents.map((d) => {
+  const documentNodes = documents.map((d) => {
     if (hasAnalysisMetadata(d)) {
       return {
         id: d.id,
@@ -63,6 +69,69 @@ export function buildDashboardNodes(
       drag: graphId ? { data: graphId } : undefined,
     };
   });
+
+  const relatedNodes = documents.flatMap((document) =>
+    document.kind === "document-catalog"
+      ? buildRelatedCatalogNodes(document)
+      : [],
+  );
+
+  return [...documentNodes, ...relatedNodes];
+}
+
+function buildRelatedCatalogNodes(
+  document: DocumentCatalogDocument,
+): OutlineNode<string>[] {
+  const revisions = new Map(
+    document.relatedItems
+      .filter((item) => item.kind === "graph")
+      .map(
+        (item) =>
+          [
+            item.graph_revision_id,
+            DocumentCatalogDocument.relationNodeId(item),
+          ] as const,
+      ),
+  );
+
+  return document.relatedItems.map((item) => ({
+    id: DocumentCatalogDocument.relationNodeId(item),
+    label: DocumentCatalogDocument.relationLabel(item),
+    icon: DocumentCatalogDocument.relationIcon(item),
+    kind: item.kind,
+    groupId: "root",
+    parentId:
+      item.kind === "graph"
+        ? (item.parent_revision_id && revisions.get(item.parent_revision_id)) ||
+          document.id
+        : revisions.get(item.graph_revision_id) || document.id,
+    ariaLabel: `${DocumentCatalogDocument.kindLabel(item.kind)} ${DocumentCatalogDocument.relationLabel(item)}`,
+    pressed: document.chosenKeys.includes(item.id),
+  }));
+}
+
+export function dispatchDashboardOutlineSelect(
+  documents: readonly WorkspaceDocument[],
+  id: string,
+  modifiers: OutlineSelectModifiers,
+  selectDocument: (id: string) => void,
+): void {
+  if (!id.startsWith(DocumentCatalogDocument.relationNodePrefix)) {
+    selectDocument(id);
+    return;
+  }
+
+  const catalog = documents.find(
+    (document) => document.kind === "document-catalog",
+  ) as DocumentCatalogDocument | undefined;
+  const item = catalog?.relationItem(id);
+  if (!catalog || !item) return;
+
+  if (modifiers.ctrlKey || modifiers.metaKey) {
+    catalog.toggleChosen(item.id);
+  } else {
+    void catalog.openItem(item);
+  }
 }
 
 export function buildDashboardGroups(

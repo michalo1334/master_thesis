@@ -468,8 +468,13 @@ defmodule NetworkDefenseWeb.DashboardLive do
         {:reply, fetch_document_catalog_reply(request), socket}
 
       {:error, _changeset} ->
-        {:reply, document_catalog_reply(%{items: [], total_count: 0, filter_options: %{}}),
-         socket}
+        {:reply,
+         document_catalog_reply(%{
+           items: [],
+           related_items: [],
+           total_count: 0,
+           filter_options: %{}
+         }), socket}
     end
   end
 

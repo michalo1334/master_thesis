@@ -108,6 +108,47 @@ defmodule NetworkDefense.DocumentCatalogTest do
              )
   end
 
+  test "scopes related items by graph without applying table filters or pagination" do
+    assert {:ok, graph} = Graphs.insert(Graph.new("related graph"))
+    assert {:ok, other} = Graphs.insert(Graph.new("other graph"))
+    assert {:ok, child} = Graphs.append_optimization(graph)
+    assert {:ok, experiment} = create_experiment(graph)
+    assert {:ok, optimization} = create_optimization(graph, child.revision_id)
+    assert {:ok, _other_experiment} = create_experiment(other)
+
+    catalog =
+      DocumentCatalog.document_catalog(
+        filters(%{
+          "related_graph_ids" => [graph.id],
+          "search" => "never matches",
+          "types" => ["graph"],
+          "limit" => 1,
+          "offset" => 0
+        })
+      )
+
+    assert catalog.total_count == 0
+    assert catalog.items == []
+
+    assert Enum.map(catalog.related_items, & &1.id) ==
+             [graph.revision_id, optimization.id, experiment.id, child.revision_id]
+
+    assert Enum.all?(catalog.related_items, &(&1.graph_id == graph.id))
+
+    assert Enum.find(catalog.related_items, &(&1.id == child.revision_id)).parent_revision_id ==
+             graph.revision_id
+
+    assert Enum.find(catalog.related_items, &(&1.id == experiment.id)).parent_revision_id == nil
+
+    grouped =
+      DocumentCatalog.document_catalog(
+        filters(%{"related_graph_ids" => [graph.id], "limit" => 10})
+      )
+
+    assert Enum.map(grouped.items, & &1.id) ==
+             [graph.revision_id, optimization.id, experiment.id, child.revision_id]
+  end
+
   defp create_experiment(graph) do
     Experiment.new(%{
       graph_revision_id: graph.revision_id,

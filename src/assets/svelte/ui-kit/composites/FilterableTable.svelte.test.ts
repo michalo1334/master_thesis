@@ -119,6 +119,7 @@ describe("FilterableTable", () => {
       screen.getByRole("checkbox", { name: /alpha/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /beta/i })).toBeInTheDocument();
+    expect(screen.getByText("0 selected · 3 of 3")).toBeInTheDocument();
   });
 
   it("renders no selection column when mode is none", () => {
@@ -265,7 +266,9 @@ describe("FilterableTable", () => {
     expect(
       container.querySelectorAll('tbody tr[aria-hidden="true"]'),
     ).toHaveLength(4);
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select visible rows" }),
+    ).toBeDisabled();
   });
 
   it("shows the first page and navigates to the second page", async () => {
@@ -436,7 +439,7 @@ describe("FilterableTable", () => {
       expect(control?.tagName).toBe("BUTTON");
       expect(control).toBeDisabled();
     }
-    expect(screen.getAllByRole("checkbox")).toHaveLength(items.length);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(items.length + 1);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
@@ -480,6 +483,79 @@ describe("FilterableTable", () => {
     expect(screen.getByRole("checkbox", { name: /beta/i })).toBeChecked();
   });
 
+  it("bulk-selects the current page, excluding disabled rows and preserving other pages", async () => {
+    const pageItems: Item[] = [
+      items[0],
+      { ...items[1], disabled: true },
+      { id: "delta", title: "Delta", count: 4 },
+    ];
+    render(TypedFilterableTable, {
+      props: {
+        items: pageItems,
+        columns,
+        getKey: (i: Item) => i.id,
+        selectionMode: "multiple",
+        selectedKeys: ["delta"],
+        isDisabled: (i: Item) => i.disabled ?? false,
+        perPage: 2,
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+      },
+    });
+
+    const selectAll = screen.getByRole("checkbox", {
+      name: "Select visible rows",
+    });
+    expect(selectAll).not.toBeChecked();
+    await fireEvent.click(selectAll);
+
+    expect(selectAll).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /alpha/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /beta/i })).toBeDisabled();
+    expect(screen.getByText("2 selected · 3 of 3")).toBeInTheDocument();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Page 2" }));
+    expect(screen.getByRole("checkbox", { name: /delta/i })).toBeChecked();
+  });
+
+  it("uses a custom bulk scope and clears all selections when fully selected", async () => {
+    render(TypedFilterableTable, {
+      props: {
+        items,
+        columns,
+        getKey: (i: Item) => i.id,
+        selectionMode: "multiple",
+        selectedKeys: ["outside", "alpha"],
+        bulkSelectionKeys: ["alpha", "beta", "remote"],
+        bulkSelectionLabel: "Select scoped rows",
+        emptyMessage: "Empty",
+        noMatchMessage: "No match",
+      },
+    });
+
+    const selectAll = screen.getByRole("checkbox", {
+      name: "Select scoped rows",
+    });
+    expect(selectAll).toHaveAttribute("aria-checked", "mixed");
+
+    await fireEvent.click(selectAll);
+    expect(selectAll).toBeChecked();
+    expect(selectAll).toHaveAccessibleName("Clear all selections");
+    expect(screen.getByRole("checkbox", { name: /beta/i })).toBeChecked();
+    expect(screen.getByText("4 selected · 3 of 3")).toBeInTheDocument();
+
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Clear all selections" }),
+    );
+    expect(selectAll).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /alpha/i })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /beta/i })).not.toBeChecked();
+    expect(screen.getByText("0 selected · 3 of 3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select scoped rows" }),
+    ).toBeInTheDocument();
+  });
+
   it("ignores externally supplied disabled and absent selected keys", () => {
     render(TypedFilterableTable, {
       props: {
@@ -515,6 +591,9 @@ describe("FilterableTable", () => {
 
     const alpha = screen.getByRole("checkbox", { name: /alpha/i });
     expect(alpha).toBeDisabled();
+    expect(
+      screen.getByRole("checkbox", { name: "Select visible rows" }),
+    ).toBeDisabled();
   });
 
   it("renders a supplied server page and reports search and page changes", async () => {

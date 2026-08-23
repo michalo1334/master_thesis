@@ -10,7 +10,7 @@ type OutlineProps = {
     row: ReturnType<typeof buildOutline<string, string>>[number],
   ) => unknown;
   selectedId?: string;
-  onSelect: (id: string) => void;
+  onSelect: (id: string, event: MouseEvent) => void;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onDrop?: (drag: string, drop: string) => void;
@@ -114,7 +114,35 @@ describe("DocumentOutline", () => {
     await fireEvent.click(
       screen.getByRole("button", { name: "Graph 1", hidden: true }),
     );
-    expect(onSelect).toHaveBeenCalledWith("graph-1");
+    expect(onSelect).toHaveBeenCalledWith("graph-1", expect.any(MouseEvent));
+    expect(row("Graph 1").querySelector("button")).not.toHaveAttribute(
+      "aria-pressed",
+    );
+  });
+
+  it("marks a chosen row as pressed and forwards click modifiers", async () => {
+    const onSelect = vi.fn();
+    render(TypedDocumentOutline, {
+      props: {
+        rows: buildOutline([{ ...nodes[0], pressed: true }], groups),
+        collapsed: false,
+        onSelect,
+        onCollapsedChange: vi.fn(),
+      },
+    });
+    const button = screen.getByRole("button", {
+      name: "Graph 1",
+      hidden: true,
+    });
+
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button.querySelector(".hero-check")).toBeInTheDocument();
+
+    await fireEvent.click(button, { ctrlKey: true });
+    expect(onSelect).toHaveBeenCalledWith(
+      "graph-1",
+      expect.objectContaining({ ctrlKey: true }),
+    );
   });
 
   it("renders item depth", () => {

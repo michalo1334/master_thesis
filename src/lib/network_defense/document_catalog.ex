@@ -26,16 +26,34 @@ defmodule NetworkDefense.DocumentCatalog do
 
     items =
       filtered
-      |> order_by([item], desc: item.created_at, desc: item.id)
+      |> order_items(filters.related_graph_ids != [])
       |> limit(^filters.limit)
       |> offset(^filters.offset)
       |> Repo.all()
-      |> Enum.map(fn item ->
-        Map.update!(item, :created_at, &DateTime.to_iso8601/1)
-      end)
+      |> Enum.map(&serialize_item/1)
+
+    related_items =
+      case filters.related_graph_ids do
+        [] ->
+          []
+
+        graph_ids ->
+          catalog
+          |> where([item], item.graph_id in ^graph_ids)
+          |> order_by([item],
+            asc: item.graph_id,
+            asc: item.revision_number,
+            asc: item.kind,
+            asc: item.created_at,
+            asc: item.id
+          )
+          |> Repo.all()
+          |> Enum.map(&serialize_item/1)
+      end
 
     %{
       items: items,
+      related_items: related_items,
       total_count: filtered |> select([item], count(item.id)) |> Repo.one(),
       filter_options: filter_options
     }
@@ -65,6 +83,7 @@ defmodule NetworkDefense.DocumentCatalog do
         output_graph_revision_id: type(fragment("NULL"), :binary_id),
         output_revision_kind: type(fragment("NULL"), :string),
         output_revision_number: type(fragment("NULL"), :integer),
+        parent_revision_id: revision.parent_revision_id,
         created_at: revision.inserted_at
       }
   end
@@ -88,6 +107,7 @@ defmodule NetworkDefense.DocumentCatalog do
         output_graph_revision_id: type(fragment("NULL"), :binary_id),
         output_revision_kind: type(fragment("NULL"), :string),
         output_revision_number: type(fragment("NULL"), :integer),
+        parent_revision_id: revision.parent_revision_id,
         created_at: experiment.inserted_at
       }
   end
@@ -113,6 +133,7 @@ defmodule NetworkDefense.DocumentCatalog do
         output_graph_revision_id: run.output_graph_revision_id,
         output_revision_kind: type(output_revision.kind, :string),
         output_revision_number: output_revision.number,
+        parent_revision_id: revision.parent_revision_id,
         created_at: run.inserted_at
       }
   end
@@ -124,7 +145,23 @@ defmodule NetworkDefense.DocumentCatalog do
     |> maybe_in(:graph_id, filters.graph_ids)
     |> maybe_in(:strategy, filters.strategies)
     |> maybe_in(:revision_kind, filters.revision_kinds)
+    |> maybe_in(:graph_id, filters.related_graph_ids)
   end
+
+  defp order_items(query, true),
+    do:
+      order_by(query, [item],
+        asc: item.graph_id,
+        asc: item.revision_number,
+        asc: item.kind,
+        asc: item.created_at,
+        asc: item.id
+      )
+
+  defp order_items(query, false),
+    do: order_by(query, [item], desc: item.created_at, desc: item.id)
+
+  defp serialize_item(item), do: Map.update!(item, :created_at, &DateTime.to_iso8601/1)
 
   defp maybe_search(query, ""), do: query
 

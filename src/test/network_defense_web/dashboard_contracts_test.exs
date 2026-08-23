@@ -33,6 +33,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
+    FetchDocumentCatalogPayload,
+    FetchDocumentCatalogReply,
     FetchRunsPayload,
     FetchRunsReply,
     OpenGraphReply,
@@ -424,6 +426,36 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   test "accepts an empty fetch runs payload" do
     assert {:ok, %FetchRunsPayload{}} = FetchRunsPayload.validate(%{})
+  end
+
+  test "round trips document catalog relation fields" do
+    assert {:ok, payload} =
+             FetchDocumentCatalogPayload.validate(%{
+               "related_graph_ids" => [@graph_id]
+             })
+
+    assert payload.related_graph_ids == [@graph_id]
+
+    item = %{
+      "id" => @graph_id,
+      "kind" => "graph",
+      "graph_id" => @graph_id,
+      "graph_revision_id" => @graph_id,
+      "parent_revision_id" => @parent_graph_id,
+      "graph_title" => "Graph",
+      "revision_kind" => "initial",
+      "revision_number" => 1,
+      "created_at" => "2026-01-01T00:00:00Z"
+    }
+
+    assert {:ok, reply} =
+             FetchDocumentCatalogReply.validate(%{
+               "items" => [item],
+               "related_items" => [item],
+               "filter_options" => %{}
+             })
+
+    assert [%{parent_revision_id: @parent_graph_id}] = reply.related_items
   end
 
   test "round trips a fetch runs reply with run summaries" do

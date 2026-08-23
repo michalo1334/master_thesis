@@ -7,7 +7,7 @@
     rows: readonly OutlineRow<DragData, DropData>[];
     rowSnippet?: Snippet<[OutlineRow<DragData, DropData>]>;
     selectedId?: string;
-    onSelect: (id: string) => void;
+    onSelect: (id: string, event: MouseEvent) => void;
     collapsed: boolean;
     onCollapsedChange: (collapsed: boolean) => void;
     onDrop?: (drag: DragData, drop: DropData) => void;
@@ -119,13 +119,14 @@
               type="button"
               aria-label={row.ariaLabel}
               aria-current={row.id === selectedId ? "page" : undefined}
+              aria-pressed={row.pressed}
               class={[
                 "document-outline-row",
                 { current: row.id === selectedId },
               ]}
-              onclick={() => onSelect(row.id)}
+              onclick={(event) => onSelect(row.id, event)}
             >
-              <Icon name={row.icon} size={16} />
+              <Icon name={row.pressed ? "check" : row.icon} size={16} />
               <span class="document-outline-label">{row.label}</span>
             </button>
             {#if rowSnippet}{@render rowSnippet(row)}{/if}

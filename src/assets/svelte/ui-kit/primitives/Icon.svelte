@@ -23,6 +23,7 @@
     "star-filled": "hero-star-solid",
     folder: "hero-folder",
     trash: "hero-trash",
+    check: "hero-check",
   };
 
   let { name, size = 18 }: Props = $props();

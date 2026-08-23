@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
-import type { GraphDiffResult, LoadedGraph } from "../contract";
+import { describe, expect, it, vi } from "vitest";
+import type {
+  DocumentCatalogItem,
+  GraphDiffResult,
+  LoadedGraph,
+} from "../contract";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
-import { buildDashboardRows } from "./build-dashboard-rows";
+import {
+  buildDashboardRows,
+  dispatchDashboardOutlineSelect,
+} from "./build-dashboard-rows";
 
 function graph(
   id: string,
@@ -140,6 +147,99 @@ describe("buildDashboardRows", () => {
     expect(row?.label).toBe("Documents");
     expect(row?.depth).toBe(0);
     expect(row?.drag).toBeUndefined();
+  });
+
+  it("builds prefixed related revision and report rows beneath Documents", () => {
+    const catalog = new DocumentCatalogDocument();
+    const root: DocumentCatalogItem = {
+      id: "revision-root",
+      kind: "graph",
+      graph_id: "graph-related",
+      graph_revision_id: "revision-root",
+      graph_title: "Related graph",
+      revision_kind: "original",
+      revision_number: 1,
+      created_at: "2026-03-01T00:00:00Z",
+    };
+    const child: DocumentCatalogItem = {
+      ...root,
+      id: "revision-child",
+      graph_revision_id: "revision-child",
+      parent_revision_id: root.graph_revision_id,
+      revision_kind: "edit",
+      revision_number: 2,
+    };
+    const report: DocumentCatalogItem = {
+      ...child,
+      id: "report-child",
+      kind: "simulation_report",
+    };
+    catalog.rememberItems([], [root, child, report]);
+    catalog.setChosenKeys([report.id]);
+
+    const rows = buildDashboardRows([catalog], [], []);
+    const byId = new Map(items(rows).map((row) => [row.id, row]));
+    const rootRow = byId.get(DocumentCatalogDocument.relationNodeId(root));
+    const childRow = byId.get(DocumentCatalogDocument.relationNodeId(child));
+    const reportRow = byId.get(DocumentCatalogDocument.relationNodeId(report));
+
+    expect(rootRow?.depth).toBe(1);
+    expect(childRow?.depth).toBe(2);
+    expect(reportRow?.depth).toBe(3);
+    expect(rootRow?.id).toMatch(/^catalog-related:/);
+    expect(reportRow?.pressed).toBe(true);
+  });
+
+  it("opens related rows normally and toggles them with Ctrl or Cmd", () => {
+    const open = vi.fn();
+    const selectDocument = vi.fn();
+    const catalog = new DocumentCatalogDocument(open);
+    const related: DocumentCatalogItem = {
+      id: "revision-related",
+      kind: "graph",
+      graph_id: "graph-related",
+      graph_revision_id: "revision-related",
+      graph_title: "Related graph",
+      revision_kind: "original",
+      revision_number: 1,
+      created_at: "2026-03-01T00:00:00Z",
+    };
+    catalog.rememberItems([], [related]);
+    const id = DocumentCatalogDocument.relationNodeId(related);
+
+    dispatchDashboardOutlineSelect(
+      [catalog],
+      id,
+      { ctrlKey: false, metaKey: false },
+      selectDocument,
+    );
+    expect(open).toHaveBeenCalledWith(related);
+    expect(selectDocument).not.toHaveBeenCalled();
+
+    dispatchDashboardOutlineSelect(
+      [catalog],
+      id,
+      { ctrlKey: true, metaKey: false },
+      selectDocument,
+    );
+    expect(catalog.chosenKeys).toEqual([related.id]);
+    expect(open).toHaveBeenCalledTimes(1);
+
+    dispatchDashboardOutlineSelect(
+      [catalog],
+      id,
+      { ctrlKey: false, metaKey: true },
+      selectDocument,
+    );
+    expect(catalog.chosenKeys).toEqual([]);
+
+    dispatchDashboardOutlineSelect(
+      [catalog],
+      "ordinary-document",
+      { ctrlKey: true, metaKey: false },
+      selectDocument,
+    );
+    expect(selectDocument).toHaveBeenCalledWith("ordinary-document");
   });
 
   it("places reports without an open graph in the Reports group", () => {
