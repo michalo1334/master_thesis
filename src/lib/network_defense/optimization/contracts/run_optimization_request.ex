@@ -23,6 +23,6 @@ defmodule NetworkDefense.Optimization.Contracts.RunOptimizationRequest do
     |> cast_embed(:optimization_params, required: true)
     |> validate_required([:graph_revision_id, :correlation_id])
     |> Contracts.validate_uuid(:graph_revision_id)
-    |> validate_length(:correlation_id, min: 1)
+    |> validate_length(:correlation_id, min: 1, max: 128)
   end
 end

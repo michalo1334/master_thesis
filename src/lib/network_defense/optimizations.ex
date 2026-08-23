@@ -106,7 +106,7 @@ defmodule NetworkDefense.Optimizations do
         error ->
           Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
-          reason = fail_optimization(run, error, __STACKTRACE__)
+          reason = fail_optimization(run, request.correlation_id, error, __STACKTRACE__)
           if broadcast_failure?, do: broadcast_failed(graph, request.correlation_id, reason)
           {:error, reason}
       end
@@ -142,7 +142,10 @@ defmodule NetworkDefense.Optimizations do
         {:ok, run}
 
       {:error, reason} ->
-        Logger.error("Unable to persist optimization run: #{inspect(reason)}")
+        Logger.error("Unable to persist optimization run: #{inspect(reason)}",
+          correlation_id: request.correlation_id
+        )
+
         {:error, :persistence_failed}
     end
   end
@@ -170,14 +173,17 @@ defmodule NetworkDefense.Optimizations do
         inserted
 
       {:error, reason} ->
-        Logger.error("Unable to enqueue optimization job: #{inspect(reason)}")
+        Logger.error("Unable to enqueue optimization job: #{inspect(reason)}",
+          correlation_id: request.correlation_id
+        )
+
         OptimizationRuns.fail(run.id)
         {:error, :task_unavailable}
     end
   end
 
-  defp fail_optimization(run, error, stacktrace) do
-    Logger.error(Exception.format(:error, error, stacktrace))
+  defp fail_optimization(run, correlation_id, error, stacktrace) do
+    Logger.error(Exception.format(:error, error, stacktrace), correlation_id: correlation_id)
     OptimizationRuns.fail(run.id)
     :internal_error
   end
@@ -196,7 +202,7 @@ defmodule NetworkDefense.Optimizations do
       "graph.id": graph.id,
       "graph.revision_id": graph.revision_id,
       "optimization.run_id": run.id,
-      "correlation.id": request.correlation_id,
+      "network_defense.correlation.id": request.correlation_id,
       "optimization.strategy": request.optimization_params.strategy,
       "optimization.requested_budget": request.optimization_params.budget
     }
@@ -252,7 +258,10 @@ defmodule NetworkDefense.Optimizations do
         {:ok, completed_run}
 
       {:error, reason} ->
-        Logger.error("Unable to persist optimization result: #{inspect(reason)}")
+        Logger.error("Unable to persist optimization result: #{inspect(reason)}",
+          correlation_id: request.correlation_id
+        )
+
         OptimizationRuns.fail(run.id)
         broadcast_failed(graph, request.correlation_id, :persistence_failed)
         {:error, :persistence_failed}

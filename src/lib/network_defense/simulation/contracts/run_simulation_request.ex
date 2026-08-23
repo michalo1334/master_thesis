@@ -24,6 +24,6 @@ defmodule NetworkDefense.Simulation.Contracts.RunSimulationRequest do
     |> validate_required([:graph_revision_id, :correlation_id])
     |> validate_length(:graph_revision_id, min: 1)
     |> Contracts.validate_uuid(:graph_revision_id)
-    |> validate_length(:correlation_id, min: 1)
+    |> validate_length(:correlation_id, min: 1, max: 128)
   end
 end

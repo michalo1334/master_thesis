@@ -14,6 +14,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
@@ -135,6 +136,32 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{simulation_params: %{monte_carlo_trials: ["must be greater than 0"]}} =
              errors_on(changeset)
+  end
+
+  test "rejects oversized asynchronous operation correlation IDs" do
+    correlation_id = String.duplicate("c", 129)
+
+    assert {:error, simulation_changeset} =
+             RunSimulationRequest.validate(%{
+               "graph_revision_id" => Ecto.UUID.generate(),
+               "correlation_id" => correlation_id,
+               "simulation_params" => %{
+                 "monte_carlo_trials" => 1,
+                 "iterations_per_run" => 1,
+                 "initial_foothold_node_id" => Ecto.UUID.generate()
+               }
+             })
+
+    assert %{correlation_id: [_ | _]} = errors_on(simulation_changeset)
+
+    assert {:error, optimization_changeset} =
+             RunOptimizationRequest.validate(%{
+               "graph_revision_id" => Ecto.UUID.generate(),
+               "correlation_id" => correlation_id,
+               "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+             })
+
+    assert %{correlation_id: [_ | _]} = errors_on(optimization_changeset)
   end
 
   test "maps validated graph contracts to canonical graph replacement attributes" do

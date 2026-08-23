@@ -99,7 +99,10 @@ defmodule NetworkDefense.Simulations do
         inserted
 
       {:error, reason} ->
-        Logger.error("Unable to enqueue simulation job: #{inspect(reason)}")
+        Logger.error("Unable to enqueue simulation job: #{inspect(reason)}",
+          correlation_id: correlation_id
+        )
+
         Experiments.fail(experiment.id)
         {:error, :task_unavailable}
     end
@@ -111,7 +114,7 @@ defmodule NetworkDefense.Simulations do
         "graph.id": graph.id,
         "graph.revision_id": graph.revision_id,
         "simulation.experiment_id": experiment.id,
-        "correlation.id": correlation_id,
+        "network_defense.correlation.id": correlation_id,
         "simulation.run_count": experiment.total_trials,
         "simulation.iteration_count": experiment.iteration_count,
         "simulation.max_attempts": experiment.max_attempts
@@ -161,7 +164,7 @@ defmodule NetworkDefense.Simulations do
   defp simulation_failure(graph, correlation_id, experiment, error, stacktrace) do
     Tracer.record_exception(error, stacktrace)
     Tracer.set_status(OpenTelemetry.status(:error))
-    Logger.error(Exception.format(:error, error, stacktrace))
+    Logger.error(Exception.format(:error, error, stacktrace), correlation_id: correlation_id)
     Experiments.fail(experiment.id)
     broadcast_simulation_failed(graph, correlation_id, :internal_error)
     {:error, :internal_error}
@@ -211,6 +214,7 @@ defmodule NetworkDefense.Simulations do
         {:ok, saved} ->
           Logger.debug("Simulation batch completed",
             event: "simulation.batch.completed",
+            correlation_id: correlation_id,
             experiment_id: saved.id,
             completed_run_count: saved.completed_trials,
             total_run_count: saved.total_trials,

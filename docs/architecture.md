@@ -148,7 +148,7 @@ sequenceDiagram
 
 ## Flow — Observability Pipeline
 
-Two pipelines run concurrently: traces and metrics go OTLP through the collector; logs reach Loki via Alloy tailing the shared JSONL file. Grafana correlates traces with logs through the `trace_id` label. Pull-based operations (Prometheus scraping, Alloy tailing) are continuous, noted below.
+Two pipelines run concurrently: traces and metrics go OTLP through the collector; logs reach Loki via Alloy tailing the shared JSONL file. Grafana correlates traces with logs through `trace_id` structured metadata. Pull-based operations (Prometheus scraping, Alloy tailing) are continuous, noted below.
 
 ```mermaid
 sequenceDiagram

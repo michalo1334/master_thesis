@@ -89,6 +89,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
     compact_attributes(%{
       "evaluation.run_id" => run.id,
+      "network_defense.correlation.id" => run.id,
       "evaluation.manifest_id" => manifest["id"],
       "evaluation.schema_version" => manifest["schema_version"],
       "evaluation.model_version" => manifest["model_version"],
@@ -102,6 +103,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   defp plan_span_attributes(run, graph, strategy, budget, selection_seed) do
     compact_attributes(%{
       "evaluation.run_id" => run.id,
+      "network_defense.correlation.id" => run.id,
       "evaluation.plan.strategy" => strategy,
       "evaluation.plan.requested_budget" => budget,
       "evaluation.plan.selection_seed" => selection_seed,
@@ -113,6 +115,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   defp experiment_span_attributes(experiment, graph) do
     compact_attributes(%{
       "evaluation.run_id" => experiment.evaluation_run_id,
+      "network_defense.correlation.id" => experiment.evaluation_run_id,
       "evaluation.experiment_id" => experiment.id,
       "evaluation.plan_id" => experiment.optimization_run_id,
       "evaluation.experiment.type" => experiment_type(experiment),
@@ -158,6 +161,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.run.started",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
+      correlation_id: run.id,
       graph_revision_id: run.source_graph_revision_id,
       manifest_id: manifest_value(run, "id"),
       plan_count: plan_count(run),
@@ -170,6 +174,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.run.completed",
       evaluation_id: completed.id || run.id,
       evaluation_run_id: completed.id || run.id,
+      correlation_id: run.id,
       graph_revision_id: run.source_graph_revision_id,
       manifest_id: manifest_value(run, "id"),
       plan_count: plan_count(run),
@@ -195,6 +200,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.run.failed",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
+      correlation_id: run.id,
       graph_revision_id: run.source_graph_revision_id,
       manifest_id: manifest_value(run, "id"),
       reason: reason,
@@ -207,6 +213,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.plan.started",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
+      correlation_id: run.id,
       strategy: strategy,
       requested_budget: budget,
       selection_seed: selection_seed
@@ -225,6 +232,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.plan.completed",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
+      correlation_id: run.id,
       plan_id: plan.id,
       strategy: strategy,
       requested_budget: budget,
@@ -254,6 +262,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.plan.failed",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
+      correlation_id: run.id,
       strategy: strategy,
       requested_budget: budget,
       selection_seed: selection_seed,
@@ -267,6 +276,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.experiment.started",
       evaluation_id: experiment.evaluation_run_id,
       evaluation_run_id: experiment.evaluation_run_id,
+      correlation_id: experiment.evaluation_run_id,
       experiment_id: experiment.id,
       plan_id: experiment.optimization_run_id,
       experiment_type: experiment_type(experiment),
@@ -282,6 +292,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.experiment.completed",
       evaluation_id: experiment.evaluation_run_id,
       evaluation_run_id: experiment.evaluation_run_id,
+      correlation_id: experiment.evaluation_run_id,
       experiment_id: experiment.id,
       plan_id: experiment.optimization_run_id,
       experiment_type: experiment_type(experiment),
@@ -297,6 +308,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       event: "evaluation.experiment.failed",
       evaluation_id: experiment.evaluation_run_id,
       evaluation_run_id: experiment.evaluation_run_id,
+      correlation_id: experiment.evaluation_run_id,
       experiment_id: experiment.id,
       plan_id: experiment.optimization_run_id,
       experiment_type: experiment_type(experiment),
