@@ -22,6 +22,8 @@ export interface OutlineGroup<DropData = unknown> {
   drop?: OutlineDrop<DropData>;
 }
 
+export type OutlineGuide = "space" | "line" | "tee" | "elbow";
+
 export type OutlineRow<DragData = unknown, DropData = unknown> =
   | {
       type: "item";
@@ -30,6 +32,8 @@ export type OutlineRow<DragData = unknown, DropData = unknown> =
       icon: string;
       kind: string;
       depth: number;
+      guides: readonly OutlineGuide[];
+      hasChildren: boolean;
       ariaLabel?: string;
       pressed?: boolean;
       drag?: OutlineDrag<DragData>;
@@ -84,7 +88,12 @@ export function buildOutline<DragData = unknown, DropData = unknown>(
   }
 
   const rows: OutlineRow<DragData, DropData>[] = [];
-  const visit = (node: OutlineNode<DragData>, depth: number): void => {
+  const visit = (
+    node: OutlineNode<DragData>,
+    depth: number,
+    ancestorGuides: OutlineGuide[],
+    hasLaterSibling: boolean,
+  ): void => {
     rows.push({
       type: "item",
       id: node.id,
@@ -92,11 +101,39 @@ export function buildOutline<DragData = unknown, DropData = unknown>(
       icon: node.icon,
       kind: node.kind,
       depth,
+      hasChildren: (children.get(node.id)?.length ?? 0) > 0,
+      guides:
+        depth === 0
+          ? []
+          : [...ancestorGuides, hasLaterSibling ? "tee" : "elbow"],
       ariaLabel: node.ariaLabel,
       pressed: node.pressed,
       drag: node.drag,
     });
-    for (const child of children.get(node.id) ?? []) visit(child, depth + 1);
+    const childGuides =
+      depth === 0
+        ? []
+        : [
+            ...ancestorGuides,
+            hasLaterSibling ? ("line" as const) : ("space" as const),
+          ];
+    const siblings = children.get(node.id) ?? [];
+    siblings.forEach((child, index) =>
+      visit(child, depth + 1, childGuides, index < siblings.length - 1),
+    );
+  };
+
+  const visitRoots = (
+    roots: readonly OutlineNode<DragData>[],
+    depth: number,
+  ): void => {
+    const ancestorGuides = Array.from(
+      { length: Math.max(0, depth - 1) },
+      () => "space" as const,
+    );
+    roots.forEach((node, index) =>
+      visit(node, depth, ancestorGuides, index < roots.length - 1),
+    );
   };
 
   const emitBucket = (
@@ -119,9 +156,8 @@ export function buildOutline<DragData = unknown, DropData = unknown>(
     }
 
     const roots = items.filter((node) => rootIds.has(node.id));
-    for (const node of roots) {
-      if (!node.section) visit(node, baseDepth);
-    }
+    const rootItems = roots.filter((node) => !node.section);
+    visitRoots(rootItems, baseDepth);
 
     const sections = new Map<
       string,
@@ -144,7 +180,7 @@ export function buildOutline<DragData = unknown, DropData = unknown>(
         kind: "section",
         level: group ? 3 : 2,
       });
-      for (const node of sectionNodes) visit(node, baseDepth + 1);
+      visitRoots(sectionNodes, baseDepth + 1);
     }
   };
 

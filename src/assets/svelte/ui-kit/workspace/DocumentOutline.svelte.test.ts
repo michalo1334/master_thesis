@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import type { Component } from "svelte";
 import DocumentOutline from "./DocumentOutline.svelte";
-import { buildOutline, type OutlineGroup, type OutlineNode } from "./outline";
+import {
+  buildOutline,
+  type OutlineGroup,
+  type OutlineNode,
+  type OutlineRow,
+} from "./outline";
 
 type OutlineProps = {
   rows: ReturnType<typeof buildOutline<string, string>>;
@@ -42,6 +47,7 @@ const groups: OutlineGroup<string>[] = [
 
 function renderOutline(
   overrides: Partial<{
+    rows: ReturnType<typeof buildOutline<string, string>>;
     canDrop: (drag: string, drop: string) => boolean;
     selectedId: string;
     collapsed: boolean;
@@ -145,10 +151,106 @@ describe("DocumentOutline", () => {
     );
   });
 
-  it("renders item depth", () => {
-    renderOutline();
+  it("renders one guide for each nested level", () => {
+    const rows: OutlineRow<string, string>[] = [0, 1, 2].map((depth) => ({
+      type: "item" as const,
+      id: `graph-${depth}`,
+      label: `Graph ${depth}`,
+      icon: "share",
+      kind: "graph",
+      depth,
+      hasChildren: false,
+      guides: depth === 0 ? [] : depth === 1 ? ["tee"] : ["line", "elbow"],
+    }));
+    renderOutline({ rows });
 
-    expect(row("Graph 1")).toHaveAttribute("data-depth", "1");
+    for (const depth of [0, 1, 2]) {
+      const item = row(`Graph ${depth}`);
+      expect(item).toHaveAttribute("data-depth", `${depth}`);
+      expect(item.querySelectorAll(".document-outline-guide")).toHaveLength(
+        depth,
+      );
+    }
+    expect(row("Graph 0").querySelector(".document-outline-guides")).toBeNull();
+    expect(
+      row("Graph 1").querySelector(".document-outline-guide-tee"),
+    ).toBeInTheDocument();
+    expect(
+      row("Graph 2").querySelectorAll(".document-outline-guide")[0],
+    ).toHaveClass("document-outline-guide-line");
+    expect(
+      screen.getByRole("button", { name: "Graph 1", hidden: true }),
+    ).toHaveAccessibleName("Graph 1");
+  });
+
+  it("builds sibling-aware connector paths", () => {
+    const rows = buildOutline<string, string>(
+      [
+        { ...nodes[0], id: "root-a", label: "Root A", parentId: undefined },
+        { ...nodes[0], id: "root-b", label: "Root B", parentId: undefined },
+        { ...nodes[0], id: "child-a", label: "Child A", parentId: "root-a" },
+        { ...nodes[0], id: "child-b", label: "Child B", parentId: "root-a" },
+        {
+          ...nodes[0],
+          id: "grandchild-a",
+          label: "Grandchild A",
+          parentId: "child-a",
+        },
+        {
+          ...nodes[0],
+          id: "grandchild-b",
+          label: "Grandchild B",
+          parentId: "child-b",
+        },
+      ],
+      [],
+    );
+
+    expect(rows.find((row) => row.id === "root-a")).toMatchObject({
+      guides: [],
+      hasChildren: true,
+    });
+    expect(rows.find((row) => row.id === "root-b")).toMatchObject({
+      hasChildren: false,
+    });
+    expect(rows.find((row) => row.id === "child-a")).toMatchObject({
+      guides: ["tee"],
+    });
+    expect(rows.find((row) => row.id === "child-b")).toMatchObject({
+      guides: ["elbow"],
+    });
+    expect(rows.find((row) => row.id === "grandchild-a")).toMatchObject({
+      guides: ["line", "elbow"],
+    });
+    expect(rows.find((row) => row.id === "grandchild-b")).toMatchObject({
+      guides: ["space", "elbow"],
+    });
+
+    const groupedRows = buildOutline(nodes, groups);
+    expect(groupedRows.find((row) => row.id === "graph-1")).toMatchObject({
+      guides: ["elbow"],
+    });
+  });
+
+  it("renders a connector container for parent rows", () => {
+    const rows = buildOutline<string, string>(
+      [
+        { ...nodes[0], id: "parent", label: "Parent" },
+        { ...nodes[0], id: "child", label: "Child", parentId: "parent" },
+      ],
+      [],
+    );
+    renderOutline({ rows });
+
+    expect(row("Parent").querySelector(".document-outline-guides")).toHaveClass(
+      "document-outline-guides-has-children",
+    );
+    expect(
+      row("Parent").querySelector("[data-has-children]"),
+    ).toBeInTheDocument();
+    expect(
+      row("Child").querySelector(".document-outline-guides"),
+    ).toBeInTheDocument();
   });
 
   it("renders an empty group header as a drop target", async () => {

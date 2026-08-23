@@ -67,7 +67,6 @@
             { "drop-target": dropTargetId === row.id },
           ]}
           data-depth={row.type === "item" ? row.depth : undefined}
-          style:--depth={row.type === "item" ? row.depth : undefined}
           draggable={drag ? true : undefined}
           ondragstart={(event) => {
             if (drag) {
@@ -126,6 +125,20 @@
               ]}
               onclick={(event) => onSelect(row.id, event)}
             >
+              {#if row.guides.length > 0 || row.hasChildren}
+                <span
+                  class="document-outline-guides"
+                  class:document-outline-guides-has-children={row.hasChildren}
+                  data-has-children={row.hasChildren ? "" : undefined}
+                  aria-hidden="true"
+                >
+                  {#each row.guides as guide, index (index)}
+                    <span
+                      class={`document-outline-guide document-outline-guide-${guide}`}
+                    ></span>
+                  {/each}
+                </span>
+              {/if}
               <Icon name={row.pressed ? "check" : row.icon} size={16} />
               <span class="document-outline-label">{row.label}</span>
             </button>
@@ -187,10 +200,6 @@
       padding: 0;
       min-width: 0;
       list-style: none;
-    }
-
-    li {
-      --indent-step: 0.875rem;
     }
 
     li[data-depth] {
@@ -285,13 +294,11 @@
     }
 
     .document-outline-row {
+      --indent-step: 0.875rem;
       width: 100%;
       flex: 1;
       min-height: var(--ui-control-height);
       padding: 0.375rem var(--ui-space-2);
-      padding-inline-start: calc(
-        var(--ui-space-2) + var(--depth, 0) * var(--indent-step)
-      );
       border: 0;
       border-radius: var(--ui-radius-sm);
       background: transparent;
@@ -300,6 +307,69 @@
       align-items: center;
       gap: var(--ui-space-2);
       text-align: left;
+    }
+
+    .document-outline-guides {
+      position: relative;
+      flex: none;
+      align-self: stretch;
+      display: flex;
+      margin-block: -0.375rem;
+      pointer-events: none;
+    }
+
+    .document-outline-guides-has-children::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: 100%;
+      inset-block-start: 50%;
+      inset-block-end: 0;
+      border-inline-start: 1px solid var(--ui-color-text-faint);
+    }
+
+    li[data-depth="0"] .document-outline-guides-has-children {
+      margin-inline-end: calc(-1 * var(--ui-space-2));
+    }
+
+    li[data-depth="0"] .document-outline-guides-has-children::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      width: var(--ui-space-2);
+      inset-block-start: 50%;
+      border-block-start: 1px solid var(--ui-color-text-faint);
+    }
+
+    .document-outline-guide {
+      position: relative;
+      width: var(--indent-step);
+      box-sizing: border-box;
+    }
+
+    .document-outline-guide-line {
+      border-inline-start: 1px solid var(--ui-color-text-faint);
+    }
+
+    .document-outline-guide-tee {
+      border-inline-start: 1px solid var(--ui-color-text-faint);
+    }
+
+    .document-outline-guide-tee::after,
+    .document-outline-guide-elbow::after {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      inset-inline-end: calc(-1 * var(--ui-space-2));
+      inset-block-start: 50%;
+      border-block-start: 1px solid var(--ui-color-text-faint);
+    }
+
+    .document-outline-guide-elbow::before {
+      content: "";
+      position: absolute;
+      inset-inline-start: 0;
+      inset-block: 0 50%;
+      border-inline-start: 1px solid var(--ui-color-text-faint);
     }
 
     .document-outline-row:hover,
