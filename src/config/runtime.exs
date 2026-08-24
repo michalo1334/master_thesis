@@ -6,6 +6,27 @@ if config_env() == :dev do
   RuntimeConfig.load_dotenv()
 end
 
+config :network_defense, :analysis_service,
+  url: System.get_env("ANALYSIS_SERVICE_URL"),
+  connect_timeout_ms:
+    System.get_env(
+      "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS",
+      to_string(Application.get_env(:network_defense, :analysis_service)[:connect_timeout_ms])
+    )
+    |> String.to_integer(),
+  timeout_ms:
+    System.get_env(
+      "ANALYSIS_SERVICE_TIMEOUT_MS",
+      to_string(Application.get_env(:network_defense, :analysis_service)[:timeout_ms])
+    )
+    |> String.to_integer(),
+  max_zip_bytes:
+    System.get_env(
+      "ANALYSIS_SERVICE_MAX_ZIP_BYTES",
+      to_string(Application.get_env(:network_defense, :analysis_service)[:max_zip_bytes])
+    )
+    |> String.to_integer()
+
 if (config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
      RuntimeConfig.read_secret("DATABASE_URL") do
   repo_config =

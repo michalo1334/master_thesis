@@ -394,4 +394,27 @@ describe("DashboardApi", () => {
       expect.any(Function),
     );
   });
+
+  it("requests evaluation analysis with the typed immediate reply", async () => {
+    const reply = { status: "processing" as const };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).requestEvaluationAnalysis({
+        document_id: "document-1",
+        run_id: "run-1",
+        mode: "pilot",
+      }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "request_evaluation_analysis",
+      { document_id: "document-1", run_id: "run-1", mode: "pilot" },
+      expect.any(Function),
+    );
+  });
 });

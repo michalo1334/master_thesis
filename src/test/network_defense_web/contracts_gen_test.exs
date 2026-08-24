@@ -54,6 +54,9 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface RunOptimizationRequest"
     assert output =~ "export interface OptimizationCompletedEvent"
 
+    assert output =~
+             "export interface EvaluationAnalysisErrorEvent {\n  document_id: string;\n  error: DashboardError;\n  mode: \"pilot\" | \"analyze\";"
+
     assert output =~ "export interface SimulationReportCapabilityStatus"
     assert output =~ "required_flow_count: number;"
     assert output =~ "missing_flow_count: number;"
@@ -61,6 +64,8 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "min_operational_support: number;"
     assert output =~ "capability_statuses: SimulationReportCapabilityStatus[];"
     assert output =~ "feasible: boolean;"
+    assert output =~ "content?: Record<string, unknown> | null;"
+    assert output =~ "content: Record<string, unknown>;"
   end
 
   test "discovers contracts for multiple categories" do

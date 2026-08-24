@@ -25,7 +25,13 @@ config :phoenix_vite, PhoenixVite.Npm,
 
 config :network_defense,
   ecto_repos: [NetworkDefense.Repo],
-  generators: [timestamp_type: :utc_datetime, binary_id: true]
+  generators: [timestamp_type: :utc_datetime, binary_id: true],
+  analysis_service: [
+    url: nil,
+    connect_timeout_ms: 5_000,
+    timeout_ms: 120_000,
+    max_zip_bytes: 50 * 1024 * 1024
+  ]
 
 # Configures the endpoint
 live_view_signing_salt =

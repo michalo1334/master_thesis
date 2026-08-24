@@ -46,6 +46,10 @@ import type {
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 import type { FetchRunsPayload, FetchRunsReply } from "../contracts.generated";
+import type {
+  RequestEvaluationAnalysisPayload,
+  RequestEvaluationAnalysisReply,
+} from "../contracts.generated";
 
 export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
 
@@ -109,6 +113,9 @@ export interface DashboardApi {
   saveManifest(payload: SaveManifestPayload): Promise<SaveManifestReply>;
   startEvaluation(manifestId: string): Promise<StartEvaluationReply>;
   requestEvaluationReport(documentId: string, runId: string): void;
+  requestEvaluationAnalysis(
+    payload: RequestEvaluationAnalysisPayload,
+  ): Promise<RequestEvaluationAnalysisReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -317,6 +324,12 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         document_id: documentId,
         run_id: runId,
       });
+    },
+    requestEvaluationAnalysis(payload) {
+      return requestReply<
+        RequestEvaluationAnalysisPayload,
+        RequestEvaluationAnalysisReply
+      >(live, "request_evaluation_analysis", payload);
     },
   };
 }

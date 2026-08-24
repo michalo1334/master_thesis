@@ -2,28 +2,10 @@ defmodule NetworkDefense.EvaluationProgressTest do
   use NetworkDefense.DataCase, async: false
 
   alias NetworkDefense.Evaluation
+  alias NetworkDefense.EvaluationFixtures
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.Seed
-
-  @manifest %{
-    "schema_version" => 1,
-    "model_version" => "current-model-version",
-    "id" => "progress-v1",
-    "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-    "attacker" => %{
-      "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-      "max_attempts" => 1
-    },
-    "model" => %{
-      "objective" => "mission_then_blast_radius",
-      "require_pre_attack_feasibility" => true
-    },
-    "budgets" => [1],
-    "strategies" => ["null"],
-    "selection_seeds" => [101],
-    "evaluation" => %{"trials" => 3, "seed" => 9001}
-  }
 
   setup do
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
@@ -43,7 +25,7 @@ defmodule NetworkDefense.EvaluationProgressTest do
 
     first = hd(payloads)
     assert first.completed == 0
-    assert first.total == 1 + 2 * 3
+    assert first.total == 2 + 3 * 3
     assert first.correlation_id == run.id
     assert first.graph_revision_id == run.source_graph_revision_id
 
@@ -94,7 +76,7 @@ defmodule NetworkDefense.EvaluationProgressTest do
 
     first = hd(payloads)
     assert first.completed == 0
-    assert first.total == 1 + 2 * 3
+    assert first.total == 2 + 3 * 3
 
     completed = Enum.map(payloads, & &1.completed)
     assert completed == Enum.sort(completed)
@@ -103,7 +85,7 @@ defmodule NetworkDefense.EvaluationProgressTest do
   end
 
   defp save_manifest(id) do
-    Evaluation.save(%{manifest_id: id, title: "T", content: Map.put(@manifest, "id", id)})
+    EvaluationFixtures.save_manifest(id, EvaluationFixtures.analysis_manifest())
   end
 
   defp collect_progress(run_id), do: collect_progress(run_id, [])

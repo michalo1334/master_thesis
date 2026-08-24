@@ -30,7 +30,7 @@ The manifest has these required fields:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "model_version": "current-model-version",
   "id": "fixed-enterprise-v1",
   "source": {
@@ -47,9 +47,8 @@ The manifest has these required fields:
     "objective": "mission_then_blast_radius",
     "require_pre_attack_feasibility": true
   },
-  "budgets": [1, 2, 3],
-  "strategies": ["null", "random", "cvss", "topology_segmentation", "simulation_informed", "simulated_annealing"],
-  "selection_seeds": [101, 102],
+  "strategy_runs": [{ "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
+  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "baseline": "null", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }
 ```

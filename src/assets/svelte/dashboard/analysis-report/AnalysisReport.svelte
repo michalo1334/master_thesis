@@ -1,12 +1,25 @@
 <script lang="ts">
+  import { Tabs } from "bits-ui";
   import type { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
+  import type { DashboardApi } from "../dashboard-api";
   import ReportProgress from "../ReportProgress.svelte";
 
   interface Props {
     document: AnalysisReportDocument;
+    api?: DashboardApi;
   }
 
-  let { document }: Props = $props();
+  let { document, api }: Props = $props();
+  let activeTab = $state("report");
+
+  const formatNumber = (value: number | null | undefined): string =>
+    value == null || !Number.isFinite(value) ? "—" : value.toFixed(3);
+  const formatValue = (value: unknown): string =>
+    value == null
+      ? "—"
+      : typeof value === "number"
+        ? formatNumber(value)
+        : String(value);
 
   let statusLabel = $derived.by(() => {
     switch (document.reportData?.status ?? document.status) {
@@ -69,177 +82,473 @@
       <p>{document.errorReason || "Failed to load the analysis report."}</p>
     </section>
   {:else if document.status === "loaded" && document.reportData}
-    <section class="analysis-report-section" aria-labelledby="summary-title">
-      <h2 id="summary-title">Summary</h2>
-      <dl class="analysis-report-summary">
-        <div>
-          <dt>Status</dt>
-          <dd>{statusLabel}</dd>
-        </div>
-        <div>
-          <dt>Manifest</dt>
-          <dd>{document.reportData.manifest_title}</dd>
-        </div>
-        <div>
-          <dt>Source graph</dt>
-          <dd>
-            {#if document.openSourceGraph}
-              <button
-                type="button"
-                class="analysis-report-link"
-                onclick={() => void document.openSourceGraph?.()}
-                title={document.reportData.source_graph_revision_id}
-              >
-                {document.reportData.source_graph_title}
-              </button>
-            {:else}
-              {document.reportData.source_graph_title}
-            {/if}
-          </dd>
-        </div>
-        {#if document.reportData.failure_reason}
-          <div>
-            <dt>Failure reason</dt>
-            <dd>{document.reportData.failure_reason}</dd>
-          </div>
-        {/if}
-      </dl>
-    </section>
-
-    <section class="analysis-report-section" aria-labelledby="plans-title">
-      <h2 id="plans-title">Plans</h2>
-      <div class="analysis-report-table-wrap">
-        <table class="analysis-report-table">
-          <thead>
-            <tr>
-              <th scope="col">Strategy</th>
-              <th scope="col">Budget</th>
-              <th scope="col">Selection seed</th>
-              <th scope="col">Used budget</th>
-              <th scope="col">Actions</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each document.reportData.plans as plan (plan.id)}
-              <tr>
-                <th scope="row">
-                  {#if document.openOptimization && canOpenPlan(plan)}
-                    <button
-                      type="button"
-                      class="analysis-report-link"
-                      onclick={() => document.openOptimization?.(plan)}
-                      title={plan.id}
-                    >
-                      {plan.strategy}
-                    </button>
-                  {:else}
-                    <span
-                      title={canOpenPlan(plan)
-                        ? plan.id
-                        : "Report not ready yet"}>{plan.strategy}</span
-                    >
-                  {/if}
-                </th>
-                <td>{plan.requested_budget}</td>
-                <td>{plan.selection_seed}</td>
-                <td>{plan.used_budget}</td>
-                <td>{plan.action_count}</td>
-                <td>{plan.status}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section
-      class="analysis-report-section"
-      aria-labelledby="experiments-title"
+    <Tabs.Root
+      class="analysis-report-tabs"
+      orientation="vertical"
+      value={activeTab}
+      onValueChange={(value) => (activeTab = value)}
     >
-      <h2 id="experiments-title">Aggregate results</h2>
-      <div class="analysis-report-table-wrap">
-        <table class="analysis-report-table">
-          <thead>
-            <tr>
-              <th scope="col">Experiment</th>
-              <th scope="col">Plan</th>
-              <th scope="col">Trials</th>
-              <th scope="col">Expected blast radius</th>
-              <th scope="col">Median</th>
-              <th scope="col">P95</th>
-              <th scope="col">P99</th>
-              <th scope="col">Min</th>
-              <th scope="col">Max</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each document.reportData.experiments as experiment (experiment.id)}
-              <tr>
-                <th scope="row">
-                  {#if document.openExperiment && canOpenExperiment(experiment)}
-                    <button
-                      type="button"
-                      class="analysis-report-link"
-                      onclick={() => document.openExperiment?.(experiment)}
-                      title={experiment.id}
-                    >
-                      {experiment.id.slice(0, 8)}
-                    </button>
-                  {:else}
-                    <span title={experiment.id}
-                      >{experiment.id.slice(0, 8)}</span
-                    >
-                  {/if}
-                </th>
-                <td>
-                  {#if experiment.optimization_run_id}
-                    {@const linkedPlan = document.reportData.plans.find(
-                      (p) => p.id === experiment.optimization_run_id,
-                    )}
-                    {#if linkedPlan && document.openOptimization && canOpenPlan(linkedPlan)}
-                      <button
-                        type="button"
-                        class="analysis-report-link"
-                        onclick={() => document.openOptimization?.(linkedPlan)}
-                        title={experiment.optimization_run_id}
-                      >
-                        {experiment.optimization_run_id.slice(0, 8)}
-                      </button>
-                    {:else if !linkedPlan && document.openOptimization && document.reportData.status !== "running"}
-                      <button
-                        type="button"
-                        class="analysis-report-link"
-                        onclick={() =>
-                          document.openOptimization?.({
-                            id: experiment.optimization_run_id!,
-                          })}
-                        title={experiment.optimization_run_id}
-                      >
-                        {experiment.optimization_run_id.slice(0, 8)}
-                      </button>
-                    {:else}
-                      <span title={experiment.optimization_run_id}
-                        >{experiment.optimization_run_id.slice(0, 8)}</span
-                      >
-                    {/if}
-                  {:else}
-                    baseline
-                  {/if}
-                </td>
-                <td>{experiment.trial_count}</td>
-                <td>{experiment.expected_blast_radius.toFixed(2)}</td>
-                <td>{experiment.median_blast_radius}</td>
-                <td>{experiment.blast_radius_p95}</td>
-                <td>{experiment.blast_radius_p99}</td>
-                <td>{experiment.min_blast_radius}</td>
-                <td>{experiment.max_blast_radius}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <Tabs.List class="analysis-report-tab-list" aria-label="Report views">
+        <Tabs.Trigger class="analysis-report-tab" value="report"
+          >Report</Tabs.Trigger
+        >
+        <Tabs.Trigger class="analysis-report-tab" value="statistical-analysis"
+          >Statistical analysis</Tabs.Trigger
+        >
+      </Tabs.List>
+      <Tabs.Content class="analysis-report-tab-panel" value="report">
+        <section
+          class="analysis-report-section"
+          aria-labelledby="summary-title"
+        >
+          <h2 id="summary-title">Summary</h2>
+          <dl class="analysis-report-summary">
+            <div>
+              <dt>Status</dt>
+              <dd>{statusLabel}</dd>
+            </div>
+            <div>
+              <dt>Manifest</dt>
+              <dd>{document.reportData.manifest_title}</dd>
+            </div>
+            <div>
+              <dt>Source graph</dt>
+              <dd>
+                {#if document.openSourceGraph}
+                  <button
+                    type="button"
+                    class="analysis-report-link"
+                    onclick={() => void document.openSourceGraph?.()}
+                    title={document.reportData.source_graph_revision_id}
+                  >
+                    {document.reportData.source_graph_title}
+                  </button>
+                {:else}
+                  {document.reportData.source_graph_title}
+                {/if}
+              </dd>
+            </div>
+            {#if document.reportData.failure_reason}
+              <div>
+                <dt>Failure reason</dt>
+                <dd>{document.reportData.failure_reason}</dd>
+              </div>
+            {/if}
+          </dl>
+        </section>
+
+        <section class="analysis-report-section" aria-labelledby="plans-title">
+          <h2 id="plans-title">Plans</h2>
+          <div class="analysis-report-table-wrap">
+            <table class="analysis-report-table">
+              <thead>
+                <tr>
+                  <th scope="col">Strategy</th>
+                  <th scope="col">Budget</th>
+                  <th scope="col">Selection seed</th>
+                  <th scope="col">Used budget</th>
+                  <th scope="col">Actions</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each document.reportData.plans as plan (plan.id)}
+                  <tr>
+                    <th scope="row">
+                      {#if document.openOptimization && canOpenPlan(plan)}
+                        <button
+                          type="button"
+                          class="analysis-report-link"
+                          onclick={() => document.openOptimization?.(plan)}
+                          title={plan.id}
+                        >
+                          {plan.strategy}
+                        </button>
+                      {:else}
+                        <span
+                          title={canOpenPlan(plan)
+                            ? plan.id
+                            : "Report not ready yet"}>{plan.strategy}</span
+                        >
+                      {/if}
+                    </th>
+                    <td>{plan.requested_budget}</td>
+                    <td>{plan.selection_seed}</td>
+                    <td>{plan.used_budget}</td>
+                    <td>{plan.action_count}</td>
+                    <td>{plan.status}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section
+          class="analysis-report-section"
+          aria-labelledby="experiments-title"
+        >
+          <h2 id="experiments-title">Aggregate results</h2>
+          <div class="analysis-report-table-wrap">
+            <table class="analysis-report-table">
+              <thead>
+                <tr>
+                  <th scope="col">Experiment</th>
+                  <th scope="col">Plan</th>
+                  <th scope="col">Trials</th>
+                  <th scope="col">Expected blast radius</th>
+                  <th scope="col">Median</th>
+                  <th scope="col">P95</th>
+                  <th scope="col">P99</th>
+                  <th scope="col">Min</th>
+                  <th scope="col">Max</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each document.reportData.experiments as experiment (experiment.id)}
+                  <tr>
+                    <th scope="row">
+                      {#if document.openExperiment && canOpenExperiment(experiment)}
+                        <button
+                          type="button"
+                          class="analysis-report-link"
+                          onclick={() => document.openExperiment?.(experiment)}
+                          title={experiment.id}
+                        >
+                          {experiment.id.slice(0, 8)}
+                        </button>
+                      {:else}
+                        <span title={experiment.id}
+                          >{experiment.id.slice(0, 8)}</span
+                        >
+                      {/if}
+                    </th>
+                    <td>
+                      {#if experiment.optimization_run_id}
+                        {@const linkedPlan = document.reportData.plans.find(
+                          (p) => p.id === experiment.optimization_run_id,
+                        )}
+                        {#if linkedPlan && document.openOptimization && canOpenPlan(linkedPlan)}
+                          <button
+                            type="button"
+                            class="analysis-report-link"
+                            onclick={() =>
+                              document.openOptimization?.(linkedPlan)}
+                            title={experiment.optimization_run_id}
+                          >
+                            {experiment.optimization_run_id.slice(0, 8)}
+                          </button>
+                        {:else if !linkedPlan && document.openOptimization && document.reportData.status !== "running"}
+                          <button
+                            type="button"
+                            class="analysis-report-link"
+                            onclick={() =>
+                              document.openOptimization?.({
+                                id: experiment.optimization_run_id!,
+                              })}
+                            title={experiment.optimization_run_id}
+                          >
+                            {experiment.optimization_run_id.slice(0, 8)}
+                          </button>
+                        {:else}
+                          <span title={experiment.optimization_run_id}
+                            >{experiment.optimization_run_id.slice(0, 8)}</span
+                          >
+                        {/if}
+                      {:else}
+                        baseline
+                      {/if}
+                    </td>
+                    <td>{experiment.trial_count}</td>
+                    <td>{experiment.expected_blast_radius.toFixed(2)}</td>
+                    <td>{experiment.median_blast_radius}</td>
+                    <td>{experiment.blast_radius_p95}</td>
+                    <td>{experiment.blast_radius_p99}</td>
+                    <td>{experiment.min_blast_radius}</td>
+                    <td>{experiment.max_blast_radius}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </Tabs.Content>
+      <Tabs.Content
+        class="analysis-report-tab-panel"
+        value="statistical-analysis"
+      >
+        <section
+          class="analysis-report-section"
+          aria-labelledby="statistical-analysis-title"
+        >
+          <h2 id="statistical-analysis-title">Statistical analysis</h2>
+          <p class="analysis-report-note">
+            Pilot analysis is planning-only. Final results use tested strategy
+            minus baseline; intervals show simulator uncertainty only.
+          </p>
+          <div class="analysis-report-actions">
+            <button
+              type="button"
+              class="analysis-report-button"
+              disabled={api == null ||
+                document.pilotAnalysis.status === "loading"}
+              onclick={() =>
+                api && void document.startAnalysis(api, document.id, "pilot")}
+            >
+              {document.pilotAnalysis.status === "loading"
+                ? "Running pilot…"
+                : "Run pilot"}
+            </button>
+            <button
+              type="button"
+              class="analysis-report-button"
+              disabled={api == null ||
+                document.finalAnalysis.status === "loading"}
+              onclick={() =>
+                api && void document.startAnalysis(api, document.id, "analyze")}
+            >
+              {document.finalAnalysis.status === "loading"
+                ? "Running final analysis…"
+                : "Run final analysis"}
+            </button>
+          </div>
+          {#if document.pilotAnalysis.error}<p
+              class="analysis-report-analysis-error"
+              aria-live="assertive"
+            >
+              {document.pilotAnalysis.error}
+            </p>{/if}
+          {#if document.finalAnalysis.error}<p
+              class="analysis-report-analysis-error"
+              aria-live="assertive"
+            >
+              {document.finalAnalysis.error}
+            </p>{/if}
+          {#if document.pilotAnalysis.data}
+            <h3>Pilot planning results</h3>
+            <div class="analysis-report-table-wrap">
+              <table class="analysis-report-table">
+                <thead
+                  ><tr
+                    ><th scope="col">Comparison</th><th scope="col"
+                      >Half-width</th
+                    ><th scope="col">Target</th><th scope="col">Pass/fail</th
+                    ><th scope="col">Paired seeds</th><th scope="col"
+                      >Estimated required trials</th
+                    ></tr
+                  ></thead
+                ><tbody>
+                  {#each document.pilotAnalysis.data.pilot_comparison_pass as row (row.comparison)}<tr
+                      ><td>{formatNumber(row.comparison)}</td><td
+                        >{formatNumber(row.ci_half_width)}</td
+                      ><td>{formatNumber(row.target)}</td><td
+                        >{row.passes == null
+                          ? "—"
+                          : row.passes
+                            ? "Pass"
+                            : "Fail"}</td
+                      ><td>{formatValue(row.paired_attack_seed_count)}</td><td
+                        >{formatValue(row.approximate_trials)}</td
+                      ></tr
+                    >{/each}
+                </tbody>
+              </table>
+            </div>
+          {/if}
+          {#if document.finalAnalysis.data}
+            {@const analysis = document.finalAnalysis.data}
+            <h3>Final analysis</h3>
+            <dl class="analysis-report-summary">
+              <div>
+                <dt>Mode</dt>
+                <dd>{analysis.metadata.command_mode}</dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd>{analysis.metadata.model_version}</dd>
+              </div>
+              <div>
+                <dt>Input trials</dt>
+                <dd>{formatValue(analysis.metadata.input_trial_count)}</dd>
+              </div>
+              <div>
+                <dt>Runtime (s)</dt>
+                <dd>
+                  {formatNumber(analysis.metadata.analysis_runtime_seconds)}
+                </dd>
+              </div>
+              <div>
+                <dt>Simulator uncertainty</dt>
+                <dd>
+                  {analysis.metadata.simulator_only_uncertainty == null
+                    ? "—"
+                    : analysis.metadata.simulator_only_uncertainty
+                      ? "Yes"
+                      : "No"}
+                </dd>
+              </div>
+              <div>
+                <dt>Manifest ID</dt>
+                <dd>{analysis.metadata.manifest_id}</dd>
+              </div>
+              <div>
+                <dt>Schema version</dt>
+                <dd>{analysis.metadata.schema_version}</dd>
+              </div>
+              <div>
+                <dt>Package version</dt>
+                <dd>{formatValue(analysis.metadata.package_version)}</dd>
+              </div>
+              <div>
+                <dt>Declared plan trials</dt>
+                <dd>
+                  {formatValue(analysis.metadata.declared_plan_trial_count)}
+                </dd>
+              </div>
+              <div>
+                <dt>Pilot all pass</dt>
+                <dd>
+                  {analysis.metadata.pilot_all_pass == null
+                    ? "—"
+                    : analysis.metadata.pilot_all_pass
+                      ? "Yes"
+                      : "No"}
+                </dd>
+              </div>
+              <div>
+                <dt>Checksums hash</dt>
+                <dd>{formatValue(analysis.metadata.checksums_hash)}</dd>
+              </div>
+              <div>
+                <dt>Estimand</dt>
+                <dd>{formatValue(analysis.metadata.estimand_note)}</dd>
+              </div>
+              <div>
+                <dt>Input hashes</dt>
+                <dd>
+                  {formatValue(
+                    analysis.metadata.input_hashes
+                      ? JSON.stringify(analysis.metadata.input_hashes)
+                      : null,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Configuration</dt>
+                <dd>
+                  {formatValue(
+                    analysis.metadata.analysis_configuration
+                      ? JSON.stringify(analysis.metadata.analysis_configuration)
+                      : null,
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt>Dependencies</dt>
+                <dd>
+                  {formatValue(
+                    analysis.metadata.dependencies
+                      ? JSON.stringify(analysis.metadata.dependencies)
+                      : null,
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <h3>Primary results</h3>
+            <div class="analysis-report-table-wrap">
+              <table class="analysis-report-table">
+                <thead
+                  ><tr
+                    ><th scope="col">Strategy</th><th scope="col">Baseline</th
+                    ><th scope="col">Budget</th><th scope="col">Comparison</th
+                    ><th scope="col">CI half-width</th><th scope="col"
+                      >CI lower</th
+                    ><th scope="col">CI upper</th><th scope="col">Outcome</th
+                    ><th scope="col">Paired mean difference</th><th scope="col"
+                      >d_z</th
+                    ><th scope="col">p raw</th><th scope="col">p adjusted</th
+                    ></tr
+                  ></thead
+                ><tbody
+                  >{#each analysis.primary_results as row (row.comparison)}<tr
+                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
+                        >{row.budget}</td
+                      ><td>{formatNumber(row.comparison)}</td><td
+                        >{formatNumber(row.ci_half_width)}</td
+                      ><td>{formatNumber(row.ci_lower)}</td><td
+                        >{formatNumber(row.ci_upper)}</td
+                      ><td>{row.outcome}</td><td
+                        >{formatNumber(row.paired_mean_difference)}</td
+                      ><td>{formatNumber(row.d_z)}</td><td
+                        >{formatNumber(row.p_raw)}</td
+                      ><td>{formatNumber(row.p_adjusted)}</td></tr
+                    >{/each}</tbody
+                >
+              </table>
+            </div>
+            <h3>Secondary results</h3>
+            <div class="analysis-report-table-wrap">
+              <table class="analysis-report-table">
+                <thead
+                  ><tr
+                    ><th scope="col">Strategy</th><th scope="col">Baseline</th
+                    ><th scope="col">Budget</th><th scope="col">Comparison</th
+                    ><th scope="col">CI half-width</th><th scope="col"
+                      >CI lower</th
+                    ><th scope="col">CI upper</th><th scope="col">Outcome</th
+                    ><th scope="col">Mean difference</th></tr
+                  ></thead
+                ><tbody
+                  >{#each analysis.secondary_results as row (row.comparison)}<tr
+                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
+                        >{row.budget}</td
+                      ><td>{formatNumber(row.comparison)}</td><td
+                        >{formatNumber(row.ci_half_width)}</td
+                      ><td>{formatNumber(row.ci_lower)}</td><td
+                        >{formatNumber(row.ci_upper)}</td
+                      ><td>{row.outcome}</td><td
+                        >{formatNumber(row.mean_difference)}</td
+                      ></tr
+                    >{/each}</tbody
+                >
+              </table>
+            </div>
+            <h3>Capability results</h3>
+            <div class="analysis-report-table-wrap">
+              <table class="analysis-report-table">
+                <thead
+                  ><tr
+                    ><th scope="col">Capability</th><th scope="col">Strategy</th
+                    ><th scope="col">Baseline</th><th scope="col">Budget</th><th
+                      scope="col">Comparison</th
+                    ><th scope="col">Baseline probability</th><th scope="col"
+                      >Tested probability</th
+                    ><th scope="col">Difference</th><th scope="col"
+                      >CI half-width</th
+                    ><th scope="col">CI lower</th><th scope="col">CI upper</th
+                    ></tr
+                  ></thead
+                ><tbody
+                  >{#each analysis.capability_results as row (`${row.comparison}:${row.capability_id}`)}<tr
+                      ><td>{row.capability_id}</td><td>{row.strategy}</td><td
+                        >{row.baseline}</td
+                      ><td>{row.budget}</td><td
+                        >{formatNumber(row.comparison)}</td
+                      ><td>{formatNumber(row.baseline_probability)}</td><td
+                        >{formatNumber(row.tested_probability)}</td
+                      ><td>{formatNumber(row.probability_difference)}</td><td
+                        >{formatNumber(row.ci_half_width)}</td
+                      ><td>{formatNumber(row.ci_lower)}</td><td
+                        >{formatNumber(row.ci_upper)}</td
+                      ></tr
+                    >{/each}</tbody
+                >
+              </table>
+            </div>
+          {/if}
+        </section>
+      </Tabs.Content>
+    </Tabs.Root>
   {/if}
 </article>
 
@@ -300,6 +609,63 @@
   .analysis-report-section {
     max-width: 70rem;
     margin-top: var(--ui-space-7);
+  }
+
+  :global(.analysis-report-tabs) {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ui-space-6);
+  }
+
+  :global(.analysis-report-tab-list) {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 12rem;
+    gap: var(--ui-space-1);
+  }
+
+  :global(.analysis-report-tab),
+  .analysis-report-button {
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  :global(.analysis-report-tab[data-state="active"]) {
+    border-color: var(--ui-color-accent);
+    color: var(--ui-color-accent);
+  }
+
+  :global(.analysis-report-tab-panel) {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .analysis-report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ui-space-2);
+    margin: var(--ui-space-3) 0;
+  }
+  .analysis-report-button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+  .analysis-report-note,
+  .analysis-report-analysis-error {
+    margin: var(--ui-space-2) 0;
+    color: var(--ui-color-text-secondary);
+  }
+  .analysis-report-analysis-error {
+    color: var(--ui-color-danger, var(--ui-color-accent));
+  }
+  h3 {
+    margin: var(--ui-space-6) 0 var(--ui-space-3);
+    font-size: var(--ui-text-base);
   }
 
   .analysis-report-summary {
@@ -380,6 +746,14 @@
   @media (max-width: 48em) {
     .analysis-report {
       padding: var(--ui-space-4);
+    }
+    :global(.analysis-report-tabs) {
+      flex-direction: column;
+      gap: var(--ui-space-4);
+    }
+    :global(.analysis-report-tab-list) {
+      flex-basis: auto;
+      width: 100%;
     }
   }
 </style>

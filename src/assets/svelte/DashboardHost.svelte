@@ -28,6 +28,10 @@
     EvaluationReportReadyEvent,
     EvaluationReportErrorEvent,
   } from "./dashboard/contract";
+  import type {
+    EvaluationAnalysisReadyEvent,
+    EvaluationAnalysisErrorEvent,
+  } from "./contracts.generated";
 
   interface Props {
     live: Live;
@@ -149,6 +153,14 @@
       reportKind: "evaluation",
       payload: payload as EvaluationReportErrorEvent,
     });
+  });
+
+  useLiveEvent("evaluation_analysis_ready", (payload: unknown) => {
+    model.onEvaluationAnalysisReady(payload as EvaluationAnalysisReadyEvent);
+  });
+
+  useLiveEvent("evaluation_analysis_error", (payload: unknown) => {
+    model.onEvaluationAnalysisError(payload as EvaluationAnalysisErrorEvent);
   });
 </script>
 

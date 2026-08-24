@@ -3,35 +3,15 @@ defmodule NetworkDefense.EvaluationReportTest do
 
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.EvaluationReport
+  alias NetworkDefense.EvaluationFixtures
 
-  @eval_manifest %{
-    "schema_version" => 1,
-    "model_version" => "current-model-version",
-    "id" => "eval-report-v1",
-    "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-    "attacker" => %{
-      "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-      "max_attempts" => 1
-    },
-    "model" => %{
-      "objective" => "mission_then_blast_radius",
-      "require_pre_attack_feasibility" => true
-    },
-    "budgets" => [1],
-    "strategies" => ["null"],
-    "selection_seeds" => [101],
-    "evaluation" => %{"trials" => 3, "seed" => 9001}
-  }
+  @eval_manifest EvaluationFixtures.analysis_manifest()
 
   defp run_completed_evaluation do
     manifest_id = "eval-report-#{System.unique_integer([:positive])}"
 
     assert {:ok, _manifest} =
-             Evaluation.save(%{
-               manifest_id: manifest_id,
-               title: "Report manifest",
-               content: Map.put(@eval_manifest, "id", manifest_id)
-             })
+             EvaluationFixtures.save_manifest(manifest_id, @eval_manifest, "Report manifest")
 
     assert {:ok, run} = Evaluation.start(manifest_id)
     assert {:ok, completed} = Evaluation.run(run.id)
@@ -50,18 +30,27 @@ defmodule NetworkDefense.EvaluationReportTest do
     assert report.source_graph_revision_id == run.source_graph_revision_id
     assert is_binary(report.source_graph_title)
 
-    assert [plan] = report.plans
-    assert plan.strategy == "null"
-    assert plan.requested_budget == 1
-    assert plan.selection_seed == 101
-    assert plan.status == "completed"
-    assert is_integer(plan.action_count)
+    assert [cvss_plan, simulation_plan] = report.plans
+    assert cvss_plan.strategy == "cvss"
+    assert cvss_plan.requested_budget == 1
+    assert cvss_plan.selection_seed == 101
+    assert cvss_plan.status == "completed"
+    assert is_integer(cvss_plan.action_count)
+    assert simulation_plan.strategy == "simulation_informed"
+    assert simulation_plan.selection_seed == 201
 
-    assert [baseline, post_defense] = report.experiments
+    assert [baseline, cvss_experiment, simulation_experiment] = report.experiments
     assert baseline.optimization_run_id == nil
-    assert post_defense.optimization_run_id == plan.id
+
+    assert Enum.sort([
+             cvss_experiment.optimization_run_id,
+             simulation_experiment.optimization_run_id
+           ]) ==
+             Enum.sort([cvss_plan.id, simulation_plan.id])
+
     assert baseline.trial_count == 3
-    assert post_defense.trial_count == 3
+    assert cvss_experiment.trial_count == 3
+    assert simulation_experiment.trial_count == 3
     assert is_float(baseline.expected_blast_radius)
     assert is_integer(baseline.median_blast_radius)
   end
@@ -82,19 +71,19 @@ defmodule NetworkDefense.EvaluationReportTest do
     assert Enum.any?(steps, fn {graph_id, graph_revision_id, c, t, d} ->
              graph_id == report.graph_id and
                graph_revision_id == report.source_graph_revision_id and
-               {c, t, d} == {1, 4, "Loading source graph"}
+               {c, t, d} == {1, 5, "Loading source graph"}
            end)
 
     assert Enum.any?(steps, fn {_, _, c, t, d} ->
-             {c, t, d} == {2, 4, "Summarizing plans"}
+             {c, t, d} == {2, 5, "Summarizing plans"}
            end)
 
     assert Enum.any?(steps, fn {_, _, c, t, d} ->
-             {c, t, d} == {3, 4, "Aggregating experiment 1 of 2"}
+             {c, t, d} == {3, 5, "Aggregating experiment 1 of 3"}
            end)
 
     assert Enum.any?(steps, fn {_, _, c, t, d} ->
-             {c, t, d} == {4, 4, "Aggregating experiment 2 of 2"}
+             {c, t, d} == {4, 5, "Aggregating experiment 2 of 3"}
            end)
   end
 
@@ -120,11 +109,7 @@ defmodule NetworkDefense.EvaluationReportTest do
     manifest_id = "eval-report-#{System.unique_integer([:positive])}"
 
     assert {:ok, _manifest} =
-             Evaluation.save(%{
-               manifest_id: manifest_id,
-               title: "Report manifest",
-               content: Map.put(@eval_manifest, "id", manifest_id)
-             })
+             EvaluationFixtures.save_manifest(manifest_id, @eval_manifest, "Report manifest")
 
     assert {:ok, run} = Evaluation.start(manifest_id)
     assert {:ok, failed} = NetworkDefense.Evaluation.EvaluationRuns.fail(run, "boom")

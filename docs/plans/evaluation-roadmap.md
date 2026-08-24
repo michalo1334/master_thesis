@@ -65,18 +65,10 @@ module or use named child-seed indexes. Do not use process-global random state.
 The manifest must record the derivation scheme so a later implementation cannot
 silently change matched trial pairs.
 
-The manifest runner must also make graph identity reproducible. The topology
-generator currently gives graph objects fresh UUIDs even when its seed is the
-same. Before the runner hashes or exports a graph, choose one rule:
-
-1. derive stable graph, node, and edge IDs from the manifest ID and semantic
-   keys; or
-2. persist the generated graph contract as the canonical input and make later
-   runs load that contract instead of generating a new graph.
-
-The first rule gives a cleaner manifest-only workflow. The second rule is a
-smaller initial change. Do not compare plans by generated UUIDs across separate
-graph-generation calls.
+TODO: Define canonical graph identity and reuse. Fresh topology manifest
+executions currently persist fresh graph revisions. They can therefore have
+different graph, node, and edge IDs and different archive hashes, even with the
+same topology seed. Do not imply that graph identity reuse is implemented.
 
 ### Required Tests
 
@@ -86,7 +78,7 @@ corresponding scientific control breaks.
 | Test | Required assertion |
 | --- | --- |
 | Manifest validation | Invalid strategy, budget, model mode, or entry host fails before work starts. |
-| Input reproducibility | The same manifest produces the same graph contract or loads the same saved graph contract, and produces the same seed schedule. |
+| Input reproducibility | The same manifest produces the same seed schedule. Graph identity reuse remains a deferred TODO. |
 | Paired evaluation | Every plan at one budget uses the identical ordered attack-seed list. |
 | Separation of random streams | Changing a selection seed does not change the attack-evaluation seeds. |
 | Export completeness | Every persisted terminal trial has exactly one raw record. |
@@ -164,9 +156,8 @@ Example manifest shape:
   },
   "topology": { "generator": "enterprise", "hosts": 50, "seed": 42 },
   "attacker": { "entry_host": "internet", "max_attempts": 1 },
-  "budgets": [1, 2, 3],
-  "strategies": ["null", "random", "cvss", "topology_segmentation", "simulation_informed", "simulated_annealing"],
-  "selection_seeds": [101, 102],
+  "strategy_runs": [{ "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
+  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "baseline": "null", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }
 ```
@@ -216,8 +207,28 @@ row.
 
 ## Phase 2: Statistical Analysis
 
-The analysis reads exported files only. It must not query the application
-database or make network requests.
+The analysis reads the Phase 1 ZIP files only: `manifest.resolved.json`,
+`graph.json`, `plans.jsonl`, `trials.csv`, `capability_outcomes.csv`,
+`summary.csv`, and `checksums.txt`. The core does not query the application
+database or make network requests. CLI and HTTP adapters transport the ZIP.
+
+The Python CLI accepts a directory, a ZIP path, or binary ZIP stdin. It writes a
+directory or binary ZIP stdout. The dedicated Docker image starts the HTTP
+service by default. `POST /v1/analyze` and `POST /v1/pilot` accept and return
+raw ZIP data. `GET /healthz` checks service health. The image command can be
+overridden to run the CLI.
+
+Phoenix communicates with the service through Req. Use
+`mix evaluate.analyze --run-id ID --mode pilot|analyze --output PATH`. Docker
+DNS provides the internal service URL. Host commands use a configurable
+loopback port.
+
+The service has no authentication. TODO: add authentication before exposure to
+non-local or untrusted networks. Until then, use it only on trusted local or
+private networks. There is no protobuf or gRPC interface.
+
+Phase 2 does not provide automatic analysis, Dashboard integration, an Oban
+analysis job, or artifact persistence.
 
 Use one pinned Python environment with SciPy and Matplotlib. This avoids
 reimplementing statistical tests and plotting code in the application.

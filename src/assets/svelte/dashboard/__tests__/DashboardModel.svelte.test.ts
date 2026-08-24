@@ -53,6 +53,7 @@ function api(): DashboardApi & {
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
     requestEvaluationReport: vi.fn(),
+    requestEvaluationAnalysis: vi.fn(),
   } as DashboardApi & {
     requestSimulationReport: ReturnType<typeof vi.fn>;
     requestOptimizationReport: ReturnType<typeof vi.fn>;

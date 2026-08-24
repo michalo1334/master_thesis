@@ -15,6 +15,15 @@ resource "docker_volume" "application_logs" {
   name = "${local.name_prefix}-logs"
 }
 
+module "analysis" {
+  source = "../../modules/local/analysis"
+
+  analysis_port        = var.analysis_port
+  analysis_source_path = abspath("${path.module}/../../../evaluation/analysis")
+  name_prefix          = local.name_prefix
+  network_name         = docker_network.stack.name
+}
+
 module "app" {
   source = "../../modules/local/app"
 
@@ -26,7 +35,7 @@ module "app" {
   network_name      = docker_network.stack.name
   secret_mount_path = local.secret_mount_path
 
-  depends_on = [module.database]
+  depends_on = [module.analysis, module.database]
 }
 
 module "database" {

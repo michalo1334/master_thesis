@@ -1,4 +1,10 @@
 import type { EvaluationReport } from "../contract";
+import type {
+  EvaluationAnalysis,
+  EvaluationAnalysisErrorEvent,
+  EvaluationAnalysisReadyEvent,
+  RequestEvaluationAnalysisPayload,
+} from "../../contracts.generated";
 import type { DashboardApi } from "../dashboard-api";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";
@@ -18,6 +24,16 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
   readonly manifestTitle: string;
   graphId = $state("");
   graphRevisionId = $state("");
+  pilotAnalysis = $state<AnalysisSession>({
+    status: "idle",
+    data: null,
+    error: "",
+  });
+  finalAnalysis = $state<AnalysisSession>({
+    status: "idle",
+    data: null,
+    error: "",
+  });
 
   reportData = $state<EvaluationReport | null>(null);
   openExperiment = $state<
@@ -92,6 +108,7 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     this.reportData = null;
     this.errorReason = "";
     this.progress = null;
+    this.resetAnalysis();
   }
 
   markReady(): void {
@@ -99,6 +116,7 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     this.reportData = null;
     this.errorReason = "";
     this.progress = null;
+    this.resetAnalysis();
   }
 
   setReportData(data: EvaluationReport): void {
@@ -121,7 +139,74 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     this.errorReason = "";
     api.requestEvaluationReport(documentId, runId);
   }
+
+  async startAnalysis(
+    api: DashboardApi,
+    documentId: string,
+    mode: RequestEvaluationAnalysisPayload["mode"],
+  ): Promise<void> {
+    const session = this.session(mode);
+    if (session.status === "loading") return;
+    session.status = "loading";
+    session.data = null;
+    session.error = "";
+    const reply = await api.requestEvaluationAnalysis({
+      document_id: documentId,
+      run_id: this.runId,
+      mode,
+    });
+    if (reply.status !== "processing") {
+      session.status = "error";
+      session.error = `Unable to start ${mode === "pilot" ? "pilot" : "final"} analysis (${reply.status}).`;
+    }
+  }
+
+  setAnalysisReady(event: EvaluationAnalysisReadyEvent): void {
+    if (!this.matchesAnalysisEvent(event)) return;
+    const session = this.session(event.mode);
+    session.status = "loaded";
+    session.data = event.analysis;
+    session.error = "";
+  }
+
+  setAnalysisError(event: EvaluationAnalysisErrorEvent): void {
+    if (!this.matchesAnalysisEvent(event)) return;
+    if (event.mode !== "pilot" && event.mode !== "analyze") return;
+    const session = this.session(event.mode);
+    session.status = "error";
+    session.data = null;
+    session.error = `Analysis failed (${event.error.code}).`;
+  }
+
+  private matchesAnalysisEvent(event: {
+    document_id: string;
+    run_id: string;
+    mode: string;
+  }): boolean {
+    return (
+      event.document_id === this.id &&
+      event.run_id === this.runId &&
+      (event.mode === "pilot" || event.mode === "analyze")
+    );
+  }
+
+  private session(
+    mode: RequestEvaluationAnalysisPayload["mode"],
+  ): AnalysisSession {
+    return mode === "pilot" ? this.pilotAnalysis : this.finalAnalysis;
+  }
+
+  private resetAnalysis(): void {
+    this.pilotAnalysis = { status: "idle", data: null, error: "" };
+    this.finalAnalysis = { status: "idle", data: null, error: "" };
+  }
 }
+
+export type AnalysisSession = {
+  status: "idle" | "loading" | "loaded" | "error";
+  data: EvaluationAnalysis | null;
+  error: string;
+};
 
 type PersistedAnalysisReport = PersistedWorkspaceDocument & {
   ids: { runId: string; manifestId: string };

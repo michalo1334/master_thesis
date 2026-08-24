@@ -3,36 +3,16 @@ defmodule NetworkDefense.OutputContractTest do
 
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.OutputContract
+  alias NetworkDefense.EvaluationFixtures
   alias NetworkDefense.Graph.Graphs
 
-  @eval_manifest %{
-    "schema_version" => 1,
-    "model_version" => "current-model-version",
-    "id" => "output-contract-v1",
-    "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-    "attacker" => %{
-      "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-      "max_attempts" => 1
-    },
-    "model" => %{
-      "objective" => "mission_then_blast_radius",
-      "require_pre_attack_feasibility" => true
-    },
-    "budgets" => [1],
-    "strategies" => ["null"],
-    "selection_seeds" => [101],
-    "evaluation" => %{"trials" => 3, "seed" => 9001}
-  }
+  @eval_manifest EvaluationFixtures.analysis_manifest()
 
   defp run_completed_evaluation do
     manifest_id = "output-contract-#{System.unique_integer([:positive])}"
 
     assert {:ok, _manifest} =
-             Evaluation.save(%{
-               manifest_id: manifest_id,
-               title: "Output contract",
-               content: Map.put(@eval_manifest, "id", manifest_id)
-             })
+             EvaluationFixtures.save_manifest(manifest_id, @eval_manifest, "Output contract")
 
     assert {:ok, run} = Evaluation.start(manifest_id)
     assert {:ok, completed} = Evaluation.run(run.id)
@@ -80,25 +60,44 @@ defmodule NetworkDefense.OutputContractTest do
       |> String.split("\n")
       |> Enum.map(&Jason.decode!/1)
 
-    assert [plan] = plans
-    assert plan["strategy"] == "null"
+    assert [plan, second_plan] = plans
+    assert plan["strategy"] == "cvss"
     assert plan["requested_budget"] == 1
     assert plan["selection_seed"] == 101
+    assert plan["action_count"] == length(plan["actions"])
+
+    assert Enum.map(
+             plan["actions"],
+             &Map.take(&1, ["position", "action_type", "target_id", "cost"])
+           ) ==
+             plan["actions"]
+
+    assert Enum.map(plan["actions"], & &1["position"]) ==
+             plan["actions"] |> Enum.map(& &1["position"]) |> Enum.sort()
+
+    assert second_plan["strategy"] == "simulation_informed"
+    assert second_plan["selection_seed"] == 201
 
     [header | trial_rows] = files["trials.csv"] |> String.trim_trailing() |> String.split("\n")
     assert header == "experiment_id,plan_id,trial_index,seed,blast_radius,mission_impact"
-    assert [_, _, _, _, _, _] = trial_rows
+    assert [_, _, _, _, _, _, _, _, _] = trial_rows
+
+    [capability_header | _] =
+      files["capability_outcomes.csv"] |> String.trim_trailing() |> String.split("\n")
+
+    assert capability_header ==
+             "experiment_id,plan_id,trial_index,seed,capability_id,capability_name,disrupted,impact_weight"
 
     [summary_header | summary_rows] =
       files["summary.csv"] |> String.trim_trailing() |> String.split("\n")
 
     assert summary_header ==
-             "experiment_id,plan_id,trial_count,expected_blast_radius,median_blast_radius,blast_radius_p95,blast_radius_p99,min_blast_radius,max_blast_radius"
+             "experiment_id,plan_id,trial_count,expected_blast_radius,median_blast_radius,blast_radius_p95,blast_radius_p99,min_blast_radius,max_blast_radius,runtime_ms"
 
-    assert [_, _] = summary_rows
+    assert [_, _, _] = summary_rows
 
     checksums = files["checksums.txt"] |> String.trim_trailing() |> String.split("\n")
-    assert [_, _, _, _, _] = checksums
+    assert [_, _, _, _, _, _] = checksums
 
     for {name, content} <- files, name != "checksums.txt" do
       expected = "#{name}  #{:crypto.hash(:sha256, content) |> Base.encode16(case: :lower)}"
@@ -126,8 +125,13 @@ defmodule NetworkDefense.OutputContractTest do
 
     assert files == files_again
 
-    plans = files["plans.jsonl"] |> String.trim_trailing() |> String.split("\n")
-    assert plans == Enum.sort(plans)
+    plans =
+      files["plans.jsonl"]
+      |> String.trim_trailing()
+      |> String.split("\n")
+      |> Enum.map(&Jason.decode!/1)
+
+    assert Enum.map(plans, & &1["strategy"]) == ["cvss", "simulation_informed"]
 
     [_header | trial_rows] = files["trials.csv"] |> String.trim_trailing() |> String.split("\n")
 

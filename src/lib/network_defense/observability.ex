@@ -5,8 +5,8 @@ defmodule NetworkDefense.Observability do
 
   alias NetworkDefense.Observability.LogValue
 
-  def emit_duration(event, started_at) do
-    :telemetry.execute(event, %{duration: System.monotonic_time() - started_at}, %{})
+  def emit_duration(event, started_at, metadata \\ %{}) do
+    :telemetry.execute(event, %{duration: System.monotonic_time() - started_at}, metadata)
   end
 
   def duration_ms(started_at) do

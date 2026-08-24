@@ -17,6 +17,10 @@ locals {
     "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
     "PHX_HOST=${var.phx_host}",
     "PORT=${var.app_port}",
+    "ANALYSIS_SERVICE_URL=${module.analysis.internal_url}",
+    "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
+    "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
+    "ANALYSIS_SERVICE_MAX_ZIP_BYTES=52428800",
     "OTEL_EXPORTER_OTLP_ENDPOINT=${var.otel_endpoint}",
     "OTEL_SERVICE_NAME=network_defense"
   ]

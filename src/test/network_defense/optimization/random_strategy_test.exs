@@ -32,6 +32,22 @@ defmodule NetworkDefense.Optimization.RandomStrategyTest do
     assert Strategy.rank(%RandomStrategy{}, [], graph([], []), 1) == []
   end
 
+  test "uses the selection seed without changing process-global random state" do
+    graph =
+      graph(
+        [
+          node("credential-a", Credential, credential_data()),
+          node("credential-b", Credential, credential_data())
+        ],
+        []
+      )
+
+    strategy = %RandomStrategy{seed: 1234}
+
+    assert Strategy.rank(strategy, [RevokeCredential], graph, 1) ==
+             Strategy.rank(strategy, [RevokeCredential], graph, 1)
+  end
+
   defp policy_graph do
     segment_a = node("segment-a", NetworkSegment, %{"name" => "segment-a"})
     segment_b = node("segment-b", NetworkSegment, %{"name" => "segment-b"})

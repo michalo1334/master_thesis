@@ -4,6 +4,7 @@ defmodule NetworkDefense.EvaluationTest do
 
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
+  alias NetworkDefense.EvaluationFixtures
 
   alias NetworkDefense.Evaluation.{
     EvaluationManifest,
@@ -16,34 +17,17 @@ defmodule NetworkDefense.EvaluationTest do
   alias NetworkDefense.Simulation.Seed
 
   import Ecto.Query
+  import ExUnit.CaptureLog
+
+  import NetworkDefense.EvaluationFixtures,
+    only: [save_manifest: 1, save_manifest: 2, save_manifest: 3]
 
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Run}
 
-  @valid_manifest %{
-    "schema_version" => 1,
-    "model_version" => "current-model-version",
-    "id" => "fixed-enterprise-v1",
-    "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-    "attacker" => %{
-      "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-      "max_attempts" => 1
-    },
-    "model" => %{
-      "objective" => "mission_then_blast_radius",
-      "require_pre_attack_feasibility" => true
-    },
-    "budgets" => [1, 2],
-    "strategies" => ["null", "cvss"],
-    "selection_seeds" => [101, 102],
-    "evaluation" => %{"trials" => 10, "seed" => 9001}
-  }
+  @valid_manifest EvaluationFixtures.valid_manifest()
 
   defp manifest_id, do: "evaluation-#{System.unique_integer([:positive])}"
-
-  defp save_manifest(id, content \\ @valid_manifest, title \\ "T") do
-    Evaluation.save(%{manifest_id: id, title: title, content: Map.put(content, "id", id)})
-  end
 
   describe "ManifestContract" do
     test "accepts a valid manifest" do
@@ -51,34 +35,74 @@ defmodule NetworkDefense.EvaluationTest do
       assert manifest["id"] == "fixed-enterprise-v1"
     end
 
-    test "rejects unknown fields" do
+    test "accepts unknown fields and logs their paths" do
       manifest = Map.put(@valid_manifest, "bogus", 1)
-      assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "$.bogus"))
+
+      assert log =
+               capture_log(fn ->
+                 assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+               end)
+
+      assert log =~ "$.bogus"
     end
 
     test "rejects an invalid schema version" do
-      manifest = Map.put(@valid_manifest, "schema_version", 2)
+      manifest = Map.put(@valid_manifest, "schema_version", 1)
       assert {:error, errors} = ManifestContract.validate(manifest)
       assert Enum.any?(errors, &(&1.path == "schema_version"))
     end
 
-    test "rejects duplicate budgets" do
-      manifest = Map.put(@valid_manifest, "budgets", [1, 1])
+    test "rejects duplicate strategy and budget pairs" do
+      manifest =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
+          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [102]}
+        ])
+
       assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "budgets"))
+      assert Enum.any?(errors, &(&1.path == "strategy_runs"))
     end
 
-    test "rejects duplicate strategies" do
-      manifest = Map.put(@valid_manifest, "strategies", ["null", "null"])
+    test "rejects duplicate selection seeds" do
+      manifest =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101, 101]}
+        ])
+
       assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "strategies"))
+      assert Enum.any?(errors, &(&1.path == "strategy_runs.0.selection_seeds"))
     end
 
     test "rejects an unknown strategy" do
-      manifest = Map.put(@valid_manifest, "strategies", ["bogus"])
+      manifest =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{"strategy" => "bogus", "budget" => 1, "selection_seeds" => [101]}
+        ])
+
       assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "strategies"))
+      assert Enum.any?(errors, &(&1.path == "strategy_runs.0.strategy"))
+    end
+
+    test "rejects a manifest missing strategy runs without raising" do
+      manifest = Map.delete(@valid_manifest, "strategy_runs")
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "strategy_runs"))
+    end
+
+    test "rejects a comparison with the same strategy and baseline" do
+      manifest =
+        put_in(@valid_manifest, ["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "null",
+            "baseline" => "null",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.message == "strategy and baseline must differ"))
     end
 
     test "rejects an invalid graph revision UUID" do
@@ -92,13 +116,12 @@ defmodule NetworkDefense.EvaluationTest do
 
       assert {:error, errors} = ManifestContract.validate(manifest)
       assert Enum.any?(errors, &(&1.path == "source.graph_revision_id"))
-      assert Enum.any?(errors, &(&1.path == "attacker.entry_host.value"))
     end
 
-    test "rejects empty budgets" do
-      manifest = Map.put(@valid_manifest, "budgets", [])
+    test "rejects empty strategy runs" do
+      manifest = Map.put(@valid_manifest, "strategy_runs", [])
       assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "budgets"))
+      assert Enum.any?(errors, &(&1.path == "strategy_runs"))
     end
 
     test "rejects invalid numeric values" do
@@ -126,16 +149,12 @@ defmodule NetworkDefense.EvaluationTest do
       assert schedule.attack_evaluation_seed ==
                Seed.child_seed(9001, 3)
 
-      assert schedule.policy_selection_seed ==
-               Seed.child_seed(9001, 1)
-
       assert schedule.topology_seed == 42
       assert schedule.entry_host_id == "host-id"
     end
 
     test "optimizer simulation seed derives from the selection seed" do
-      selection = SeedSchedule.policy_selection_seed(@valid_manifest)
-      assert SeedSchedule.optimizer_simulation_seed(selection) == Seed.child_seed(selection, 2)
+      assert SeedSchedule.optimizer_simulation_seed(101) == Seed.child_seed(101, 2)
     end
 
     test "changing the selection seed does not change the attack seed" do
@@ -174,7 +193,7 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:error, errors} =
                Evaluation.save(%{manifest_id: "m1", title: "T", content: %{"bad" => 1}})
 
-      assert Enum.any?(errors, &(&1.path == "$.bad"))
+      assert Enum.any?(errors, &(&1.path == "schema_version"))
     end
 
     test "start creates a run with a resolved graph revision" do
@@ -190,6 +209,8 @@ defmodule NetworkDefense.EvaluationTest do
       assert get_in(resolved, ["source", "type"]) == "graph_revision"
       assert get_in(resolved, ["source", "graph_revision_id"]) == run.source_graph_revision_id
       assert get_in(resolved, ["attacker", "entry_host", "type"]) == "node_id"
+      assert resolved["strategy_runs"] == @valid_manifest["strategy_runs"]
+      assert resolved["analysis"] == @valid_manifest["analysis"]
     end
 
     test "start always creates a new run even for unchanged content" do
@@ -209,17 +230,44 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, _manifest} = save_manifest(id)
       assert {:ok, first} = Evaluation.start(id)
 
-      strategies_changed = Map.put(@valid_manifest, "strategies", ["null"])
+      strategies_changed =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
+          %{"strategy" => "random", "budget" => 1, "selection_seeds" => [102]}
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "random",
+            "baseline" => "null",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
       assert {:ok, _manifest} = save_manifest(id, strategies_changed)
       assert {:ok, second} = Evaluation.start(id)
       assert second.id != first.id
-      assert second.resolved_manifest["strategies"] == ["null"]
+      assert second.resolved_manifest["strategy_runs"] == strategies_changed["strategy_runs"]
 
-      budgets_changed = Map.put(@valid_manifest, "budgets", [1])
+      budgets_changed =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
+          %{"strategy" => "cvss", "budget" => 2, "selection_seeds" => [102]},
+          %{"strategy" => "random", "budget" => 2, "selection_seeds" => [103]}
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "random",
+            "baseline" => "cvss",
+            "budget" => 2,
+            "outcome" => "blast_radius"
+          }
+        ])
+
       assert {:ok, _manifest} = save_manifest(id, budgets_changed)
       assert {:ok, third} = Evaluation.start(id)
       assert third.id != second.id
-      assert third.resolved_manifest["budgets"] == [1]
+      assert third.resolved_manifest["strategy_runs"] == budgets_changed["strategy_runs"]
     end
 
     test "start creates a new run when topology inputs change" do
@@ -342,24 +390,7 @@ defmodule NetworkDefense.EvaluationTest do
   end
 
   describe "Evaluator integration" do
-    @eval_manifest %{
-      "schema_version" => 1,
-      "model_version" => "current-model-version",
-      "id" => "eval-v1",
-      "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-      "attacker" => %{
-        "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-        "max_attempts" => 1
-      },
-      "model" => %{
-        "objective" => "mission_then_blast_radius",
-        "require_pre_attack_feasibility" => true
-      },
-      "budgets" => [1],
-      "strategies" => ["null"],
-      "selection_seeds" => [101],
-      "evaluation" => %{"trials" => 3, "seed" => 9001}
-    }
+    @eval_manifest EvaluationFixtures.analysis_manifest()
 
     test "runs baseline and post-defense experiments with paired attack seeds" do
       id = manifest_id()
@@ -370,7 +401,7 @@ defmodule NetworkDefense.EvaluationTest do
       assert completed.status == "completed"
 
       experiments = experiments_for(run.id)
-      assert [_, _] = experiments
+      assert [_, _, _] = experiments
 
       attack_seed = Seed.child_seed(9001, 3)
       assert Enum.all?(experiments, &(&1.master_seed == attack_seed))
@@ -383,8 +414,11 @@ defmodule NetworkDefense.EvaluationTest do
                  Enum.map(1..3, &Seed.child_seed(attack_seed, &1))
       end
 
-      [baseline, post_defense] = Enum.map(experiments, &runs_for(&1.id))
-      assert Enum.map(baseline, & &1.seed) == Enum.map(post_defense, & &1.seed)
+      [baseline | post_defense] = Enum.map(experiments, &runs_for(&1.id))
+
+      assert Enum.all?(post_defense, fn runs ->
+               Enum.map(baseline, & &1.seed) == Enum.map(runs, & &1.seed)
+             end)
     end
 
     test "resuming a completed run does not duplicate plan or trial rows" do
@@ -495,18 +529,33 @@ defmodule NetworkDefense.EvaluationTest do
       assert Enum.any?(errors, &(&1.path == "attacker.entry_host.type"))
     end
 
-    test "rejects unknown nested fields" do
+    test "accepts unknown nested fields and logs their paths" do
       manifest = put_in(@valid_manifest, ["source", "bogus"], 1)
-      assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "source.bogus"))
+
+      assert log =
+               capture_log(fn ->
+                 assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+               end)
+
+      assert log =~ "source.bogus"
 
       manifest = put_in(@valid_manifest, ["model", "bogus"], 1)
-      assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "model.bogus"))
+
+      assert log =
+               capture_log(fn ->
+                 assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+               end)
+
+      assert log =~ "model.bogus"
 
       manifest = put_in(@valid_manifest, ["evaluation", "bogus"], 1)
-      assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.path == "evaluation.bogus"))
+
+      assert log =
+               capture_log(fn ->
+                 assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+               end)
+
+      assert log =~ "evaluation.bogus"
     end
   end
 

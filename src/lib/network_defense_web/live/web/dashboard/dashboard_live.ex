@@ -74,10 +74,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
     StartEvaluationPayload,
     StartEvaluationReply,
     FetchEvaluationReportPayload,
+    RequestEvaluationAnalysisPayload,
+    RequestEvaluationAnalysisReply,
     EvaluationCompletedEvent,
     EvaluationFailedEvent,
     EvaluationReportErrorEvent,
     EvaluationReportReadyEvent,
+    EvaluationAnalysisReadyEvent,
+    EvaluationAnalysisErrorEvent,
     FetchRunsPayload,
     FetchRunsReply
   }
@@ -237,6 +241,34 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, report_request_reply("invalid_params"), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("request_evaluation_analysis", params, socket) do
+    case RequestEvaluationAnalysisPayload.validate(params) do
+      {:ok, request} ->
+        case start_evaluation_analysis(request, self()) do
+          {:ok, _pid} ->
+            {:reply, analysis_request_reply("processing"), socket}
+
+          {:error, _reason} ->
+            {:reply, analysis_request_reply("unavailable"),
+             push_contract_event(
+               socket,
+               "evaluation_analysis_error",
+               EvaluationAnalysisErrorEvent,
+               %{
+                 document_id: request.document_id,
+                 run_id: request.run_id,
+                 mode: request.mode,
+                 error: dashboard_error(:task_unavailable)
+               }
+             )}
+        end
+
+      {:error, _changeset} ->
+        {:reply, analysis_request_reply("invalid_params"), socket}
     end
   end
 
@@ -564,6 +596,28 @@ defmodule NetworkDefenseWeb.DashboardLive do
      )}
   end
 
+  def handle_info({:evaluation_analysis_result, document_id, run_id, mode, result}, socket) do
+    case result do
+      {:ok, analysis} ->
+        {:noreply,
+         push_contract_event(socket, "evaluation_analysis_ready", EvaluationAnalysisReadyEvent, %{
+           document_id: document_id,
+           run_id: run_id,
+           mode: mode,
+           analysis: analysis
+         })}
+
+      {:error, reason} ->
+        {:noreply,
+         push_contract_event(socket, "evaluation_analysis_error", EvaluationAnalysisErrorEvent, %{
+           document_id: document_id,
+           run_id: run_id,
+           mode: mode,
+           error: dashboard_error(reason)
+         })}
+    end
+  end
+
   def handle_info({:report_result, document_id, experiment_id, result}, socket) do
     {:noreply,
      push_report_result(
@@ -688,6 +742,24 @@ defmodule NetworkDefenseWeb.DashboardLive do
         end
       end
     )
+  end
+
+  defp start_evaluation_analysis(%RequestEvaluationAnalysisPayload{} = request, owner) do
+    TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
+      result =
+        case Evaluation.analyze(request.run_id, request.mode) do
+          {:ok, zip} ->
+            Evaluation.parse_analysis(zip)
+
+          error ->
+            error
+        end
+
+      send(
+        owner,
+        {:evaluation_analysis_result, request.document_id, request.run_id, request.mode, result}
+      )
+    end)
   end
 
   defp start_report_task(owner, progress_tag, correlation_id, result_tag, document_id, fetch_fun) do
@@ -916,6 +988,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp string_or_empty(_value), do: ""
 
   defp report_request_reply(status), do: contract_reply(ReportRequestReply, %{status: status})
+
+  defp analysis_request_reply(status),
+    do: contract_reply(RequestEvaluationAnalysisReply, %{status: status})
 
   defp failure_payload(payload) do
     payload

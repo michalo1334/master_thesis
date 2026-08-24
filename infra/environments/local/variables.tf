@@ -31,6 +31,17 @@ variable "app_port" {
   type        = number
 }
 
+variable "analysis_port" {
+  description = "Loopback host port for the analysis service."
+  type        = number
+  default     = 8080
+
+  validation {
+    condition     = var.analysis_port >= 1 && var.analysis_port <= 65535
+    error_message = "analysis_port must be between 1 and 65535."
+  }
+}
+
 variable "grafana_user" {
   description = "Grafana admin username."
   type        = string

@@ -425,7 +425,7 @@ export interface DocumentCatalogItem {
   graph_revision_id: string;
   graph_title: string;
   id: string;
-  kind: "graph" | "optimization_report" | "simulation_report";
+  kind: "graph" | "simulation_report" | "optimization_report";
   output_graph_revision_id?: string | null;
   output_revision_kind?: string | null;
   output_revision_number?: number | null;
@@ -433,6 +433,104 @@ export interface DocumentCatalogItem {
   revision_kind: string;
   revision_number: number;
   strategy?: string | null;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysis (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis.ex)
+export interface EvaluationAnalysis {
+  capability_results: EvaluationAnalysisCapabilityRow[];
+  metadata: EvaluationAnalysisMetadata;
+  pilot_comparison_pass: EvaluationAnalysisPilotRow[];
+  primary_results: EvaluationAnalysisPrimaryRow[];
+  secondary_results: EvaluationAnalysisSecondaryRow[];
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_capability_row.ex)
+export interface EvaluationAnalysisCapabilityRow {
+  baseline: string;
+  baseline_probability?: number | null;
+  budget: number;
+  capability_id: string;
+  ci_half_width?: number | null;
+  ci_lower?: number | null;
+  ci_upper?: number | null;
+  comparison: number;
+  probability_difference?: number | null;
+  strategy: string;
+  tested_probability?: number | null;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_error_event.ex) — enum fields: mode
+export interface EvaluationAnalysisErrorEvent {
+  document_id: string;
+  error: DashboardError;
+  mode: "pilot" | "analyze";
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_metadata.ex)
+export interface EvaluationAnalysisMetadata {
+  analysis_configuration?: Record<string, unknown> | null;
+  analysis_runtime_seconds?: number | null;
+  checksums_hash?: string | null;
+  command_mode: string;
+  declared_plan_trial_count?: number | null;
+  dependencies?: Record<string, unknown> | null;
+  estimand_note?: string | null;
+  input_hashes?: Record<string, unknown> | null;
+  input_trial_count?: number | null;
+  manifest_id: string;
+  model_version: string;
+  package_version?: string | null;
+  pilot_all_pass?: boolean | null;
+  schema_version: number;
+  simulator_only_uncertainty?: boolean | null;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPilotRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_pilot_row.ex)
+export interface EvaluationAnalysisPilotRow {
+  approximate_trials?: number | null;
+  ci_half_width?: number | null;
+  comparison: number;
+  paired_attack_seed_count?: number | null;
+  passes?: boolean | null;
+  target?: number | null;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex)
+export interface EvaluationAnalysisPrimaryRow {
+  baseline: string;
+  budget: number;
+  ci_half_width?: number | null;
+  ci_lower?: number | null;
+  ci_upper?: number | null;
+  comparison: number;
+  d_z?: number | null;
+  outcome: string;
+  p_adjusted?: number | null;
+  p_raw?: number | null;
+  paired_mean_difference?: number | null;
+  strategy: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_ready_event.ex) — enum fields: mode
+export interface EvaluationAnalysisReadyEvent {
+  analysis: EvaluationAnalysis;
+  document_id: string;
+  mode: "pilot" | "analyze";
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex)
+export interface EvaluationAnalysisSecondaryRow {
+  baseline: string;
+  budget: number;
+  ci_half_width?: number | null;
+  ci_lower?: number | null;
+  ci_upper?: number | null;
+  comparison: number;
+  mean_difference?: number | null;
+  outcome: string;
+  strategy: string;
 }
 
 // NetworkDefenseWeb.Web.Contracts.EvaluationCompletedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_completed_event.ex)
@@ -762,7 +860,7 @@ export interface ManifestError {
 
 // NetworkDefenseWeb.Web.Contracts.ManifestSummary (lib/network_defense_web/contracts/dashboard/evaluation/manifest_summary.ex)
 export interface ManifestSummary {
-  content?: unknown | null;
+  content?: Record<string, unknown> | null;
   id: string;
   manifest_id: string;
   title: string;
@@ -869,6 +967,18 @@ export interface ReportRequestReply {
   status: "processing" | "unavailable" | "invalid_params";
 }
 
+// NetworkDefenseWeb.Web.Contracts.RequestEvaluationAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_payload.ex) — enum fields: mode
+export interface RequestEvaluationAnalysisPayload {
+  document_id: string;
+  mode: "pilot" | "analyze";
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.RequestEvaluationAnalysisReply (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_reply.ex) — enum fields: status
+export interface RequestEvaluationAnalysisReply {
+  status: "processing" | "invalid_params" | "unavailable";
+}
+
 // NetworkDefenseWeb.Web.Contracts.RunOptimizationPayload (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_payload.ex)
 export interface RunOptimizationPayload {
   request: RunOptimizationRequest;
@@ -919,7 +1029,7 @@ export interface SaveGraphReply {
 
 // NetworkDefenseWeb.Web.Contracts.SaveManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_payload.ex)
 export interface SaveManifestPayload {
-  content: unknown;
+  content: Record<string, unknown>;
   manifest_id: string;
   title: string;
 }

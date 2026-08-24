@@ -5,6 +5,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   import Phoenix.LiveViewTest
 
   alias NetworkDefense.Evaluation.EvaluationWorker
+  alias NetworkDefense.EvaluationFixtures
   alias NetworkDefense.Graph.{Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
@@ -23,24 +24,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Simulations.SimulationWorker
 
   describe "evaluation manifests" do
-    @valid_manifest %{
-      "schema_version" => 1,
-      "model_version" => "current-model-version",
-      "id" => "fixed-enterprise-v1",
-      "source" => %{"type" => "topology", "generator" => "enterprise", "hosts" => 8, "seed" => 42},
-      "attacker" => %{
-        "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
-        "max_attempts" => 1
-      },
-      "model" => %{
-        "objective" => "mission_then_blast_radius",
-        "require_pre_attack_feasibility" => true
-      },
-      "budgets" => [1, 2],
-      "strategies" => ["null", "cvss"],
-      "selection_seeds" => [101, 102],
-      "evaluation" => %{"trials" => 10, "seed" => 9001}
-    }
+    @valid_manifest EvaluationFixtures.valid_manifest()
 
     test "saves, lists, and gets a manifest", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
@@ -71,17 +55,17 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert content["id"] == manifest_id
     end
 
-    test "rejects an invalid manifest with field-path errors", %{conn: conn} do
+    test "accepts unknown manifest fields", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
+      manifest_id = "fixed-enterprise-#{System.unique_integer([:positive])}"
 
       render_hook(view, "save_manifest", %{
-        "manifest_id" => "bad",
-        "title" => "Bad",
-        "content" => %{"bogus" => 1}
+        "manifest_id" => manifest_id,
+        "title" => "Fixed enterprise",
+        "content" => @valid_manifest |> Map.put("id", manifest_id) |> Map.put("bogus", 1)
       })
 
-      assert_reply(view, %{status: "invalid_manifest", errors: errors})
-      assert Enum.any?(errors, &(&1.path == "$.bogus"))
+      assert_reply(view, %{status: "ok"})
     end
 
     test "starts an evaluation for a saved manifest", %{conn: conn} do
@@ -91,9 +75,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       manifest =
         @valid_manifest
         |> Map.put("id", manifest_id)
-        |> Map.put("budgets", [1])
-        |> Map.put("strategies", ["null"])
-        |> Map.put("selection_seeds", [101])
         |> put_in(["evaluation", "trials"], 1)
 
       render_hook(view, "save_manifest", %{
@@ -130,9 +111,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       manifest =
         @valid_manifest
         |> Map.put("id", manifest_id)
-        |> Map.put("budgets", [1])
-        |> Map.put("strategies", ["null"])
-        |> Map.put("selection_seeds", [101])
         |> put_in(["evaluation", "trials"], 1)
 
       render_hook(view, "save_manifest", %{
@@ -281,6 +259,82 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         document_id: ^document_id,
         run_id: ^run_id,
         error: %{code: "internal_error"}
+      })
+    end
+
+    test "rejects invalid evaluation analysis parameters", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "request_evaluation_analysis", %{})
+      assert_reply(view, %{status: "invalid_params"})
+
+      render_hook(view, "request_evaluation_analysis", %{
+        "document_id" => Ecto.UUID.generate(),
+        "run_id" => Ecto.UUID.generate(),
+        "mode" => "invalid"
+      })
+
+      assert_reply(view, %{status: "invalid_params"})
+    end
+
+    test "processes an analysis request and reports an unknown run", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      document_id = Ecto.UUID.generate()
+      run_id = Ecto.UUID.generate()
+
+      render_hook(view, "request_evaluation_analysis", %{
+        "document_id" => document_id,
+        "run_id" => run_id,
+        "mode" => "pilot"
+      })
+
+      assert_reply(view, %{status: "processing"})
+
+      assert_push_event(view, "evaluation_analysis_error", %{
+        document_id: ^document_id,
+        run_id: ^run_id,
+        mode: "pilot",
+        error: %{code: "not_found"}
+      })
+    end
+
+    test "pushes typed evaluation analysis ready and error events", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      document_id = Ecto.UUID.generate()
+      run_id = Ecto.UUID.generate()
+
+      analysis = %{
+        metadata: %{
+          manifest_id: "manifest-1",
+          schema_version: 1,
+          model_version: "model-1",
+          command_mode: "pilot"
+        },
+        pilot_comparison_pass: [],
+        primary_results: [],
+        secondary_results: [],
+        capability_results: []
+      }
+
+      send(view.pid, {:evaluation_analysis_result, document_id, run_id, "pilot", {:ok, analysis}})
+
+      assert_push_event(view, "evaluation_analysis_ready", %{
+        document_id: ^document_id,
+        run_id: ^run_id,
+        mode: "pilot",
+        analysis: %{metadata: %{manifest_id: "manifest-1"}}
+      })
+
+      send(
+        view.pid,
+        {:evaluation_analysis_result, document_id, run_id, "analyze", {:error, :not_found}}
+      )
+
+      assert_push_event(view, "evaluation_analysis_error", %{
+        document_id: ^document_id,
+        run_id: ^run_id,
+        mode: "analyze",
+        error: %{code: "not_found"}
       })
     end
 

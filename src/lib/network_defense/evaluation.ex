@@ -18,8 +18,10 @@ defmodule NetworkDefense.Evaluation do
     EvaluationManifest,
     EvaluationManifests,
     EvaluationReport,
+    AnalysisResult,
     EvaluationRun,
     EvaluationRuns,
+    AnalysisClient,
     Evaluator,
     OutputContract,
     Preflight
@@ -153,6 +155,22 @@ defmodule NetworkDefense.Evaluation do
       %EvaluationRun{status: "completed"} = run -> OutputContract.archive(run)
       %EvaluationRun{} -> {:error, :incomplete}
     end
+  end
+
+  @spec analyze(String.t(), :pilot | :analyze | String.t()) ::
+          {:ok, binary()} | {:error, term()}
+  def analyze(run_id, mode) when mode in [:pilot, :analyze, "pilot", "analyze"] do
+    with {:ok, archive, _filename} <- download_archive(run_id) do
+      AnalysisClient.analyze(archive, run_id, mode)
+    end
+  end
+
+  def analyze(_run_id, _mode), do: {:error, :invalid_mode}
+
+  @spec parse_analysis(binary()) :: {:ok, map()} | {:error, term()}
+  def parse_analysis(response) when is_binary(response) do
+    config = Application.get_env(:network_defense, :analysis_service, [])
+    AnalysisResult.parse(response, config[:max_zip_bytes] || 50_000_000)
   end
 
   defp run_evaluator(run) do

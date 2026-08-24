@@ -2,15 +2,17 @@ import type { DashboardApi } from "../dashboard-api";
 import type { ManifestError, ManifestSummary } from "../contract";
 
 const DEFAULT_MANIFEST = `{
-  "schema_version": 1,
+  "schema_version": 2,
   "model_version": "current-model-version",
   "id": "fixed-enterprise-v1",
   "source": { "type": "topology", "generator": "enterprise", "hosts": 50, "seed": 42 },
   "attacker": { "entry_host": { "type": "semantic_key", "value": "internet" }, "max_attempts": 1 },
   "model": { "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true },
-  "budgets": [1, 2, 3],
-  "strategies": ["null", "random", "cvss", "topology_segmentation", "simulation_informed", "simulated_annealing"],
-  "selection_seeds": [101, 102],
+  "strategy_runs": [
+    { "strategy": "cvss", "budget": 1, "selection_seeds": [101] },
+    { "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] }
+  ],
+  "analysis": { "primary_comparisons": [{ "strategy": "simulation_informed", "baseline": "cvss", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }`;
 const DEFAULT_MANIFEST_ID = "fixed-enterprise-v1";
@@ -101,6 +103,14 @@ export class ManifestModel {
       const reply = await this.api.getManifest(id);
       if (!reply.manifest) {
         this.statusMessage = "The selected manifest is no longer available.";
+        return;
+      }
+      if (
+        reply.manifest.content === null ||
+        typeof reply.manifest.content !== "object" ||
+        Array.isArray(reply.manifest.content)
+      ) {
+        this.statusMessage = "Unable to load the selected manifest.";
         return;
       }
       this.selectedId = reply.manifest.id;

@@ -333,12 +333,14 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   defp plan_count(run) do
     manifest = resolved_manifest(run)
 
-    with strategies when is_list(strategies) <- Map.get(manifest, "strategies"),
-         budgets when is_list(budgets) <- Map.get(manifest, "budgets"),
-         selection_seeds when is_list(selection_seeds) <- Map.get(manifest, "selection_seeds") do
-      length(strategies) * length(budgets) * length(selection_seeds)
-    else
-      _ -> 0
+    case Map.get(manifest, "strategy_runs") do
+      strategy_runs when is_list(strategy_runs) ->
+        Enum.reduce(strategy_runs, 0, fn run, count ->
+          count + length(run["selection_seeds"] || [])
+        end)
+
+      _ ->
+        0
     end
   end
 
@@ -405,11 +407,9 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   end
 
   defp plan_keys(manifest) do
-    for strategy <- manifest["strategies"],
-        budget <- manifest["budgets"],
-        selection_seed <- manifest["selection_seeds"] do
-      {strategy, budget, selection_seed}
-    end
+    Enum.flat_map(manifest["strategy_runs"], fn run ->
+      Enum.map(run["selection_seeds"], &{run["strategy"], run["budget"], &1})
+    end)
   end
 
   defp select_plan(run, graph, schedule, {strategy, budget, selection_seed}) do
@@ -501,13 +501,13 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   end
 
   defp execute_optimization(graph, optimization_run, strategy_struct, budget) do
-    result = Optimizer.apply(graph, strategy_struct, budget)
+    {elapsed_us, result} = :timer.tc(fn -> Optimizer.apply(graph, strategy_struct, budget) end)
 
     Graphs.append_optimization(result.graph, fn persisted ->
       OptimizationRuns.complete(optimization_run, %{
         actions: Enum.map(result.actions, &OptimizationAction.from_domain/1),
         used_budget: result.budget_used,
-        runtime_ms: 0,
+        runtime_ms: div(elapsed_us, 1000),
         output_graph_revision_id: persisted.revision_id
       })
     end)
@@ -697,7 +697,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
         {:ok, %NullStrategy{}}
 
       "random" ->
-        {:ok, %RandomStrategy{}}
+        {:ok, %RandomStrategy{seed: selection_seed}}
 
       "cvss" ->
         {:ok, %CvssStrategy{}}

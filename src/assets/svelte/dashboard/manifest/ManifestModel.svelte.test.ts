@@ -32,11 +32,12 @@ function api(): DashboardApi {
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
     requestEvaluationReport: vi.fn(),
+    requestEvaluationAnalysis: vi.fn(),
   } as DashboardApi;
 }
 
 const validContent = {
-  schema_version: 1,
+  schema_version: 2,
   model_version: "current-model-version",
   id: "fixed-enterprise-v1",
   source: { type: "topology", generator: "enterprise", hosts: 50, seed: 42 },
@@ -48,9 +49,26 @@ const validContent = {
     objective: "mission_then_blast_radius",
     require_pre_attack_feasibility: true,
   },
-  budgets: [1, 2, 3],
-  strategies: ["null", "cvss"],
-  selection_seeds: [101, 102],
+  strategy_runs: [
+    { strategy: "cvss", budget: 1, selection_seeds: [101] },
+    { strategy: "simulation_informed", budget: 1, selection_seeds: [201, 202] },
+  ],
+  analysis: {
+    primary_comparisons: [
+      {
+        strategy: "simulation_informed",
+        baseline: "cvss",
+        budget: 1,
+        outcome: "blast_radius",
+      },
+    ],
+    confidence_level: 0.95,
+    bootstrap_resamples: 100,
+    permutation_resamples: 100,
+    multiplicity_correction: "holm",
+    seed: 9001,
+    pilot: { ci_half_width: 0.25 },
+  },
   evaluation: { trials: 1000, seed: 9001 },
 };
 
@@ -90,6 +108,52 @@ describe("ManifestModel", () => {
     expect(model.title).toBe("T");
     expect(JSON.parse(model.editorText)).toEqual(validContent);
   });
+
+  it.each([
+    ["missing", undefined],
+    ["null", null],
+    ["primitive", "not-an-object"],
+    ["array", ["not-an-object"]],
+  ])(
+    "rejects %s manifest content without changing selection state",
+    async (_label, content) => {
+      vi.mocked(dashboardApi.getManifest).mockResolvedValue({
+        manifest: {
+          id: "m1",
+          manifest_id: "fixed-enterprise-v1",
+          title: "T",
+          content: validContent,
+        },
+      });
+      await model.selectManifest("m1");
+      model.editorText = `${model.editorText}\n`;
+      const previousState = {
+        selectedId: model.selectedId,
+        title: model.title,
+        editorText: model.editorText,
+        hasUnsavedChanges: model.hasUnsavedChanges,
+      };
+
+      vi.mocked(dashboardApi.getManifest).mockResolvedValue({
+        manifest: {
+          id: "m2",
+          manifest_id: "other-manifest",
+          title: "Other",
+          content: content as never,
+        },
+      });
+
+      await model.selectManifest("m2");
+
+      expect(model.statusMessage).toBe("Unable to load the selected manifest.");
+      expect({
+        selectedId: model.selectedId,
+        title: model.title,
+        editorText: model.editorText,
+        hasUnsavedChanges: model.hasUnsavedChanges,
+      }).toEqual(previousState);
+    },
+  );
 
   it("gives each new manifest a fresh id", () => {
     model.addManifest();
@@ -175,21 +239,21 @@ describe("ManifestModel", () => {
   it("surfaces validation errors from the backend", async () => {
     model.title = "T";
     model.editorText = JSON.stringify(
-      { ...validContent, budgets: [] },
+      { ...validContent, strategy_runs: [] },
       null,
       2,
     );
     vi.mocked(dashboardApi.saveManifest).mockResolvedValue({
       status: "invalid_manifest",
       manifest: null,
-      errors: [{ path: "budgets", message: "must not be empty" }],
+      errors: [{ path: "strategy_runs", message: "must not be empty" }],
     });
 
     const ok = await model.save();
 
     expect(ok).toBe(false);
     expect(model.errors).toEqual([
-      { path: "budgets", message: "must not be empty" },
+      { path: "strategy_runs", message: "must not be empty" },
     ]);
   });
 
@@ -238,7 +302,10 @@ describe("ManifestModel", () => {
     ];
 
     await model.selectManifest("m1");
-    model.editorText = JSON.stringify({ ...validContent, budgets: [1] });
+    model.editorText = JSON.stringify({
+      ...validContent,
+      strategy_runs: validContent.strategy_runs.slice(0, 1),
+    });
 
     expect(model.canStart).toBe(false);
     await expect(model.start()).resolves.toBe(false);

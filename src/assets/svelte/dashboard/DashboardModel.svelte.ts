@@ -27,6 +27,10 @@ import type {
 import { formatDashboardErrorCode } from "./error-code";
 import type { OptimizationParams, SimulationParams } from "./contract";
 import type { EditableGraphDocument } from "./graph/EditableGraphDocument.svelte";
+import type {
+  EvaluationAnalysisReadyEvent,
+  EvaluationAnalysisErrorEvent,
+} from "../contracts.generated";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
@@ -408,6 +412,18 @@ export class DashboardModel {
 
   onEvaluationFailed(payload: EvaluationFailedEvent): void {
     this.announceEvaluationReport(payload);
+  }
+
+  onEvaluationAnalysisReady(payload: EvaluationAnalysisReadyEvent): void {
+    const report = this.findReport(payload.document_id, "evaluation") as
+      AnalysisReportDocument | undefined;
+    report?.setAnalysisReady(payload);
+  }
+
+  onEvaluationAnalysisError(payload: EvaluationAnalysisErrorEvent): void {
+    const report = this.findReport(payload.document_id, "evaluation") as
+      AnalysisReportDocument | undefined;
+    report?.setAnalysisError(payload);
   }
 
   private announceEvaluationReport(

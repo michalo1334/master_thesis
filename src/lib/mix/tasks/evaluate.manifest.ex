@@ -6,11 +6,11 @@ defmodule Mix.Tasks.Evaluate.Manifest do
   @moduledoc """
   Runs a saved manifest through the shared evaluation context.
 
-      mix evaluate.manifest --manifest-id fixed-enterprise-v1
+      mix evaluate.manifest --manifest-id fixed-enterprise-v1 --output evaluation.zip
   """
 
   @requirements ["app.start"]
-  @switches [manifest_id: :string]
+  @switches [manifest_id: :string, output: :string]
 
   alias NetworkDefense.Evaluation
 
@@ -20,11 +20,13 @@ defmodule Mix.Tasks.Evaluate.Manifest do
 
     with :ok <- validate_options(positional, invalid, options[:manifest_id]),
          {:ok, evaluation_run} <- Evaluation.start(options[:manifest_id]),
-         {:ok, completed_run} <- Evaluation.run(evaluation_run.id) do
+         {:ok, completed_run} <- Evaluation.run(evaluation_run.id),
+         :ok <- write_archive(completed_run.id, options[:output]) do
       IO.puts(
         Jason.encode!(%{
           "evaluation_run_id" => completed_run.id,
           "manifest_id" => options[:manifest_id],
+          "output" => options[:output],
           "status" => completed_run.status
         })
       )
@@ -44,6 +46,15 @@ defmodule Mix.Tasks.Evaluate.Manifest do
   defp validate_options(positional, invalid, _manifest_id) do
     invalid_options = Enum.map(invalid, fn {option, _value} -> option end)
     {:error, "invalid options: #{Enum.join(positional ++ invalid_options, ", ")}"}
+  end
+
+  defp write_archive(_run_id, nil), do: :ok
+
+  defp write_archive(run_id, output) do
+    with :ok <- output |> Path.dirname() |> File.mkdir_p(),
+         {:ok, archive, _filename} <- Evaluation.download_archive(run_id) do
+      File.write(output, archive)
+    end
   end
 
   defp format_errors(errors) do
