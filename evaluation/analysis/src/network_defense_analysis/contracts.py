@@ -316,9 +316,12 @@ def _normalise_trials(plan_ids: set[str], rows: list[dict], expected_trials: int
     return values, schedules
 
 
-def _normalise_capabilities(plan_ids: set[str], rows: list[dict], trials: dict[tuple[str, int], dict]) -> dict[tuple[str, int, str], int]:
+def _normalise_capabilities(
+    plan_ids: set[str], rows: list[dict], trials: dict[tuple[str, int], dict]
+) -> tuple[dict[tuple[str, int, str], int], dict[str, str]]:
     values = {}
     capabilities_by_trial = {}
+    names = {}
     for row in rows:
         plan_id = row.get("plan_id", "").strip()
         if not plan_id:
@@ -330,7 +333,14 @@ def _normalise_capabilities(plan_ids: set[str], rows: list[dict], trials: dict[t
         trial = trials.get((plan_id, trial_index))
         if trial is None or trial["seed"] != seed:
             raise _error(f"capability row does not match trial: {plan_id}, {trial_index}")
-        key = (plan_id, seed, row.get("capability_id", ""))
+        capability_id = row.get("capability_id", "").strip()
+        capability_name = row.get("capability_name", "").strip()
+        if not capability_id or not capability_name:
+            raise _error("capability ID and name must be non-empty")
+        if capability_id in names and names[capability_id] != capability_name:
+            raise _error(f"conflicting capability names for ID: {capability_id}")
+        names[capability_id] = capability_name
+        key = (plan_id, seed, capability_id)
         if not key[2] or key in values:
             raise _error(f"duplicate capability record: {key}")
         capabilities_by_trial.setdefault((plan_id, seed), set()).add(key[2])
@@ -342,7 +352,7 @@ def _normalise_capabilities(plan_ids: set[str], rows: list[dict], trials: dict[t
     capability_sets = {frozenset(ids) for ids in capabilities_by_trial.values()}
     if set(capabilities_by_trial) != expected_trials or len(capability_sets) != 1:
         raise _error("capability outcomes must cover every trial consistently")
-    return values
+    return values, names
 
 __all__ = [
     "LoadedExport",

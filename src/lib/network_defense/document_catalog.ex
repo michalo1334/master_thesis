@@ -5,6 +5,7 @@ defmodule NetworkDefense.DocumentCatalog do
 
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.DocumentCatalog.Kind
+  alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
@@ -12,10 +13,12 @@ defmodule NetworkDefense.DocumentCatalog do
   @graph_kind Kind.value(:graph)
   @simulation_report_kind Kind.value(:simulation_report)
   @optimization_report_kind Kind.value(:optimization_report)
+  @analysis_report_kind Kind.value(:analysis_report)
 
   @graph_label Kind.label(:graph)
   @simulation_report_label Kind.label(:simulation_report)
   @optimization_report_label Kind.label(:optimization_report)
+  @analysis_report_label Kind.label(:analysis_report)
 
   @spec document_catalog(map()) :: map()
   def document_catalog(filters) do
@@ -63,6 +66,7 @@ defmodule NetworkDefense.DocumentCatalog do
     graph_items()
     |> union_all(^experiment_items())
     |> union_all(^optimization_items())
+    |> union_all(^analysis_items())
     |> subquery()
     |> then(&from(item in &1))
   end
@@ -80,6 +84,8 @@ defmodule NetworkDefense.DocumentCatalog do
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: nil,
+        manifest_id: nil,
+        manifest_title: nil,
         output_graph_revision_id: type(fragment("NULL"), :binary_id),
         output_revision_kind: type(fragment("NULL"), :string),
         output_revision_number: type(fragment("NULL"), :integer),
@@ -104,6 +110,8 @@ defmodule NetworkDefense.DocumentCatalog do
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: nil,
+        manifest_id: nil,
+        manifest_title: nil,
         output_graph_revision_id: type(fragment("NULL"), :binary_id),
         output_revision_kind: type(fragment("NULL"), :string),
         output_revision_number: type(fragment("NULL"), :integer),
@@ -130,9 +138,39 @@ defmodule NetworkDefense.DocumentCatalog do
         revision_kind: type(revision.kind, :string),
         revision_number: revision.number,
         strategy: run.strategy,
+        manifest_id: nil,
+        manifest_title: nil,
         output_graph_revision_id: run.output_graph_revision_id,
         output_revision_kind: type(output_revision.kind, :string),
         output_revision_number: output_revision.number,
+        parent_revision_id: revision.parent_revision_id,
+        created_at: run.inserted_at
+      }
+  end
+
+  defp analysis_items do
+    from run in EvaluationRun,
+      join: manifest in EvaluationManifest,
+      on: manifest.id == run.evaluation_manifest_id,
+      join: revision in GraphRevision,
+      on: revision.id == run.source_graph_revision_id,
+      join: graph in Graph,
+      on: graph.id == revision.graph_id,
+      where: run.status == "completed",
+      select: %{
+        id: run.id,
+        kind: @analysis_report_kind,
+        graph_id: revision.graph_id,
+        graph_revision_id: revision.id,
+        graph_title: revision.title,
+        revision_kind: type(revision.kind, :string),
+        revision_number: revision.number,
+        strategy: nil,
+        manifest_id: manifest.manifest_id,
+        manifest_title: manifest.title,
+        output_graph_revision_id: type(fragment("NULL"), :binary_id),
+        output_revision_kind: type(fragment("NULL"), :string),
+        output_revision_number: type(fragment("NULL"), :integer),
         parent_revision_id: revision.parent_revision_id,
         created_at: run.inserted_at
       }
@@ -172,7 +210,7 @@ defmodule NetworkDefense.DocumentCatalog do
       query,
       [item],
       fragment(
-        "CASE ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END ILIKE ? ESCAPE '\\'",
+        "CASE ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END ILIKE ? ESCAPE '\\'",
         item.kind,
         @graph_kind,
         @graph_label,
@@ -180,6 +218,8 @@ defmodule NetworkDefense.DocumentCatalog do
         @simulation_report_label,
         @optimization_report_kind,
         @optimization_report_label,
+        @analysis_report_kind,
+        @analysis_report_label,
         ^pattern
       ) or
         fragment(
@@ -190,6 +230,7 @@ defmodule NetworkDefense.DocumentCatalog do
         ) or
         fragment("? ILIKE ? ESCAPE '\\'", item.graph_title, ^pattern) or
         fragment("? ILIKE ? ESCAPE '\\'", item.strategy, ^pattern) or
+        fragment("? ILIKE ? ESCAPE '\\'", item.manifest_title, ^pattern) or
         fragment(
           "to_char(?, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ILIKE ? ESCAPE '\\'",
           item.created_at,

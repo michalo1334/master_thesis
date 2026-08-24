@@ -43,4 +43,20 @@ describe("DocumentCatalogDocument", () => {
       title: "Documents",
     });
   });
+
+  it("labels analysis reports and uses the simulation report relation icon", () => {
+    const analysis = {
+      ...item("run-1", "graph-a"),
+      kind: "analysis_report" as const,
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+    };
+
+    expect(DocumentCatalogDocument.kindLabel(analysis.kind)).toBe(
+      "Analysis report",
+    );
+    expect(DocumentCatalogDocument.relationIcon(analysis)).toBe(
+      "simulation-report",
+    );
+  });
 });

@@ -1,5 +1,5 @@
 import type { SimulationReportSummary } from "../../contracts.generated";
-import type { KpiMetric } from "./KpiCards.svelte";
+import type { KpiMetric } from "../KpiCards.svelte";
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);

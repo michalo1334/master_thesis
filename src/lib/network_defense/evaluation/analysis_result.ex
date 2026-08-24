@@ -110,6 +110,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
 
   defp valid_row?(row) do
     valid_fields?(row, ~w(strategy baseline outcome capability_id), &is_binary/1) and
+      valid_fields?(row, ~w(capability_name), &(is_binary(&1) or is_nil(&1))) and
       valid_fields?(row, ~w(passes), &(is_boolean(&1) or is_nil(&1))) and
       valid_fields?(
         row,

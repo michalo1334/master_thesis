@@ -26,7 +26,7 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
     inline = Enum.join(values, " | ")
 
     cond do
-      String.length(inline) > 72 ->
+      String.length("    #{inline};") > 80 ->
         "\n    | " <> Enum.join(values, "\n    | ")
 
       String.length("  #{field}: #{inline};") > 80 ->

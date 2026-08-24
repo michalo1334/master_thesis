@@ -13,6 +13,7 @@ export class DocumentCatalogDocument extends WorkspaceDocumentBase {
     graph: "Graph",
     simulation_report: "Simulation report",
     optimization_report: "Optimization report",
+    analysis_report: "Analysis report",
   };
 
   readonly kind = "document-catalog" as const;
@@ -103,6 +104,8 @@ export class DocumentCatalogDocument extends WorkspaceDocumentBase {
         return "simulation-report";
       case "optimization_report":
         return "shield";
+      case "analysis_report":
+        return "simulation-report";
     }
   }
 

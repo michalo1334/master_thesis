@@ -195,4 +195,119 @@ describe("AnalysisReport", () => {
       screen.getByText("tested strategy minus baseline", { selector: "dd" }),
     ).toBeInTheDocument();
   });
+
+  it("separates scalar metadata from reproducibility metadata", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    const longHash = "sha256-" + "a".repeat(180);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        metadata: {
+          ...analysisFixture().metadata,
+          checksums_hash: longHash,
+          input_hashes: { graph: "graph-hash", manifest: "manifest-hash" },
+          analysis_configuration: {
+            alpha: 0.05,
+            contrasts: ["patch", "baseline"],
+          },
+          dependencies: { python: "3.12", scipy: "1.14" },
+          input_trial_count: 100,
+          declared_plan_trial_count: 100,
+          analysis_runtime_seconds: 2.5,
+          simulator_only_uncertainty: true,
+          package_version: "1.2.3",
+          pilot_all_pass: true,
+        },
+      }),
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "Key performance indicators" }),
+      ).toBeInTheDocument(),
+    );
+    const kpis = screen.getByRole("region", {
+      name: "Key performance indicators",
+    });
+    expect(kpis).toHaveTextContent("Declared plan trials");
+    expect(kpis).not.toHaveTextContent("Manifest ID");
+    expect(
+      screen.getByRole("heading", { name: "Reproducibility" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(longHash)).toBeInTheDocument();
+    expect(screen.getByText("graph")).toBeInTheDocument();
+    expect(screen.getByText("graph-hash")).toBeInTheDocument();
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.getByText("0.050")).toBeInTheDocument();
+    expect(screen.getByText("python")).toBeInTheDocument();
+    expect(screen.getByText("3.12")).toBeInTheDocument();
+  });
+
+  it("shows capability names and opens their graph nodes", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    const openSourceGraph = vi.fn().mockResolvedValue(true);
+    document.openSourceGraph = openSourceGraph;
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        capability_results: [
+          {
+            capability_id: "capability-1",
+            capability_name: "  Mission communications  ",
+            strategy: "patch",
+            baseline: "baseline",
+            budget: 1,
+            comparison: 0.1,
+          },
+        ],
+      }),
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Mission communications" }),
+      ).toBeInTheDocument(),
+    );
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Mission communications" }),
+    );
+    expect(openSourceGraph).toHaveBeenCalledWith("capability-1");
+    expect(
+      screen.getByRole("button", { name: "Mission communications" }),
+    ).toHaveAttribute("title", "capability-1");
+  });
+
+  it("falls back to the capability UUID when its name is missing", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        capability_results: [
+          {
+            capability_id: "capability-2",
+            strategy: "patch",
+            baseline: "baseline",
+            budget: 1,
+            comparison: 0.1,
+          },
+        ],
+      }),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText("capability-2")).toBeInTheDocument(),
+    );
+  });
 });

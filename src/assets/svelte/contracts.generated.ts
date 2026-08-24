@@ -425,7 +425,10 @@ export interface DocumentCatalogItem {
   graph_revision_id: string;
   graph_title: string;
   id: string;
-  kind: "graph" | "simulation_report" | "optimization_report";
+  kind:
+    "graph" | "simulation_report" | "optimization_report" | "analysis_report";
+  manifest_id?: string | null;
+  manifest_title?: string | null;
   output_graph_revision_id?: string | null;
   output_revision_kind?: string | null;
   output_revision_number?: number | null;
@@ -450,6 +453,7 @@ export interface EvaluationAnalysisCapabilityRow {
   baseline_probability?: number | null;
   budget: number;
   capability_id: string;
+  capability_name?: string | null;
   ci_half_width?: number | null;
   ci_lower?: number | null;
   ci_upper?: number | null;

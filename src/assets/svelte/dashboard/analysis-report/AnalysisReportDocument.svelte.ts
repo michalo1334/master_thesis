@@ -53,7 +53,9 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
       }) => boolean)
     | undefined
   >();
-  openSourceGraph = $state<(() => boolean | Promise<boolean>) | undefined>();
+  openSourceGraph = $state<
+    ((nodeId?: string) => boolean | Promise<boolean>) | undefined
+  >();
 
   get reportId(): string | null {
     return this.runId;

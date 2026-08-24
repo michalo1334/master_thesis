@@ -62,6 +62,7 @@
     font-size: 1.3rem;
     font-weight: 700;
     line-height: 1.1;
+    overflow-wrap: anywhere;
   }
   .statistics-kpi-detail {
     margin-top: var(--ui-space-2);

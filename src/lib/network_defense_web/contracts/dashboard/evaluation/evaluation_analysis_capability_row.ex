@@ -8,6 +8,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow do
     field :baseline, :string
     field :budget, :integer
     field :capability_id, :string
+    field :capability_name, :string
     field :tested_probability, :float
     field :baseline_probability, :float
     field :probability_difference, :float
@@ -22,6 +23,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow do
           baseline: String.t(),
           budget: integer(),
           capability_id: String.t(),
+          capability_name: String.t() | nil,
           tested_probability: float() | nil,
           baseline_probability: float() | nil,
           probability_difference: float() | nil,
@@ -37,6 +39,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow do
         :baseline,
         :budget,
         :capability_id,
+        :capability_name,
         :tested_probability,
         :baseline_probability,
         :probability_difference,

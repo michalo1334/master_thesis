@@ -14,6 +14,63 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
     assert result.primary_results == []
   end
 
+  test "accepts string, null, and missing capability names" do
+    row = capability_row()
+
+    for capability_row <- [
+          row,
+          Map.put(row, "capability_name", nil),
+          Map.delete(row, "capability_name")
+        ] do
+      analysis =
+        Jason.encode!(%{
+          "primary_results" => [],
+          "secondary_results" => [],
+          "capability_results" => [capability_row]
+        })
+
+      assert {:ok, _result} =
+               AnalysisResult.parse(
+                 zip(%{"metadata.json" => metadata(), "analysis.json" => analysis}),
+                 10_000
+               )
+    end
+
+    assert row["capability_name"] == "Capability"
+  end
+
+  test "rejects a non-string, non-null capability name" do
+    analysis =
+      Jason.encode!(%{
+        "primary_results" => [],
+        "secondary_results" => [],
+        "capability_results" => [%{capability_row() | "capability_name" => 1}]
+      })
+
+    assert {:error, :malformed_row} =
+             AnalysisResult.parse(
+               zip(%{"metadata.json" => metadata(), "analysis.json" => analysis}),
+               10_000
+             )
+  end
+
+  defp capability_row do
+    %{
+      "comparison" => 0,
+      "strategy" => "tested",
+      "baseline" => "baseline",
+      "budget" => 1,
+      "capability_id" => "capability",
+      "capability_name" => "Capability",
+      "tested_probability" => 0.5,
+      "baseline_probability" => 0.5,
+      "probability_difference" => 0.0,
+      "ci_lower" => 0.0,
+      "ci_upper" => 0.0,
+      "ci_half_width" => 0.0
+    }
+  end
+
   test "rejects missing, duplicate, malformed, and oversized members" do
     archive = zip(%{"metadata.json" => metadata()})
     assert {:error, :missing_or_duplicate} = AnalysisResult.parse(archive, 10_000)

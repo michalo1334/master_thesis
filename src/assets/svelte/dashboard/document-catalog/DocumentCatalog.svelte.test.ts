@@ -40,6 +40,14 @@ const items: DocumentCatalogItem[] = [
   },
 ];
 
+const analysisItem: DocumentCatalogItem = {
+  ...items[0],
+  id: "analysis-1",
+  kind: "analysis_report",
+  manifest_id: "manifest-1",
+  manifest_title: "Evaluation manifest",
+};
+
 function reply(
   catalogItems: DocumentCatalogItem[] = items,
   total_count = catalogItems.length,
@@ -50,7 +58,7 @@ function reply(
     related_items,
     total_count,
     filter_options: {
-      types: ["graph", "optimization_report"],
+      types: ["graph", "optimization_report", "analysis_report"],
       graphs: [
         { id: "graph-1", title: "Gateway" },
         { id: "graph-2", title: "Branch" },
@@ -82,6 +90,29 @@ function deferred<T>(): {
 afterEach(cleanup);
 
 describe("DocumentCatalog", () => {
+  it("shows, filters, selects, and opens analysis reports", async () => {
+    const api = {
+      fetchDocumentCatalog: vi.fn().mockResolvedValue(reply([analysisItem])),
+    } as unknown as DashboardApi;
+    const onOpen = vi.fn().mockResolvedValue(true);
+
+    renderCatalog(api, onOpen);
+    await waitFor(() =>
+      expect(screen.getByText("Analysis report")).toBeInTheDocument(),
+    );
+    await fireEvent.click(screen.getByRole("button", { name: /Type filter/ }));
+    expect(
+      screen.getByRole("checkbox", { name: "Analysis report" }),
+    ).toBeInTheDocument();
+    await fireEvent.click(
+      screen.getByRole("checkbox", { name: "Select analysis-1" }),
+    );
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Open selected (1)" }),
+    );
+    await waitFor(() => expect(onOpen).toHaveBeenCalledWith(analysisItem));
+  });
+
   it("keeps selected documents from visited pages", async () => {
     const secondPage = [
       {

@@ -532,6 +532,8 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       this.openHistoricalSimulationReport(api, item),
     optimization_report: (api, item) =>
       this.openHistoricalOptimizationReport(api, item),
+    analysis_report: (api, item) =>
+      this.openHistoricalAnalysisReport(api, item),
   };
 
   async openCatalogItem(
@@ -603,6 +605,32 @@ export class WorkspaceModel extends GenericWorkspaceModel<
           ),
       );
     }
+    report.load(api, report.id, item.id);
+    return true;
+  }
+
+  openHistoricalAnalysisReport(
+    api: DashboardApi,
+    item: DocumentCatalogItem,
+  ): boolean {
+    if (!item.manifest_id || !item.manifest_title) return false;
+    const existing = this.documents.find(
+      (document) =>
+        document.kind === "analysis-report" && document.runId === item.id,
+    ) as AnalysisReportDocument | undefined;
+    if (existing) {
+      this.bindAnalysisReportNavigation(existing, api);
+      this.activateDocument(existing);
+      return true;
+    }
+
+    const report = this.openPendingAnalysisReport(item.id, {
+      manifest_id: item.manifest_id,
+      title: item.manifest_title,
+    });
+    this.bindAnalysisReportNavigation(report, api);
+    report.graphId = item.graph_id;
+    report.graphRevisionId = item.graph_revision_id;
     report.load(api, report.id, item.id);
     return true;
   }
@@ -807,11 +835,18 @@ export class WorkspaceModel extends GenericWorkspaceModel<
         graph_title: data.source_graph_title,
       });
     };
-    report.openSourceGraph = () => {
+    report.openSourceGraph = async (nodeId?: string) => {
       const revisionId =
         report.reportData?.source_graph_revision_id ?? report.graphRevisionId;
       if (!revisionId) return false;
-      void this.openGraphRevision(api, revisionId);
+      if (!(await this.openGraphRevision(api, revisionId))) return false;
+      if (!nodeId) return true;
+
+      const graph = this.findOpenGraph(revisionId);
+      if (!graph || !graph.graph.nodes.some((node) => node.id === nodeId)) {
+        return false;
+      }
+      graph.selectNode(nodeId);
       return true;
     };
   }

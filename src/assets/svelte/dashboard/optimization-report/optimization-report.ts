@@ -1,4 +1,4 @@
-import type { KpiMetric } from "../simulation-report/KpiCards.svelte";
+import type { KpiMetric } from "../KpiCards.svelte";
 import type { OptimizationReport } from "../contract";
 import { formatRuntime } from "../format";
 

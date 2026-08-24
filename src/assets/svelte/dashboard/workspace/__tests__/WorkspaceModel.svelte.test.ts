@@ -9,6 +9,7 @@ import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.sv
 import type { DashboardApi } from "../../dashboard-api";
 import type { DocumentCatalogItem } from "../../contract";
 import { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
+import { AnalysisReportDocument } from "../../analysis-report/AnalysisReportDocument.svelte";
 import { createWorkspaceEnvelope } from "../../../ui-kit/workspace/workspace-persistence";
 
 function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
@@ -384,6 +385,14 @@ describe("WorkspaceModel", () => {
       strategy: "cvss",
     };
 
+    const analysis: DocumentCatalogItem = {
+      ...simulation,
+      id: "run-1",
+      kind: "analysis_report",
+      manifest_id: "manifest-1",
+      manifest_title: "Evaluation manifest",
+    };
+
     it("loads historical reports once and focuses existing tabs", async () => {
       const api = {
         requestSimulationReport: vi.fn(),
@@ -416,6 +425,24 @@ describe("WorkspaceModel", () => {
       expect(api.requestOptimizationReport).toHaveBeenCalledWith(
         optimizationReport.id,
         "optimization-1",
+      );
+    });
+
+    it("loads one historical analysis report and reuses its tab", async () => {
+      const api = {
+        requestEvaluationReport: vi.fn(),
+      } as unknown as DashboardApi;
+
+      await model.openCatalogItem(api, analysis);
+      const report = model.activeDocument;
+      await model.openCatalogItem(api, analysis);
+
+      expect(model.documents).toEqual([report]);
+      expect(report?.kind).toBe("analysis-report");
+      expect(api.requestEvaluationReport).toHaveBeenCalledTimes(1);
+      expect(api.requestEvaluationReport).toHaveBeenCalledWith(
+        report!.id,
+        "run-1",
       );
     });
 
@@ -706,6 +733,56 @@ describe("WorkspaceModel", () => {
       expect(model.activeGraph?.title).toBe("Unsaved edit");
       expect(model.activeGraph?.isDirty).toBe(true);
       expect(api.openGraph).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("analysis report navigation", () => {
+    it("opens a source revision and selects a requested capability node", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({
+            revision_id: "source-r1",
+            nodes: [hostNode("capability-1")],
+          }),
+        }),
+      } as unknown as DashboardApi;
+      const report = new AnalysisReportDocument("run-1", {
+        manifest_id: "manifest-1",
+        title: "Evaluation manifest",
+      });
+      report.graphRevisionId = "source-r1";
+      model.bindAnalysisReportNavigation(report, api);
+
+      await expect(report.openSourceGraph?.("capability-1")).resolves.toBe(
+        true,
+      );
+      expect(model.activeGraph?.selection).toEqual(
+        expect.objectContaining({ id: "capability-1" }),
+      );
+    });
+
+    it("selects a requested node in an already-open source revision", async () => {
+      const graph = makeLoadedGraph({
+        revision_id: "source-r1",
+        nodes: [hostNode("capability-1"), hostNode("capability-2")],
+      });
+      await model.openLoadedGraph(graph, {} as DashboardApi);
+      const api = { openGraph: vi.fn() } as unknown as DashboardApi;
+      const report = new AnalysisReportDocument("run-1", {
+        manifest_id: "manifest-1",
+        title: "Evaluation manifest",
+      });
+      report.graphRevisionId = "source-r1";
+      model.bindAnalysisReportNavigation(report, api);
+
+      await expect(report.openSourceGraph?.("capability-2")).resolves.toBe(
+        true,
+      );
+      expect(api.openGraph).not.toHaveBeenCalled();
+      expect(model.activeGraph?.selection).toEqual(
+        expect.objectContaining({ id: "capability-2" }),
+      );
     });
   });
 

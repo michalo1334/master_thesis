@@ -2,7 +2,7 @@
   import { Tabs } from "bits-ui";
   import type { OptimizationReportDocument } from "./OptimizationReportDocument.svelte";
   import GraphDiff from "../graph/GraphDiff.svelte";
-  import KpiCards from "../simulation-report/KpiCards.svelte";
+  import KpiCards from "../KpiCards.svelte";
   import { formatOptimizationKpis } from "./optimization-report";
   import CvssStrategyPanel from "./strategy-panels/CvssStrategyPanel.svelte";
   import SimulationInformedStrategyPanel from "./strategy-panels/SimulationInformedStrategyPanel.svelte";

@@ -3,6 +3,11 @@
   import type { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
   import type { DashboardApi } from "../dashboard-api";
   import ReportProgress from "../ReportProgress.svelte";
+  import KpiCards, { type KpiMetric } from "../KpiCards.svelte";
+  import type {
+    EvaluationAnalysis,
+    EvaluationAnalysisMetadata,
+  } from "../../contracts.generated";
 
   interface Props {
     document: AnalysisReportDocument;
@@ -20,6 +25,89 @@
       : typeof value === "number"
         ? formatNumber(value)
         : String(value);
+
+  const formatMetadataValue = (value: unknown): string => {
+    if (value == null) return "—";
+    if (typeof value === "object") return JSON.stringify(value, null, 2);
+    return formatValue(value);
+  };
+
+  const metadataEntries = (value: unknown): [string, unknown][] =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? Object.entries(value)
+      : [];
+
+  const metadataKpis = (metadata: EvaluationAnalysisMetadata): KpiMetric[] => [
+    {
+      label: "Mode",
+      value: metadata.command_mode,
+      detail: "Analysis command",
+      tone: "neutral",
+    },
+    {
+      label: "Model",
+      value: metadata.model_version,
+      detail: "Statistical model",
+      tone: "neutral",
+    },
+    {
+      label: "Input trials",
+      value: formatValue(metadata.input_trial_count),
+      detail: "Trials in the input data",
+      tone: "neutral",
+    },
+    {
+      label: "Declared plan trials",
+      value: formatValue(metadata.declared_plan_trial_count),
+      detail: "Trials declared by the plan",
+      tone: "neutral",
+    },
+    {
+      label: "Runtime",
+      value: formatNumber(metadata.analysis_runtime_seconds),
+      detail: "Analysis runtime in seconds",
+      tone: "neutral",
+    },
+    {
+      label: "Simulator uncertainty",
+      value:
+        metadata.simulator_only_uncertainty == null
+          ? "—"
+          : metadata.simulator_only_uncertainty
+            ? "Yes"
+            : "No",
+      detail: "Intervals describe simulator uncertainty",
+      tone: "neutral",
+    },
+    {
+      label: "Schema version",
+      value: String(metadata.schema_version),
+      detail: "Analysis result schema",
+      tone: "neutral",
+    },
+    {
+      label: "Package version",
+      value: formatValue(metadata.package_version),
+      detail: "Analysis package",
+      tone: "neutral",
+    },
+    {
+      label: "Pilot all pass",
+      value:
+        metadata.pilot_all_pass == null
+          ? "—"
+          : metadata.pilot_all_pass
+            ? "Yes"
+            : "No",
+      detail: "Pilot checks",
+      tone:
+        metadata.pilot_all_pass == null
+          ? "neutral"
+          : metadata.pilot_all_pass
+            ? "positive"
+            : "warning",
+    },
+  ];
 
   let statusLabel = $derived.by(() => {
     switch (document.reportData?.status ?? document.status) {
@@ -50,6 +138,12 @@
     return linked
       ? canOpenPlan(linked)
       : document.reportData?.status !== "running";
+  }
+
+  function capabilityName(
+    row: EvaluationAnalysis["capability_results"][number],
+  ): string {
+    return row.capability_name?.trim() || row.capability_id;
   }
 </script>
 
@@ -358,102 +452,47 @@
           {#if document.finalAnalysis.data}
             {@const analysis = document.finalAnalysis.data}
             <h3>Final analysis</h3>
-            <dl class="analysis-report-summary">
-              <div>
-                <dt>Mode</dt>
-                <dd>{analysis.metadata.command_mode}</dd>
-              </div>
-              <div>
-                <dt>Model</dt>
-                <dd>{analysis.metadata.model_version}</dd>
-              </div>
-              <div>
-                <dt>Input trials</dt>
-                <dd>{formatValue(analysis.metadata.input_trial_count)}</dd>
-              </div>
-              <div>
-                <dt>Runtime (s)</dt>
-                <dd>
-                  {formatNumber(analysis.metadata.analysis_runtime_seconds)}
-                </dd>
-              </div>
-              <div>
-                <dt>Simulator uncertainty</dt>
-                <dd>
-                  {analysis.metadata.simulator_only_uncertainty == null
-                    ? "—"
-                    : analysis.metadata.simulator_only_uncertainty
-                      ? "Yes"
-                      : "No"}
-                </dd>
-              </div>
-              <div>
-                <dt>Manifest ID</dt>
-                <dd>{analysis.metadata.manifest_id}</dd>
-              </div>
-              <div>
-                <dt>Schema version</dt>
-                <dd>{analysis.metadata.schema_version}</dd>
-              </div>
-              <div>
-                <dt>Package version</dt>
-                <dd>{formatValue(analysis.metadata.package_version)}</dd>
-              </div>
-              <div>
-                <dt>Declared plan trials</dt>
-                <dd>
-                  {formatValue(analysis.metadata.declared_plan_trial_count)}
-                </dd>
-              </div>
-              <div>
-                <dt>Pilot all pass</dt>
-                <dd>
-                  {analysis.metadata.pilot_all_pass == null
-                    ? "—"
-                    : analysis.metadata.pilot_all_pass
-                      ? "Yes"
-                      : "No"}
-                </dd>
-              </div>
-              <div>
-                <dt>Checksums hash</dt>
-                <dd>{formatValue(analysis.metadata.checksums_hash)}</dd>
-              </div>
-              <div>
-                <dt>Estimand</dt>
-                <dd>{formatValue(analysis.metadata.estimand_note)}</dd>
-              </div>
-              <div>
-                <dt>Input hashes</dt>
-                <dd>
-                  {formatValue(
-                    analysis.metadata.input_hashes
-                      ? JSON.stringify(analysis.metadata.input_hashes)
-                      : null,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Configuration</dt>
-                <dd>
-                  {formatValue(
-                    analysis.metadata.analysis_configuration
-                      ? JSON.stringify(analysis.metadata.analysis_configuration)
-                      : null,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Dependencies</dt>
-                <dd>
-                  {formatValue(
-                    analysis.metadata.dependencies
-                      ? JSON.stringify(analysis.metadata.dependencies)
-                      : null,
-                  )}
-                </dd>
-              </div>
-            </dl>
+            <KpiCards metrics={metadataKpis(analysis.metadata)} />
+            <section
+              class="analysis-report-reproducibility"
+              aria-labelledby="reproducibility-title"
+            >
+              <h3 id="reproducibility-title">Reproducibility</h3>
+              {#snippet metadataRows(
+                rows: readonly (readonly [string, unknown])[],
+              )}
+                <dl class="analysis-report-metadata">
+                  {#each rows as [label, value] (label)}
+                    <div class="analysis-report-metadata-row">
+                      <dt>{label}</dt>
+                      <dd>
+                        {#if typeof value === "object" && value !== null}
+                          <pre>{formatMetadataValue(value)}</pre>
+                        {:else}
+                          {formatMetadataValue(value)}
+                        {/if}
+                      </dd>
+                    </div>
+                  {/each}
+                </dl>
+              {/snippet}
+              {@render metadataRows([
+                ["Manifest ID", analysis.metadata.manifest_id],
+                ["Checksums hash", analysis.metadata.checksums_hash],
+                ["Estimand", analysis.metadata.estimand_note],
+              ])}
+              {#each [["Input hashes", analysis.metadata.input_hashes], ["Analysis configuration", analysis.metadata.analysis_configuration], ["Dependencies", analysis.metadata.dependencies]] as [title, values] (title)}
+                {@const rows = metadataEntries(values)}
+                <section class="analysis-report-metadata-group">
+                  <h4>{title}</h4>
+                  {#if rows.length > 0}
+                    {@render metadataRows(rows)}
+                  {:else}
+                    <p>—</p>
+                  {/if}
+                </section>
+              {/each}
+            </section>
             <h3>Primary results</h3>
             <div class="analysis-report-table-wrap">
               <table class="analysis-report-table">
@@ -530,17 +569,30 @@
                   ></thead
                 ><tbody
                   >{#each analysis.capability_results as row (`${row.comparison}:${row.capability_id}`)}<tr
-                      ><td>{row.capability_id}</td><td>{row.strategy}</td><td
-                        >{row.baseline}</td
-                      ><td>{row.budget}</td><td
-                        >{formatNumber(row.comparison)}</td
-                      ><td>{formatNumber(row.baseline_probability)}</td><td
-                        >{formatNumber(row.tested_probability)}</td
-                      ><td>{formatNumber(row.probability_difference)}</td><td
-                        >{formatNumber(row.ci_half_width)}</td
-                      ><td>{formatNumber(row.ci_lower)}</td><td
-                        >{formatNumber(row.ci_upper)}</td
-                      ></tr
+                      ><td
+                        >{#if document.openSourceGraph}
+                          <button
+                            type="button"
+                            class="analysis-report-link"
+                            onclick={() =>
+                              void document.openSourceGraph?.(
+                                row.capability_id,
+                              )}
+                            title={row.capability_id}
+                            >{capabilityName(row)}</button
+                          >
+                        {:else}
+                          {capabilityName(row)}
+                        {/if}</td
+                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
+                        >{row.budget}</td
+                      ><td>{formatNumber(row.comparison)}</td><td
+                        >{formatNumber(row.baseline_probability)}</td
+                      ><td>{formatNumber(row.tested_probability)}</td><td
+                        >{formatNumber(row.probability_difference)}</td
+                      ><td>{formatNumber(row.ci_half_width)}</td><td
+                        >{formatNumber(row.ci_lower)}</td
+                      ><td>{formatNumber(row.ci_upper)}</td></tr
                     >{/each}</tbody
                 >
               </table>
@@ -691,6 +743,61 @@
     margin: var(--ui-space-1) 0 0;
   }
 
+  .analysis-report-reproducibility,
+  .analysis-report-metadata {
+    min-width: 0;
+  }
+
+  .analysis-report-reproducibility {
+    margin-top: var(--ui-space-6);
+  }
+
+  .analysis-report-metadata {
+    display: grid;
+    gap: var(--ui-space-2);
+  }
+
+  .analysis-report-metadata-row {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr);
+    gap: var(--ui-space-3);
+    align-items: start;
+    padding: var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+  }
+
+  .analysis-report-metadata-row dt {
+    color: var(--ui-color-text-secondary);
+    font-size: var(--ui-text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .analysis-report-metadata-row dd {
+    min-width: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .analysis-report-metadata-row pre {
+    max-width: 100%;
+    max-height: 16rem;
+    margin: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-text-sm);
+  }
+
+  .analysis-report-metadata-group h4 {
+    margin: var(--ui-space-4) 0 var(--ui-space-2);
+    font-size: var(--ui-text-sm);
+  }
+
   .analysis-report-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--ui-color-border);
@@ -754,6 +861,10 @@
     :global(.analysis-report-tab-list) {
       flex-basis: auto;
       width: 100%;
+    }
+    .analysis-report-metadata-row {
+      grid-template-columns: 1fr;
+      gap: var(--ui-space-1);
     }
   }
 </style>

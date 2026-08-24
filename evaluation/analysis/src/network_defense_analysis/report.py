@@ -50,6 +50,7 @@ OUTPUT_HEADERS = {
         "baseline",
         "budget",
         "capability_id",
+        "capability_name",
         "tested_probability",
         "baseline_probability",
         "probability_difference",
@@ -155,7 +156,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         configuration = _configuration(manifest)
         identities, _ = _declared_plans(manifest, plans)
         trials, schedules = _normalise_trials(set(identities), trial_rows, expected_trials)
-        capabilities = _normalise_capabilities(set(identities), capability_rows, trials)
+        capabilities, capability_names = _normalise_capabilities(set(identities), capability_rows, trials)
         destination = Path(output)
         destination.mkdir(parents=True, exist_ok=True)
         _clear_outputs(destination)
@@ -273,6 +274,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                         "baseline": comparison["baseline"],
                         "budget": comparison["budget"],
                         "capability_id": capability_id,
+                        "capability_name": capability_names[capability_id],
                         "tested_probability": float(np.mean(tested_probabilities)),
                         "baseline_probability": float(np.mean(baseline_probabilities)),
                         "probability_difference": float(np.mean(differences_by_seed)),

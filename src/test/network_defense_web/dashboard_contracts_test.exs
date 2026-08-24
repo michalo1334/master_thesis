@@ -36,6 +36,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     FetchOptimizationRunsPayload,
     FetchDocumentCatalogPayload,
     FetchDocumentCatalogReply,
+    DocumentCatalogItem,
     FetchRunsPayload,
     FetchRunsReply,
     OpenGraphReply,
@@ -136,6 +137,32 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{simulation_params: %{monte_carlo_trials: ["must be greater than 0"]}} =
              errors_on(changeset)
+  end
+
+  test "validates optional document catalog manifest identity" do
+    attrs = %{
+      "id" => @graph_id,
+      "kind" => "analysis_report",
+      "graph_id" => @graph_id,
+      "graph_revision_id" => @parent_graph_id,
+      "graph_title" => "Source graph",
+      "revision_kind" => "initial",
+      "revision_number" => 1,
+      "created_at" => "2026-01-01T00:00:00Z",
+      "manifest_id" => "manifest-1",
+      "manifest_title" => "Analysis"
+    }
+
+    assert {:ok, %DocumentCatalogItem{manifest_id: "manifest-1", manifest_title: "Analysis"}} =
+             DocumentCatalogItem.validate(attrs)
+
+    assert {:error, changeset} =
+             DocumentCatalogItem.validate(%{
+               attrs
+               | "manifest_title" => String.duplicate("x", 256)
+             })
+
+    assert %{manifest_title: ["should be at most 255 character(s)"]} = errors_on(changeset)
   end
 
   test "rejects oversized asynchronous operation correlation IDs" do

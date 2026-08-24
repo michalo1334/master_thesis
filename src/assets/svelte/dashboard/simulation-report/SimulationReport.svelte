@@ -2,7 +2,7 @@
   import { Tabs } from "bits-ui";
   import type { SimulationReportDocument } from "./SimulationReportDocument.svelte";
   import Canvas from "../graph/canvas/Canvas.svelte";
-  import KpiCards from "./KpiCards.svelte";
+  import KpiCards from "../KpiCards.svelte";
   import StatisticalChart from "./StatisticalChart.svelte";
   import {
     formatProbability,

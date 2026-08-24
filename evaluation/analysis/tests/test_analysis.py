@@ -347,9 +347,22 @@ class AnalysisTest(unittest.TestCase):
         analyze(directory, output)
         with (output / "capability_results.csv").open(newline="") as stream:
             capability = next(csv.DictReader(stream))
+        self.assertEqual(capability["capability_name"], "Capability alpha")
+        analysis = json.loads((output / "analysis.json").read_text())
+        self.assertEqual(analysis["capability_results"][0]["capability_name"], "Capability alpha")
         self.assertAlmostEqual(float(capability["probability_difference"]), -1.0)
         with (output / "secondary_results.csv").open(newline="") as stream:
             self.assertEqual(len(list(csv.DictReader(stream))), 1)
+
+    def test_conflicting_capability_names_rejected(self):
+        directory = self.remember(self.make_fixture())
+        with (directory / "capability_outcomes.csv").open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        rows[1]["capability_name"] = "Different name"
+        self.write_csv(directory / "capability_outcomes.csv", rows)
+        self.write_checksums(directory)
+        with self.assertRaises(AnalysisError):
+            analyze(directory, directory / "out")
 
     def test_zip_and_cli_smoke(self):
         directory = self.remember(self.make_fixture())

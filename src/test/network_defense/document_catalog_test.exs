@@ -2,6 +2,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
   use NetworkDefense.DataCase
 
   alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Experiments}
@@ -147,6 +148,65 @@ defmodule NetworkDefense.DocumentCatalogTest do
 
     assert Enum.map(grouped.items, & &1.id) ==
              [graph.revision_id, optimization.id, experiment.id, child.revision_id]
+  end
+
+  test "catalogs completed evaluation runs with manifest identity" do
+    assert {:ok, graph} = Graphs.insert(Graph.new("analysis source"))
+
+    assert {:ok, manifest} =
+             %EvaluationManifest{}
+             |> EvaluationManifest.changeset(%{
+               manifest_id: "analysis-manifest",
+               title: "Statistical analysis",
+               content: %{}
+             })
+             |> Repo.insert()
+
+    run_attrs = %{
+      evaluation_manifest_id: manifest.id,
+      source_graph_revision_id: graph.revision_id,
+      resolved_manifest: %{},
+      status: "completed"
+    }
+
+    assert {:ok, completed} =
+             %EvaluationRun{}
+             |> EvaluationRun.changeset(run_attrs)
+             |> Repo.insert()
+
+    completed_id = completed.id
+
+    for status <- ["running", "failed"] do
+      assert {:ok, _run} =
+               %EvaluationRun{}
+               |> EvaluationRun.changeset(%{run_attrs | status: status})
+               |> Repo.insert()
+    end
+
+    assert %{total_count: 1, items: [item], filter_options: %{types: types}} =
+             DocumentCatalog.document_catalog(
+               filters(%{"types" => ["analysis_report"], "graph_ids" => [graph.id]})
+             )
+
+    assert "analysis_report" in types
+
+    assert %{
+             id: ^completed_id,
+             kind: "analysis_report",
+             manifest_id: "analysis-manifest",
+             manifest_title: "Statistical analysis",
+             graph_title: "analysis source"
+           } = item
+
+    assert %{items: [^item]} =
+             DocumentCatalog.document_catalog(
+               filters(%{"search" => "Statistical analysis", "graph_ids" => [graph.id]})
+             )
+
+    assert %{items: [^item]} =
+             DocumentCatalog.document_catalog(
+               filters(%{"search" => "Analysis report", "graph_ids" => [graph.id]})
+             )
   end
 
   defp create_experiment(graph) do
