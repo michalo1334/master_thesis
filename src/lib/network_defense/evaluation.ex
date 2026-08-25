@@ -29,6 +29,8 @@ defmodule NetworkDefense.Evaluation do
 
   alias NetworkDefense.ReportProgress
 
+  import Ecto.Query
+
   @type error :: %{path: String.t(), message: String.t()}
 
   @evaluation_events_topic "evaluation_events"
@@ -120,13 +122,37 @@ defmodule NetworkDefense.Evaluation do
       nil ->
         {:error, :not_found}
 
-      %EvaluationRun{status: status} = run when status in ["completed", "failed"] ->
+      %EvaluationRun{status: status} = run when status in ["completed", "failed", "cancelled"] ->
         reannounce_terminal(run)
         {:ok, run}
 
       %EvaluationRun{} = run ->
         run_evaluator(run)
     end
+  end
+
+  def cancel(run_id) do
+    with {:ok, run} <- EvaluationRuns.cancel(run_id) do
+      cancel_children(NetworkDefense.Simulation.Experiment, run_id)
+      NetworkDefense.Optimization.OptimizationRuns.cancel_by_evaluation(run_id)
+
+      Oban.cancel_all_jobs(
+        from(j in Oban.Job,
+          where: j.worker == ^"NetworkDefense.Evaluation.EvaluationWorker",
+          where: fragment("? @> ?", j.args, ^%{"run_id" => run_id})
+        )
+      )
+
+      {:ok, run}
+    end
+  end
+
+  defp cancel_children(experiments, run_id) do
+    import Ecto.Query
+
+    experiments
+    |> where([e], e.evaluation_run_id == ^run_id and e.status == "running")
+    |> NetworkDefense.Repo.update_all(set: [status: "cancelled", updated_at: DateTime.utc_now()])
   end
 
   # Re-announcing a terminal result keeps listeners (the dashboard) in sync when
@@ -138,6 +164,8 @@ defmodule NetworkDefense.Evaluation do
   defp reannounce_terminal(%EvaluationRun{status: "failed"} = run) do
     broadcast_failed(run)
   end
+
+  defp reannounce_terminal(%EvaluationRun{status: "cancelled"}), do: :ok
 
   @spec report(String.t(), ReportProgress.progress_callback()) :: map() | nil
   def report(run_id, on_progress \\ ReportProgress.noop()) do

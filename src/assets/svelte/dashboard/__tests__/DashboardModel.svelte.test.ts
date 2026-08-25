@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { LoadedGraph } from "../contract";
@@ -54,6 +54,7 @@ function api(): DashboardApi & {
     startEvaluation: vi.fn(),
     requestEvaluationReport: vi.fn(),
     requestEvaluationAnalysis: vi.fn(),
+    cancelRun: vi.fn(),
   } as DashboardApi & {
     requestSimulationReport: ReturnType<typeof vi.fn>;
     requestOptimizationReport: ReturnType<typeof vi.fn>;
@@ -72,6 +73,8 @@ function createSimulationReport(model: DashboardModel) {
 describe("DashboardModel", () => {
   let model: DashboardModel;
   let dashboardApi: ReturnType<typeof api>;
+
+  afterEach(() => vi.unstubAllGlobals());
 
   beforeEach(async () => {
     dashboardApi = api();
@@ -95,6 +98,7 @@ describe("DashboardModel", () => {
         status: "accepted",
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
+        run_id: "simulation-run-1",
       }),
     );
 
@@ -108,7 +112,11 @@ describe("DashboardModel", () => {
     const report = model.workspace.documents.find(
       (document) => document.kind === "simulation-report",
     );
-    expect(report).toMatchObject({ graphId: "g1", graphRevisionId: "r2" });
+    expect(report).toMatchObject({
+      graphId: "g1",
+      graphRevisionId: "r2",
+      runId: "simulation-run-1",
+    });
   });
 
   it("surfaces the rejection error of a standalone simulation", async () => {
@@ -116,6 +124,7 @@ describe("DashboardModel", () => {
       status: "rejected",
       graph_revision_id: "r1",
       correlation_id: "simulation-1",
+      run_id: "simulation-run-1",
       error: { code: "invalid_graph" },
     });
 
@@ -146,6 +155,7 @@ describe("DashboardModel", () => {
           status: "accepted",
           graph_revision_id: graphRevisionId,
           correlation_id: correlationId,
+          run_id: "simulation-run-1",
         };
       },
     );
@@ -171,6 +181,7 @@ describe("DashboardModel", () => {
           status: "accepted",
           graph_revision_id: graphRevisionId,
           correlation_id: correlationId,
+          run_id: "simulation-run-1",
         };
       },
     );
@@ -354,6 +365,7 @@ describe("DashboardModel", () => {
         status: "accepted",
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
+        run_id: "optimization-run-1",
       }),
     );
     await model.runActiveOptimization();
@@ -381,6 +393,7 @@ describe("DashboardModel", () => {
       (document) => document.kind === "optimization-report",
     );
     expect(report).toMatchObject({
+      runId: "optimization-run-1",
       status: "loading",
       loadProgress: {
         completed: 2,
@@ -446,6 +459,7 @@ describe("DashboardModel", () => {
         status: "accepted",
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
+        run_id: "optimization-run-1",
       }),
     );
     await model.runActiveOptimization();
@@ -506,6 +520,7 @@ describe("DashboardModel", () => {
         status: "accepted",
         graph_revision_id: graphRevisionId,
         correlation_id: correlationId,
+        run_id: "optimization-run-1",
       }),
     );
 
@@ -638,5 +653,197 @@ describe("DashboardModel", () => {
 
     expect(report.status).toBe("error");
     expect(report.errorReason).toBe("The requested item was not found.");
+  });
+
+  it("cancels each report kind through its shared run ID", async () => {
+    const simulation = createSimulationReport(model);
+    simulation.setRunId("simulation-run-1");
+
+    model.workspace.selectDocument(model.workspace.documents[0]!.id);
+    vi.mocked(dashboardApi.runOptimization).mockImplementation(
+      async (graphRevisionId, correlationId) => ({
+        status: "accepted",
+        graph_revision_id: graphRevisionId,
+        correlation_id: correlationId,
+        run_id: "optimization-run-1",
+      }),
+    );
+    await model.runActiveOptimization();
+    const optimization = model.workspace.documents.find(
+      (document) => document.kind === "optimization-report",
+    )!;
+
+    model.manifest.onStarted?.("evaluation-run-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+    const evaluation = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    )!;
+
+    vi.stubGlobal("confirm", () => true);
+    vi.mocked(dashboardApi.cancelRun).mockResolvedValue({
+      status: "cancelled",
+    });
+
+    await expect(model.cancelReport(simulation)).resolves.toBe(true);
+    await expect(model.cancelReport(optimization)).resolves.toBe(true);
+    await expect(model.cancelReport(evaluation)).resolves.toBe(true);
+
+    expect(simulation.status).toBe("cancelled");
+    expect(optimization.status).toBe("cancelled");
+    expect(evaluation.status).toBe("cancelled");
+    expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(1, {
+      kind: "simulation",
+      run_id: "simulation-run-1",
+    });
+    expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(2, {
+      kind: "optimization",
+      run_id: "optimization-run-1",
+    });
+    expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(3, {
+      kind: "evaluation",
+      run_id: "evaluation-run-1",
+    });
+  });
+
+  it("clears cancellation progress after a failed cancellation request", async () => {
+    const report = createSimulationReport(model);
+    report.setRunId("simulation-run-1");
+    vi.stubGlobal("confirm", () => true);
+    vi.mocked(dashboardApi.cancelRun).mockResolvedValue({
+      status: "not_running",
+    });
+
+    await expect(model.cancelReport(report)).resolves.toBe(false);
+
+    expect(report.cancelInProgress).toBe(false);
+    expect(report.status).not.toBe("cancelled");
+  });
+
+  it("matches cancellation events by report kind and run ID", async () => {
+    const simulation = createSimulationReport(model);
+    simulation.setRunId("shared-run-1");
+    const optimization = model.workspace.createPendingOptimizationReport({
+      graphId: "g1",
+      graphRevisionId: "r1",
+      graphTitle: "Topology",
+      strategy: "cvss",
+      budget: 1,
+    });
+    optimization.setRunId("shared-run-1");
+
+    model.onRunCancelled({ kind: "simulation", run_id: "shared-run-1" });
+
+    expect(simulation.status).toBe("cancelled");
+    expect(optimization.status).toBe("pending");
+  });
+
+  it("buffers cancellation events until each report receives its run ID", async () => {
+    vi.mocked(dashboardApi.runSimulation).mockImplementation(
+      async (graphRevisionId, correlationId) => {
+        model.onRunCancelled({
+          kind: "simulation",
+          run_id: "simulation-run-1",
+        });
+        return {
+          status: "accepted",
+          graph_revision_id: graphRevisionId,
+          correlation_id: correlationId,
+          run_id: "simulation-run-1",
+        };
+      },
+    );
+    vi.mocked(dashboardApi.runOptimization).mockImplementation(
+      async (graphRevisionId, correlationId) => {
+        model.onRunCancelled({
+          kind: "optimization",
+          run_id: "optimization-run-1",
+        });
+        return {
+          status: "accepted",
+          graph_revision_id: graphRevisionId,
+          correlation_id: correlationId,
+          run_id: "optimization-run-1",
+        };
+      },
+    );
+
+    await model.runActiveSimulation();
+    model.workspace.selectDocument(model.workspace.documents[0]!.id);
+    await model.runActiveOptimization();
+    model.onRunCancelled({ kind: "evaluation", run_id: "evaluation-run-1" });
+    model.manifest.onStarted?.("evaluation-run-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+
+    const simulation = model.workspace.documents.find(
+      (document) => document.kind === "simulation-report",
+    );
+    const optimization = model.workspace.documents.find(
+      (document) => document.kind === "optimization-report",
+    );
+    const evaluation = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    );
+    expect(simulation?.status).toBe("cancelled");
+    expect(optimization?.status).toBe("cancelled");
+    expect(evaluation?.status).toBe("cancelled");
+  });
+
+  it("keeps cancelled reports cancelled when late ready or error events arrive", () => {
+    const report = createSimulationReport(model);
+    report.setRunId("simulation-run-1");
+    model.onRunCancelled({ kind: "simulation", run_id: "simulation-run-1" });
+
+    model.onReportReadyEvent({
+      reportKind: "simulation",
+      payload: {
+        document_id: report.id,
+        report: {} as never,
+      },
+    });
+    model.onReportErrorEvent({
+      reportKind: "simulation",
+      payload: {
+        document_id: report.id,
+        experiment_id: "experiment-1",
+        error: { code: "internal_error" },
+      },
+    });
+
+    expect(report.status).toBe("cancelled");
+  });
+
+  it("ignores late evaluation analysis events after cancellation", () => {
+    model.manifest.onStarted?.("evaluation-run-1", {
+      id: "manifest-1",
+      manifest_id: "manifest-1",
+      title: "Evaluation manifest",
+    });
+    const report = model.workspace.documents.find(
+      (document) => document.kind === "analysis-report",
+    )!;
+    model.onRunCancelled({ kind: "evaluation", run_id: "evaluation-run-1" });
+
+    model.onEvaluationAnalysisReady({
+      document_id: report.id,
+      run_id: "evaluation-run-1",
+      mode: "pilot",
+      analysis: {} as never,
+    });
+    model.onEvaluationAnalysisError({
+      document_id: report.id,
+      run_id: "evaluation-run-1",
+      mode: "analyze",
+      error: { code: "internal_error" },
+    });
+
+    expect(report.status).toBe("cancelled");
+    expect(report.pilotAnalysis.status).toBe("idle");
+    expect(report.finalAnalysis.status).toBe("idle");
   });
 });

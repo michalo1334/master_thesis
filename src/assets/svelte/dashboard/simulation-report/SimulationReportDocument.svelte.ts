@@ -26,6 +26,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
 
   experimentId = $state<string | null>(null);
   correlationId = $state<string | null>(null);
+  runId = $state<string | null>(null);
   reportData = $state<SimulationReportData | null>(null);
   heatmapGraph = $state<LoadedGraph | null>(null);
   heatmapSelectedNodeId = $state<string>();
@@ -85,6 +86,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   markPending(correlationId: string): void {
     this.correlationId = correlationId;
     this.experimentId = null;
+    this.runId = null;
     this.status = "pending";
     this.reportData = null;
     this.heatmapGraph = null;
@@ -138,6 +140,10 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   complete(api: DashboardApi, experimentId: string): void {
     this.markReady(experimentId);
     this.load(api, this.id, experimentId);
+  }
+
+  setRunId(runId: string): void {
+    this.runId = runId;
   }
 
   load(api: DashboardApi, documentId: string, experimentId: string): void {

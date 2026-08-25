@@ -22,6 +22,11 @@ export abstract class AsyncReportDocument<
   Kind extends ReportKind,
 > extends WorkspaceDocumentBase {
   abstract readonly reportKind: Kind;
+  abstract readonly runId: string | null;
+
+  setRunId(_runId: string): void {
+    // Reports that receive their run ID from the start reply override this.
+  }
 
   isReportDocument(): true {
     return true;
@@ -31,9 +36,9 @@ export abstract class AsyncReportDocument<
     return true;
   }
 
-  status = $state<"pending" | "ready" | "loading" | "loaded" | "error">(
-    "pending",
-  );
+  status = $state<
+    "pending" | "ready" | "loading" | "loaded" | "error" | "cancelled"
+  >("pending");
   progress = $state<{
     completed: number;
     total: number;
@@ -49,6 +54,11 @@ export abstract class AsyncReportDocument<
   errorReason = $state<string>("");
   analysisId = $state<string>();
   analysisTitle = $state<string>();
+  private cancelInProgressState = $state(false);
+
+  get cancelInProgress(): boolean {
+    return this.cancelInProgressState;
+  }
 
   abstract get reportId(): string | null;
 
@@ -62,7 +72,11 @@ export abstract class AsyncReportDocument<
   }
 
   canClose(): boolean {
-    return this.status === "loaded" || this.status === "error";
+    return (
+      this.status === "loaded" ||
+      this.status === "error" ||
+      this.status === "cancelled"
+    );
   }
 
   markRead(): void {
@@ -80,6 +94,28 @@ export abstract class AsyncReportDocument<
   markErrorMessage(message: string): void {
     this.status = "error";
     this.errorReason = message;
+  }
+
+  markCancelled(): void {
+    this.status = "cancelled";
+    this.cancelInProgressState = false;
+    this.progress = null;
+    this.errorReason = "";
+  }
+
+  beginCancellation(): boolean {
+    if (
+      !this.runId ||
+      this.cancelInProgressState ||
+      this.status === "cancelled"
+    )
+      return false;
+    this.cancelInProgressState = true;
+    return true;
+  }
+
+  cancelFailed(): void {
+    this.cancelInProgressState = false;
   }
 
   setProgress(completed: number, total: number, detail?: string): void {

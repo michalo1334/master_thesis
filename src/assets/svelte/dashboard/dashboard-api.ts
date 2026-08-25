@@ -42,6 +42,8 @@ import type {
   SaveManifestReply,
   StartEvaluationPayload,
   StartEvaluationReply,
+  CancelRunPayload,
+  CancelRunReply,
   FetchEvaluationReportPayload,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
@@ -116,6 +118,7 @@ export interface DashboardApi {
   requestEvaluationAnalysis(
     payload: RequestEvaluationAnalysisPayload,
   ): Promise<RequestEvaluationAnalysisReply>;
+  cancelRun(payload: CancelRunPayload): Promise<CancelRunReply>;
 }
 
 function requestReply<TPayload extends object, TReply>(
@@ -330,6 +333,13 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         RequestEvaluationAnalysisPayload,
         RequestEvaluationAnalysisReply
       >(live, "request_evaluation_analysis", payload);
+    },
+    cancelRun(payload) {
+      return requestReply<CancelRunPayload, CancelRunReply>(
+        live,
+        "cancel_run",
+        payload,
+      );
     },
   };
 }

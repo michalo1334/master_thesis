@@ -25,6 +25,7 @@
   interface Props {
     document: SimulationReportDocument;
     onOpenSourceGraph?: () => Promise<boolean>;
+    onCancel?: () => Promise<boolean>;
   }
 
   type CapabilityStatus = {
@@ -43,7 +44,11 @@
     availability: "Available" | "Unavailable";
   };
 
-  let { document, onOpenSourceGraph = undefined }: Props = $props();
+  let {
+    document,
+    onOpenSourceGraph = undefined,
+    onCancel = undefined,
+  }: Props = $props();
   let activeTab = $state("report");
   let capabilityImpacts = $derived.by(() => {
     const report = document.reportData;
@@ -158,6 +163,16 @@
         waitingMessage="Simulation requested, waiting for results..."
         label="runs completed"
       />
+      {#if document.runId && onCancel}
+        <button
+          type="button"
+          class="simulation-report-open"
+          disabled={document.cancelInProgress}
+          onclick={() => void onCancel?.()}
+        >
+          {document.cancelInProgress ? "Cancelling…" : "Cancel simulation"}
+        </button>
+      {/if}
     </section>
   {:else if document.status === "loading"}
     <section class="simulation-report-waiting" aria-label="Loading report">
@@ -172,6 +187,10 @@
       <p>
         {document.errorReason || "Failed to load simulation report."}
       </p>
+    </section>
+  {:else if document.status === "cancelled"}
+    <section class="simulation-report-empty" aria-label="Simulation cancelled">
+      <p>Simulation cancelled.</p>
     </section>
   {:else if document.status === "ready" && !document.reportData}
     <section class="simulation-report-empty" aria-label="No results yet">

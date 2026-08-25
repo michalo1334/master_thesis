@@ -64,7 +64,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     |> validate_number(:runtime_ms, greater_than_or_equal_to: 0)
     |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_number(:selection_seed, greater_than_or_equal_to: 0)
-    |> validate_inclusion(:status, ["running", "completed", "failed"])
+    |> validate_inclusion(:status, ["running", "completed", "failed", "cancelled"])
     |> validate_output_revision()
     |> foreign_key_constraint(:graph_revision_id)
     |> foreign_key_constraint(:output_graph_revision_id)

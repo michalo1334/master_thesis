@@ -19,7 +19,11 @@ import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
 
 export interface DashboardDocumentRegistration {
-  view: Component<{ document: WorkspaceDocument; api: DashboardApi }>;
+  view: Component<{
+    document: WorkspaceDocument;
+    api: DashboardApi;
+    onCancel?: () => Promise<boolean>;
+  }>;
   fromPersisted?: (
     data: unknown,
     context: DashboardRecoveryContext,
@@ -31,10 +35,7 @@ export interface DashboardDocumentRegistration {
 export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
   {
     graph: {
-      view: EditableCanvas as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: EditableCanvas as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: EditableGraphDocument.fromPersisted,
       createOption: EditableGraphDocument.createOption,
       create: (workspace) => {
@@ -43,47 +44,29 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
       },
     },
     "graph-diff": {
-      view: GraphDiff as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: GraphDiff as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: GraphDiffDocument.fromPersisted,
     },
     "simulation-report": {
-      view: SimulationReport as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: SimulationReport as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: SimulationReportDocument.fromPersisted,
     },
     "optimization-report": {
-      view: OptimizationReport as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: OptimizationReport as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: OptimizationReportDocument.fromPersisted,
     },
     "analysis-report": {
-      view: AnalysisReport as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: AnalysisReport as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: AnalysisReportDocument.fromPersisted,
     },
     "document-catalog": {
-      view: DocumentCatalog as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: DocumentCatalog as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: DocumentCatalogDocument.fromPersisted,
       createOption: DocumentCatalogDocument.createOption,
       create: (workspace) => workspace.openDocumentCatalog(),
     },
     runs: {
-      view: Runs as unknown as Component<{
-        document: WorkspaceDocument;
-        api: DashboardApi;
-      }>,
+      view: Runs as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: RunsDocument.fromPersisted,
       createOption: RunsDocument.createOption,
       create: (workspace) => workspace.openRuns(),

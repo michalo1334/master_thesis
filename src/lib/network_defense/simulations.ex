@@ -55,9 +55,14 @@ defmodule NetworkDefense.Simulations do
   @spec run_or_resume(Ecto.UUID.t(), String.t()) :: {:ok, Experiment.t()} | {:error, term()}
   def run_or_resume(experiment_id, correlation_id) do
     case Experiments.resume_or_load(experiment_id) do
-      {:ok, %Experiment{status: "completed"} = experiment} -> {:ok, experiment}
-      {:ok, experiment} -> run_resumed_experiment(experiment, correlation_id)
-      error -> error
+      {:ok, %Experiment{status: status} = experiment} when status in ["completed", "cancelled"] ->
+        {:ok, experiment}
+
+      {:ok, experiment} ->
+        run_resumed_experiment(experiment, correlation_id)
+
+      error ->
+        error
     end
   end
 

@@ -1,6 +1,6 @@
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import { ManifestModel } from "./manifest/ManifestModel.svelte";
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
 import type {
   GraphSummary,
@@ -23,6 +23,7 @@ import type { AsyncReportDocument } from "./workspace/WorkspaceDocument.svelte";
 import type {
   EvaluationCompletedEvent,
   EvaluationFailedEvent,
+  RunCancelledEvent,
 } from "./contract";
 import { formatDashboardErrorCode } from "./error-code";
 import type { OptimizationParams, SimulationParams } from "./contract";
@@ -45,6 +46,31 @@ export class DashboardModel {
     string,
     ExecutionProgressEvent
   >();
+  private pendingCancellations = new SvelteSet<string>();
+
+  private cancellationKey(kind: ReportKind, runId: string): string {
+    return `${kind}:${runId}`;
+  }
+
+  private bindRunId(
+    report: AsyncReportDocument<ReportKind>,
+    runId: string,
+  ): void {
+    report.setRunId(runId);
+    this.applyPendingCancellation(report);
+  }
+
+  private applyPendingCancellation(
+    report: AsyncReportDocument<ReportKind>,
+  ): void {
+    const runId = report.runId;
+    if (!runId) return;
+    const key = this.cancellationKey(report.reportKind, runId);
+    if (this.pendingCancellations.delete(key)) {
+      report.markCancelled();
+      this.workspace.markReportReadState(report);
+    }
+  }
 
   constructor(
     api: DashboardApi,
@@ -56,6 +82,8 @@ export class DashboardModel {
     this.manifest = new ManifestModel(api);
     this.manifest.onStarted = (runId, manifest) => {
       const report = this.workspace.openPendingAnalysisReport(runId, manifest);
+      this.applyPendingCancellation(report);
+      if (report.status === "cancelled") return;
       const progress = this.pendingEvaluationProgressEvents.get(runId);
       if (progress) {
         this.pendingEvaluationProgressEvents.delete(runId);
@@ -150,6 +178,7 @@ export class DashboardModel {
         this.workspace.statusMessage = report.errorReason;
         return false;
       }
+      if (result.runId) this.bindRunId(report, result.runId);
       return true;
     } catch {
       report.markErrorMessage("Simulation failed.");
@@ -207,6 +236,7 @@ export class DashboardModel {
         this.workspace.statusMessage = report.errorReason;
         return false;
       }
+      if (reply.run_id) this.bindRunId(report, reply.run_id);
       return true;
     } catch {
       report.markErrorMessage("Optimization failed.");
@@ -237,6 +267,7 @@ export class DashboardModel {
       payload.graph_id,
     );
     if (report) {
+      if (report.status === "cancelled") return;
       report.complete(
         this.api,
         payload,
@@ -262,6 +293,7 @@ export class DashboardModel {
       payload.graph_id,
     );
     if (report) {
+      if (report.status === "cancelled") return;
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
@@ -319,16 +351,14 @@ export class DashboardModel {
     kind: "simulation" | "optimization" | "evaluation",
     payload: ExecutionProgressEvent,
   ): void {
-    const report = this.workspace.documents.find((d) =>
-      kind === "simulation"
-        ? d.kind === "simulation-report" &&
-          d.experimentId === payload.correlation_id
-        : kind === "optimization"
-          ? d.kind === "optimization-report" &&
-            d.optimizationId === payload.correlation_id
-          : d.kind === "analysis-report" && d.runId === payload.correlation_id,
-    ) as AsyncReportDocument<ReportKind> | undefined;
-    report?.setLoadProgress(
+    const report = this.workspace.documents.find(
+      (document) =>
+        document.isAsyncReportDocument() &&
+        document.reportKind === kind &&
+        document.reportId === payload.correlation_id,
+    );
+    if (!report?.isAsyncReportDocument()) return;
+    report.setLoadProgress(
       payload.completed,
       payload.total,
       payload.detail ?? undefined,
@@ -342,6 +372,7 @@ export class DashboardModel {
       payload.graph_revision_id,
     );
     if (report) {
+      if (report.status === "cancelled") return;
       report.complete(this.api, payload.experiment_id);
       this.workspace.markReportReadState(report);
     }
@@ -354,6 +385,7 @@ export class DashboardModel {
       payload.graph_revision_id,
     );
     if (report) {
+      if (report.status === "cancelled") return;
       report.markError(payload.error);
       this.workspace.markReportReadState(report);
     }
@@ -391,6 +423,7 @@ export class DashboardModel {
       event.payload.document_id,
       event.reportKind,
     );
+    if (document?.status === "cancelled") return;
     document?.setReportData(event.payload.report);
   }
 
@@ -402,6 +435,7 @@ export class DashboardModel {
       event.reportKind,
     );
     if (!document) return;
+    if (document.status === "cancelled") return;
     document.markError(event.payload.error);
     this.workspace.markReportReadState(document);
   }
@@ -414,15 +448,56 @@ export class DashboardModel {
     this.announceEvaluationReport(payload);
   }
 
+  onRunCancelled(payload: RunCancelledEvent): void {
+    const kind = payload.kind as ReportKind;
+    const report = this.workspace.documents.find(
+      (document) =>
+        document.isAsyncReportDocument() &&
+        document.reportKind === kind &&
+        document.runId === payload.run_id,
+    );
+    if (report?.isAsyncReportDocument()) {
+      report.markCancelled();
+      this.workspace.markReportReadState(report);
+    } else {
+      this.pendingCancellations.add(this.cancellationKey(kind, payload.run_id));
+    }
+  }
+
+  async cancelReport(
+    report: AsyncReportDocument<ReportKind>,
+  ): Promise<boolean> {
+    const runId = report.runId;
+    if (!runId) return false;
+    if (!globalThis.confirm("Cancel this run?")) return false;
+    if (!report.beginCancellation()) return false;
+    try {
+      const reply = await this.api.cancelRun({
+        kind: report.reportKind,
+        run_id: runId,
+      });
+      if (reply.status === "cancelled") {
+        this.onRunCancelled({ kind: report.reportKind, run_id: runId });
+        return true;
+      }
+    } catch {
+      // The report remains cancellable after a transport failure.
+    }
+    report.cancelFailed();
+    return false;
+  }
+
   onEvaluationAnalysisReady(payload: EvaluationAnalysisReadyEvent): void {
     const report = this.findReport(payload.document_id, "evaluation") as
       AnalysisReportDocument | undefined;
+    if (report?.status === "cancelled") return;
     report?.setAnalysisReady(payload);
   }
 
   onEvaluationAnalysisError(payload: EvaluationAnalysisErrorEvent): void {
     const report = this.findReport(payload.document_id, "evaluation") as
       AnalysisReportDocument | undefined;
+    if (report?.status === "cancelled") return;
     report?.setAnalysisError(payload);
   }
 
@@ -434,6 +509,7 @@ export class DashboardModel {
       this.pendingEvaluationEvents.set(payload.run_id, payload);
       return;
     }
+    if (report.status === "cancelled") return;
     // Already loaded: the server re-announces terminal runs; don't refetch.
     if (report.status === "loaded") {
       this.workspace.markReportReadState(report);

@@ -145,7 +145,13 @@
   {#snippet content(document: WorkspaceDocument)}
     {@const View = dashboardRegistry[document.kind]?.view}
     {#if View}
-      <View {document} {api} />
+      <View
+        {document}
+        {api}
+        onCancel={document.isAsyncReportDocument()
+          ? () => model.cancelReport(document)
+          : undefined}
+      />
     {/if}
   {/snippet}
 

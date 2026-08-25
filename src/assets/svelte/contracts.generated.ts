@@ -314,6 +314,17 @@ export interface SimulationParams {
   seed: number;
 }
 
+// NetworkDefenseWeb.Web.Contracts.CancelRunPayload (lib/network_defense_web/contracts/dashboard/runs/cancel_run_payload.ex)
+export interface CancelRunPayload {
+  kind: string;
+  run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.CancelRunReply (lib/network_defense_web/contracts/dashboard/runs/cancel_run_reply.ex) — enum fields: status
+export interface CancelRunReply {
+  status: "cancelled" | "not_found" | "not_running" | "invalid_params";
+}
+
 // NetworkDefenseWeb.Web.Contracts.CompareGraphsPayload (lib/network_defense_web/contracts/dashboard/graph/compare_graphs_payload.ex)
 export interface CompareGraphsPayload {
   base_revision_id: string;
@@ -983,6 +994,12 @@ export interface RequestEvaluationAnalysisReply {
   status: "processing" | "invalid_params" | "unavailable";
 }
 
+// NetworkDefenseWeb.Web.Contracts.RunCancelledEvent (lib/network_defense_web/contracts/dashboard/runs/run_cancelled_event.ex)
+export interface RunCancelledEvent {
+  kind: string;
+  run_id: string;
+}
+
 // NetworkDefenseWeb.Web.Contracts.RunOptimizationPayload (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_payload.ex)
 export interface RunOptimizationPayload {
   request: RunOptimizationRequest;
@@ -993,6 +1010,7 @@ export interface RunOptimizationReply {
   correlation_id: string;
   error?: DashboardError | null;
   graph_revision_id: string;
+  run_id: string;
   status: "accepted" | "rejected";
 }
 
@@ -1006,6 +1024,7 @@ export interface RunSimulationReply {
   correlation_id: string;
   error?: DashboardError | null;
   graph_revision_id: string;
+  run_id: string;
   status: "accepted" | "rejected";
 }
 

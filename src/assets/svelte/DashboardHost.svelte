@@ -25,6 +25,7 @@
     OptimizationReportErrorEvent,
     EvaluationCompletedEvent,
     EvaluationFailedEvent,
+    RunCancelledEvent,
     EvaluationReportReadyEvent,
     EvaluationReportErrorEvent,
   } from "./dashboard/contract";
@@ -131,6 +132,10 @@
 
   useLiveEvent("evaluation_failed", (payload: unknown) => {
     model.onEvaluationFailed(payload as EvaluationFailedEvent);
+  });
+
+  useLiveEvent("run_cancelled", (payload: unknown) => {
+    model.onRunCancelled(payload as RunCancelledEvent);
   });
 
   useLiveEvent("evaluation_progress", (payload: unknown) => {

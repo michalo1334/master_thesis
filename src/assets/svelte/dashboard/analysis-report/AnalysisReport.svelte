@@ -12,9 +12,10 @@
   interface Props {
     document: AnalysisReportDocument;
     api?: DashboardApi;
+    onCancel?: () => Promise<boolean>;
   }
 
-  let { document, api }: Props = $props();
+  let { document, api, onCancel = undefined }: Props = $props();
   let activeTab = $state("report");
 
   const formatNumber = (value: number | null | undefined): string =>
@@ -162,6 +163,16 @@
         waitingMessage="Evaluation running, waiting for results..."
         label="evaluation steps completed"
       />
+      {#if onCancel}
+        <button
+          type="button"
+          class="analysis-report-button"
+          disabled={document.cancelInProgress}
+          onclick={() => void onCancel?.()}
+        >
+          {document.cancelInProgress ? "Cancelling…" : "Cancel evaluation"}
+        </button>
+      {/if}
     </section>
   {:else if document.status === "loading"}
     <section class="analysis-report-status" aria-live="polite">
@@ -174,6 +185,10 @@
   {:else if document.status === "error"}
     <section class="analysis-report-status" aria-live="polite">
       <p>{document.errorReason || "Failed to load the analysis report."}</p>
+    </section>
+  {:else if document.status === "cancelled"}
+    <section class="analysis-report-status" aria-live="polite">
+      <p>Evaluation cancelled.</p>
     </section>
   {:else if document.status === "loaded" && document.reportData}
     <Tabs.Root

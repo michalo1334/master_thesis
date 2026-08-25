@@ -77,7 +77,7 @@ defmodule NetworkDefense.Simulation.Experiment do
     |> validate_number(:max_attempts, greater_than: 0)
     |> validate_number(:total_trials, greater_than: 0)
     |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
-    |> validate_inclusion(:status, ["running", "failed", "completed"])
+    |> validate_inclusion(:status, ["running", "failed", "completed", "cancelled"])
     |> foreign_key_constraint(:graph_revision_id)
     |> foreign_key_constraint(:evaluation_run_id)
     |> foreign_key_constraint(:optimization_run_id)

@@ -43,16 +43,44 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
   defp complete_locked(_run, _attrs), do: Repo.rollback(:not_running)
 
   def fail(run_id) do
-    Repo.get(OptimizationRun, run_id)
-    |> case do
-      %OptimizationRun{status: "running"} = run ->
-        run
-        |> OptimizationRun.changeset(%{status: "failed"})
-        |> Repo.update()
-
-      _ ->
-        :ok
+    case Repo.transaction(fn -> fail_locked(lock!(run_id)) end) do
+      {:ok, %OptimizationRun{} = run} -> {:ok, run}
+      {:ok, :ok} -> :ok
     end
+  end
+
+  defp fail_locked(%OptimizationRun{status: "running"} = run) do
+    run
+    |> OptimizationRun.changeset(%{status: "failed"})
+    |> Repo.update!()
+  end
+
+  defp fail_locked(_run), do: :ok
+
+  def cancel(run_id) do
+    result =
+      Repo.update_all(
+        from(r in OptimizationRun, where: r.id == ^run_id and r.status == "running"),
+        set: [status: "cancelled", updated_at: DateTime.utc_now()]
+      )
+
+    Oban.cancel_all_jobs(
+      from(j in Oban.Job,
+        where: j.worker == ^"NetworkDefense.Optimizations.OptimizationWorker",
+        where: fragment("? @> ?", j.args, ^%{"run_id" => run_id})
+      )
+    )
+
+    case result do
+      {1, _} -> {:ok, :cancelled}
+      _ -> {:error, :not_running}
+    end
+  end
+
+  def cancel_by_evaluation(evaluation_run_id) do
+    OptimizationRun
+    |> where([r], r.evaluation_run_id == ^evaluation_run_id and r.status == "running")
+    |> Repo.update_all(set: [status: "cancelled", updated_at: DateTime.utc_now()])
   end
 
   def resume_or_load(run_id) do
@@ -61,7 +89,7 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
         nil ->
           Repo.rollback(:not_found)
 
-        %OptimizationRun{status: "completed"} = run ->
+        %OptimizationRun{status: status} = run when status in ["completed", "cancelled"] ->
           run
 
         %OptimizationRun{} = run ->

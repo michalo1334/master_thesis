@@ -15,6 +15,46 @@
   let { document, api }: Props = $props();
   let runs = $state.raw<RunSummary[]>([]);
   let loadState = $state<"loading" | "ready" | "error">("loading");
+  let selectedKeys = $state<string[]>([]);
+  let cancelling = $state(false);
+  let actionMessage = $state("");
+  const selectedRun = $derived(runs.find((run) => run.id === selectedKeys[0]));
+
+  function isCancellableRunKind(
+    kind: string,
+  ): kind is "simulation" | "optimization" | "evaluation" {
+    return (
+      kind === "simulation" || kind === "optimization" || kind === "evaluation"
+    );
+  }
+
+  async function cancelSelected(): Promise<void> {
+    const run = selectedRun;
+    if (!run || cancelling || !globalThis.confirm("Cancel this run?")) return;
+    if (!isCancellableRunKind(run.kind)) {
+      actionMessage = "Could not cancel run.";
+      return;
+    }
+    cancelling = true;
+    actionMessage = "";
+    try {
+      const reply = await api.cancelRun({
+        kind: run.kind,
+        run_id: run.id,
+      });
+      if (reply.status === "cancelled") {
+        actionMessage = "Run cancelled.";
+        selectedKeys = [];
+        await loadRuns();
+      } else {
+        actionMessage = `Could not cancel run (${reply.status}).`;
+      }
+    } catch {
+      actionMessage = "Could not cancel run.";
+    } finally {
+      cancelling = false;
+    }
+  }
 
   const columns: readonly FilterableTableColumn<RunSummary>[] = [
     {
@@ -86,20 +126,34 @@
       <p>Active work</p>
       <h1 id="runs-title">{document.title}</h1>
     </div>
-    <button
-      class="runs-refresh"
-      type="button"
-      disabled={loadState === "loading"}
-      onclick={() => void loadRuns()}
-    >
-      Refresh
-    </button>
+    <div class="runs-actions">
+      <button
+        class="runs-refresh"
+        type="button"
+        disabled={!selectedRun || cancelling}
+        onclick={() => void cancelSelected()}
+      >
+        {cancelling ? "Cancelling…" : "Cancel selected"}
+      </button>
+      <button
+        class="runs-refresh"
+        type="button"
+        disabled={loadState === "loading"}
+        onclick={() => void loadRuns()}
+      >
+        Refresh
+      </button>
+    </div>
   </header>
+
+  <p class="runs-status" aria-live="polite">{actionMessage}</p>
 
   <FilterableTable
     items={runs}
     {columns}
     getKey={(run) => run.id}
+    selectionMode="single"
+    bind:selectedKeys
     {emptyMessage}
     noMatchMessage="No runs match the search."
     disabled={loadState === "loading"}
@@ -111,7 +165,7 @@
     height: 100%;
     min-height: 0;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     gap: var(--ui-space-4);
     padding: var(--ui-space-6);
     overflow: hidden;
@@ -123,6 +177,16 @@
     align-items: end;
     justify-content: space-between;
     gap: var(--ui-space-3);
+  }
+
+  .runs-actions {
+    display: flex;
+    gap: var(--ui-space-2);
+  }
+  .runs-status {
+    min-height: 1.5em;
+    margin: 0;
+    color: var(--ui-color-text-secondary);
   }
 
   .runs-header p,

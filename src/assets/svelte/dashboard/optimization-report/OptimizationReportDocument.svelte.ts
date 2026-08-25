@@ -34,6 +34,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   graphId = $state("");
   graphRevisionId = $state("");
   correlationId = $state<string | null>(null);
+  runId = $state<string | null>(null);
 
   optimizationId = $state<string | null>(null);
   strategy: OptimizationStrategy;
@@ -76,6 +77,10 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.strategy = strategy;
     this.budget = budget;
     this.title = `Optimization report for ${graphTitle}`;
+  }
+
+  setRunId(runId: string): void {
+    this.runId = runId;
   }
 
   static fromPersisted(

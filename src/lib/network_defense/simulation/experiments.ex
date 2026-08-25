@@ -70,6 +70,10 @@ defmodule NetworkDefense.Simulation.Experiments do
       fn ->
         experiment = lock!(experiment.id)
 
+        if experiment.status != "running" do
+          Repo.rollback(:not_running)
+        end
+
         if experiment.completed_trials != experiment.total_trials do
           Repo.rollback(:incomplete)
         end
@@ -83,15 +87,31 @@ defmodule NetworkDefense.Simulation.Experiments do
   end
 
   def fail(experiment_id) do
-    Repo.get(Experiment, experiment_id)
-    |> case do
-      %Experiment{status: "running"} = experiment ->
-        experiment
-        |> Experiment.changeset(%{status: "failed"})
-        |> Repo.update(timeout: :infinity)
+    Repo.update_all(
+      from(e in Experiment, where: e.id == ^experiment_id and e.status == "running"),
+      set: [status: "failed", updated_at: DateTime.utc_now()]
+    )
 
-      _ ->
-        :ok
+    :ok
+  end
+
+  def cancel(experiment_id) do
+    result =
+      Repo.update_all(
+        from(e in Experiment, where: e.id == ^experiment_id and e.status == "running"),
+        set: [status: "cancelled", updated_at: DateTime.utc_now()]
+      )
+
+    Oban.cancel_all_jobs(
+      from(j in Oban.Job,
+        where: j.worker == ^"NetworkDefense.Simulations.SimulationWorker",
+        where: fragment("? @> ?", j.args, ^%{"experiment_id" => experiment_id})
+      )
+    )
+
+    case result do
+      {1, _} -> {:ok, :cancelled}
+      _ -> {:error, :not_running}
     end
   end
 
@@ -104,7 +124,7 @@ defmodule NetworkDefense.Simulation.Experiments do
           is_nil(experiment) ->
             Repo.rollback(:not_found)
 
-          experiment.status == "completed" ->
+          experiment.status in ["completed", "cancelled"] ->
             experiment
 
           experiment.completed_trials == experiment.total_trials ->

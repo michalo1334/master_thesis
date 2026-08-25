@@ -83,7 +83,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
     EvaluationAnalysisReadyEvent,
     EvaluationAnalysisErrorEvent,
     FetchRunsPayload,
-    FetchRunsReply
+    FetchRunsReply,
+    CancelRunPayload,
+    CancelRunReply,
+    RunCancelledEvent
   }
 
   @impl true
@@ -365,7 +368,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       params,
       RunSimulationPayload,
       &Simulations.run_async/1,
-      &simulation_request_reply/4,
+      &simulation_request_reply/5,
       "Simulation started.",
       socket
     )
@@ -377,7 +380,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       params,
       RunOptimizationPayload,
       &Optimizations.run_async/1,
-      &optimization_request_reply/4,
+      &optimization_request_reply/5,
       "Optimization started.",
       socket
     )
@@ -489,6 +492,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, FetchRunsReply.to_wire(%FetchRunsReply{runs: []}), socket}
+    end
+  end
+
+  def handle_event("cancel_run", params, socket) do
+    case CancelRunPayload.validate(params) do
+      {:ok, request} ->
+        case Runs.cancel(request.kind, request.run_id) do
+          {:ok, _run} ->
+            {:reply, contract_reply(CancelRunReply, %{status: "cancelled"}),
+             push_contract_event(socket, "run_cancelled", RunCancelledEvent, %{
+               kind: request.kind,
+               run_id: request.run_id
+             })}
+
+          {:error, reason} when reason in [:not_found, :not_running] ->
+            {:reply, contract_reply(CancelRunReply, %{status: Atom.to_string(reason)}), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, contract_reply(CancelRunReply, %{status: "invalid_params"}), socket}
     end
   end
 
@@ -934,18 +957,41 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp simulation_request_reply(status, graph_revision_id, correlation_id, error) do
-    run_request_reply(RunSimulationReply, status, graph_revision_id, correlation_id, error)
+    simulation_request_reply(status, graph_revision_id, correlation_id, error, nil)
+  end
+
+  defp simulation_request_reply(status, graph_revision_id, correlation_id, error, run_id) do
+    run_request_reply(
+      RunSimulationReply,
+      status,
+      graph_revision_id,
+      correlation_id,
+      error,
+      run_id
+    )
   end
 
   defp optimization_request_reply(status, graph_revision_id, correlation_id, error) do
-    run_request_reply(RunOptimizationReply, status, graph_revision_id, correlation_id, error)
+    optimization_request_reply(status, graph_revision_id, correlation_id, error, nil)
   end
 
-  defp run_request_reply(contract, status, graph_revision_id, correlation_id, error) do
+  defp optimization_request_reply(status, graph_revision_id, correlation_id, error, run_id) do
+    run_request_reply(
+      RunOptimizationReply,
+      status,
+      graph_revision_id,
+      correlation_id,
+      error,
+      run_id
+    )
+  end
+
+  defp run_request_reply(contract, status, graph_revision_id, correlation_id, error, run_id) do
     contract_reply(contract, %{
       status: status,
       graph_revision_id: string_or_empty(graph_revision_id),
       correlation_id: string_or_empty(correlation_id),
+      run_id: string_or_empty(run_id),
       error: dashboard_error(error)
     })
   end
@@ -954,13 +1000,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
     case payload_mod.validate(params) do
       {:ok, %{request: request}} ->
         case run_fun.(request) do
-          {:ok, _pid} ->
+          {:ok, job} ->
             {:reply,
              reply_fun.(
                "accepted",
                request.graph_revision_id,
                request.correlation_id,
-               nil
+               nil,
+               get_in(job.args, ["experiment_id"]) || get_in(job.args, ["run_id"])
              ), put_flash(socket, :info, success_flash)}
 
           {:error, reason} ->
@@ -969,7 +1016,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
                "rejected",
                request.graph_revision_id,
                request.correlation_id,
-               reason
+               reason,
+               nil
              ), socket}
         end
 
@@ -979,7 +1027,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
            "rejected",
            params |> Map.get("request", %{}) |> Map.get("graph_revision_id"),
            params |> Map.get("request", %{}) |> Map.get("correlation_id"),
-           :invalid_request
+           :invalid_request,
+           nil
          ), socket}
     end
   end

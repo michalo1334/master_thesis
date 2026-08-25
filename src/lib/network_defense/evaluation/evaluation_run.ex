@@ -46,7 +46,7 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
       :resolved_manifest,
       :status
     ])
-    |> validate_inclusion(:status, ["running", "completed", "failed"])
+    |> validate_inclusion(:status, ["running", "completed", "failed", "cancelled"])
     |> foreign_key_constraint(:evaluation_manifest_id)
     |> foreign_key_constraint(:source_graph_revision_id)
   end

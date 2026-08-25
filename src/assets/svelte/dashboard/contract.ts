@@ -105,6 +105,9 @@ export type {
   EvaluationFailedEvent,
   EvaluationReportReadyEvent,
   EvaluationReportErrorEvent,
+  CancelRunPayload,
+  CancelRunReply,
+  RunCancelledEvent,
 } from "../contracts.generated";
 
 export type LoadedGraph = GraphContract;

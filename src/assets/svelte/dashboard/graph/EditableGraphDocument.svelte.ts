@@ -35,6 +35,7 @@ export type StartSimulationResult =
       graphId: string;
       graphRevisionId: string;
       correlationId: string;
+      runId: string;
       graphTitle: string;
     }
   | { status: "rejected"; error: DashboardError | null };
@@ -316,6 +317,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
         graphId: this.graph.id,
         graphRevisionId: reply.graph_revision_id,
         correlationId: reply.correlation_id,
+        runId: reply.run_id ?? "",
         graphTitle: this.title,
       };
     }

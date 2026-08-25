@@ -12,9 +12,10 @@
 
   interface Props {
     document: OptimizationReportDocument;
+    onCancel?: () => Promise<boolean>;
   }
 
-  let { document }: Props = $props();
+  let { document, onCancel = undefined }: Props = $props();
   let analysis = $derived(document.analysis);
   let activeTab = $state("overview");
   let graphDiffLoadPending = $state(false);
@@ -59,6 +60,16 @@
         waitingMessage="Optimization requested, waiting for progress..."
         label="steps completed"
       />
+      {#if document.runId && onCancel}
+        <button
+          type="button"
+          class="optimization-report-open"
+          disabled={document.cancelInProgress}
+          onclick={() => void onCancel?.()}
+        >
+          {document.cancelInProgress ? "Cancelling…" : "Cancel optimization"}
+        </button>
+      {/if}
     </section>
   {:else if document.status === "loading" || document.status === "ready"}
     <section class="optimization-report-waiting" aria-live="polite">
@@ -71,6 +82,10 @@
   {:else if document.status === "error"}
     <section class="optimization-report-waiting">
       <p>{document.errorReason || "Optimization failed."}</p>
+    </section>
+  {:else if document.status === "cancelled"}
+    <section class="optimization-report-waiting" aria-live="polite">
+      <p>Optimization cancelled.</p>
     </section>
   {:else}
     {#if document.reportData && analysis}

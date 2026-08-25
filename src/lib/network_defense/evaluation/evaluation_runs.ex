@@ -31,14 +31,57 @@ defmodule NetworkDefense.Evaluation.EvaluationRuns do
   end
 
   def complete(%EvaluationRun{} = run) do
-    run
-    |> EvaluationRun.changeset(%{status: "completed"})
-    |> Repo.update()
+    Repo.transaction(fn ->
+      run = Repo.one(from(r in EvaluationRun, where: r.id == ^run.id, lock: "FOR UPDATE"))
+
+      case run do
+        %EvaluationRun{status: "running"} = run ->
+          run |> EvaluationRun.changeset(%{status: "completed"}) |> Repo.update!()
+
+        %EvaluationRun{} ->
+          Repo.rollback(:not_running)
+
+        nil ->
+          Repo.rollback(:not_found)
+      end
+    end)
   end
 
   def fail(%EvaluationRun{} = run, reason) do
-    run
-    |> EvaluationRun.changeset(%{status: "failed", failure_reason: reason})
-    |> Repo.update()
+    Repo.transaction(fn ->
+      locked = Repo.one(from(r in EvaluationRun, where: r.id == ^run.id, lock: "FOR UPDATE"))
+
+      case locked do
+        %EvaluationRun{status: "running"} = locked ->
+          locked
+          |> EvaluationRun.changeset(%{status: "failed", failure_reason: reason})
+          |> Repo.update!()
+
+        %EvaluationRun{} ->
+          Repo.rollback(:not_running)
+
+        nil ->
+          Repo.rollback(:not_found)
+      end
+    end)
+  end
+
+  def cancel(run_id) do
+    Repo.transaction(fn ->
+      run = Repo.one(from(r in EvaluationRun, where: r.id == ^run_id, lock: "FOR UPDATE"))
+
+      case run do
+        %EvaluationRun{status: "running"} = run ->
+          run
+          |> EvaluationRun.changeset(%{status: "cancelled"})
+          |> Repo.update!()
+
+        %EvaluationRun{} ->
+          Repo.rollback(:not_running)
+
+        nil ->
+          Repo.rollback(:not_found)
+      end
+    end)
   end
 end

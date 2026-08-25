@@ -48,6 +48,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   def run(%{status: "completed"} = run), do: {:ok, run}
 
   def run(%{status: "failed"} = run), do: {:ok, run}
+  def run(%{status: "cancelled"} = run), do: {:ok, run}
 
   def run(%{source_graph_revision_id: revision_id} = run) do
     Tracer.with_span "evaluation.run", attributes: evaluation_span_attributes(run) do

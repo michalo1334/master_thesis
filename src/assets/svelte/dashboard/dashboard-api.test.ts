@@ -60,6 +60,7 @@ describe("DashboardApi", () => {
       status: "accepted" as const,
       graph_revision_id: "r1",
       correlation_id: "corr-1",
+      run_id: "optimization-run-1",
     };
     const live = {
       pushEvent: vi.fn((_, __, onReply) => {

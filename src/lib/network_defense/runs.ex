@@ -11,6 +11,32 @@ defmodule NetworkDefense.Runs do
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
 
+  def cancel(kind, id) when kind in ["simulation", "optimization", "evaluation"] do
+    case kind do
+      "simulation" ->
+        cancel_record(Experiment, id, &NetworkDefense.Simulation.Experiments.cancel/1)
+
+      "optimization" ->
+        cancel_record(OptimizationRun, id, &NetworkDefense.Optimization.OptimizationRuns.cancel/1)
+
+      "evaluation" ->
+        NetworkDefense.Evaluation.cancel(id)
+    end
+  end
+
+  def cancel(kind, id) when kind in [:simulation, :optimization, :evaluation],
+    do: cancel(Atom.to_string(kind), id)
+
+  def cancel(_kind, _id), do: {:error, :not_found}
+
+  defp cancel_record(schema, id, cancel_fun) do
+    case Repo.get(schema, id) do
+      nil -> {:error, :not_found}
+      %{status: "running"} -> cancel_fun.(id)
+      _ -> {:error, :not_running}
+    end
+  end
+
   @spec active() :: [map()]
   def active do
     (active_experiments() ++
