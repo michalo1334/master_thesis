@@ -1053,6 +1053,7 @@ export interface SaveGraphReply {
 // NetworkDefenseWeb.Web.Contracts.SaveManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_payload.ex)
 export interface SaveManifestPayload {
   content: Record<string, unknown>;
+  existing_manifest_id?: string | null;
   manifest_id: string;
   title: string;
 }

@@ -166,6 +166,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, request} ->
         case Evaluation.save(%{
                manifest_id: request.manifest_id,
+               existing_manifest_id: request.existing_manifest_id,
                title: request.title,
                content: request.content
              }) do

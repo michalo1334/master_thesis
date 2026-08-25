@@ -58,7 +58,19 @@ defmodule NetworkDefense.Evaluation do
   @spec save(map()) :: {:ok, EvaluationManifest.t()} | {:error, term()}
   def save(attrs) do
     with {:ok, content} <- validate_content(attrs) do
-      EvaluationManifests.upsert(Map.put(attrs, :content, content))
+      attrs = Map.put(attrs, :content, content)
+
+      case Map.get(attrs, :existing_manifest_id) do
+        nil -> EvaluationManifests.create(attrs)
+        manifest_id -> update_manifest(manifest_id, attrs)
+      end
+    end
+  end
+
+  defp update_manifest(id, attrs) do
+    case EvaluationManifests.get(id) do
+      nil -> {:error, :not_found}
+      manifest -> EvaluationManifests.update_manifest(manifest, attrs)
     end
   end
 

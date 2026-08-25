@@ -20,7 +20,7 @@ defmodule NetworkDefense.EvaluationTest do
   import ExUnit.CaptureLog
 
   import NetworkDefense.EvaluationFixtures,
-    only: [save_manifest: 1, save_manifest: 2, save_manifest: 3]
+    only: [save_manifest: 1, save_manifest: 2]
 
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Run}
@@ -179,14 +179,36 @@ defmodule NetworkDefense.EvaluationTest do
       assert %EvaluationManifest{manifest_id: ^id} = Evaluation.get_by_manifest_id(id)
     end
 
-    test "upsert overwrites an existing manifest by manifest_id" do
+    test "updates only the explicitly selected manifest" do
       id = manifest_id()
-      assert {:ok, _} = save_manifest(id)
+      assert {:ok, original} = save_manifest(id)
 
-      assert {:ok, updated} = save_manifest(id, @valid_manifest, "T2")
+      assert {:ok, updated} =
+               Evaluation.save(%{
+                 manifest_id: "different-id",
+                 existing_manifest_id: original.id,
+                 title: "T2",
+                 content: Map.put(@valid_manifest, "id", "different-id")
+               })
 
       assert updated.title == "T2"
-      assert Enum.count(Evaluation.list(), &(&1.manifest_id == id)) == 1
+      assert updated.manifest_id == "different-id"
+      assert Evaluation.get(original.id).manifest_id == "different-id"
+    end
+
+    test "creating a duplicate manifest_id returns a unique constraint error" do
+      id = manifest_id()
+      assert {:ok, original} = save_manifest(id)
+
+      assert {:error, changeset} =
+               Evaluation.save(%{
+                 manifest_id: id,
+                 title: "T2",
+                 content: Map.put(@valid_manifest, "id", id)
+               })
+
+      assert "has already been taken" in errors_on(changeset).manifest_id
+      assert Evaluation.get(original.id).title == "T"
     end
 
     test "save rejects an invalid manifest" do

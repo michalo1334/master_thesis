@@ -144,14 +144,29 @@ export class ManifestModel {
     const parsed = this.parseEditor();
     if (!parsed) return false;
 
-    const manifestId = parsed.id;
-    if (typeof manifestId !== "string" || manifestId === "") {
+    if (typeof parsed.id !== "string" || parsed.id === "") {
       this.errors = [{ path: "id", message: "must be a non-empty string" }];
       return false;
     }
+    let manifestId = parsed.id;
+    const savedContent = this.parseSavedEditor();
+    const titleChanged =
+      this.selectedId !== null && this.title !== this.savedTitle;
+    const idChanged =
+      this.selectedId !== null && parsed.id !== savedContent?.id;
+    if (titleChanged && !idChanged) {
+      manifestId = crypto.randomUUID();
+      parsed.id = manifestId;
+      this.editorText = JSON.stringify(parsed, null, 2);
+    }
+    const isUpdate = this.selectedId !== null && !titleChanged && !idChanged;
     if (
-      this.selectedId === null &&
-      this.manifests.some((manifest) => manifest.manifest_id === manifestId)
+      !isUpdate &&
+      this.manifests.some(
+        (manifest) =>
+          manifest.manifest_id === manifestId &&
+          manifest.id !== this.selectedId,
+      )
     ) {
       this.errors = [{ path: "id", message: "already exists" }];
       return false;
@@ -165,6 +180,9 @@ export class ManifestModel {
         manifest_id: manifestId,
         title: this.title.trim(),
         content: parsed,
+        ...(isUpdate && this.selectedId
+          ? { existing_manifest_id: this.selectedId }
+          : {}),
       });
       if (reply.status === "ok" && reply.manifest) {
         await this.loadManifests();
@@ -235,6 +253,17 @@ export class ManifestModel {
       return parsed as Record<string, unknown>;
     } catch {
       this.errors = [{ path: "$", message: "invalid JSON" }];
+      return null;
+    }
+  }
+
+  private parseSavedEditor(): Record<string, unknown> | null {
+    try {
+      const parsed: unknown = JSON.parse(this.savedEditorText);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
       return null;
     }
   }

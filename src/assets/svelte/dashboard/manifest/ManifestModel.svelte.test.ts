@@ -33,6 +33,7 @@ function api(): DashboardApi {
     startEvaluation: vi.fn(),
     requestEvaluationReport: vi.fn(),
     requestEvaluationAnalysis: vi.fn(),
+    cancelRun: vi.fn(),
   } as DashboardApi;
 }
 
@@ -210,10 +211,17 @@ describe("ManifestModel", () => {
 
   it("saves an edited manifest with its existing id", async () => {
     model.manifests = [
-      { id: "m1", manifest_id: "fixed-enterprise-v1", title: "Old" },
+      { id: "m1", manifest_id: "fixed-enterprise-v1", title: "T" },
     ];
-    model.selectedId = "m1";
-    model.title = "T";
+    vi.mocked(dashboardApi.getManifest).mockResolvedValue({
+      manifest: {
+        id: "m1",
+        manifest_id: "fixed-enterprise-v1",
+        title: "T",
+        content: validContent,
+      },
+    });
+    await model.selectManifest("m1");
     model.editorText = JSON.stringify(validContent, null, 2);
     vi.mocked(dashboardApi.saveManifest).mockResolvedValue({
       status: "ok",
@@ -233,6 +241,39 @@ describe("ManifestModel", () => {
       manifest_id: "fixed-enterprise-v1",
       title: "T",
       content: validContent,
+      existing_manifest_id: "m1",
+    });
+  });
+
+  it("omits the existing manifest id when copying an edited manifest", async () => {
+    vi.mocked(dashboardApi.getManifest).mockResolvedValue({
+      manifest: {
+        id: "m1",
+        manifest_id: "fixed-enterprise-v1",
+        title: "Old",
+        content: validContent,
+      },
+    });
+    await model.selectManifest("m1");
+    model.title = "Copy";
+    vi.mocked(dashboardApi.saveManifest).mockResolvedValue({
+      status: "ok",
+      manifest: {
+        id: "m2",
+        manifest_id: "fixed-enterprise-v1-copy",
+        title: "Copy",
+        content: { ...validContent, id: "fixed-enterprise-v1-copy" },
+      },
+      errors: [],
+    });
+
+    const ok = await model.save();
+
+    expect(ok).toBe(true);
+    expect(dashboardApi.saveManifest).toHaveBeenCalledWith({
+      manifest_id: expect.any(String),
+      title: "Copy",
+      content: expect.objectContaining({ id: expect.any(String) }),
     });
   });
 

@@ -64,6 +64,11 @@ defmodule NetworkDefense.EvaluationFixtures do
   end
 
   def save_manifest(id, content \\ valid_manifest(), title \\ "T") do
-    Evaluation.save(%{manifest_id: id, title: title, content: Map.put(content, "id", id)})
+    attrs = %{manifest_id: id, title: title, content: Map.put(content, "id", id)}
+
+    case Evaluation.get_by_manifest_id(id) do
+      nil -> Evaluation.save(attrs)
+      manifest -> Evaluation.save(Map.put(attrs, :existing_manifest_id, manifest.id))
+    end
   end
 end
