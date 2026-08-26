@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "scope": "fixed-order-fulfilment-v1",
+  "description": "Provenance for the reviewed static subset of NVD CVE data used by the fixed-order-fulfilment-v1 scenario.",
+  "is_reviewed_static_subset": true,
+  "evaluation_makes_no_nvd_network_request": true,
+  "probabilities_are_not_nvd_data": true,
+  "downloaded_at": "2026-08-26T15:17:45Z",
+  "nvd_json_schema_version": "2.0",
+  "feeds": [
+    {
+      "year": 2017,
+      "url": "https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-2017.json.zip",
+      "file": "nvdcve-2.0-2017.json.zip",
+      "zip_sha256": "3e2f15b84466d4586ae19161b19e8ef1d03f4d21a164447630887e56d2a7c806",
+      "content_sha256": "68AFFFBA3DB077AFA418E8FC1BD51066C0DA32EF7E4B40625C995935F25FE1AF",
+      "last_modified": "2026-08-22T03:02:54-04:00"
+    },
+    {
+      "year": 2021,
+      "url": "https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-2021.json.zip",
+      "file": "nvdcve-2.0-2021.json.zip",
+      "zip_sha256": "9807e0d5076349959cae2602f95ec117a55c9b8c9de54d34722abb60747d8599",
+      "content_sha256": "555DE189BF4EFD9C4378A6514C48647AD65F87EF3EE4980FFACCFA21E4D74896",
+      "last_modified": "2026-08-25T03:02:38-04:00"
+    }
+  ]
+}

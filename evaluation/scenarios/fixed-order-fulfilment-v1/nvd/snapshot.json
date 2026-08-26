@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "scope": "fixed-order-fulfilment-v1",
+  "description": "Reviewed static subset of NVD CVE data relevant to the fixed-order-fulfilment-v1 scenario.",
+  "reviewed_on": "2026-08-26",
+  "records": [
+    {
+      "id": "CVE-2021-44228",
+      "product": "Apache Log4j",
+      "version": "2.14.1",
+      "scenario_cpe": "cpe:2.3:a:apache:log4j:2.14.1:*:*:*:*:*:*:*",
+      "source_feed_file": "nvdcve-2.0-2021.json.zip",
+      "feed_year": 2021,
+      "published": "2021-12-10T10:15:09.143",
+      "last_modified": "2026-08-11T19:33:44.513",
+      "nvd_cpe_match": {
+        "criteria": "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*",
+        "version_start_including": "2.13.0",
+        "version_end_excluding": "2.15.0"
+      },
+      "cvss_v3_1": {
+        "source": "nvd@nist.gov",
+        "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+        "base_score": 10.0,
+        "severity": "CRITICAL",
+        "base_metrics": {
+          "attack_vector": "network",
+          "attack_complexity": "low",
+          "privileges_required": "none",
+          "user_interaction": "none",
+          "scope": "changed",
+          "confidentiality_impact": "high",
+          "integrity_impact": "high",
+          "availability_impact": "high"
+        }
+      }
+    },
+    {
+      "id": "CVE-2021-42013",
+      "product": "Apache HTTP Server",
+      "version": "2.4.50",
+      "scenario_cpe": "cpe:2.3:a:apache:http_server:2.4.50:*:*:*:*:*:*:*",
+      "source_feed_file": "nvdcve-2.0-2021.json.zip",
+      "feed_year": 2021,
+      "published": "2021-10-07T16:15:09.270",
+      "last_modified": "2026-06-17T04:09:09.193",
+      "nvd_cpe_match": {
+        "criteria": "cpe:2.3:a:apache:http_server:2.4.50:*:*:*:*:*:*:*"
+      },
+      "cvss_v3_1": {
+        "source": "nvd@nist.gov",
+        "vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "base_score": 9.8,
+        "severity": "CRITICAL",
+        "base_metrics": {
+          "attack_vector": "network",
+          "attack_complexity": "low",
+          "privileges_required": "none",
+          "user_interaction": "none",
+          "scope": "unchanged",
+          "confidentiality_impact": "high",
+          "integrity_impact": "high",
+          "availability_impact": "high"
+        }
+      }
+    },
+    {
+      "id": "CVE-2017-9805",
+      "product": "Apache Struts",
+      "version": "2.5.12",
+      "scenario_cpe": "cpe:2.3:a:apache:struts:2.5.12:*:*:*:*:*:*:*",
+      "source_feed_file": "nvdcve-2.0-2017.json.zip",
+      "feed_year": 2017,
+      "published": "2017-09-15T19:29:00.237",
+      "last_modified": "2026-06-17T01:28:57.493",
+      "nvd_cpe_match": {
+        "criteria": "cpe:2.3:a:apache:struts:*:*:*:*:*:*:*:*",
+        "version_start_including": "2.5.0",
+        "version_end_excluding": "2.5.13"
+      },
+      "cvss_v3_1": {
+        "source": "nvd@nist.gov",
+        "vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+        "base_score": 8.1,
+        "severity": "HIGH",
+        "base_metrics": {
+          "attack_vector": "network",
+          "attack_complexity": "high",
+          "privileges_required": "none",
+          "user_interaction": "none",
+          "scope": "unchanged",
+          "confidentiality_impact": "high",
+          "integrity_impact": "high",
+          "availability_impact": "high"
+        }
+      }
+    }
+  ]
+}

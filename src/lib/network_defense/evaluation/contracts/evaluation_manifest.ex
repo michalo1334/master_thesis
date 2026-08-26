@@ -439,12 +439,29 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   defp pilot(_), do: error("analysis.pilot", "is required")
 
   defp evaluation(%{"evaluation" => %{} = evaluation}) do
-    unknown(evaluation, "evaluation", ~w(trials seed))
+    unknown(evaluation, "evaluation", ~w(trials seed optimizer_trials optimizer_iterations))
 
-    fields(evaluation, "evaluation", [
-      {"trials", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
-      {"seed", &(is_integer(&1) and &1 >= 0), "must be a non-negative integer"}
-    ])
+    with :ok <-
+           fields(evaluation, "evaluation", [
+             {"trials", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
+             {"seed", &(is_integer(&1) and &1 >= 0), "must be a non-negative integer"}
+           ]),
+         :ok <-
+           optional_field(
+             evaluation,
+             "optimizer_trials",
+             &(is_integer(&1) and &1 > 0),
+             "must be a positive integer",
+             "evaluation"
+           ) do
+      optional_field(
+        evaluation,
+        "optimizer_iterations",
+        &(is_integer(&1) and &1 > 0),
+        "must be a positive integer",
+        "evaluation"
+      )
+    end
   end
 
   defp evaluation(_), do: error("evaluation", "is required")
@@ -478,6 +495,18 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp field(map, key, predicate, message, prefix),
     do: scalar(map, key, predicate, message) |> path("#{prefix}.#{key}")
+
+  defp optional_field(map, key, predicate, message, prefix) do
+    case Map.fetch(map, key) do
+      {:ok, value} ->
+        if predicate.(value),
+          do: :ok,
+          else: error("#{prefix}.#{key}", message)
+
+      :error ->
+        :ok
+    end
+  end
 
   defp path({:error, [%{path: _} = error]}, path), do: {:error, [%{error | path: path}]}
   defp path(:ok, _), do: :ok

@@ -37,10 +37,19 @@ defmodule NetworkDefense.Evaluation.SeedSchedule do
       topology_seed: topology_seed(manifest),
       attack_evaluation_seed: attack_evaluation_seed(manifest),
       entry_host_id: entry_host_id,
-      optimizer_trials: get_in(manifest, ["evaluation", "trials"]),
-      optimizer_iterations: 1,
+      optimizer_trials: optimizer_trials(manifest),
+      optimizer_iterations: optimizer_iterations(manifest),
       max_attempts: get_in(manifest, ["attacker", "max_attempts"])
     }
+  end
+
+  defp optimizer_trials(manifest) do
+    get_in(manifest, ["evaluation", "optimizer_trials"]) ||
+      get_in(manifest, ["evaluation", "trials"])
+  end
+
+  defp optimizer_iterations(manifest) do
+    get_in(manifest, ["evaluation", "optimizer_iterations"]) || 1
   end
 
   @spec topology_seed(map()) :: integer()
