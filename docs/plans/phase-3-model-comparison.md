@@ -23,8 +23,13 @@ implicit cross-product.
       "require_pre_attack_feasibility": true
     },
     {
-      "id": "blast_only_unconstrained",
+      "id": "blast_only",
       "objective": "blast_radius_only",
+      "require_pre_attack_feasibility": true
+    },
+    {
+      "id": "full_unconstrained",
+      "objective": "mission_then_blast_radius",
       "require_pre_attack_feasibility": false
     }
   ],
@@ -36,7 +41,13 @@ implicit cross-product.
       "selection_seeds": [310, 311]
     },
     {
-      "model_variant": "blast_only_unconstrained",
+      "model_variant": "blast_only",
+      "strategy": "simulation_informed",
+      "budget": 2,
+      "selection_seeds": [310, 311]
+    },
+    {
+      "model_variant": "full_unconstrained",
       "strategy": "simulation_informed",
       "budget": 2,
       "selection_seeds": [310, 311]
@@ -50,7 +61,7 @@ A comparison identifies both plan groups:
 ```json
 {
   "strategy": "simulation_informed",
-  "model_variant": "blast_only_unconstrained",
+  "model_variant": "blast_only",
   "baseline": "simulation_informed",
   "baseline_model_variant": "full",
   "budget": 2,
@@ -87,6 +98,12 @@ does not score infeasible candidates and the optimizer does not apply them.
 When it is off, both layers permit the plan. Mission-impact output still
 records disruption caused by the defense.
 
+The fixed variants cover all three objectives with feasibility both on and off.
+Manifest validation requires a primary cross-model comparison to change exactly
+one factor. It rejects a contrast that changes both objective and feasibility
+because it is confounded. Analysis trusts the declared comparison after it
+verifies paired output data.
+
 The ZIP keeps the existing files. `manifest.resolved.json` stores the complete
 experiment matrix. Each `plans.jsonl` record stores its model variant,
 objective, and feasibility rule. Trial, capability, and summary rows continue
@@ -111,7 +128,9 @@ canonical schema and the local database must be reset after the change.
 - **When** plans belong to one manifest, **the runner shall** evaluate them with
   the same ordered attack seeds.
 - **When** a same-strategy cross-model comparison uses different selection
-  seeds, **the analysis shall** reject it.
+  seeds, **the runner shall** reject it.
+- **When** a cross-model primary comparison changes objective and feasibility,
+  **the runner shall** reject it.
 - **When** objectives receive conflicting mission and blast-radius outcomes,
   **each objective shall** use its declared ranking order.
 - **When** feasibility is on, **the optimizer shall** reject a required-flow
@@ -174,6 +193,6 @@ Review the report at desktop and mobile widths.
 ### 6. Verification
 
 Run focused Elixir and Python tests, frontend tests and type checks, and
-`mix precommit`. Execute a small two-variant evaluation and verify that its one
-ZIP contains distinct plans, paired attack seeds, model-aware analysis rows,
-and separate CDF groups.
+`mix precommit`. Execute a small one-factor multi-variant evaluation and verify
+that its ZIP contains distinct plans, paired attack seeds, model-aware analysis
+rows, and separate CDF groups.

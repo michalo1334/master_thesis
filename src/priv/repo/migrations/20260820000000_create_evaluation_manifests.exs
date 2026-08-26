@@ -55,7 +55,7 @@ defmodule NetworkDefense.Repo.Migrations.CreateEvaluationManifests do
 
     create constraint(:optimization_runs, :optimization_runs_model_variant_valid,
              check:
-               "model_variant IS NULL OR model_variant IN ('full', 'blast_only_unconstrained', 'mission_only')"
+               "model_variant IS NULL OR model_variant IN ('full', 'blast_only_unconstrained', 'mission_only', 'blast_only', 'mission_only_unconstrained', 'full_unconstrained')"
            )
 
     create unique_index(

@@ -53,8 +53,13 @@ const validContent = {
       require_pre_attack_feasibility: true,
     },
     {
-      id: "blast_only_unconstrained",
+      id: "blast_only",
       objective: "blast_radius_only",
+      require_pre_attack_feasibility: true,
+    },
+    {
+      id: "full_unconstrained",
+      objective: "mission_then_blast_radius",
       require_pre_attack_feasibility: false,
     },
   ],
@@ -72,7 +77,13 @@ const validContent = {
       selection_seeds: [201, 202],
     },
     {
-      model_variant: "blast_only_unconstrained",
+      model_variant: "blast_only",
+      strategy: "simulation_informed",
+      budget: 1,
+      selection_seeds: [201, 202],
+    },
+    {
+      model_variant: "full_unconstrained",
       strategy: "simulation_informed",
       budget: 1,
       selection_seeds: [201, 202],
@@ -90,7 +101,15 @@ const validContent = {
       },
       {
         strategy: "simulation_informed",
-        model_variant: "blast_only_unconstrained",
+        model_variant: "blast_only",
+        baseline: "simulation_informed",
+        baseline_model_variant: "full",
+        budget: 1,
+        outcome: "blast_radius",
+      },
+      {
+        strategy: "simulation_informed",
+        model_variant: "full_unconstrained",
         baseline: "simulation_informed",
         baseline_model_variant: "full",
         budget: 1,
@@ -201,6 +220,45 @@ describe("ManifestModel", () => {
 
     expect(firstId).not.toBe("fixed-enterprise-v1");
     expect(secondId).not.toBe(firstId);
+  });
+
+  it("ships a default manifest with only unconfounded primary model contrasts", () => {
+    model.addManifest();
+
+    const manifest: {
+      model_variants: { id: string; require_pre_attack_feasibility: boolean }[];
+      analysis: {
+        primary_comparisons: {
+          strategy: string;
+          model_variant: string;
+          baseline: string;
+          baseline_model_variant: string;
+        }[];
+      };
+    } = JSON.parse(model.editorText);
+    const variants = Object.fromEntries(
+      manifest.model_variants.map((variant) => [variant.id, variant]),
+    );
+    const modelContrasts = manifest.analysis.primary_comparisons
+      .filter((c) => c.baseline !== "cvss")
+      .map((c) => [c.model_variant, c.baseline_model_variant]);
+
+    expect(variants.blast_only.require_pre_attack_feasibility).toBe(true);
+    expect(variants.full_unconstrained.require_pre_attack_feasibility).toBe(
+      false,
+    );
+    expect(modelContrasts).toEqual([
+      ["blast_only", "full"],
+      ["full_unconstrained", "full"],
+    ]);
+    expect(manifest.analysis.primary_comparisons).toContainEqual({
+      strategy: "simulation_informed",
+      model_variant: "full",
+      baseline: "cvss",
+      baseline_model_variant: "full",
+      budget: 1,
+      outcome: "blast_radius",
+    });
   });
 
   it("rejects a duplicate id when creating a manifest", async () => {

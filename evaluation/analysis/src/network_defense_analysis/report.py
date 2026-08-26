@@ -14,7 +14,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .contracts import (_configuration, _declared_plans, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_trials)
+from .contracts import (_configuration, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_plans, _normalise_trials)
 from .errors import _error
 from .statistics import _bootstrap_interval, _comparison_groups, _holm, _paired_statistics, _pairs
 
@@ -161,7 +161,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
     try:
         expected_trials = _manifest_requirements(manifest)
         configuration = _configuration(manifest)
-        identities, _ = _declared_plans(manifest, plans)
+        identities = _normalise_plans(plans)
         trials, schedules = _normalise_trials(set(identities), trial_rows, expected_trials)
         capabilities, capability_names = _normalise_capabilities(set(identities), capability_rows, trials)
         destination = Path(output)
@@ -176,7 +176,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         pilot = []
         comparisons = configuration["primary_comparisons"]
         for comparison_index, comparison in enumerate(comparisons):
-            left, right = _comparison_groups(manifest, identities, comparison)
+            left, right = _comparison_groups(identities, comparison)
             outcome = comparison.get("outcome")
             if outcome not in ("blast_radius", "mission_impact"):
                 raise _error(f"unsupported outcome: {outcome}")

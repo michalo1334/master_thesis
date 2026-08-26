@@ -17,4 +17,24 @@ defmodule NetworkDefense.Optimization.ModelVariantTest do
     assert_raise ArgumentError, fn -> String.to_existing_atom(unknown) end
     assert :error = SimulationObjective.from_wire("unknown_objective")
   end
+
+  test "defines all six canonical variants immutably" do
+    assert %{objective: :blast_radius_only, require_pre_attack_feasibility: true} =
+             ModelVariant.definition(:blast_only)
+
+    assert %{objective: :blast_radius_only, require_pre_attack_feasibility: false} =
+             ModelVariant.definition(:blast_only_unconstrained)
+
+    assert %{objective: :mission_impact_only, require_pre_attack_feasibility: true} =
+             ModelVariant.definition(:mission_only)
+
+    assert %{objective: :mission_impact_only, require_pre_attack_feasibility: false} =
+             ModelVariant.definition(:mission_only_unconstrained)
+
+    assert %{objective: :mission_then_blast_radius, require_pre_attack_feasibility: true} =
+             ModelVariant.definition(:full)
+
+    assert %{objective: :mission_then_blast_radius, require_pre_attack_feasibility: false} =
+             ModelVariant.definition(:full_unconstrained)
+  end
 end

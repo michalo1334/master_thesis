@@ -2,8 +2,8 @@ defmodule NetworkDefense.Optimization.ModelVariant do
   @moduledoc false
 
   @variants [
-    full: %{
-      objective: :mission_then_blast_radius,
+    blast_only: %{
+      objective: :blast_radius_only,
       require_pre_attack_feasibility: true
     },
     blast_only_unconstrained: %{
@@ -13,12 +13,30 @@ defmodule NetworkDefense.Optimization.ModelVariant do
     mission_only: %{
       objective: :mission_impact_only,
       require_pre_attack_feasibility: true
+    },
+    mission_only_unconstrained: %{
+      objective: :mission_impact_only,
+      require_pre_attack_feasibility: false
+    },
+    full: %{
+      objective: :mission_then_blast_radius,
+      require_pre_attack_feasibility: true
+    },
+    full_unconstrained: %{
+      objective: :mission_then_blast_radius,
+      require_pre_attack_feasibility: false
     }
   ]
   @values Keyword.keys(@variants)
   @wire_values Enum.map(@values, &Atom.to_string/1)
 
-  @type t :: :full | :blast_only_unconstrained | :mission_only
+  @type t ::
+          :blast_only
+          | :blast_only_unconstrained
+          | :mission_only
+          | :mission_only_unconstrained
+          | :full
+          | :full_unconstrained
 
   @spec values() :: [t()]
   def values, do: @values

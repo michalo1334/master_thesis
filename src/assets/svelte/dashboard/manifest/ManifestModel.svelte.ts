@@ -9,16 +9,19 @@ const DEFAULT_MANIFEST = `{
   "attacker": { "entry_host": { "type": "semantic_key", "value": "internet" }, "max_attempts": 1 },
   "model_variants": [
     { "id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true },
-    { "id": "blast_only_unconstrained", "objective": "blast_radius_only", "require_pre_attack_feasibility": false }
+    { "id": "blast_only", "objective": "blast_radius_only", "require_pre_attack_feasibility": true },
+    { "id": "full_unconstrained", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": false }
   ],
   "strategy_runs": [
     { "model_variant": "full", "strategy": "cvss", "budget": 1, "selection_seeds": [101] },
     { "model_variant": "full", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] },
-    { "model_variant": "blast_only_unconstrained", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] }
+    { "model_variant": "blast_only", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] },
+    { "model_variant": "full_unconstrained", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] }
   ],
   "analysis": { "primary_comparisons": [
     { "strategy": "simulation_informed", "model_variant": "full", "baseline": "cvss", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" },
-    { "strategy": "simulation_informed", "model_variant": "blast_only_unconstrained", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }
+    { "strategy": "simulation_informed", "model_variant": "blast_only", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" },
+    { "strategy": "simulation_informed", "model_variant": "full_unconstrained", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }
   ], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }`;

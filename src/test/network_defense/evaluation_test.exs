@@ -58,6 +58,87 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, ^manifest} = ManifestContract.validate(manifest)
     end
 
+    test "accepts all six canonical model variants" do
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], EvaluationFixtures.canonical_variants())
+        |> Map.put("strategy_runs", canonical_plan_runs())
+        |> put_in(["analysis", "primary_comparisons"], [
+          comparison("full", "blast_only"),
+          comparison("blast_only", "blast_only_unconstrained"),
+          comparison("mission_only", "mission_only_unconstrained")
+        ])
+
+      assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+    end
+
+    test "rejects feasibility that differs from the canonical definition" do
+      manifest =
+        put_in(
+          @valid_manifest,
+          ["model_variants"],
+          [
+            %{
+              "id" => "blast_only",
+              "objective" => "blast_radius_only",
+              "require_pre_attack_feasibility" => false
+            }
+          ]
+        )
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+
+      assert Enum.any?(
+               errors,
+               &(&1.path == "model_variants.0.require_pre_attack_feasibility")
+             )
+    end
+
+    test "accepts objective-only and feasibility-only cross-model comparisons" do
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          variant("full"),
+          variant("blast_only"),
+          variant("blast_only_unconstrained")
+        ])
+        |> Map.put("strategy_runs", [
+          plan("full"),
+          plan("blast_only"),
+          plan("blast_only_unconstrained")
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          comparison("full", "blast_only"),
+          comparison("blast_only", "blast_only_unconstrained")
+        ])
+
+      assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+    end
+
+    test "rejects a confounded cross-model comparison" do
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          variant("full"),
+          variant("blast_only_unconstrained")
+        ])
+        |> Map.put("strategy_runs", [
+          plan("full"),
+          plan("blast_only_unconstrained")
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          comparison("full", "blast_only_unconstrained")
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+
+      assert Enum.any?(
+               errors,
+               &(&1.message ==
+                   "cross-model comparisons must vary only one of objective or feasibility")
+             )
+    end
+
     test "accepts unknown fields and logs their paths" do
       manifest = Map.put(@valid_manifest, "bogus", 1)
 
@@ -296,7 +377,7 @@ defmodule NetworkDefense.EvaluationTest do
 
       mismatched =
         List.replace_at(runs, 1, %{
-          "model_variant" => "blast_only_unconstrained",
+          "model_variant" => "blast_only",
           "strategy" => "simulation_informed",
           "budget" => 1,
           "selection_seeds" => [310]
@@ -310,7 +391,7 @@ defmodule NetworkDefense.EvaluationTest do
             "strategy" => "simulation_informed",
             "model_variant" => "full",
             "baseline" => "simulation_informed",
-            "baseline_model_variant" => "blast_only_unconstrained",
+            "baseline_model_variant" => "blast_only",
             "budget" => 1,
             "outcome" => "blast_radius"
           }
@@ -336,7 +417,7 @@ defmodule NetworkDefense.EvaluationTest do
             "selection_seeds" => [101]
           },
           %{
-            "model_variant" => "blast_only_unconstrained",
+            "model_variant" => "blast_only",
             "strategy" => "cvss",
             "budget" => 1,
             "selection_seeds" => [101]
@@ -347,7 +428,7 @@ defmodule NetworkDefense.EvaluationTest do
             "strategy" => "cvss",
             "model_variant" => "full",
             "baseline" => "cvss",
-            "baseline_model_variant" => "blast_only_unconstrained",
+            "baseline_model_variant" => "blast_only",
             "budget" => 1,
             "outcome" => "blast_radius"
           }
@@ -808,9 +889,9 @@ defmodule NetworkDefense.EvaluationTest do
             "require_pre_attack_feasibility" => true
           },
           %{
-            "id" => "blast_only_unconstrained",
+            "id" => "blast_only",
             "objective" => "blast_radius_only",
-            "require_pre_attack_feasibility" => false
+            "require_pre_attack_feasibility" => true
           }
         ])
         |> Map.put("strategy_runs", [
@@ -821,7 +902,7 @@ defmodule NetworkDefense.EvaluationTest do
             "selection_seeds" => [310]
           },
           %{
-            "model_variant" => "blast_only_unconstrained",
+            "model_variant" => "blast_only",
             "strategy" => "simulation_informed",
             "budget" => 1,
             "selection_seeds" => [310]
@@ -832,7 +913,7 @@ defmodule NetworkDefense.EvaluationTest do
             "strategy" => "simulation_informed",
             "model_variant" => "full",
             "baseline" => "simulation_informed",
-            "baseline_model_variant" => "blast_only_unconstrained",
+            "baseline_model_variant" => "blast_only",
             "budget" => 1,
             "outcome" => "blast_radius"
           }
@@ -850,7 +931,7 @@ defmodule NetworkDefense.EvaluationTest do
       assert MapSet.new(Enum.map(plans, &{&1.model_variant, &1.strategy, &1.selection_seed})) ==
                MapSet.new([
                  {:full, "simulation_informed", 310},
-                 {:blast_only_unconstrained, "simulation_informed", 310}
+                 {:blast_only, "simulation_informed", 310}
                ])
 
       assert [_, _] = plans |> Enum.map(& &1.id) |> Enum.uniq()
@@ -875,6 +956,57 @@ defmodule NetworkDefense.EvaluationTest do
       assert resumed.status == "completed"
       assert [_, _] = plans_for(run.id)
       assert [_, _, _] = experiments_for(run.id)
+    end
+
+    test "runs three distinct plans across variants on a shared attack schedule" do
+      id = manifest_id()
+
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          variant("full"),
+          variant("blast_only"),
+          variant("mission_only")
+        ])
+        |> Map.put("strategy_runs", [
+          plan("full"),
+          plan("blast_only"),
+          plan("mission_only")
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          comparison("full", "blast_only"),
+          comparison("blast_only", "mission_only")
+        ])
+        |> put_in(["evaluation", "trials"], 3)
+
+      assert {:ok, _manifest} = save_manifest(id, manifest)
+
+      assert {:ok, run} = Evaluation.start(id)
+      assert {:ok, completed} = Evaluation.run(run.id)
+      assert completed.status == "completed"
+
+      plans = plans_for(run.id)
+
+      assert MapSet.new(Enum.map(plans, &{&1.model_variant, &1.strategy, &1.selection_seed})) ==
+               MapSet.new([
+                 {:full, "simulation_informed", 310},
+                 {:blast_only, "simulation_informed", 310},
+                 {:mission_only, "simulation_informed", 310}
+               ])
+
+      assert [_, _, _] = plans |> Enum.map(& &1.id) |> Enum.uniq()
+
+      experiments = experiments_for(run.id)
+      assert [_, _, _, _] = experiments
+
+      attack_seed = Seed.child_seed(9001, 3)
+      assert Enum.all?(experiments, &(&1.master_seed == attack_seed))
+
+      ordered_seeds = Enum.map(runs_for(hd(experiments).id), & &1.seed)
+
+      for experiment <- experiments do
+        assert Enum.map(runs_for(experiment.id), & &1.seed) == ordered_seeds
+      end
     end
 
     test "start always creates a new run even after completion" do
@@ -934,6 +1066,31 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:error, %Ecto.Changeset{}} =
                NetworkDefense.Optimization.OptimizationRun.new(attrs)
                |> NetworkDefense.Optimization.OptimizationRuns.create()
+    end
+
+    test "persists a plan for a new canonical model variant" do
+      id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(id)
+
+      assert {:ok, run} = Evaluation.start(id)
+
+      attrs = %{
+        graph_revision_id: run.source_graph_revision_id,
+        evaluation_run_id: run.id,
+        model_variant: :blast_only,
+        strategy: "null",
+        requested_budget: 1,
+        selection_seed: 201
+      }
+
+      assert {:ok, persisted} =
+               NetworkDefense.Optimization.OptimizationRun.new(attrs)
+               |> NetworkDefense.Optimization.OptimizationRuns.create()
+
+      assert persisted.model_variant == :blast_only
+
+      loaded = Repo.get!(NetworkDefense.Optimization.OptimizationRun, persisted.id)
+      assert loaded.model_variant == :blast_only
     end
   end
 
@@ -997,6 +1154,33 @@ defmodule NetworkDefense.EvaluationTest do
     end
   end
 
+  defp variant(id),
+    do: Enum.find(EvaluationFixtures.canonical_variants(), &(&1["id"] == id))
+
+  defp plan(variant) do
+    %{
+      "model_variant" => variant,
+      "strategy" => "simulation_informed",
+      "budget" => 1,
+      "selection_seeds" => [310]
+    }
+  end
+
+  defp comparison(variant, baseline_variant) do
+    %{
+      "strategy" => "simulation_informed",
+      "model_variant" => variant,
+      "baseline" => "simulation_informed",
+      "baseline_model_variant" => baseline_variant,
+      "budget" => 1,
+      "outcome" => "blast_radius"
+    }
+  end
+
+  defp canonical_plan_runs do
+    Enum.map(EvaluationFixtures.canonical_variants(), &plan(&1["id"]))
+  end
+
   defp two_variant_manifest do
     @valid_manifest
     |> put_in(["model_variants"], [
@@ -1006,9 +1190,9 @@ defmodule NetworkDefense.EvaluationTest do
         "require_pre_attack_feasibility" => true
       },
       %{
-        "id" => "blast_only_unconstrained",
+        "id" => "blast_only",
         "objective" => "blast_radius_only",
-        "require_pre_attack_feasibility" => false
+        "require_pre_attack_feasibility" => true
       }
     ])
     |> Map.put("strategy_runs", [
@@ -1019,7 +1203,7 @@ defmodule NetworkDefense.EvaluationTest do
         "selection_seeds" => [310, 311]
       },
       %{
-        "model_variant" => "blast_only_unconstrained",
+        "model_variant" => "blast_only",
         "strategy" => "simulation_informed",
         "budget" => 1,
         "selection_seeds" => [310, 311]
@@ -1030,7 +1214,7 @@ defmodule NetworkDefense.EvaluationTest do
         "strategy" => "simulation_informed",
         "model_variant" => "full",
         "baseline" => "simulation_informed",
-        "baseline_model_variant" => "blast_only_unconstrained",
+        "baseline_model_variant" => "blast_only",
         "budget" => 1,
         "outcome" => "blast_radius"
       }

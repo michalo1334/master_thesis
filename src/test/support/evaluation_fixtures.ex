@@ -2,6 +2,7 @@ defmodule NetworkDefense.EvaluationFixtures do
   @moduledoc false
 
   alias NetworkDefense.Evaluation
+  alias NetworkDefense.Optimization.{ModelVariant, SimulationObjective}
 
   def valid_manifest do
     %{
@@ -130,6 +131,18 @@ defmodule NetworkDefense.EvaluationFixtures do
         "selection_seeds" => [102]
       }
     ])
+  end
+
+  def canonical_variants do
+    Enum.map(ModelVariant.values(), fn variant ->
+      definition = ModelVariant.definition(variant)
+
+      %{
+        "id" => ModelVariant.to_wire(variant),
+        "objective" => SimulationObjective.to_wire(definition.objective),
+        "require_pre_attack_feasibility" => definition.require_pre_attack_feasibility
+      }
+    end)
   end
 
   def save_manifest(id, content \\ valid_manifest(), title \\ "T") do

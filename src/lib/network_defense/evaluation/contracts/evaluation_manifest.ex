@@ -347,7 +347,8 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
          :ok <- distinct_sides(path, strategy, baseline, variant, baseline_variant),
          :ok <- declared_plan(manifest, "#{path}.strategy", variant, strategy, budget),
          :ok <- declared_plan(manifest, "#{path}.baseline", baseline_variant, baseline, budget),
-         :ok <- cross_model_strategies(path, variant, baseline_variant, strategy, baseline) do
+         :ok <- cross_model_strategies(path, variant, baseline_variant, strategy, baseline),
+         :ok <- confounding_guard(path, variant, baseline_variant) do
       matching_seeds(manifest, path, variant, baseline_variant, strategy, baseline, budget)
     end
   end
@@ -379,6 +380,33 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
         ),
       else: :ok
   end
+
+  defp confounding_guard(path, variant, baseline_variant) when variant != baseline_variant do
+    with {:ok, model_variant} <- ModelVariant.from_wire(variant),
+         {:ok, baseline_model_variant} <- ModelVariant.from_wire(baseline_variant) do
+      variant_definition = ModelVariant.definition(model_variant)
+      baseline_definition = ModelVariant.definition(baseline_model_variant)
+
+      objective_differs? = variant_definition.objective != baseline_definition.objective
+
+      feasibility_differs? =
+        variant_definition.require_pre_attack_feasibility !=
+          baseline_definition.require_pre_attack_feasibility
+
+      if objective_differs? and feasibility_differs? do
+        error(
+          path,
+          "cross-model comparisons must vary only one of objective or feasibility"
+        )
+      else
+        :ok
+      end
+    else
+      :error -> error(path, "cross-model comparisons must use known model variants")
+    end
+  end
+
+  defp confounding_guard(_, _, _), do: :ok
 
   defp matching_seeds(manifest, path, variant, baseline_variant, strategy, baseline, budget)
        when strategy == baseline and variant != baseline_variant do

@@ -2,15 +2,18 @@
 
 ## Design
 
-Phase 3 has three fixed model variants. Each variant defines one objective and
-one pre-attack feasibility rule. Manifests can declare any non-empty subset of
-the variants, but each declaration must match the canonical definition.
+Phase 3 has six fixed model variants. They cover every objective and
+pre-attack-feasibility combination. Manifests can declare any non-empty subset,
+but each declaration must match its canonical definition.
 
 | Domain value | Wire and database value | Objective | Pre-attack feasibility |
 | --- | --- | --- | --- |
-| `:full` | `full` | Mission impact, then blast radius | Required |
+| `:blast_only` | `blast_only` | Blast radius only | Required |
 | `:blast_only_unconstrained` | `blast_only_unconstrained` | Blast radius only | Not required |
 | `:mission_only` | `mission_only` | Mission impact only | Required |
+| `:mission_only_unconstrained` | `mission_only_unconstrained` | Mission impact only | Not required |
+| `:full` | `full` | Mission impact, then blast radius | Required |
+| `:full_unconstrained` | `full_unconstrained` | Mission impact, then blast radius | Not required |
 
 Elixir uses atoms after manifest validation. JSON, PostgreSQL, Python, and
 TypeScript use the same underscore strings.
@@ -18,7 +21,7 @@ TypeScript use the same underscore strings.
 `NetworkDefense.Optimization.ModelVariant` owns model-variant definitions and
 their settings. `SimulationObjective` owns the objective enum and wire
 conversion. `OptimizationRun.model_variant` uses `Ecto.Enum` over the existing
-string column. A database constraint limits non-null values to the three wire
+string column. A database constraint limits non-null values to the six wire
 values.
 
 The manifest keeps explicit objective and feasibility fields for readable,

@@ -64,7 +64,7 @@ def _holm(values: list[float]) -> list[float]:
     return adjusted
 
 
-def _comparison_groups(manifest: dict, identities: dict[str, tuple[str, str, int, int]], comparison: dict) -> tuple[list[str], list[str]]:
+def _comparison_groups(identities: dict[str, tuple[str, str, int, int]], comparison: dict) -> tuple[list[str], list[str]]:
     if not isinstance(comparison, dict) or not {"strategy", "baseline", "budget", "model_variant", "baseline_model_variant"} <= set(comparison):
         raise _error("malformed primary comparison")
     tested = comparison["strategy"]
@@ -75,29 +75,11 @@ def _comparison_groups(manifest: dict, identities: dict[str, tuple[str, str, int
     for field, value in (("model_variant", tested_variant), ("baseline_model_variant", baseline_variant)):
         if not isinstance(value, str) or not value:
             raise _error(f"comparison {field} must be a non-empty string")
-    if (
-        tested == baseline
-        and tested_variant != baseline_variant
-        and _run_seeds(manifest, tested_variant, tested, budget) != _run_seeds(manifest, baseline_variant, baseline, budget)
-    ):
-        raise _error("same-strategy cross-model comparisons must declare identical ordered selection seeds")
     left = [pid for pid, identity in identities.items() if identity[:3] == (tested_variant, tested, budget)]
     right = [pid for pid, identity in identities.items() if identity[:3] == (baseline_variant, baseline, budget)]
     if not left or not right:
         raise _error(f"comparison has no declared plans: {comparison}")
     return left, right
-
-
-def _run_seeds(manifest: dict, model_variant: str, strategy: str, budget: int) -> list | None:
-    for run in manifest.get("strategy_runs", []):
-        if (
-            isinstance(run, dict)
-            and run.get("model_variant") == model_variant
-            and run.get("strategy") == strategy
-            and run.get("budget") == budget
-        ):
-            return run.get("selection_seeds")
-    return None
 
 
 def _pairs(left: list[str], right: list[str], trials: dict[tuple[str, int], dict], schedules: dict[str, list[int]], outcome: str) -> tuple[list[int], np.ndarray]:

@@ -166,8 +166,9 @@ Example manifest shape:
 The values above are examples. The reviewed manifest sets the real study
 values. Manifest schema version 3 replaces the singular model configuration
 with named model variants; every strategy run and comparison references one.
-Variants use the fixed `full`, `blast_only_unconstrained`, or `mission_only`
-definitions. Each declaration repeats its canonical objective and feasibility rule.
+Variants use the fixed `blast_only`, `blast_only_unconstrained`, `mission_only`,
+`mission_only_unconstrained`, `full`, or `full_unconstrained` definitions. Each
+declaration repeats its canonical objective and feasibility rule.
 The manifest must identify the input schema version and model version.
 
 Example command:
@@ -306,7 +307,7 @@ Each variant combines one objective and one feasibility rule:
 | Variant property | Purpose |
 | --- | --- |
 | `blast_radius_only` | Shows what happens when all compromised hosts have equal value. |
-| `mission_impact_only` | Shows that mission impact alone can still allow disconnected services. |
+| `mission_impact_only` | Shows the effect of omitting blast radius as a tie breaker. |
 | `mission_then_blast_radius` | The full ranking policy. |
 | `require_pre_attack_feasibility: false` | Demonstrates the temptation to break a required flow. |
 | `require_pre_attack_feasibility: true` | Rejects plans that break normal operation before the attack. |
@@ -316,6 +317,11 @@ Comparisons declare tested and baseline strategies with their model variants.
 A same-strategy comparison across two variants must use matching selection
 seeds, so the comparison changes only the model. The analysis keeps variants
 separate in paired results, CDFs, plan-selection variation, and figures.
+
+Manifest validation rejects a primary cross-model contrast that changes both
+objective and feasibility, because its result cannot identify the source of a
+difference. Analysis trusts the declared comparison after it verifies paired
+output data.
 
 Example: a policy removal can prevent access to a database and reduce attacker
 reach. If the policy is required for order processing, the feasibility-on mode

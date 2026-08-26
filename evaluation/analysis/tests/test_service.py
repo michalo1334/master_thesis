@@ -118,7 +118,7 @@ class ServiceTest(unittest.TestCase):
             rows = list(csv.DictReader(io.StringIO(result.read("primary_results.csv").decode())))
         self.assertEqual(
             [(row["model_variant"], row["baseline_model_variant"]) for row in rows],
-            [("full", "full"), ("blast_only_unconstrained", "full")],
+            [("full", "full"), ("full_unconstrained", "full")],
         )
 
 

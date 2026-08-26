@@ -212,14 +212,6 @@ def _configuration(manifest: dict) -> dict:
     return configuration
 
 
-MODEL_VARIANTS = {
-    "full": ("mission_then_blast_radius", True),
-    "blast_only_unconstrained": ("blast_radius_only", False),
-    "mission_only": ("mission_impact_only", True),
-}
-OBJECTIVES = tuple(objective for objective, _ in MODEL_VARIANTS.values())
-
-
 def _manifest_requirements(manifest: dict) -> int:
     if not isinstance(manifest, dict):
         raise _error("manifest must be an object")
@@ -230,20 +222,13 @@ def _manifest_requirements(manifest: dict) -> int:
             raise _error(f"manifest field is required: {field}")
     if not isinstance(manifest["model_variants"], list) or not manifest["model_variants"]:
         raise _error("manifest model_variants must be a non-empty list")
-    variants = {}
+    variant_ids = set()
     for variant in manifest["model_variants"]:
         if not isinstance(variant, dict) or not isinstance(variant.get("id"), str) or not variant["id"]:
             raise _error("malformed model variant")
-        if variant["id"] in variants:
+        if variant["id"] in variant_ids:
             raise _error(f"duplicate model variant: {variant['id']}")
-        canonical = MODEL_VARIANTS.get(variant["id"])
-        if canonical is None:
-            raise _error(f"unknown model variant: {variant['id']}")
-        if variant.get("objective") != canonical[0]:
-            raise _error(f"model variant objective does not match: {variant['id']}")
-        if variant.get("require_pre_attack_feasibility") is not canonical[1]:
-            raise _error(f"model variant feasibility rule does not match: {variant['id']}")
-        variants[variant["id"]] = variant
+        variant_ids.add(variant["id"])
     if not isinstance(manifest["strategy_runs"], list):
         raise _error("manifest strategy_runs must be a list")
     evaluation = manifest.get("evaluation")
@@ -255,35 +240,7 @@ def _manifest_requirements(manifest: dict) -> int:
     return trial_count
 
 
-def _declared_plans(manifest: dict, plans: list[dict]) -> tuple[dict[str, tuple[str, str, int, int]], list[tuple[str, str, int, int]]]:
-    variants = {variant["id"]: variant for variant in manifest.get("model_variants", []) if isinstance(variant, dict)}
-    declared = []
-    for run in manifest.get("strategy_runs", []):
-        if not isinstance(run, dict) or not {"model_variant", "strategy", "budget", "selection_seeds"} <= set(run):
-            raise _error("malformed strategy run")
-        model_variant = run["model_variant"]
-        strategy = run["strategy"]
-        seeds = run["selection_seeds"]
-        budget = _integer(run["budget"], "budget")
-        if (
-            not isinstance(model_variant, str)
-            or not model_variant
-            or model_variant not in variants
-            or not isinstance(strategy, str)
-            or not strategy
-            or not isinstance(seeds, list)
-            or not seeds
-            or budget <= 0
-        ):
-            raise _error("malformed strategy run")
-        for seed in seeds:
-            selection_seed = _integer(seed, "selection_seed")
-            if selection_seed < 0:
-                raise _error("selection_seed must be non-negative")
-            declared.append((model_variant, strategy, budget, selection_seed))
-    declared_set = set(declared)
-    if len(declared_set) != len(declared):
-        raise _error("manifest contains duplicate plan identities")
+def _normalise_plans(plans: list[dict]) -> dict[str, tuple[str, str, int, int]]:
     identities = {}
     plan_ids = set()
     for plan in plans:
@@ -302,21 +259,10 @@ def _declared_plans(manifest: dict, plans: list[dict]) -> tuple[dict[str, tuple[
         budget = _integer(plan.get("requested_budget", plan.get("budget")), "plan budget")
         selection_seed = _integer(plan.get("selection_seed"), "plan selection seed")
         identity = (model_variant, strategy, budget, selection_seed)
-        if identity not in declared_set:
-            raise _error(f"undeclared plan: {identity}")
         if identity in identities.values():
             raise _error(f"duplicate plan identity: {identity}")
-        declaration = variants[model_variant]
-        if plan.get("objective") != declaration.get("objective"):
-            raise _error(f"plan objective does not match its model variant: {plan_id}")
-        if plan.get("require_pre_attack_feasibility") is not declaration.get("require_pre_attack_feasibility"):
-            raise _error(f"plan feasibility rule does not match its model variant: {plan_id}")
-        if plan.get("status") not in (None, "completed"):
-            raise _error(f"incomplete plan: {identity}")
         identities[plan_id] = identity
-    if set(identities.values()) != declared_set:
-        raise _error(f"missing declared plans: {sorted(declared_set - set(identities.values()))}")
-    return identities, declared
+    return identities
 
 
 def _normalise_trials(plan_ids: set[str], rows: list[dict], expected_trials: int) -> tuple[dict[tuple[str, int], dict], dict[str, list[int]]]:
@@ -399,8 +345,6 @@ def _normalise_capabilities(
 
 __all__ = [
     "LoadedExport",
-    "MODEL_VARIANTS",
-    "OBJECTIVES",
     "PAYLOAD_FILES",
     "REQUIRED_FILES",
     "TRIAL_HEADERS",
@@ -409,7 +353,7 @@ __all__ = [
     "_load",
     "_configuration",
     "_manifest_requirements",
-    "_declared_plans",
+    "_normalise_plans",
     "_normalise_trials",
     "_normalise_capabilities",
 ]

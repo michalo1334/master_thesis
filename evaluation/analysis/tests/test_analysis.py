@@ -9,19 +9,12 @@ import zipfile
 from pathlib import Path
 
 from network_defense_analysis import AnalysisError, analyze
-from network_defense_analysis.contracts import MODEL_VARIANTS
 from network_defense_analysis.statistics import _holm
 
 
 class AnalysisTest(unittest.TestCase):
-    def test_accepts_canonical_model_variants(self):
-        self.assertEqual(
-            set(MODEL_VARIANTS),
-            {"full", "blast_only_unconstrained", "mission_only"},
-        )
-
     @staticmethod
-    def make_fixture(*, confidence_width=1.0, two_comparisons=False, multiple_selection=False, cross_model=False, mixed_seeds=False):
+    def make_fixture(*, confidence_width=1.0, two_comparisons=False, multiple_selection=False, cross_model=False, cross_scenario="feasibility_only"):
         directory = Path(tempfile.mkdtemp())
         variants = [
             {"id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": True},
@@ -42,12 +35,19 @@ class AnalysisTest(unittest.TestCase):
                 {"strategy": "second-tested", "model_variant": "full", "baseline": "second-baseline", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
             )
         if cross_model:
-            variants.append({"id": "blast_only_unconstrained", "objective": "blast_radius_only", "require_pre_attack_feasibility": False})
-            runs.append(
-                {"model_variant": "blast_only_unconstrained", "strategy": "unusual-tested", "budget": 8, "selection_seeds": [105] if mixed_seeds else [101]}
-            )
+            cross_variants = {
+                "feasibility_only": ("full_unconstrained", "mission_then_blast_radius", False),
+                "objective_only": ("blast_only", "blast_radius_only", True),
+                "confounded": ("blast_only_unconstrained", "blast_radius_only", False),
+            }
+            cross_id, cross_objective, cross_feasibility = cross_variants[cross_scenario]
+            variants.append({"id": cross_id, "objective": cross_objective, "require_pre_attack_feasibility": cross_feasibility})
+            runs.extend([
+                {"model_variant": "full", "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101]},
+                {"model_variant": cross_id, "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101]},
+            ])
             comparisons.append(
-                {"strategy": "unusual-tested", "model_variant": "blast_only_unconstrained", "baseline": "unusual-tested", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
+                {"strategy": "simulation_informed", "model_variant": cross_id, "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
             )
         manifest = {
             "schema_version": 3,
@@ -92,8 +92,10 @@ class AnalysisTest(unittest.TestCase):
             ("full", "ordinary-baseline"): [6.0, 8.0],
             ("full", "second-tested"): [2.0, 4.0],
             ("full", "second-baseline"): [3.0, 7.0],
-            ("blast_only_unconstrained", "unusual-tested"): [5.0, 6.0],
         }
+        if cross_model:
+            values[("full", "simulation_informed")] = [3.0, 4.0]
+            values[(cross_id, "simulation_informed")] = [5.0, 6.0]
         trial_rows = []
         capability_rows = []
         for plan in plans:
@@ -270,9 +272,8 @@ class AnalysisTest(unittest.TestCase):
     def test_malformed_plan_identity_rejected(self):
         mutations = [
             lambda plan: plan.pop("model_variant"),
-            lambda plan: plan.update({"model_variant": "undeclared-variant"}),
-            lambda plan: plan.update({"objective": "blast_radius_only"}),
-            lambda plan: plan.pop("require_pre_attack_feasibility"),
+            lambda plan: plan.pop("strategy"),
+            lambda plan: plan.pop("selection_seed"),
         ]
         for mutation in mutations:
             directory = self.remember(self.make_fixture())
@@ -292,25 +293,61 @@ class AnalysisTest(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertEqual(
             [(row["model_variant"], row["baseline_model_variant"]) for row in rows],
-            [("full", "full"), ("blast_only_unconstrained", "full")],
+            [("full", "full"), ("full_unconstrained", "full")],
         )
         self.assertAlmostEqual(float(rows[1]["paired_mean_difference"]), 2.0)
         with (output / "cdf.csv").open(newline="") as stream:
             cdf_rows = list(csv.DictReader(stream))
-        self.assertEqual({row["model_variant"] for row in cdf_rows}, {"full", "blast_only_unconstrained"})
+        self.assertEqual({row["model_variant"] for row in cdf_rows}, {"full", "full_unconstrained"})
         metadata = json.loads((output / "metadata.json").read_text())
-        self.assertEqual([variant["id"] for variant in metadata["model_variants"]], ["full", "blast_only_unconstrained"])
+        self.assertEqual([variant["id"] for variant in metadata["model_variants"]], ["full", "full_unconstrained"])
         analysis = json.loads((output / "analysis.json").read_text())
         self.assertEqual(len(analysis["capability_results"]), 2)
         self.assertEqual(
             {(row["model_variant"], row["baseline_model_variant"]) for row in analysis["capability_results"]},
-            {("full", "full"), ("blast_only_unconstrained", "full")},
+            {("full", "full"), ("full_unconstrained", "full")},
         )
 
-    def test_mixed_selection_seeds_rejected_for_same_strategy_cross_model(self):
-        directory = self.remember(self.make_fixture(cross_model=True, mixed_seeds=True))
-        with self.assertRaises(AnalysisError):
-            analyze(directory, directory / "out")
+    def test_objective_only_cross_model_comparison_analyzes(self):
+        directory = self.remember(self.make_fixture(cross_model=True, cross_scenario="objective_only"))
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "primary_results.csv").open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(
+            [(row["model_variant"], row["baseline_model_variant"]) for row in rows],
+            [("full", "full"), ("blast_only", "full")],
+        )
+        self.assertAlmostEqual(float(rows[1]["paired_mean_difference"]), 2.0)
+        metadata = json.loads((output / "metadata.json").read_text())
+        self.assertEqual([variant["id"] for variant in metadata["model_variants"]], ["full", "blast_only"])
+
+    def test_arbitrary_model_labels_and_self_comparison_analyzed(self):
+        directory = self.remember(self.make_fixture())
+        manifest = json.loads((directory / "manifest.resolved.json").read_text())
+        manifest["model_variants"] = [
+            {"id": "homemade-model", "objective": "custom_objective", "require_pre_attack_feasibility": False}
+        ]
+        for run in manifest["strategy_runs"]:
+            run["model_variant"] = "homemade-model"
+        comparison = manifest["analysis"]["primary_comparisons"][0]
+        comparison["model_variant"] = "homemade-model"
+        comparison["baseline_model_variant"] = "homemade-model"
+        comparison["baseline"] = comparison["strategy"]
+        (directory / "manifest.resolved.json").write_text(json.dumps(manifest))
+        plans = [json.loads(line) for line in (directory / "plans.jsonl").read_text().splitlines()]
+        for plan in plans:
+            plan["model_variant"] = "homemade-model"
+            plan["objective"] = "custom_objective"
+            plan["require_pre_attack_feasibility"] = False
+        (directory / "plans.jsonl").write_text("\n".join(json.dumps(plan) for plan in plans) + "\n")
+        self.write_checksums(directory)
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "primary_results.csv").open(newline="") as stream:
+            result = next(csv.DictReader(stream))
+        self.assertAlmostEqual(float(result["paired_mean_difference"]), 0.0)
 
     def test_malformed_plan_types_rejected(self):
         directory = self.remember(self.make_fixture())
