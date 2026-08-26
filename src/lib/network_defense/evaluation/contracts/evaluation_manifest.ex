@@ -2,11 +2,12 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   @moduledoc "Validates evaluation manifests before persistence and execution."
 
   require Logger
+  alias NetworkDefense.Optimization.{ModelVariant, SimulationObjective}
   alias NetworkDefense.Topology.EnterpriseTopology
 
-  @schema_version 2
+  @schema_version 3
   @strategies ~w(null random cvss topology_segmentation simulation_informed simulated_annealing)
-  @objectives ~w(mission_then_blast_radius)
+  @cross_model_strategies ~w(simulation_informed simulated_annealing)
   @corrections ~w(holm none)
   @outcomes ~w(blast_radius mission_impact)
   @type error :: %{path: String.t(), message: String.t()}
@@ -24,18 +25,18 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
     unknown(
       manifest,
       "$",
-      ~w(schema_version model_version id source attacker model strategy_runs analysis evaluation)
+      ~w(schema_version model_version model_variants id source attacker strategy_runs analysis evaluation)
     )
 
     with :ok <-
            fields(manifest, nil, [
-             {"schema_version", &(&1 == @schema_version), "must be 2"},
+             {"schema_version", &(&1 == @schema_version), "must be 3"},
              {"model_version", &text?/1, "must be a non-empty string"},
              {"id", &text?/1, "must be a non-empty string"}
            ]),
+         :ok <- model_variants(manifest),
          :ok <- source(manifest),
          :ok <- attacker(manifest),
-         :ok <- model(manifest),
          :ok <- strategy_runs(manifest),
          :ok <- analysis(manifest),
          :ok <- evaluation(manifest) do
@@ -138,23 +139,85 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   defp selector_compatibility(_),
     do: error("attacker.entry_host.type", "source and selector types are incompatible")
 
-  defp model(%{"model" => %{} = model}) do
-    unknown(model, "model", ~w(objective require_pre_attack_feasibility))
+  defp model_variants(%{"model_variants" => variants})
+       when is_list(variants) and variants != [] do
+    ids = Enum.map(variants, fn variant -> if is_map(variant), do: variant["id"], else: nil end)
 
-    fields(model, "model", [
-      {"objective", &(&1 in @objectives), "must be a known objective"},
-      {"require_pre_attack_feasibility", &is_boolean/1, "must be a boolean"}
-    ])
+    with :ok <-
+           each(Enum.with_index(variants), fn {variant, index} ->
+             model_variant(variant, index)
+           end) do
+      unique(ids, "model_variants", "must contain unique variant ids")
+    end
   end
 
-  defp model(_), do: error("model", "is required")
+  defp model_variants(%{"model_variants" => []}), do: error("model_variants", "must not be empty")
+  defp model_variants(%{"model_variants" => _}), do: error("model_variants", "must be a list")
+  defp model_variants(_), do: error("model_variants", "is required")
 
-  defp strategy_runs(%{"strategy_runs" => runs}) when is_list(runs) and runs != [] do
+  defp model_variant(variant, index) when is_map(variant) do
+    path = "model_variants.#{index}"
+    unknown(variant, path, ~w(id objective require_pre_attack_feasibility))
+
+    with :ok <- field(variant, "id", &text?/1, "must be a non-empty string", path),
+         {:ok, model_variant} <- model_variant_id(variant["id"], path),
+         :ok <- field(variant, "objective", &text?/1, "must be a known objective", path),
+         {:ok, objective} <- model_objective(variant["objective"], path),
+         :ok <-
+           field(
+             variant,
+             "require_pre_attack_feasibility",
+             &is_boolean/1,
+             "must be a boolean",
+             path
+           ) do
+      canonical = ModelVariant.definition(model_variant)
+
+      cond do
+        objective != canonical.objective ->
+          error("#{path}.objective", "must match the canonical model variant objective")
+
+        variant["require_pre_attack_feasibility"] != canonical.require_pre_attack_feasibility ->
+          error(
+            "#{path}.require_pre_attack_feasibility",
+            "must match the canonical model variant feasibility rule"
+          )
+
+        true ->
+          :ok
+      end
+    end
+  end
+
+  defp model_variant(_, _), do: error("model_variants", "each variant must be an object")
+
+  defp model_variant_id(wire, path) do
+    case ModelVariant.from_wire(wire) do
+      {:ok, variant} -> {:ok, variant}
+      :error -> error("#{path}.id", "must be a known model variant")
+    end
+  end
+
+  defp model_objective(wire, path) do
+    case SimulationObjective.from_wire(wire) do
+      {:ok, objective} -> {:ok, objective}
+      :error -> error("#{path}.objective", "must be a known objective")
+    end
+  end
+
+  defp strategy_runs(%{"strategy_runs" => runs} = manifest) when is_list(runs) and runs != [] do
     keys =
-      Enum.map(runs, fn run -> if is_map(run), do: {run["strategy"], run["budget"]}, else: nil end)
+      Enum.map(runs, fn run ->
+        if is_map(run), do: {run["model_variant"], run["strategy"], run["budget"]}, else: nil
+      end)
 
-    with :ok <- each(Enum.with_index(runs), fn {run, index} -> strategy_run(run, index) end) do
-      unique(keys, "strategy_runs", "must contain unique strategy and budget pairs")
+    with :ok <- each(Enum.with_index(runs), fn {run, index} -> strategy_run(run, index) end),
+         :ok <- declared_variant_references(runs, manifest) do
+      unique(
+        keys,
+        "strategy_runs",
+        "must contain unique model variant, strategy, and budget plans"
+      )
     end
   end
 
@@ -164,10 +227,11 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp strategy_run(run, index) when is_map(run) do
     path = "strategy_runs.#{index}"
-    unknown(run, path, ~w(strategy budget selection_seeds))
+    unknown(run, path, ~w(model_variant strategy budget selection_seeds))
 
     with :ok <-
            fields(run, path, [
+             {"model_variant", &text?/1, "must be a non-empty string"},
              {"strategy", &(&1 in @strategies), "must be a known strategy"},
              {"budget", &(is_integer(&1) and &1 > 0), "must be a positive integer"}
            ]) do
@@ -176,6 +240,24 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   end
 
   defp strategy_run(_, _), do: error("strategy_runs", "each run must be an object")
+
+  defp declared_variant_references(runs, manifest) do
+    ids = declared_variant_ids(manifest)
+
+    runs
+    |> Enum.find_index(fn run ->
+      not (is_map(run) and MapSet.member?(ids, run["model_variant"]))
+    end)
+    |> case do
+      nil -> :ok
+      index -> error("strategy_runs.#{index}.model_variant", "must be a declared model variant")
+    end
+  end
+
+  defp declared_variant_ids(%{"model_variants" => variants}) when is_list(variants),
+    do: MapSet.new(variants, fn variant -> if is_map(variant), do: variant["id"], else: nil end)
+
+  defp declared_variant_ids(_), do: MapSet.new()
 
   defp seeds(run, path) do
     case run["selection_seeds"] do
@@ -221,7 +303,11 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
     keys =
       Enum.map(comparisons, fn comparison ->
         if is_map(comparison),
-          do: Map.take(comparison, ~w(strategy baseline budget outcome)),
+          do:
+            Map.take(
+              comparison,
+              ~w(strategy baseline model_variant baseline_model_variant budget outcome)
+            ),
           else: nil
       end)
 
@@ -236,35 +322,78 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp comparison(comparison, manifest, index) when is_map(comparison) do
     path = "analysis.primary_comparisons.#{index}"
-    unknown(comparison, path, ~w(strategy baseline budget outcome))
+
+    unknown(
+      comparison,
+      path,
+      ~w(strategy baseline model_variant baseline_model_variant budget outcome)
+    )
+
     strategy = comparison["strategy"]
     baseline = comparison["baseline"]
+    variant = comparison["model_variant"]
+    baseline_variant = comparison["baseline_model_variant"]
+    budget = comparison["budget"]
 
     with :ok <-
            fields(comparison, path, [
              {"strategy", &(&1 in @strategies), "must be a declared strategy"},
              {"baseline", &(&1 in @strategies), "must be a declared strategy"},
+             {"model_variant", &text?/1, "must be a non-empty string"},
+             {"baseline_model_variant", &text?/1, "must be a non-empty string"},
              {"budget", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
              {"outcome", &(&1 in @outcomes), "must be a valid outcome"}
            ]),
-         :ok <-
-           if(strategy == baseline,
-             do: error(path, "strategy and baseline must differ"),
-             else: :ok
-           ),
-         :ok <-
-           if(declared?(manifest, strategy, comparison["budget"]),
-             do: :ok,
-             else: error("#{path}.strategy", "strategy and budget must be declared")
-           ) do
-      if declared?(manifest, baseline, comparison["budget"]),
-        do: :ok,
-        else: error("#{path}.baseline", "strategy and budget must be declared")
+         :ok <- distinct_sides(path, strategy, baseline, variant, baseline_variant),
+         :ok <- declared_plan(manifest, "#{path}.strategy", variant, strategy, budget),
+         :ok <- declared_plan(manifest, "#{path}.baseline", baseline_variant, baseline, budget),
+         :ok <- cross_model_strategies(path, variant, baseline_variant, strategy, baseline) do
+      matching_seeds(manifest, path, variant, baseline_variant, strategy, baseline, budget)
     end
   end
 
   defp comparison(_, _, _),
     do: error("analysis.primary_comparisons", "each comparison must be an object")
+
+  defp distinct_sides(path, strategy, baseline, variant, baseline_variant) do
+    if strategy == baseline and variant == baseline_variant,
+      do: error(path, "comparison sides must differ"),
+      else: :ok
+  end
+
+  defp declared_plan(manifest, path, variant, strategy, budget) do
+    if declared?(manifest, variant, strategy, budget),
+      do: :ok,
+      else: error(path, "model variant, strategy, and budget must be declared")
+  end
+
+  defp cross_model_strategies(path, variant, baseline_variant, strategy, baseline) do
+    cross_model? = variant != baseline_variant
+    allowed? = strategy in @cross_model_strategies and baseline in @cross_model_strategies
+
+    if cross_model? and not allowed?,
+      do:
+        error(
+          path,
+          "cross-model comparisons require simulation_informed or simulated_annealing strategies"
+        ),
+      else: :ok
+  end
+
+  defp matching_seeds(manifest, path, variant, baseline_variant, strategy, baseline, budget)
+       when strategy == baseline and variant != baseline_variant do
+    if plan_seeds(manifest, variant, strategy, budget) ==
+         plan_seeds(manifest, baseline_variant, strategy, budget) do
+      :ok
+    else
+      error(
+        "#{path}.baseline_model_variant",
+        "same-strategy comparisons must declare identical ordered selection seeds"
+      )
+    end
+  end
+
+  defp matching_seeds(_, _, _, _, _, _, _), do: :ok
 
   defp pilot(%{} = pilot) do
     unknown(pilot, "analysis.pilot", ~w(ci_half_width))
@@ -291,10 +420,28 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp evaluation(_), do: error("evaluation", "is required")
 
-  defp declared?(%{"strategy_runs" => runs}, strategy, budget),
-    do: Enum.any?(runs, &(is_map(&1) and &1["strategy"] == strategy and &1["budget"] == budget))
+  defp declared?(%{"strategy_runs" => runs}, variant, strategy, budget),
+    do:
+      Enum.any?(
+        runs,
+        &(is_map(&1) and &1["model_variant"] == variant and &1["strategy"] == strategy and
+            &1["budget"] == budget)
+      )
 
-  defp declared?(_, _, _), do: false
+  defp declared?(_, _, _, _), do: false
+
+  defp plan_seeds(%{"strategy_runs" => runs}, variant, strategy, budget) do
+    run =
+      Enum.find(
+        runs,
+        &(is_map(&1) and &1["model_variant"] == variant and &1["strategy"] == strategy and
+            &1["budget"] == budget)
+      )
+
+    if is_map(run), do: Map.get(run, "selection_seeds"), else: nil
+  end
+
+  defp plan_seeds(_, _, _, _), do: nil
 
   defp each(values, fun),
     do:

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.EvaluationReportTest do
+defmodule NetworkDefense.Evaluation.EvaluationReportTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Evaluation
@@ -30,29 +30,42 @@ defmodule NetworkDefense.EvaluationReportTest do
     assert report.source_graph_revision_id == run.source_graph_revision_id
     assert is_binary(report.source_graph_title)
 
-    assert [cvss_plan, simulation_plan] = report.plans
-    assert cvss_plan.strategy == "cvss"
-    assert cvss_plan.requested_budget == 1
-    assert cvss_plan.selection_seed == 101
-    assert cvss_plan.status == "completed"
-    assert is_integer(cvss_plan.action_count)
-    assert simulation_plan.strategy == "simulation_informed"
-    assert simulation_plan.selection_seed == 201
+    assert [
+             %{
+               id: cvss_plan_id,
+               model_variant: "full",
+               strategy: "cvss",
+               requested_budget: 1,
+               selection_seed: 101,
+               status: "completed",
+               action_count: action_count
+             },
+             %{
+               id: simulation_plan_id,
+               model_variant: "full",
+               strategy: "simulation_informed",
+               selection_seed: 201
+             }
+           ] = report.plans
 
-    assert [baseline, cvss_experiment, simulation_experiment] = report.experiments
-    assert baseline.optimization_run_id == nil
+    assert is_integer(action_count)
 
-    assert Enum.sort([
-             cvss_experiment.optimization_run_id,
-             simulation_experiment.optimization_run_id
-           ]) ==
-             Enum.sort([cvss_plan.id, simulation_plan.id])
+    assert [
+             %{
+               optimization_run_id: nil,
+               trial_count: 3,
+               expected_blast_radius: expected_blast_radius,
+               median_blast_radius: median_blast_radius
+             },
+             %{optimization_run_id: experiment_plan_id_a, trial_count: 3},
+             %{optimization_run_id: experiment_plan_id_b, trial_count: 3}
+           ] = report.experiments
 
-    assert baseline.trial_count == 3
-    assert cvss_experiment.trial_count == 3
-    assert simulation_experiment.trial_count == 3
-    assert is_float(baseline.expected_blast_radius)
-    assert is_integer(baseline.median_blast_radius)
+    assert Enum.sort([experiment_plan_id_a, experiment_plan_id_b]) ==
+             Enum.sort([cvss_plan_id, simulation_plan_id])
+
+    assert is_float(expected_blast_radius)
+    assert is_integer(median_blast_radius)
   end
 
   test "emits assembly progress through the callback" do

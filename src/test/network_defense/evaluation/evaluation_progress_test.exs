@@ -39,6 +39,12 @@ defmodule NetworkDefense.EvaluationProgressTest do
     assert Enum.all?(payloads, &is_binary(&1.graph_revision_id))
 
     assert Enum.any?(payloads, &String.starts_with?(&1.detail, "Selected plan"))
+
+    assert Enum.any?(payloads, fn payload ->
+             String.starts_with?(payload.detail, "Selected plan") and
+               String.contains?(payload.detail, "full/")
+           end)
+
     assert Enum.any?(payloads, &String.starts_with?(&1.detail, "Baseline attack trials"))
     assert Enum.any?(payloads, &String.starts_with?(&1.detail, "Post-defense attack trials"))
   end

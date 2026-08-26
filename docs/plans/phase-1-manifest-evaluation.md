@@ -30,7 +30,7 @@ The manifest has these required fields:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "model_version": "current-model-version",
   "id": "fixed-enterprise-v1",
   "source": {
@@ -43,12 +43,11 @@ The manifest has these required fields:
     "entry_host": { "type": "semantic_key", "value": "internet" },
     "max_attempts": 1
   },
-  "model": {
-    "objective": "mission_then_blast_radius",
-    "require_pre_attack_feasibility": true
-  },
-  "strategy_runs": [{ "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
-  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "baseline": "null", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
+  "model_variants": [
+    { "id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true }
+  ],
+  "strategy_runs": [{ "model_variant": "full", "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
+  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "model_variant": "full", "baseline": "null", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }
 ```
@@ -95,6 +94,9 @@ An optimization run is a selected plan. Its actions remain in
 optimization run. A baseline experiment has no optimization run. Terminal
 outcomes remain in `simulation_runs` and iteration data remains in
 `iteration_steps`.
+
+The plan identity is the evaluation run, model variant, strategy, budget, and
+selection seed.
 
 The database constraints must prevent duplicate plans and duplicate trial
 indexes when a run resumes.

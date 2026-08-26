@@ -15,7 +15,7 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
@@ -72,7 +72,7 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       contents = [
         {"manifest.resolved.json", json(run.resolved_manifest)},
         {"graph.json", graph_json(graph)},
-        {"plans.jsonl", plans_jsonl(run.id)},
+        {"plans.jsonl", plans_jsonl(run)},
         {"trials.csv", trials_csv(trial_rows)},
         {"capability_outcomes.csv", capability_outcomes_csv(capability_rows)},
         {"summary.csv", summary_csv(run.id)}
@@ -143,7 +143,8 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       event: "evaluation.export.started",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
-      status: run.status
+      status: run.status,
+      evaluation_run: run
     )
   end
 
@@ -154,7 +155,8 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       evaluation_run_id: run.id,
       filename: filename,
       size_bytes: byte_size(zip_binary),
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: run
     )
   end
 
@@ -168,7 +170,8 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       evaluation_id: run.id,
       evaluation_run_id: run.id,
       reason: reason,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: run
     )
   end
 
@@ -194,18 +197,29 @@ defmodule NetworkDefense.Evaluation.OutputContract do
     end
   end
 
-  defp plans_jsonl(evaluation_run_id) do
+  defp plans_jsonl(%EvaluationRun{id: evaluation_run_id}) do
     OptimizationRun
     |> where([run], run.evaluation_run_id == ^evaluation_run_id)
-    |> order_by([run], asc: run.strategy, asc: run.requested_budget, asc: run.selection_seed)
+    |> order_by(
+      [run],
+      asc: run.model_variant,
+      asc: run.strategy,
+      asc: run.requested_budget,
+      asc: run.selection_seed
+    )
     |> preload(:actions)
     |> Repo.all()
     |> Enum.map_join("\n", fn run ->
+      variant = ModelVariant.definition(run.model_variant)
+
       %{
         id: run.id,
+        model_variant: ModelVariant.to_wire(run.model_variant),
         strategy: run.strategy,
         requested_budget: run.requested_budget,
         selection_seed: run.selection_seed,
+        objective: SimulationObjective.to_wire(variant.objective),
+        require_pre_attack_feasibility: variant.require_pre_attack_feasibility,
         used_budget: run.used_budget,
         action_count: length(run.actions),
         actions:

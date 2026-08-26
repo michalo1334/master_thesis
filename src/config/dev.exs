@@ -1,5 +1,7 @@
 import Config
 
+config :logger, level: :debug
+
 config :file_system, backend: FileSystem.Backends.Poll
 
 config :live_svelte, ssr_module: LiveSvelte.SSR.ViteJS, vite_host: "http://localhost:5173"

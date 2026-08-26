@@ -6,6 +6,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
     field :manifest_id, :string
     field :schema_version, :integer
     field :model_version, :string
+    field :model_variants, {:array, :map}
     field :command_mode, :string
     field :pilot_all_pass, :boolean
     field :input_trial_count, :integer
@@ -24,6 +25,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
           manifest_id: String.t(),
           schema_version: integer(),
           model_version: String.t(),
+          model_variants: [map()] | nil,
           command_mode: String.t(),
           pilot_all_pass: boolean() | nil,
           input_trial_count: integer() | nil,
@@ -44,6 +46,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
       :manifest_id,
       :schema_version,
       :model_version,
+      :model_variants,
       :command_mode,
       :pilot_all_pass,
       :input_trial_count,

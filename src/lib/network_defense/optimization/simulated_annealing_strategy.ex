@@ -5,7 +5,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.{Budget, SimulationObjective, SimulationStrategy, Strategy}
-  alias NetworkDefense.Simulation.Seed
+  alias NetworkDefense.Simulation.{MissionImpact, Seed}
 
   require OpenTelemetry.Tracer, as: Tracer
 
@@ -15,7 +15,9 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     :run_count,
     :iteration_count,
     :seed,
-    max_attempts: 1
+    max_attempts: 1,
+    objective: :mission_then_blast_radius,
+    require_pre_attack_feasibility: true
   ]
 
   @type t :: %__MODULE__{
@@ -24,7 +26,9 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
           run_count: pos_integer(),
           iteration_count: pos_integer(),
           seed: non_neg_integer(),
-          max_attempts: pos_integer()
+          max_attempts: pos_integer(),
+          objective: SimulationObjective.t(),
+          require_pre_attack_feasibility: boolean()
         }
 
   def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
@@ -121,7 +125,10 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         candidate_score < @infeasible_score and
           (candidate_score <= state.current_score or
              sample <
-               :math.exp((energy(state.current_score) - energy(candidate_score)) / temperature))
+               :math.exp(
+                 (energy(strategy, state.current_score) - energy(strategy, candidate_score)) /
+                   temperature
+               ))
 
       state =
         if accepted? do
@@ -152,7 +159,11 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
       )
     end
 
-    defp energy({mission_impact, blast_radius, _cost}), do: mission_impact * 1000 + blast_radius
+    # ponytail: weighted search heuristic for mission-then-blast only; best-plan ordering uses raw score tuples.
+    defp energy(%{objective: :mission_then_blast_radius}, {primary, secondary, _cost}),
+      do: primary * 1000 + secondary
+
+    defp energy(_strategy, {primary, _secondary, _cost}), do: primary
 
     defp random_plan(candidates, count, random_state) do
       Enum.reduce(1..count, {[], candidates, random_state}, fn _,
@@ -183,10 +194,11 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
     defp score(graph, plan, strategy) do
       graph = Enum.reduce(plan, graph, &DefenseAction.apply(&1, &2))
 
-      if SimulationObjective.feasible?(graph) do
+      if not strategy.require_pre_attack_feasibility or MissionImpact.pre_attack_feasible?(graph) do
         {mission_impact, blast_radius} = SimulationObjective.expected(graph, strategy)
         cost = Enum.sum(Enum.map(plan, &DefenseAction.cost/1))
-        {mission_impact, blast_radius, cost}
+
+        SimulationObjective.ranking_key({mission_impact, blast_radius}, strategy.objective, cost)
       else
         @infeasible_score
       end

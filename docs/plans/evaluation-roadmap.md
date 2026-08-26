@@ -149,21 +149,26 @@ Example manifest shape:
 
 ```json
 {
+  "schema_version": 3,
   "id": "fixed-enterprise-v1",
-  "model": {
-    "objective": "mission_then_blast_radius",
-    "require_pre_attack_feasibility": true
-  },
+  "model_version": "phase-3-model",
+  "model_variants": [
+    { "id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true }
+  ],
   "topology": { "generator": "enterprise", "hosts": 50, "seed": 42 },
-  "attacker": { "entry_host": "internet", "max_attempts": 1 },
-  "strategy_runs": [{ "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
-  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "baseline": "null", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
+  "attacker": { "entry_host": { "type": "semantic_key", "value": "internet" }, "max_attempts": 1 },
+  "strategy_runs": [{ "model_variant": "full", "strategy": "cvss", "budget": 1, "selection_seeds": [101] }],
+  "analysis": { "primary_comparisons": [{ "strategy": "cvss", "model_variant": "full", "baseline": "null", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }
 ```
 
 The values above are examples. The reviewed manifest sets the real study
-values. The manifest must identify the input schema version and model version.
+values. Manifest schema version 3 replaces the singular model configuration
+with named model variants; every strategy run and comparison references one.
+Variants use the fixed `full`, `blast_only_unconstrained`, or `mission_only`
+definitions. Each declaration repeats its canonical objective and feasibility rule.
+The manifest must identify the input schema version and model version.
 
 Example command:
 
@@ -195,15 +200,16 @@ database so another machine can analyze it without the source database.
 | `evaluation/manifests/<id>.json` | Reviewed experiment input. |
 | `evaluation/results/<id>/<run>/manifest.resolved.json` | Exact input used by one run. |
 | `evaluation/results/<id>/<run>/graph.json` | Generated source graph contract. |
-| `evaluation/results/<id>/<run>/plans.jsonl` | Each selected defense plan and its selection seed. |
+| `evaluation/results/<id>/<run>/plans.jsonl` | Each selected defense plan with its model variant, objective, feasibility rule, and selection seed. |
 | `evaluation/results/<id>/<run>/trials.csv` | One terminal outcome per plan and attack seed. |
 | `evaluation/results/<id>/<run>/summary.csv` | Descriptive statistics and timing data. |
 | `evaluation/results/<id>/<run>/checksums.txt` | File hashes, source revision, and dependency-lock hashes. |
 
 A trial row needs at least the scenario ID, budget, strategy, selection seed,
 attack seed, plan ID, blast radius, mission impact, capability outcomes, and
-runtime. Store the action list in `plans.jsonl`; do not repeat it in every CSV
-row.
+runtime. The plan identity is the model variant, strategy, budget, and
+selection seed. Store the action list in `plans.jsonl`; do not repeat it in
+every CSV row. Other rows reference the plan by ID.
 
 ## Phase 2: Statistical Analysis
 
@@ -290,18 +296,26 @@ as a whole.
 
 ## Phase 3: Model Comparison
 
-The current optimizer uses the full model: pre-attack feasibility is required,
-then it minimizes mission impact, blast radius, and cost in that order.
+Implemented as manifest schema version 3. One manifest declares the complete
+model matrix: named model variants, each with an objective ranking and a
+pre-attack feasibility rule, plus every intended strategy run. The runner does
+not create an implicit cross-product.
 
-Make the objective and feasibility rule manifest inputs. Evaluate these modes:
+Each variant combines one objective and one feasibility rule:
 
-| Mode | Expected purpose |
+| Variant property | Purpose |
 | --- | --- |
-| Blast radius only | Shows what happens when all compromised hosts have equal value. |
-| Mission impact only | Shows that mission impact alone can still allow disconnected services. |
-| Mission then blast radius | The full ranking policy. |
-| Feasibility off | Demonstrates the temptation to break a required flow. |
-| Feasibility on | Rejects plans that break normal operation before the attack. |
+| `blast_radius_only` | Shows what happens when all compromised hosts have equal value. |
+| `mission_impact_only` | Shows that mission impact alone can still allow disconnected services. |
+| `mission_then_blast_radius` | The full ranking policy. |
+| `require_pre_attack_feasibility: false` | Demonstrates the temptation to break a required flow. |
+| `require_pre_attack_feasibility: true` | Rejects plans that break normal operation before the attack. |
+
+The plan identity is the model variant, strategy, budget, and selection seed.
+Comparisons declare tested and baseline strategies with their model variants.
+A same-strategy comparison across two variants must use matching selection
+seeds, so the comparison changes only the model. The analysis keeps variants
+separate in paired results, CDFs, plan-selection variation, and figures.
 
 Example: a policy removal can prevent access to a database and reduce attacker
 reach. If the policy is required for order processing, the feasibility-on mode

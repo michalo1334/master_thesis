@@ -1,4 +1,4 @@
-defmodule NetworkDefense.OutputContractTest do
+defmodule NetworkDefense.Evaluation.OutputContractTest do
   use NetworkDefense.DataCase, async: true
 
   alias NetworkDefense.Evaluation
@@ -61,9 +61,12 @@ defmodule NetworkDefense.OutputContractTest do
       |> Enum.map(&Jason.decode!/1)
 
     assert [plan, second_plan] = plans
+    assert plan["model_variant"] == "full"
     assert plan["strategy"] == "cvss"
     assert plan["requested_budget"] == 1
     assert plan["selection_seed"] == 101
+    assert plan["objective"] == "mission_then_blast_radius"
+    assert plan["require_pre_attack_feasibility"] == true
     assert plan["action_count"] == length(plan["actions"])
 
     assert Enum.map(
@@ -103,6 +106,47 @@ defmodule NetworkDefense.OutputContractTest do
       expected = "#{name}  #{:crypto.hash(:sha256, content) |> Base.encode16(case: :lower)}"
       assert expected in checksums
     end
+  end
+
+  test "stores per-plan model metadata and orders plans by variant, strategy, budget, and seed" do
+    manifest_id = "output-contract-two-#{System.unique_integer([:positive])}"
+
+    assert {:ok, _manifest} =
+             EvaluationFixtures.save_manifest(
+               manifest_id,
+               EvaluationFixtures.two_variant_manifest(),
+               "Two variants"
+             )
+
+    assert {:ok, run} = Evaluation.start(manifest_id)
+    assert {:ok, completed} = Evaluation.run(run.id)
+    assert completed.status == "completed"
+
+    plans =
+      files_map(completed)["plans.jsonl"]
+      |> String.trim_trailing()
+      |> String.split("\n")
+      |> Enum.map(&Jason.decode!/1)
+
+    assert [first, _, _, last] = plans
+
+    assert Enum.map(plans, &{&1["model_variant"], &1["strategy"], &1["selection_seed"]}) == [
+             {"full", "cvss", 102},
+             {"full", "null", 101},
+             {"mission_only", "cvss", 102},
+             {"mission_only", "null", 101}
+           ]
+
+    assert %{"objective" => "mission_impact_only", "require_pre_attack_feasibility" => true} =
+             last
+
+    assert %{"objective" => "mission_then_blast_radius", "require_pre_attack_feasibility" => true} =
+             first
+
+    [_header | trial_rows] =
+      files_map(completed)["trials.csv"] |> String.trim_trailing() |> String.split("\n")
+
+    assert length(trial_rows) == 5 * 10
   end
 
   test "orders graph.json nodes and edges by id regardless of input order" do

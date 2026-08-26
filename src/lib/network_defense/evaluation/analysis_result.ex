@@ -63,7 +63,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
              metadata,
              ~w(manifest_id schema_version model_version command_mode)
            ),
-         :ok <- required_list_fields(metadata, ["pilot_comparison_pass"]),
+         :ok <- required_list_fields(metadata, ["pilot_comparison_pass", "model_variants"]),
          :ok <-
            required_list_fields(analysis, [
              "primary_results",
@@ -78,16 +78,16 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
          :ok <-
            rows(
              analysis["primary_results"],
-             ~w(comparison strategy baseline budget outcome paired_mean_difference ci_lower ci_upper ci_half_width d_z p_raw p_adjusted)
+             ~w(comparison strategy model_variant baseline baseline_model_variant budget outcome paired_mean_difference ci_lower ci_upper ci_half_width d_z p_raw p_adjusted)
            ),
          :ok <-
            rows(
              analysis["secondary_results"],
-             ~w(comparison strategy baseline budget outcome mean_difference ci_lower ci_upper ci_half_width)
+             ~w(comparison strategy model_variant baseline baseline_model_variant budget outcome mean_difference ci_lower ci_upper ci_half_width)
            ) do
       rows(
         analysis["capability_results"],
-        ~w(comparison strategy baseline budget capability_id tested_probability baseline_probability probability_difference ci_lower ci_upper ci_half_width)
+        ~w(comparison strategy model_variant baseline baseline_model_variant budget capability_id tested_probability baseline_probability probability_difference ci_lower ci_upper ci_half_width)
       )
     end
   end
@@ -109,7 +109,11 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
   end
 
   defp valid_row?(row) do
-    valid_fields?(row, ~w(strategy baseline outcome capability_id), &is_binary/1) and
+    valid_fields?(
+      row,
+      ~w(strategy model_variant baseline baseline_model_variant outcome capability_id),
+      &is_binary/1
+    ) and
       valid_fields?(row, ~w(capability_name), &(is_binary(&1) or is_nil(&1))) and
       valid_fields?(row, ~w(passes), &(is_boolean(&1) or is_nil(&1))) and
       valid_fields?(

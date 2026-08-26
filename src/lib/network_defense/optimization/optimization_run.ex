@@ -4,16 +4,18 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
 
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.GraphRevision
-  alias NetworkDefense.Optimization.OptimizationAction
+  alias NetworkDefense.Optimization.{ModelVariant, OptimizationAction}
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
+  @model_variant_values ModelVariant.values()
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
           graph_revision_id: String.t() | nil,
           output_graph_revision_id: String.t() | nil,
           evaluation_run_id: String.t() | nil,
+          model_variant: ModelVariant.t() | nil,
           actions: list(OptimizationAction.t()) | Ecto.Association.NotLoaded.t(),
           strategy: String.t() | nil,
           requested_budget: integer() | nil,
@@ -31,6 +33,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     belongs_to :evaluation_run, EvaluationRun
     has_many :actions, OptimizationAction, foreign_key: :optimization_run_id
 
+    field :model_variant, Ecto.Enum, values: @model_variant_values
     field :strategy, :string
     field :requested_budget, :integer
     field :used_budget, :integer, default: 0
@@ -49,6 +52,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       :graph_revision_id,
       :output_graph_revision_id,
       :evaluation_run_id,
+      :model_variant,
       :strategy,
       :requested_budget,
       :used_budget,
@@ -66,10 +70,15 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     |> validate_number(:selection_seed, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, ["running", "completed", "failed", "cancelled"])
     |> validate_output_revision()
+    |> validate_evaluation_model_variant()
     |> foreign_key_constraint(:graph_revision_id)
     |> foreign_key_constraint(:output_graph_revision_id)
     |> foreign_key_constraint(:evaluation_run_id)
-    |> unique_constraint([:evaluation_run_id, :strategy, :requested_budget, :selection_seed],
+    |> check_constraint(:model_variant,
+      name: :optimization_runs_evaluation_plan_identity_required
+    )
+    |> unique_constraint(
+      [:evaluation_run_id, :model_variant, :strategy, :requested_budget, :selection_seed],
       name: :optimization_runs_evaluation_plan_unique
     )
   end
@@ -81,6 +90,7 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       id: Ecto.UUID.generate(),
       graph_revision_id: Map.get(attrs, :graph_revision_id),
       evaluation_run_id: Map.get(attrs, :evaluation_run_id),
+      model_variant: Map.get(attrs, :model_variant),
       strategy: Map.fetch!(attrs, :strategy),
       requested_budget: Map.fetch!(attrs, :requested_budget),
       used_budget: Map.get(attrs, :used_budget, 0),
@@ -98,5 +108,11 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     else
       changeset
     end
+  end
+
+  defp validate_evaluation_model_variant(changeset) do
+    if get_field(changeset, :evaluation_run_id),
+      do: validate_required(changeset, [:model_variant]),
+      else: changeset
   end
 end

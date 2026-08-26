@@ -39,6 +39,22 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
     refute Graph.edge(result.graph, "a-other-policy")
   end
 
+  test "permits cutting a required policy when feasibility is disabled" do
+    {graph, source} = required_flow_graph()
+
+    result =
+      Optimizer.apply(
+        graph,
+        %TopologySegmentationStrategy{initial_foothold_node_id: source.id},
+        1,
+        require_pre_attack_feasibility: false
+      )
+
+    assert [%BlockSegmentReachability{edge_id: "target-policy"}] = result.actions
+    assert result.budget_used == 1
+    refute Graph.edge(result.graph, "target-policy")
+  end
+
   defp required_flow_graph(opts \\ []) do
     source_segment = segment("source-segment")
     target_segment = segment("target-segment")

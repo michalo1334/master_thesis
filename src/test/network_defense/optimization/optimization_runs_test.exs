@@ -4,6 +4,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
   import Ecto.Query
 
+  alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun}
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
@@ -561,6 +562,105 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
                  from(run in OptimizationRun, where: run.graph_revision_id == ^graph.revision_id)
                )
     end
+  end
+
+  describe "evaluation plan identity" do
+    test "persists the model variant for an evaluation-owned run" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+      evaluation_run = evaluation_run(graph.revision_id)
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 evaluation_run_id: evaluation_run.id,
+                 model_variant: :full,
+                 strategy: "cvss",
+                 requested_budget: 2,
+                 selection_seed: 101
+               )
+               |> OptimizationRuns.create()
+
+      assert run.model_variant == :full
+      assert %{model_variant: :full} = OptimizationRuns.load(run.id)
+    end
+
+    test "requires a model variant when the run belongs to an evaluation" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+      evaluation_run = evaluation_run(graph.revision_id)
+
+      assert {:error, changeset} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 evaluation_run_id: evaluation_run.id,
+                 strategy: "cvss",
+                 requested_budget: 2,
+                 selection_seed: 101
+               )
+               |> OptimizationRuns.create()
+
+      refute changeset.valid?
+      assert {"can't be blank", _} = changeset.errors[:model_variant]
+    end
+
+    test "keeps plans distinct across model variants and rejects duplicates within one" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+      evaluation_run = evaluation_run(graph.revision_id)
+
+      base = [
+        graph_revision_id: graph.revision_id,
+        evaluation_run_id: evaluation_run.id,
+        strategy: "cvss",
+        requested_budget: 2,
+        selection_seed: 101
+      ]
+
+      assert {:ok, _} =
+               OptimizationRun.new(base ++ [model_variant: :full]) |> OptimizationRuns.create()
+
+      assert {:ok, blast_only_run} =
+               OptimizationRun.new(base ++ [model_variant: :blast_only_unconstrained])
+               |> OptimizationRuns.create()
+
+      assert %{rows: [["blast_only_unconstrained"]]} =
+               Repo.query!("SELECT model_variant FROM optimization_runs WHERE id = $1", [
+                 Ecto.UUID.dump!(blast_only_run.id)
+               ])
+
+      assert {:error, %Ecto.Changeset{} = changeset} =
+               OptimizationRun.new(base ++ [model_variant: :full]) |> OptimizationRuns.create()
+
+      assert changeset.errors[:evaluation_run_id]
+    end
+
+    test "allows a standalone run without a model variant" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+
+      assert {:ok, run} =
+               OptimizationRun.new(
+                 graph_revision_id: graph.revision_id,
+                 strategy: "cvss",
+                 requested_budget: 1
+               )
+               |> OptimizationRuns.create()
+
+      assert run.model_variant == nil
+    end
+  end
+
+  defp evaluation_run(graph_revision_id) do
+    manifest =
+      Repo.insert!(%EvaluationManifest{
+        manifest_id: "m-#{System.unique_integer([:positive])}",
+        title: "T",
+        content: %{}
+      })
+
+    Repo.insert!(%EvaluationRun{
+      evaluation_manifest_id: manifest.id,
+      source_graph_revision_id: graph_revision_id,
+      resolved_manifest: %{},
+      status: "running"
+    })
   end
 
   defp graph_with_credential, do: GraphFixtures.persisted_credential_graph("optimization-test")

@@ -32,6 +32,22 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
     assert plan == Strategy.rank(strategy, [PatchVulnerability], graph, 1)
   end
 
+  test "blast_radius_only tracks the best plan by blast radius" do
+    {graph, source} = graph()
+
+    strategy = %SimulatedAnnealingStrategy{
+      initial_attacker_state: AttackerState.new(source.id),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 1,
+      iteration_count: 1,
+      seed: 42,
+      objective: :blast_radius_only
+    }
+
+    assert [%PatchVulnerability{edge_id: "vulnerability"}] =
+             Strategy.rank(strategy, [PatchVulnerability], graph, 1)
+  end
+
   test "returns no plan without eligible defenses" do
     source = GraphFixtures.node("source", Host, %{"name" => "source"})
     graph = GraphFixtures.graph([source], [])

@@ -26,6 +26,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     CvssStrategy,
     NullStrategy,
     OptimizationAction,
+    ModelVariant,
     OptimizationRun,
     OptimizationRuns,
     Optimizer,
@@ -64,7 +65,8 @@ defmodule NetworkDefense.Evaluation.Evaluator do
         error ->
           Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
-          log_evaluation_failed(run, error, Observability.duration_ms(started_at))
+          failed_run = failed_run(run, error)
+          log_evaluation_failed(failed_run, error, Observability.duration_ms(started_at))
           reraise error, __STACKTRACE__
       after
         Observability.emit_duration([:network_defense, :evaluation, :run], started_at)
@@ -101,10 +103,11 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     })
   end
 
-  defp plan_span_attributes(run, graph, strategy, budget, selection_seed) do
+  defp plan_span_attributes(run, graph, model_variant, strategy, budget, selection_seed) do
     compact_attributes(%{
       "evaluation.run_id" => run.id,
       "network_defense.correlation.id" => run.id,
+      "evaluation.plan.model_variant" => ModelVariant.to_wire(model_variant),
       "evaluation.plan.strategy" => strategy,
       "evaluation.plan.requested_budget" => budget,
       "evaluation.plan.selection_seed" => selection_seed,
@@ -166,7 +169,8 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       graph_revision_id: run.source_graph_revision_id,
       manifest_id: manifest_value(run, "id"),
       plan_count: plan_count(run),
-      trial_count: trial_count(run)
+      trial_count: trial_count(run),
+      evaluation_run: run
     )
   end
 
@@ -180,12 +184,17 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       manifest_id: manifest_value(run, "id"),
       plan_count: plan_count(run),
       trial_count: trial_count(run),
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: completed
     )
   end
 
-  defp log_evaluation_result(run, {:ok, %{status: "failed", failure_reason: reason}}, runtime_ms) do
-    log_evaluation_failed(run, reason, runtime_ms)
+  defp log_evaluation_result(
+         _run,
+         {:ok, %{status: "failed", failure_reason: reason} = failed},
+         runtime_ms
+       ) do
+    log_evaluation_failed(failed, reason, runtime_ms)
   end
 
   defp log_evaluation_result(run, {:error, reason}, runtime_ms) do
@@ -205,70 +214,127 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       graph_revision_id: run.source_graph_revision_id,
       manifest_id: manifest_value(run, "id"),
       reason: reason,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: run
     )
   end
 
-  defp log_plan_started(run, strategy, budget, selection_seed) do
+  defp log_plan_started(run, graph, model_variant, strategy, budget, selection_seed) do
+    model_variant = ModelVariant.to_wire(model_variant)
+
     Logger.debug("Evaluation plan started",
       event: "evaluation.plan.started",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
       correlation_id: run.id,
+      model_variant: model_variant,
       strategy: strategy,
       requested_budget: budget,
-      selection_seed: selection_seed
+      selection_seed: selection_seed,
+      evaluation_run: run,
+      graph: graph
     )
   end
 
   defp log_plan_result(
          run,
          {:ok, %OptimizationRun{} = plan},
+         model_variant,
          strategy,
          budget,
          selection_seed,
-         runtime_ms
+         runtime_ms,
+         graph
        ) do
+    model_variant = ModelVariant.to_wire(model_variant)
+
     Logger.debug("Evaluation plan completed",
       event: "evaluation.plan.completed",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
       correlation_id: run.id,
       plan_id: plan.id,
+      model_variant: model_variant,
       strategy: strategy,
       requested_budget: budget,
       selection_seed: selection_seed,
       status: plan.status,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: run,
+      optimization_run: plan,
+      graph: graph
     )
   end
 
-  defp log_plan_result(run, {:error, reason}, strategy, budget, selection_seed, runtime_ms) do
-    log_plan_failed(run, strategy, budget, selection_seed, reason, runtime_ms)
-  end
-
-  defp log_plan_result(run, result, strategy, budget, selection_seed, runtime_ms) do
+  defp log_plan_result(
+         run,
+         {:error, reason},
+         model_variant,
+         strategy,
+         budget,
+         selection_seed,
+         runtime_ms,
+         graph
+       ) do
     log_plan_failed(
       run,
+      model_variant,
+      strategy,
+      budget,
+      selection_seed,
+      reason,
+      runtime_ms,
+      graph
+    )
+  end
+
+  defp log_plan_result(
+         run,
+         result,
+         model_variant,
+         strategy,
+         budget,
+         selection_seed,
+         runtime_ms,
+         graph
+       ) do
+    log_plan_failed(
+      run,
+      model_variant,
       strategy,
       budget,
       selection_seed,
       {:unexpected_result, result},
-      runtime_ms
+      runtime_ms,
+      graph
     )
   end
 
-  defp log_plan_failed(run, strategy, budget, selection_seed, reason, runtime_ms) do
+  defp log_plan_failed(
+         run,
+         model_variant,
+         strategy,
+         budget,
+         selection_seed,
+         reason,
+         runtime_ms,
+         graph
+       ) do
+    model_variant = ModelVariant.to_wire(model_variant)
+
     Logger.error("Evaluation plan failed",
       event: "evaluation.plan.failed",
       evaluation_id: run.id,
       evaluation_run_id: run.id,
       correlation_id: run.id,
+      model_variant: model_variant,
       strategy: strategy,
       requested_budget: budget,
       selection_seed: selection_seed,
       reason: reason,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      evaluation_run: run,
+      graph: graph
     )
   end
 
@@ -284,7 +350,9 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       graph_id: graph.id,
       graph_revision_id: graph.revision_id,
       trial_count: experiment.total_trials,
-      completed_trial_count: experiment.completed_trials
+      completed_trial_count: experiment.completed_trials,
+      experiment: experiment,
+      graph: graph
     )
   end
 
@@ -300,7 +368,9 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       graph_id: graph.id,
       graph_revision_id: graph.revision_id,
       trial_count: experiment.total_trials,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      experiment: experiment,
+      graph: graph
     )
   end
 
@@ -316,7 +386,9 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       graph_id: graph.id,
       graph_revision_id: graph.revision_id,
       reason: reason,
-      runtime_ms: runtime_ms
+      runtime_ms: runtime_ms,
+      experiment: experiment,
+      graph: graph
     )
   end
 
@@ -403,33 +475,55 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     end
   end
 
-  defp plan_selected_detail({strategy, budget, selection_seed}, selected, plan_count) do
-    "Selected plan #{selected} of #{plan_count}: #{strategy} (budget #{budget}, seed #{selection_seed})"
+  defp plan_selected_detail(
+         {model_variant, strategy, budget, selection_seed},
+         selected,
+         plan_count
+       ) do
+    "Selected plan #{selected} of #{plan_count}: #{ModelVariant.to_wire(model_variant)}/#{strategy} (budget #{budget}, seed #{selection_seed})"
   end
 
   defp plan_keys(manifest) do
-    Enum.flat_map(manifest["strategy_runs"], fn run ->
-      Enum.map(run["selection_seeds"], &{run["strategy"], run["budget"], &1})
+    manifest["strategy_runs"]
+    |> Enum.flat_map(fn run ->
+      Enum.map(
+        run["selection_seeds"],
+        &{model_variant!(run["model_variant"]), run["strategy"], run["budget"], &1}
+      )
     end)
+    |> Enum.sort()
   end
 
-  defp select_plan(run, graph, schedule, {strategy, budget, selection_seed}) do
+  defp select_plan(run, graph, schedule, {model_variant, strategy, budget, selection_seed}) do
     Tracer.with_span "evaluation.plan",
-      attributes: plan_span_attributes(run, graph, strategy, budget, selection_seed) do
+      attributes:
+        plan_span_attributes(run, graph, model_variant, strategy, budget, selection_seed) do
       started_at = System.monotonic_time()
-      log_plan_started(run, strategy, budget, selection_seed)
+      log_plan_started(run, graph, model_variant, strategy, budget, selection_seed)
 
       try do
-        result = select_plan_without_span(run, graph, schedule, strategy, budget, selection_seed)
+        result =
+          select_plan_without_span(
+            run,
+            graph,
+            schedule,
+            model_variant,
+            strategy,
+            budget,
+            selection_seed
+          )
+
         set_plan_span_status(result)
 
         log_plan_result(
           run,
           result,
+          model_variant,
           strategy,
           budget,
           selection_seed,
-          Observability.duration_ms(started_at)
+          Observability.duration_ms(started_at),
+          graph
         )
 
         result
@@ -440,11 +534,13 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
           log_plan_failed(
             run,
+            model_variant,
             strategy,
             budget,
             selection_seed,
             error,
-            Observability.duration_ms(started_at)
+            Observability.duration_ms(started_at),
+            graph
           )
 
           reraise error, __STACKTRACE__
@@ -452,35 +548,54 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     end
   end
 
-  defp select_plan_without_span(run, graph, schedule, strategy, budget, selection_seed) do
-    case existing_plan(run.id, strategy, budget, selection_seed) do
-      %OptimizationRun{status: "completed"} = existing ->
-        {:ok, existing}
+  defp select_plan_without_span(
+         run,
+         graph,
+         schedule,
+         model_variant,
+         strategy,
+         budget,
+         selection_seed
+       ) do
+    with {:ok, model} <- model_settings(run, model_variant) do
+      case existing_plan(run.id, model_variant, strategy, budget, selection_seed) do
+        %OptimizationRun{status: "completed"} = existing ->
+          {:ok, existing}
 
-      %OptimizationRun{} = existing ->
-        resume_plan(existing, graph, schedule, strategy, budget, selection_seed)
+        %OptimizationRun{} = existing ->
+          resume_plan(existing, graph, schedule, strategy, budget, selection_seed, model)
 
-      nil ->
-        run_plan(run, graph, schedule, strategy, budget, selection_seed)
+        nil ->
+          run_plan(run, graph, schedule, model_variant, strategy, budget, selection_seed, model)
+      end
     end
   end
 
-  defp run_plan(run, graph, schedule, strategy, budget, selection_seed) do
-    with {:ok, strategy_struct} <- build_strategy(strategy, graph, schedule, selection_seed),
+  defp run_plan(run, graph, schedule, model_variant, strategy, budget, selection_seed, model) do
+    with {:ok, strategy_struct} <-
+           build_strategy(strategy, graph, schedule, selection_seed, model),
          {:ok, optimization_run} <-
-           create_optimization_run(run, strategy, budget, selection_seed, strategy_struct) do
-      execute_optimization(graph, optimization_run, strategy_struct, budget)
+           create_optimization_run(
+             run,
+             model_variant,
+             strategy,
+             budget,
+             selection_seed,
+             strategy_struct
+           ) do
+      execute_optimization(graph, optimization_run, strategy_struct, budget, model)
     end
   end
 
-  defp resume_plan(optimization_run, graph, schedule, strategy, budget, selection_seed) do
+  defp resume_plan(optimization_run, graph, schedule, strategy, budget, selection_seed, model) do
     case OptimizationRuns.resume_or_load(optimization_run.id) do
       {:ok, %OptimizationRun{status: "completed"} = completed} ->
         {:ok, completed}
 
       {:ok, running} ->
-        with {:ok, strategy_struct} <- build_strategy(strategy, graph, schedule, selection_seed) do
-          execute_optimization(graph, running, strategy_struct, budget)
+        with {:ok, strategy_struct} <-
+               build_strategy(strategy, graph, schedule, selection_seed, model) do
+          execute_optimization(graph, running, strategy_struct, budget, model)
         end
 
       error ->
@@ -488,10 +603,18 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     end
   end
 
-  defp create_optimization_run(run, strategy, budget, selection_seed, strategy_struct) do
+  defp create_optimization_run(
+         run,
+         model_variant,
+         strategy,
+         budget,
+         selection_seed,
+         strategy_struct
+       ) do
     OptimizationRun.new(
       graph_revision_id: run.source_graph_revision_id,
       evaluation_run_id: run.id,
+      model_variant: model_variant,
       strategy: strategy,
       requested_budget: budget,
       seed: strategy_struct.seed,
@@ -501,8 +624,13 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     |> OptimizationRuns.create()
   end
 
-  defp execute_optimization(graph, optimization_run, strategy_struct, budget) do
-    {elapsed_us, result} = :timer.tc(fn -> Optimizer.apply(graph, strategy_struct, budget) end)
+  defp execute_optimization(graph, optimization_run, strategy_struct, budget, model) do
+    {elapsed_us, result} =
+      :timer.tc(fn ->
+        Optimizer.apply(graph, strategy_struct, budget,
+          require_pre_attack_feasibility: model.require_pre_attack_feasibility
+        )
+      end)
 
     Graphs.append_optimization(result.graph, fn persisted ->
       OptimizationRuns.complete(optimization_run, %{
@@ -645,17 +773,19 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       log_experiment_started(experiment, graph)
 
       try do
-        result = execute_experiment(experiment, graph, base, total, label)
+        completed = execute_experiment(experiment, graph, base, total, label)
         Tracer.set_status(OpenTelemetry.status(:ok))
-        log_experiment_result(experiment, graph, Observability.duration_ms(started_at))
-        result
+        log_experiment_result(completed, graph, Observability.duration_ms(started_at))
+        :ok
       rescue
         error ->
           Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
 
+          failed_experiment = failed_experiment(experiment)
+
           log_experiment_failed(
-            experiment,
+            failed_experiment,
             graph,
             error,
             Observability.duration_ms(started_at)
@@ -678,8 +808,6 @@ defmodule NetworkDefense.Evaluation.Evaluator do
         "#{label}: #{saved.completed_trials} of #{saved.total_trials}"
       )
     end)
-
-    :ok
   end
 
   defp progress_total(run) do
@@ -692,7 +820,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     Evaluation.broadcast_progress(run_id, graph, completed, total, detail)
   end
 
-  defp build_strategy(strategy, graph, schedule, selection_seed) do
+  defp build_strategy(strategy, graph, schedule, selection_seed, model) do
     case strategy do
       "null" ->
         {:ok, %NullStrategy{}}
@@ -707,17 +835,29 @@ defmodule NetworkDefense.Evaluation.Evaluator do
         build_topology_strategy(graph, schedule)
 
       "simulation_informed" ->
-        build_simulation_strategy(SimulationInformedStrategy, graph, schedule, selection_seed)
+        build_simulation_strategy(
+          SimulationInformedStrategy,
+          graph,
+          schedule,
+          selection_seed,
+          model
+        )
 
       "simulated_annealing" ->
-        build_simulation_strategy(SimulatedAnnealingStrategy, graph, schedule, selection_seed)
+        build_simulation_strategy(
+          SimulatedAnnealingStrategy,
+          graph,
+          schedule,
+          selection_seed,
+          model
+        )
 
       other ->
         {:error, "unknown strategy #{other}"}
     end
   end
 
-  defp build_simulation_strategy(module, graph, schedule, selection_seed) do
+  defp build_simulation_strategy(module, graph, schedule, selection_seed, model) do
     params = %{
       simulation_params: %{
         monte_carlo_trials: schedule.optimizer_trials,
@@ -726,7 +866,8 @@ defmodule NetworkDefense.Evaluation.Evaluator do
         seed: SeedSchedule.optimizer_simulation_seed(selection_seed),
         generate_seed: false,
         max_attempts: schedule.max_attempts
-      }
+      },
+      model: model
     }
 
     SimulationStrategy.new(module, graph, params)
@@ -741,13 +882,33 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   defp simulation_config(%{seed: seed}) when is_integer(seed), do: %{seed: seed}
   defp simulation_config(_strategy), do: nil
 
-  defp existing_plan(evaluation_run_id, strategy, budget, selection_seed) do
+  defp model_settings(run, model_variant) do
+    if model_variant in manifest_variants(run.resolved_manifest) do
+      {:ok, ModelVariant.definition(model_variant)}
+    else
+      {:error, "unknown model variant #{ModelVariant.to_wire(model_variant)}"}
+    end
+  end
+
+  defp model_variant!(wire) do
+    {:ok, variant} = ModelVariant.from_wire(wire)
+    variant
+  end
+
+  defp manifest_variants(manifest) do
+    manifest
+    |> Map.get("model_variants", [])
+    |> Enum.map(&model_variant!(&1["id"]))
+  end
+
+  defp existing_plan(evaluation_run_id, model_variant, strategy, budget, selection_seed) do
     import Ecto.Query
 
     OptimizationRun
     |> where(
       [run],
       run.evaluation_run_id == ^evaluation_run_id and
+        run.model_variant == ^model_variant and
         run.strategy == ^strategy and
         run.requested_budget == ^budget and
         run.selection_seed == ^selection_seed
@@ -779,14 +940,21 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     |> NetworkDefense.Repo.one()
   end
 
-  defp fail(%{id: id} = run, reason) when is_binary(id) do
+  defp failed_run(%{id: id} = run, reason) when is_binary(id) do
     case EvaluationRuns.fail(run, reason) do
-      {:ok, failed} -> {:ok, failed}
-      {:error, _changeset} -> {:ok, %{run | status: "failed", failure_reason: reason}}
+      {:ok, failed} -> failed
+      {:error, _changeset} -> %{run | status: "failed", failure_reason: reason}
     end
   rescue
-    Ecto.StaleEntryError -> {:ok, %{run | status: "failed", failure_reason: reason}}
+    Ecto.StaleEntryError -> %{run | status: "failed", failure_reason: reason}
   end
 
-  defp fail(run, reason), do: {:ok, %{run | status: "failed", failure_reason: reason}}
+  defp failed_run(run, reason), do: %{run | status: "failed", failure_reason: reason}
+
+  defp fail(run, reason), do: {:ok, failed_run(run, reason)}
+
+  defp failed_experiment(%Experiment{id: id} = experiment) do
+    Experiments.fail(id)
+    Experiments.get(id) || %{experiment | status: "failed"}
+  end
 end

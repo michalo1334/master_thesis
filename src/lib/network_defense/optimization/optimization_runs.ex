@@ -14,6 +14,7 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     |> OptimizationRun.changeset(%{
       graph_revision_id: run.graph_revision_id,
       evaluation_run_id: run.evaluation_run_id,
+      model_variant: run.model_variant,
       strategy: run.strategy,
       requested_budget: run.requested_budget,
       used_budget: run.used_budget,

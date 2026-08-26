@@ -3,8 +3,15 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary do
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
+  alias NetworkDefense.Optimization.ModelVariant
+
+  @enum_values model_variant: ModelVariant.wire_values()
+
+  def contract_meta, do: %{enum_values: @enum_values}
+
   embedded_schema do
     field :id, :string
+    field :model_variant, :string
     field :strategy, :string
     field :requested_budget, :integer
     field :selection_seed, :integer
@@ -15,6 +22,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary do
 
   @type t :: %__MODULE__{
           id: String.t(),
+          model_variant: String.t(),
           strategy: String.t(),
           requested_budget: integer(),
           selection_seed: integer(),
@@ -27,6 +35,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary do
     schema
     |> cast(attrs, [
       :id,
+      :model_variant,
       :strategy,
       :requested_budget,
       :selection_seed,
@@ -34,8 +43,16 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary do
       :action_count,
       :status
     ])
-    |> validate_required([:id, :strategy, :requested_budget, :selection_seed, :status])
+    |> validate_required([
+      :id,
+      :model_variant,
+      :strategy,
+      :requested_budget,
+      :selection_seed,
+      :status
+    ])
     |> NetworkDefense.Contracts.validate_uuid(:id)
+    |> validate_inclusion(:model_variant, @enum_values[:model_variant])
     |> validate_inclusion(:status, ["running", "completed", "failed"])
   end
 end

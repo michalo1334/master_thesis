@@ -106,7 +106,7 @@ defmodule NetworkDefense.Optimizations do
         error ->
           Tracer.record_exception(error, __STACKTRACE__)
           Tracer.set_status(OpenTelemetry.status(:error))
-          reason = fail_optimization(run, request.correlation_id, error, __STACKTRACE__)
+          reason = fail_optimization(run, request, error, __STACKTRACE__)
           if broadcast_failure?, do: broadcast_failed(graph, request.correlation_id, reason)
           {:error, reason}
       end
@@ -143,7 +143,10 @@ defmodule NetworkDefense.Optimizations do
 
       {:error, reason} ->
         Logger.error("Unable to persist optimization run: #{inspect(reason)}",
-          correlation_id: request.correlation_id
+          event: "optimization.run.persistence_failed",
+          correlation_id: request.correlation_id,
+          graph: graph,
+          request: request
         )
 
         {:error, :persistence_failed}
@@ -173,27 +176,37 @@ defmodule NetworkDefense.Optimizations do
         inserted
 
       {:error, reason} ->
+        failed_run = failed_run(run)
+
         Logger.error("Unable to enqueue optimization job: #{inspect(reason)}",
-          correlation_id: request.correlation_id
+          event: "optimization.run.enqueue_failed",
+          optimization_id: run.id,
+          correlation_id: request.correlation_id,
+          optimization_run: failed_run,
+          request: request
         )
 
-        OptimizationRuns.fail(run.id)
         {:error, :task_unavailable}
     end
   end
 
-  defp fail_optimization(run, correlation_id, error, stacktrace) do
-    Logger.error(Exception.format(:error, error, stacktrace), correlation_id: correlation_id)
-    OptimizationRuns.fail(run.id)
+  defp fail_optimization(run, request, error, stacktrace) do
+    failed_run = failed_run(run)
+
+    Logger.error(Exception.format(:error, error, stacktrace),
+      event: "optimization.run.failed",
+      optimization_id: run.id,
+      correlation_id: request.correlation_id,
+      optimization_run: failed_run,
+      request: request
+    )
+
     :internal_error
   end
 
   defp apply_optimization(graph, request, strategy) do
-    Optimizer.apply(
-      graph,
-      strategy,
-      request.optimization_params.budget,
-      &broadcast_progress(graph, request.correlation_id, &1, &2, &3)
+    Optimizer.apply(graph, strategy, request.optimization_params.budget,
+      progress_callback: &broadcast_progress(graph, request.correlation_id, &1, &2, &3)
     )
   end
 
@@ -221,7 +234,10 @@ defmodule NetworkDefense.Optimizations do
       graph_revision_id: graph.revision_id,
       correlation_id: request.correlation_id,
       strategy: request.optimization_params.strategy,
-      requested_budget: request.optimization_params.budget
+      requested_budget: request.optimization_params.budget,
+      optimization_run: run,
+      graph: graph,
+      request: request
     )
   end
 
@@ -251,18 +267,27 @@ defmodule NetworkDefense.Optimizations do
           strategy: completed_run.strategy,
           action_count: length(result.actions),
           used_budget: completed_run.used_budget,
-          runtime_ms: completed_run.runtime_ms
+          runtime_ms: completed_run.runtime_ms,
+          optimization_run: completed_run,
+          graph: graph,
+          request: request
         )
 
         broadcast_completed(graph, request, completed_run)
         {:ok, completed_run}
 
       {:error, reason} ->
+        failed_run = failed_run(run)
+
         Logger.error("Unable to persist optimization result: #{inspect(reason)}",
-          correlation_id: request.correlation_id
+          event: "optimization.run.result_persistence_failed",
+          optimization_id: run.id,
+          correlation_id: request.correlation_id,
+          optimization_run: failed_run,
+          graph: graph,
+          request: request
         )
 
-        OptimizationRuns.fail(run.id)
         broadcast_failed(graph, request.correlation_id, :persistence_failed)
         {:error, :persistence_failed}
     end
@@ -290,6 +315,13 @@ defmodule NetworkDefense.Optimizations do
 
   defp materializable_run?(%OptimizationRun{actions: actions}) do
     Enum.all?(actions, &DefenseActionsRegistry.module_for_short(&1.action_type))
+  end
+
+  defp failed_run(run) do
+    case OptimizationRuns.fail(run.id) do
+      {:ok, failed_run} -> failed_run
+      :ok -> run
+    end
   end
 
   defp broadcast_completed(graph, request, run) do

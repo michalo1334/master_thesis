@@ -188,6 +188,7 @@ defmodule NetworkDefense.RunsTest do
       requested_budget: 1,
       status: status,
       selection_seed: if(evaluation_run_id, do: System.unique_integer([:positive]), else: nil),
+      model_variant: if(evaluation_run_id, do: :full, else: nil),
       evaluation_run_id: evaluation_run_id
     }
 

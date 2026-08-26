@@ -1,3 +1,4 @@
+import csv
 import io
 import shutil
 import tempfile
@@ -10,6 +11,7 @@ from starlette.testclient import TestClient
 
 from network_defense_analysis import service
 from network_defense_analysis.archive import write_result_zip
+from test_analysis import AnalysisTest
 
 
 def archive_bytes():
@@ -100,6 +102,24 @@ class ServiceTest(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 500)
         self.assertEqual(self.app.state.service.active, 0)
+
+    def test_analyze_round_trip_with_model_aware_zip(self):
+        directory = AnalysisTest.make_fixture(cross_model=True)
+        self.addCleanup(shutil.rmtree, directory, True)
+        archive = directory.parent / "input.zip"
+        with zipfile.ZipFile(archive, "w") as target:
+            for path in directory.iterdir():
+                target.write(path, path.name)
+        self.addCleanup(Path.unlink, archive, missing_ok=True)
+        response = self.client.post("/v1/analyze", content=archive.read_bytes(), headers={"content-type": "application/zip"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["content-type"], "application/zip")
+        with zipfile.ZipFile(io.BytesIO(response.content)) as result:
+            rows = list(csv.DictReader(io.StringIO(result.read("primary_results.csv").decode())))
+        self.assertEqual(
+            [(row["model_variant"], row["baseline_model_variant"]) for row in rows],
+            [("full", "full"), ("blast_only_unconstrained", "full")],
+        )
 
 
 if __name__ == "__main__":

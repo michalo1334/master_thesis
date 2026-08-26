@@ -458,9 +458,10 @@ export interface EvaluationAnalysis {
   secondary_results: EvaluationAnalysisSecondaryRow[];
 }
 
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_capability_row.ex)
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_capability_row.ex) — enum fields: model_variant, baseline_model_variant
 export interface EvaluationAnalysisCapabilityRow {
   baseline: string;
+  baseline_model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   baseline_probability?: number | null;
   budget: number;
   capability_id: string;
@@ -469,6 +470,7 @@ export interface EvaluationAnalysisCapabilityRow {
   ci_lower?: number | null;
   ci_upper?: number | null;
   comparison: number;
+  model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   probability_difference?: number | null;
   strategy: string;
   tested_probability?: number | null;
@@ -494,6 +496,7 @@ export interface EvaluationAnalysisMetadata {
   input_hashes?: Record<string, unknown> | null;
   input_trial_count?: number | null;
   manifest_id: string;
+  model_variants?: Record<string, unknown>[] | null;
   model_version: string;
   package_version?: string | null;
   pilot_all_pass?: boolean | null;
@@ -511,15 +514,17 @@ export interface EvaluationAnalysisPilotRow {
   target?: number | null;
 }
 
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex)
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex) — enum fields: model_variant, baseline_model_variant
 export interface EvaluationAnalysisPrimaryRow {
   baseline: string;
+  baseline_model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   budget: number;
   ci_half_width?: number | null;
   ci_lower?: number | null;
   ci_upper?: number | null;
   comparison: number;
   d_z?: number | null;
+  model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   outcome: string;
   p_adjusted?: number | null;
   p_raw?: number | null;
@@ -535,15 +540,17 @@ export interface EvaluationAnalysisReadyEvent {
   run_id: string;
 }
 
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex)
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex) — enum fields: model_variant, baseline_model_variant
 export interface EvaluationAnalysisSecondaryRow {
   baseline: string;
+  baseline_model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   budget: number;
   ci_half_width?: number | null;
   ci_lower?: number | null;
   ci_upper?: number | null;
   comparison: number;
   mean_difference?: number | null;
+  model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   outcome: string;
   strategy: string;
 }
@@ -580,10 +587,11 @@ export interface EvaluationFailedEvent {
   run_id: string;
 }
 
-// NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_plan_summary.ex)
+// NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_plan_summary.ex) — enum fields: model_variant
 export interface EvaluationPlanSummary {
   action_count: number;
   id: string;
+  model_variant: "full" | "blast_only_unconstrained" | "mission_only";
   requested_budget: number;
   selection_seed: number;
   status: string;

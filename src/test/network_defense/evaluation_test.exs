@@ -35,6 +35,29 @@ defmodule NetworkDefense.EvaluationTest do
       assert manifest["id"] == "fixed-enterprise-v1"
     end
 
+    test "accepts mission_only unchanged" do
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          %{
+            "id" => "mission_only",
+            "objective" => "mission_impact_only",
+            "require_pre_attack_feasibility" => true
+          }
+        ])
+        |> put_in(["strategy_runs", Access.all(), "model_variant"], "mission_only")
+        |> put_in(
+          ["analysis", "primary_comparisons", Access.all(), "model_variant"],
+          "mission_only"
+        )
+        |> put_in(
+          ["analysis", "primary_comparisons", Access.all(), "baseline_model_variant"],
+          "mission_only"
+        )
+
+      assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+    end
+
     test "accepts unknown fields and logs their paths" do
       manifest = Map.put(@valid_manifest, "bogus", 1)
 
@@ -52,21 +75,92 @@ defmodule NetworkDefense.EvaluationTest do
       assert Enum.any?(errors, &(&1.path == "schema_version"))
     end
 
-    test "rejects duplicate strategy and budget pairs" do
+    test "requires a model version" do
+      assert {:error, errors} =
+               @valid_manifest |> Map.delete("model_version") |> ManifestContract.validate()
+
+      assert Enum.any?(errors, &(&1.path == "model_version"))
+    end
+
+    test "rejects duplicate model variant, strategy, and budget plans" do
       manifest =
         Map.put(@valid_manifest, "strategy_runs", [
-          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
-          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [102]}
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [102]
+          }
         ])
 
       assert {:error, errors} = ManifestContract.validate(manifest)
       assert Enum.any?(errors, &(&1.path == "strategy_runs"))
     end
 
+    test "accepts the same strategy and budget on different model variants" do
+      manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          },
+          %{
+            "id" => "blast_only_unconstrained",
+            "objective" => "blast_radius_only",
+            "require_pre_attack_feasibility" => false
+          }
+        ])
+        |> Map.put("strategy_runs", [
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "blast_only_unconstrained",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "full",
+            "strategy" => "simulation_informed",
+            "budget" => 1,
+            "selection_seeds" => [201]
+          }
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "simulation_informed",
+            "model_variant" => "full",
+            "baseline" => "null",
+            "baseline_model_variant" => "full",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
+      assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+    end
+
     test "rejects duplicate selection seeds" do
       manifest =
         Map.put(@valid_manifest, "strategy_runs", [
-          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101, 101]}
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101, 101]
+          }
         ])
 
       assert {:error, errors} = ManifestContract.validate(manifest)
@@ -76,11 +170,78 @@ defmodule NetworkDefense.EvaluationTest do
     test "rejects an unknown strategy" do
       manifest =
         Map.put(@valid_manifest, "strategy_runs", [
-          %{"strategy" => "bogus", "budget" => 1, "selection_seeds" => [101]}
+          %{
+            "model_variant" => "full",
+            "strategy" => "bogus",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          }
         ])
 
       assert {:error, errors} = ManifestContract.validate(manifest)
       assert Enum.any?(errors, &(&1.path == "strategy_runs.0.strategy"))
+    end
+
+    test "rejects a strategy run referencing an unknown model variant" do
+      manifest =
+        Map.put(@valid_manifest, "strategy_runs", [
+          %{
+            "model_variant" => "missing",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "strategy_runs.0.model_variant"))
+    end
+
+    test "rejects duplicate model variant ids" do
+      manifest =
+        Map.put(@valid_manifest, "model_variants", [
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          },
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "model_variants"))
+    end
+
+    test "rejects empty model variants" do
+      manifest = Map.put(@valid_manifest, "model_variants", [])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "model_variants"))
+    end
+
+    test "rejects an unknown objective" do
+      variants = get_in(@valid_manifest, ["model_variants"])
+      variant = variants |> hd() |> Map.put("objective", "bogus")
+      manifest = Map.put(@valid_manifest, "model_variants", [variant])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "model_variants.0.objective"))
+    end
+
+    test "rejects model-variant settings that differ from the canonical definition" do
+      manifest =
+        put_in(
+          @valid_manifest,
+          ["model_variants", Access.at(0), "objective"],
+          "blast_radius_only"
+        )
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "model_variants.0.objective"))
     end
 
     test "rejects a manifest missing strategy runs without raising" do
@@ -90,19 +251,110 @@ defmodule NetworkDefense.EvaluationTest do
       assert Enum.any?(errors, &(&1.path == "strategy_runs"))
     end
 
-    test "rejects a comparison with the same strategy and baseline" do
+    test "rejects a comparison with identical sides" do
       manifest =
         put_in(@valid_manifest, ["analysis", "primary_comparisons"], [
           %{
             "strategy" => "null",
+            "model_variant" => "full",
             "baseline" => "null",
+            "baseline_model_variant" => "full",
             "budget" => 1,
             "outcome" => "blast_radius"
           }
         ])
 
       assert {:error, errors} = ManifestContract.validate(manifest)
-      assert Enum.any?(errors, &(&1.message == "strategy and baseline must differ"))
+      assert Enum.any?(errors, &(&1.message == "comparison sides must differ"))
+    end
+
+    test "accepts a same-strategy cross-model comparison with matching selection seeds" do
+      manifest = two_variant_manifest()
+
+      assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+    end
+
+    test "rejects a comparison referencing an undeclared model variant plan" do
+      manifest =
+        put_in(@valid_manifest, ["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "cvss",
+            "model_variant" => "missing",
+            "baseline" => "null",
+            "baseline_model_variant" => "full",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "analysis.primary_comparisons.0.strategy"))
+    end
+
+    test "rejects a same-strategy cross-model comparison with mismatched selection seeds" do
+      runs = two_variant_manifest()["strategy_runs"]
+
+      mismatched =
+        List.replace_at(runs, 1, %{
+          "model_variant" => "blast_only_unconstrained",
+          "strategy" => "simulation_informed",
+          "budget" => 1,
+          "selection_seeds" => [310]
+        })
+
+      manifest =
+        two_variant_manifest()
+        |> Map.put("strategy_runs", mismatched)
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "simulation_informed",
+            "model_variant" => "full",
+            "baseline" => "simulation_informed",
+            "baseline_model_variant" => "blast_only_unconstrained",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+
+      assert Enum.any?(
+               errors,
+               &(&1.message ==
+                   "same-strategy comparisons must declare identical ordered selection seeds")
+             )
+    end
+
+    test "rejects a cross-model comparison using model-unaware strategies" do
+      manifest =
+        two_variant_manifest()
+        |> put_in(["strategy_runs"], [
+          %{
+            "model_variant" => "full",
+            "strategy" => "cvss",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "blast_only_unconstrained",
+            "strategy" => "cvss",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          }
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "cvss",
+            "model_variant" => "full",
+            "baseline" => "cvss",
+            "baseline_model_variant" => "blast_only_unconstrained",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "analysis.primary_comparisons.0"))
     end
 
     test "rejects an invalid graph revision UUID" do
@@ -254,13 +506,25 @@ defmodule NetworkDefense.EvaluationTest do
 
       strategies_changed =
         Map.put(@valid_manifest, "strategy_runs", [
-          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
-          %{"strategy" => "random", "budget" => 1, "selection_seeds" => [102]}
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "full",
+            "strategy" => "random",
+            "budget" => 1,
+            "selection_seeds" => [102]
+          }
         ])
         |> put_in(["analysis", "primary_comparisons"], [
           %{
             "strategy" => "random",
+            "model_variant" => "full",
             "baseline" => "null",
+            "baseline_model_variant" => "full",
             "budget" => 1,
             "outcome" => "blast_radius"
           }
@@ -273,14 +537,31 @@ defmodule NetworkDefense.EvaluationTest do
 
       budgets_changed =
         Map.put(@valid_manifest, "strategy_runs", [
-          %{"strategy" => "null", "budget" => 1, "selection_seeds" => [101]},
-          %{"strategy" => "cvss", "budget" => 2, "selection_seeds" => [102]},
-          %{"strategy" => "random", "budget" => 2, "selection_seeds" => [103]}
+          %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          %{
+            "model_variant" => "full",
+            "strategy" => "cvss",
+            "budget" => 2,
+            "selection_seeds" => [102]
+          },
+          %{
+            "model_variant" => "full",
+            "strategy" => "random",
+            "budget" => 2,
+            "selection_seeds" => [103]
+          }
         ])
         |> put_in(["analysis", "primary_comparisons"], [
           %{
             "strategy" => "random",
+            "model_variant" => "full",
             "baseline" => "cvss",
+            "baseline_model_variant" => "full",
             "budget" => 2,
             "outcome" => "blast_radius"
           }
@@ -354,7 +635,13 @@ defmodule NetworkDefense.EvaluationTest do
           "entry_host" => %{"type" => "node_id", "value" => host.id},
           "max_attempts" => 1
         },
-        "model" => %{"require_pre_attack_feasibility" => false}
+        "model_variants" => [
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => false
+          }
+        ]
       }
 
       assert {:ok, resolved} = Evaluation.preflight(manifest)
@@ -376,7 +663,13 @@ defmodule NetworkDefense.EvaluationTest do
           "entry_host" => %{"type" => "semantic_key", "value" => "no-such-host"},
           "max_attempts" => 1
         },
-        "model" => %{"require_pre_attack_feasibility" => true}
+        "model_variants" => [
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          }
+        ]
       }
 
       assert {:error, errors} = Evaluation.preflight(manifest)
@@ -384,7 +677,7 @@ defmodule NetworkDefense.EvaluationTest do
       assert graph_revision_count() == revisions_before
     end
 
-    test "rejects an infeasible graph revision without persisting a new revision" do
+    test "rejects an infeasible graph revision when any variant requires feasibility" do
       graph = infeasible_graph()
       assert {:ok, graph} = Graphs.insert(graph)
 
@@ -402,12 +695,52 @@ defmodule NetworkDefense.EvaluationTest do
           "entry_host" => %{"type" => "node_id", "value" => host.id},
           "max_attempts" => 1
         },
-        "model" => %{"require_pre_attack_feasibility" => true}
+        "model_variants" => [
+          %{
+            "id" => "blast_only_unconstrained",
+            "objective" => "blast_radius_only",
+            "require_pre_attack_feasibility" => false
+          },
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          }
+        ]
       }
 
       assert {:error, errors} = Evaluation.preflight(manifest)
-      assert Enum.any?(errors, &(&1.path == "model.require_pre_attack_feasibility"))
+      assert Enum.any?(errors, &(&1.path == "model_variants.1.require_pre_attack_feasibility"))
       assert graph_revision_count() == revisions_before
+    end
+
+    test "allows an infeasible graph revision when all variants disable feasibility" do
+      graph = infeasible_graph()
+      assert {:ok, graph} = Graphs.insert(graph)
+
+      host =
+        Enum.find(
+          NetworkDefense.Graph.Graph.nodes(graph),
+          &(&1.type == NetworkDefense.Nodes.Host)
+        )
+
+      manifest = %{
+        "source" => %{"type" => "graph_revision", "graph_revision_id" => graph.revision_id},
+        "attacker" => %{
+          "entry_host" => %{"type" => "node_id", "value" => host.id},
+          "max_attempts" => 1
+        },
+        "model_variants" => [
+          %{
+            "id" => "blast_only_unconstrained",
+            "objective" => "blast_radius_only",
+            "require_pre_attack_feasibility" => false
+          }
+        ]
+      }
+
+      assert {:ok, resolved} = Evaluation.preflight(manifest)
+      assert resolved.graph_revision_id == graph.revision_id
     end
   end
 
@@ -463,6 +796,87 @@ defmodule NetworkDefense.EvaluationTest do
       assert simulation_run_count(run.id) == trial_count
     end
 
+    test "persists distinct plans per model variant on shared attack seeds and resumes idempotently" do
+      id = manifest_id()
+
+      eval_manifest =
+        @valid_manifest
+        |> put_in(["model_variants"], [
+          %{
+            "id" => "full",
+            "objective" => "mission_then_blast_radius",
+            "require_pre_attack_feasibility" => true
+          },
+          %{
+            "id" => "blast_only_unconstrained",
+            "objective" => "blast_radius_only",
+            "require_pre_attack_feasibility" => false
+          }
+        ])
+        |> Map.put("strategy_runs", [
+          %{
+            "model_variant" => "full",
+            "strategy" => "simulation_informed",
+            "budget" => 1,
+            "selection_seeds" => [310]
+          },
+          %{
+            "model_variant" => "blast_only_unconstrained",
+            "strategy" => "simulation_informed",
+            "budget" => 1,
+            "selection_seeds" => [310]
+          }
+        ])
+        |> put_in(["analysis", "primary_comparisons"], [
+          %{
+            "strategy" => "simulation_informed",
+            "model_variant" => "full",
+            "baseline" => "simulation_informed",
+            "baseline_model_variant" => "blast_only_unconstrained",
+            "budget" => 1,
+            "outcome" => "blast_radius"
+          }
+        ])
+        |> put_in(["evaluation", "trials"], 3)
+
+      assert {:ok, _manifest} = save_manifest(id, eval_manifest)
+
+      assert {:ok, run} = Evaluation.start(id)
+      assert {:ok, completed} = Evaluation.run(run.id)
+      assert completed.status == "completed"
+
+      plans = plans_for(run.id)
+
+      assert MapSet.new(Enum.map(plans, &{&1.model_variant, &1.strategy, &1.selection_seed})) ==
+               MapSet.new([
+                 {:full, "simulation_informed", 310},
+                 {:blast_only_unconstrained, "simulation_informed", 310}
+               ])
+
+      assert [_, _] = plans |> Enum.map(& &1.id) |> Enum.uniq()
+
+      experiments = experiments_for(run.id)
+      assert [_, _, _] = experiments
+
+      attack_seed = Seed.child_seed(9001, 3)
+      assert Enum.all?(experiments, &(&1.master_seed == attack_seed))
+
+      ordered_seeds = Enum.map(runs_for(hd(experiments).id), & &1.seed)
+
+      for experiment <- experiments do
+        assert Enum.map(runs_for(experiment.id), & &1.seed) == ordered_seeds
+      end
+
+      Repo.update!(Ecto.Changeset.change(%EvaluationRun{id: run.id}, status: "running"))
+
+      assert {:ok, resumed} =
+               NetworkDefense.Evaluation.Evaluator.run(Repo.get!(EvaluationRun, run.id))
+
+      assert resumed.status == "completed"
+      assert [_, _] = plans_for(run.id)
+      assert [_, _, _] = experiments_for(run.id)
+    end
+
     test "start always creates a new run even after completion" do
       id = manifest_id()
       assert {:ok, _manifest} = save_manifest(id, @eval_manifest)
@@ -507,6 +921,7 @@ defmodule NetworkDefense.EvaluationTest do
       attrs = %{
         graph_revision_id: run.source_graph_revision_id,
         evaluation_run_id: run.id,
+        model_variant: :full,
         strategy: "null",
         requested_budget: 1,
         selection_seed: 101
@@ -561,14 +976,15 @@ defmodule NetworkDefense.EvaluationTest do
 
       assert log =~ "source.bogus"
 
-      manifest = put_in(@valid_manifest, ["model", "bogus"], 1)
+      [variant] = get_in(@valid_manifest, ["model_variants"])
+      manifest = put_in(@valid_manifest, ["model_variants"], [Map.put(variant, "bogus", 1)])
 
       assert log =
                capture_log(fn ->
                  assert {:ok, ^manifest} = ManifestContract.validate(manifest)
                end)
 
-      assert log =~ "model.bogus"
+      assert log =~ "model_variants.0.bogus"
 
       manifest = put_in(@valid_manifest, ["evaluation", "bogus"], 1)
 
@@ -579,6 +995,46 @@ defmodule NetworkDefense.EvaluationTest do
 
       assert log =~ "evaluation.bogus"
     end
+  end
+
+  defp two_variant_manifest do
+    @valid_manifest
+    |> put_in(["model_variants"], [
+      %{
+        "id" => "full",
+        "objective" => "mission_then_blast_radius",
+        "require_pre_attack_feasibility" => true
+      },
+      %{
+        "id" => "blast_only_unconstrained",
+        "objective" => "blast_radius_only",
+        "require_pre_attack_feasibility" => false
+      }
+    ])
+    |> Map.put("strategy_runs", [
+      %{
+        "model_variant" => "full",
+        "strategy" => "simulation_informed",
+        "budget" => 1,
+        "selection_seeds" => [310, 311]
+      },
+      %{
+        "model_variant" => "blast_only_unconstrained",
+        "strategy" => "simulation_informed",
+        "budget" => 1,
+        "selection_seeds" => [310, 311]
+      }
+    ])
+    |> put_in(["analysis", "primary_comparisons"], [
+      %{
+        "strategy" => "simulation_informed",
+        "model_variant" => "full",
+        "baseline" => "simulation_informed",
+        "baseline_model_variant" => "blast_only_unconstrained",
+        "budget" => 1,
+        "outcome" => "blast_radius"
+      }
+    ])
   end
 
   defp experiments_for(evaluation_run_id) do
@@ -601,6 +1057,12 @@ defmodule NetworkDefense.EvaluationTest do
       select: count(run.id)
     )
     |> Repo.one()
+  end
+
+  defp plans_for(evaluation_run_id) do
+    NetworkDefense.Optimization.OptimizationRun
+    |> where([run], run.evaluation_run_id == ^evaluation_run_id)
+    |> Repo.all()
   end
 
   defp simulation_run_count(evaluation_run_id) do

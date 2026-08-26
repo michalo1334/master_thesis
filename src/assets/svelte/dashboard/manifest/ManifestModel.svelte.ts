@@ -2,17 +2,24 @@ import type { DashboardApi } from "../dashboard-api";
 import type { ManifestError, ManifestSummary } from "../contract";
 
 const DEFAULT_MANIFEST = `{
-  "schema_version": 2,
+  "schema_version": 3,
   "model_version": "current-model-version",
   "id": "fixed-enterprise-v1",
   "source": { "type": "topology", "generator": "enterprise", "hosts": 50, "seed": 42 },
   "attacker": { "entry_host": { "type": "semantic_key", "value": "internet" }, "max_attempts": 1 },
-  "model": { "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true },
-  "strategy_runs": [
-    { "strategy": "cvss", "budget": 1, "selection_seeds": [101] },
-    { "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] }
+  "model_variants": [
+    { "id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": true },
+    { "id": "blast_only_unconstrained", "objective": "blast_radius_only", "require_pre_attack_feasibility": false }
   ],
-  "analysis": { "primary_comparisons": [{ "strategy": "simulation_informed", "baseline": "cvss", "budget": 1, "outcome": "blast_radius" }], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
+  "strategy_runs": [
+    { "model_variant": "full", "strategy": "cvss", "budget": 1, "selection_seeds": [101] },
+    { "model_variant": "full", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] },
+    { "model_variant": "blast_only_unconstrained", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [201, 202] }
+  ],
+  "analysis": { "primary_comparisons": [
+    { "strategy": "simulation_informed", "model_variant": "full", "baseline": "cvss", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" },
+    { "strategy": "simulation_informed", "model_variant": "blast_only_unconstrained", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }
+  ], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }`;
 const DEFAULT_MANIFEST_ID = "fixed-enterprise-v1";

@@ -43,24 +43,33 @@ defmodule NetworkDefense.Repo.Migrations.CreateEvaluationManifests do
           references(:evaluation_runs, type: :binary_id, on_delete: :delete_all)
 
       add :selection_seed, :bigint
+      add :model_variant, :string
     end
 
     create index(:optimization_runs, [:evaluation_run_id])
 
-    create constraint(:optimization_runs, :optimization_runs_evaluation_selection_seed_required,
-             check: "evaluation_run_id IS NULL OR selection_seed IS NOT NULL"
+    create constraint(:optimization_runs, :optimization_runs_evaluation_plan_identity_required,
+             check:
+               "evaluation_run_id IS NULL OR (selection_seed IS NOT NULL AND model_variant IS NOT NULL)"
+           )
+
+    create constraint(:optimization_runs, :optimization_runs_model_variant_valid,
+             check:
+               "model_variant IS NULL OR model_variant IN ('full', 'blast_only_unconstrained', 'mission_only')"
            )
 
     create unique_index(
              :optimization_runs,
              [
                :evaluation_run_id,
+               :model_variant,
                :strategy,
                :requested_budget,
                :selection_seed
              ],
              name: :optimization_runs_evaluation_plan_unique,
-             where: "evaluation_run_id IS NOT NULL AND selection_seed IS NOT NULL"
+             where:
+               "evaluation_run_id IS NOT NULL AND model_variant IS NOT NULL AND selection_seed IS NOT NULL"
            )
 
     alter table(:experiments) do

@@ -8,9 +8,12 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
 
   @doc """
   Builds a simulation-backed strategy struct for `module` from validated params.
+  An optional `:model` map fills `:objective` and `:require_pre_attack_feasibility`.
   """
   @spec new(module(), Graph.t(), map()) :: {:ok, struct()} | {:error, Simulations.Errors.error()}
-  def new(module, graph, %{simulation_params: simulation_params}) do
+  def new(module, graph, %{simulation_params: simulation_params} = params) do
+    model = Map.get(params, :model, %{})
+
     with :ok <-
            Simulations.validate_initial_foothold(
              graph,
@@ -24,7 +27,9 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
          run_count: simulation_params.monte_carlo_trials,
          iteration_count: simulation_params.iterations_per_run,
          seed: simulation_seed(simulation_params),
-         max_attempts: simulation_params.max_attempts
+         max_attempts: simulation_params.max_attempts,
+         objective: Map.get(model, :objective, :mission_then_blast_radius),
+         require_pre_attack_feasibility: Map.get(model, :require_pre_attack_feasibility, true)
        )}
     end
   end

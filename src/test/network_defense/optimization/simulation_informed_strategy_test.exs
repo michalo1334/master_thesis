@@ -66,6 +66,72 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
              Strategy.rank(strategy, [PatchVulnerability], graph, 2)
   end
 
+  test "ranking_key orders conflicting outcomes per objective" do
+    mission_heavy = {5.0, 1.0}
+    blast_heavy = {1.0, 5.0}
+
+    assert SimulationObjective.ranking_key(mission_heavy, :blast_radius_only, 0.0) <
+             SimulationObjective.ranking_key(blast_heavy, :blast_radius_only, 0.0)
+
+    assert SimulationObjective.ranking_key(blast_heavy, :mission_impact_only, 0.0) <
+             SimulationObjective.ranking_key(mission_heavy, :mission_impact_only, 0.0)
+
+    assert SimulationObjective.ranking_key(blast_heavy, :mission_then_blast_radius, 0.0) <
+             SimulationObjective.ranking_key(mission_heavy, :mission_then_blast_radius, 0.0)
+  end
+
+  test "mission_impact_only ignores a candidate that only reduces blast radius" do
+    {graph, source} = mixed_reachability_graph()
+
+    strategy = %SimulationInformedStrategy{
+      initial_attacker_state: AttackerState.new(source.id),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 5,
+      iteration_count: 5,
+      seed: 42,
+      objective: :mission_impact_only
+    }
+
+    assert [] = Strategy.rank(strategy, [PatchVulnerability], graph, 2)
+  end
+
+  test "new/3 fills objective and feasibility from an optional model configuration" do
+    {graph, source} = graph()
+
+    params = %{
+      simulation_params: %{
+        monte_carlo_trials: 2,
+        iterations_per_run: 2,
+        initial_foothold_node_id: source.id,
+        seed: 42,
+        max_attempts: 1
+      },
+      model: %{objective: :blast_radius_only, require_pre_attack_feasibility: false}
+    }
+
+    assert {:ok, strategy} = SimulationInformedStrategy.new(graph, params)
+    assert strategy.objective == :blast_radius_only
+    assert strategy.require_pre_attack_feasibility == false
+  end
+
+  test "new/3 keeps standalone defaults without a model configuration" do
+    {graph, source} = graph()
+
+    params = %{
+      simulation_params: %{
+        monte_carlo_trials: 2,
+        iterations_per_run: 2,
+        initial_foothold_node_id: source.id,
+        seed: 42,
+        max_attempts: 1
+      }
+    }
+
+    assert {:ok, strategy} = SimulationInformedStrategy.new(graph, params)
+    assert strategy.objective == :mission_then_blast_radius
+    assert strategy.require_pre_attack_feasibility == true
+  end
+
   defp mixed_reachability_graph do
     source = GraphFixtures.node("source", Host, %{"name" => "internet"})
     host_a = GraphFixtures.node("host-a", Host, %{"name" => "a"})

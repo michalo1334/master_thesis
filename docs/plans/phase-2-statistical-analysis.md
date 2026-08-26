@@ -13,12 +13,13 @@ It writes to a directory or `-` for binary ZIP stdout. The HTTP service accepts
 raw `application/zip` requests at `/v1/analyze` and `/v1/pilot` and returns raw
 ZIP responses. It uses no protobuf or gRPC.
 
-The resolved manifest declares each confirmatory comparison, outcome, budget,
-strategy run, and statistical setting. For each comparison, the difference is
-the tested strategy minus its declared baseline. A negative blast-radius
-difference favors the tested strategy. Matching attack seeds form pairs. The
-analysis reports variation between declared selection seeds separately from
-attack-trial variation.
+The resolved manifest declares each confirmatory comparison with its tested
+strategy and model variant, baseline strategy and model variant, outcome,
+budget, plus every strategy run and statistical setting. For each comparison,
+the difference is the tested strategy minus its declared baseline. A negative
+blast-radius difference favors the tested strategy. Matching attack seeds form
+pairs. The analysis reports variation between declared selection seeds
+separately from attack-trial variation and keeps model variants separate.
 
 ```mermaid
 flowchart LR
@@ -68,11 +69,12 @@ load local files only and fail before analysis when a required input is absent.
 ### 2. Validate and normalize exported data (30–60 minutes)
 
 Implement readers for `evaluation/results/<id>/<run>/trials.csv` and
-`plans.jsonl`. Validate scenario, budget, strategy, selection seed, attack seed,
-plan ID, blast radius, and the available secondary outcomes. Reject missing or
-duplicate paired records, inconsistent plan metadata, mixed scenarios, and
-unapproved budgets or strategies. Preserve the declared ordered attack-seed
-schedule and distinguish selection seeds from attack seeds.
+`plans.jsonl`. Validate the model-aware plan identity (model variant, strategy,
+budget, selection seed), scenario, attack seed, plan ID, blast radius, and the
+available secondary outcomes. Reject missing or duplicate paired records,
+inconsistent plan metadata, mixed scenarios, and unapproved budgets or
+strategies. Preserve the declared ordered attack-seed schedule and distinguish
+selection seeds from attack seeds.
 
 Use `src/lib/network_defense/evaluation/output_contract.ex` as the export
 boundary. Extend the export only when the analysis requires data that the

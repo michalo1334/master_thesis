@@ -41,6 +41,10 @@ function analysisFixture(
       command_mode: "analyze",
       manifest_id: "manifest-1",
       model_version: "model-1",
+      model_variants: [
+        { id: "full", objective: "mission_then_blast_radius" },
+        { id: "blast_only_unconstrained", objective: "blast_radius_only" },
+      ],
       schema_version: 1,
       estimand_note: "tested strategy minus baseline",
     },
@@ -180,7 +184,9 @@ describe("AnalysisReport", () => {
         primary_results: [
           {
             strategy: "patch",
+            model_variant: "full",
             baseline: "baseline",
+            baseline_model_variant: "full",
             budget: 1,
             comparison: -0.25,
             outcome: "improved",
@@ -188,7 +194,10 @@ describe("AnalysisReport", () => {
         ],
       }),
     });
-    await waitFor(() => expect(screen.getByText("patch")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("patch (full)")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("baseline (full)")).toBeInTheDocument();
     expect(screen.getByText("-0.250")).toBeInTheDocument();
     expect(screen.getByText("improved")).toBeInTheDocument();
     expect(
@@ -245,6 +254,10 @@ describe("AnalysisReport", () => {
     expect(screen.getByText("0.050")).toBeInTheDocument();
     expect(screen.getByText("python")).toBeInTheDocument();
     expect(screen.getByText("3.12")).toBeInTheDocument();
+    expect(screen.getByText("Model variants")).toBeInTheDocument();
+    expect(
+      screen.getByText(/blast_only_unconstrained/, { selector: "pre" }),
+    ).toBeInTheDocument();
   });
 
   it("shows capability names and opens their graph nodes", async () => {
@@ -263,7 +276,9 @@ describe("AnalysisReport", () => {
             capability_id: "capability-1",
             capability_name: "  Mission communications  ",
             strategy: "patch",
+            model_variant: "full",
             baseline: "baseline",
+            baseline_model_variant: "blast_only_unconstrained",
             budget: 1,
             comparison: 0.1,
           },
@@ -276,6 +291,10 @@ describe("AnalysisReport", () => {
         screen.getByRole("button", { name: "Mission communications" }),
       ).toBeInTheDocument(),
     );
+    expect(screen.getByText("patch (full)")).toBeInTheDocument();
+    expect(
+      screen.getByText("baseline (blast_only_unconstrained)"),
+    ).toBeInTheDocument();
     await fireEvent.click(
       screen.getByRole("button", { name: "Mission communications" }),
     );
@@ -298,7 +317,9 @@ describe("AnalysisReport", () => {
           {
             capability_id: "capability-2",
             strategy: "patch",
+            model_variant: "full",
             baseline: "baseline",
+            baseline_model_variant: "full",
             budget: 1,
             comparison: 0.1,
           },

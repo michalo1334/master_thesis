@@ -80,16 +80,19 @@ defmodule NetworkDefense.Evaluation.Preflight do
     end
   end
 
-  defp check_mission_feasibility(
-         graph,
-         %{"model" => %{"require_pre_attack_feasibility" => true}}
-       ) do
-    if MissionImpact.pre_attack_feasible?(graph) do
+  defp check_mission_feasibility(graph, %{"model_variants" => variants})
+       when is_list(variants) do
+    index =
+      Enum.find_index(variants, fn variant ->
+        is_map(variant) and variant["require_pre_attack_feasibility"] == true
+      end)
+
+    if is_nil(index) or MissionImpact.pre_attack_feasible?(graph) do
       :ok
     else
       {:error,
        %{
-         path: "model.require_pre_attack_feasibility",
+         path: "model_variants.#{index}.require_pre_attack_feasibility",
          message: "mission is not feasible before the attack"
        }}
     end

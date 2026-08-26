@@ -22,7 +22,9 @@ OUTPUT_HEADERS = {
     "primary_results.csv": (
         "comparison",
         "strategy",
+        "model_variant",
         "baseline",
+        "baseline_model_variant",
         "budget",
         "outcome",
         "paired_mean_difference",
@@ -36,7 +38,9 @@ OUTPUT_HEADERS = {
     "secondary_results.csv": (
         "comparison",
         "strategy",
+        "model_variant",
         "baseline",
+        "baseline_model_variant",
         "budget",
         "outcome",
         "mean_difference",
@@ -47,7 +51,9 @@ OUTPUT_HEADERS = {
     "capability_results.csv": (
         "comparison",
         "strategy",
+        "model_variant",
         "baseline",
+        "baseline_model_variant",
         "budget",
         "capability_id",
         "capability_name",
@@ -61,6 +67,7 @@ OUTPUT_HEADERS = {
     "plan_variation.csv": (
         "comparison",
         "plan_id",
+        "model_variant",
         "strategy",
         "budget",
         "selection_seed",
@@ -68,7 +75,7 @@ OUTPUT_HEADERS = {
         "comparison_relative_difference",
     ),
     "runtime.csv": ("plan_id", "kind", "runtime_ms"),
-    "cdf.csv": ("strategy", "budget", "blast_radius", "probability"),
+    "cdf.csv": ("model_variant", "strategy", "budget", "blast_radius", "probability"),
     "pilot_results.csv": (
         "comparison",
         "ci_half_width",
@@ -116,9 +123,9 @@ def _json_safe(value):
 
 def _plot(output: Path, cdf: list[dict], variation: list[dict]) -> None:
     figure = plt.figure()
-    for group in sorted({(row["strategy"], row["budget"]) for row in cdf}):
-        points = [row for row in cdf if (row["strategy"], row["budget"]) == group]
-        label = f"{group[0]} / {group[1]}"
+    for group in sorted({(row["model_variant"], row["strategy"], row["budget"]) for row in cdf}):
+        points = [row for row in cdf if (row["model_variant"], row["strategy"], row["budget"]) == group]
+        label = f"{group[0]} / {group[1]} / {group[2]}"
         plt.step([row["blast_radius"] for row in points], [row["probability"] for row in points], where="post", label=label)
     plt.xlabel("blast radius")
     plt.ylabel("empirical probability")
@@ -169,7 +176,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         pilot = []
         comparisons = configuration["primary_comparisons"]
         for comparison_index, comparison in enumerate(comparisons):
-            left, right = _comparison_groups(identities, comparison)
+            left, right = _comparison_groups(manifest, identities, comparison)
             outcome = comparison.get("outcome")
             if outcome not in ("blast_radius", "mission_impact"):
                 raise _error(f"unsupported outcome: {outcome}")
@@ -181,7 +188,9 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                 {
                     "comparison": comparison_index,
                     "strategy": comparison["strategy"],
+                    "model_variant": comparison["model_variant"],
                     "baseline": comparison["baseline"],
+                    "baseline_model_variant": comparison["baseline_model_variant"],
                     "budget": comparison["budget"],
                     "outcome": outcome,
                     "paired_mean_difference": mean,
@@ -202,7 +211,9 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                 {
                     "comparison": comparison_index,
                     "strategy": comparison["strategy"],
+                    "model_variant": comparison["model_variant"],
                     "baseline": comparison["baseline"],
+                    "baseline_model_variant": comparison["baseline_model_variant"],
                     "budget": comparison["budget"],
                     "outcome": other_outcome,
                     "mean_difference": float(np.mean(secondary_differences)),
@@ -241,9 +252,10 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                     {
                         "comparison": comparison_index,
                         "plan_id": plan_id,
-                        "strategy": identity[0],
-                        "budget": identity[1],
-                        "selection_seed": identity[2],
+                        "model_variant": identity[0],
+                        "strategy": identity[1],
+                        "budget": identity[2],
+                        "selection_seed": identity[3],
                         "plan_mean": float(np.mean(values)),
                         "comparison_relative_difference": float(np.mean(values) - baseline_means),
                     }
@@ -271,7 +283,9 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                     {
                         "comparison": comparison_index,
                         "strategy": comparison["strategy"],
+                        "model_variant": comparison["model_variant"],
                         "baseline": comparison["baseline"],
+                        "baseline_model_variant": comparison["baseline_model_variant"],
                         "budget": comparison["budget"],
                         "capability_id": capability_id,
                         "capability_name": capability_names[capability_id],
@@ -290,9 +304,9 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             row["p_adjusted"] = adjusted_value
 
         cdf = []
-        groups = sorted({identity[:2] for identity in identities.values()})
-        for strategy, budget in groups:
-            plan_ids = [pid for pid, identity in identities.items() if identity[:2] == (strategy, budget)]
+        groups = sorted({identity[:3] for identity in identities.values()})
+        for model_variant, strategy, budget in groups:
+            plan_ids = [pid for pid, identity in identities.items() if identity[:3] == (model_variant, strategy, budget)]
             values = sorted(
                 value["blast_radius"]
                 for plan_id in plan_ids
@@ -300,7 +314,13 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                 if candidate == plan_id
             )
             cdf.extend(
-                {"strategy": strategy, "budget": budget, "blast_radius": value, "probability": (index + 1) / len(values)}
+                {
+                    "model_variant": model_variant,
+                    "strategy": strategy,
+                    "budget": budget,
+                    "blast_radius": value,
+                    "probability": (index + 1) / len(values),
+                }
                 for index, value in enumerate(values)
             )
 
@@ -326,6 +346,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             "manifest_id": manifest.get("id"),
             "schema_version": manifest.get("schema_version"),
             "model_version": manifest.get("model_version"),
+            "model_variants": manifest.get("model_variants"),
             "input_hashes": hashes,
             "checksums_hash": checksum_hash,
             "analysis_configuration": configuration,

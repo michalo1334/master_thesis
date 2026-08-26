@@ -11,7 +11,7 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
 
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
@@ -49,12 +49,19 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
   defp plan_summaries(evaluation_run_id) do
     OptimizationRun
     |> where([run], run.evaluation_run_id == ^evaluation_run_id)
-    |> order_by([run], asc: run.strategy, asc: run.requested_budget, asc: run.selection_seed)
+    |> order_by(
+      [run],
+      asc: run.model_variant,
+      asc: run.strategy,
+      asc: run.requested_budget,
+      asc: run.selection_seed
+    )
     |> preload(:actions)
     |> Repo.all()
     |> Enum.map(fn run ->
       %{
         id: run.id,
+        model_variant: ModelVariant.to_wire(run.model_variant),
         strategy: run.strategy,
         requested_budget: run.requested_budget,
         selection_seed: run.selection_seed,

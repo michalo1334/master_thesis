@@ -253,6 +253,7 @@
               <thead>
                 <tr>
                   <th scope="col">Strategy</th>
+                  <th scope="col">Model variant</th>
                   <th scope="col">Budget</th>
                   <th scope="col">Selection seed</th>
                   <th scope="col">Used budget</th>
@@ -281,6 +282,7 @@
                         >
                       {/if}
                     </th>
+                    <td>{plan.model_variant}</td>
                     <td>{plan.requested_budget}</td>
                     <td>{plan.selection_seed}</td>
                     <td>{plan.used_budget}</td>
@@ -493,6 +495,7 @@
               {/snippet}
               {@render metadataRows([
                 ["Manifest ID", analysis.metadata.manifest_id],
+                ["Model variants", analysis.metadata.model_variants],
                 ["Checksums hash", analysis.metadata.checksums_hash],
                 ["Estimand", analysis.metadata.estimand_note],
               ])}
@@ -513,7 +516,8 @@
               <table class="analysis-report-table">
                 <thead
                   ><tr
-                    ><th scope="col">Strategy</th><th scope="col">Baseline</th
+                    ><th scope="col">Strategy (tested model)</th><th scope="col"
+                      >Baseline (model)</th
                     ><th scope="col">Budget</th><th scope="col">Comparison</th
                     ><th scope="col">CI half-width</th><th scope="col"
                       >CI lower</th
@@ -525,17 +529,19 @@
                   ></thead
                 ><tbody
                   >{#each analysis.primary_results as row (row.comparison)}<tr
-                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
-                        >{row.budget}</td
-                      ><td>{formatNumber(row.comparison)}</td><td
-                        >{formatNumber(row.ci_half_width)}</td
-                      ><td>{formatNumber(row.ci_lower)}</td><td
-                        >{formatNumber(row.ci_upper)}</td
-                      ><td>{row.outcome}</td><td
-                        >{formatNumber(row.paired_mean_difference)}</td
-                      ><td>{formatNumber(row.d_z)}</td><td
-                        >{formatNumber(row.p_raw)}</td
-                      ><td>{formatNumber(row.p_adjusted)}</td></tr
+                      ><td>{row.strategy} ({row.model_variant})</td><td
+                        >{row.baseline} ({row.baseline_model_variant})</td
+                      ><td>{row.budget}</td><td
+                        >{formatNumber(row.comparison)}</td
+                      ><td>{formatNumber(row.ci_half_width)}</td><td
+                        >{formatNumber(row.ci_lower)}</td
+                      ><td>{formatNumber(row.ci_upper)}</td><td
+                        >{row.outcome}</td
+                      ><td>{formatNumber(row.paired_mean_difference)}</td><td
+                        >{formatNumber(row.d_z)}</td
+                      ><td>{formatNumber(row.p_raw)}</td><td
+                        >{formatNumber(row.p_adjusted)}</td
+                      ></tr
                     >{/each}</tbody
                 >
               </table>
@@ -545,7 +551,8 @@
               <table class="analysis-report-table">
                 <thead
                   ><tr
-                    ><th scope="col">Strategy</th><th scope="col">Baseline</th
+                    ><th scope="col">Strategy (tested model)</th><th scope="col"
+                      >Baseline (model)</th
                     ><th scope="col">Budget</th><th scope="col">Comparison</th
                     ><th scope="col">CI half-width</th><th scope="col"
                       >CI lower</th
@@ -554,15 +561,15 @@
                   ></thead
                 ><tbody
                   >{#each analysis.secondary_results as row (row.comparison)}<tr
-                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
-                        >{row.budget}</td
-                      ><td>{formatNumber(row.comparison)}</td><td
-                        >{formatNumber(row.ci_half_width)}</td
-                      ><td>{formatNumber(row.ci_lower)}</td><td
-                        >{formatNumber(row.ci_upper)}</td
-                      ><td>{row.outcome}</td><td
-                        >{formatNumber(row.mean_difference)}</td
-                      ></tr
+                      ><td>{row.strategy} ({row.model_variant})</td><td
+                        >{row.baseline} ({row.baseline_model_variant})</td
+                      ><td>{row.budget}</td><td
+                        >{formatNumber(row.comparison)}</td
+                      ><td>{formatNumber(row.ci_half_width)}</td><td
+                        >{formatNumber(row.ci_lower)}</td
+                      ><td>{formatNumber(row.ci_upper)}</td><td
+                        >{row.outcome}</td
+                      ><td>{formatNumber(row.mean_difference)}</td></tr
                     >{/each}</tbody
                 >
               </table>
@@ -572,15 +579,17 @@
               <table class="analysis-report-table">
                 <thead
                   ><tr
-                    ><th scope="col">Capability</th><th scope="col">Strategy</th
-                    ><th scope="col">Baseline</th><th scope="col">Budget</th><th
-                      scope="col">Comparison</th
-                    ><th scope="col">Baseline probability</th><th scope="col"
-                      >Tested probability</th
-                    ><th scope="col">Difference</th><th scope="col"
-                      >CI half-width</th
-                    ><th scope="col">CI lower</th><th scope="col">CI upper</th
-                    ></tr
+                    ><th scope="col">Capability</th><th scope="col"
+                      >Strategy (tested model)</th
+                    ><th scope="col">Baseline (model)</th><th scope="col"
+                      >Budget</th
+                    ><th scope="col">Comparison</th><th scope="col"
+                      >Baseline probability</th
+                    ><th scope="col">Tested probability</th><th scope="col"
+                      >Difference</th
+                    ><th scope="col">CI half-width</th><th scope="col"
+                      >CI lower</th
+                    ><th scope="col">CI upper</th></tr
                   ></thead
                 ><tbody
                   >{#each analysis.capability_results as row (`${row.comparison}:${row.capability_id}`)}<tr
@@ -599,15 +608,17 @@
                         {:else}
                           {capabilityName(row)}
                         {/if}</td
-                      ><td>{row.strategy}</td><td>{row.baseline}</td><td
-                        >{row.budget}</td
-                      ><td>{formatNumber(row.comparison)}</td><td
-                        >{formatNumber(row.baseline_probability)}</td
-                      ><td>{formatNumber(row.tested_probability)}</td><td
-                        >{formatNumber(row.probability_difference)}</td
-                      ><td>{formatNumber(row.ci_half_width)}</td><td
-                        >{formatNumber(row.ci_lower)}</td
-                      ><td>{formatNumber(row.ci_upper)}</td></tr
+                      ><td>{row.strategy} ({row.model_variant})</td><td
+                        >{row.baseline} ({row.baseline_model_variant})</td
+                      ><td>{row.budget}</td><td
+                        >{formatNumber(row.comparison)}</td
+                      ><td>{formatNumber(row.baseline_probability)}</td><td
+                        >{formatNumber(row.tested_probability)}</td
+                      ><td>{formatNumber(row.probability_difference)}</td><td
+                        >{formatNumber(row.ci_half_width)}</td
+                      ><td>{formatNumber(row.ci_lower)}</td><td
+                        >{formatNumber(row.ci_upper)}</td
+                      ></tr
                     >{/each}</tbody
                 >
               </table>
