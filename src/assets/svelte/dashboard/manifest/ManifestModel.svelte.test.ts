@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ManifestModel } from "./ManifestModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
+import type { DescribeManifestReply } from "../contract";
 
 function api(): DashboardApi {
   return {
@@ -31,6 +32,7 @@ function api(): DashboardApi {
     getManifest: vi.fn(),
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
+    describeManifest: vi.fn(),
     requestEvaluationReport: vi.fn(),
     requestEvaluationAnalysis: vi.fn(),
     cancelRun: vi.fn(),
@@ -443,5 +445,154 @@ describe("ManifestModel", () => {
     expect(model.canStart).toBe(false);
     await expect(model.start()).resolves.toBe(false);
     expect(dashboardApi.startEvaluation).not.toHaveBeenCalled();
+  });
+
+  it("describes a valid manifest preview", async () => {
+    const reply: DescribeManifestReply = {
+      status: "ok",
+      plans: [
+        {
+          model_variant: "full",
+          strategy: "cvss",
+          budget: 1,
+          selection_seed: 101,
+        },
+      ],
+      comparison_groups: [],
+      errors: [],
+    };
+    vi.mocked(dashboardApi.describeManifest).mockResolvedValue(reply);
+    model.editorText = JSON.stringify(validContent);
+
+    await model.describePreview();
+
+    expect(dashboardApi.describeManifest).toHaveBeenCalledWith(validContent);
+    expect(model.previewReply).toEqual(reply);
+    expect(model.previewContent).toEqual(validContent);
+    expect(model.previewNotice).toBe("");
+    expect(model.isLoadingPreview).toBe(false);
+  });
+
+  it("does not call the API for malformed preview content and keeps save errors", async () => {
+    model.errors = [{ path: "strategy_runs", message: "must not be empty" }];
+    model.editorText = "{not json";
+
+    await model.describePreview();
+
+    expect(dashboardApi.describeManifest).not.toHaveBeenCalled();
+    expect(model.previewReply).toBeNull();
+    expect(model.previewNotice).toContain("not valid JSON");
+    expect(model.errors).toEqual([
+      { path: "strategy_runs", message: "must not be empty" },
+    ]);
+  });
+
+  it("ignores a stale preview response", async () => {
+    let resolveStale: ((reply: DescribeManifestReply) => void) | undefined;
+    vi.mocked(dashboardApi.describeManifest)
+      .mockImplementationOnce(
+        () =>
+          new Promise<DescribeManifestReply>((resolve) => {
+            resolveStale = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        status: "ok",
+        plans: [],
+        comparison_groups: [],
+        errors: [],
+      });
+    model.editorText = JSON.stringify(validContent);
+
+    const stale = model.describePreview();
+    await model.describePreview();
+    resolveStale?.({
+      status: "invalid_manifest",
+      plans: [],
+      comparison_groups: [],
+      errors: [{ path: "$", message: "stale" }],
+    });
+    await stale;
+
+    expect(model.previewReply?.status).toBe("ok");
+    expect(model.isLoadingPreview).toBe(false);
+  });
+
+  it("stops loading and keeps no reply when newer content fails to parse", async () => {
+    let resolveStale: ((reply: DescribeManifestReply) => void) | undefined;
+    vi.mocked(dashboardApi.describeManifest).mockImplementationOnce(
+      () =>
+        new Promise<DescribeManifestReply>((resolve) => {
+          resolveStale = resolve;
+        }),
+    );
+    model.editorText = JSON.stringify(validContent);
+    const stale = model.describePreview();
+    expect(model.isLoadingPreview).toBe(true);
+
+    model.editorText = "{not json";
+    await model.describePreview();
+
+    expect(model.isLoadingPreview).toBe(false);
+    expect(model.previewNotice).toContain("not valid JSON");
+
+    resolveStale?.({
+      status: "ok",
+      plans: [],
+      comparison_groups: [],
+      errors: [],
+    });
+    await stale;
+
+    expect(model.previewReply).toBeNull();
+    expect(model.isLoadingPreview).toBe(false);
+  });
+
+  it("surfaces preview API failures without touching save state", async () => {
+    vi.mocked(dashboardApi.describeManifest).mockRejectedValue(
+      new Error("network down"),
+    );
+    model.editorText = JSON.stringify(validContent);
+
+    await model.describePreview();
+
+    expect(model.previewReply).toBeNull();
+    expect(model.previewNotice).toBe("Unable to describe the manifest.");
+    expect(model.isLoadingPreview).toBe(false);
+    expect(model.statusMessage).toBe("");
+  });
+
+  it("clears preview state when another manifest is selected", async () => {
+    vi.mocked(dashboardApi.describeManifest).mockResolvedValue({
+      status: "ok",
+      plans: [],
+      comparison_groups: [],
+      errors: [],
+    });
+    model.editorText = JSON.stringify(validContent);
+    await model.describePreview();
+
+    vi.mocked(dashboardApi.getManifest).mockResolvedValue({
+      manifest: {
+        id: "m2",
+        manifest_id: "other-manifest",
+        title: "Other",
+        content: validContent,
+      },
+    });
+    await model.selectManifest("m2");
+
+    expect(model.previewReply).toBeNull();
+    expect(model.previewContent).toBeNull();
+    expect(model.previewNotice).toBe("");
+    expect(model.activeTab).toBe("json");
+  });
+
+  it("returns to the JSON tab when a new manifest is added", () => {
+    model.activeTab = "preview";
+
+    model.addManifest();
+
+    expect(model.activeTab).toBe("json");
   });
 });

@@ -52,6 +52,7 @@ function api(): DashboardApi & {
     getManifest: vi.fn(),
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
+    describeManifest: vi.fn(),
     requestEvaluationReport: vi.fn(),
     requestEvaluationAnalysis: vi.fn(),
     cancelRun: vi.fn(),

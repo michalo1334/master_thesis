@@ -41,7 +41,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     FetchRunsReply,
     OpenGraphReply,
     OptimizationCompletedEvent,
-    SaveGraphPayload
+    SaveGraphPayload,
+    DescribeManifestReply
   }
 
   @graph_id "00000000-0000-0000-0000-000000000001"
@@ -553,6 +554,72 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              ]
            } =
              errors_on(changeset)
+  end
+
+  test "round trips a describe manifest reply with plans and comparison groups" do
+    attrs = %{
+      "status" => "ok",
+      "plans" => [
+        %{
+          "model_variant" => "full",
+          "strategy" => "cvss",
+          "budget" => 1,
+          "selection_seed" => 101
+        }
+      ],
+      "comparison_groups" => [
+        %{
+          "index" => 0,
+          "tested" => %{
+            "model_variant" => "full",
+            "strategy" => "cvss",
+            "budget" => 1,
+            "selection_seeds" => [101]
+          },
+          "baseline" => %{
+            "model_variant" => "full",
+            "strategy" => "null",
+            "budget" => 1,
+            "selection_seeds" => [102]
+          },
+          "outcome" => "blast_radius"
+        }
+      ],
+      "errors" => []
+    }
+
+    assert {:ok, reply} = DescribeManifestReply.validate(attrs)
+
+    assert %{
+             status: "ok",
+             plans: [%{model_variant: "full", strategy: "cvss", selection_seed: 101}],
+             comparison_groups: [
+               %{
+                 index: 0,
+                 tested: %{strategy: "cvss", selection_seeds: [101]},
+                 baseline: %{strategy: "null", selection_seeds: [102]},
+                 outcome: "blast_radius"
+               }
+             ]
+           } = DescribeManifestReply.to_wire(reply)
+  end
+
+  test "rejects a describe manifest plan with an unknown model variant" do
+    assert {:error, changeset} =
+             DescribeManifestReply.validate(%{
+               "status" => "ok",
+               "plans" => [
+                 %{
+                   "model_variant" => "bogus",
+                   "strategy" => "cvss",
+                   "budget" => 1,
+                   "selection_seed" => 101
+                 }
+               ],
+               "errors" => []
+             })
+
+    assert %{plans: [%{model_variant: ["is invalid"]}]} = errors_on(changeset)
   end
 
   test "maps a persisted optimization run report to the web contract" do

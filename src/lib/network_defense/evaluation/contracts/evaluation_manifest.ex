@@ -2,6 +2,7 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   @moduledoc "Validates evaluation manifests before persistence and execution."
 
   require Logger
+  alias NetworkDefense.Evaluation.PlanPreview
   alias NetworkDefense.Optimization.{ModelVariant, SimulationObjective}
   alias NetworkDefense.Topology.EnterpriseTopology
 
@@ -363,7 +364,7 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   end
 
   defp declared_plan(manifest, path, variant, strategy, budget) do
-    if declared?(manifest, variant, strategy, budget),
+    if PlanPreview.declared?(manifest, variant, strategy, budget),
       do: :ok,
       else: error(path, "model variant, strategy, and budget must be declared")
   end
@@ -410,8 +411,8 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp matching_seeds(manifest, path, variant, baseline_variant, strategy, baseline, budget)
        when strategy == baseline and variant != baseline_variant do
-    if plan_seeds(manifest, variant, strategy, budget) ==
-         plan_seeds(manifest, baseline_variant, strategy, budget) do
+    if PlanPreview.selection_seeds(manifest, variant, strategy, budget) ==
+         PlanPreview.selection_seeds(manifest, baseline_variant, strategy, budget) do
       :ok
     else
       error(
@@ -447,29 +448,6 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
   end
 
   defp evaluation(_), do: error("evaluation", "is required")
-
-  defp declared?(%{"strategy_runs" => runs}, variant, strategy, budget),
-    do:
-      Enum.any?(
-        runs,
-        &(is_map(&1) and &1["model_variant"] == variant and &1["strategy"] == strategy and
-            &1["budget"] == budget)
-      )
-
-  defp declared?(_, _, _, _), do: false
-
-  defp plan_seeds(%{"strategy_runs" => runs}, variant, strategy, budget) do
-    run =
-      Enum.find(
-        runs,
-        &(is_map(&1) and &1["model_variant"] == variant and &1["strategy"] == strategy and
-            &1["budget"] == budget)
-      )
-
-    if is_map(run), do: Map.get(run, "selection_seeds"), else: nil
-  end
-
-  defp plan_seeds(_, _, _, _), do: nil
 
   defp each(values, fun),
     do:

@@ -418,4 +418,53 @@ describe("DashboardApi", () => {
       expect.any(Function),
     );
   });
+
+  it("describes an editor manifest through the LiveView reply callback", async () => {
+    const reply = {
+      status: "ok" as const,
+      plans: [
+        {
+          model_variant: "full" as const,
+          strategy: "cvss",
+          budget: 1,
+          selection_seed: 101,
+        },
+      ],
+      comparison_groups: [
+        {
+          index: 0,
+          tested: {
+            model_variant: "full" as const,
+            strategy: "cvss",
+            budget: 1,
+            selection_seeds: [101],
+          },
+          baseline: {
+            model_variant: "full" as const,
+            strategy: "null",
+            budget: 1,
+            selection_seeds: [102],
+          },
+          outcome: "blast_radius",
+        },
+      ],
+      errors: [],
+    };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+    const content = { schema_version: 3, strategy_runs: [] };
+
+    await expect(
+      createDashboardApi(live).describeManifest(content),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "describe_manifest",
+      { content },
+      expect.any(Function),
+    );
+  });
 });

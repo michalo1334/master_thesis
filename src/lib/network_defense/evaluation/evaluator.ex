@@ -19,7 +19,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   """
 
   alias NetworkDefense.Evaluation
-  alias NetworkDefense.Evaluation.{EvaluationRuns, SeedSchedule}
+  alias NetworkDefense.Evaluation.{EvaluationRuns, PlanPreview, SeedSchedule}
   alias NetworkDefense.Graph.{Graph, Graphs}
 
   alias NetworkDefense.Optimization.{
@@ -444,7 +444,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   end
 
   defp select_plans(run, graph, schedule) do
-    keys = plan_keys(run.resolved_manifest)
+    keys = PlanPreview.plans(run.resolved_manifest)
     plan_count = length(keys)
     total = progress_total(run)
 
@@ -481,17 +481,6 @@ defmodule NetworkDefense.Evaluation.Evaluator do
          plan_count
        ) do
     "Selected plan #{selected} of #{plan_count}: #{ModelVariant.to_wire(model_variant)}/#{strategy} (budget #{budget}, seed #{selection_seed})"
-  end
-
-  defp plan_keys(manifest) do
-    manifest["strategy_runs"]
-    |> Enum.flat_map(fn run ->
-      Enum.map(
-        run["selection_seeds"],
-        &{model_variant!(run["model_variant"]), run["strategy"], run["budget"], &1}
-      )
-    end)
-    |> Enum.sort()
   end
 
   defp select_plan(run, graph, schedule, {model_variant, strategy, budget, selection_seed}) do
@@ -811,7 +800,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   end
 
   defp progress_total(run) do
-    plan_count = run.resolved_manifest |> plan_keys() |> length()
+    plan_count = run.resolved_manifest |> PlanPreview.plans() |> length()
     trials = get_in(run.resolved_manifest, ["evaluation", "trials"])
     plan_count + (plan_count + 1) * trials
   end

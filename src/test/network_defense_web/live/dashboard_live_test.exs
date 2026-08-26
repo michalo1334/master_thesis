@@ -68,6 +68,77 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "ok"})
     end
 
+    test "describes an editor manifest without persisting it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "describe_manifest", %{"content" => @valid_manifest})
+
+      assert_reply(view, %{
+        status: "ok",
+        plans: plans,
+        comparison_groups: comparison_groups,
+        errors: []
+      })
+
+      assert [%{model_variant: "full", strategy: "cvss", budget: 1, selection_seed: 102}] =
+               Enum.filter(plans, &(&1.strategy == "cvss"))
+
+      assert [group] = comparison_groups
+
+      assert group == %{
+               index: 0,
+               tested: %{
+                 model_variant: "full",
+                 strategy: "cvss",
+                 budget: 1,
+                 selection_seeds: [102]
+               },
+               baseline: %{
+                 model_variant: "full",
+                 strategy: "null",
+                 budget: 1,
+                 selection_seeds: [101]
+               },
+               outcome: "blast_radius"
+             }
+    end
+
+    test "describes a manifest without touching the database", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      before = NetworkDefense.Evaluation.list() |> length()
+
+      render_hook(view, "describe_manifest", %{"content" => @valid_manifest})
+      assert_reply(view, %{status: "ok"})
+
+      assert NetworkDefense.Evaluation.list() |> length() == before
+    end
+
+    test "rejects an invalid editor manifest with its validation errors", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "describe_manifest", %{"content" => %{"bad" => 1}})
+
+      assert_reply(view, %{
+        status: "invalid_manifest",
+        plans: [],
+        comparison_groups: [],
+        errors: errors
+      })
+
+      assert Enum.any?(errors, &(&1.path == "schema_version"))
+    end
+
+    test "rejects a describe_manifest payload without a content map", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "describe_manifest", %{})
+      assert_reply(view, %{status: "invalid_request", plans: [], errors: []})
+
+      render_hook(view, "describe_manifest", %{"content" => ["not", "a", "map"]})
+      assert_reply(view, %{status: "invalid_request"})
+    end
+
     test "starts an evaluation for a saved manifest", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
       manifest_id = "fixed-enterprise-#{System.unique_integer([:positive])}"

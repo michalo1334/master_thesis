@@ -415,6 +415,55 @@ export interface DeleteFolderReply {
   status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
 }
 
+// NetworkDefenseWeb.Web.Contracts.DescribeManifestComparisonGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_comparison_group.ex)
+export interface DescribeManifestComparisonGroup {
+  baseline?: DescribeManifestPlanGroup | null;
+  index: number;
+  outcome: string;
+  tested?: DescribeManifestPlanGroup | null;
+}
+
+// NetworkDefenseWeb.Web.Contracts.DescribeManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_payload.ex)
+export interface DescribeManifestPayload {
+  content: Record<string, unknown>;
+}
+
+// NetworkDefenseWeb.Web.Contracts.DescribeManifestPlan (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan.ex) — enum fields: model_variant
+export interface DescribeManifestPlan {
+  budget: number;
+  model_variant:
+    | "blast_only"
+    | "blast_only_unconstrained"
+    | "mission_only"
+    | "mission_only_unconstrained"
+    | "full"
+    | "full_unconstrained";
+  selection_seed: number;
+  strategy: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.DescribeManifestPlanGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan_group.ex) — enum fields: model_variant
+export interface DescribeManifestPlanGroup {
+  budget: number;
+  model_variant:
+    | "blast_only"
+    | "blast_only_unconstrained"
+    | "mission_only"
+    | "mission_only_unconstrained"
+    | "full"
+    | "full_unconstrained";
+  selection_seeds: number[];
+  strategy: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.DescribeManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_reply.ex) — enum fields: status
+export interface DescribeManifestReply {
+  comparison_groups: DescribeManifestComparisonGroup[];
+  errors: ManifestError[];
+  plans: DescribeManifestPlan[];
+  status: "ok" | "invalid_manifest" | "invalid_request";
+}
+
 // NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
 export interface DocumentCatalogFilterOptions {
   graphs: DocumentCatalogGraphFilterOption[];

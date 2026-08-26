@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { Dialog } from "bits-ui";
+  import { Dialog, Tabs } from "bits-ui";
   import type { ManifestModel } from "./ManifestModel.svelte";
+  import ManifestPreview from "./ManifestPreview.svelte";
 
   interface Props {
     model: ManifestModel;
@@ -68,16 +69,53 @@
                 oninput={(event) => (model.title = event.currentTarget.value)}
               />
             </label>
-            <label class="manifest-field">
-              <span class="manifest-field-label">Manifest JSON</span>
-              <textarea
-                class="manifest-editor"
-                value={model.editorText}
-                disabled={model.isBusy}
-                oninput={(event) =>
-                  (model.editorText = event.currentTarget.value)}
-                spellcheck="false"></textarea>
-            </label>
+
+            <Tabs.Root
+              class="manifest-editor-tabs"
+              value={model.activeTab}
+              onValueChange={(value) => model.changeTab(value)}
+            >
+              <Tabs.List
+                class="manifest-editor-tab-list"
+                aria-label="Manifest views"
+              >
+                <Tabs.Trigger
+                  class="manifest-editor-tab"
+                  value="json"
+                  disabled={model.isBusy}
+                >
+                  JSON
+                </Tabs.Trigger>
+                <Tabs.Trigger
+                  class="manifest-editor-tab"
+                  value="preview"
+                  disabled={model.isBusy}
+                >
+                  Preview
+                </Tabs.Trigger>
+              </Tabs.List>
+              <Tabs.Content class="manifest-editor-tab-panel" value="json">
+                <label class="manifest-field">
+                  <span class="manifest-field-label">Manifest JSON</span>
+                  <textarea
+                    class="manifest-editor"
+                    value={model.editorText}
+                    disabled={model.isBusy}
+                    oninput={(event) =>
+                      (model.editorText = event.currentTarget.value)}
+                    spellcheck="false"></textarea>
+                </label>
+              </Tabs.Content>
+              <Tabs.Content class="manifest-editor-tab-panel" value="preview">
+                <ManifestPreview
+                  content={model.previewContent}
+                  reply={model.previewReply}
+                  errors={model.previewReply?.errors ?? []}
+                  isLoading={model.isLoadingPreview}
+                  notice={model.previewNotice}
+                />
+              </Tabs.Content>
+            </Tabs.Root>
 
             {#if model.errors.length > 0}
               <ul class="manifest-errors" role="alert">
@@ -139,6 +177,7 @@
     box-shadow: var(--ui-shadow-md);
     color: var(--ui-color-text);
     transform: translate(-50%, -50%);
+    overflow: auto;
   }
 
   :global(.manifest-dialog [data-dialog-title]) {
@@ -216,6 +255,41 @@
 
   .manifest-editor-pane {
     gap: var(--ui-space-3);
+  }
+
+  :global(.manifest-editor-tabs) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    gap: var(--ui-space-2);
+  }
+
+  :global(.manifest-editor-tab-list) {
+    display: flex;
+    gap: var(--ui-space-1);
+  }
+
+  :global(.manifest-editor-tab) {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-surface);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  :global(.manifest-editor-tab[data-state="active"]) {
+    border-color: var(--ui-color-accent);
+    color: var(--ui-color-accent);
+  }
+
+  :global(.manifest-editor-tab-panel) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
   }
 
   .manifest-field {

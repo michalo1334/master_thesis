@@ -45,6 +45,8 @@ import type {
   CancelRunPayload,
   CancelRunReply,
   FetchEvaluationReportPayload,
+  DescribeManifestPayload,
+  DescribeManifestReply,
 } from "./contract";
 import type { LoadedGraph } from "./contract";
 import type { FetchRunsPayload, FetchRunsReply } from "../contracts.generated";
@@ -114,6 +116,9 @@ export interface DashboardApi {
   getManifest(id: string): Promise<GetManifestReply>;
   saveManifest(payload: SaveManifestPayload): Promise<SaveManifestReply>;
   startEvaluation(manifestId: string): Promise<StartEvaluationReply>;
+  describeManifest(
+    content: Record<string, unknown>,
+  ): Promise<DescribeManifestReply>;
   requestEvaluationReport(documentId: string, runId: string): void;
   requestEvaluationAnalysis(
     payload: RequestEvaluationAnalysisPayload,
@@ -320,6 +325,13 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         live,
         "start_evaluation",
         { manifest_id: manifestId },
+      );
+    },
+    describeManifest(content) {
+      return requestReply<DescribeManifestPayload, DescribeManifestReply>(
+        live,
+        "describe_manifest",
+        { content },
       );
     },
     requestEvaluationReport(documentId, runId) {

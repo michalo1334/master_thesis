@@ -24,8 +24,11 @@ defmodule NetworkDefense.Evaluation do
     AnalysisClient,
     Evaluator,
     OutputContract,
+    PlanPreview,
     Preflight
   }
+
+  alias NetworkDefense.Optimization.ModelVariant
 
   alias NetworkDefense.ReportProgress
 
@@ -93,6 +96,32 @@ defmodule NetworkDefense.Evaluation do
   end
 
   def validate_content(_attrs), do: {:error, [%{path: "content", message: "is required"}]}
+
+  @spec describe_manifest(map()) :: {:ok, map()} | {:error, [error()]}
+  def describe_manifest(content) when is_map(content) do
+    with {:ok, manifest} <- ManifestContract.validate(content) do
+      {:ok, describe(manifest)}
+    end
+  end
+
+  def describe_manifest(_), do: {:error, [%{path: "content", message: "must be a JSON object"}]}
+
+  defp describe(manifest) do
+    %{
+      "plans" =>
+        Enum.map(PlanPreview.plans(manifest), fn {model_variant, strategy, budget, selection_seed} ->
+          %{
+            "model_variant" => ModelVariant.to_wire(model_variant),
+            "strategy" => strategy,
+            "budget" => budget,
+            "selection_seed" => selection_seed
+          }
+        end),
+      "comparison_groups" =>
+        PlanPreview.comparison_groups(manifest)
+        |> NetworkDefense.Contracts.to_params()
+    }
+  end
 
   @spec preflight(map()) ::
           {:ok, %{graph_revision_id: String.t(), entry_host_id: String.t()}} | {:error, [error()]}

@@ -1,5 +1,11 @@
 import type { DashboardApi } from "../dashboard-api";
-import type { ManifestError, ManifestSummary } from "../contract";
+import type {
+  DescribeManifestReply,
+  ManifestError,
+  ManifestSummary,
+} from "../contract";
+
+export type ManifestTab = "json" | "preview";
 
 const DEFAULT_MANIFEST = `{
   "schema_version": 3,
@@ -39,6 +45,12 @@ export class ManifestModel {
   isSaving = $state(false);
   isStarting = $state(false);
   onStarted: ((runId: string, manifest: ManifestSummary) => void) | undefined;
+  activeTab = $state<ManifestTab>("json");
+  previewContent = $state<Record<string, unknown> | null>(null);
+  previewReply = $state<DescribeManifestReply | null>(null);
+  previewNotice = $state("");
+  isLoadingPreview = $state(false);
+  private previewRequestId = $state(0);
   private savedSelectionId = $state<string | null>(null);
   private savedTitle = $state("");
   private savedEditorText = $state("");
@@ -106,6 +118,7 @@ export class ManifestModel {
 
   async selectManifest(id: string): Promise<void> {
     if (this.isBusy) return;
+    this.resetPreview();
     this.errors = [];
     this.statusMessage = "";
     this.isLoading = true;
@@ -138,6 +151,7 @@ export class ManifestModel {
 
   addManifest(): void {
     if (this.isBusy) return;
+    this.resetPreview();
     this.selectedId = null;
     this.savedSelectionId = null;
     this.title = "";
@@ -244,6 +258,64 @@ export class ManifestModel {
       return false;
     } finally {
       this.isStarting = false;
+    }
+  }
+
+  changeTab(tab: string): void {
+    if (tab !== "json" && tab !== "preview") return;
+    if (tab === "preview" && this.isBusy) return;
+    this.activeTab = tab;
+    if (tab === "preview") void this.describePreview();
+  }
+
+  async describePreview(): Promise<void> {
+    const parsed = this.parsePlainObject(this.editorText);
+    const requestId = ++this.previewRequestId;
+    if (!parsed) {
+      this.isLoadingPreview = false;
+      this.previewContent = null;
+      this.previewReply = null;
+      this.previewNotice = "The manifest is not valid JSON.";
+      return;
+    }
+    this.previewContent = parsed;
+    this.previewReply = null;
+    this.previewNotice = "";
+    this.isLoadingPreview = true;
+    try {
+      const reply = await this.api.describeManifest(parsed);
+      if (requestId !== this.previewRequestId) return;
+      this.previewReply = reply;
+    } catch {
+      if (requestId !== this.previewRequestId) return;
+      this.previewReply = null;
+      this.previewNotice = "Unable to describe the manifest.";
+    } finally {
+      if (requestId === this.previewRequestId) {
+        this.isLoadingPreview = false;
+      }
+    }
+  }
+
+  private resetPreview(): void {
+    this.previewRequestId += 1;
+    this.activeTab = "json";
+    this.previewContent = null;
+    this.previewReply = null;
+    this.previewNotice = "";
+    this.isLoadingPreview = false;
+  }
+
+  private parsePlainObject(text: string): Record<string, unknown> | null {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      return typeof parsed === "object" &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
     }
   }
 

@@ -73,6 +73,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
     SaveManifestReply,
     StartEvaluationPayload,
     StartEvaluationReply,
+    DescribeManifestPayload,
+    DescribeManifestReply,
     FetchEvaluationReportPayload,
     RequestEvaluationAnalysisPayload,
     RequestEvaluationAnalysisReply,
@@ -223,6 +225,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, start_evaluation_reply("rejected", nil, []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("describe_manifest", params, socket) do
+    case DescribeManifestPayload.validate(params) do
+      {:ok, request} ->
+        case Evaluation.describe_manifest(request.content) do
+          {:ok, description} ->
+            {:reply,
+             describe_manifest_reply(
+               "ok",
+               description["plans"],
+               description["comparison_groups"],
+               []
+             ), socket}
+
+          {:error, errors} ->
+            {:reply, describe_manifest_reply("invalid_manifest", [], [], errors), socket}
+        end
+
+      {:error, _changeset} ->
+        {:reply, describe_manifest_reply("invalid_request", [], [], []), socket}
     end
   end
 
@@ -1079,6 +1104,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp start_evaluation_reply(status, run_id, errors) do
     contract_reply(StartEvaluationReply, %{status: status, run_id: run_id, errors: errors})
+  end
+
+  defp describe_manifest_reply(status, plans, comparison_groups, errors) do
+    contract_reply(DescribeManifestReply, %{
+      status: status,
+      plans: plans,
+      comparison_groups: comparison_groups,
+      errors: errors
+    })
   end
 
   defp manifest_summary(manifest, opts \\ []) do
