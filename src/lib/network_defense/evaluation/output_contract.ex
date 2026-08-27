@@ -92,6 +92,8 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   def file_names, do: @file_names
 
   @spec files(EvaluationRun.t()) :: {:ok, [{String.t(), binary()}]} | {:error, term()}
+  def files(%EvaluationRun{purpose: "warmup"}), do: {:error, :not_exportable}
+
   def files(%EvaluationRun{status: "completed", runtime_ms: runtime_ms} = run)
       when is_integer(runtime_ms) and runtime_ms >= 0 do
     with {:ok, graph} <- load_graph(run.source_graph_revision_id) do

@@ -827,6 +827,100 @@ defmodule NetworkDefense.EvaluationTest do
     end
   end
 
+  describe "Import" do
+    test "imports a valid JSON manifest and reuses identical content" do
+      id = manifest_id()
+      json = Jason.encode!(Map.put(@valid_manifest, "id", id))
+
+      assert {:ok, result} = Evaluation.import_manifest(json)
+      assert result.manifest_id == id
+      assert result.status == "imported"
+      assert result.title == id
+
+      assert {:ok, %{status: "reused", title: ^id}} = Evaluation.import_manifest(json)
+    end
+
+    test "honors an explicit title" do
+      id = manifest_id()
+      json = Jason.encode!(Map.put(@valid_manifest, "id", id))
+
+      assert {:ok, %{title: "My Title"}} = Evaluation.import_manifest(json, "My Title")
+    end
+
+    test "rejects a conflicting import with different content" do
+      id = manifest_id()
+      json = Jason.encode!(Map.put(@valid_manifest, "id", id))
+      assert {:ok, _result} = Evaluation.import_manifest(json)
+
+      changed =
+        @valid_manifest
+        |> Map.put("id", id)
+        |> put_in(["evaluation", "trials"], 99)
+
+      assert {:error, :conflict} = Evaluation.import_manifest(Jason.encode!(changed))
+    end
+
+    test "rejects invalid JSON" do
+      assert {:error, errors} = Evaluation.import_manifest("{not json")
+      assert Enum.any?(errors, &(&1.path == "$"))
+    end
+  end
+
+  describe "Freeze" do
+    test "resolves and persists a topology source into a graph-revision manifest" do
+      source_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(source_id)
+      target_id = "frozen-#{source_id}"
+
+      assert {:ok, result} = Evaluation.freeze(source_id, target_id, "Frozen copy")
+      assert result.source_manifest_id == source_id
+      assert result.target_manifest_id == target_id
+      assert result.graph_revision_id != nil
+      assert result.entry_host_id != nil
+
+      target = Evaluation.get_by_manifest_id(target_id)
+      assert target.title == "Frozen copy"
+      assert get_in(target.content, ["source", "type"]) == "graph_revision"
+      assert get_in(target.content, ["source", "graph_revision_id"]) == result.graph_revision_id
+      assert get_in(target.content, ["attacker", "entry_host", "type"]) == "node_id"
+      assert get_in(target.content, ["attacker", "entry_host", "value"]) == result.entry_host_id
+    end
+
+    test "rejects a source that is not a topology-source manifest" do
+      source_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(source_id)
+      first_target = "frozen-#{source_id}"
+      assert {:ok, _} = Evaluation.freeze(source_id, first_target)
+
+      assert {:error, :source_not_topology} =
+               Evaluation.freeze(first_target, "frozen-#{source_id}-again")
+    end
+
+    test "refuses an existing frozen target before creating a graph revision" do
+      source_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(source_id)
+      target_id = "frozen-#{source_id}"
+      assert {:ok, _} = Evaluation.freeze(source_id, target_id)
+
+      revisions_before = graph_revision_count()
+      assert {:error, :target_exists} = Evaluation.freeze(source_id, target_id)
+      assert graph_revision_count() == revisions_before
+    end
+
+    test "rejects an invalid target before creating a graph revision" do
+      source_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(source_id)
+      revisions_before = graph_revision_count()
+
+      assert {:error, :invalid_target_manifest_id} = Evaluation.freeze(source_id, "")
+      assert graph_revision_count() == revisions_before
+    end
+
+    test "returns not_found for an unknown source manifest" do
+      assert {:error, :not_found} = Evaluation.freeze("no-such-source", "frozen-x")
+    end
+  end
+
   describe "Evaluator integration" do
     @eval_manifest EvaluationFixtures.analysis_manifest()
 
@@ -1096,6 +1190,57 @@ defmodule NetworkDefense.EvaluationTest do
 
       loaded = Repo.get!(NetworkDefense.Optimization.OptimizationRun, persisted.id)
       assert loaded.model_variant == :blast_only
+    end
+  end
+
+  describe "Warm-up" do
+    @warmup_manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 1)
+
+    test "restricts purpose to evaluation and warmup in the changeset" do
+      base = %{
+        evaluation_manifest_id: Ecto.UUID.generate(),
+        source_graph_revision_id: Ecto.UUID.generate(),
+        resolved_manifest: %{},
+        status: "running"
+      }
+
+      assert EvaluationRun.changeset(%EvaluationRun{}, base).valid?
+
+      assert Ecto.Changeset.get_field(EvaluationRun.changeset(%EvaluationRun{}, base), :purpose) ==
+               "evaluation"
+
+      assert EvaluationRun.changeset(%EvaluationRun{}, Map.put(base, :purpose, "warmup")).valid?
+
+      changeset =
+        EvaluationRun.changeset(%EvaluationRun{}, Map.put(base, :purpose, "other"))
+
+      refute changeset.valid?
+      assert {"is invalid", _} = changeset.errors[:purpose]
+    end
+
+    test "runs synchronously as a completed warmup run" do
+      id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(id, @warmup_manifest)
+
+      assert {:ok, run} = Evaluation.warm_up(id)
+      assert run.status == "completed"
+      assert run.purpose == "warmup"
+    end
+
+    test "a completed warmup cannot be exported or analyzed but a normal run can" do
+      warm_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(warm_id, @warmup_manifest)
+      assert {:ok, warmup} = Evaluation.warm_up(warm_id)
+
+      assert {:error, :not_exportable} = Evaluation.download_archive(warmup.id)
+      assert {:error, :not_exportable} = Evaluation.analyze(warmup.id, "analyze")
+
+      eval_id = manifest_id()
+      assert {:ok, _manifest} = save_manifest(eval_id, @warmup_manifest)
+      assert {:ok, run} = Evaluation.start(eval_id)
+      assert {:ok, completed} = Evaluation.run(run.id)
+      assert completed.purpose == "evaluation"
+      assert {:ok, _zip, _filename} = Evaluation.download_archive(completed.id)
     end
   end
 

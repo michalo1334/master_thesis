@@ -27,6 +27,9 @@ defmodule NetworkDefenseWeb.EvaluationDownloadController do
       {:error, :not_found} ->
         send_resp(conn, 404, "evaluation run not found")
 
+      {:error, :not_exportable} ->
+        send_resp(conn, 409, "evaluation run is a warm-up and cannot be exported")
+
       {:error, :incomplete} ->
         send_resp(conn, 409, "evaluation run is not complete")
 

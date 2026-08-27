@@ -8,9 +8,9 @@ See the [scope page](../concepts/scope.md) for the research boundary.
 
 ## Status
 
-This study is an approved research design. Phase 1 uses a manual process for
-the measured inputs. Import, graph-freeze, batch-runner, and replica-validation
-automation remain deferred.
+This study uses a manual, manifest-driven process. Each command acts on one
+saved manifest or one archive. The system does not include a study batch
+runner.
 
 ## Size tiers
 
@@ -79,18 +79,39 @@ Before the full study, the study freezes all comparability inputs:
 - trial count;
 - stopping rules.
 
-## Phase 1 manual process
+## Manual Replication Process
 
-1. Run a pilot. Choose the measured tiers from the pilot result.
-2. Generate one graph for each measured tier. Save each graph as an immutable
-   revision.
-3. Save a measured manifest that uses the graph revision.
-4. Run the saved measured manifest once as warm-up.
-5. Run five new timed evaluations with the saved measured manifest.
-6. Exclude interrupted or resumed runs from the timing samples.
-7. Use the first timed archive for the outcome analysis.
+1. Keep each source manifest as a versioned JSON file.
+2. Import the source manifest with `mix evaluate.import --file PATH`.
+3. Run pilots. Choose the measured tiers and the common trial count.
+4. For each generated tier, freeze the selected source with
+   `mix evaluate.freeze --manifest-id SOURCE --frozen-manifest-id TARGET`.
+5. Use the frozen manifest for all warm-up and measured runs. A manifest that
+   already names a graph revision needs no freeze step.
+6. Run `mix evaluate.warmup --manifest-id TARGET` once. Do not use its result
+   as a timing or outcome sample.
+7. Run five new evaluations with `mix evaluate.manifest`. Write one archive for
+   each run.
+8. Exclude interrupted or resumed runs from the timing samples.
+9. Use the first timed archive for outcome analysis.
+10. Compare each other timed archive with the first one before accepting its
+    timing result.
 
 Do not change a measured graph revision or manifest during these runs.
+
+## Replica Check
+
+Run this command from `evaluation/analysis/`:
+
+```sh
+uv run network-defense-analysis compare first.zip replica.zip
+```
+
+The command checks the manifest, graph, selected plans, attack outcomes,
+capability outcomes, pre-attack flow status, host compromises, and non-timing
+summary values. It ignores run IDs and timing values. It returns zero when the
+outcomes match. It returns one when they differ. Stop the study and investigate
+an outcome mismatch.
 
 ## Limits
 

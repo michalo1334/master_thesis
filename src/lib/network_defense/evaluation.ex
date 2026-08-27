@@ -5,11 +5,8 @@ defmodule NetworkDefense.Evaluation do
   The dashboard and the local CLI use this context. It saves and lists
   manifests, validates and preflights them, and starts or resumes a run.
 
-  The full multi-strategy evaluator is not implemented in this pass. The
-  public seams are `start/1` and `resume/1`, which persist the run and its
-  resolved source revision, and `run/1` which executes the evaluator. The
-  evaluator is a stub that marks the run complete; wire the strategy loop
-  into `Evaluator.run/2` to execute plans and trials.
+  `start/1` and `resume/1` persist a run and its resolved source revision.
+  `run/1` executes the manifest-declared plans and attack trials.
   """
 
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
@@ -127,6 +124,115 @@ defmodule NetworkDefense.Evaluation do
           {:ok, %{graph_revision_id: String.t(), entry_host_id: String.t()}} | {:error, [error()]}
   def preflight(manifest), do: Preflight.preflight(manifest)
 
+  @spec import_manifest(String.t(), String.t() | nil) ::
+          {:ok, %{manifest_id: String.t(), title: String.t(), status: String.t()}}
+          | {:error, [error()] | :conflict}
+  def import_manifest(json, title \\ nil) when is_binary(json) do
+    case validate_content(%{content: json}) do
+      {:ok, content} -> import_content(content, title)
+      error -> error
+    end
+  end
+
+  defp import_content(content, title) do
+    id = content["id"]
+
+    case EvaluationManifests.get_by_manifest_id(id) do
+      nil ->
+        case save(%{manifest_id: id, title: title || id, content: content}) do
+          {:ok, _manifest} -> {:ok, %{manifest_id: id, title: title || id, status: "imported"}}
+          error -> manifest_id_conflict(error, :conflict)
+        end
+
+      %EvaluationManifest{} = existing when content == existing.content ->
+        {:ok, %{manifest_id: id, title: existing.title, status: "reused"}}
+
+      %EvaluationManifest{} ->
+        {:error, :conflict}
+    end
+  end
+
+  @spec freeze(String.t(), String.t(), String.t() | nil) ::
+          {:ok,
+           %{
+             source_manifest_id: String.t(),
+             target_manifest_id: String.t(),
+             graph_revision_id: String.t(),
+             entry_host_id: String.t()
+           }}
+          | {:error,
+             [error()]
+             | :invalid_target_manifest_id
+             | :invalid_title
+             | :not_found
+             | :target_exists
+             | :source_not_topology}
+  def freeze(source_manifest_id, target_manifest_id, title \\ nil)
+
+  def freeze(source_manifest_id, target_manifest_id, title)
+      when is_binary(source_manifest_id) and is_binary(target_manifest_id) do
+    title = title || target_manifest_id
+
+    with %EvaluationManifest{} = source <-
+           EvaluationManifests.get_by_manifest_id(source_manifest_id),
+         :ok <- valid_target_manifest_id(target_manifest_id),
+         :ok <- valid_title(title),
+         :ok <- reject_existing_target(target_manifest_id),
+         {:ok, content} <- ManifestContract.validate(source.content),
+         :ok <- require_topology_source(content),
+         {:ok, resolved} <- Preflight.preflight(content),
+         frozen = resolved_manifest(content, resolved) |> Map.put("id", target_manifest_id),
+         {:ok, _manifest} <- save_frozen_manifest(target_manifest_id, title, frozen) do
+      {:ok,
+       %{
+         source_manifest_id: source_manifest_id,
+         target_manifest_id: target_manifest_id,
+         graph_revision_id: resolved.graph_revision_id,
+         entry_host_id: resolved.entry_host_id
+       }}
+    else
+      nil -> {:error, :not_found}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  def freeze(_source_manifest_id, _target_manifest_id, _title),
+    do: {:error, :invalid_target_manifest_id}
+
+  defp save_frozen_manifest(target_manifest_id, title, frozen) do
+    save(%{manifest_id: target_manifest_id, title: title, content: frozen})
+    |> manifest_id_conflict(:target_exists)
+  end
+
+  defp manifest_id_conflict({:error, %Ecto.Changeset{} = changeset} = error, replacement) do
+    if Enum.any?(changeset.errors, fn {field, {_message, options}} ->
+         field == :manifest_id and options[:constraint] == :unique
+       end),
+       do: {:error, replacement},
+       else: error
+  end
+
+  defp manifest_id_conflict(result, _replacement), do: result
+
+  defp valid_target_manifest_id(value)
+       when is_binary(value) and byte_size(value) in 1..255,
+       do: :ok
+
+  defp valid_target_manifest_id(_value), do: {:error, :invalid_target_manifest_id}
+
+  defp valid_title(value) when is_binary(value) and byte_size(value) in 1..255, do: :ok
+  defp valid_title(_value), do: {:error, :invalid_title}
+
+  defp reject_existing_target(target_manifest_id) do
+    case EvaluationManifests.get_by_manifest_id(target_manifest_id) do
+      nil -> :ok
+      _manifest -> {:error, :target_exists}
+    end
+  end
+
+  defp require_topology_source(%{"source" => %{"type" => "topology"}}), do: :ok
+  defp require_topology_source(_), do: {:error, :source_not_topology}
+
   @spec start(String.t()) :: {:ok, EvaluationRun.t()} | {:error, term()}
   def start(manifest_id) do
     with %EvaluationManifest{} = manifest <- EvaluationManifests.get_by_manifest_id(manifest_id),
@@ -138,13 +244,26 @@ defmodule NetworkDefense.Evaluation do
     end
   end
 
-  defp start_new_run(manifest, content) do
+  defp start_new_run(manifest, content, purpose \\ "evaluation") do
     with {:ok, resolved} <- Preflight.preflight(content) do
       EvaluationRuns.create(%{
         evaluation_manifest_id: manifest.id,
         source_graph_revision_id: resolved.graph_revision_id,
-        resolved_manifest: resolved_manifest(content, resolved)
+        resolved_manifest: resolved_manifest(content, resolved),
+        purpose: purpose
       })
+    end
+  end
+
+  @spec warm_up(String.t()) :: {:ok, EvaluationRun.t()} | {:error, term()}
+  def warm_up(manifest_id) do
+    with %EvaluationManifest{} = manifest <- EvaluationManifests.get_by_manifest_id(manifest_id),
+         {:ok, content} <- ManifestContract.validate(manifest.content),
+         {:ok, run} <- start_new_run(manifest, content, "warmup") do
+      run_evaluator(run)
+    else
+      nil -> {:error, :not_found}
+      {:error, _reason} = error -> error
     end
   end
 
@@ -304,7 +423,7 @@ defmodule NetworkDefense.Evaluation do
 
   defp manifest_for(%EvaluationRun{evaluation_manifest: manifest}), do: manifest
 
-  defp resolved_manifest(manifest, resolved) do
+  def resolved_manifest(manifest, resolved) do
     manifest
     |> Map.put("source", %{
       "type" => "graph_revision",

@@ -982,10 +982,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
     |> assign(:graph_summaries, graph_summaries())
   end
 
-  defp simulation_request_reply(status, graph_revision_id, correlation_id, error) do
-    simulation_request_reply(status, graph_revision_id, correlation_id, error, nil)
-  end
-
   defp simulation_request_reply(status, graph_revision_id, correlation_id, error, run_id) do
     run_request_reply(
       RunSimulationReply,
@@ -995,10 +991,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
       error,
       run_id
     )
-  end
-
-  defp optimization_request_reply(status, graph_revision_id, correlation_id, error) do
-    optimization_request_reply(status, graph_revision_id, correlation_id, error, nil)
   end
 
   defp optimization_request_reply(status, graph_revision_id, correlation_id, error, run_id) do

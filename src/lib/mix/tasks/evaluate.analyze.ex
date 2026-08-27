@@ -51,6 +51,7 @@ defmodule Mix.Tasks.Evaluate.Analyze do
 
   defp error_message(:not_found), do: "evaluation run not found"
   defp error_message(:incomplete), do: "evaluation run is not complete"
+  defp error_message(:not_exportable), do: "evaluation run is a warm-up and cannot be analyzed"
   defp error_message(:not_configured), do: "analysis service is not configured"
   defp error_message(:transport), do: "analysis service transport failed"
   defp error_message(:http_status), do: "analysis service returned a non-success status"

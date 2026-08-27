@@ -630,3 +630,108 @@ class AnalysisTest(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertEqual(completed.stdout, b"")
         self.assertIn(b"duplicate ZIP member", completed.stderr)
+
+    def mutate_for_replica(self, directory):
+        """Rewrite volatile IDs and runtimes so identical semantics still compare equal."""
+        plans = [json.loads(line) for line in (directory / "plans.jsonl").read_text().splitlines()]
+        rename = {}
+        for index, plan in enumerate(plans):
+            rename[plan["id"]] = f"replica-plan-{index}"
+            plan["id"] = f"replica-plan-{index}"
+            plan["runtime_ms"] = 100 + index
+        (directory / "plans.jsonl").write_text("\n".join(json.dumps(plan) for plan in plans) + "\n")
+        for name in ("trials.csv", "summary.csv", "capability_outcomes.csv", "host_compromises.csv", "pre_attack_flow_statuses.csv"):
+            with (directory / name).open(newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            for row in rows:
+                row["experiment_id"] = f"replica-experiment-{row['plan_id'] or 'baseline'}"
+                if row["plan_id"] in rename:
+                    row["plan_id"] = rename[row["plan_id"]]
+                if name == "summary.csv":
+                    row["runtime_ms"] = "50"
+            self.write_csv(directory / name, rows)
+        self.write_checksums(directory)
+
+    def test_compare_equal_despite_volatile_ids_and_runtimes(self):
+        from network_defense_analysis.compare import compare
+        reference = self.remember(self.make_fixture())
+        candidate = self.remember(self.make_fixture())
+        self.mutate_for_replica(candidate)
+        equal, differences = compare(reference, candidate)
+        self.assertTrue(equal, differences)
+        self.assertEqual(differences, [])
+
+    def test_compare_detects_groups_identity_mismatch(self):
+        from network_defense_analysis.compare import compare
+        reference = self.remember(self.make_fixture())
+        candidate = self.remember(self.make_fixture())
+        self.mutate_for_replica(candidate)
+        with (candidate / "host_compromises.csv").open(newline="") as stream:
+            hosts = list(csv.DictReader(stream))
+        hosts[0]["compromised"] = "false" if hosts[0]["compromised"] == "true" else "true"
+        self.write_csv(candidate / "host_compromises.csv", hosts)
+        self.write_checksums(candidate)
+        equal, differences = compare(reference, candidate)
+        self.assertFalse(equal)
+        self.assertIn("host_compromises", differences)
+
+    def test_compare_detects_trial_mismatch(self):
+        from network_defense_analysis.compare import compare
+        reference = self.remember(self.make_fixture())
+        candidate = self.remember(self.make_fixture())
+        self.mutate_for_replica(candidate)
+        with (candidate / "trials.csv").open(newline="") as stream:
+            trials = list(csv.DictReader(stream))
+        trials[0]["blast_radius"] = "55"
+        self.write_csv(candidate / "trials.csv", trials)
+        self.write_checksums(candidate)
+        equal, differences = compare(reference, candidate)
+        self.assertFalse(equal)
+        self.assertIn("trials", differences)
+
+    def test_compare_detects_manifest_mismatch(self):
+        from network_defense_analysis.compare import compare
+        reference = self.remember(self.make_fixture())
+        candidate = self.remember(self.make_fixture())
+        manifest = json.loads((candidate / "manifest.resolved.json").read_text())
+        manifest["id"] = "different-manifest"
+        (candidate / "manifest.resolved.json").write_text(json.dumps(manifest))
+        self.write_checksums(candidate)
+        equal, differences = compare(reference, candidate)
+        self.assertFalse(equal)
+        self.assertIn("manifest", differences)
+
+    def test_compare_malformed_archive_exits_two(self):
+        candidate = self.remember(self.make_fixture())
+        (candidate / "trials.csv").write_text("invalid\n")
+        completed = subprocess.run(
+            ["uv", "run", "network-defense-analysis", "compare", str(candidate), str(candidate)],
+            cwd=Path(__file__).parents[1], capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 2)
+
+    def test_compare_cli_equal_exits_zero(self):
+        directory = self.remember(self.make_fixture())
+        completed = subprocess.run(
+            ["uv", "run", "network-defense-analysis", "compare", str(directory), str(directory)],
+            cwd=Path(__file__).parents[1], capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(json.loads(completed.stdout), {"equal": True})
+
+    def test_compare_cli_mismatch_exits_one(self):
+        reference = self.remember(self.make_fixture())
+        candidate = self.remember(self.make_fixture())
+        with (candidate / "trials.csv").open(newline="") as stream:
+            trials = list(csv.DictReader(stream))
+        trials[0]["mission_impact"] = "77"
+        self.write_csv(candidate / "trials.csv", trials)
+        self.write_checksums(candidate)
+        completed = subprocess.run(
+            ["uv", "run", "network-defense-analysis", "compare", str(reference), str(candidate)],
+            cwd=Path(__file__).parents[1], capture_output=True, text=True,
+        )
+        self.assertEqual(completed.returncode, 1)
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["equal"], False)
+        self.assertIn("trials", result["differences"])

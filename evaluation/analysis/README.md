@@ -23,6 +23,33 @@ Run the commands from this directory. The analysis engine reads local files
 only. Treat the reported uncertainty as simulator uncertainty for the exported
 scenario.
 
+## Compare
+
+`compare` checks that two completed evaluation archives are semantically equal,
+for example two replicas of the same evaluation:
+
+```sh
+uv run network-defense-analysis compare /path/to/reference/export /path/to/candidate/export
+```
+
+It accepts archive paths or directories. On equality it prints `{"equal":true}`
+and exits 0; on a mismatch it prints `{"equal":false, "differences":[...]}`
+with the affected dataset names and exits 1. Invalid archives are CLI errors
+that exit 2.
+
+Equality covers the resolved manifest and source graph; plan semantics
+(variant, strategy, requested budget, selection seed, objective, feasibility,
+used budget, actions, status); baseline and defended trial outcomes;
+capability outcomes; pre-attack required-flow status; host compromises; and
+non-timing summary outcomes. Plan order is normalized by mapping plan IDs to
+the stable identity (model_variant, strategy, requested_budget,
+selection_seed); baseline rows use a literal identity. Experiment IDs are
+ignored and rows are sorted before comparison.
+
+It excludes evaluator, plan-selection, and simulation runtimes, which vary
+between replicas. The differences list names only the logical dataset that
+diverges, not the raw rows.
+
 The analysis output contains primary, secondary, and capability results. It
 also contains descriptive host compromise probabilities, feasibility summaries,
 and a runtime summary. The runtime summary gives median plan-selection and

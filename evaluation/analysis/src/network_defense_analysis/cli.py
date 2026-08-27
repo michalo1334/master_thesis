@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import sys
 import tempfile
@@ -10,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 from .archive import spool_stdin, write_result_zip
+from .compare import compare
 from . import AnalysisError, analyze
 
 
@@ -20,7 +22,21 @@ def main(argv: list[str] | None = None) -> int:
         command = subparsers.add_parser(mode)
         command.add_argument("input")
         command.add_argument("--output", required=True)
+    compare_command = subparsers.add_parser("compare")
+    compare_command.add_argument("reference")
+    compare_command.add_argument("candidate")
     arguments = parser.parse_args(argv)
+    if arguments.mode == "compare":
+        try:
+            equal, differences = compare(arguments.reference, arguments.candidate)
+        except (AnalysisError, OSError, zipfile.BadZipFile) as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        result = {"equal": equal}
+        if not equal:
+            result["differences"] = differences
+        print(json.dumps(result))
+        return 0 if equal else 1
     input_temporary = None
     output_temporary = None
     try:

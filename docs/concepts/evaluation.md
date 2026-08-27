@@ -4,9 +4,9 @@ The evaluation runner executes a saved manifest. It compares how defense
 strategies reduce modeled attack impact. It produces deterministic result
 artifacts for later statistical analysis.
 
-This page describes the current runner only. The approved topology-scale study
-is a research design, not current implementation (see
-[scope.md](scope.md)).
+This page describes the runner and its manual replication commands. See the
+[topology-scale study protocol](../inprogress/topology-scale-study.md) for the
+study procedure.
 
 ## Manifest inputs
 
@@ -77,6 +77,19 @@ run a saved manifest with:
 
 - `mix evaluate.manifest --manifest-id ID --output evaluation.zip`
 
+Use `mix evaluate.import --file manifest.json` to save a versioned JSON
+manifest. The manifest `id` becomes the saved manifest id. The command reuses
+identical content and rejects changed content with the same id.
+
+For a generated topology, use `mix evaluate.freeze --manifest-id SOURCE
+--frozen-manifest-id TARGET` before measured runs. The command generates and
+persists the source graph once. It saves `TARGET` with that immutable graph
+revision and the resolved entry-host ID. Use `TARGET` for warm-up and measured
+runs. The target id must be new.
+
+Use `mix evaluate.warmup --manifest-id ID` for one unmeasured run. A warm-up
+run cannot be exported or analyzed.
+
 The archive holds the resolved manifest, source graph, plans, and trial
 results. For analysis:
 
@@ -110,7 +123,6 @@ including comparisons and uncertainty, is described in the
 
 ## Relationship to the topology-scale study
 
-The lifecycle above is current behavior. The approved three-tier topology-scale
-study is designed but not implemented as frozen controlled variants. Current
-code supports the baseline scenario and generic topology sources. Do not treat
-this lifecycle as a description of that study.
+The topology-scale protocol uses the commands above. It defines which manifests
+to run, when to warm up, how many timing replicas to collect, and how to compare
+them.

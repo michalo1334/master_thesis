@@ -18,7 +18,8 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
           resolved_manifest: map() | nil,
           status: String.t() | nil,
           failure_reason: String.t() | nil,
-          runtime_ms: non_neg_integer() | nil
+          runtime_ms: non_neg_integer() | nil,
+          purpose: String.t() | nil
         }
 
   schema "evaluation_runs" do
@@ -29,6 +30,7 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
     field :status, :string, default: "running"
     field :failure_reason, :string
     field :runtime_ms, :integer
+    field :purpose, :string, default: "evaluation"
 
     timestamps(type: :utc_datetime)
   end
@@ -41,15 +43,18 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
       :resolved_manifest,
       :status,
       :failure_reason,
-      :runtime_ms
+      :runtime_ms,
+      :purpose
     ])
     |> validate_required([
       :evaluation_manifest_id,
       :source_graph_revision_id,
       :resolved_manifest,
-      :status
+      :status,
+      :purpose
     ])
     |> validate_inclusion(:status, ["running", "completed", "failed", "cancelled"])
+    |> validate_inclusion(:purpose, ["evaluation", "warmup"])
     |> validate_number(:runtime_ms, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:evaluation_manifest_id)
     |> foreign_key_constraint(:source_graph_revision_id)
