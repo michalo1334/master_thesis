@@ -30,6 +30,7 @@
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{mathtools}
+\usepackage{amsfonts}
 \usepackage{hyperref}
 \hypersetup{
 	colorlinks=true,

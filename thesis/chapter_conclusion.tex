@@ -6,7 +6,7 @@ The thesis set out to investigate a graph-based attack-simulation pipeline and a
 \section{Summary}
 \label{ch:conclusion:summary}
 
-Three contributions were made. First, a \emph{context graph} and state-transition model informed by attack-graph literature, with synthetic CVSS data and independently assigned success probabilities. Second, a \emph{Monte Carlo blast-radius simulator} for the fixed stylized attacker model. Third, a small \emph{optimization framework} supporting policy-rule segmentation, simulation-informed patching, and annealing-based search. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
+Three contributions were made. First, a \emph{context graph} and state-transition model informed by attack-graph literature, with a synthetic vulnerability catalog (potentially supplemented by a reviewed static NVD subset in the baseline scenario) and independently assigned success probabilities. Second, a \emph{Monte Carlo blast-radius simulator} for the fixed stylized attacker model. Third, a small \emph{optimization framework} supporting policy-rule segmentation, simulation-informed patching, and annealing-based search. Table~\ref{tab:conclusion:contributions} summarizes the contributions and their status.
 
 \begin{table}[hbt!]
 	\centering
@@ -30,7 +30,8 @@ Three contributions were made. First, a \emph{context graph} and state-transitio
 Several directions are left open for future work:
 
 \begin{itemize}
-	\item \textbf{Real-CVE integration.} The current vulnerability catalog is synthetic. A live NVD integration~\cite{nvd} would require a separate, justified mapping from CVE data to model parameters; CVSS must not be treated as a calibrated exploit probability.
+	\item \textbf{Runtime NVD ingestion.} NVD ingestion is deferred and not part of the implementation; the baseline scenario may use a reviewed static NVD subset alongside synthetic catalog entries. A live NVD integration~\cite{nvd} would require a separate, justified mapping from CVE data to model parameters; CVSS must not be treated as a calibrated exploit probability.
+	\item \textbf{Topology-scale study.} The approved three-tier scale study is a research design; current code supports a fixed baseline and generic topology sources, but not frozen controlled variants. Implementing the study inputs would enable the runtime and mission-impact-ranking measures defined in Chapter~\ref{ch:evaluation}.
 	\item \textbf{Dynamic topology.} The present system assumes a static network. Extending the attack-graph and simulator layers to handle changes in the network over time would unlock operational use cases (e.g., daily re-evaluation of a corporate network).
 	\item \textbf{Richer attacker models.} The current Monte Carlo simulator has one stylized model and no attacker-profile parameter. A more expressive model, perhaps informed by incident data, would require separate validation before it could support claims about attacker behavior~\cite{jha02two, ammann02tva}.
 	\item \textbf{Better diagnostics.} Translating the optimizer's recommendations back to source-level positions in the input topology (e.g., \enquote{segment the link between $H_3$ and $H_7$, patch CVE-2024-1234 on $H_{12}$}) would substantially improve the usability of the system for security operators.

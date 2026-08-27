@@ -1,57 +1,85 @@
 # Infrastructure
 
-Provisioning managed by Terraform, utilizing Docker. Modules and environments stored in `infra/` directory.
+Terraform provisions the infrastructure using Docker. The modules and
+environments live in `infra/`.
 
-## Secrets and configuration
+## Prerequisites
 
-Non-sensitive configuration values are passed via environment variables (`TF_VAR_*`),
+Local provisioning needs a working Docker engine. The helper script runs
+Terraform inside a Docker container, so a docker CLI is required on the host.
 
-Secrets are volume mounted, one secret per file.
+## Configuration
 
-This method provides unified, provider-agnostic way of passing configuration values and secrets to the application.
+Refer to `infra/environments/local/` for the source of truth.
 
-## Local
+Non-sensitive inputs use environment variables. Prefix them with `TF_VAR_`.
+The helper script loads them from the git-ignored `.env` file before every
+Terraform run. `.env.example` is the committed template.
 
-`environments/local` is local development stack: fully containerized, application using `hot reloadable` source code with IEx shell attached and observability using Grafana, Loki, Tempo, Prometheus.
-Database is also inside container along with PGAdmin.
+Secrets use files with restrictive permissions, mounted into containers as
+read-only. The host secrets directory is declared by `secret_mount_path`. The
+environment enforces via a precondition that all required secret files exist
+before apply (see `main.tf` and `locals.tf`).
 
-`environments/local/terraform.sh` is a helper script that forwards TF subcommands with environment variables preloaded from `.env` file.
-Dockerized `hashicorp/terraform:1.15.8` only.
+The app reads secrets from files under `/run/secrets`. See the module source
+for how each container mounts and reads them.
 
-Layout:
+## Layout
 
 ```text
-infra/environments/local/{backend.tf, versions.tf, variables.tf, locals.tf, main.tf, outputs.tf, terraform.sh}
-infra/modules/local/{app,database,observability}/{versions.tf, variables.tf, locals.tf, main.tf, outputs.tf}
+infra/environments/local/   Terraform root for the local environment
+infra/modules/local/
+  analysis/       Local Python analysis service
+  app/            Phoenix application
+  database/       Postgres and pgAdmin
+  observability/  Observability service stack
 ```
 
-Variables and outputs are alpha-ordered; `locals.tf` holds derived values; `backend.tf` is explicit `local`; child `versions.tf` declares `kreuzwerker/docker` (pin in root).
-See `docs/azure-dev-plan.md` for deferred Azure production layout.
+`environments/local/terraform.sh` is the local helper. It runs the Dockerized
+Terraform with environment variables preloaded from `.env`.
 
-### App replicas
+## Local lifecycle
 
-`TF_VAR_app_replicas` (`1..5`, default `2`) controls `infra/modules/local/app` `count`. Replicas share DNS `app` (`app-N` each); only `app-0` publishes `4000,4001,5173,9229`. Distribution via `dns_cluster` + `erlang-cookie` secret and per-replica `app-N.jsonl`/`replica` label.
+Run Terraform through the helper script:
 
-Modules used:
- - `app` - application container, `count` via `app_replicas`, dev/prod mode; `erlang-cookie` secret (`0600`)
- - `database` - database, includes containerized Postgres and PGAdmin
- - `observability` - observability stack
+- `terraform.sh init` prepares the providers and modules.
+- `terraform.sh apply` creates or updates the stack.
+- `terraform.sh output` prints the exported values, including the published
+  service URLs (see `outputs.tf` in the environment root).
+- `terraform.sh destroy` removes the stack.
 
-## Production
+Refer to the environment files for the accepted variables and exported
+outputs rather than fixed URLs or ports.
 
-Deferred. `docs/azure-dev-plan.md` retains full design (bootstrap + AVM from `environments/dev`, no `modules/azure` wrappers).
-Constraints to preserve: `TF_VAR_*` + file-per-secret (`*_FILE` to `/run/secrets`, also via Key Vault `volumeMounts` in prod), `REPO_*` DB contract, and strict provider separation — Docker Postgres/PgAdmin and self-hosted observability share no abstraction with managed PG + Azure Monitor (LA/AI/DCE/DCR) beyond `*_FILE` until second `azurerm` env exists (YAGNI).
+## Analysis service
 
-`environments/dev|prod` will use release application images and Azure observability services - Monitor and Application Insights.
+The `analysis` module runs the local Python statistical analysis service. The
+service runs as a container on the stack network. The Phoenix app reaches it
+by its service name. For behavior, HTTP interface, and CLI, see
+`evaluation/analysis/README.md`.
 
-Currently WIP.
+## Observability services
 
-## Logging setup
+The `observability` module runs the following services:
+Alloy, cAdvisor, Grafana, Loki, OpenTelemetry Collector, node-exporter,
+postgres-exporter, Prometheus, and Tempo.
 
-Elixir's logger configuration enables writing structured JSONL to `/var/log/network_defense` directory, which is then tailed by Grafana Alloy. Using intermediate file instead of stdin reading separates additional, non-structured logging from compile messages, IEx prompts, banners etc.
+Published service URLs come from the environment Terraform output.
 
-Native OTel log export for Erlang/Elixir is currently experimental hence use of file log and Grafana Alloy.
+## Logging
 
-## Health/ready checks
+The app writes structured JSONL logs to a file on a shared volume. Grafana
+Alloy tails that file. Only this file stream is collected; it excludes
+non-structured stdio output such as compile messages and banners.
 
-Exposed via `/healthz`, `/readyz` endpoints
+## Health and readiness
+
+The app exposes health and readiness endpoints. See the app module source for
+the health check paths.
+
+## Teardown
+
+`terraform.sh destroy` removes every Terraform-managed resource: containers,
+the stack network, all data and log volumes, and the locally built images.
+Host files such as `.env`, the secrets directory, and the Terraform state are
+not managed by Terraform and remain on disk after destroy.

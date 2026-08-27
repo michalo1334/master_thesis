@@ -1,0 +1,126 @@
+# Documentation Cleanup Tree
+
+Working taxonomy for the documentation cleanup. Code and tests define current behavior. The thesis defines the research narrative.
+
+- Documentation
+    - Project orientation
+        - Scope, assumptions, and limits
+            - Main question: Within controlled stylized network topologies, how do equal-action-count defense strategies differ from CVSS prioritization in reducing simulated mission impact?
+            - Feasibility sub-question: How does a pre-attack feasibility constraint change selected defense plans and directly measured operational loss?
+            - Topology-scale sub-question: How does controlled growth in topology size affect simulation, strategy-selection, and total-evaluation runtime, and the mission-impact ranking of equal-budget defense strategies?
+            - Model bounds and assumptions
+            - Compared methods
+            - Outcome metrics
+            - Evidence boundary and data-source status
+            - Three controlled topology-size tiers and current baseline-only gap
+        - Glossary
+            - Shared model terms
+        - Repository entry points
+            - Purpose, documentation map, repository map, and quick start
+        - Functional requirements
+            - Graph workspace
+            - Attack simulation and reporting
+            - Defense optimization
+            - Evaluation and result analysis
+            - Functional behavior only
+            - One EARS requirements page
+    - Research model
+        - Context graph and reachability
+            - Node and edge semantics with allowed endpoints catalog
+            - Authored policy and derived reachability
+            - Linear graph-revision lifecycle and stale-edit conflicts
+            - Baseline topology and scenario provenance with short citations
+            - Policy-to-reachability diagram
+        - Attack simulation and mission impact
+            - Configured initial foothold and privilege
+            - Footholds, credentials, privileges, and attempted actions
+            - Four rules and three actions with preconditions and effects
+            - Credential and privilege state-transition table
+            - Uniform eligible-action selection and outcome sampling
+            - Experiment-level maximum attempt count
+            - Iteration limit or no eligible action stopping rule
+            - Mission-capability disruption conditions
+            - State-progression diagram and worked example
+        - Defenses and optimization
+            - Defense action-effect table
+            - Unit action-count budget
+            - Strategy purpose-and-decision-basis table
+            - Objectives and feasibility narrative
+                - Paired constrained and unconstrained plan comparison
+                - Pre-attack feasibility, required-flow, and capability-status measures
+            - Equal-budget worked example
+        - Evaluation lifecycle
+            - Manifest input categories and schema reference
+            - Seed repeatability
+            - Baseline and post-defense lifecycle from resolution to results
+            - User-facing resume behavior and runner commands
+            - Analysis-service handoff link
+            - Lifecycle diagram and comparable-experiment example
+        - Shared synthetic micro-scenario
+            - docs/concepts/model-example.md
+            - Client zone, service zone, two hosts, vulnerable service, credential, and mission capability
+    - System operation
+        - Architecture and generated contracts
+            - System, container, and production-like local deployment views
+            - Brief engineering decision rationale
+            - Python analysis-service integration
+            - Backend-to-frontend contract-generation flow
+            - Observability service map
+        - Local infrastructure and observability
+            - Prerequisites, configuration, Terraform lifecycle, endpoints, and teardown
+            - Environment-variable inputs and file or mount secrets
+            - Observability service list
+            - No troubleshooting runbook
+    - Product design
+        - docs/design/dashboard.md
+            - Four primary workflows
+            - Stable-input run-lifecycle rationale
+            - Revision-to-result user-flow diagram
+            - Open-topology, simulate, and report GIF
+    - Delivery plans
+        - docs/inprogress/
+            - Azure deployment
+            - CI/CD pipeline
+            - topology-scale-study.md
+                - Three-tier question-led study design
+                - Controlled-variant invariants and measures
+                - Five strategies at equal budgets one through three
+                - Multiple fixed selection seeds
+                - Mission-impact pilot for attack-trial count
+                - Fixed environment and median stage runtimes
+                - Expected mission-impact strategy ranking with blast-radius safety outcome
+                - Frozen comparability inputs before the full study
+                - Current baseline-only implementation gap
+    - Thesis source
+        - Tracked LaTeX source, bibliography, class, and images
+    - Remove
+        - Superseded initial drafts
+        - Completed planning documents, except delivery plans
+        - External-project comparison notes
+        - Frozen dashboard wireframes
+        - Empty ADR stub and scratch files
+        - Standalone topology-source and thesis-roadmap notes
+        - Scenario-local rationale after provenance is merged
+        - Stale feature-status checklists
+        - Generated LaTeX output
+
+## Notes
+
+- Keep the scope page in `docs/concepts/`. Link to the thesis instead of duplicating its narrative.
+- Keep scope, glossary, and model pages in `docs/concepts/`.
+- Replace feature-status checklists with EARS requirements by major functionality.
+- Keep EARS requirements to current functional behavior.
+- Keep four focused model pages: graph, attack, defense, and evaluation.
+- Use small illustrative examples when they make a model rule easier to understand.
+- Keep statistical analysis details in `evaluation/analysis/README.md`.
+- Update the C4 and deployment diagrams. Keep the reachability diagram. Add attack and evaluation lifecycle diagrams. Use tables, not a defense diagram.
+- Move Azure and CI/CD plans to a separate directory.
+- Do not add an index in `docs/inprogress/`.
+- State that NVD ingestion is deferred. Do not imply that it runs today.
+- State that the approved topology-scale study has three tiers and that current code supports the baseline only.
+- Do not prescribe topology-variant implementation in documentation.
+- Do not add a changelog. Use Git history for project evolution.
+- Treat LaTeX compiler output as disposable. Keep only tracked thesis source.
+- Move this taxonomy outside `docs/` after cleanup.
+- Keep architecture and infrastructure as operational references.
+- Delete non-canonical documents after we extract facts that belong in a retained page.

@@ -1,80 +1,107 @@
-# Overview
+# Architecture
 
-System architecture described with the C4 model (Mermaid). Levels: System Context, two Container diagrams (application and observability), and Deployment. Two Mermaid sequence diagrams cover the flows a static topology cannot show — an attack-simulation run and the observability pipeline.
+This page describes the current system architecture with the C4 model. It uses
+Mermaid diagrams. Element aliases stay consistent across diagrams so the same
+node resolves from one level to the next.
 
-Element aliases stay consistent across diagrams so the same node resolves from one level to the next. Ports, image tags, and versions live in Terraform and Docker configuration; the prose points to them instead of restating values.
+Container ports, image tags, and versions live in Terraform and Docker
+configuration. The prose points to those files instead of restating values
+(see [infrastructure.md](infrastructure.md) and the modules listed there).
 
-Flows use `sequenceDiagram` rather than `C4Dynamic`: the simulation run loops back through the same boxes, and the observability pipeline runs concurrently, both of which `C4Dynamic` renders with overlapping labels in Mermaid. Sequence diagrams handle returns and parallel notes without stacking.
-
-## Level 1 — System Context
-
-The analyst drives everything; NVD is the only external system the application depends on.
+## Level 1: System Context
 
 ```mermaid
 C4Context
-  title System Context — Network Defense
+  title System Context: Network Defense
 
-  Person(securityAnalyst, "Security Analyst / Researcher", "Models topology, runs simulations, evaluates defenses")
-  System(networkDefense, "Network Defense", "Graph-based attack-propagation simulation and defense optimization")
-  System_Ext(nvdApi, "NVD API", "Source of real CVE and vulnerability data")
+  Person(securityAnalyst, "Security Analyst", "Models topology, runs simulations, evaluates defenses")
+  System(networkDefense, "Network Defense", "Graph-based attack-propagation simulation and defense evaluation")
 
-  Rel(securityAnalyst, networkDefense, "Models topology, runs simulations, applies defenses via", "HTTPS")
-  Rel(networkDefense, nvdApi, "Fetches vulnerability data", "HTTPS")
+  Rel(securityAnalyst, networkDefense, "Models topology, runs simulations, evaluates defenses", "HTTPS")
 ```
 
-NVD integration is declared in the technology stack (see `README.md`); no fetcher client exists in `src/lib` yet, so this is the intended external dependency for real CVE data.
+NVD ingestion is deferred and no runtime fetch occurs (see
+[scope.md](concepts/scope.md)). The built-in catalog contains synthetic entries.
+The baseline scenario can also use a reviewed static NVD subset. Both sources
+are local data. The system has no runtime network dependency on an external
+vulnerability source.
 
-## Level 2 — Container, Application
+## Level 2: Container, Application
 
-The application boundary only. A single OTP application (`src/lib/network_defense/application.ex`) hosts the Phoenix web layer, the domain engine (graph, simulation, optimization), and Ecto persistence; Svelte 5 renders through LiveSvelte.
+The application is a single OTP application
+([`src/lib/network_defense/application.ex`](../src/lib/network_defense/application.ex)).
+It hosts the Phoenix web layer, the domain engine (graph, simulation,
+defense, evaluation), and Ecto persistence. Svelte 5 renders through
+LiveSvelte. The browser talks to the LiveView over a WebSocket.
 
 ```mermaid
 C4Container
-  title Container — Application
+  title Container: Application
 
-  UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")
 
-  Person(securityAnalyst, "Security Analyst", "Drives simulations and defenses from the browser")
-  System_Ext(nvdApi, "NVD API", "Vulnerability data")
+  Person(securityAnalyst, "Security Analyst", "Drives simulations and evaluations from the browser")
 
   System_Boundary(networkDefense, "Network Defense") {
-    Container(spa, "Dashboard SPA", "Svelte 5, LiveSvelte, Bits UI, Tailwind", "Topology editor, controls, simulation report")
-    Container(phoenix, "Phoenix App", "Elixir, Phoenix LiveView, Bandit", "Web layer, domain engine, persistence")
-    ContainerDb(postgres, "PostgreSQL", "PostgreSQL 18", "Graphs, nodes, edges, simulations, iteration steps")
+    Container(spa, "Dashboard SPA", "Svelte 5, LiveSvelte, TypeScript", "Topology editor, controls, report view")
+    Container(phoenix, "Phoenix App", "Elixir, Phoenix LiveView, Bandit", "Web layer, domain engine, Ecto persistence")
+    ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Graphs, revisions, simulations, evaluation runs")
   }
 
   Rel(securityAnalyst, spa, "Uses", "HTTPS")
-  Rel(spa, phoenix, "LiveView events both ways", "WebSocket")
-  Rel(phoenix, postgres, "Reads/writes", "Ecto")
-  Rel(phoenix, nvdApi, "Fetches vulnerability data", "HTTPS")
+  Rel(spa, phoenix, "LiveView events", "WebSocket")
+  Rel(phoenix, postgres, "Reads and writes", "Ecto")
 ```
 
-## Level 2 — Container, Observability Stack
+### Backend-to-frontend contract generation
 
-The observability wiring in isolation. Traces and metrics leave the app by OTLP through the collector; logs bypass the collector and reach Loki via Alloy tailing the shared JSONL file, which keeps compile noise and framework banners out of Loki (see `infra/modules/local/observability/config/alloy-config.alloy` and `docs/infrastructure.md`). Grafana correlates traces with logs through `trace_id` structured metadata. `node-exporter`, `cadvisor`, and `postgres-exporter` are also scraped by Prometheus but omitted here as generic or peripheral infrastructure. The app's log-write path is shown in the Deployment and Observability Pipeline diagrams; here `jsonlLogs` is the file Alloy tails.
+The frontend gets its data model from the backend. Backend contract types are
+the single source; `mix gen.contracts`
+([`src/lib/mix/tasks/gen.contracts.ex`](../src/lib/mix/tasks/gen.contracts.ex))
+parses their typespecs and writes generated TypeScript to
+`src/assets/svelte/contracts.generated.ts`. Svelte components import those
+generated types. This keeps the frontend types in sync with the backend.
+
+## Level 2: Container, Analysis Service and Observability Stack
+
+Statistical analysis runs in a separate local Python service. The app hands a
+completed evaluation result archive to it over HTTP and receives a result
+archive back. Analysis follows a completed evaluation or export; it is a
+follow-on step, not part of the run itself. The detailed methods are described
+in the [analysis README](../evaluation/analysis/README.md), not here.
+
+The observability services store telemetry. Traces and metrics leave the app
+by OTLP through the collector. Logs bypass the collector: Alloy tails the
+shared structured-log volume and pushes parsed logs to Loki, which keeps
+compile noise out of Loki (see the Alloy configuration in
+`infra/modules/local/observability/config`). Grafana correlates traces with
+logs.
 
 ```mermaid
 C4Container
-  title Container — Observability Stack
+  title Container: Analysis Service and Observability Stack
 
   UpdateLayoutConfig($c4ShapeInRow="4", $c4BoundaryInRow="1")
 
-  Container_Ext(phoenix, "Phoenix App", "Elixir", "Source of OTLP and the JSONL log file")
+  Container_Ext(phoenix, "Phoenix App", "Elixir", "Source of OTLP and the structured log file")
+  Container_Ext(analysisSvc, "Analysis Service", "Python, Starlette", "Statistical analysis of result archives")
+
   Container(otelCollector, "OTel Collector", "otel-collector-contrib", "Receives OTLP, fans out traces and metrics")
   Container(tempo, "Tempo", "Grafana Tempo", "Trace store")
   Container(prometheus, "Prometheus", "Prometheus", "Metrics TSDB")
   Container(grafana, "Grafana", "Grafana", "Dashboards with trace-log correlation")
   Container(loki, "Loki", "Grafana Loki", "Log store")
-  Container(alloy, "Alloy", "Grafana Alloy", "Tails the app JSONL log file")
-  ContainerDb(jsonlLogs, "App JSONL Logs", "File on network-defense-log volume", "Structured Logger output")
+  Container(alloy, "Alloy", "Grafana Alloy", "Tails the structured-log volume")
+  ContainerDb(jsonlLogs, "Structured Log Volume", "Shared file volume", "Structured Logger output, one file per app replica")
 
+  Rel(phoenix, analysisSvc, "Posts result archive, receives result", "HTTP")
   Rel(phoenix, otelCollector, "Exports traces and metrics", "OTLP/HTTP")
   Rel(otelCollector, tempo, "Forwards spans", "OTLP/gRPC")
   Rel(prometheus, otelCollector, "Scrapes metrics exporter", "HTTP")
   Rel(alloy, jsonlLogs, "Tails", "read-only mount")
   Rel(alloy, loki, "Pushes parsed logs", "HTTP")
   Rel(grafana, prometheus, "Queries metrics", "HTTP")
-  Rel(grafana, tempo, "Queries traces", "HTTP, correlates with Loki via trace_id")
+  Rel(grafana, tempo, "Queries traces, correlates with Loki via trace_id", "HTTP")
   Rel(grafana, loki, "Queries logs", "HTTP")
 
   UpdateRelStyle(phoenix, otelCollector, $offsetY="-15")
@@ -83,27 +110,38 @@ C4Container
 
 ## Deployment
 
-A Terraform-managed Docker deployment. Dev publishes everything to loopback, migrates and seeds before app startup, and backs secrets with files. Internal observability wiring, the shared log volume, and exporter scrape targets are shown in the Container — Observability diagram; here the stack is drawn only for placement with the app-to-stack feed.
+The system runs as a Terraform-managed Docker stack. The stack shows a
+production-like placement: a replicated app service, the database, the Python
+analysis service, the observability services, and the shared structured-log
+volume.
+
+The setup applies in development. In production, a one-shot migration job runs
+`/app/bin/migrate` before the app starts instead of the development setup step.
 
 ```mermaid
 C4Deployment
-  title Deployment — Terraform-Managed Docker
+  title Deployment: Terraform-Managed Docker Stack
 
   UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 
   Person(securityAnalyst, "Security Analyst", "Uses the dashboard")
 
-  Deployment_Node(browser, "Analyst Browser", "Chrome/Firefox") {
+  Deployment_Node(browser, "Analyst Browser", "Chrome or Firefox") {
     Container(spa, "Dashboard SPA", "Svelte 5", "Topology editor and reports")
   }
 
   Deployment_Node(host, "Docker Host", "Linux") {
     Deployment_Node(app, "App", "Elixir release") {
-      Container(phoenix, "Phoenix App", "Elixir, Bandit", "Web :4000, metrics :4001")
-      Container(migration, "Migration Job", "Elixir release", "One-shot /app/bin/migrate, prod")
+      Container(phoenix, "Phoenix App", "Elixir, Bandit", "Replicated service")
     }
-    Deployment_Node(data, "Data", "PostgreSQL 18") {
+    Deployment_Node(analysis, "Analysis", "Python") {
+      Container(analysisSvc, "Analysis Service", "Python, Starlette", "Statistical analysis")
+    }
+    Deployment_Node(data, "Data", "PostgreSQL") {
       ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Persistence")
+    }
+    Deployment_Node(logs, "Shared Volume", "Structured logs") {
+      ContainerDb(jsonlLogs, "Structured Log Volume", "File volume", "One log file per app replica")
     }
     Deployment_Node(obs, "Observability Stack", "Grafana stack") {
       Container(otelCollector, "OTel Collector", "otel-collector-contrib", "OTLP receiver")
@@ -117,62 +155,28 @@ C4Deployment
 
   Rel(securityAnalyst, spa, "Uses", "HTTPS")
   Rel(spa, phoenix, "LiveView events", "WebSocket")
-  Rel(phoenix, postgres, "Reads/writes", "Ecto")
-  Rel(phoenix, otelCollector, "Exports OTLP and writes logs", "HTTP / file")
-  Rel(migration, postgres, "Applies migrations", "Ecto")
+  Rel(phoenix, postgres, "Reads and writes", "Ecto")
+  Rel(phoenix, analysisSvc, "Posts result archive, receives result", "HTTP")
+  Rel(phoenix, jsonlLogs, "Writes structured logs", "file")
+  Rel(alloy, jsonlLogs, "Tails", "read-only mount")
+  Rel(phoenix, otelCollector, "Exports OTLP", "HTTP")
 ```
 
-## Flow — Attack-Simulation Run
+The app service scales by configured replicas; each replica writes its own
+structured log file to the shared application-log volume, and Alloy tails that
+directory. The replication count and other sizes are Terraform inputs in
+`infra/environments/local`.
 
-The user triggers a run from the SPA; the LiveView accepts it, hands work to a supervised task that runs Monte Carlo iterations with propagated OTel context, persists results, and pushes a contract-validated completion event back over PubSub. See `dashboard_live.ex` and `Simulations.run_async/1`.
+## Engineering rationale
 
-```mermaid
-sequenceDiagram
-  title Attack-Simulation Run
+The reasons below cover only non-obvious boundaries.
 
-  participant SPA as Dashboard SPA
-  participant LV as DashboardLive (Elixir)
-  participant Sim as Simulations
-  participant TS as TaskSupervisor
-  participant Eng as Simulator
-  participant DB as PostgreSQL
-
-  SPA->>LV: run_simulation_request (WebSocket)
-  LV->>Sim: Simulations.run_async
-  Sim->>TS: start_child (OTel span propagated)
-  TS->>Eng: execute Monte Carlo runs (seeded)
-  Eng->>DB: persist experiment & steps (Ecto)
-  Sim-->>LV: broadcast simulation_completed (PubSub)
-  LV-->>SPA: push_event simulation_completed (WebSocket)
-```
-
-## Flow — Observability Pipeline
-
-Two pipelines run concurrently: traces and metrics go OTLP through the collector; logs reach Loki via Alloy tailing the shared JSONL file. Grafana correlates traces with logs through `trace_id` structured metadata. Pull-based operations (Prometheus scraping, Alloy tailing) are continuous, noted below.
-
-```mermaid
-sequenceDiagram
-  title Observability Pipeline
-
-  participant App as Phoenix App
-  participant Coll as OTel Collector
-  participant Tempo as Tempo
-  participant Prom as Prometheus
-  participant Logs as App JSONL Logs
-  participant Alloy as Alloy
-  participant Loki as Loki
-  participant Graf as Grafana
-
-  Note over App,Logs: two pipelines run concurrently
-  App->>Coll: export traces & metrics (OTLP/HTTP)
-  Coll->>Tempo: forward spans (OTLP/gRPC)
-  Note over Prom,Coll: continuous pull
-  Prom->>Coll: scrape metrics exporter (HTTP)
-  App->>Logs: write structured logs (file)
-  Note over Alloy,Logs: continuous tail
-  Alloy->>Logs: tail (read-only mount)
-  Alloy->>Loki: push parsed logs (HTTP)
-  Graf->>Prom: query metrics (HTTP)
-  Graf->>Tempo: query traces, correlate with Loki via trace_id (HTTP)
-  Graf->>Loki: query logs (HTTP)
-```
+- **One application.** A single OTP app hosts the web layer, the domain
+  engine, and Ecto persistence. The domain shares LiveView context and read
+  models with no separate service boundary.
+- **Separate analysis service.** Statistical analysis is heavy numeric work
+  with its own toolchain. A separate Python service keeps that toolchain out
+  of the Elixir release and isolates its failure mode from the app.
+- **Logs by file tail.** Logs bypass the collector and reach Loki through Alloy
+  tailing the shared volume. This keeps framework banners and compile noise
+  out of Loki and keeps the app log-write path simple.
