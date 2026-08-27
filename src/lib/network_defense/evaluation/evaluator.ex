@@ -57,7 +57,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       log_evaluation_started(run)
 
       try do
-        result = execute_run(run, revision_id)
+        result = execute_run(run, revision_id, started_at)
         set_evaluation_span_status(result)
         log_evaluation_result(run, result, Observability.duration_ms(started_at))
         result
@@ -74,14 +74,14 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     end
   end
 
-  defp execute_run(run, revision_id) do
+  defp execute_run(run, revision_id, started_at) do
     with {:ok, graph} <- load_source(revision_id),
          :ok <- set_graph_span_attributes(graph),
          {:ok, schedule} <- build_schedule(run),
          :ok <- emit_progress(run.id, graph, 0, progress_total(run), "Selecting plans"),
          {:ok, plans} <- select_plans(run, graph, schedule),
          :ok <- run_experiments(run, graph, schedule, plans) do
-      EvaluationRuns.complete(run)
+      EvaluationRuns.complete(run, Observability.duration_ms(started_at))
     else
       {:error, reason} -> fail(run, reason)
     end

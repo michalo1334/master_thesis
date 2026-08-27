@@ -17,7 +17,8 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
           source_graph_revision: GraphRevision.t() | Ecto.Association.NotLoaded.t() | nil,
           resolved_manifest: map() | nil,
           status: String.t() | nil,
-          failure_reason: String.t() | nil
+          failure_reason: String.t() | nil,
+          runtime_ms: non_neg_integer() | nil
         }
 
   schema "evaluation_runs" do
@@ -27,6 +28,7 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
     field :resolved_manifest, :map
     field :status, :string, default: "running"
     field :failure_reason, :string
+    field :runtime_ms, :integer
 
     timestamps(type: :utc_datetime)
   end
@@ -38,7 +40,8 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
       :source_graph_revision_id,
       :resolved_manifest,
       :status,
-      :failure_reason
+      :failure_reason,
+      :runtime_ms
     ])
     |> validate_required([
       :evaluation_manifest_id,
@@ -47,6 +50,7 @@ defmodule NetworkDefense.Evaluation.EvaluationRun do
       :status
     ])
     |> validate_inclusion(:status, ["running", "completed", "failed", "cancelled"])
+    |> validate_number(:runtime_ms, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:evaluation_manifest_id)
     |> foreign_key_constraint(:source_graph_revision_id)
   end

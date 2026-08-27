@@ -49,8 +49,10 @@ defmodule NetworkDefenseWeb do
   end
 
   def live_view do
+    log = if Mix.env() == :dev, do: :debug, else: false
+
     quote do
-      use Phoenix.LiveView, log: false
+      use Phoenix.LiveView, log: unquote(log)
 
       unquote(html_helpers())
     end

@@ -19,7 +19,10 @@ PAYLOAD_FILES = (
     "plans.jsonl",
     "trials.csv",
     "capability_outcomes.csv",
+    "pre_attack_flow_statuses.csv",
+    "host_compromises.csv",
     "summary.csv",
+    "evaluator_runtime.csv",
 )
 REQUIRED_FILES = PAYLOAD_FILES + (
     "checksums.txt",
@@ -54,6 +57,15 @@ SUMMARY_HEADERS = (
     "max_blast_radius",
     "runtime_ms",
 )
+FLOW_HEADERS = (
+    "experiment_id", "plan_id", "capability_id", "capability_name",
+    "source_segment_id", "target_service_id", "available",
+)
+HOST_HEADERS = (
+    "experiment_id", "plan_id", "trial_index", "seed", "host_id",
+    "host_name", "entry_host", "compromised",
+)
+EVALUATOR_RUNTIME_HEADERS = ("runtime_ms",)
 
 
 @dataclass
@@ -64,7 +76,10 @@ class LoadedExport:
     plans: list[dict]
     trials: list[dict]
     capabilities: list[dict]
+    flows: list[dict]
+    hosts: list[dict]
     summary: list[dict]
+    evaluator_runtime: list[dict]
     hashes: dict[str, str]
     checksum_hash: str
 
@@ -165,8 +180,13 @@ def _load(source: str | Path) -> LoadedExport:
                 raise _error(f"invalid plan at line {line_number}") from exc
         trials = _csv_rows(root / "trials.csv", TRIAL_HEADERS)
         capabilities = _csv_rows(root / "capability_outcomes.csv", CAPABILITY_HEADERS)
+        flows = _csv_rows(root / "pre_attack_flow_statuses.csv", FLOW_HEADERS)
+        hosts = _csv_rows(root / "host_compromises.csv", HOST_HEADERS)
         summary = _csv_rows(root / "summary.csv", SUMMARY_HEADERS)
-        return LoadedExport(root, temporary, manifest, plans, trials, capabilities, summary, hashes, checksum_hash)
+        evaluator_runtime = _csv_rows(root / "evaluator_runtime.csv", EVALUATOR_RUNTIME_HEADERS)
+        if len(evaluator_runtime) != 1:
+            raise _error("evaluator_runtime.csv must contain exactly one row")
+        return LoadedExport(root, temporary, manifest, plans, trials, capabilities, flows, hosts, summary, evaluator_runtime, hashes, checksum_hash)
     except (UnicodeError, NotImplementedError) as exc:
         if temporary:
             shutil.rmtree(temporary, ignore_errors=True)
@@ -343,6 +363,108 @@ def _normalise_capabilities(
         raise _error("capability outcomes must cover every trial consistently")
     return values, names
 
+
+def _boolean(value: str, field: str) -> bool:
+    normalised = value.lower()
+    if normalised not in ("true", "false", "1", "0"):
+        raise _error(f"invalid {field}: {value}")
+    return normalised in ("true", "1")
+
+
+def _experiment_trials(plan_ids: set[str], rows: list[dict], expected_trials: int) -> dict[tuple[str, int], int]:
+    values = {}
+    experiments = {}
+    for row in rows:
+        experiment_id = row.get("experiment_id", "").strip()
+        plan_id = row.get("plan_id", "").strip()
+        if not experiment_id:
+            raise _error("trial experiment_id must be non-empty")
+        if plan_id and plan_id not in plan_ids:
+            raise _error(f"unknown plan in trial: {plan_id}")
+        if experiment_id in experiments and experiments[experiment_id] != plan_id:
+            raise _error(f"experiment has conflicting plan IDs: {experiment_id}")
+        experiments[experiment_id] = plan_id
+        trial_index = _integer(row.get("trial_index"), "trial_index")
+        seed = _integer(row.get("seed"), "attack seed")
+        key = (experiment_id, trial_index)
+        if trial_index < 1 or trial_index > expected_trials or seed < 0 or key in values:
+            raise _error(f"invalid or duplicate trial record: {experiment_id}, {trial_index}")
+        values[key] = seed
+    for experiment_id in experiments:
+        indexes = sorted(index for candidate, index in values if candidate == experiment_id)
+        if indexes != list(range(1, expected_trials + 1)):
+            raise _error(f"experiment {experiment_id} does not contain exactly evaluation.trials records")
+    return values
+
+
+def _normalise_phase_one_evidence(plan_ids: set[str], trials: list[dict], flows: list[dict], hosts: list[dict], expected_trials: int) -> tuple[list[dict], list[dict]]:
+    trial_seeds = _experiment_trials(plan_ids, trials, expected_trials)
+    experiment_plans = {row["experiment_id"].strip(): row.get("plan_id", "").strip() for row in trials}
+    flow_sets = {}
+    capability_names = {}
+    normalised_flows = []
+    for row in flows:
+        experiment_id = row.get("experiment_id", "").strip()
+        plan_id = row.get("plan_id", "").strip()
+        identity = (row.get("capability_id", "").strip(), row.get("source_segment_id", "").strip(), row.get("target_service_id", "").strip())
+        if not experiment_id or not all(identity) or not row.get("capability_name", "").strip():
+            raise _error("flow IDs and names must be non-empty")
+        if experiment_plans.get(experiment_id) != plan_id or identity in flow_sets.setdefault(experiment_id, set()):
+            raise _error(f"invalid or duplicate pre-attack flow status: {experiment_id}")
+        if capability_names.setdefault(identity[0], row["capability_name"].strip()) != row["capability_name"].strip():
+            raise _error(f"conflicting capability names for flow: {identity[0]}")
+        flow_sets[experiment_id].add(identity)
+        normalised_flows.append({**row, "experiment_id": experiment_id, "plan_id": plan_id, "available": _boolean(row["available"], "available")})
+    if flow_sets and (set(flow_sets) != set(experiment_plans) or len({frozenset(value) for value in flow_sets.values()}) != 1):
+        raise _error("pre-attack flow statuses must cover every experiment consistently")
+
+    host_sets = {}
+    host_metadata = {}
+    normalised_hosts = []
+    for row in hosts:
+        experiment_id = row.get("experiment_id", "").strip()
+        plan_id = row.get("plan_id", "").strip()
+        trial_index = _integer(row.get("trial_index"), "host trial_index")
+        host_id = row.get("host_id", "").strip()
+        if not host_id or not row.get("host_name", "").strip() or experiment_plans.get(experiment_id) != plan_id:
+            raise _error("invalid host compromise record")
+        if trial_seeds.get((experiment_id, trial_index)) != _integer(row.get("seed"), "host attack seed"):
+            raise _error(f"host row does not match trial: {experiment_id}, {trial_index}")
+        key = (experiment_id, trial_index)
+        if host_id in host_sets.setdefault(key, set()):
+            raise _error(f"duplicate host compromise record: {experiment_id}, {trial_index}, {host_id}")
+        metadata = (row["host_name"].strip(), row["entry_host"].lower())
+        if host_metadata.setdefault(host_id, metadata) != metadata:
+            raise _error(f"conflicting host metadata: {host_id}")
+        host_sets[key].add(host_id)
+        normalised_hosts.append({**row, "experiment_id": experiment_id, "plan_id": plan_id, "trial_index": trial_index, "host_id": host_id, "entry_host": _boolean(row["entry_host"], "entry_host"), "compromised": _boolean(row["compromised"], "compromised")})
+    if set(host_sets) != set(trial_seeds) or len({frozenset(value) for value in host_sets.values()}) != 1 or any(
+        sum(row["entry_host"] for row in normalised_hosts if (row["experiment_id"], row["trial_index"]) == key) != 1 for key in host_sets
+    ):
+        raise _error("host compromises must cover every trial consistently")
+    return normalised_flows, normalised_hosts
+
+
+def _normalise_summary(trials: list[dict], rows: list[dict], expected_trials: int) -> list[dict]:
+    experiment_plans = {row["experiment_id"].strip(): row.get("plan_id", "").strip() for row in trials}
+    values = {}
+    for row in rows:
+        experiment_id = row.get("experiment_id", "").strip()
+        plan_id = row.get("plan_id", "").strip()
+        if not experiment_id or experiment_id not in experiment_plans:
+            raise _error(f"unknown summary experiment: {experiment_id}")
+        if experiment_plans[experiment_id] != plan_id or experiment_id in values:
+            raise _error(f"invalid or duplicate summary record: {experiment_id}")
+        if _integer(row.get("trial_count"), "summary trial_count") != expected_trials:
+            raise _error(f"invalid summary trial_count: {experiment_id}")
+        runtime_ms = _finite(row.get("runtime_ms"), "experiment runtime_ms")
+        if runtime_ms < 0:
+            raise _error("experiment runtime_ms must be non-negative")
+        values[experiment_id] = {**row, "experiment_id": experiment_id, "plan_id": plan_id, "runtime_ms": runtime_ms}
+    if set(values) != set(experiment_plans):
+        raise _error("summary.csv must cover every experiment exactly once")
+    return list(values.values())
+
 __all__ = [
     "LoadedExport",
     "PAYLOAD_FILES",
@@ -350,10 +472,15 @@ __all__ = [
     "TRIAL_HEADERS",
     "CAPABILITY_HEADERS",
     "SUMMARY_HEADERS",
+    "FLOW_HEADERS",
+    "HOST_HEADERS",
+    "EVALUATOR_RUNTIME_HEADERS",
     "_load",
     "_configuration",
     "_manifest_requirements",
     "_normalise_plans",
     "_normalise_trials",
     "_normalise_capabilities",
+    "_normalise_phase_one_evidence",
+    "_normalise_summary",
 ]

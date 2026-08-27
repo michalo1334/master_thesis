@@ -3,6 +3,38 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
 
   @required ~w(analysis.json metadata.json)
 
+  @comparison_fields ~w(comparison strategy model_variant baseline baseline_model_variant budget)
+  @outcome_fields @comparison_fields ++ ~w(outcome)
+  @interval_fields ~w(ci_lower ci_upper ci_half_width)
+
+  @primary_fields @outcome_fields ++
+                    ~w(paired_mean_difference) ++ @interval_fields ++ ~w(d_z p_raw p_adjusted)
+  @secondary_fields @outcome_fields ++ ~w(mean_difference) ++ @interval_fields
+  @capability_fields @comparison_fields ++
+                       ~w(capability_id tested_probability baseline_probability probability_difference) ++
+                       @interval_fields
+
+  @binary_fields ~w(strategy model_variant baseline baseline_model_variant outcome capability_id experiment_id plan_id)
+  @nullable_binary_fields ~w(capability_name)
+  @nullable_boolean_fields ~w(passes)
+  @boolean_fields ~w(pre_attack_feasible)
+  @nullable_integer_fields ~w(comparison budget paired_attack_seed_count approximate_trials)
+  @nullable_number_fields ~w(
+    ci_half_width target paired_mean_difference ci_lower ci_upper d_z p_raw p_adjusted mean_difference
+    tested_probability baseline_probability probability_difference
+  )
+  @non_negative_integer_fields ~w(unavailable_required_flow_count affected_capability_count)
+
+  @row_validators [
+    {@binary_fields, :binary},
+    {@nullable_binary_fields, :nullable_binary},
+    {@nullable_boolean_fields, :nullable_boolean},
+    {@boolean_fields, :boolean},
+    {@nullable_integer_fields, :nullable_integer},
+    {@nullable_number_fields, :nullable_number},
+    {@non_negative_integer_fields, :non_negative_integer}
+  ]
+
   @spec parse(binary(), pos_integer()) :: {:ok, map()} | {:error, term()}
   def parse(zip, max_bytes) when is_binary(zip) and is_integer(max_bytes) and max_bytes > 0 do
     with {:ok, entries} <-
@@ -17,7 +49,8 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
          pilot_comparison_pass: metadata["pilot_comparison_pass"],
          primary_results: analysis["primary_results"],
          secondary_results: analysis["secondary_results"],
-         capability_results: analysis["capability_results"]
+         capability_results: analysis["capability_results"],
+         feasibility_summary: analysis["feasibility_summary"]
        }}
     end
   rescue
@@ -64,11 +97,13 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
              ~w(manifest_id schema_version model_version command_mode)
            ),
          :ok <- required_list_fields(metadata, ["pilot_comparison_pass", "model_variants"]),
+         :ok <- required_map_fields(metadata, ["runtime_summary"]),
          :ok <-
            required_list_fields(analysis, [
              "primary_results",
              "secondary_results",
-             "capability_results"
+             "capability_results",
+             "feasibility_summary"
            ]),
          :ok <-
            rows(
@@ -78,17 +113,24 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
          :ok <-
            rows(
              analysis["primary_results"],
-             ~w(comparison strategy model_variant baseline baseline_model_variant budget outcome paired_mean_difference ci_lower ci_upper ci_half_width d_z p_raw p_adjusted)
+             @primary_fields
            ),
          :ok <-
            rows(
              analysis["secondary_results"],
-             ~w(comparison strategy model_variant baseline baseline_model_variant budget outcome mean_difference ci_lower ci_upper ci_half_width)
+             @secondary_fields
+           ),
+         :ok <-
+           rows(
+             analysis["capability_results"],
+             @capability_fields
+           ),
+         :ok <-
+           rows(
+             analysis["feasibility_summary"],
+             ~w(experiment_id plan_id pre_attack_feasible unavailable_required_flow_count affected_capability_count)
            ) do
-      rows(
-        analysis["capability_results"],
-        ~w(comparison strategy model_variant baseline baseline_model_variant budget capability_id tested_probability baseline_probability probability_difference ci_lower ci_upper ci_half_width)
-      )
+      runtime_summary(metadata["runtime_summary"])
     end
   end
 
@@ -109,26 +151,29 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
   end
 
   defp valid_row?(row) do
-    valid_fields?(
-      row,
-      ~w(strategy model_variant baseline baseline_model_variant outcome capability_id),
-      &is_binary/1
-    ) and
-      valid_fields?(row, ~w(capability_name), &(is_binary(&1) or is_nil(&1))) and
-      valid_fields?(row, ~w(passes), &(is_boolean(&1) or is_nil(&1))) and
-      valid_fields?(
-        row,
-        ~w(comparison budget paired_attack_seed_count approximate_trials),
-        &(is_integer(&1) or is_nil(&1))
-      ) and
-      valid_fields?(
-        row,
-        ~w(ci_half_width target paired_mean_difference ci_lower ci_upper d_z p_raw p_adjusted mean_difference tested_probability baseline_probability probability_difference),
-        &(is_number(&1) or is_nil(&1))
-      )
+    Enum.all?(@row_validators, fn {fields, validator} -> valid_fields?(row, fields, validator) end)
+  end
+
+  defp runtime_summary(summary) do
+    fields =
+      ~w(median_plan_selection_runtime_ms median_simulation_runtime_ms evaluator_runtime_ms)
+
+    if Enum.all?(fields, &(is_number(summary[&1]) and summary[&1] >= 0)),
+      do: :ok,
+      else: {:error, :malformed_runtime_summary}
   end
 
   defp valid_fields?(row, fields, validator) do
-    Enum.all?(fields, fn field -> not Map.has_key?(row, field) or validator.(row[field]) end)
+    Enum.all?(fields, fn field ->
+      not Map.has_key?(row, field) or validate(validator, row[field])
+    end)
   end
+
+  defp validate(:binary, value), do: is_binary(value)
+  defp validate(:nullable_binary, value), do: is_binary(value) or is_nil(value)
+  defp validate(:nullable_boolean, value), do: is_boolean(value) or is_nil(value)
+  defp validate(:boolean, value), do: is_boolean(value)
+  defp validate(:nullable_integer, value), do: is_integer(value) or is_nil(value)
+  defp validate(:nullable_number, value), do: is_number(value) or is_nil(value)
+  defp validate(:non_negative_integer, value), do: is_integer(value) and value >= 0
 end

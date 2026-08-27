@@ -37,6 +37,7 @@ function analysisFixture(
 ): EvaluationAnalysis {
   return {
     capability_results: [],
+    feasibility_summary: [],
     metadata: {
       command_mode: "analyze",
       manifest_id: "manifest-1",
@@ -45,6 +46,11 @@ function analysisFixture(
         { id: "full", objective: "mission_then_blast_radius" },
         { id: "blast_only_unconstrained", objective: "blast_radius_only" },
       ],
+      runtime_summary: {
+        median_plan_selection_runtime_ms: 25,
+        median_simulation_runtime_ms: 50,
+        evaluator_runtime_ms: 75,
+      },
       schema_version: 1,
       estimand_note: "tested strategy minus baseline",
     },
@@ -258,6 +264,59 @@ describe("AnalysisReport", () => {
     expect(
       screen.getByText(/blast_only_unconstrained/, { selector: "pre" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows archive timing and pre-attack feasibility summaries", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        feasibility_summary: [
+          {
+            experiment_id: "baseline-experiment",
+            plan_id: "",
+            pre_attack_feasible: false,
+            unavailable_required_flow_count: 2,
+            affected_capability_count: 1,
+          },
+          {
+            experiment_id: "plan-experiment",
+            plan_id: "plan-1",
+            pre_attack_feasible: true,
+            unavailable_required_flow_count: 0,
+            affected_capability_count: 0,
+          },
+        ],
+        metadata: {
+          ...analysisFixture().metadata,
+          runtime_summary: {
+            median_plan_selection_runtime_ms: 1250,
+            median_simulation_runtime_ms: 500,
+            evaluator_runtime_ms: 2500,
+          },
+        },
+      }),
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("heading", { name: "Archive runtime summary" }),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByText("1.3 s")).toBeInTheDocument();
+    expect(screen.getByText("500 ms")).toBeInTheDocument();
+    expect(screen.getByText("2.5 s")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Pre-attack feasibility" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Baseline")).toBeInTheDocument();
+    expect(screen.getByText("plan-1")).toBeInTheDocument();
+    expect(screen.getByText("Infeasible")).toBeInTheDocument();
+    expect(screen.getByText("Feasible")).toBeInTheDocument();
   });
 
   it("shows capability names and opens their graph nodes", async () => {

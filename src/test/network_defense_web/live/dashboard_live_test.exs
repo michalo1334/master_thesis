@@ -379,12 +379,26 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           manifest_id: "manifest-1",
           schema_version: 1,
           model_version: "model-1",
-          command_mode: "pilot"
+          command_mode: "pilot",
+          runtime_summary: %{
+            median_plan_selection_runtime_ms: 1.0,
+            median_simulation_runtime_ms: 2.0,
+            evaluator_runtime_ms: 3.0
+          }
         },
         pilot_comparison_pass: [],
         primary_results: [],
         secondary_results: [],
-        capability_results: []
+        capability_results: [],
+        feasibility_summary: [
+          %{
+            experiment_id: "baseline-experiment",
+            plan_id: "",
+            pre_attack_feasible: true,
+            unavailable_required_flow_count: 0,
+            affected_capability_count: 0
+          }
+        ]
       }
 
       send(view.pid, {:evaluation_analysis_result, document_id, run_id, "pilot", {:ok, analysis}})

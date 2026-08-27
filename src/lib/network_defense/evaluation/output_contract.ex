@@ -4,9 +4,11 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   evaluation run from its linked execution rows.
 
   The files are `manifest.resolved.json`, `graph.json`, `plans.jsonl`,
-  `trials.csv`, `capability_outcomes.csv`, `summary.csv`, and `checksums.txt`. Plans and trial rows are
-  sorted and volatile timestamps are excluded. `graph.json` is the portable
-  graph input from the immutable source graph revision.
+   `trials.csv`, `capability_outcomes.csv`, `pre_attack_flow_statuses.csv`,
+   `host_compromises.csv`, `summary.csv`, `evaluator_runtime.csv`, and
+   `checksums.txt`. Rows are sorted and volatile timestamps are excluded.
+   `graph.json` is the portable graph input from the immutable source graph
+   revision.
   """
 
   import Ecto.Query
@@ -14,7 +16,9 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Repo
@@ -33,7 +37,10 @@ defmodule NetworkDefense.Evaluation.OutputContract do
     "plans.jsonl",
     "trials.csv",
     "capability_outcomes.csv",
+    "pre_attack_flow_statuses.csv",
+    "host_compromises.csv",
     "summary.csv",
+    "evaluator_runtime.csv",
     "checksums.txt"
   ]
 
@@ -48,6 +55,25 @@ defmodule NetworkDefense.Evaluation.OutputContract do
     :disrupted,
     :impact_weight
   ]
+  @required_flow_columns [
+    :experiment_id,
+    :plan_id,
+    :capability_id,
+    :capability_name,
+    :source_segment_id,
+    :target_service_id,
+    :available
+  ]
+  @host_compromise_columns [
+    :experiment_id,
+    :plan_id,
+    :trial_index,
+    :seed,
+    :host_id,
+    :host_name,
+    :entry_host,
+    :compromised
+  ]
   @summary_columns [
     :experiment_id,
     :plan_id,
@@ -60,14 +86,17 @@ defmodule NetworkDefense.Evaluation.OutputContract do
     :max_blast_radius,
     :runtime_ms
   ]
+  @archive_timestamp {{1980, 1, 1}, {0, 0, 0}}
 
   @spec file_names() :: [String.t()]
   def file_names, do: @file_names
 
   @spec files(EvaluationRun.t()) :: {:ok, [{String.t(), binary()}]} | {:error, term()}
-  def files(%EvaluationRun{status: "completed"} = run) do
+  def files(%EvaluationRun{status: "completed", runtime_ms: runtime_ms} = run)
+      when is_integer(runtime_ms) and runtime_ms >= 0 do
     with {:ok, graph} <- load_graph(run.source_graph_revision_id) do
-      {trial_rows, capability_rows} = export_rows(run.id)
+      {trial_rows, capability_rows, required_flow_rows, host_compromise_rows} =
+        export_rows(run.id)
 
       contents = [
         {"manifest.resolved.json", json(run.resolved_manifest)},
@@ -75,13 +104,18 @@ defmodule NetworkDefense.Evaluation.OutputContract do
         {"plans.jsonl", plans_jsonl(run)},
         {"trials.csv", trials_csv(trial_rows)},
         {"capability_outcomes.csv", capability_outcomes_csv(capability_rows)},
-        {"summary.csv", summary_csv(run.id)}
+        {"pre_attack_flow_statuses.csv", required_flow_statuses_csv(required_flow_rows)},
+        {"host_compromises.csv", host_compromises_csv(host_compromise_rows)},
+        {"summary.csv", summary_csv(run.id)},
+        {"evaluator_runtime.csv", evaluator_runtime_csv(run)}
       ]
 
       {:ok, contents ++ [{"checksums.txt", checksums(contents)}]}
     end
   end
 
+  def files(%EvaluationRun{status: "completed", runtime_ms: nil}), do: {:error, :missing_runtime}
+  def files(%EvaluationRun{status: "completed"}), do: {:error, :invalid_runtime}
   def files(%EvaluationRun{}), do: {:error, :incomplete}
   def files(nil), do: {:error, :not_found}
 
@@ -96,8 +130,7 @@ defmodule NetworkDefense.Evaluation.OutputContract do
           with {:ok, files} <- files(run) do
             Tracer.set_attributes(%{"evaluation.export.file_count" => length(files)})
 
-            entries =
-              Enum.map(files, fn {name, content} -> {String.to_charlist(name), content} end)
+            entries = Enum.map(files, &archive_entry/1)
 
             case :zip.create(String.to_charlist("evaluation.zip"), entries, [:memory]) do
               {:ok, {_name, zip_binary}} -> {:ok, zip_binary, "evaluation-#{run.id}.zip"}
@@ -248,58 +281,82 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       |> order_by([experiment], asc: experiment.inserted_at, asc: experiment.id)
       |> preload(runs: :iterations)
       |> Repo.all()
-      |> Enum.flat_map(&experiment_rows/1)
+      |> Enum.map(&experiment_rows/1)
 
-    {trial_rows, capability_rows} =
-      Enum.reduce(rows, {[], []}, fn {trial, capabilities}, {trials, outcomes} ->
-        {[trial | trials], [capabilities | outcomes]}
+    {trial_rows, capability_rows, required_flow_rows, host_compromise_rows} =
+      Enum.reduce(rows, {[], [], [], []}, fn {trials, capabilities, required_flows, hosts}, acc ->
+        {trial_acc, capability_acc, required_flow_acc, host_acc} = acc
+
+        {
+          trials ++ trial_acc,
+          capabilities ++ capability_acc,
+          required_flows ++ required_flow_acc,
+          hosts ++ host_acc
+        }
       end)
 
     {Enum.sort_by(trial_rows, &{&1.experiment_id, &1.trial_index}),
      capability_rows
      |> List.flatten()
-     |> Enum.sort_by(&{&1.experiment_id, &1.trial_index, &1.capability_id})}
+     |> Enum.sort_by(&{&1.experiment_id, &1.trial_index, &1.capability_id}),
+     required_flow_rows
+     |> List.flatten()
+     |> Enum.sort_by(
+       &{&1.experiment_id, &1.capability_id, &1.source_segment_id, &1.target_service_id}
+     ),
+     host_compromise_rows
+     |> List.flatten()
+     |> Enum.sort_by(&{&1.experiment_id, &1.trial_index, &1.host_id})}
   end
 
   defp experiment_rows(experiment) do
     graph = load_graph!(experiment.graph_revision_id)
+    required_flows = required_flow_rows(experiment, graph)
+    hosts = hosts(graph)
 
-    Enum.map(experiment.runs, fn run ->
-      foothold_ids =
-        run
-        |> Run.current_attacker_state()
-        |> AttackerState.foothold_nodes()
+    {trials, capability_rows, host_compromise_rows} =
+      Enum.reduce(experiment.runs, {[], [], []}, fn run, {trials, capabilities, host_rows} ->
+        foothold_ids =
+          run
+          |> Run.current_attacker_state()
+          |> AttackerState.foothold_nodes()
 
-      statuses = MissionImpact.capability_statuses(graph, foothold_ids)
+        statuses = MissionImpact.capability_statuses(graph, foothold_ids)
 
-      trial = %{
-        experiment_id: experiment.id,
-        plan_id: experiment.optimization_run_id,
-        trial_index: run.trial_index,
-        seed: run.seed,
-        blast_radius: length(foothold_ids),
-        mission_impact:
-          Enum.reduce(statuses, 0.0, fn status, impact ->
-            if status.down?, do: impact + status.impact_weight, else: impact
+        trial = %{
+          experiment_id: experiment.id,
+          plan_id: experiment.optimization_run_id,
+          trial_index: run.trial_index,
+          seed: run.seed,
+          blast_radius: length(foothold_ids),
+          mission_impact:
+            Enum.reduce(statuses, 0.0, fn status, impact ->
+              if status.down?, do: impact + status.impact_weight, else: impact
+            end)
+        }
+
+        capability_rows =
+          Enum.map(statuses, fn status ->
+            %{
+              experiment_id: experiment.id,
+              plan_id: experiment.optimization_run_id,
+              trial_index: run.trial_index,
+              seed: run.seed,
+              capability_id: status.capability_id,
+              capability_name: status.name,
+              disrupted: status.down?,
+              impact_weight: status.impact_weight
+            }
           end)
-      }
 
-      capabilities =
-        Enum.map(statuses, fn status ->
-          %{
-            experiment_id: experiment.id,
-            plan_id: experiment.optimization_run_id,
-            trial_index: run.trial_index,
-            seed: run.seed,
-            capability_id: status.capability_id,
-            capability_name: status.name,
-            disrupted: status.down?,
-            impact_weight: status.impact_weight
-          }
-        end)
+        {
+          [trial | trials],
+          [capability_rows | capabilities],
+          [host_compromise_rows(experiment, run, hosts, foothold_ids) | host_rows]
+        }
+      end)
 
-      {trial, capabilities}
-    end)
+    {trials, capability_rows, required_flows, host_compromise_rows}
   end
 
   defp trials_csv(rows) do
@@ -308,6 +365,14 @@ defmodule NetworkDefense.Evaluation.OutputContract do
 
   defp capability_outcomes_csv(rows) do
     csv(@capability_columns, rows)
+  end
+
+  defp required_flow_statuses_csv(rows) do
+    csv(@required_flow_columns, rows)
+  end
+
+  defp host_compromises_csv(rows) do
+    csv(@host_compromise_columns, rows)
   end
 
   defp summary_csv(evaluation_run_id) do
@@ -336,6 +401,16 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       end)
 
     csv(@summary_columns, rows)
+  end
+
+  defp evaluator_runtime_csv(run), do: csv([:runtime_ms], [%{runtime_ms: run.runtime_ms}])
+
+  defp archive_entry({name, content}) do
+    metadata =
+      {:file_info, byte_size(content), :regular, :read_write, @archive_timestamp,
+       @archive_timestamp, @archive_timestamp, 0o644, 1, 0, 0, 0, 0, 0}
+
+    {String.to_charlist(name), metadata, content}
   end
 
   defp csv(headers, rows) do
@@ -369,6 +444,46 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       {:ok, graph} -> graph
       {:error, reason} -> raise "cannot load experiment graph: #{inspect(reason)}"
     end
+  end
+
+  defp required_flow_rows(experiment, graph) do
+    graph
+    |> MissionImpact.required_flow_statuses()
+    |> Enum.map(fn flow ->
+      %{
+        experiment_id: experiment.id,
+        plan_id: experiment.optimization_run_id,
+        capability_id: flow.capability_id,
+        capability_name: flow.capability_name,
+        source_segment_id: flow.source_segment_id,
+        target_service_id: flow.target_service_id,
+        available: flow.available?
+      }
+    end)
+  end
+
+  defp hosts(graph) do
+    graph
+    |> Graph.nodes()
+    |> Enum.filter(&(&1.type == Host))
+    |> Enum.sort_by(& &1.id)
+  end
+
+  defp host_compromise_rows(experiment, run, hosts, foothold_ids) do
+    compromised = MapSet.new(foothold_ids)
+
+    Enum.map(hosts, fn host ->
+      %{
+        experiment_id: experiment.id,
+        plan_id: experiment.optimization_run_id,
+        trial_index: run.trial_index,
+        seed: run.seed,
+        host_id: host.id,
+        host_name: host.data.name,
+        entry_host: host.id == experiment.initial_foothold_node_id,
+        compromised: MapSet.member?(compromised, host.id)
+      }
+    end)
   end
 
   defp checksums(contents) do

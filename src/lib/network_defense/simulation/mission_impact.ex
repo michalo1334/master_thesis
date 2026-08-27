@@ -18,6 +18,28 @@ defmodule NetworkDefense.Simulation.MissionImpact do
   @spec pre_attack_status(Graph.t()) :: [map()]
   def pre_attack_status(graph), do: capability_statuses(graph, [])
 
+  @spec required_flow_statuses(Graph.t()) :: [map()]
+  def required_flow_statuses(graph) do
+    materialized = MaterializeReachability.materialize(graph)
+    flows = operational_flows(materialized)
+    hosts_by_segment = hosts_by_segment(graph)
+
+    graph
+    |> Graph.nodes()
+    |> Enum.filter(&(&1.type == MissionCapability))
+    |> Enum.flat_map(fn capability ->
+      Enum.map(capability.data.required_flows, fn flow ->
+        %{
+          capability_id: capability.id,
+          capability_name: capability.data.name,
+          source_segment_id: flow.source_segment_id,
+          target_service_id: flow.target_service_id,
+          available?: flow_exists?(flows, hosts_by_segment, flow)
+        }
+      end)
+    end)
+  end
+
   @spec pre_attack_feasible?(Graph.t()) :: boolean()
   def pre_attack_feasible?(graph) do
     graph

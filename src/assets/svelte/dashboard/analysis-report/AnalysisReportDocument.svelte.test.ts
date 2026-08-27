@@ -3,10 +3,16 @@ import { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
 
 const analysis = {
   capability_results: [],
+  feasibility_summary: [],
   metadata: {
     command_mode: "analyze",
     manifest_id: "m",
     model_version: "v",
+    runtime_summary: {
+      median_plan_selection_runtime_ms: 0,
+      median_simulation_runtime_ms: 0,
+      evaluator_runtime_ms: 0,
+    },
     schema_version: 1,
   },
   pilot_comparison_pass: [],

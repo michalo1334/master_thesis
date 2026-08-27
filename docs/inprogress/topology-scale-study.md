@@ -8,9 +8,9 @@ See the [scope page](../concepts/scope.md) for the research boundary.
 
 ## Status
 
-This study is an approved research design. Current code supports the fixed
-baseline scenario and generic topology sources. The controlled variants are not
-implemented as frozen study inputs.
+This study is an approved research design. Phase 1 uses a manual process for
+the measured inputs. Import, graph-freeze, batch-runner, and replica-validation
+automation remain deferred.
 
 ## Size tiers
 
@@ -78,6 +78,19 @@ Before the full study, the study freezes all comparability inputs:
 - attack seeds;
 - trial count;
 - stopping rules.
+
+## Phase 1 manual process
+
+1. Run a pilot. Choose the measured tiers from the pilot result.
+2. Generate one graph for each measured tier. Save each graph as an immutable
+   revision.
+3. Save a measured manifest that uses the graph revision.
+4. Run the saved measured manifest once as warm-up.
+5. Run five new timed evaluations with the saved measured manifest.
+6. Exclude interrupted or resumed runs from the timing samples.
+7. Use the first timed archive for the outcome analysis.
+
+Do not change a measured graph revision or manifest during these runs.
 
 ## Limits
 

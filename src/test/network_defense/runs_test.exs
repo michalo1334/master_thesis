@@ -148,7 +148,8 @@ defmodule NetworkDefense.RunsTest do
 
       assert {:error, :not_running} =
                NetworkDefense.Evaluation.EvaluationRuns.complete(
-                 Repo.get!(EvaluationRun, evaluation)
+                 Repo.get!(EvaluationRun, evaluation),
+                 0
                )
     end
   end

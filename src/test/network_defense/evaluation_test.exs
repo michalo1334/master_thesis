@@ -684,6 +684,8 @@ defmodule NetworkDefense.EvaluationTest do
 
       assert {:ok, completed} = Evaluation.run(run.id)
       assert completed.status == "completed"
+      assert is_integer(completed.runtime_ms)
+      assert completed.runtime_ms >= 0
     end
 
     test "run fails a run whose source revision is missing" do
@@ -865,12 +867,15 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, completed} = Evaluation.run(run.id)
       assert completed.status == "completed"
 
+      runtime_ms = completed.runtime_ms
+
       plan_count = optimization_run_count(run.id)
       experiment_count = length(experiments_for(run.id))
       trial_count = simulation_run_count(run.id)
 
       assert {:ok, completed} = Evaluation.run(run.id)
       assert completed.status == "completed"
+      assert completed.runtime_ms == runtime_ms
 
       assert optimization_run_count(run.id) == plan_count
       assert length(experiments_for(run.id)) == experiment_count

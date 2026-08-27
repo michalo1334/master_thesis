@@ -12,6 +12,19 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
 
     assert result.metadata["manifest_id"] == "manifest"
     assert result.primary_results == []
+    assert result.feasibility_summary == [feasibility_row()]
+  end
+
+  test "parses a baseline feasibility row with an empty plan ID" do
+    analysis = analysis(%{"feasibility_summary" => [%{feasibility_row() | "plan_id" => ""}]})
+
+    assert {:ok, result} =
+             AnalysisResult.parse(
+               zip(%{"metadata.json" => metadata(), "analysis.json" => analysis}),
+               10_000
+             )
+
+    assert [%{"plan_id" => ""}] = result.feasibility_summary
   end
 
   test "accepts string, null, and missing capability names" do
@@ -26,7 +39,8 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
         Jason.encode!(%{
           "primary_results" => [],
           "secondary_results" => [],
-          "capability_results" => [capability_row]
+          "capability_results" => [capability_row],
+          "feasibility_summary" => [feasibility_row()]
         })
 
       assert {:ok, _result} =
@@ -44,7 +58,8 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       Jason.encode!(%{
         "primary_results" => [],
         "secondary_results" => [],
-        "capability_results" => [%{capability_row() | "capability_name" => 1}]
+        "capability_results" => [%{capability_row() | "capability_name" => 1}],
+        "feasibility_summary" => [feasibility_row()]
       })
 
     assert {:error, :malformed_row} =
@@ -78,7 +93,8 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       Jason.encode!(%{
         "primary_results" => [primary_row()],
         "secondary_results" => [secondary_row()],
-        "capability_results" => [capability_row()]
+        "capability_results" => [capability_row()],
+        "feasibility_summary" => [feasibility_row()]
       })
 
     assert {:ok, result} =
@@ -105,6 +121,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
           "primary_results" => [],
           "secondary_results" => [],
           "capability_results" => [],
+          "feasibility_summary" => [feasibility_row()],
           key => [row]
         })
 
@@ -121,7 +138,8 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       Jason.encode!(%{
         "primary_results" => [%{primary_row() | "model_variant" => 1}],
         "secondary_results" => [],
-        "capability_results" => []
+        "capability_results" => [],
+        "feasibility_summary" => [feasibility_row()]
       })
 
     assert {:error, :malformed_row} =
@@ -155,6 +173,32 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
                  10_000
                )
     end
+  end
+
+  test "rejects malformed Phase 1 summaries" do
+    invalid_feasibility = %{"pre_attack_feasible" => "yes"}
+    invalid_runtime = %{"evaluator_runtime_ms" => -1}
+
+    assert {:error, :malformed_row} =
+             AnalysisResult.parse(
+               zip(%{
+                 "metadata.json" => metadata(),
+                 "analysis.json" =>
+                   analysis(%{
+                     "feasibility_summary" => [Map.merge(feasibility_row(), invalid_feasibility)]
+                   })
+               }),
+               10_000
+             )
+
+    assert {:error, :malformed_runtime_summary} =
+             AnalysisResult.parse(
+               zip(%{
+                 "metadata.json" => metadata(invalid_runtime),
+                 "analysis.json" => analysis()
+               }),
+               10_000
+             )
   end
 
   defp primary_row do
@@ -217,23 +261,45 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
     assert {:error, :member_too_large} = AnalysisResult.parse(oversized, 1)
   end
 
-  defp metadata do
+  defp metadata(runtime_summary \\ %{}) do
     Jason.encode!(%{
       "manifest_id" => "manifest",
       "schema_version" => 3,
       "model_version" => "model",
       "model_variants" => [%{"id" => "full", "objective" => "mission_then_blast_radius"}],
       "command_mode" => "pilot",
-      "pilot_comparison_pass" => []
+      "pilot_comparison_pass" => [],
+      "runtime_summary" =>
+        Map.merge(
+          %{
+            "median_plan_selection_runtime_ms" => 1.0,
+            "median_simulation_runtime_ms" => 2.0,
+            "evaluator_runtime_ms" => 3.0
+          },
+          runtime_summary
+        )
     })
   end
 
-  defp analysis do
-    Jason.encode!(%{
+  defp analysis(overrides \\ %{}) do
+    %{
       "primary_results" => [],
       "secondary_results" => [],
-      "capability_results" => []
-    })
+      "capability_results" => [],
+      "feasibility_summary" => [feasibility_row()]
+    }
+    |> Map.merge(overrides)
+    |> Jason.encode!()
+  end
+
+  defp feasibility_row do
+    %{
+      "experiment_id" => "experiment",
+      "plan_id" => "plan",
+      "pre_attack_feasible" => true,
+      "unavailable_required_flow_count" => 0,
+      "affected_capability_count" => 0
+    }
   end
 
   defp zip(files) do

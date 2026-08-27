@@ -2,7 +2,9 @@
 
 The analysis reads a completed Phase 1 ZIP export. The ZIP contains
 `manifest.resolved.json`, `graph.json`, `plans.jsonl`, `trials.csv`,
-`capability_outcomes.csv`, `summary.csv`, and `checksums.txt`.
+`capability_outcomes.csv`, `pre_attack_flow_statuses.csv`,
+`host_compromises.csv`, `summary.csv`, `evaluator_runtime.csv`, and
+`checksums.txt`.
 
 The resolved manifest declares the strategy runs, comparisons, outcomes,
 resampling settings, correction, and pilot precision target. The analysis core
@@ -20,6 +22,11 @@ cat evaluation.zip | uv run network-defense-analysis analyze - --output - > anal
 Run the commands from this directory. The analysis engine reads local files
 only. Treat the reported uncertainty as simulator uncertainty for the exported
 scenario.
+
+The analysis output contains primary, secondary, and capability results. It
+also contains descriptive host compromise probabilities, feasibility summaries,
+and a runtime summary. The runtime summary gives median plan-selection and
+simulation durations, plus the total evaluator duration.
 
 ## HTTP service
 

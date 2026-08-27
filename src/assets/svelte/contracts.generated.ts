@@ -501,6 +501,7 @@ export interface DocumentCatalogItem {
 // NetworkDefenseWeb.Web.Contracts.EvaluationAnalysis (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis.ex)
 export interface EvaluationAnalysis {
   capability_results: EvaluationAnalysisCapabilityRow[];
+  feasibility_summary: EvaluationAnalysisFeasibilityRow[];
   metadata: EvaluationAnalysisMetadata;
   pilot_comparison_pass: EvaluationAnalysisPilotRow[];
   primary_results: EvaluationAnalysisPrimaryRow[];
@@ -545,6 +546,15 @@ export interface EvaluationAnalysisErrorEvent {
   run_id: string;
 }
 
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisFeasibilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_feasibility_row.ex)
+export interface EvaluationAnalysisFeasibilityRow {
+  affected_capability_count: number;
+  experiment_id: string;
+  plan_id: string;
+  pre_attack_feasible: boolean;
+  unavailable_required_flow_count: number;
+}
+
 // NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_metadata.ex)
 export interface EvaluationAnalysisMetadata {
   analysis_configuration?: Record<string, unknown> | null;
@@ -561,6 +571,7 @@ export interface EvaluationAnalysisMetadata {
   model_version: string;
   package_version?: string | null;
   pilot_all_pass?: boolean | null;
+  runtime_summary: EvaluationAnalysisRuntimeSummary;
   schema_version: number;
   simulator_only_uncertainty?: boolean | null;
 }
@@ -611,6 +622,13 @@ export interface EvaluationAnalysisReadyEvent {
   document_id: string;
   mode: "pilot" | "analyze";
   run_id: string;
+}
+
+// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisRuntimeSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_runtime_summary.ex)
+export interface EvaluationAnalysisRuntimeSummary {
+  evaluator_runtime_ms: number;
+  median_plan_selection_runtime_ms: number;
+  median_simulation_runtime_ms: number;
 }
 
 // NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex) — enum fields: model_variant, baseline_model_variant

@@ -4,6 +4,7 @@ import csv
 import json
 import math
 import shutil
+import statistics
 import time
 from importlib.metadata import version
 from pathlib import Path
@@ -14,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .contracts import (_configuration, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_plans, _normalise_trials)
+from .contracts import (_configuration, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_phase_one_evidence, _normalise_plans, _normalise_summary, _normalise_trials)
 from .errors import _error
 from .statistics import _bootstrap_interval, _comparison_groups, _holm, _paired_statistics, _pairs
 
@@ -83,6 +84,15 @@ OUTPUT_HEADERS = {
         "passes",
         "paired_attack_seed_count",
         "approximate_trials",
+    ),
+    "host_probabilities.csv": (
+        "model_variant", "strategy", "budget", "host_id", "host_name", "entry_host", "compromise_probability",
+    ),
+    "feasibility_summary.csv": (
+        "experiment_id", "plan_id", "pre_attack_feasible", "unavailable_required_flow_count", "affected_capability_count",
+    ),
+    "runtime_summary.csv": (
+        "median_plan_selection_runtime_ms", "median_simulation_runtime_ms", "evaluator_runtime_ms",
     ),
 }
 
@@ -155,7 +165,10 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
     plans = loaded.plans
     trial_rows = loaded.trials
     capability_rows = loaded.capabilities
+    flow_rows = loaded.flows
+    host_rows = loaded.hosts
     summary = loaded.summary
+    evaluator_runtime = loaded.evaluator_runtime
     hashes = loaded.hashes
     checksum_hash = loaded.checksum_hash
     try:
@@ -164,6 +177,8 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         identities = _normalise_plans(plans)
         trials, schedules = _normalise_trials(set(identities), trial_rows, expected_trials)
         capabilities, capability_names = _normalise_capabilities(set(identities), capability_rows, trials)
+        flows, hosts = _normalise_phase_one_evidence(set(identities), trial_rows, flow_rows, host_rows, expected_trials)
+        summary = _normalise_summary(trial_rows, summary, expected_trials)
         destination = Path(output)
         destination.mkdir(parents=True, exist_ok=True)
         _clear_outputs(destination)
@@ -328,14 +343,56 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             {"plan_id": plan.get("id"), "kind": "plan_selection", "runtime_ms": _runtime(plan.get("runtime_ms"), "plan runtime_ms")}
             for plan in plans
         ] + [
-            {"plan_id": row.get("plan_id"), "kind": "experiment", "runtime_ms": _runtime(row.get("runtime_ms"), "experiment runtime_ms")}
+            {"plan_id": row["plan_id"], "kind": "experiment", "runtime_ms": row["runtime_ms"]}
             for row in summary
         ]
+        host_groups = {}
+        for row in hosts:
+            plan_id = row["plan_id"]
+            if not plan_id:
+                continue
+            identity = identities[plan_id]
+            key = (*identity[:3], row["host_id"])
+            group = host_groups.setdefault(key, {"host_name": row["host_name"], "entry_host": row["entry_host"], "compromised": []})
+            if group["host_name"] != row["host_name"] or group["entry_host"] != row["entry_host"]:
+                raise _error(f"inconsistent host metadata: {row['host_id']}")
+            group["compromised"].append(row["compromised"])
+        host_probabilities = [
+            {
+                "model_variant": key[0], "strategy": key[1], "budget": key[2], "host_id": key[3],
+                "host_name": group["host_name"], "entry_host": group["entry_host"],
+                "compromise_probability": sum(group["compromised"]) / len(group["compromised"]),
+            }
+            for key, group in sorted(host_groups.items())
+        ]
+        flows_by_experiment = {
+            (row["experiment_id"].strip(), row.get("plan_id", "").strip()): [] for row in trial_rows
+        }
+        for row in flows:
+            flows_by_experiment.setdefault((row["experiment_id"], row["plan_id"]), []).append(row)
+        feasibility = [
+            {
+                "experiment_id": experiment_id,
+                "plan_id": plan_id,
+                "pre_attack_feasible": all(row["available"] for row in experiment_flows),
+                "unavailable_required_flow_count": sum(not row["available"] for row in experiment_flows),
+                "affected_capability_count": len({row["capability_id"] for row in experiment_flows if not row["available"]}),
+            }
+            for (experiment_id, plan_id), experiment_flows in sorted(flows_by_experiment.items())
+        ]
+        runtime_summary = {
+            "median_plan_selection_runtime_ms": statistics.median(_runtime(plan.get("runtime_ms"), "plan runtime_ms") for plan in plans),
+            "median_simulation_runtime_ms": statistics.median(row["runtime_ms"] for row in summary),
+            "evaluator_runtime_ms": _runtime(evaluator_runtime[0].get("runtime_ms"), "evaluator runtime_ms"),
+        }
         _write_csv(destination / "primary_results.csv", primary, OUTPUT_HEADERS["primary_results.csv"])
         _write_csv(destination / "secondary_results.csv", secondary, OUTPUT_HEADERS["secondary_results.csv"])
         _write_csv(destination / "capability_results.csv", capability_results, OUTPUT_HEADERS["capability_results.csv"])
         _write_csv(destination / "plan_variation.csv", variation, OUTPUT_HEADERS["plan_variation.csv"])
         _write_csv(destination / "runtime.csv", runtimes, OUTPUT_HEADERS["runtime.csv"])
+        _write_csv(destination / "host_probabilities.csv", host_probabilities, OUTPUT_HEADERS["host_probabilities.csv"])
+        _write_csv(destination / "feasibility_summary.csv", feasibility, OUTPUT_HEADERS["feasibility_summary.csv"])
+        _write_csv(destination / "runtime_summary.csv", [runtime_summary], OUTPUT_HEADERS["runtime_summary.csv"])
         _write_csv(destination / "cdf.csv", cdf, OUTPUT_HEADERS["cdf.csv"])
         _plot(destination, cdf, variation)
 
@@ -352,6 +409,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             "analysis_configuration": configuration,
             "input_trial_count": len(trial_rows),
             "declared_plan_trial_count": sum(len(schedule) for schedule in schedules.values()),
+            "runtime_summary": runtime_summary,
             "command_mode": mode,
             "pilot_comparison_pass": pilot,
             "pilot_all_pass": all_pass,
@@ -362,7 +420,7 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             "analysis_runtime_seconds": time.monotonic() - started,
         }
         (destination / "metadata.json").write_text(json.dumps(_json_safe(metadata), sort_keys=True, indent=2) + "\n")
-        analysis_json = {**metadata, "primary_results": primary, "secondary_results": secondary, "capability_results": capability_results}
+        analysis_json = {**metadata, "primary_results": primary, "secondary_results": secondary, "capability_results": capability_results, "host_probabilities": host_probabilities, "feasibility_summary": feasibility}
         (destination / "analysis.json").write_text(json.dumps(_json_safe(analysis_json), sort_keys=True, indent=2) + "\n")
     finally:
         if temporary:

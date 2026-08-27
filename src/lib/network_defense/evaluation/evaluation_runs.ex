@@ -30,13 +30,15 @@ defmodule NetworkDefense.Evaluation.EvaluationRuns do
     |> Repo.all()
   end
 
-  def complete(%EvaluationRun{} = run) do
+  def complete(%EvaluationRun{} = run, runtime_ms) do
     Repo.transaction(fn ->
       run = Repo.one(from(r in EvaluationRun, where: r.id == ^run.id, lock: "FOR UPDATE"))
 
       case run do
         %EvaluationRun{status: "running"} = run ->
-          run |> EvaluationRun.changeset(%{status: "completed"}) |> Repo.update!()
+          run
+          |> EvaluationRun.changeset(%{status: "completed", runtime_ms: runtime_ms})
+          |> Repo.update!()
 
         %EvaluationRun{} ->
           Repo.rollback(:not_running)

@@ -4,6 +4,7 @@
   import type { DashboardApi } from "../dashboard-api";
   import ReportProgress from "../ReportProgress.svelte";
   import KpiCards, { type KpiMetric } from "../KpiCards.svelte";
+  import { formatRuntime } from "../format";
   import type {
     EvaluationAnalysis,
     EvaluationAnalysisMetadata,
@@ -471,6 +472,76 @@
             <h3>Final analysis</h3>
             <KpiCards metrics={metadataKpis(analysis.metadata)} />
             <section
+              class="analysis-report-runtime"
+              aria-labelledby="runtime-summary-title"
+            >
+              <h3 id="runtime-summary-title">Archive runtime summary</h3>
+              <dl class="analysis-report-summary">
+                <div>
+                  <dt>Median plan selection</dt>
+                  <dd>
+                    {formatRuntime(
+                      analysis.metadata.runtime_summary
+                        .median_plan_selection_runtime_ms,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Median simulation</dt>
+                  <dd>
+                    {formatRuntime(
+                      analysis.metadata.runtime_summary
+                        .median_simulation_runtime_ms,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Total evaluator</dt>
+                  <dd>
+                    {formatRuntime(
+                      analysis.metadata.runtime_summary.evaluator_runtime_ms,
+                    )}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section
+              class="analysis-report-feasibility"
+              aria-labelledby="feasibility-summary-title"
+            >
+              <h3 id="feasibility-summary-title">Pre-attack feasibility</h3>
+              <div class="analysis-report-table-wrap">
+                <table class="analysis-report-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Experiment</th>
+                      <th scope="col">Plan</th>
+                      <th scope="col">Direct feasibility</th>
+                      <th scope="col">Unavailable required flows</th>
+                      <th scope="col">Affected capabilities</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {#each analysis.feasibility_summary as row (row.experiment_id)}
+                      <tr>
+                        <th scope="row" title={row.experiment_id}
+                          >{row.experiment_id.slice(0, 8)}</th
+                        >
+                        <td title={row.plan_id}>{row.plan_id || "Baseline"}</td>
+                        <td
+                          >{row.pre_attack_feasible
+                            ? "Feasible"
+                            : "Infeasible"}</td
+                        >
+                        <td>{row.unavailable_required_flow_count}</td>
+                        <td>{row.affected_capability_count}</td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            <section
               class="analysis-report-reproducibility"
               aria-labelledby="reproducibility-title"
             >
@@ -775,6 +846,11 @@
   }
 
   .analysis-report-reproducibility {
+    margin-top: var(--ui-space-6);
+  }
+
+  .analysis-report-runtime,
+  .analysis-report-feasibility {
     margin-top: var(--ui-space-6);
   }
 

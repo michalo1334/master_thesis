@@ -98,6 +98,8 @@ class AnalysisTest(unittest.TestCase):
             values[(cross_id, "simulation_informed")] = [5.0, 6.0]
         trial_rows = []
         capability_rows = []
+        flow_rows = []
+        host_rows = []
         for plan in plans:
             plan_values = values[(plan["model_variant"], plan["strategy"])]
             plan_id = plan["id"]
@@ -120,9 +122,22 @@ class AnalysisTest(unittest.TestCase):
                     "disrupted": "true" if value >= 5 else "false",
                     "impact_weight": value / 2,
                 })
-        trial_rows.append({"experiment_id": "", "plan_id": "", "trial_index": 1, "seed": 900, "blast_radius": 99, "mission_impact": 99})
+                host_rows.extend([
+                    {"experiment_id": f"experiment-{plan_id}", "plan_id": plan_id, "trial_index": index, "seed": 900 + index, "host_id": "host-entry", "host_name": "Entry host", "entry_host": "true", "compromised": "true"},
+                    {"experiment_id": f"experiment-{plan_id}", "plan_id": plan_id, "trial_index": index, "seed": 900 + index, "host_id": "host-beta", "host_name": "Host beta", "entry_host": "false", "compromised": "true" if value >= 5 else "false"},
+                ])
+            flow_rows.append({"experiment_id": f"experiment-{plan_id}", "plan_id": plan_id, "capability_id": "cap-alpha", "capability_name": "Capability alpha", "source_segment_id": "segment-alpha", "target_service_id": "service-alpha", "available": "true"})
+        for index in range(1, 3):
+            trial_rows.append({"experiment_id": "experiment-baseline", "plan_id": "", "trial_index": index, "seed": 900 + index, "blast_radius": 99, "mission_impact": 99})
+            host_rows.extend([
+                {"experiment_id": "experiment-baseline", "plan_id": "", "trial_index": index, "seed": 900 + index, "host_id": "host-entry", "host_name": "Entry host", "entry_host": "true", "compromised": "true"},
+                {"experiment_id": "experiment-baseline", "plan_id": "", "trial_index": index, "seed": 900 + index, "host_id": "host-beta", "host_name": "Host beta", "entry_host": "false", "compromised": "true"},
+            ])
+        flow_rows.append({"experiment_id": "experiment-baseline", "plan_id": "", "capability_id": "cap-alpha", "capability_name": "Capability alpha", "source_segment_id": "segment-alpha", "target_service_id": "service-alpha", "available": "false"})
         AnalysisTest.write_csv(directory / "trials.csv", trial_rows)
         AnalysisTest.write_csv(directory / "capability_outcomes.csv", capability_rows)
+        AnalysisTest.write_csv(directory / "pre_attack_flow_statuses.csv", flow_rows)
+        AnalysisTest.write_csv(directory / "host_compromises.csv", host_rows)
         AnalysisTest.write_csv(
             directory / "summary.csv",
             [
@@ -139,8 +154,20 @@ class AnalysisTest(unittest.TestCase):
                     "runtime_ms": 4,
                 }
                 for plan in plans
-            ],
+            ] + [{
+                "experiment_id": "experiment-baseline",
+                "plan_id": "",
+                "trial_count": 2,
+                "expected_blast_radius": 99,
+                "median_blast_radius": 99,
+                "blast_radius_p95": 99,
+                "blast_radius_p99": 99,
+                "min_blast_radius": 99,
+                "max_blast_radius": 99,
+                "runtime_ms": 4,
+            }],
         )
+        AnalysisTest.write_csv(directory / "evaluator_runtime.csv", [{"runtime_ms": 12}])
         AnalysisTest.write_checksums(directory)
         return directory
 
@@ -160,7 +187,10 @@ class AnalysisTest(unittest.TestCase):
             "plans.jsonl",
             "trials.csv",
             "capability_outcomes.csv",
+            "pre_attack_flow_statuses.csv",
+            "host_compromises.csv",
             "summary.csv",
+            "evaluator_runtime.csv",
         ]
         lines = [f"{name}  {hashlib.sha256((directory / name).read_bytes()).hexdigest()}" for name in names]
         (directory / "checksums.txt").write_text("\n".join(lines) + "\n")
@@ -468,6 +498,67 @@ class AnalysisTest(unittest.TestCase):
         self.assertAlmostEqual(float(capability["probability_difference"]), -1.0)
         with (output / "secondary_results.csv").open(newline="") as stream:
             self.assertEqual(len(list(csv.DictReader(stream))), 1)
+
+    def test_phase_one_outputs(self):
+        directory = self.remember(self.make_fixture())
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "host_probabilities.csv").open(newline="") as stream:
+            hosts = list(csv.DictReader(stream))
+        self.assertEqual(len(hosts), 4)
+        tested_host = next(row for row in hosts if row["strategy"] == "unusual-tested" and row["host_id"] == "host-beta")
+        self.assertEqual(tested_host["compromise_probability"], "0.0")
+        with (output / "feasibility_summary.csv").open(newline="") as stream:
+            feasibility = list(csv.DictReader(stream))
+        baseline = next(row for row in feasibility if not row["plan_id"])
+        self.assertEqual(baseline["pre_attack_feasible"], "False")
+        self.assertEqual(baseline["affected_capability_count"], "1")
+        with (output / "runtime_summary.csv").open(newline="") as stream:
+            runtime = next(csv.DictReader(stream))
+        self.assertEqual(runtime, {"median_plan_selection_runtime_ms": "3.0", "median_simulation_runtime_ms": "4.0", "evaluator_runtime_ms": "12.0"})
+        analysis = json.loads((output / "analysis.json").read_text())
+        self.assertEqual(len(analysis["host_probabilities"]), 4)
+        self.assertEqual(len(analysis["feasibility_summary"]), 3)
+        self.assertEqual(analysis["runtime_summary"]["evaluator_runtime_ms"], 12.0)
+
+    def test_incomplete_phase_one_evidence_rejected(self):
+        directory = self.remember(self.make_fixture())
+        with (directory / "pre_attack_flow_statuses.csv").open(newline="") as stream:
+            flows = list(csv.DictReader(stream))
+        self.write_csv(directory / "pre_attack_flow_statuses.csv", flows[:-1])
+        self.write_checksums(directory)
+        with self.assertRaises(AnalysisError):
+            analyze(directory, directory / "out")
+
+        directory = self.remember(self.make_fixture())
+        with (directory / "host_compromises.csv").open(newline="") as stream:
+            hosts = list(csv.DictReader(stream))
+        self.write_csv(directory / "host_compromises.csv", hosts[:-1])
+        self.write_checksums(directory)
+        with self.assertRaises(AnalysisError):
+            analyze(directory, directory / "out")
+
+    def test_header_only_flow_statuses_are_feasible(self):
+        directory = self.remember(self.make_fixture())
+        (directory / "pre_attack_flow_statuses.csv").write_text(
+            "experiment_id,plan_id,capability_id,capability_name,source_segment_id,target_service_id,available\n"
+        )
+        self.write_checksums(directory)
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "feasibility_summary.csv").open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        self.assertTrue(all(row["pre_attack_feasible"] == "True" for row in rows))
+        self.assertTrue(all(row["unavailable_required_flow_count"] == "0" and row["affected_capability_count"] == "0" for row in rows))
+
+    def test_missing_summary_coverage_rejected(self):
+        directory = self.remember(self.make_fixture())
+        with (directory / "summary.csv").open(newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        self.write_csv(directory / "summary.csv", rows[:-1])
+        self.write_checksums(directory)
+        with self.assertRaises(AnalysisError):
+            analyze(directory, directory / "out")
 
     def test_conflicting_capability_names_rejected(self):
         directory = self.remember(self.make_fixture())

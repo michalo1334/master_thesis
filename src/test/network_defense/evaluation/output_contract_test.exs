@@ -4,7 +4,9 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.OutputContract
   alias NetworkDefense.EvaluationFixtures
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Nodes.{Host, MissionCapability}
 
   @eval_manifest EvaluationFixtures.analysis_manifest()
 
@@ -37,6 +39,17 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
   defp files_map(run) do
     {:ok, files} = OutputContract.files(run)
     Map.new(files)
+  end
+
+  defp csv_rows(content) do
+    [header | rows] = content |> String.trim_trailing() |> String.split("\n")
+    headers = String.split(header, ",")
+
+    Enum.map(rows, fn row ->
+      headers
+      |> Enum.zip(String.split(row, ","))
+      |> Map.new()
+    end)
   end
 
   test "regenerates the full output contract for a completed run" do
@@ -91,6 +104,18 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
     assert capability_header ==
              "experiment_id,plan_id,trial_index,seed,capability_id,capability_name,disrupted,impact_weight"
 
+    [required_flow_header | _] =
+      files["pre_attack_flow_statuses.csv"] |> String.trim_trailing() |> String.split("\n")
+
+    assert required_flow_header ==
+             "experiment_id,plan_id,capability_id,capability_name,source_segment_id,target_service_id,available"
+
+    [host_compromise_header | _] =
+      files["host_compromises.csv"] |> String.trim_trailing() |> String.split("\n")
+
+    assert host_compromise_header ==
+             "experiment_id,plan_id,trial_index,seed,host_id,host_name,entry_host,compromised"
+
     [summary_header | summary_rows] =
       files["summary.csv"] |> String.trim_trailing() |> String.split("\n")
 
@@ -99,13 +124,57 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
 
     assert [_, _, _] = summary_rows
 
+    assert "runtime_ms\n#{run.runtime_ms}\n" == files["evaluator_runtime.csv"]
+
     checksums = files["checksums.txt"] |> String.trim_trailing() |> String.split("\n")
-    assert [_, _, _, _, _, _] = checksums
+    assert [_, _, _, _, _, _, _, _, _] = checksums
 
     for {name, content} <- files, name != "checksums.txt" do
       expected = "#{name}  #{:crypto.hash(:sha256, content) |> Base.encode16(case: :lower)}"
       assert expected in checksums
     end
+  end
+
+  test "exports required flows and host outcomes for every experiment trial" do
+    run = run_completed_evaluation()
+    files = files_map(run)
+
+    required_flow_rows = csv_rows(files["pre_attack_flow_statuses.csv"])
+    host_rows = csv_rows(files["host_compromises.csv"])
+
+    graph = Graphs.load_revision(run.source_graph_revision_id)
+
+    required_flow_count =
+      graph
+      |> Graph.nodes()
+      |> Enum.filter(&(&1.type == MissionCapability))
+      |> Enum.flat_map(& &1.data.required_flows)
+      |> length()
+
+    host_count =
+      graph
+      |> Graph.nodes()
+      |> Enum.count(&(&1.type == Host))
+
+    experiment_ids = host_rows |> Enum.map(& &1["experiment_id"]) |> Enum.uniq()
+
+    assert Enum.all?(experiment_ids, fn experiment_id ->
+             Enum.count(required_flow_rows, fn row -> row["experiment_id"] == experiment_id end) ==
+               required_flow_count
+           end)
+
+    assert Enum.all?(required_flow_rows, &(&1["available"] in ["true", "false"]))
+
+    host_rows
+    |> Enum.group_by(&{&1["experiment_id"], &1["trial_index"]})
+    |> Enum.each(fn {_trial, rows} ->
+      assert length(rows) == host_count
+
+      assert [%{"entry_host" => "true", "compromised" => "true"}] =
+               Enum.filter(rows, &(&1["entry_host"] == "true"))
+    end)
+
+    assert Enum.any?(host_rows, &(&1["compromised"] == "false"))
   end
 
   test "stores per-plan model metadata and orders plans by variant, strategy, budget, and seed" do
@@ -166,8 +235,12 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
 
     files = files_map(run)
     files_again = files_map(run)
+    assert {:ok, archive, _} = OutputContract.archive(run)
+    Process.sleep(1_100)
+    assert {:ok, archive_again, _} = OutputContract.archive(run)
 
     assert files == files_again
+    assert archive == archive_again
 
     plans =
       files["plans.jsonl"]
@@ -199,6 +272,16 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
     run = run_completed_evaluation()
     incomplete = %{run | status: "running"}
     assert {:error, :incomplete} = OutputContract.files(incomplete)
+  end
+
+  test "rejects a completed run without runtime evidence before loading its graph" do
+    run = %NetworkDefense.Evaluation.EvaluationRun{
+      id: Ecto.UUID.generate(),
+      status: "completed",
+      source_graph_revision_id: Ecto.UUID.generate()
+    }
+
+    assert {:error, :missing_runtime} = OutputContract.files(run)
   end
 
   test "archives the output contract as a zip with the expected members" do

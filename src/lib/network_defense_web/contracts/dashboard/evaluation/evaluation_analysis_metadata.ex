@@ -2,6 +2,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
+  alias NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisRuntimeSummary
+
   embedded_schema do
     field :manifest_id, :string
     field :schema_version, :integer
@@ -19,6 +21,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
     field :estimand_note, :string
     field :package_version, :string
     field :dependencies, :map
+    embeds_one :runtime_summary, EvaluationAnalysisRuntimeSummary
   end
 
   @type t :: %__MODULE__{
@@ -37,7 +40,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
           analysis_configuration: map() | nil,
           estimand_note: String.t() | nil,
           package_version: String.t() | nil,
-          dependencies: map() | nil
+          dependencies: map() | nil,
+          runtime_summary: EvaluationAnalysisRuntimeSummary.t()
         }
 
   def changeset(schema, attrs) do
@@ -60,6 +64,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
       :package_version,
       :dependencies
     ])
+    |> cast_embed(:runtime_summary, required: true)
     |> validate_required([:manifest_id, :schema_version, :model_version, :command_mode])
   end
 end
