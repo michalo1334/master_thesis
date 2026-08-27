@@ -3,7 +3,7 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
 
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Graph.MaterializeReachability
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Vulnerability}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Vulnerability}
 
   alias NetworkDefense.Relationships.{
     Contains,
@@ -11,6 +11,8 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
     NetworkReachability,
     SegmentReachability
   }
+
+  alias NetworkDefense.Simulation.MissionImpact
 
   alias NetworkDefense.Topology.{EnterpriseTopology, VulnerabilityCatalog}
 
@@ -22,6 +24,61 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
       assert host_names(first) == host_names(second)
       assert Enum.count_until(host_names(first), 14) == 13
       assert "internet" in host_names(first)
+    end
+
+    test "preserves the fixed topology invariants across local tiers 8, 12, and 20" do
+      required_roles = [
+        "dmz-web-",
+        "internal-api-",
+        "internal-app-",
+        "restricted-db-",
+        "restricted-ad-",
+        "mgmt-bastion-",
+        "workstation-"
+      ]
+
+      for hosts <- [8, 12, 20], seed <- 1..3 do
+        graph = EnterpriseTopology.generate(title: "local-tier", hosts: hosts, seed: seed)
+        names = host_names(graph)
+
+        assert Enum.count_until(names, hosts + 1) == hosts + 1
+        assert Enum.count(names, &(&1 == "internet")) == 1
+
+        for role <- required_roles do
+          assert Enum.any?(names, &String.starts_with?(&1, role))
+        end
+
+        assert Enum.map(segment_nodes(graph), & &1.data.name) == [
+                 "External",
+                 "DMZ",
+                 "Internal",
+                 "Restricted",
+                 "Management",
+                 "Workstations"
+               ]
+
+        segments_by_name = Map.new(segment_nodes(graph), &{&1.data.name, &1.id})
+        internet = Enum.find(Graph.nodes(graph), &(&1.data.name == "internet"))
+        assert [{segment_id, %{type: Contains}}] = host_segments(graph, internet.id)
+        assert segment_id == Map.fetch!(segments_by_name, "External")
+
+        for host <- Enum.filter(Graph.nodes(graph), &(&1.type == Host)) do
+          assert [{segment_id, %{type: Contains}}] = host_segments(graph, host.id)
+          assert %{type: NetworkSegment} = Graph.node(graph, segment_id)
+        end
+
+        assert Enum.count(Graph.edges(graph), &(&1.type == SegmentReachability)) == 8
+        refute Enum.any?(Graph.edges(graph), &(&1.type == NetworkReachability))
+
+        capability_nodes = Enum.filter(Graph.nodes(graph), &(&1.type == MissionCapability))
+
+        assert Enum.map(capability_nodes, & &1.data.name) == [
+                 "Public web presence",
+                 "Order processing"
+               ]
+
+        assert MissionImpact.required_flow_statuses(graph) |> Enum.all?(& &1.available?)
+      end
     end
 
     test "always includes hosts for every required zone and role" do
@@ -159,5 +216,17 @@ defmodule NetworkDefense.Topology.EnterpriseTopologyTest do
     |> Graph.nodes()
     |> Enum.filter(&(&1.type == NetworkDefense.Nodes.Host))
     |> Enum.map(& &1.data.name)
+  end
+
+  defp segment_nodes(graph) do
+    graph
+    |> Graph.nodes()
+    |> Enum.filter(&(&1.type == NetworkSegment))
+  end
+
+  defp host_segments(graph, host_id) do
+    graph
+    |> Graph.incoming(host_id)
+    |> Enum.filter(fn {_id, edge} -> edge.type == Contains end)
   end
 end

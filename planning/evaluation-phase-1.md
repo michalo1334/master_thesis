@@ -42,8 +42,11 @@ that references its graph revision and entry-host ID, then runs that same saved
 manifest. A portable generator-source manifest remains a recipe. The saved
 graph-revision manifest is the measured input.
 
-Phase 2 may add manifest import, graph-freeze, study-batch, and
-cross-replica-validation commands. Phase 1 does not add this automation.
+The manifest import, graph-freeze, warm-up, and cross-replica-validation
+commands exist today; see the [evaluation lifecycle
+page](../docs/concepts/evaluation.md) and the [topology-scale study
+protocol](../docs/inprogress/topology-scale-study.md). The system still has no
+study batch runner: each command acts on one manifest or one archive.
 
 ## Manual Study Procedure
 

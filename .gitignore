@@ -8,3 +8,4 @@ infra/environments/local/.env
 evaluation/analysis/.venv/
 evaluation/analysis/**/__pycache__/
 evaluation/analysis/src/*.egg-info/
+local-results/

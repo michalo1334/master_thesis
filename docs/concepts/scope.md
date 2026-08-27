@@ -52,8 +52,13 @@ constructed. Variants preserve roles, edges, exposure, reachability patterns,
 attacker context, and equal budgets.
 
 Current code supports the fixed baseline scenario and generic generated topology
-sources. It does not provide the frozen controlled variants required by this
-study. This page does not claim their implementation.
+sources. It can freeze a generated topology source into an immutable graph
+revision. The completed local rehearsal froze such revisions. The cloud study is
+future and not yet implemented.
+
+The local rehearsal validates the evaluation workflow for the current model. It
+does not support cloud runtime, topology-scale, optimizer-quality, or
+strategy-effect claims. Such claims require the future cloud study.
 
 The study freezes variants, graph data, metrics, strategies, budgets, seeds,
 trial count, and stopping rules before the full study begins. It adds no

@@ -8,6 +8,10 @@ See the [scope page](../concepts/scope.md) for the research boundary.
 
 ## Status
 
+The local rehearsal is complete. It validates the evaluation workflow. The cloud
+study is future. The rehearsal does not support cloud runtime, topology-scale,
+optimizer-quality, or strategy-effect claims.
+
 This study uses a manual, manifest-driven process. Each command acts on one
 saved manifest or one archive. The system does not include a study batch
 runner.
@@ -79,6 +83,28 @@ Before the full study, the study freezes all comparability inputs:
 - trial count;
 - stopping rules.
 
+## Cloud protocol
+
+See the [cloud evaluation runbook](cloud-evaluation-runbook.md) to execute the
+measured cloud study. The cloud study extends the manual process below. Run a
+diagnostic before it freezes tiers. The diagnostic confirms that growth changes
+the intended attack-relevant structure. If growth leaves the strategy ranking unchanged,
+the diagnostic records the unchanged ranking as an observed result.
+
+Mix commands run in a one-off application task with the deployed application
+identity, mounted secrets, database access, and non-conflicting listeners. Do
+not run host-side Mix without credentials.
+
+The feasibility input is a separately versioned feasibility manifest that
+records its own graph and purpose. It is not tier-runtime evidence. Run it once
+after the timing runs complete.
+
+`source.hosts` counts enterprise hosts. It excludes the generated internet
+ingress host.
+
+Before timed cloud runs, confirm the pending migrations and the health of the
+application, database, and analysis services.
+
 ## Manual Replication Process
 
 1. Keep each source manifest as a versioned JSON file.
@@ -90,12 +116,17 @@ Before the full study, the study freezes all comparability inputs:
    already names a graph revision needs no freeze step.
 6. Run `mix evaluate.warmup --manifest-id TARGET` once. Do not use its result
    as a timing or outcome sample.
-7. Run five new evaluations with `mix evaluate.manifest`. Write one archive for
-   each run.
-8. Exclude interrupted or resumed runs from the timing samples.
+7. Run five new evaluations with
+   `mix evaluate.manifest --manifest-id TARGET --output REPLICA.zip`. Write one
+   archive for each run.
+8. Handle a failed, cancelled, interrupted, resumed, corrupt, or missing-archive
+   replica. Exclude it from the timing samples. Log it. After confirming no
+   duplicate execution, create a fresh replacement. Stop if the problem recurs
+   or cannot be diagnosed.
 9. Use the first timed archive for outcome analysis.
 10. Compare each other timed archive with the first one before accepting its
-    timing result.
+    timing result. A comparison error, including a malformed archive, stops
+    acceptance.
 
 Do not change a measured graph revision or manifest during these runs.
 
@@ -111,7 +142,9 @@ The command checks the manifest, graph, selected plans, attack outcomes,
 capability outcomes, pre-attack flow status, host compromises, and non-timing
 summary values. It ignores run IDs and timing values. It returns zero when the
 outcomes match. It returns one when they differ. Stop the study and investigate
-an outcome mismatch.
+an outcome mismatch. A comparison error, including a malformed archive, stops
+acceptance. See the [analysis guide](../../evaluation/analysis/README.md) for
+the comparison details and how to run it from `evaluation/analysis/`.
 
 ## Limits
 

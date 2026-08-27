@@ -1,0 +1,67 @@
+{
+  "schema_version": 3,
+  "model_version": "current-model-version",
+  "id": "local-rehearsal-8-v1",
+  "source": {
+    "type": "topology",
+    "generator": "enterprise",
+    "hosts": 8,
+    "seed": 20020
+  },
+  "attacker": {
+    "entry_host": { "type": "semantic_key", "value": "internet" },
+    "max_attempts": 1
+  },
+  "model_variants": [
+    {
+      "id": "full",
+      "objective": "mission_then_blast_radius",
+      "require_pre_attack_feasibility": true
+    }
+  ],
+  "strategy_runs": [
+    { "model_variant": "full", "strategy": "random", "budget": 1, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "random", "budget": 2, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "random", "budget": 3, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "cvss", "budget": 1, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "cvss", "budget": 2, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "cvss", "budget": 3, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "topology_segmentation", "budget": 1, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "topology_segmentation", "budget": 2, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "topology_segmentation", "budget": 3, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulation_informed", "budget": 1, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulation_informed", "budget": 2, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulation_informed", "budget": 3, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulated_annealing", "budget": 1, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulated_annealing", "budget": 2, "selection_seeds": [110, 220, 330] },
+    { "model_variant": "full", "strategy": "simulated_annealing", "budget": 3, "selection_seeds": [110, 220, 330] }
+  ],
+  "analysis": {
+    "primary_comparisons": [
+      { "strategy": "random", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 1, "outcome": "mission_impact" },
+      { "strategy": "random", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 2, "outcome": "mission_impact" },
+      { "strategy": "random", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 3, "outcome": "mission_impact" },
+      { "strategy": "topology_segmentation", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 1, "outcome": "mission_impact" },
+      { "strategy": "topology_segmentation", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 2, "outcome": "mission_impact" },
+      { "strategy": "topology_segmentation", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 3, "outcome": "mission_impact" },
+      { "strategy": "simulation_informed", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 1, "outcome": "mission_impact" },
+      { "strategy": "simulation_informed", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 2, "outcome": "mission_impact" },
+      { "strategy": "simulation_informed", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 3, "outcome": "mission_impact" },
+      { "strategy": "simulated_annealing", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 1, "outcome": "mission_impact" },
+      { "strategy": "simulated_annealing", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 2, "outcome": "mission_impact" },
+      { "strategy": "simulated_annealing", "baseline": "cvss", "model_variant": "full", "baseline_model_variant": "full", "budget": 3, "outcome": "mission_impact" }
+    ],
+    "confidence_level": 0.95,
+    "bootstrap_resamples": 1000,
+    "permutation_resamples": 1000,
+    "multiplicity_correction": "holm",
+    "seed": 20303,
+    "pilot": { "ci_half_width": 0.5 }
+  },
+  "evaluation": {
+    "trials": 500,
+    "seed": 20201,
+    "optimizer_trials": 20,
+    "optimizer_iterations": 5
+  }
+}
