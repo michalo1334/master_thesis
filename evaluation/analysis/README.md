@@ -1,6 +1,8 @@
 # Statistical Analysis
 
-The analysis reads a completed Phase 1 ZIP export. The ZIP contains
+## Evaluation archive files
+
+The analysis reads a completed evaluation archive. The archive contains
 `manifest.resolved.json`, `graph.json`, `plans.jsonl`, `trials.csv`,
 `capability_outcomes.csv`, `pre_attack_flow_statuses.csv`,
 `host_compromises.csv`, `summary.csv`, `evaluator_runtime.csv`, and
@@ -9,7 +11,7 @@ The analysis reads a completed Phase 1 ZIP export. The ZIP contains
 The resolved manifest declares the strategy runs, comparisons, outcomes,
 resampling settings, correction, and pilot precision target. The analysis core
 does not use the database or the network. The CLI and HTTP service only
-transport the Phase 1 ZIP.
+transport the evaluation archive.
 
 ```sh
 uv sync --frozen
@@ -23,7 +25,14 @@ Run the commands from this directory. The analysis engine reads local files
 only. Treat the reported uncertainty as simulator uncertainty for the exported
 scenario.
 
-## Compare
+## Analysis output
+
+The analysis output contains primary, secondary, and capability results. It
+also contains descriptive host compromise probabilities, feasibility summaries,
+and a runtime summary. The runtime summary gives median plan-selection and
+simulation durations, plus the total evaluator duration.
+
+## Comparison
 
 `compare` checks that two completed evaluation archives are semantically equal,
 for example two replicas of the same evaluation:
@@ -50,10 +59,13 @@ It excludes evaluator, plan-selection, and simulation runtimes, which vary
 between replicas. The differences list names only the logical dataset that
 diverges, not the raw rows.
 
-The analysis output contains primary, secondary, and capability results. It
-also contains descriptive host compromise probabilities, feasibility summaries,
-and a runtime summary. The runtime summary gives median plan-selection and
-simulation durations, plus the total evaluator duration.
+## Tests
+
+Run the Python unittest suite from this directory:
+
+```sh
+uv run python -m unittest discover -s tests
+```
 
 ## HTTP service
 
@@ -68,7 +80,9 @@ curl -H 'content-type: application/zip' --data-binary @evaluation.zip \
 ```
 
 The service accepts raw ZIP requests and returns raw ZIP responses for
-`/v1/analyze` and `/v1/pilot`. The image starts the service by default. Override
+`/v1/analyze` and `/v1/pilot`. It returns HTTP 413, `Request too large`, when
+the request exceeds the compressed ZIP limit. It returns HTTP 429, `Service
+busy`, when no analysis slot is available. The image starts the service by default. Override
 the command to run the CLI, for example
 `docker run --rm network-defense-analysis network-defense-analysis --help`.
 

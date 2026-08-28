@@ -36,3 +36,17 @@ states its precise semantics.
   apply.
 - **Pre-attack feasibility**: The condition where each mission capability is
   operational before attacker footholds are applied.
+
+## Evaluation runner
+
+- **Frozen manifest**: A manifest saved with an immutable graph revision. All
+  warm-up and measured runs of a tier use it.
+- **Warm-up run**: One unmeasured run that prepares the environment for a
+  frozen manifest. It cannot be exported or analyzed.
+- **Measured run**: One timed, exported run of a frozen manifest.
+- **Replica**: One measured run among the repeats of the same frozen manifest.
+
+Timing names: the study reports simulation, strategy-selection, and
+total-evaluation durations. The runner and the analysis record the same values
+as simulation, plan-selection, and total-evaluator durations. Strategy
+selection is plan selection.

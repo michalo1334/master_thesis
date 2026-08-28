@@ -53,12 +53,15 @@ attacker context, and equal budgets.
 
 Current code supports the fixed baseline scenario and generic generated topology
 sources. It can freeze a generated topology source into an immutable graph
-revision. The completed local rehearsal froze such revisions. The cloud study is
-future and not yet implemented.
+revision. The cloud study is blocked until the planned tooling exists (see the
+[cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
 
-The local rehearsal validates the evaluation workflow for the current model. It
-does not support cloud runtime, topology-scale, optimizer-quality, or
-strategy-effect claims. Such claims require the future cloud study.
+Local rehearsal work informed the cloud-study plan. It does not support cloud
+runtime, topology-scale, optimizer-quality, or strategy-effect claims. Such
+claims require the completed cloud study.
+
+The cloud study requires fixed-environment evidence. Future tooling records
+that evidence automatically before the study starts.
 
 The study freezes variants, graph data, metrics, strategies, budgets, seeds,
 trial count, and stopping rules before the full study begins. It adds no
@@ -88,6 +91,9 @@ capabilities.
 
 The full study will report median simulation, strategy-selection, and
 total-evaluation durations on a fixed documented environment after warm-up.
+The fixed environment record is a future tooling prerequisite: no automatic
+environment record exists yet (see the
+[cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
 
 It will also report host compromise probabilities and per-capability disruption
 status.

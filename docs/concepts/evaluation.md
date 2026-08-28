@@ -35,6 +35,20 @@ Inputs fall into these categories:
 The authoritative field set, defaults, and allowed values live in the
 `EvaluationManifest` contract. Do not read them from this page.
 
+## Scenario setup
+
+Two Mix tasks prepare scenario sources:
+
+- `mix generate.enterprise_topology --title TITLE --hosts N --seed S`
+  generates a deterministic, deny-by-default enterprise topology and persists
+  it as a new graph revision.
+- `mix seed.fixed_order_fulfilment` idempotently seeds the fixed
+  order-fulfilment scenario graph and its local evaluation manifests, and
+  prints the persisted revision and manifest ids.
+
+A generated topology source needs `mix evaluate.freeze` before measured runs
+(see [Resumability and runner commands](#resumability-and-runner-commands)).
+
 ## Seeds for repeatability
 
 A manifest declares seeds so that a run is repeatable. The same declared
@@ -57,7 +71,7 @@ flowchart TD
     C --> D[Run baseline attack trials]
     D --> E[Run post-defense trials for each plan]
     E --> F[Complete evaluation run]
-    R[Restart incomplete evaluation] -.-> A
+    R[Dashboard retry of incomplete evaluation] -.-> A
     F --> G[Export result archive on request]
     G --> H[Run statistical analysis]
 ```
@@ -66,14 +80,17 @@ The runner resolves the manifest source into a graph revision and builds one
 seed schedule. It selects every plan before baseline trials begin. It then
 runs the baseline attack trials on the source graph, followed by post-defense
 trials on each optimized graph revision. The run completes only after every
-experiment completes. On request, the system exports a completed run as a
-result archive. A separate command starts statistical analysis.
+experiment completes. On request, the system exports a completed run as an
+evaluation archive; the
+[analysis archive-file list](../../evaluation/analysis/README.md#evaluation-archive-files) lists
+the archive files. A separate command starts statistical analysis.
 
 ## Resumability and runner commands
 
-A restarted evaluation reuses completed work instead of redoing it. The runner
-is idempotent: rerunning does not duplicate completed plans or trials. You can
-run a saved manifest with:
+The dashboard worker can continue an incomplete run. It reuses completed plans
+and trials instead of redoing them. `mix evaluate.manifest` does not continue a
+run. It starts a new run on every invocation. You can run a saved manifest
+with:
 
 - `mix evaluate.manifest --manifest-id ID --output evaluation.zip`
 
@@ -87,11 +104,14 @@ persists the source graph once. It saves `TARGET` with that immutable graph
 revision and the resolved entry-host ID. Use `TARGET` for warm-up and measured
 runs. The target id must be new.
 
-Use `mix evaluate.warmup --manifest-id ID` for one unmeasured run. A warm-up
-run cannot be exported or analyzed.
+Use `mix evaluate.warmup --manifest-id ID` for one unmeasured run. Warm-up is
+manual today; requesting it automatically once per frozen manifest is planned
+tooling (see the
+[cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
+A warm-up run cannot be exported or analyzed.
 
-The archive holds the resolved manifest, source graph, plans, and trial
-results. For analysis:
+The [analysis archive-file list](../../evaluation/analysis/README.md#evaluation-archive-files)
+describes the archive contents. For analysis:
 
 - `mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip`
 

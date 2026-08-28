@@ -58,9 +58,15 @@ C4Container
 The frontend gets its data model from the backend. Backend contract types are
 the single source; `mix gen.contracts`
 ([`src/lib/mix/tasks/gen.contracts.ex`](../src/lib/mix/tasks/gen.contracts.ex))
-parses their typespecs and writes generated TypeScript to
-`src/assets/svelte/contracts.generated.ts`. Svelte components import those
-generated types. This keeps the frontend types in sync with the backend.
+parses their typespecs and writes two generated TypeScript outputs:
+
+- `src/assets/svelte/contracts.generated.ts`, one module holding every
+  generated type;
+- `src/assets/svelte/contracts.generated/`, alias modules that re-export those
+  types per namespace.
+
+Svelte components import from the alias modules, not from the generated root
+module. This keeps the frontend types in sync with the backend.
 
 ## Level 2: Container, Analysis Service and Observability Stack
 
