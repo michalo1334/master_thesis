@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :workspace

@@ -27,22 +27,32 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
-  alias NetworkDefenseWeb.Web.Contracts.{
-    ExecutionProgressEvent,
+  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
     FetchGraphProjectionPayload,
     FetchGraphProjectionReply,
+    OpenGraphReply,
+    SaveGraphPayload
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.{
     FetchOptimizationReportPayload,
     FetchOptimizationReportReply,
     FetchOptimizationRunsPayload,
+    OptimizationCompletedEvent
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.{
+    FetchRunsPayload,
+    FetchRunsReply
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.{
     FetchDocumentCatalogPayload,
     FetchDocumentCatalogReply,
-    DocumentCatalogItem,
-    FetchRunsPayload,
-    FetchRunsReply,
-    OpenGraphReply,
-    OptimizationCompletedEvent,
-    SaveGraphPayload,
-    DescribeManifestReply
+    DocumentCatalogItem
   }
 
   @graph_id "00000000-0000-0000-0000-000000000001"
@@ -731,10 +741,12 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   test "requires capability status counts and minimum support" do
     assert {:error, changeset} =
-             NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.validate(%{
-               "capability_id" => "capability-1",
-               "operational" => true
-             })
+             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.validate(
+               %{
+                 "capability_id" => "capability-1",
+                 "operational" => true
+               }
+             )
 
     assert %{
              required_flow_count: ["can't be blank"],
@@ -744,14 +756,16 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
            } = errors_on(changeset)
 
     assert {:ok, status} =
-             NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.validate(%{
-               "capability_id" => "capability-1",
-               "operational" => true,
-               "required_flow_count" => 2,
-               "missing_flow_count" => 1,
-               "supporting_host_count" => 3,
-               "min_operational_support" => 2
-             })
+             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.validate(
+               %{
+                 "capability_id" => "capability-1",
+                 "operational" => true,
+                 "required_flow_count" => 2,
+                 "missing_flow_count" => 1,
+                 "supporting_host_count" => 3,
+                 "min_operational_support" => 2
+               }
+             )
 
     assert %{
              capability_id: "capability-1",
@@ -760,7 +774,10 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              missing_flow_count: 1,
              supporting_host_count: 3,
              min_operational_support: 2
-           } = NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.to_wire(status)
+           } =
+             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.to_wire(
+               status
+             )
   end
 
   defp errors_on(changeset) do

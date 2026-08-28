@@ -1,6 +1,7 @@
 <script lang="ts">
+  import type { Node } from "../../../contracts.generated/graph";
+
   import { ContextMenu } from "bits-ui";
-  import type { Node } from "../../contract";
   import { isActivationKey, type Point } from "./canvasState";
   import { NODE_HEIGHT, NODE_WIDTH } from "./geometry";
   import { nodePresentation } from "../presentation/registry";

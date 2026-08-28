@@ -1,14 +1,15 @@
+import type {
+  Edge,
+  GraphContract,
+  MissionCapabilityNode,
+  Node,
+} from "../../contracts.generated/graph";
 import { describe, expect, it, vi } from "vitest";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type {
-  LoadedGraph,
-  MissionCapabilityNode,
-  Selectable,
-} from "../contract";
 import {
   resolveInspector,
   type InspectorContext,
@@ -19,7 +20,7 @@ import GraphInspector from "./graph/GraphInspector.svelte";
 import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
 import ReportInspector from "./report/ReportInspector.svelte";
 
-function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+function makeGraph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "graph-1",
     title: "Topology",
@@ -34,7 +35,7 @@ function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
 }
 
 function makeGraphDocument(
-  graph: LoadedGraph = makeGraph(),
+  graph: GraphContract = makeGraph(),
 ): EditableGraphDocument {
   const document = new EditableGraphDocument();
   document.replaceFromLoadedGraph(graph);
@@ -172,7 +173,7 @@ describe("resolveInspector", () => {
     document.selectNode(capabilityNode.id);
 
     const request = resolveInspector(makeContext({ document }));
-    const onUpdate = propsOf(request).onUpdate as (next: Selectable) => void;
+    const onUpdate = propsOf(request).onUpdate as (next: Node | Edge) => void;
     onUpdate({
       ...capabilityNode,
       data: { ...capabilityNode.data, name: "Renamed" },
@@ -190,9 +191,11 @@ describe("resolveInspector", () => {
       type: "UnknownType",
       view_data: { x_pos: 0, y_pos: 0 },
       data: {},
-    } as unknown as Selectable;
+    } as unknown as Node | Edge;
     const document = makeGraphDocument(
-      makeGraph({ nodes: [unknown as LoadedGraph["nodes"][number]] }),
+      makeGraph({
+        nodes: [unknown as GraphContract["nodes"][number]],
+      }),
     );
     document.selectNode(unknown.id);
 

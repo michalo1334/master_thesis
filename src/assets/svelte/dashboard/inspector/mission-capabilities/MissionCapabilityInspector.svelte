@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import type {
-    GraphProjectionOperationalFlow,
-    LoadedGraph,
+    GraphContract,
     MissionCapabilityNode,
-  } from "../../contract";
+  } from "../../../contracts.generated/graph";
+  import type { GraphProjectionOperationalFlow } from "../../../contracts.generated/dashboard/graph";
+
+  import { onMount } from "svelte";
   import type { DashboardApi } from "../../dashboard-api";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
@@ -20,7 +21,7 @@
 
   interface Props {
     selectable: MissionCapabilityNode;
-    graph: LoadedGraph;
+    graph: GraphContract;
     api: DashboardApi;
     revisionId?: string | null;
     canEditFlows: boolean;
@@ -82,7 +83,7 @@
   }
 
   function optionsFor(
-    graph: LoadedGraph,
+    graph: GraphContract,
     flows: readonly GraphProjectionOperationalFlow[],
   ): RequiredFlowOption[] {
     const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
@@ -124,7 +125,7 @@
   }
 
   function flowSummariesFor(
-    graph: LoadedGraph,
+    graph: GraphContract,
     data: unknown,
   ): RequiredFlowOption[] {
     const nodes = new Map(graph.nodes.map((node) => [node.id, node]));

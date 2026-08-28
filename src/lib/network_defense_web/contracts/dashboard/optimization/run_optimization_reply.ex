@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.RunOptimizationReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
 
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   @enum_values status: [:accepted, :rejected]
 

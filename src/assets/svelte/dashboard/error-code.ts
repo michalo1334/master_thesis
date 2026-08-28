@@ -1,5 +1,4 @@
-import type { ErrorCode } from "./contract";
-
+import type { ErrorCode } from "../contracts.generated/errors";
 const messages: Record<ErrorCode, string> = {
   not_found: "The requested item was not found.",
   invalid_graph: "The graph is invalid.",

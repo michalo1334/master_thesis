@@ -1,10 +1,9 @@
-import type { DashboardApi } from "../dashboard-api";
 import type {
   DescribeManifestReply,
   ManifestError,
   ManifestSummary,
-} from "../contract";
-
+} from "../../contracts.generated/dashboard/evaluation";
+import type { DashboardApi } from "../dashboard-api";
 export type ManifestTab = "json" | "preview";
 
 const DEFAULT_MANIFEST = `{

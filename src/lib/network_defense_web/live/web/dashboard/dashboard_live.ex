@@ -17,54 +17,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.DocumentCatalog
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
-  alias NetworkDefenseWeb.Web.Contracts.{
-    FetchSimulationReportPayload,
-    FetchSimulationReportReply,
-    FetchExperimentsPayload,
-    FetchExperimentsReply,
-    CreateConnectionDraftPayload,
-    CreateConnectionDraftReply,
-    CompareGraphsPayload,
-    CompareGraphsReply,
-    FetchGraphProjectionPayload,
-    FetchGraphProjectionReply,
-    FetchDocumentCatalogPayload,
-    FetchDocumentCatalogReply,
-    CreateFolderPayload,
-    CreateFolderReply,
-    CreateNodeDraftPayload,
-    CreateNodeDraftReply,
-    DeleteFolderPayload,
-    DeleteFolderReply,
+  alias NetworkDefenseWeb.Contracts.Dashboard.{
     ExecutionProgressEvent,
-    FolderSummary,
-    GraphConnectivityReply,
-    OpenGraphPayload,
-    OpenGraphReply,
-    SetGraphRevisionFavoritePayload,
-    SetGraphRevisionFavoriteReply,
-    GraphSummary,
-    MoveGraphToFolderPayload,
-    MoveGraphToFolderReply,
-    FetchOptimizationReportPayload,
-    FetchOptimizationReportReply,
-    FetchOptimizationRunsPayload,
-    FetchOptimizationRunsReply,
-    OptimizationCompletedEvent,
-    OptimizationFailedEvent,
-    OptimizationReportErrorEvent,
-    OptimizationReportReadyEvent,
-    RunOptimizationPayload,
-    RunOptimizationReply,
-    RunSimulationReply,
-    RunSimulationPayload,
-    ReportRequestReply,
-    SaveGraphPayload,
-    SaveGraphReply,
-    SimulationCompletedEvent,
-    SimulationFailedEvent,
-    SimulationReportErrorEvent,
-    SimulationReportReadyEvent,
+    ReportRequestReply
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
     GetManifestPayload,
     GetManifestReply,
     ListManifestsPayload,
@@ -83,12 +41,72 @@ defmodule NetworkDefenseWeb.DashboardLive do
     EvaluationReportErrorEvent,
     EvaluationReportReadyEvent,
     EvaluationAnalysisReadyEvent,
-    EvaluationAnalysisErrorEvent,
+    EvaluationAnalysisErrorEvent
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
+    CreateConnectionDraftPayload,
+    CreateConnectionDraftReply,
+    CompareGraphsPayload,
+    CompareGraphsReply,
+    FetchGraphProjectionPayload,
+    FetchGraphProjectionReply,
+    CreateFolderPayload,
+    CreateFolderReply,
+    CreateNodeDraftPayload,
+    CreateNodeDraftReply,
+    DeleteFolderPayload,
+    DeleteFolderReply,
+    FolderSummary,
+    GraphConnectivityReply,
+    OpenGraphPayload,
+    OpenGraphReply,
+    SetGraphRevisionFavoritePayload,
+    SetGraphRevisionFavoriteReply,
+    GraphSummary,
+    MoveGraphToFolderPayload,
+    MoveGraphToFolderReply,
+    SaveGraphPayload,
+    SaveGraphReply
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.{
+    FetchOptimizationReportPayload,
+    FetchOptimizationReportReply,
+    FetchOptimizationRunsPayload,
+    FetchOptimizationRunsReply,
+    OptimizationCompletedEvent,
+    OptimizationFailedEvent,
+    OptimizationReportErrorEvent,
+    OptimizationReportReadyEvent,
+    RunOptimizationPayload,
+    RunOptimizationReply
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.{
     FetchRunsPayload,
     FetchRunsReply,
     CancelRunPayload,
     CancelRunReply,
     RunCancelledEvent
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.{
+    FetchSimulationReportPayload,
+    FetchSimulationReportReply,
+    FetchExperimentsPayload,
+    FetchExperimentsReply,
+    RunSimulationReply,
+    RunSimulationPayload,
+    SimulationCompletedEvent,
+    SimulationFailedEvent,
+    SimulationReportErrorEvent,
+    SimulationReportReadyEvent
+  }
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.{
+    FetchDocumentCatalogPayload,
+    FetchDocumentCatalogReply
   }
 
   @impl true

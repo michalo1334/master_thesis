@@ -1,3 +1,4 @@
+import type { EvaluationAnalysis } from "../../contracts.generated/dashboard/evaluation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -9,8 +10,6 @@ import {
 import AnalysisReport from "./AnalysisReport.svelte";
 import { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { EvaluationAnalysis } from "../../contracts.generated";
-
 afterEach(cleanup);
 
 function loadedDocument(): AnalysisReportDocument {

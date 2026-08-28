@@ -1,4 +1,7 @@
 <script lang="ts">
+  import type { GraphSummary } from "./contracts.generated/dashboard/graph";
+  import type { OptimizationParams } from "./contracts.generated/optimization";
+
   import type { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { AppBar, StatusBar } from "./ui-kit/layout";
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
@@ -8,7 +11,6 @@
   import type { SplitButtonOption } from "./ui-kit/primitives/SplitButton.svelte";
   import ManifestDialog from "./dashboard/manifest/ManifestDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
-  import type { GraphSummary, OptimizationParams } from "./dashboard/contract";
   import { dashboardRegistry } from "./dashboard/workspace/dashboard-registry";
 
   interface Props {

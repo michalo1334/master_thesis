@@ -1,5 +1,5 @@
+import type { OptimizationReport } from "../../contracts.generated/dashboard/optimization";
 import type { KpiMetric } from "../KpiCards.svelte";
-import type { OptimizationReport } from "../contract";
 import { formatRuntime } from "../format";
 
 const formatNumber = (value: number) =>

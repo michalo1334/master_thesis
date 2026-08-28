@@ -1,9 +1,9 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
-import type { LoadedGraph } from "../../contract";
 import type { DashboardApi } from "../../dashboard-api";
 
-function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+function makeGraph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "g1",
     title: "Graph",
@@ -370,6 +370,6 @@ describe("EditableGraphDocument", () => {
   });
 });
 
-function makeSaveReply(graph: LoadedGraph) {
+function makeSaveReply(graph: GraphContract) {
   return { status: "ok" as const, graph };
 }

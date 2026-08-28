@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CreateConnectionDraftPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

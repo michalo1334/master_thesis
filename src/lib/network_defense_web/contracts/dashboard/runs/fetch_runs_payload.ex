@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchRunsPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :runs

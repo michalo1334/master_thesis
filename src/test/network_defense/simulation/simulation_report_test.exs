@@ -20,7 +20,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
-  alias NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
 
   import NetworkDefense.GraphFixtures
 

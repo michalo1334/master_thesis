@@ -1,5 +1,5 @@
+import type { OptimizationReport } from "../../contracts.generated/dashboard/optimization";
 import { describe, expect, it } from "vitest";
-import type { OptimizationReport } from "../contract";
 import { formatOptimizationKpis } from "./optimization-report";
 import { toOptimizationAnalysis } from "./to-analysis";
 

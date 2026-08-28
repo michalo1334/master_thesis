@@ -1,14 +1,13 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import GraphInspector from "./GraphInspector.svelte";
-import type { LoadedGraph } from "../../contract";
-
 afterEach(cleanup);
 
 describe("GraphInspector", () => {
   it("sends a non-empty title change and restores an empty title", async () => {
     const onTitleChange = vi.fn();
-    const graph: LoadedGraph = {
+    const graph: GraphContract = {
       id: "graph-1",
       title: "Topology",
       revision_id: "revision-1",
@@ -33,7 +32,7 @@ describe("GraphInspector", () => {
 
   it("opens a parent revision and leaves the root as plain text", async () => {
     const onOpenParent = vi.fn();
-    const graph: LoadedGraph = {
+    const graph: GraphContract = {
       id: "graph-1",
       title: "Topology",
       revision_id: "revision-2",

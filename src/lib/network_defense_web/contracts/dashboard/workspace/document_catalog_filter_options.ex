@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :workspace
@@ -6,8 +6,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
   embedded_schema do
     field :types, {:array, :string}, default: []
 
-    embeds_many :graphs, NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption,
-      on_replace: :delete
+    embeds_many :graphs,
+                NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption,
+                on_replace: :delete
 
     field :strategies, {:array, :string}, default: []
     field :revision_kinds, {:array, :string}, default: []
@@ -15,7 +16,9 @@ defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions do
 
   @type t :: %__MODULE__{
           types: [String.t()],
-          graphs: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption.t()],
+          graphs: [
+            NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption.t()
+          ],
           strategies: [String.t()],
           revision_kinds: [String.t()]
         }

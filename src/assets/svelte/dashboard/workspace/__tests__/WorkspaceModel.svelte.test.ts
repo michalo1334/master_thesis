@@ -1,13 +1,14 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
+import type {
+  GraphDiffResult,
+  GraphSummary,
+} from "../../../contracts.generated/dashboard/graph";
+import type { DocumentCatalogItem } from "../../../contracts.generated/dashboard/workspace";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { WorkspaceModel } from "../WorkspaceModel.svelte";
-import type {
-  GraphSummary,
-  GraphDiffResult,
-  LoadedGraph,
-} from "../../contract";
 import type { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
-import type { DocumentCatalogItem } from "../../contract";
+
 import { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
 import { AnalysisReportDocument } from "../../analysis-report/AnalysisReportDocument.svelte";
 import { createWorkspaceEnvelope } from "../../../ui-kit/workspace/workspace-persistence";
@@ -27,7 +28,9 @@ function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   };
 }
 
-function makeLoadedGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+function makeLoadedGraph(
+  overrides: Partial<GraphContract> = {},
+): GraphContract {
   return {
     id: "g1",
     title: "Graph",
@@ -258,9 +261,11 @@ describe("WorkspaceModel", () => {
         created_at: "2026-01-01T00:00:00Z",
       };
       await expect(
-        (catalog as { openItem(item: DocumentCatalogItem): unknown }).openItem(
-          item,
-        ),
+        (
+          catalog as {
+            openItem(item: DocumentCatalogItem): unknown;
+          }
+        ).openItem(item),
       ).resolves.toBe(true);
       expect(api.openGraph).toHaveBeenCalledWith("r1");
     });

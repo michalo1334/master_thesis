@@ -1,9 +1,9 @@
+import type { GraphContract } from "../../contracts.generated/graph";
+import type { GraphDiffResult } from "../../contracts.generated/dashboard/graph";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/svelte";
 import GraphDiff from "./GraphDiff.svelte";
 import { GraphDiffDocument } from "./GraphDiffDocument.svelte";
-import type { GraphDiffResult, LoadedGraph } from "../contract";
-
 afterEach(cleanup);
 
 function segmentNode(id: string, name: string, xPos: number) {
@@ -30,7 +30,7 @@ function policyEdge(
   };
 }
 
-function makeGraph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+function makeGraph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "g1",
     title: "Network",

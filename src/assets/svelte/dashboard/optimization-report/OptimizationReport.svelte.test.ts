@@ -1,3 +1,5 @@
+import type { GraphDiffResult } from "../../contracts.generated/dashboard/graph";
+import type { OptimizationReport } from "../../contracts.generated/dashboard/optimization";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -9,7 +11,6 @@ import {
 import OptimizationReportComponent from "./OptimizationReport.svelte";
 import { OptimizationReportDocument } from "./OptimizationReportDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
-import type { GraphDiffResult, OptimizationReport } from "../contract";
 import type { DashboardApi } from "../dashboard-api";
 
 afterEach(cleanup);

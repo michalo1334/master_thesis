@@ -1,7 +1,7 @@
 <script lang="ts">
+  import type { Edge, Node } from "../../../contracts.generated/graph";
   import { ContextMenu } from "bits-ui";
   import { edgeEndpoints } from "./geometry";
-  import { type Edge, type Node } from "../../contract";
   import { isActivationKey, type Point } from "./canvasState";
   import { edgePresentation } from "../presentation/registry";
   import type { CanvasEdgeAppearance } from "./appearance";

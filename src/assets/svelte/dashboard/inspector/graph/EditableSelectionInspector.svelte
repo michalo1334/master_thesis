@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Selectable } from "../../contract";
+  import type { Edge, Node } from "../../../contracts.generated/graph";
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
 
   interface Field {
@@ -8,8 +8,8 @@
   }
 
   interface Props {
-    selectable: Selectable;
-    onUpdate: (selectable: Selectable) => void;
+    selectable: Node | Edge;
+    onUpdate: (selectable: Node | Edge) => void;
   }
 
   let { selectable, onUpdate }: Props = $props();
@@ -70,7 +70,7 @@
             ? field.value
             : Number(raw)
           : raw;
-    onUpdate({ ...selectable, data } as Selectable);
+    onUpdate({ ...selectable, data } as Node | Edge);
   }
 </script>
 

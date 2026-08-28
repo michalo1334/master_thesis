@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationExperimentSummary do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

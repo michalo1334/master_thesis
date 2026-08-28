@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisFeasibilityRow do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 

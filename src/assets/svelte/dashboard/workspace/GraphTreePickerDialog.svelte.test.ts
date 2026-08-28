@@ -1,3 +1,4 @@
+import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -7,8 +8,6 @@ import {
   waitFor,
 } from "@testing-library/svelte";
 import GraphTreePickerDialog from "./GraphTreePickerDialog.svelte";
-import type { GraphSummary } from "../contract";
-
 const root: GraphSummary = {
   graph_id: "root",
   revision_id: "root-r1",

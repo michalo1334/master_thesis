@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchGraphProjectionReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
-  alias NetworkDefenseWeb.Web.Contracts.{
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
     GraphProjectionHost,
     GraphProjectionOperationalFlow,
     GraphProjectionPolicyLink,

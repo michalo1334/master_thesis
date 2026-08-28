@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphDiffCounts do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

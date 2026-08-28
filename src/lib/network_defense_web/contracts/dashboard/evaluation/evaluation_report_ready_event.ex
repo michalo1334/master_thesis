@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationReportReadyEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportReadyEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.EvaluationReport
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport
 
   embedded_schema do
     field :document_id, :string

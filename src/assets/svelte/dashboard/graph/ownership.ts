@@ -1,5 +1,4 @@
-import type { Edge, Node } from "../contract";
-
+import type { Edge, Node } from "../../contracts.generated/graph";
 /** Resolves an unambiguous Host→Service or Service→Vulnerability owner. */
 export function resolveOwnership(
   nodes: readonly Node[],

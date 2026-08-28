@@ -1,10 +1,9 @@
 import type {
-  Edge,
-  GraphProjectionOperationalFlow,
-  LoadedGraph,
+  GraphContract,
   NetworkSegmentNode,
   Node,
-} from "../../contract";
+} from "../../../contracts.generated/graph";
+import type { GraphProjectionOperationalFlow } from "../../../contracts.generated/dashboard/graph";
 import { resolveOwnership } from "../ownership";
 
 export interface NetworkHost {
@@ -56,7 +55,7 @@ export interface NetworkProjection {
 }
 
 export function projectNetwork(
-  graph: LoadedGraph,
+  graph: GraphContract,
   serverFlows?: readonly GraphProjectionOperationalFlow[],
 ): NetworkProjection {
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));

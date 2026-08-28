@@ -1,10 +1,6 @@
+import type * as DashboardGraphContracts from "../../contracts.generated/dashboard/graph";
+import type { GraphContract } from "../../contracts.generated/graph";
 import { SvelteMap } from "svelte/reactivity";
-import type {
-  GraphDiffCounts,
-  GraphDiffResult,
-  GraphDiffStatusEntry,
-  LoadedGraph,
-} from "../contract";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";
 import {
@@ -12,7 +8,8 @@ import {
   type PersistedWorkspaceDocument,
 } from "../../ui-kit/workspace/workspace-persistence";
 
-export type GraphDiffStatus = GraphDiffStatusEntry["status"];
+export type GraphDiffStatus =
+  DashboardGraphContracts.GraphDiffStatusEntry["status"];
 
 export class GraphDiffDocument extends WorkspaceDocumentBase {
   readonly kind = "graph-diff" as const;
@@ -24,21 +21,34 @@ export class GraphDiffDocument extends WorkspaceDocumentBase {
   baseTitle = $state("");
   comparisonTitle = $state("");
   title = $state("");
-  graph = $state.raw<LoadedGraph>({ id: "", title: "", nodes: [], edges: [] });
+  graph = $state.raw<GraphContract>({
+    id: "",
+    title: "",
+    nodes: [],
+    edges: [],
+  });
   nodeStatusById = $state.raw<ReadonlyMap<string, GraphDiffStatus>>(
     new SvelteMap(),
   );
   edgeStatusById = $state.raw<ReadonlyMap<string, GraphDiffStatus>>(
     new SvelteMap(),
   );
-  nodeCounts = $state<GraphDiffCounts>({ added: 0, removed: 0, unchanged: 0 });
-  edgeCounts = $state<GraphDiffCounts>({ added: 0, removed: 0, unchanged: 0 });
+  nodeCounts = $state<DashboardGraphContracts.GraphDiffCounts>({
+    added: 0,
+    removed: 0,
+    unchanged: 0,
+  });
+  edgeCounts = $state<DashboardGraphContracts.GraphDiffCounts>({
+    added: 0,
+    removed: 0,
+    unchanged: 0,
+  });
   status = $state<"ready" | "loading" | "loaded" | "error">("loaded");
 
   constructor(
-    base: LoadedGraph,
+    base: GraphContract,
     comparison: { revisionId: string; title: string },
-    result: GraphDiffResult,
+    result: DashboardGraphContracts.GraphDiffResult,
   ) {
     super();
     this.replace(base, comparison, result);
@@ -49,7 +59,7 @@ export class GraphDiffDocument extends WorkspaceDocumentBase {
     _context: DashboardRecoveryContext,
   ): GraphDiffDocument | undefined {
     if (!isGraphDiffPersisted(data)) return undefined;
-    const graph: LoadedGraph = {
+    const graph: GraphContract = {
       id: "",
       title: data.title,
       revision_id: data.ids.baseRevisionId,
@@ -131,9 +141,9 @@ export class GraphDiffDocument extends WorkspaceDocumentBase {
   }
 
   replace(
-    base: LoadedGraph,
+    base: GraphContract,
     comparison: { revisionId: string; title: string },
-    result: GraphDiffResult,
+    result: DashboardGraphContracts.GraphDiffResult,
   ): void {
     this.baseRevisionId = base.revision_id ?? "";
     this.comparisonRevisionId = comparison.revisionId;

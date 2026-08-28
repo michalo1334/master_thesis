@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoriteReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoriteReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

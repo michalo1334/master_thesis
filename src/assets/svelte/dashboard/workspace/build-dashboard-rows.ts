@@ -1,3 +1,7 @@
+import type {
+  FolderSummary,
+  GraphSummary,
+} from "../../contracts.generated/dashboard/graph";
 import {
   buildOutline,
   type OutlineGroup,
@@ -11,7 +15,6 @@ import {
   parentDocument,
 } from "./document-outline";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
-import type { FolderSummary, GraphSummary } from "../contract";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 
 export interface OutlineSelectModifiers {

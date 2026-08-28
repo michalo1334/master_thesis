@@ -1,3 +1,4 @@
+import type { GraphContract, Node } from "../../../contracts.generated/graph";
 import {
   forceCollide,
   forceLink,
@@ -6,8 +7,6 @@ import {
   forceX,
   forceY,
 } from "d3-force";
-import type { LoadedGraph, Node } from "../../contract";
-
 export interface ZonePosition {
   x: number;
   y: number;
@@ -23,7 +22,7 @@ const ZONE_RADIUS = 155;
 const HOST_RADIUS = 90;
 
 /** Returns a graph with a persisted, readable network arrangement. */
-export function arrangeNetwork(graph: LoadedGraph): LoadedGraph {
+export function arrangeNetwork(graph: GraphContract): GraphContract {
   const zones = graph.nodes.filter(
     (node): node is Extract<Node, { type: "NetworkSegment" }> =>
       node.type === "NetworkSegment",

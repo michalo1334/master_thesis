@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.ReportRequestReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.ReportRequestReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

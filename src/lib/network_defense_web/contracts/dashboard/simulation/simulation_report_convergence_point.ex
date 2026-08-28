@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportConvergencePoint do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

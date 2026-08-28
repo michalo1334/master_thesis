@@ -1,16 +1,24 @@
+import type * as EvaluationContracts from "../contracts.generated/dashboard/evaluation";
+import type { ExecutionProgressEvent } from "../contracts.generated/dashboard";
+import type {
+  FolderSummary,
+  GraphSummary,
+} from "../contracts.generated/dashboard/graph";
+import type {
+  OptimizationCompletedEvent,
+  OptimizationFailedEvent,
+} from "../contracts.generated/dashboard/optimization";
+import type { OptimizationParams } from "../contracts.generated/optimization";
+import type { RunCancelledEvent } from "../contracts.generated/dashboard/runs";
+import type {
+  SimulationCompletedEvent,
+  SimulationFailedEvent,
+} from "../contracts.generated/dashboard/simulation";
+import type { SimulationParams } from "../contracts.generated/simulation";
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import { ManifestModel } from "./manifest/ManifestModel.svelte";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
-import type {
-  GraphSummary,
-  FolderSummary,
-  OptimizationCompletedEvent,
-  OptimizationFailedEvent,
-  ExecutionProgressEvent,
-  SimulationCompletedEvent,
-  SimulationFailedEvent,
-} from "./contract";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
 import type { AnalysisReportDocument } from "./analysis-report/AnalysisReportDocument.svelte";
@@ -20,18 +28,10 @@ import type {
   ReportReadyEventType,
 } from "./report-events";
 import type { AsyncReportDocument } from "./workspace/WorkspaceDocument.svelte";
-import type {
-  EvaluationCompletedEvent,
-  EvaluationFailedEvent,
-  RunCancelledEvent,
-} from "./contract";
+
 import { formatDashboardErrorCode } from "./error-code";
-import type { OptimizationParams, SimulationParams } from "./contract";
+
 import type { EditableGraphDocument } from "./graph/EditableGraphDocument.svelte";
-import type {
-  EvaluationAnalysisReadyEvent,
-  EvaluationAnalysisErrorEvent,
-} from "../contracts.generated";
 
 export class DashboardModel {
   workspace: WorkspaceModel;
@@ -39,7 +39,8 @@ export class DashboardModel {
   manifest: ManifestModel;
   private pendingEvaluationEvents = new SvelteMap<
     string,
-    EvaluationCompletedEvent | EvaluationFailedEvent
+    | EvaluationContracts.EvaluationCompletedEvent
+    | EvaluationContracts.EvaluationFailedEvent
   >();
   // ponytail: last-only O(1) buffer — full history if UX needs scrubbing
   private pendingEvaluationProgressEvents = new SvelteMap<
@@ -440,11 +441,13 @@ export class DashboardModel {
     this.workspace.markReportReadState(document);
   }
 
-  onEvaluationCompleted(payload: EvaluationCompletedEvent): void {
+  onEvaluationCompleted(
+    payload: EvaluationContracts.EvaluationCompletedEvent,
+  ): void {
     this.announceEvaluationReport(payload);
   }
 
-  onEvaluationFailed(payload: EvaluationFailedEvent): void {
+  onEvaluationFailed(payload: EvaluationContracts.EvaluationFailedEvent): void {
     this.announceEvaluationReport(payload);
   }
 
@@ -487,14 +490,18 @@ export class DashboardModel {
     return false;
   }
 
-  onEvaluationAnalysisReady(payload: EvaluationAnalysisReadyEvent): void {
+  onEvaluationAnalysisReady(
+    payload: EvaluationContracts.EvaluationAnalysisReadyEvent,
+  ): void {
     const report = this.findReport(payload.document_id, "evaluation") as
       AnalysisReportDocument | undefined;
     if (report?.status === "cancelled") return;
     report?.setAnalysisReady(payload);
   }
 
-  onEvaluationAnalysisError(payload: EvaluationAnalysisErrorEvent): void {
+  onEvaluationAnalysisError(
+    payload: EvaluationContracts.EvaluationAnalysisErrorEvent,
+  ): void {
     const report = this.findReport(payload.document_id, "evaluation") as
       AnalysisReportDocument | undefined;
     if (report?.status === "cancelled") return;
@@ -502,7 +509,9 @@ export class DashboardModel {
   }
 
   private announceEvaluationReport(
-    payload: EvaluationCompletedEvent | EvaluationFailedEvent,
+    payload:
+      | EvaluationContracts.EvaluationCompletedEvent
+      | EvaluationContracts.EvaluationFailedEvent,
   ): void {
     const report = this.findAnalysisReport(payload.run_id);
     if (!report) {

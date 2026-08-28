@@ -1,5 +1,5 @@
+import type { SimulationReportSummary } from "../../contracts.generated/dashboard/simulation";
 import { expect, it } from "vitest";
-import type { SimulationReportSummary } from "../../contracts.generated";
 import {
   formatCapabilityFlows,
   formatCapabilityStatusExplanation,

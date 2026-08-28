@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportEdgeTraversal do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

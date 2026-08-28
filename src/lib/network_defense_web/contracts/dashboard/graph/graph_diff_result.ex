@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphDiffResult do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
@@ -6,22 +6,25 @@ defmodule NetworkDefenseWeb.Web.Contracts.GraphDiffResult do
   embedded_schema do
     embeds_one :graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update
 
-    embeds_many :node_status, NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry,
+    embeds_many :node_status, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry,
       on_replace: :delete
 
-    embeds_many :edge_status, NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry,
+    embeds_many :edge_status, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry,
       on_replace: :delete
 
-    embeds_one :node_counts, NetworkDefenseWeb.Web.Contracts.GraphDiffCounts, on_replace: :update
-    embeds_one :edge_counts, NetworkDefenseWeb.Web.Contracts.GraphDiffCounts, on_replace: :update
+    embeds_one :node_counts, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts,
+      on_replace: :update
+
+    embeds_one :edge_counts, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts,
+      on_replace: :update
   end
 
   @type t :: %__MODULE__{
           graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
-          node_status: [NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry.t()],
-          edge_status: [NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry.t()],
-          node_counts: NetworkDefenseWeb.Web.Contracts.GraphDiffCounts.t(),
-          edge_counts: NetworkDefenseWeb.Web.Contracts.GraphDiffCounts.t()
+          node_status: [NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry.t()],
+          edge_status: [NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry.t()],
+          node_counts: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts.t(),
+          edge_counts: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts.t()
         }
 
   def changeset(schema, attrs) do

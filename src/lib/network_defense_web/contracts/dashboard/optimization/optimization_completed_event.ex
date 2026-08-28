@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OptimizationCompletedEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationCompletedEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization

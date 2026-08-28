@@ -37,10 +37,14 @@ defmodule Mix.Tasks.Gen.Contracts.Discriminant do
             "variant: #{tag} (data: #{module |> Module.split() |> List.last()})"
           )
 
-        "#{comment}\nexport interface #{tag}#{context.ts_name} {\n#{Enum.join(properties, "\n")}\n}"
+        name = "#{tag}#{context.ts_name}"
+
+        "#{comment}\n#{Renderer.properties_interface(name, properties)}"
       end)
 
-    {:emit, "#{union_comment}\n#{type_declaration}\n\n#{Enum.join(interfaces, "\n\n")}"}
+    body = "#{union_comment}\n#{type_declaration}\n\n#{Enum.join(interfaces, "\n\n")}"
+
+    {:emit, Renderer.namespaced(Renderer.contract_namespace(context.module), body)}
   end
 
   def render(_context), do: :skip

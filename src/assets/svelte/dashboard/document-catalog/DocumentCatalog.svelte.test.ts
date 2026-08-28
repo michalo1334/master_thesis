@@ -1,3 +1,7 @@
+import type {
+  DocumentCatalogItem,
+  FetchDocumentCatalogReply,
+} from "../../contracts.generated/dashboard/workspace";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -9,11 +13,6 @@ import {
 import DocumentCatalog from "./DocumentCatalog.svelte";
 import { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
 import type { DashboardApi, DocumentCatalogQuery } from "../dashboard-api";
-import type {
-  DocumentCatalogItem,
-  FetchDocumentCatalogReply,
-} from "../contract";
-
 const items: DocumentCatalogItem[] = [
   {
     id: "graph-1",

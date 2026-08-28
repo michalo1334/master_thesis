@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

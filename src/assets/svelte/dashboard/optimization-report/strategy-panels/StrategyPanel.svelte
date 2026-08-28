@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { OptimizationAction } from "../../contract";
+  import type { OptimizationAction } from "../../../contracts.generated/dashboard/optimization";
 
   interface Props {
     title: string;

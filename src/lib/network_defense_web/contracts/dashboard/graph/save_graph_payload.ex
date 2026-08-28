@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SaveGraphPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

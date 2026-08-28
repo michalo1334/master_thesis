@@ -1,3 +1,4 @@
+import type { Edge, Node } from "../../../contracts.generated/graph";
 import {
   forceSimulation,
   forceLink,
@@ -7,7 +8,6 @@ import {
 } from "d3-force";
 import type { SimulationNodeDatum, SimulationLinkDatum } from "d3-force";
 import { SvelteMap } from "svelte/reactivity";
-import type { Node, Edge } from "../../contract";
 import type { ForceParams } from "./ForceLayout.types";
 import { resolveOwnership } from "../ownership";
 

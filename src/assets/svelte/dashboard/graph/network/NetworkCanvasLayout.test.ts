@@ -1,8 +1,8 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { describe, expect, it } from "vitest";
-import type { LoadedGraph } from "../../contract";
 import { arrangeNetwork } from "./NetworkCanvasLayout";
 
-function graph(): LoadedGraph {
+function graph(): GraphContract {
   return {
     id: "graph",
     title: "Network",

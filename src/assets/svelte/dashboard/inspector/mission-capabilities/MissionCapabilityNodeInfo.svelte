@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MissionCapabilityNode } from "../../../contracts.generated";
+  import type { MissionCapabilityNode } from "../../../contracts.generated/graph";
 
   interface Props {
     node: MissionCapabilityNode;

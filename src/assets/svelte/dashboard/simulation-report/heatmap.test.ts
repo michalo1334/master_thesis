@@ -1,5 +1,5 @@
+import type { SimulationReportCharts } from "../../contracts.generated/dashboard/simulation";
 import { expect, it } from "vitest";
-import type { SimulationReportCharts } from "../../contracts.generated";
 import { simulationHeatmapAppearance } from "./heatmap";
 
 it("styles reported hosts and traversed edges from their probabilities", () => {

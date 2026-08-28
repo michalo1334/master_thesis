@@ -16,36 +16,44 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   test "renders contract types from typespecs and metadata" do
     output = Registry.render_all()
 
-    assert output =~ "export type Node ="
-    assert output =~ "  | HostNode"
-    assert output =~ "  | ServiceNode"
-    assert output =~ "  | VulnerabilityNode"
-    assert output =~ "  | CredentialNode"
-    assert output =~ "  | NetworkSegmentNode"
-    assert output =~ "  | MissionCapabilityNode;"
+    assert output =~ "export declare namespace NetworkDefense.Graph.Contracts"
+    assert output =~ "export declare namespace NetworkDefense.Graph.Contracts.Data"
+    assert output =~ "export declare namespace NetworkDefenseWeb.Contracts.Dashboard"
+    assert output =~ "export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation"
+    refute output =~ "NetworkDefenseWeb.Web.Contracts"
+
+    assert output =~ "  export type Node ="
+    assert output =~ "    | HostNode"
+    assert output =~ "    | ServiceNode"
+    assert output =~ "    | VulnerabilityNode"
+    assert output =~ "    | CredentialNode"
+    assert output =~ "    | NetworkSegmentNode"
+    assert output =~ "    | MissionCapabilityNode;"
 
     assert output =~ "type: \"Host\";"
-    assert output =~ "data: HostData;"
+    assert output =~ "data: NetworkDefense.Graph.Contracts.Data.HostData;"
 
-    assert output =~ "export type Edge ="
-    assert output =~ "  | RunsEdge"
-    assert output =~ "  | SegmentReachabilityEdge"
-    assert output =~ "  | HasVulnerabilityEdge"
-    assert output =~ "  | StoresCredentialEdge"
-    assert output =~ "  | AuthenticatesToEdge"
-    assert output =~ "  | ContainsEdge"
-    assert output =~ "  | SupportsEdge;"
+    assert output =~ "  export type Edge ="
+    assert output =~ "    | RunsEdge"
+    assert output =~ "    | SegmentReachabilityEdge"
+    assert output =~ "    | HasVulnerabilityEdge"
+    assert output =~ "    | StoresCredentialEdge"
+    assert output =~ "    | AuthenticatesToEdge"
+    assert output =~ "    | ContainsEdge"
+    assert output =~ "    | SupportsEdge;"
 
     refute output =~ "NetworkReachability"
 
     assert output =~ "protocol: \"tcp\" | \"udp\";"
     assert output =~ "protocol: \"tcp\" | \"udp\" | \"any\";"
     assert output =~ "version?: string | null;"
-    assert output =~ "nodes: Node[];"
-    assert output =~ "graph?: GraphContract | null;"
+    assert output =~ "nodes: NetworkDefense.Graph.Contracts.Node[];"
+    assert output =~ "graph?:"
+    assert output =~ "NetworkDefense.Graph.Contracts.GraphContract | null;"
     assert output =~ "export interface RunSimulationRequest"
-    assert output =~ "export type ErrorCode ="
-    assert output =~ "code: ErrorCode;"
+    assert output =~ "export declare namespace NetworkDefense.Errors"
+    assert output =~ "  export type ErrorCode ="
+    assert output =~ "code: NetworkDefense.Errors.ErrorCode;"
     assert output =~ "correlation_id: string;"
     assert output =~ "status: \"accepted\" | \"rejected\";"
     assert output =~ "export interface SimulationCompletedEvent"
@@ -55,17 +63,22 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface OptimizationCompletedEvent"
 
     assert output =~
-             "export interface EvaluationAnalysisErrorEvent {\n  document_id: string;\n  error: DashboardError;\n  mode: \"pilot\" | \"analyze\";"
+             "export interface EvaluationAnalysisErrorEvent {\n    document_id: string;\n    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;\n    mode: \"pilot\" | \"analyze\";"
 
     assert output =~ "export interface SimulationReportCapabilityStatus"
     assert output =~ "required_flow_count: number;"
     assert output =~ "missing_flow_count: number;"
     assert output =~ "supporting_host_count: number;"
     assert output =~ "min_operational_support: number;"
-    assert output =~ "capability_statuses: SimulationReportCapabilityStatus[];"
+
+    assert output =~
+             "capability_statuses: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus[];"
+
     assert output =~ "feasible: boolean;"
     assert output =~ "content?: Record<string, unknown> | null;"
     assert output =~ "content: Record<string, unknown>;"
+
+    refute output =~ ~r/^export (interface|type) /m
   end
 
   test "discovers contracts for multiple categories" do
@@ -74,7 +87,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert NetworkDefense.Graph.Contracts.GraphContract in modules
     assert NetworkDefense.Simulation.Contracts.RunSimulationRequest in modules
     assert NetworkDefense.Optimization.Contracts.RunOptimizationRequest in modules
-    assert NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply in modules
+    assert NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply in modules
     assert NetworkDefense.Graph.Contracts.GraphContract.contract_category() == :graph
 
     assert NetworkDefense.Simulation.Contracts.RunSimulationRequest.contract_category() ==
@@ -90,9 +103,9 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     modules = Registry.list_contract_modules(:graph)
 
     assert NetworkDefense.Graph.Contracts.GraphContract in modules
-    assert NetworkDefenseWeb.Web.Contracts.SaveGraphPayload in modules
+    assert NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload in modules
     refute NetworkDefense.Simulation.Contracts.RunSimulationRequest in modules
-    refute NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply in modules
+    refute NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply in modules
   end
 
   test "selects all contract categories" do
@@ -131,5 +144,73 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   test "uses a global generated file" do
     assert Registry.output_path() ==
              Path.join(File.cwd!(), "assets/svelte/contracts.generated.ts")
+  end
+
+  test "generates type-only import modules per domain" do
+    modules = Map.new(Registry.render_import_modules())
+
+    for rel_path <- [
+          "errors.ts",
+          "graph.ts",
+          "graph/data.ts",
+          "optimization.ts",
+          "simulation.ts",
+          "dashboard.ts",
+          "dashboard/evaluation.ts",
+          "dashboard/graph.ts",
+          "dashboard/optimization.ts",
+          "dashboard/runs.ts",
+          "dashboard/simulation.ts",
+          "dashboard/workspace.ts"
+        ] do
+      assert Map.has_key?(modules, rel_path), "missing import module #{rel_path}"
+    end
+
+    evaluation = modules["dashboard/evaluation.ts"]
+    assert evaluation =~ ~s(import type * as __Contracts from "../../contracts.generated";)
+
+    assert evaluation =~
+             ~s(export type DescribeManifestPayload = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload;)
+
+    graph_data = modules["graph/data.ts"]
+    assert graph_data =~ ~s(import type * as __Contracts from "../../contracts.generated";)
+
+    assert graph_data =~
+             ~s(export type HostData = __Contracts.NetworkDefense.Graph.Contracts.Data.HostData;)
+
+    errors = modules["errors.ts"]
+    assert errors =~ ~s(import type * as __Contracts from "../contracts.generated";)
+    assert errors =~ ~s(export type ErrorCode = __Contracts.NetworkDefense.Errors.ErrorCode;)
+
+    graph = modules["graph.ts"]
+    assert graph =~ ~s(export type Node = __Contracts.NetworkDefense.Graph.Contracts.Node;)
+
+    assert graph =~
+             ~s(export type HostNode = __Contracts.NetworkDefense.Graph.Contracts.HostNode;)
+
+    dashboard = modules["dashboard.ts"]
+    assert dashboard =~ ~s(import type * as __Contracts from "../contracts.generated";)
+
+    assert Map.keys(modules) |> Enum.sort() == [
+             "dashboard.ts",
+             "dashboard/evaluation.ts",
+             "dashboard/graph.ts",
+             "dashboard/optimization.ts",
+             "dashboard/runs.ts",
+             "dashboard/simulation.ts",
+             "dashboard/workspace.ts",
+             "errors.ts",
+             "graph.ts",
+             "graph/data.ts",
+             "optimization.ts",
+             "simulation.ts"
+           ]
+  end
+
+  test "generated import modules are in sync with contracts" do
+    for {rel_path, content} <- Registry.render_import_modules() do
+      full = Path.join(Registry.import_modules_dir(), rel_path)
+      assert File.read!(full) == content, "import module out of sync: #{rel_path}"
+    end
   end
 end

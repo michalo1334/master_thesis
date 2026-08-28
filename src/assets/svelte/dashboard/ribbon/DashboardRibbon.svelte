@@ -1,14 +1,12 @@
 <script lang="ts">
+  import type { OptimizationParams } from "../../contracts.generated/optimization";
+  import type { SimulationParams } from "../../contracts.generated/simulation";
   import RibbonButton from "../../ui-kit/primitives/RibbonButton.svelte";
   import Icon from "../../ui-kit/primitives/Icon.svelte";
   import { Ribbon } from "../../ui-kit/layout";
   import Slider from "../../ui-kit/primitives/Slider.svelte";
   import type { ForceParams } from "../graph/layout/ForceLayout.types";
-  import type {
-    OptimizationParams,
-    OptimizationParamsChange,
-    SimulationParams,
-  } from "../contract";
+  import type { OptimizationParamsChange } from "../contract";
   import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
   import NumberInput from "../../ui-kit/primitives/NumberInput.svelte";
   import Select from "../../ui-kit/primitives/Select.svelte";

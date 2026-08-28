@@ -1,10 +1,9 @@
 <script lang="ts">
   import type {
-    DescribeManifestComparisonGroup,
     DescribeManifestPlanGroup,
     DescribeManifestReply,
     ManifestError,
-  } from "../../contracts.generated";
+  } from "../../contracts.generated/dashboard/evaluation";
 
   interface Props {
     content: Record<string, unknown> | null;

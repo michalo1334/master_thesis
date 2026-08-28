@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.RunSimulationReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   @enum_values status: [:accepted, :rejected]
 

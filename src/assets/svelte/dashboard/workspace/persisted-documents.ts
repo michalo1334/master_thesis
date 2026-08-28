@@ -1,4 +1,5 @@
-import type { OptimizationParams, SimulationParams } from "../contract";
+import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type { SimulationParams } from "../../contracts.generated/simulation";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 
 export interface DashboardWorkspaceState {

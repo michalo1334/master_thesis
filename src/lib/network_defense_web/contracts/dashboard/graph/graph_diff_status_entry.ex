@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

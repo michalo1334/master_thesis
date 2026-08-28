@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { GraphSummary } from "../contract";
+  import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
+
   import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
   import { resolveInspector } from "./inspector-registry";
 

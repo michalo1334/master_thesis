@@ -1,12 +1,12 @@
 import type {
   Edge,
-  DashboardError,
-  LoadedGraph,
+  GraphContract,
   Node,
-  OptimizationParams,
-  RunOptimizationReply,
-  SimulationParams,
-} from "../contract";
+} from "../../contracts.generated/graph";
+import type { DashboardError } from "../../contracts.generated/dashboard";
+import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type { RunOptimizationReply } from "../../contracts.generated/dashboard/optimization";
+import type { SimulationParams } from "../../contracts.generated/simulation";
 import type { DashboardApi } from "../dashboard-api";
 import type { ForceParams } from "./layout/ForceLayout.types";
 import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
@@ -25,7 +25,11 @@ export type CanvasSelection =
 
 export interface ConnectionOption {
   relationshipType: Edge["type"];
-  source: { id: string; type: Node["type"]; isFrom: boolean };
+  source: {
+    id: string;
+    type: Node["type"];
+    isFrom: boolean;
+  };
   target: { id?: string; type: Node["type"] };
 }
 
@@ -38,9 +42,12 @@ export type StartSimulationResult =
       runId: string;
       graphTitle: string;
     }
-  | { status: "rejected"; error: DashboardError | null };
+  | {
+      status: "rejected";
+      error: DashboardError | null;
+    };
 
-function blankGraph(title: string): LoadedGraph {
+function blankGraph(title: string): GraphContract {
   return {
     id: crypto.randomUUID(),
     title,
@@ -60,7 +67,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   };
   readonly id: string;
 
-  private _graph = $state<LoadedGraph>(blankGraph("Untitled"));
+  private _graph = $state<GraphContract>(blankGraph("Untitled"));
   private _selection = $state<CanvasSelection>({ kind: "none" });
   private _loaded = $state(false);
   private _loadedRevisionId = $state<string | null>(null);
@@ -142,11 +149,11 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     return this._changeVersion !== this._savedChangeVersion;
   }
 
-  get graph(): LoadedGraph {
+  get graph(): GraphContract {
     return this._graph;
   }
 
-  set graph(value: LoadedGraph) {
+  set graph(value: GraphContract) {
     this._graph = value;
     this._changeVersion++;
     this._preserveSelection(value);
@@ -157,7 +164,9 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   }
 
   get selection():
-    LoadedGraph["nodes"][number] | LoadedGraph["edges"][number] | undefined {
+    | GraphContract["nodes"][number]
+    | GraphContract["edges"][number]
+    | undefined {
     const sel = this._selection;
     if (sel.kind === "node")
       return this.graph.nodes.find((n) => n.id === sel.nodeId);
@@ -248,7 +257,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     }
   }
 
-  replaceFromLoadedGraph(graph: LoadedGraph): void {
+  replaceFromLoadedGraph(graph: GraphContract): void {
     this._graph = graph;
     this._title = graph.title;
     this._loaded = true;
@@ -257,7 +266,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this._preserveSelection(graph);
   }
 
-  replaceFromSaveReply(graph: LoadedGraph): void {
+  replaceFromSaveReply(graph: GraphContract): void {
     this._graph = graph;
     this._title = graph.title;
     this._loadedRevisionId = graph.revision_id ?? null;
@@ -343,7 +352,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this.graph = arrangeNetworkLayout(this._graph);
   }
 
-  private _preserveSelection(graph: LoadedGraph): void {
+  private _preserveSelection(graph: GraphContract): void {
     const sel = this._selection;
     if (sel.kind === "node" && graph.nodes.some((n) => n.id === sel.nodeId))
       return;
@@ -364,9 +373,9 @@ function isGraphPersisted(value: unknown): value is PersistedGraph {
 }
 
 function revisionMetadata(
-  graph: LoadedGraph,
+  graph: GraphContract,
 ): Pick<
-  LoadedGraph,
+  GraphContract,
   | "id"
   | "revision_id"
   | "parent_revision_id"

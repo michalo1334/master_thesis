@@ -1,4 +1,9 @@
 <script lang="ts">
+  import type {
+    CreateConnectionDraftPayload,
+    GraphConnectivityRule,
+  } from "../../../contracts.generated/dashboard/graph";
+  import type { Node } from "../../../contracts.generated/graph";
   import { onMount } from "svelte";
   import Canvas from "./Canvas.svelte";
   import NetworkCanvas from "../network/NetworkCanvas.svelte";
@@ -7,11 +12,6 @@
     EditableGraphDocument,
   } from "../EditableGraphDocument.svelte";
   import type { DashboardApi } from "../../dashboard-api";
-  import type {
-    CreateConnectionDraftPayload,
-    GraphConnectivityRule,
-    Node,
-  } from "../../contract";
   import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
 

@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPrimaryRow do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 

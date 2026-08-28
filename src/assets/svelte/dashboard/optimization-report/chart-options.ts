@@ -1,6 +1,5 @@
+import type { OptimizationAction } from "../../contracts.generated/dashboard/optimization";
 import type { EChartsOption } from "echarts";
-import type { OptimizationAction } from "../contract";
-
 const colors = {
   accent: "#1769d2",
   grid: "#e2e7ed",
@@ -11,8 +10,11 @@ export function cvssOptions(
   actions: readonly OptimizationAction[],
 ): EChartsOption {
   const scoredActions = actions.filter(
-    (action): action is OptimizationAction & { cvss_score: number } =>
-      action.cvss_score != null,
+    (
+      action,
+    ): action is OptimizationAction & {
+      cvss_score: number;
+    } => action.cvss_score != null,
   );
 
   return {

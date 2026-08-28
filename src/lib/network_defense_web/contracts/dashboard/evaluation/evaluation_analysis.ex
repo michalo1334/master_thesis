@@ -1,8 +1,8 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysis do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.{
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
     EvaluationAnalysisCapabilityRow,
     EvaluationAnalysisFeasibilityRow,
     EvaluationAnalysisMetadata,

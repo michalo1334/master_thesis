@@ -1,5 +1,5 @@
-import type { Edge, Node } from "../contract";
-import type { SimulationReportCharts } from "../../contracts.generated";
+import type { Edge, Node } from "../../contracts.generated/graph";
+import type { SimulationReportCharts } from "../../contracts.generated/dashboard/simulation";
 import type {
   CanvasEdgeAppearance,
   CanvasNodeAppearance,

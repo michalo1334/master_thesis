@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :workspace

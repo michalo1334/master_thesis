@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoritePayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoritePayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

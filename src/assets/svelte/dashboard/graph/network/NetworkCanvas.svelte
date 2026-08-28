@@ -1,9 +1,8 @@
 <script lang="ts">
+  import type { GraphContract } from "../../../contracts.generated/graph";
+  import type { GraphProjectionOperationalFlow } from "../../../contracts.generated/dashboard/graph";
+
   import type { DashboardApi } from "../../dashboard-api";
-  import type {
-    GraphProjectionOperationalFlow,
-    LoadedGraph,
-  } from "../../contract";
   import type { EditableGraphDocument } from "../EditableGraphDocument.svelte";
   import { type ZonePosition } from "./NetworkCanvasLayout";
   import { projectNetwork } from "./NetworkCanvasProjection";
@@ -35,13 +34,13 @@
   interface Props {
     document?: EditableGraphDocument;
     api?: DashboardApi;
-    graph?: LoadedGraph;
+    graph?: GraphContract;
     operationalFlows?: readonly GraphProjectionOperationalFlow[];
     selectedNodeId?: string;
     selectedEdgeId?: string;
     onSelectNode?: (nodeId: string) => void;
     onSelectEdge?: (edgeId: string) => void;
-    onGraphChange?: (graph: LoadedGraph) => void;
+    onGraphChange?: (graph: GraphContract) => void;
     hostAppearance?: (hostId: string) => CanvasNodeAppearance | undefined;
     policyLinkAppearance?: (
       link: NetworkSegmentLink,
@@ -371,7 +370,7 @@
     else document?.selectEdge(edgeId);
   }
 
-  function updateGraph(updater: (graph: LoadedGraph) => LoadedGraph): void {
+  function updateGraph(updater: (graph: GraphContract) => GraphContract): void {
     if (onGraphChange && effectiveGraph) {
       onGraphChange(updater(effectiveGraph));
       return;

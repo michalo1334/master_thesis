@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.EvaluationAnalysisCapabilityRowTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow
 
   test "casts an optional capability name" do
     assert EvaluationAnalysisCapabilityRow.changeset(%EvaluationAnalysisCapabilityRow{}, %{

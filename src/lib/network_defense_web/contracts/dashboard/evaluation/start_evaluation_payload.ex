@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.StartEvaluationPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

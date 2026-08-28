@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SaveGraphReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

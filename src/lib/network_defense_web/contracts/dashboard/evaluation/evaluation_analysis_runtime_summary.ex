@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisRuntimeSummary do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 

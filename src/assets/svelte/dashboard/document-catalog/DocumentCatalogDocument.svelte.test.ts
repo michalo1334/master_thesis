@@ -1,5 +1,5 @@
+import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { describe, expect, it } from "vitest";
-import type { DocumentCatalogItem } from "../contract";
 import { DocumentCatalogDocument } from "./DocumentCatalogDocument.svelte";
 
 function item(id: string, graphId: string): DocumentCatalogItem {

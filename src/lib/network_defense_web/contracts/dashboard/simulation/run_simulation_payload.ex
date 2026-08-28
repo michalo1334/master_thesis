@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.RunSimulationPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

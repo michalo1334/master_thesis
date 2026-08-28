@@ -1,4 +1,7 @@
-import type { OptimizationAction, OptimizationReport } from "../contract";
+import type {
+  OptimizationAction,
+  OptimizationReport,
+} from "../../contracts.generated/dashboard/optimization";
 
 export interface OptimizationAnalysis {
   report: OptimizationReport;

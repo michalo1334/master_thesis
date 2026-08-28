@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHistogramBucket do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

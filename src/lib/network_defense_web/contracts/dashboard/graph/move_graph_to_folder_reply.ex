@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.MoveGraphToFolderReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

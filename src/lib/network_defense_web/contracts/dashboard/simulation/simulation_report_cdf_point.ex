@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCdfPoint do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

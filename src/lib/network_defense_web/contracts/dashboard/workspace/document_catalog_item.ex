@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :workspace

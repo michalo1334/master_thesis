@@ -1,14 +1,15 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationRunsReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
 
   embedded_schema do
-    embeds_many :runs, NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary, on_replace: :delete
+    embeds_many :runs, NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationRunSummary,
+      on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          runs: [NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary.t()]
+          runs: [NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationRunSummary.t()]
         }
 
   def changeset(schema, attrs) do

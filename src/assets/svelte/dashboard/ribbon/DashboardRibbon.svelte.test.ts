@@ -1,9 +1,9 @@
+import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type { SimulationParams } from "../../contracts.generated/simulation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import DashboardRibbon from "./DashboardRibbon.svelte";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
-import type { OptimizationParams, SimulationParams } from "../contract";
-
 type OptimizationOption = {
   id: OptimizationParams["strategy"];
   title: string;

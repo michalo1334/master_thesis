@@ -2,1319 +2,1610 @@
 // Source: all contracts
 
 // NetworkDefense.Errors (lib/network_defense/errors.ex) — union of codes/0
-export type ErrorCode =
-  | "not_found"
-  | "invalid_graph"
-  | "invalid_base_revision"
-  | "invalid_node"
-  | "invalid_edge"
-  | "invalid_endpoints"
-  | "multiple_segments"
-  | "multiple_runs"
-  | "invalid_mission_capability_support"
-  | "invalid_required_flow_reference"
-  | "duplicate_ids"
-  | "identity_belongs_to_another_graph"
-  | "invalid_folder"
-  | "folder_not_found"
-  | "internal_error"
-  | "invalid_initial_foothold"
-  | "infeasible_input"
-  | "persistence_failed"
-  | "task_unavailable"
-  | "unknown_strategy"
-  | "reachability_required"
-  | "invalid_analysis"
-  | "invalid_analyses"
-  | "invalid_request";
+export declare namespace NetworkDefense.Errors {
+  export type ErrorCode =
+    | "not_found"
+    | "invalid_graph"
+    | "invalid_base_revision"
+    | "invalid_node"
+    | "invalid_edge"
+    | "invalid_endpoints"
+    | "multiple_segments"
+    | "multiple_runs"
+    | "invalid_mission_capability_support"
+    | "invalid_required_flow_reference"
+    | "duplicate_ids"
+    | "identity_belongs_to_another_graph"
+    | "invalid_folder"
+    | "folder_not_found"
+    | "internal_error"
+    | "invalid_initial_foothold"
+    | "infeasible_input"
+    | "persistence_failed"
+    | "task_unavailable"
+    | "unknown_strategy"
+    | "reachability_required"
+    | "invalid_analysis"
+    | "invalid_analyses"
+    | "invalid_request";
+}
 
 // NetworkDefense.Graph.Contracts.Data.AuthenticatesToData (lib/network_defense/graph/contracts/data/authenticates_to_data.ex) — enum fields: granted_privilege
-export interface AuthenticatesToData {
-  granted_privilege: "user" | "administrator";
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface AuthenticatesToData {
+    granted_privilege: "user" | "administrator";
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.ContainsData (lib/network_defense/graph/contracts/data/contains_data.ex)
-export type ContainsData = Record<never, never>;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export type ContainsData = Record<never, never>;
+}
 
 // NetworkDefense.Graph.Contracts.Data.CredentialData (lib/network_defense/graph/contracts/data/credential_data.ex) — enum fields: credential_type
-export interface CredentialData {
-  credential_type: "password" | "ssh_key" | "token";
-  identifier: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface CredentialData {
+    credential_type: "password" | "ssh_key" | "token";
+    identifier: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.CvssData (lib/network_defense/graph/contracts/data/cvss_data.ex)
-export interface CvssData {
-  attack_complexity: string;
-  attack_vector: string;
-  availability_impact: string;
-  confidentiality_impact: string;
-  integrity_impact: string;
-  privileges_required: string;
-  scope: string;
-  user_interaction: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface CvssData {
+    attack_complexity: string;
+    attack_vector: string;
+    availability_impact: string;
+    confidentiality_impact: string;
+    integrity_impact: string;
+    privileges_required: string;
+    scope: string;
+    user_interaction: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.HasVulnerabilityData (lib/network_defense/graph/contracts/data/has_vulnerability_data.ex) — enum fields: required_privilege, granted_privilege
-export interface HasVulnerabilityData {
-  granted_privilege: "user" | "administrator";
-  required_privilege: "none" | "user" | "administrator";
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface HasVulnerabilityData {
+    granted_privilege: "user" | "administrator";
+    required_privilege: "none" | "user" | "administrator";
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.HostData (lib/network_defense/graph/contracts/data/host_data.ex)
-export interface HostData {
-  name: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface HostData {
+    name: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.MissionCapabilityData (lib/network_defense/graph/contracts/data/mission_capability_data.ex)
-export interface MissionCapabilityData {
-  description?: string | null;
-  impact_weight: number;
-  min_operational_support: number;
-  name: string;
-  required_flows: RequiredServiceFlowData[];
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface MissionCapabilityData {
+    description?: string | null;
+    impact_weight: number;
+    min_operational_support: number;
+    name: string;
+    required_flows: NetworkDefense.Graph.Contracts.Data.RequiredServiceFlowData[];
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.NetworkSegmentData (lib/network_defense/graph/contracts/data/network_segment_data.ex)
-export interface NetworkSegmentData {
-  cidr?: string | null;
-  name: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface NetworkSegmentData {
+    cidr?: string | null;
+    name: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.RequiredServiceFlowData (lib/network_defense/graph/contracts/data/required_service_flow_data.ex)
-export interface RequiredServiceFlowData {
-  source_segment_id: string;
-  target_service_id: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface RequiredServiceFlowData {
+    source_segment_id: string;
+    target_service_id: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.RunsData (lib/network_defense/graph/contracts/data/runs_data.ex)
-export type RunsData = Record<never, never>;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export type RunsData = Record<never, never>;
+}
 
 // NetworkDefense.Graph.Contracts.Data.SegmentReachabilityData (lib/network_defense/graph/contracts/data/segment_reachability_data.ex) — enum fields: protocol
-export interface SegmentReachabilityData {
-  port_end?: number | null;
-  port_start?: number | null;
-  protocol: "tcp" | "udp" | "any";
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface SegmentReachabilityData {
+    port_end?: number | null;
+    port_start?: number | null;
+    protocol: "tcp" | "udp" | "any";
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.ServiceData (lib/network_defense/graph/contracts/data/service_data.ex) — enum fields: protocol
-export interface ServiceData {
-  name: string;
-  port: number;
-  protocol: "tcp" | "udp";
-  version?: string | null;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface ServiceData {
+    name: string;
+    port: number;
+    protocol: "tcp" | "udp";
+    version?: string | null;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.StoresCredentialData (lib/network_defense/graph/contracts/data/stores_credential_data.ex) — enum fields: required_privilege
-export interface StoresCredentialData {
-  required_privilege: "user" | "administrator";
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface StoresCredentialData {
+    required_privilege: "user" | "administrator";
+  }
 }
 
 // NetworkDefense.Graph.Contracts.Data.SupportsData (lib/network_defense/graph/contracts/data/supports_data.ex)
-export type SupportsData = Record<never, never>;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export type SupportsData = Record<never, never>;
+}
 
 // NetworkDefense.Graph.Contracts.Data.VulnerabilityData (lib/network_defense/graph/contracts/data/vulnerability_data.ex)
-export interface VulnerabilityData {
-  cvss: CvssData;
-  exploit_probability: number;
-  identifier: string;
+export declare namespace NetworkDefense.Graph.Contracts.Data {
+  export interface VulnerabilityData {
+    cvss: NetworkDefense.Graph.Contracts.Data.CvssData;
+    exploit_probability: number;
+    identifier: string;
+  }
 }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — discriminant: type/data
-export type Edge =
-  | RunsEdge
-  | SegmentReachabilityEdge
-  | HasVulnerabilityEdge
-  | StoresCredentialEdge
-  | AuthenticatesToEdge
-  | ContainsEdge
-  | SupportsEdge;
+export declare namespace NetworkDefense.Graph.Contracts {
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — discriminant: type/data
+  export type Edge =
+    | RunsEdge
+    | SegmentReachabilityEdge
+    | HasVulnerabilityEdge
+    | StoresCredentialEdge
+    | AuthenticatesToEdge
+    | ContainsEdge
+    | SupportsEdge;
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Runs (data: RunsData)
-export interface RunsEdge {
-  type: "Runs";
-  data: RunsData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Runs (data: RunsData)
+  export interface RunsEdge {
+    type: "Runs";
+    data: NetworkDefense.Graph.Contracts.Data.RunsData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: SegmentReachability (data: SegmentReachabilityData)
-export interface SegmentReachabilityEdge {
-  type: "SegmentReachability";
-  data: SegmentReachabilityData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: SegmentReachability (data: SegmentReachabilityData)
+  export interface SegmentReachabilityEdge {
+    type: "SegmentReachability";
+    data: NetworkDefense.Graph.Contracts.Data.SegmentReachabilityData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: HasVulnerability (data: HasVulnerabilityData)
-export interface HasVulnerabilityEdge {
-  type: "HasVulnerability";
-  data: HasVulnerabilityData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: HasVulnerability (data: HasVulnerabilityData)
+  export interface HasVulnerabilityEdge {
+    type: "HasVulnerability";
+    data: NetworkDefense.Graph.Contracts.Data.HasVulnerabilityData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: StoresCredential (data: StoresCredentialData)
-export interface StoresCredentialEdge {
-  type: "StoresCredential";
-  data: StoresCredentialData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: StoresCredential (data: StoresCredentialData)
+  export interface StoresCredentialEdge {
+    type: "StoresCredential";
+    data: NetworkDefense.Graph.Contracts.Data.StoresCredentialData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: AuthenticatesTo (data: AuthenticatesToData)
-export interface AuthenticatesToEdge {
-  type: "AuthenticatesTo";
-  data: AuthenticatesToData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: AuthenticatesTo (data: AuthenticatesToData)
+  export interface AuthenticatesToEdge {
+    type: "AuthenticatesTo";
+    data: NetworkDefense.Graph.Contracts.Data.AuthenticatesToData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Contains (data: ContainsData)
-export interface ContainsEdge {
-  type: "Contains";
-  data: ContainsData;
-  from_id: string;
-  id: string;
-  to_id: string;
-}
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Contains (data: ContainsData)
+  export interface ContainsEdge {
+    type: "Contains";
+    data: NetworkDefense.Graph.Contracts.Data.ContainsData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 
-// NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Supports (data: SupportsData)
-export interface SupportsEdge {
-  type: "Supports";
-  data: SupportsData;
-  from_id: string;
-  id: string;
-  to_id: string;
+  // NetworkDefense.Graph.Contracts.Edge (lib/network_defense/graph/contracts/edge.ex) — variant: Supports (data: SupportsData)
+  export interface SupportsEdge {
+    type: "Supports";
+    data: NetworkDefense.Graph.Contracts.Data.SupportsData;
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.GraphContract (lib/network_defense/graph/contracts/graph_contract.ex)
-export interface GraphContract {
-  edges: Edge[];
-  id: string;
-  nodes: Node[];
-  parent_revision_id?: string | null;
-  revision_id?: string | null;
-  revision_kind?: string | null;
-  revision_number?: number | null;
-  title: string;
+export declare namespace NetworkDefense.Graph.Contracts {
+  export interface GraphContract {
+    edges: NetworkDefense.Graph.Contracts.Edge[];
+    id: string;
+    nodes: NetworkDefense.Graph.Contracts.Node[];
+    parent_revision_id?: string | null;
+    revision_id?: string | null;
+    revision_kind?: string | null;
+    revision_number?: number | null;
+    title: string;
+  }
 }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — discriminant: type/data
-export type Node =
-  | HostNode
-  | ServiceNode
-  | VulnerabilityNode
-  | CredentialNode
-  | NetworkSegmentNode
-  | MissionCapabilityNode;
+export declare namespace NetworkDefense.Graph.Contracts {
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — discriminant: type/data
+  export type Node =
+    | HostNode
+    | ServiceNode
+    | VulnerabilityNode
+    | CredentialNode
+    | NetworkSegmentNode
+    | MissionCapabilityNode;
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Host (data: HostData)
-export interface HostNode {
-  type: "Host";
-  data: HostData;
-  id: string;
-  view_data: NodeViewData;
-}
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Host (data: HostData)
+  export interface HostNode {
+    type: "Host";
+    data: NetworkDefense.Graph.Contracts.Data.HostData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Service (data: ServiceData)
-export interface ServiceNode {
-  type: "Service";
-  data: ServiceData;
-  id: string;
-  view_data: NodeViewData;
-}
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Service (data: ServiceData)
+  export interface ServiceNode {
+    type: "Service";
+    data: NetworkDefense.Graph.Contracts.Data.ServiceData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Vulnerability (data: VulnerabilityData)
-export interface VulnerabilityNode {
-  type: "Vulnerability";
-  data: VulnerabilityData;
-  id: string;
-  view_data: NodeViewData;
-}
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Vulnerability (data: VulnerabilityData)
+  export interface VulnerabilityNode {
+    type: "Vulnerability";
+    data: NetworkDefense.Graph.Contracts.Data.VulnerabilityData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Credential (data: CredentialData)
-export interface CredentialNode {
-  type: "Credential";
-  data: CredentialData;
-  id: string;
-  view_data: NodeViewData;
-}
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: Credential (data: CredentialData)
+  export interface CredentialNode {
+    type: "Credential";
+    data: NetworkDefense.Graph.Contracts.Data.CredentialData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: NetworkSegment (data: NetworkSegmentData)
-export interface NetworkSegmentNode {
-  type: "NetworkSegment";
-  data: NetworkSegmentData;
-  id: string;
-  view_data: NodeViewData;
-}
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: NetworkSegment (data: NetworkSegmentData)
+  export interface NetworkSegmentNode {
+    type: "NetworkSegment";
+    data: NetworkDefense.Graph.Contracts.Data.NetworkSegmentData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 
-// NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: MissionCapability (data: MissionCapabilityData)
-export interface MissionCapabilityNode {
-  type: "MissionCapability";
-  data: MissionCapabilityData;
-  id: string;
-  view_data: NodeViewData;
+  // NetworkDefense.Graph.Contracts.Node (lib/network_defense/graph/contracts/node.ex) — variant: MissionCapability (data: MissionCapabilityData)
+  export interface MissionCapabilityNode {
+    type: "MissionCapability";
+    data: NetworkDefense.Graph.Contracts.Data.MissionCapabilityData;
+    id: string;
+    view_data: NetworkDefense.Graph.Contracts.NodeViewData;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.NodeViewData (lib/network_defense/graph/contracts/node_view_data.ex)
-export interface NodeViewData {
-  radius?: number | null;
-  x_pos: number;
-  y_pos: number;
+export declare namespace NetworkDefense.Graph.Contracts {
+  export interface NodeViewData {
+    radius?: number | null;
+    x_pos: number;
+    y_pos: number;
+  }
 }
 
 // NetworkDefense.Graph.Contracts.SaveGraphContract (lib/network_defense/graph/contracts/save_graph_contract.ex)
-export interface SaveGraphContract {
-  edges: Edge[];
-  id: string;
-  nodes: Node[];
-  revision_id: string;
-  title: string;
+export declare namespace NetworkDefense.Graph.Contracts {
+  export interface SaveGraphContract {
+    edges: NetworkDefense.Graph.Contracts.Edge[];
+    id: string;
+    nodes: NetworkDefense.Graph.Contracts.Node[];
+    revision_id: string;
+    title: string;
+  }
 }
 
 // NetworkDefense.Optimization.Contracts.OptimizationParams (lib/network_defense/optimization/contracts/optimization_params.ex) — enum fields: strategy
-export interface OptimizationParams {
-  budget: number;
-  simulation_params?: SimulationParams | null;
-  strategy:
-    | "null"
-    | "random"
-    | "cvss"
-    | "simulation_informed"
-    | "topology_segmentation"
-    | "simulated_annealing";
+export declare namespace NetworkDefense.Optimization.Contracts {
+  export interface OptimizationParams {
+    budget: number;
+    simulation_params?:
+      NetworkDefense.Simulation.Contracts.SimulationParams | null;
+    strategy:
+      | "null"
+      | "random"
+      | "cvss"
+      | "simulation_informed"
+      | "topology_segmentation"
+      | "simulated_annealing";
+  }
 }
 
 // NetworkDefense.Optimization.Contracts.RunOptimizationRequest (lib/network_defense/optimization/contracts/run_optimization_request.ex)
-export interface RunOptimizationRequest {
-  correlation_id: string;
-  graph_revision_id: string;
-  optimization_params: OptimizationParams;
+export declare namespace NetworkDefense.Optimization.Contracts {
+  export interface RunOptimizationRequest {
+    correlation_id: string;
+    graph_revision_id: string;
+    optimization_params: NetworkDefense.Optimization.Contracts.OptimizationParams;
+  }
 }
 
 // NetworkDefense.Simulation.Contracts.RunSimulationRequest (lib/network_defense/simulation/contracts/run_simulation_request.ex)
-export interface RunSimulationRequest {
-  correlation_id: string;
-  graph_revision_id: string;
-  simulation_params: SimulationParams;
+export declare namespace NetworkDefense.Simulation.Contracts {
+  export interface RunSimulationRequest {
+    correlation_id: string;
+    graph_revision_id: string;
+    simulation_params: NetworkDefense.Simulation.Contracts.SimulationParams;
+  }
 }
 
 // NetworkDefense.Simulation.Contracts.SimulationParams (lib/network_defense/simulation/contracts/simulation_params.ex)
-export interface SimulationParams {
-  generate_seed: boolean;
-  initial_foothold_node_id: string;
-  iterations_per_run: number;
-  max_attempts: number;
-  monte_carlo_trials: number;
-  seed: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CancelRunPayload (lib/network_defense_web/contracts/dashboard/runs/cancel_run_payload.ex)
-export interface CancelRunPayload {
-  kind: string;
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CancelRunReply (lib/network_defense_web/contracts/dashboard/runs/cancel_run_reply.ex) — enum fields: status
-export interface CancelRunReply {
-  status: "cancelled" | "not_found" | "not_running" | "invalid_params";
-}
-
-// NetworkDefenseWeb.Web.Contracts.CompareGraphsPayload (lib/network_defense_web/contracts/dashboard/graph/compare_graphs_payload.ex)
-export interface CompareGraphsPayload {
-  base_revision_id: string;
-  comparison_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CompareGraphsReply (lib/network_defense_web/contracts/dashboard/graph/compare_graphs_reply.ex) — enum fields: status
-export interface CompareGraphsReply {
-  result?: GraphDiffResult | null;
-  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateConnectionDraftPayload (lib/network_defense_web/contracts/dashboard/graph/create_connection_draft_payload.ex) — enum fields: source_type, relationship_type
-export interface CreateConnectionDraftPayload {
-  new_node_type?: string | null;
-  relationship_type:
-    | "Runs"
-    | "SegmentReachability"
-    | "HasVulnerability"
-    | "StoresCredential"
-    | "AuthenticatesTo"
-    | "Contains"
-    | "Supports";
-  source_id: string;
-  source_is_from: boolean;
-  source_type:
-    | "Host"
-    | "Service"
-    | "Vulnerability"
-    | "Credential"
-    | "NetworkSegment"
-    | "MissionCapability";
-  target_id?: string | null;
-  target_type?: string | null;
-  x_pos?: number | null;
-  y_pos?: number | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateConnectionDraftReply (lib/network_defense_web/contracts/dashboard/graph/create_connection_draft_reply.ex) — enum fields: status
-export interface CreateConnectionDraftReply {
-  edge?: Edge | null;
-  node?: Node | null;
-  status: "ok" | "invalid";
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateFolderPayload (lib/network_defense_web/contracts/dashboard/graph/create_folder_payload.ex)
-export interface CreateFolderPayload {
-  name: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateFolderReply (lib/network_defense_web/contracts/dashboard/graph/create_folder_reply.ex) — enum fields: status
-export interface CreateFolderReply {
-  folder?: FolderSummary | null;
-  status: "ok" | "invalid_folder" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateNodeDraftPayload (lib/network_defense_web/contracts/dashboard/graph/create_node_draft_payload.ex) — enum fields: node_type
-export interface CreateNodeDraftPayload {
-  node_type:
-    | "Host"
-    | "Service"
-    | "Vulnerability"
-    | "Credential"
-    | "NetworkSegment"
-    | "MissionCapability";
-  x_pos: number;
-  y_pos: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.CreateNodeDraftReply (lib/network_defense_web/contracts/dashboard/graph/create_node_draft_reply.ex) — enum fields: status
-export interface CreateNodeDraftReply {
-  node?: Node | null;
-  status: "ok" | "invalid";
-}
-
-// NetworkDefenseWeb.Web.Contracts.DashboardError (lib/network_defense_web/contracts/dashboard/dashboard_error.ex) — enum fields: code
-export interface DashboardError {
-  code: ErrorCode;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DeleteFolderPayload (lib/network_defense_web/contracts/dashboard/graph/delete_folder_payload.ex)
-export interface DeleteFolderPayload {
-  folder_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DeleteFolderReply (lib/network_defense_web/contracts/dashboard/graph/delete_folder_reply.ex) — enum fields: status
-export interface DeleteFolderReply {
-  status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.DescribeManifestComparisonGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_comparison_group.ex)
-export interface DescribeManifestComparisonGroup {
-  baseline?: DescribeManifestPlanGroup | null;
-  index: number;
-  outcome: string;
-  tested?: DescribeManifestPlanGroup | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DescribeManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_payload.ex)
-export interface DescribeManifestPayload {
-  content: Record<string, unknown>;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DescribeManifestPlan (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan.ex) — enum fields: model_variant
-export interface DescribeManifestPlan {
-  budget: number;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  selection_seed: number;
-  strategy: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DescribeManifestPlanGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan_group.ex) — enum fields: model_variant
-export interface DescribeManifestPlanGroup {
-  budget: number;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  selection_seeds: number[];
-  strategy: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DescribeManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_reply.ex) — enum fields: status
-export interface DescribeManifestReply {
-  comparison_groups: DescribeManifestComparisonGroup[];
-  errors: ManifestError[];
-  plans: DescribeManifestPlan[];
-  status: "ok" | "invalid_manifest" | "invalid_request";
-}
-
-// NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
-export interface DocumentCatalogFilterOptions {
-  graphs: DocumentCatalogGraphFilterOption[];
-  revision_kinds: string[];
-  strategies: string[];
-  types: string[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.DocumentCatalogGraphFilterOption (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_graph_filter_option.ex)
-export interface DocumentCatalogGraphFilterOption {
-  id: string;
-  title: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_item.ex) — enum fields: kind
-export interface DocumentCatalogItem {
-  created_at: string;
-  graph_id: string;
-  graph_revision_id: string;
-  graph_title: string;
-  id: string;
-  kind:
-    "graph" | "simulation_report" | "optimization_report" | "analysis_report";
-  manifest_id?: string | null;
-  manifest_title?: string | null;
-  output_graph_revision_id?: string | null;
-  output_revision_kind?: string | null;
-  output_revision_number?: number | null;
-  parent_revision_id?: string | null;
-  revision_kind: string;
-  revision_number: number;
-  strategy?: string | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysis (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis.ex)
-export interface EvaluationAnalysis {
-  capability_results: EvaluationAnalysisCapabilityRow[];
-  feasibility_summary: EvaluationAnalysisFeasibilityRow[];
-  metadata: EvaluationAnalysisMetadata;
-  pilot_comparison_pass: EvaluationAnalysisPilotRow[];
-  primary_results: EvaluationAnalysisPrimaryRow[];
-  secondary_results: EvaluationAnalysisSecondaryRow[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisCapabilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_capability_row.ex) — enum fields: model_variant, baseline_model_variant
-export interface EvaluationAnalysisCapabilityRow {
-  baseline: string;
-  baseline_model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  baseline_probability?: number | null;
-  budget: number;
-  capability_id: string;
-  capability_name?: string | null;
-  ci_half_width?: number | null;
-  ci_lower?: number | null;
-  ci_upper?: number | null;
-  comparison: number;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  probability_difference?: number | null;
-  strategy: string;
-  tested_probability?: number | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_error_event.ex) — enum fields: mode
-export interface EvaluationAnalysisErrorEvent {
-  document_id: string;
-  error: DashboardError;
-  mode: "pilot" | "analyze";
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisFeasibilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_feasibility_row.ex)
-export interface EvaluationAnalysisFeasibilityRow {
-  affected_capability_count: number;
-  experiment_id: string;
-  plan_id: string;
-  pre_attack_feasible: boolean;
-  unavailable_required_flow_count: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_metadata.ex)
-export interface EvaluationAnalysisMetadata {
-  analysis_configuration?: Record<string, unknown> | null;
-  analysis_runtime_seconds?: number | null;
-  checksums_hash?: string | null;
-  command_mode: string;
-  declared_plan_trial_count?: number | null;
-  dependencies?: Record<string, unknown> | null;
-  estimand_note?: string | null;
-  input_hashes?: Record<string, unknown> | null;
-  input_trial_count?: number | null;
-  manifest_id: string;
-  model_variants?: Record<string, unknown>[] | null;
-  model_version: string;
-  package_version?: string | null;
-  pilot_all_pass?: boolean | null;
-  runtime_summary: EvaluationAnalysisRuntimeSummary;
-  schema_version: number;
-  simulator_only_uncertainty?: boolean | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPilotRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_pilot_row.ex)
-export interface EvaluationAnalysisPilotRow {
-  approximate_trials?: number | null;
-  ci_half_width?: number | null;
-  comparison: number;
-  paired_attack_seed_count?: number | null;
-  passes?: boolean | null;
-  target?: number | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex) — enum fields: model_variant, baseline_model_variant
-export interface EvaluationAnalysisPrimaryRow {
-  baseline: string;
-  baseline_model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  budget: number;
-  ci_half_width?: number | null;
-  ci_lower?: number | null;
-  ci_upper?: number | null;
-  comparison: number;
-  d_z?: number | null;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  outcome: string;
-  p_adjusted?: number | null;
-  p_raw?: number | null;
-  paired_mean_difference?: number | null;
-  strategy: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_ready_event.ex) — enum fields: mode
-export interface EvaluationAnalysisReadyEvent {
-  analysis: EvaluationAnalysis;
-  document_id: string;
-  mode: "pilot" | "analyze";
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisRuntimeSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_runtime_summary.ex)
-export interface EvaluationAnalysisRuntimeSummary {
-  evaluator_runtime_ms: number;
-  median_plan_selection_runtime_ms: number;
-  median_simulation_runtime_ms: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex) — enum fields: model_variant, baseline_model_variant
-export interface EvaluationAnalysisSecondaryRow {
-  baseline: string;
-  baseline_model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  budget: number;
-  ci_half_width?: number | null;
-  ci_lower?: number | null;
-  ci_upper?: number | null;
-  comparison: number;
-  mean_difference?: number | null;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  outcome: string;
-  strategy: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationCompletedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_completed_event.ex)
-export interface EvaluationCompletedEvent {
-  manifest_id: string;
-  manifest_title: string;
-  run_id: string;
-  source_graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationExperimentSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_experiment_summary.ex)
-export interface EvaluationExperimentSummary {
-  blast_radius_p95: number;
-  blast_radius_p99: number;
-  expected_blast_radius: number;
-  graph_id?: string | null;
-  graph_revision_id?: string | null;
-  graph_title?: string | null;
-  id: string;
-  max_blast_radius: number;
-  median_blast_radius: number;
-  min_blast_radius: number;
-  optimization_run_id?: string | null;
-  trial_count: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationFailedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_failed_event.ex)
-export interface EvaluationFailedEvent {
-  error: DashboardError;
-  manifest_id: string;
-  manifest_title: string;
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationPlanSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_plan_summary.ex) — enum fields: model_variant
-export interface EvaluationPlanSummary {
-  action_count: number;
-  id: string;
-  model_variant:
-    | "blast_only"
-    | "blast_only_unconstrained"
-    | "mission_only"
-    | "mission_only_unconstrained"
-    | "full"
-    | "full_unconstrained";
-  requested_budget: number;
-  selection_seed: number;
-  status: string;
-  strategy: string;
-  used_budget: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationReport (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report.ex)
-export interface EvaluationReport {
-  experiments: EvaluationExperimentSummary[];
-  failure_reason?: string | null;
-  graph_id: string;
-  manifest_id: string;
-  manifest_title: string;
-  plans: EvaluationPlanSummary[];
-  run_id: string;
-  source_graph_revision_id: string;
-  source_graph_title: string;
-  status: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationReportErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_error_event.ex)
-export interface EvaluationReportErrorEvent {
-  document_id: string;
-  error: DashboardError;
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.EvaluationReportReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_ready_event.ex)
-export interface EvaluationReportReadyEvent {
-  document_id: string;
-  report: EvaluationReport;
-}
-
-// NetworkDefenseWeb.Web.Contracts.ExecutionProgressEvent (lib/network_defense_web/contracts/dashboard/execution_progress_event.ex)
-export interface ExecutionProgressEvent {
-  completed: number;
-  correlation_id: string;
-  detail?: string | null;
-  graph_id: string;
-  graph_revision_id: string;
-  total: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.ExperimentSummary (lib/network_defense_web/contracts/dashboard/simulation/experiment_summary.ex)
-export interface ExperimentSummary {
-  graph_id: string;
-  graph_revision_id: string;
-  graph_title: string;
-  id: string;
-  iteration_count: number;
-  run_count: number;
-  runtime_ms: number;
-  seed: number;
-  started_at: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_payload.ex)
-export interface FetchDocumentCatalogPayload {
-  graph_ids: string[];
-  limit: number;
-  offset: number;
-  related_graph_ids: string[];
-  revision_kinds: string[];
-  search: string;
-  strategies: string[];
-  types: string[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_reply.ex)
-export interface FetchDocumentCatalogReply {
-  filter_options: DocumentCatalogFilterOptions;
-  items: DocumentCatalogItem[];
-  related_items: DocumentCatalogItem[];
-  total_count: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchEvaluationReportPayload (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_payload.ex)
-export interface FetchEvaluationReportPayload {
-  document_id: string;
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchEvaluationReportReply (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_reply.ex) — enum fields: status
-export interface FetchEvaluationReportReply {
-  status: "processing" | "unavailable" | "invalid_params";
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchExperimentsPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_payload.ex)
-export interface FetchExperimentsPayload {
-  graph_revision_ids: string[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchExperimentsReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_reply.ex)
-export interface FetchExperimentsReply {
-  experiments: ExperimentSummary[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchGraphProjectionPayload (lib/network_defense_web/contracts/dashboard/graph/fetch_graph_projection_payload.ex)
-export interface FetchGraphProjectionPayload {
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchGraphProjectionReply (lib/network_defense_web/contracts/dashboard/graph/fetch_graph_projection_reply.ex) — enum fields: status
-export interface FetchGraphProjectionReply {
-  hosts: GraphProjectionHost[];
-  operational_flows: GraphProjectionOperationalFlow[];
-  policy_links: GraphProjectionPolicyLink[];
-  segments: GraphProjectionSegment[];
-  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportPayload (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_report_payload.ex)
-export interface FetchOptimizationReportPayload {
-  document_id: string;
-  optimization_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_report_reply.ex)
-export interface FetchOptimizationReportReply {
-  graph_id: string;
-  graph_revision_id: string;
-  graph_title: string;
-  optimization_id: string;
-  report: OptimizationReport;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchOptimizationRunsPayload (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_runs_payload.ex)
-export interface FetchOptimizationRunsPayload {
-  graph_revision_ids: string[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchOptimizationRunsReply (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_runs_reply.ex)
-export interface FetchOptimizationRunsReply {
-  runs: OptimizationRunSummary[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchRunsPayload (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_payload.ex)
-export type FetchRunsPayload = Record<never, never>;
-
-// NetworkDefenseWeb.Web.Contracts.FetchRunsReply (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_reply.ex)
-export interface FetchRunsReply {
-  runs: RunSummary[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchSimulationReportPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_payload.ex)
-export interface FetchSimulationReportPayload {
-  document_id: string;
-  experiment_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_reply.ex)
-export interface FetchSimulationReportReply {
-  capability_statuses: SimulationReportCapabilityStatus[];
-  charts: SimulationReportCharts;
-  experiment_id: string;
-  feasible: boolean;
-  graph: GraphContract;
-  graph_id: string;
-  graph_revision_id: string;
-  graph_title: string;
-  iteration_count: number;
-  operational_flows: GraphProjectionOperationalFlow[];
-  run_count: number;
-  summary: SimulationReportSummary;
-  total_runtime_ms: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.FolderSummary (lib/network_defense_web/contracts/dashboard/graph/folder_summary.ex)
-export interface FolderSummary {
-  id: string;
-  name: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GetManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_payload.ex)
-export interface GetManifestPayload {
-  id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GetManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_reply.ex)
-export interface GetManifestReply {
-  manifest?: ManifestSummary | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphConnectivityReply (lib/network_defense_web/contracts/dashboard/graph/graph_connectivity_reply.ex)
-export interface GraphConnectivityReply {
-  rules: GraphConnectivityRule[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphConnectivityRule (lib/network_defense_web/contracts/dashboard/graph/graph_connectivity_rule.ex) — enum fields: from_type, to_type, relationship_type
-export interface GraphConnectivityRule {
-  from_type:
-    | "Host"
-    | "Service"
-    | "Vulnerability"
-    | "Credential"
-    | "NetworkSegment"
-    | "MissionCapability";
-  relationship_type:
-    | "Runs"
-    | "SegmentReachability"
-    | "HasVulnerability"
-    | "StoresCredential"
-    | "AuthenticatesTo"
-    | "Contains"
-    | "Supports";
-  to_type:
-    | "Host"
-    | "Service"
-    | "Vulnerability"
-    | "Credential"
-    | "NetworkSegment"
-    | "MissionCapability";
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphDiffCounts (lib/network_defense_web/contracts/dashboard/graph/graph_diff_counts.ex)
-export interface GraphDiffCounts {
-  added: number;
-  removed: number;
-  unchanged: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphDiffResult (lib/network_defense_web/contracts/dashboard/graph/graph_diff_result.ex)
-export interface GraphDiffResult {
-  edge_counts: GraphDiffCounts;
-  edge_status: GraphDiffStatusEntry[];
-  graph: GraphContract;
-  node_counts: GraphDiffCounts;
-  node_status: GraphDiffStatusEntry[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphDiffStatusEntry (lib/network_defense_web/contracts/dashboard/graph/graph_diff_status_entry.ex) — enum fields: status
-export interface GraphDiffStatusEntry {
-  id: string;
-  status: "added" | "removed" | "unchanged";
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphProjectionHost (lib/network_defense_web/contracts/dashboard/graph/graph_projection_host.ex)
-export interface GraphProjectionHost {
-  id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphProjectionOperationalFlow (lib/network_defense_web/contracts/dashboard/graph/graph_projection_operational_flow.ex)
-export interface GraphProjectionOperationalFlow {
-  from_id: string;
-  id: string;
-  to_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphProjectionPolicyLink (lib/network_defense_web/contracts/dashboard/graph/graph_projection_policy_link.ex)
-export interface GraphProjectionPolicyLink {
-  from_id: string;
-  id: string;
-  to_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphProjectionSegment (lib/network_defense_web/contracts/dashboard/graph/graph_projection_segment.ex)
-export interface GraphProjectionSegment {
-  id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.GraphSummary (lib/network_defense_web/contracts/dashboard/graph/graph_summary.ex)
-export interface GraphSummary {
-  edge_count: number;
-  folder_id?: string | null;
-  graph_id: string;
-  is_favorite: boolean;
-  node_count: number;
-  parent_revision_id?: string | null;
-  revision_id: string;
-  revision_kind: string;
-  revision_number: number;
-  title: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.ListManifestsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_payload.ex)
-export type ListManifestsPayload = Record<never, never>;
-
-// NetworkDefenseWeb.Web.Contracts.ListManifestsReply (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_reply.ex)
-export interface ListManifestsReply {
-  manifests: ManifestSummary[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.ManifestError (lib/network_defense_web/contracts/dashboard/evaluation/manifest_error.ex)
-export interface ManifestError {
-  message: string;
-  path: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.ManifestSummary (lib/network_defense_web/contracts/dashboard/evaluation/manifest_summary.ex)
-export interface ManifestSummary {
-  content?: Record<string, unknown> | null;
-  id: string;
-  manifest_id: string;
-  title: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.MoveGraphToFolderPayload (lib/network_defense_web/contracts/dashboard/graph/move_graph_to_folder_payload.ex)
-export interface MoveGraphToFolderPayload {
-  folder_id?: string | null;
-  graph_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.MoveGraphToFolderReply (lib/network_defense_web/contracts/dashboard/graph/move_graph_to_folder_reply.ex) — enum fields: status
-export interface MoveGraphToFolderReply {
-  status:
-    | "ok"
-    | "not_found"
-    | "invalid_graph"
-    | "invalid_folder"
-    | "folder_not_found"
-    | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.OpenGraphPayload (lib/network_defense_web/contracts/dashboard/graph/open_graph_payload.ex)
-export interface OpenGraphPayload {
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OpenGraphReply (lib/network_defense_web/contracts/dashboard/graph/open_graph_reply.ex) — enum fields: status
-export interface OpenGraphReply {
-  graph?: GraphContract | null;
-  status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationAction (lib/network_defense_web/contracts/dashboard/optimization/optimization_action.ex)
-export interface OptimizationAction {
-  cost: number;
-  cvss_score?: number | null;
-  id: string;
-  kind: string;
-  label: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationCompletedEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_completed_event.ex)
-export interface OptimizationCompletedEvent {
-  correlation_id: string;
-  graph_id: string;
-  graph_revision_id: string;
-  optimization_id: string;
-  output_graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationFailedEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_failed_event.ex)
-export interface OptimizationFailedEvent {
-  correlation_id: string;
-  error: DashboardError;
-  graph_id: string;
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationReport (lib/network_defense_web/contracts/dashboard/optimization/optimization_report.ex) — enum fields: strategy
-export interface OptimizationReport {
-  actions: OptimizationAction[];
-  requested_budget: number;
-  runtime_ms: number;
-  strategy:
-    | "null"
-    | "random"
-    | "cvss"
-    | "simulation_informed"
-    | "topology_segmentation"
-    | "simulated_annealing";
-  used_budget: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationReportErrorEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_report_error_event.ex)
-export interface OptimizationReportErrorEvent {
-  document_id: string;
-  error: DashboardError;
-  optimization_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationReportReadyEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_report_ready_event.ex)
-export interface OptimizationReportReadyEvent {
-  document_id: string;
-  report: FetchOptimizationReportReply;
-}
-
-// NetworkDefenseWeb.Web.Contracts.OptimizationRunSummary (lib/network_defense_web/contracts/dashboard/optimization/optimization_run_summary.ex)
-export interface OptimizationRunSummary {
-  graph_id: string;
-  graph_revision_id: string;
-  graph_title: string;
-  id: string;
-  output_graph_revision_id: string;
-  requested_budget: number;
-  runtime_ms: number;
-  started_at: string;
-  strategy: string;
-  used_budget: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.ReportRequestReply (lib/network_defense_web/contracts/dashboard/report_request_reply.ex) — enum fields: status
-export interface ReportRequestReply {
-  status: "processing" | "unavailable" | "invalid_params";
-}
-
-// NetworkDefenseWeb.Web.Contracts.RequestEvaluationAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_payload.ex) — enum fields: mode
-export interface RequestEvaluationAnalysisPayload {
-  document_id: string;
-  mode: "pilot" | "analyze";
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RequestEvaluationAnalysisReply (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_reply.ex) — enum fields: status
-export interface RequestEvaluationAnalysisReply {
-  status: "processing" | "invalid_params" | "unavailable";
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunCancelledEvent (lib/network_defense_web/contracts/dashboard/runs/run_cancelled_event.ex)
-export interface RunCancelledEvent {
-  kind: string;
-  run_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunOptimizationPayload (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_payload.ex)
-export interface RunOptimizationPayload {
-  request: RunOptimizationRequest;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunOptimizationReply (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_reply.ex) — enum fields: status
-export interface RunOptimizationReply {
-  correlation_id: string;
-  error?: DashboardError | null;
-  graph_revision_id: string;
-  run_id: string;
-  status: "accepted" | "rejected";
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunSimulationPayload (lib/network_defense_web/contracts/dashboard/simulation/run_simulation_payload.ex)
-export interface RunSimulationPayload {
-  request: RunSimulationRequest;
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunSimulationReply (lib/network_defense_web/contracts/dashboard/simulation/run_simulation_reply.ex) — enum fields: status
-export interface RunSimulationReply {
-  correlation_id: string;
-  error?: DashboardError | null;
-  graph_revision_id: string;
-  run_id: string;
-  status: "accepted" | "rejected";
-}
-
-// NetworkDefenseWeb.Web.Contracts.RunSummary (lib/network_defense_web/contracts/dashboard/runs/run_summary.ex)
-export interface RunSummary {
-  completed?: number | null;
-  id: string;
-  kind: string;
-  started_at?: string | null;
-  status: string;
-  title?: string | null;
-  total?: number | null;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SaveGraphPayload (lib/network_defense_web/contracts/dashboard/graph/save_graph_payload.ex)
-export interface SaveGraphPayload {
-  graph: SaveGraphContract;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SaveGraphReply (lib/network_defense_web/contracts/dashboard/graph/save_graph_reply.ex) — enum fields: status
-export interface SaveGraphReply {
-  graph?: GraphContract | null;
-  status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.SaveManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_payload.ex)
-export interface SaveManifestPayload {
-  content: Record<string, unknown>;
-  existing_manifest_id?: string | null;
-  manifest_id: string;
-  title: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SaveManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_reply.ex) — enum fields: status
-export interface SaveManifestReply {
-  errors: ManifestError[];
-  manifest?: ManifestSummary | null;
-  status: "ok" | "invalid_manifest" | "invalid_request";
-}
-
-// NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoritePayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_payload.ex)
-export interface SetGraphRevisionFavoritePayload {
-  favorite: boolean;
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SetGraphRevisionFavoriteReply (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_reply.ex) — enum fields: status
-export interface SetGraphRevisionFavoriteReply {
-  favorite: boolean;
-  status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationCompletedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_completed_event.ex)
-export interface SimulationCompletedEvent {
-  correlation_id: string;
-  experiment_id: string;
-  graph_id: string;
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationFailedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_failed_event.ex)
-export interface SimulationFailedEvent {
-  correlation_id: string;
-  error: DashboardError;
-  graph_id: string;
-  graph_revision_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_action_success.ex)
-export interface SimulationReportActionSuccess {
-  action_type: string;
-  attempts: number;
-  successes: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityImpact (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_capability_impact.ex)
-export interface SimulationReportCapabilityImpact {
-  capability_id: string;
-  down_probability: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_capability_status.ex)
-export interface SimulationReportCapabilityStatus {
-  capability_id: string;
-  min_operational_support: number;
-  missing_flow_count: number;
-  operational: boolean;
-  required_flow_count: number;
-  supporting_host_count: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_cdf_point.ex)
-export interface SimulationReportCdfPoint {
-  compromised_hosts: number;
-  cumulative_probability: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportCharts (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_charts.ex)
-export interface SimulationReportCharts {
-  action_success: SimulationReportActionSuccess[];
-  capability_impact: SimulationReportCapabilityImpact[];
-  cdf: SimulationReportCdfPoint[];
-  convergence: SimulationReportConvergencePoint[];
-  edge_traversal: SimulationReportEdgeTraversal[];
-  histogram: SimulationReportHistogramBucket[];
-  host_compromise: SimulationReportHostCompromise[];
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_convergence_point.ex)
-export interface SimulationReportConvergencePoint {
-  mean_blast_radius: number;
-  run: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_edge_traversal.ex)
-export interface SimulationReportEdgeTraversal {
-  edge_id: string;
-  traversal_probability: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportErrorEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_error_event.ex)
-export interface SimulationReportErrorEvent {
-  document_id: string;
-  error: DashboardError;
-  experiment_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_histogram_bucket.ex)
-export interface SimulationReportHistogramBucket {
-  count: number;
-  lower_bound: number;
-  upper_bound: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_host_compromise.ex)
-export interface SimulationReportHostCompromise {
-  compromise_probability: number;
-  host_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportReadyEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_ready_event.ex)
-export interface SimulationReportReadyEvent {
-  document_id: string;
-  report: FetchSimulationReportReply;
-}
-
-// NetworkDefenseWeb.Web.Contracts.SimulationReportSummary (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_summary.ex)
-export interface SimulationReportSummary {
-  blast_radius_p95: number;
-  blast_radius_p99: number;
-  blast_radius_variance: number;
-  expected_blast_radius: number;
-  expected_mission_impact: number;
-  host_count: number;
-  max_blast_radius: number;
-  max_mission_impact: number;
-  median_blast_radius: number;
-  median_mission_impact: number;
-  min_blast_radius: number;
-  min_mission_impact: number;
-  mission_impact_p95: number;
-  mission_impact_p99: number;
-  mission_impact_variance: number;
-}
-
-// NetworkDefenseWeb.Web.Contracts.StartEvaluationPayload (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_payload.ex)
-export interface StartEvaluationPayload {
-  manifest_id: string;
-}
-
-// NetworkDefenseWeb.Web.Contracts.StartEvaluationReply (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_reply.ex) — enum fields: status
-export interface StartEvaluationReply {
-  errors: ManifestError[];
-  run_id?: string | null;
-  status: "accepted" | "rejected" | "not_found";
+export declare namespace NetworkDefense.Simulation.Contracts {
+  export interface SimulationParams {
+    generate_seed: boolean;
+    initial_foothold_node_id: string;
+    iterations_per_run: number;
+    max_attempts: number;
+    monte_carlo_trials: number;
+    seed: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.DashboardError (lib/network_defense_web/contracts/dashboard/dashboard_error.ex) — enum fields: code
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard {
+  export interface DashboardError {
+    code: NetworkDefense.Errors.ErrorCode;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestComparisonGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_comparison_group.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeManifestComparisonGroup {
+    baseline?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlanGroup | null;
+    index: number;
+    outcome: string;
+    tested?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlanGroup | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeManifestPayload {
+    content: Record<string, unknown>;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlan (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan.ex) — enum fields: model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeManifestPlan {
+    budget: number;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    selection_seed: number;
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlanGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_plan_group.ex) — enum fields: model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeManifestPlanGroup {
+    budget: number;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    selection_seeds: number[];
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeManifestReply {
+    comparison_groups: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestComparisonGroup[];
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
+    plans: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlan[];
+    status: "ok" | "invalid_manifest" | "invalid_request";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysis {
+    capability_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow[];
+    feasibility_summary: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow[];
+    metadata: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMetadata;
+    pilot_comparison_pass: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow[];
+    primary_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow[];
+    secondary_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisSecondaryRow[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_capability_row.ex) — enum fields: model_variant, baseline_model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisCapabilityRow {
+    baseline: string;
+    baseline_model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    baseline_probability?: number | null;
+    budget: number;
+    capability_id: string;
+    capability_name?: string | null;
+    ci_half_width?: number | null;
+    ci_lower?: number | null;
+    ci_upper?: number | null;
+    comparison: number;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    probability_difference?: number | null;
+    strategy: string;
+    tested_probability?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_error_event.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisErrorEvent {
+    document_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    mode: "pilot" | "analyze";
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_feasibility_row.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisFeasibilityRow {
+    affected_capability_count: number;
+    experiment_id: string;
+    plan_id: string;
+    pre_attack_feasible: boolean;
+    unavailable_required_flow_count: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMetadata (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_metadata.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisMetadata {
+    analysis_configuration?: Record<string, unknown> | null;
+    analysis_runtime_seconds?: number | null;
+    checksums_hash?: string | null;
+    command_mode: string;
+    declared_plan_trial_count?: number | null;
+    dependencies?: Record<string, unknown> | null;
+    estimand_note?: string | null;
+    input_hashes?: Record<string, unknown> | null;
+    input_trial_count?: number | null;
+    manifest_id: string;
+    model_variants?: Record<string, unknown>[] | null;
+    model_version: string;
+    package_version?: string | null;
+    pilot_all_pass?: boolean | null;
+    runtime_summary: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary;
+    schema_version: number;
+    simulator_only_uncertainty?: boolean | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_pilot_row.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisPilotRow {
+    approximate_trials?: number | null;
+    ci_half_width?: number | null;
+    comparison: number;
+    paired_attack_seed_count?: number | null;
+    passes?: boolean | null;
+    target?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex) — enum fields: model_variant, baseline_model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisPrimaryRow {
+    baseline: string;
+    baseline_model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    budget: number;
+    ci_half_width?: number | null;
+    ci_lower?: number | null;
+    ci_upper?: number | null;
+    comparison: number;
+    d_z?: number | null;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    outcome: string;
+    p_adjusted?: number | null;
+    p_raw?: number | null;
+    paired_mean_difference?: number | null;
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_ready_event.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisReadyEvent {
+    analysis: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis;
+    document_id: string;
+    mode: "pilot" | "analyze";
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_runtime_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisRuntimeSummary {
+    evaluator_runtime_ms: number;
+    median_plan_selection_runtime_ms: number;
+    median_simulation_runtime_ms: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisSecondaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_secondary_row.ex) — enum fields: model_variant, baseline_model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationAnalysisSecondaryRow {
+    baseline: string;
+    baseline_model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    budget: number;
+    ci_half_width?: number | null;
+    ci_lower?: number | null;
+    ci_upper?: number | null;
+    comparison: number;
+    mean_difference?: number | null;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    outcome: string;
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_completed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationCompletedEvent {
+    manifest_id: string;
+    manifest_title: string;
+    run_id: string;
+    source_graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationExperimentSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_experiment_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationExperimentSummary {
+    blast_radius_p95: number;
+    blast_radius_p99: number;
+    expected_blast_radius: number;
+    graph_id?: string | null;
+    graph_revision_id?: string | null;
+    graph_title?: string | null;
+    id: string;
+    max_blast_radius: number;
+    median_blast_radius: number;
+    min_blast_radius: number;
+    optimization_run_id?: string | null;
+    trial_count: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationFailedEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_failed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationFailedEvent {
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    manifest_id: string;
+    manifest_title: string;
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationPlanSummary (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_plan_summary.ex) — enum fields: model_variant
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationPlanSummary {
+    action_count: number;
+    id: string;
+    model_variant:
+      | "blast_only"
+      | "blast_only_unconstrained"
+      | "mission_only"
+      | "mission_only_unconstrained"
+      | "full"
+      | "full_unconstrained";
+    requested_budget: number;
+    selection_seed: number;
+    status: string;
+    strategy: string;
+    used_budget: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationReport {
+    experiments: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationExperimentSummary[];
+    failure_reason?: string | null;
+    graph_id: string;
+    manifest_id: string;
+    manifest_title: string;
+    plans: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationPlanSummary[];
+    run_id: string;
+    source_graph_revision_id: string;
+    source_graph_title: string;
+    status: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_error_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationReportErrorEvent {
+    document_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_report_ready_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface EvaluationReportReadyEvent {
+    document_id: string;
+    report: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface FetchEvaluationReportPayload {
+    document_id: string;
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportReply (lib/network_defense_web/contracts/dashboard/evaluation/fetch_evaluation_report_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface FetchEvaluationReportReply {
+    status: "processing" | "unavailable" | "invalid_params";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface GetManifestPayload {
+    id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/get_manifest_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface GetManifestReply {
+    manifest?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestSummary | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export type ListManifestsPayload = Record<never, never>;
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsReply (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ListManifestsReply {
+    manifests: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestSummary[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError (lib/network_defense_web/contracts/dashboard/evaluation/manifest_error.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ManifestError {
+    message: string;
+    path: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestSummary (lib/network_defense_web/contracts/dashboard/evaluation/manifest_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ManifestSummary {
+    content?: Record<string, unknown> | null;
+    id: string;
+    manifest_id: string;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_payload.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface RequestEvaluationAnalysisPayload {
+    document_id: string;
+    mode: "pilot" | "analyze";
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisReply (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface RequestEvaluationAnalysisReply {
+    status: "processing" | "invalid_params" | "unavailable";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface SaveManifestPayload {
+    content: Record<string, unknown>;
+    existing_manifest_id?: string | null;
+    manifest_id: string;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestReply (lib/network_defense_web/contracts/dashboard/evaluation/save_manifest_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface SaveManifestReply {
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
+    manifest?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestSummary | null;
+    status: "ok" | "invalid_manifest" | "invalid_request";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StartEvaluationPayload {
+    manifest_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationReply (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StartEvaluationReply {
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
+    run_id?: string | null;
+    status: "accepted" | "rejected" | "not_found";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent (lib/network_defense_web/contracts/dashboard/execution_progress_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard {
+  export interface ExecutionProgressEvent {
+    completed: number;
+    correlation_id: string;
+    detail?: string | null;
+    graph_id: string;
+    graph_revision_id: string;
+    total: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsPayload (lib/network_defense_web/contracts/dashboard/graph/compare_graphs_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CompareGraphsPayload {
+    base_revision_id: string;
+    comparison_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply (lib/network_defense_web/contracts/dashboard/graph/compare_graphs_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CompareGraphsReply {
+    result?:
+      NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult | null;
+    status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftPayload (lib/network_defense_web/contracts/dashboard/graph/create_connection_draft_payload.ex) — enum fields: source_type, relationship_type
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateConnectionDraftPayload {
+    new_node_type?: string | null;
+    relationship_type:
+      | "Runs"
+      | "SegmentReachability"
+      | "HasVulnerability"
+      | "StoresCredential"
+      | "AuthenticatesTo"
+      | "Contains"
+      | "Supports";
+    source_id: string;
+    source_is_from: boolean;
+    source_type:
+      | "Host"
+      | "Service"
+      | "Vulnerability"
+      | "Credential"
+      | "NetworkSegment"
+      | "MissionCapability";
+    target_id?: string | null;
+    target_type?: string | null;
+    x_pos?: number | null;
+    y_pos?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftReply (lib/network_defense_web/contracts/dashboard/graph/create_connection_draft_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateConnectionDraftReply {
+    edge?: NetworkDefense.Graph.Contracts.Edge | null;
+    node?: NetworkDefense.Graph.Contracts.Node | null;
+    status: "ok" | "invalid";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderPayload (lib/network_defense_web/contracts/dashboard/graph/create_folder_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateFolderPayload {
+    name: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderReply (lib/network_defense_web/contracts/dashboard/graph/create_folder_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateFolderReply {
+    folder?:
+      NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary | null;
+    status: "ok" | "invalid_folder" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateNodeDraftPayload (lib/network_defense_web/contracts/dashboard/graph/create_node_draft_payload.ex) — enum fields: node_type
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateNodeDraftPayload {
+    node_type:
+      | "Host"
+      | "Service"
+      | "Vulnerability"
+      | "Credential"
+      | "NetworkSegment"
+      | "MissionCapability";
+    x_pos: number;
+    y_pos: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateNodeDraftReply (lib/network_defense_web/contracts/dashboard/graph/create_node_draft_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface CreateNodeDraftReply {
+    node?: NetworkDefense.Graph.Contracts.Node | null;
+    status: "ok" | "invalid";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderPayload (lib/network_defense_web/contracts/dashboard/graph/delete_folder_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface DeleteFolderPayload {
+    folder_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderReply (lib/network_defense_web/contracts/dashboard/graph/delete_folder_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface DeleteFolderReply {
+    status: "ok" | "not_found" | "invalid_folder" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload (lib/network_defense_web/contracts/dashboard/graph/fetch_graph_projection_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface FetchGraphProjectionPayload {
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply (lib/network_defense_web/contracts/dashboard/graph/fetch_graph_projection_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface FetchGraphProjectionReply {
+    hosts: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionHost[];
+    operational_flows: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow[];
+    policy_links: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionPolicyLink[];
+    segments: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionSegment[];
+    status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary (lib/network_defense_web/contracts/dashboard/graph/folder_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface FolderSummary {
+    id: string;
+    name: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityReply (lib/network_defense_web/contracts/dashboard/graph/graph_connectivity_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphConnectivityReply {
+    rules: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule (lib/network_defense_web/contracts/dashboard/graph/graph_connectivity_rule.ex) — enum fields: from_type, to_type, relationship_type
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphConnectivityRule {
+    from_type:
+      | "Host"
+      | "Service"
+      | "Vulnerability"
+      | "Credential"
+      | "NetworkSegment"
+      | "MissionCapability";
+    relationship_type:
+      | "Runs"
+      | "SegmentReachability"
+      | "HasVulnerability"
+      | "StoresCredential"
+      | "AuthenticatesTo"
+      | "Contains"
+      | "Supports";
+    to_type:
+      | "Host"
+      | "Service"
+      | "Vulnerability"
+      | "Credential"
+      | "NetworkSegment"
+      | "MissionCapability";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts (lib/network_defense_web/contracts/dashboard/graph/graph_diff_counts.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphDiffCounts {
+    added: number;
+    removed: number;
+    unchanged: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult (lib/network_defense_web/contracts/dashboard/graph/graph_diff_result.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphDiffResult {
+    edge_counts: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts;
+    edge_status: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry[];
+    graph: NetworkDefense.Graph.Contracts.GraphContract;
+    node_counts: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffCounts;
+    node_status: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffStatusEntry (lib/network_defense_web/contracts/dashboard/graph/graph_diff_status_entry.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphDiffStatusEntry {
+    id: string;
+    status: "added" | "removed" | "unchanged";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionHost (lib/network_defense_web/contracts/dashboard/graph/graph_projection_host.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphProjectionHost {
+    id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow (lib/network_defense_web/contracts/dashboard/graph/graph_projection_operational_flow.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphProjectionOperationalFlow {
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionPolicyLink (lib/network_defense_web/contracts/dashboard/graph/graph_projection_policy_link.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphProjectionPolicyLink {
+    from_id: string;
+    id: string;
+    to_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionSegment (lib/network_defense_web/contracts/dashboard/graph/graph_projection_segment.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphProjectionSegment {
+    id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphSummary (lib/network_defense_web/contracts/dashboard/graph/graph_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphSummary {
+    edge_count: number;
+    folder_id?: string | null;
+    graph_id: string;
+    is_favorite: boolean;
+    node_count: number;
+    parent_revision_id?: string | null;
+    revision_id: string;
+    revision_kind: string;
+    revision_number: number;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderPayload (lib/network_defense_web/contracts/dashboard/graph/move_graph_to_folder_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface MoveGraphToFolderPayload {
+    folder_id?: string | null;
+    graph_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderReply (lib/network_defense_web/contracts/dashboard/graph/move_graph_to_folder_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface MoveGraphToFolderReply {
+    status:
+      | "ok"
+      | "not_found"
+      | "invalid_graph"
+      | "invalid_folder"
+      | "folder_not_found"
+      | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphPayload (lib/network_defense_web/contracts/dashboard/graph/open_graph_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface OpenGraphPayload {
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply (lib/network_defense_web/contracts/dashboard/graph/open_graph_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface OpenGraphReply {
+    graph?:
+      NetworkDefense.Graph.Contracts.GraphContract | null;
+    status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload (lib/network_defense_web/contracts/dashboard/graph/save_graph_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface SaveGraphPayload {
+    graph: NetworkDefense.Graph.Contracts.SaveGraphContract;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply (lib/network_defense_web/contracts/dashboard/graph/save_graph_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface SaveGraphReply {
+    graph?:
+      NetworkDefense.Graph.Contracts.GraphContract | null;
+    status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoritePayload (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface SetGraphRevisionFavoritePayload {
+    favorite: boolean;
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoriteReply (lib/network_defense_web/contracts/dashboard/graph/set_graph_revision_favorite_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface SetGraphRevisionFavoriteReply {
+    favorite: boolean;
+    status: "ok" | "not_found" | "invalid_graph" | "unmapped_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_report_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface FetchOptimizationReportPayload {
+    document_id: string;
+    optimization_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_report_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface FetchOptimizationReportReply {
+    graph_id: string;
+    graph_revision_id: string;
+    graph_title: string;
+    optimization_id: string;
+    report: NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_runs_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface FetchOptimizationRunsPayload {
+    graph_revision_ids: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsReply (lib/network_defense_web/contracts/dashboard/optimization/fetch_optimization_runs_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface FetchOptimizationRunsReply {
+    runs: NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationRunSummary[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction (lib/network_defense_web/contracts/dashboard/optimization/optimization_action.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationAction {
+    cost: number;
+    cvss_score?: number | null;
+    id: string;
+    kind: string;
+    label: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationCompletedEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_completed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationCompletedEvent {
+    correlation_id: string;
+    graph_id: string;
+    graph_revision_id: string;
+    optimization_id: string;
+    output_graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationFailedEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_failed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationFailedEvent {
+    correlation_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    graph_id: string;
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport (lib/network_defense_web/contracts/dashboard/optimization/optimization_report.ex) — enum fields: strategy
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationReport {
+    actions: NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction[];
+    requested_budget: number;
+    runtime_ms: number;
+    strategy:
+      | "null"
+      | "random"
+      | "cvss"
+      | "simulation_informed"
+      | "topology_segmentation"
+      | "simulated_annealing";
+    used_budget: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportErrorEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_report_error_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationReportErrorEvent {
+    document_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    optimization_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportReadyEvent (lib/network_defense_web/contracts/dashboard/optimization/optimization_report_ready_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationReportReadyEvent {
+    document_id: string;
+    report: NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationRunSummary (lib/network_defense_web/contracts/dashboard/optimization/optimization_run_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface OptimizationRunSummary {
+    graph_id: string;
+    graph_revision_id: string;
+    graph_title: string;
+    id: string;
+    output_graph_revision_id: string;
+    requested_budget: number;
+    runtime_ms: number;
+    started_at: string;
+    strategy: string;
+    used_budget: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationPayload (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface RunOptimizationPayload {
+    request: NetworkDefense.Optimization.Contracts.RunOptimizationRequest;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationReply (lib/network_defense_web/contracts/dashboard/optimization/run_optimization_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Optimization {
+  export interface RunOptimizationReply {
+    correlation_id: string;
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.DashboardError | null;
+    graph_revision_id: string;
+    run_id: string;
+    status: "accepted" | "rejected";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.ReportRequestReply (lib/network_defense_web/contracts/dashboard/report_request_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard {
+  export interface ReportRequestReply {
+    status: "processing" | "unavailable" | "invalid_params";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload (lib/network_defense_web/contracts/dashboard/runs/cancel_run_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export interface CancelRunPayload {
+    kind: string;
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunReply (lib/network_defense_web/contracts/dashboard/runs/cancel_run_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export interface CancelRunReply {
+    status: "cancelled" | "not_found" | "not_running" | "invalid_params";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsPayload (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export type FetchRunsPayload = Record<never, never>;
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsReply (lib/network_defense_web/contracts/dashboard/runs/fetch_runs_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export interface FetchRunsReply {
+    runs: NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.RunCancelledEvent (lib/network_defense_web/contracts/dashboard/runs/run_cancelled_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export interface RunCancelledEvent {
+    kind: string;
+    run_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary (lib/network_defense_web/contracts/dashboard/runs/run_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
+  export interface RunSummary {
+    completed?: number | null;
+    id: string;
+    kind: string;
+    started_at?: string | null;
+    status: string;
+    title?: string | null;
+    total?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary (lib/network_defense_web/contracts/dashboard/simulation/experiment_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface ExperimentSummary {
+    graph_id: string;
+    graph_revision_id: string;
+    graph_title: string;
+    id: string;
+    iteration_count: number;
+    run_count: number;
+    runtime_ms: number;
+    seed: number;
+    started_at: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface FetchExperimentsPayload {
+    graph_revision_ids: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_experiments_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface FetchExperimentsReply {
+    experiments: NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportPayload (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface FetchSimulationReportPayload {
+    document_id: string;
+    experiment_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply (lib/network_defense_web/contracts/dashboard/simulation/fetch_simulation_report_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface FetchSimulationReportReply {
+    capability_statuses: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus[];
+    charts: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts;
+    experiment_id: string;
+    feasible: boolean;
+    graph: NetworkDefense.Graph.Contracts.GraphContract;
+    graph_id: string;
+    graph_revision_id: string;
+    graph_title: string;
+    iteration_count: number;
+    operational_flows: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow[];
+    run_count: number;
+    summary: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary;
+    total_runtime_ms: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationPayload (lib/network_defense_web/contracts/dashboard/simulation/run_simulation_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface RunSimulationPayload {
+    request: NetworkDefense.Simulation.Contracts.RunSimulationRequest;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationReply (lib/network_defense_web/contracts/dashboard/simulation/run_simulation_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface RunSimulationReply {
+    correlation_id: string;
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.DashboardError | null;
+    graph_revision_id: string;
+    run_id: string;
+    status: "accepted" | "rejected";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationCompletedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_completed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationCompletedEvent {
+    correlation_id: string;
+    experiment_id: string;
+    graph_id: string;
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationFailedEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_failed_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationFailedEvent {
+    correlation_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    graph_id: string;
+    graph_revision_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportActionSuccess (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_action_success.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportActionSuccess {
+    action_type: string;
+    attempts: number;
+    successes: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityImpact (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_capability_impact.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportCapabilityImpact {
+    capability_id: string;
+    down_probability: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_capability_status.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportCapabilityStatus {
+    capability_id: string;
+    min_operational_support: number;
+    missing_flow_count: number;
+    operational: boolean;
+    required_flow_count: number;
+    supporting_host_count: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCdfPoint (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_cdf_point.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportCdfPoint {
+    compromised_hosts: number;
+    cumulative_probability: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_charts.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportCharts {
+    action_success: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportActionSuccess[];
+    capability_impact: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityImpact[];
+    cdf: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCdfPoint[];
+    convergence: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportConvergencePoint[];
+    edge_traversal: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportEdgeTraversal[];
+    histogram: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHistogramBucket[];
+    host_compromise: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHostCompromise[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportConvergencePoint (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_convergence_point.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportConvergencePoint {
+    mean_blast_radius: number;
+    run: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportEdgeTraversal (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_edge_traversal.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportEdgeTraversal {
+    edge_id: string;
+    traversal_probability: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportErrorEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_error_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportErrorEvent {
+    document_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;
+    experiment_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHistogramBucket (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_histogram_bucket.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportHistogramBucket {
+    count: number;
+    lower_bound: number;
+    upper_bound: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHostCompromise (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_host_compromise.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportHostCompromise {
+    compromise_probability: number;
+    host_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportReadyEvent (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_ready_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportReadyEvent {
+    document_id: string;
+    report: NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary (lib/network_defense_web/contracts/dashboard/simulation/simulation_report_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
+  export interface SimulationReportSummary {
+    blast_radius_p95: number;
+    blast_radius_p99: number;
+    blast_radius_variance: number;
+    expected_blast_radius: number;
+    expected_mission_impact: number;
+    host_count: number;
+    max_blast_radius: number;
+    max_mission_impact: number;
+    median_blast_radius: number;
+    median_mission_impact: number;
+    min_blast_radius: number;
+    min_mission_impact: number;
+    mission_impact_p95: number;
+    mission_impact_p99: number;
+    mission_impact_variance: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
+  export interface DocumentCatalogFilterOptions {
+    graphs: NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption[];
+    revision_kinds: string[];
+    strategies: string[];
+    types: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_graph_filter_option.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
+  export interface DocumentCatalogGraphFilterOption {
+    id: string;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_item.ex) — enum fields: kind
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
+  export interface DocumentCatalogItem {
+    created_at: string;
+    graph_id: string;
+    graph_revision_id: string;
+    graph_title: string;
+    id: string;
+    kind:
+      "graph" | "analysis_report" | "optimization_report" | "simulation_report";
+    manifest_id?: string | null;
+    manifest_title?: string | null;
+    output_graph_revision_id?: string | null;
+    output_revision_kind?: string | null;
+    output_revision_number?: number | null;
+    parent_revision_id?: string | null;
+    revision_kind: string;
+    revision_number: number;
+    strategy?: string | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
+  export interface FetchDocumentCatalogPayload {
+    graph_ids: string[];
+    limit: number;
+    offset: number;
+    related_graph_ids: string[];
+    revision_kinds: string[];
+    search: string;
+    strategies: string[];
+    types: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply (lib/network_defense_web/contracts/dashboard/workspace/fetch_document_catalog_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
+  export interface FetchDocumentCatalogReply {
+    filter_options: NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions;
+    items: NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem[];
+    related_items: NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem[];
+    total_count: number;
+  }
 }

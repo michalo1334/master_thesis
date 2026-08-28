@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { CredentialNode } from "../../contract";
+  import type { CredentialNode } from "../../../contracts.generated/graph";
 
   interface Props {
     node: CredentialNode;

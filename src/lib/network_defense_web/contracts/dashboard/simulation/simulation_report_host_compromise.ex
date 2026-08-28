@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHostCompromise do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

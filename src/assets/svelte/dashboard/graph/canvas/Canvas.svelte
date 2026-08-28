@@ -1,16 +1,13 @@
 <script lang="ts">
+  import type * as GraphContracts from "../../../contracts.generated/graph";
+  import type { GraphConnectivityRule } from "../../../contracts.generated/dashboard/graph";
+
   import { ContextMenu } from "bits-ui";
   import { untrack } from "svelte";
   import CanvasEdge from "./CanvasEdge.svelte";
   import CanvasNode from "./CanvasNode.svelte";
   import { NODE_HEIGHT, NODE_WIDTH, nodeCenter } from "./geometry";
   import { computeFitState } from "./fitView";
-  import type {
-    Edge,
-    GraphConnectivityRule,
-    LoadedGraph,
-    Node,
-  } from "../../contract";
   import type {
     CanvasEdgeAppearance,
     CanvasNodeAppearance,
@@ -39,17 +36,21 @@
   ] as const;
 
   interface Props {
-    graph: LoadedGraph;
+    graph: GraphContracts.GraphContract;
     fitVersion?: number;
     selectedNodeId?: string;
     selectedEdgeId?: string;
-    nodeAppearance?: (node: Node) => CanvasNodeAppearance | undefined;
-    edgeAppearance?: (edge: Edge) => CanvasEdgeAppearance | undefined;
+    nodeAppearance?: (
+      node: GraphContracts.Node,
+    ) => CanvasNodeAppearance | undefined;
+    edgeAppearance?: (
+      edge: GraphContracts.Edge,
+    ) => CanvasEdgeAppearance | undefined;
     structuralFlows?: readonly CanvasStructuralFlow[];
     structuralFlowAppearance?: (
       flow: CanvasStructuralFlow,
     ) => CanvasEdgeAppearance | undefined;
-    onGraphChange?: (graph: LoadedGraph) => void;
+    onGraphChange?: (graph: GraphContracts.GraphContract) => void;
     onSelectNode?: (nodeId: string) => void;
     onSelectEdge?: (edgeId: string) => void;
     onClearSelection?: () => void;
@@ -59,7 +60,7 @@
       targetNodeId: string | undefined,
       position: Point,
     ) => void;
-    onAddNode?: (type: Node["type"], position: Point) => void;
+    onAddNode?: (type: GraphContracts.Node["type"], position: Point) => void;
     onDeleteSelection?: () => void;
     onCompareGraphs?: () => void;
     ariaLabel?: string;
@@ -113,7 +114,7 @@
     graph.nodes.find((node) => node.id === canvasState.connectionSourceId),
   );
 
-  function nodePosition(node: Node): Point {
+  function nodePosition(node: GraphContracts.Node): Point {
     return { x: node.view_data.x_pos, y: node.view_data.y_pos };
   }
 
@@ -121,7 +122,7 @@
     Object.assign(canvasState, change);
   }
 
-  function updateGraph(change: Partial<LoadedGraph>) {
+  function updateGraph(change: Partial<GraphContracts.GraphContract>) {
     onGraphChange?.({ ...graph, ...change });
   }
 
@@ -190,7 +191,7 @@
     };
   }
 
-  function startNodeDrag(node: Node, event: PointerEvent) {
+  function startNodeDrag(node: GraphContracts.Node, event: PointerEvent) {
     if (!editable || event.button !== 0 || !event.isPrimary) return;
 
     event.stopPropagation();
@@ -207,7 +208,7 @@
     };
   }
 
-  function startConnection(node: Node, event: PointerEvent) {
+  function startConnection(node: GraphContracts.Node, event: PointerEvent) {
     if (!onCreateConnection || event.button !== 0 || !event.isPrimary) return;
 
     event.stopPropagation();
@@ -217,7 +218,7 @@
     connectionDragState = { pointerId: event.pointerId, element };
   }
 
-  function nodeAt(position: Point): Node | undefined {
+  function nodeAt(position: Point): GraphContracts.Node | undefined {
     return graph.nodes.find(
       (node) =>
         position.x >= node.view_data.x_pos &&
@@ -328,11 +329,11 @@
     onClearSelection?.();
   }
 
-  function addNode(type: Node["type"]) {
+  function addNode(type: GraphContracts.Node["type"]) {
     if (canvasContextPosition) onAddNode?.(type, canvasContextPosition);
   }
 
-  function handleNodeClick(node: Node, event: MouseEvent) {
+  function handleNodeClick(node: GraphContracts.Node, event: MouseEvent) {
     event.stopPropagation();
     if (suppressNodeClick) {
       suppressNodeClick = false;
@@ -341,23 +342,23 @@
     onSelectNode?.(node.id);
   }
 
-  function handleEdgeClick(edge: Edge, event: MouseEvent) {
+  function handleEdgeClick(edge: GraphContracts.Edge, event: MouseEvent) {
     event.stopPropagation();
     onSelectEdge?.(edge.id);
   }
 
-  function handleNodeContextMenu(node: Node, event: MouseEvent) {
+  function handleNodeContextMenu(node: GraphContracts.Node, event: MouseEvent) {
     event.stopPropagation();
     onSelectNode?.(node.id);
   }
 
-  function handleEdgeContextMenu(edge: Edge, event: MouseEvent) {
+  function handleEdgeContextMenu(edge: GraphContracts.Edge, event: MouseEvent) {
     event.stopPropagation();
     onSelectEdge?.(edge.id);
   }
 
   function connectionDirection(
-    target: Node,
+    target: GraphContracts.Node,
   ): "forward" | "reverse" | "both" | undefined {
     if (!connectionSource || connectionSource.id === target.id)
       return undefined;

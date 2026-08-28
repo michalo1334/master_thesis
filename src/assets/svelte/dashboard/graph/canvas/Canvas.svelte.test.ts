@@ -1,11 +1,10 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import Canvas from "./Canvas.svelte";
-import type { LoadedGraph } from "../../contract";
-
 afterEach(cleanup);
 
-const graph: LoadedGraph = {
+const graph: GraphContract = {
   id: "graph",
   title: "Topology",
   nodes: [

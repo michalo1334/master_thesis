@@ -1,8 +1,8 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { describe, expect, it } from "vitest";
-import type { LoadedGraph } from "../../contract";
 import { projectNetwork } from "./NetworkCanvasProjection";
 
-function graph(): LoadedGraph {
+function graph(): GraphContract {
   return {
     id: "graph",
     title: "Network",
@@ -116,7 +116,7 @@ describe("projectNetwork", () => {
   });
 });
 
-function flowGraph(): LoadedGraph {
+function flowGraph(): GraphContract {
   return {
     ...graph(),
     nodes: [

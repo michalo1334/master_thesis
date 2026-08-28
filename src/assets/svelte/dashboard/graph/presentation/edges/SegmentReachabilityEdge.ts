@@ -1,4 +1,4 @@
-import type { Edge } from "../../../contract";
+import type { Edge } from "../../../../contracts.generated/graph";
 import EditableSelectionInspector from "../../../inspector/graph/EditableSelectionInspector.svelte";
 
 function policyLabel(edge: Edge): string {

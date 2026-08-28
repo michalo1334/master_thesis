@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.RunSummary do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :runs

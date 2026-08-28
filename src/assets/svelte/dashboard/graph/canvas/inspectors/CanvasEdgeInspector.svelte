@@ -1,10 +1,11 @@
 <script lang="ts">
-  import type { Selectable } from "../../../contract";
+  import type { Edge, Node } from "../../../../contracts.generated/graph";
+
   import Inspector from "../../../../ui-kit/layout/Inspector.svelte";
   import InspectorField from "../../../../ui-kit/layout/InspectorField.svelte";
 
   interface Props {
-    selectable: Selectable;
+    selectable: Node | Edge;
   }
 
   let { selectable }: Props = $props();

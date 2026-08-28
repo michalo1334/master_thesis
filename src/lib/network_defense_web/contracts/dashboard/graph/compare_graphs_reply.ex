@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CompareGraphsReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
@@ -9,12 +9,14 @@ defmodule NetworkDefenseWeb.Web.Contracts.CompareGraphsReply do
 
   embedded_schema do
     field :status, :string
-    embeds_one :result, NetworkDefenseWeb.Web.Contracts.GraphDiffResult, on_replace: :update
+
+    embeds_one :result, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult,
+      on_replace: :update
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          result: NetworkDefenseWeb.Web.Contracts.GraphDiffResult.t() | nil
+          result: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult.t() | nil
         }
 
   def changeset(schema, attrs) do

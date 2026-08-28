@@ -1,8 +1,8 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisMetadata do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMetadata do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisRuntimeSummary
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary
 
   embedded_schema do
     field :manifest_id, :string

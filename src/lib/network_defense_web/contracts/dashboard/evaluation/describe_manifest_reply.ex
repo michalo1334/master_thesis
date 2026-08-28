@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DescribeManifestReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.{
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
     DescribeManifestComparisonGroup,
     DescribeManifestPlan,
     ManifestError

@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationCompletedEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationCompletedEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

@@ -1,3 +1,4 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -10,9 +11,7 @@ import {
 import NetworkCanvas from "./NetworkCanvas.svelte";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
-import type { LoadedGraph } from "../../contract";
-
-function graph(): LoadedGraph {
+function graph(): GraphContract {
   return {
     id: "graph",
     title: "Network",

@@ -1,8 +1,7 @@
+import type { FetchSimulationReportReply } from "../../../contracts.generated/dashboard/simulation";
 import { describe, expect, it, vi } from "vitest";
 import { SimulationReportDocument } from "../SimulationReportDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
-import type { FetchSimulationReportReply } from "../../contract";
-
 function makeReport(
   overrides: Partial<FetchSimulationReportReply> = {},
 ): FetchSimulationReportReply {

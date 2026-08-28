@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.RunCancelledEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunCancelledEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :runs

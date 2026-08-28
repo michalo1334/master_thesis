@@ -1,42 +1,57 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportCharts do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
-    embeds_many :histogram, NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket,
-      on_replace: :delete
-
-    embeds_many :cdf, NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint,
-      on_replace: :delete
-
-    embeds_many :convergence, NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint,
-      on_replace: :delete
-
-    embeds_many :action_success, NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess,
-      on_replace: :delete
-
-    embeds_many :host_compromise, NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise,
-      on_replace: :delete
-
-    embeds_many :capability_impact,
-                NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityImpact,
+    embeds_many :histogram,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHistogramBucket,
                 on_replace: :delete
 
-    embeds_many :edge_traversal, NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal,
+    embeds_many :cdf, NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCdfPoint,
       on_replace: :delete
+
+    embeds_many :convergence,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportConvergencePoint,
+                on_replace: :delete
+
+    embeds_many :action_success,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportActionSuccess,
+                on_replace: :delete
+
+    embeds_many :host_compromise,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHostCompromise,
+                on_replace: :delete
+
+    embeds_many :capability_impact,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityImpact,
+                on_replace: :delete
+
+    embeds_many :edge_traversal,
+                NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportEdgeTraversal,
+                on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          histogram: [NetworkDefenseWeb.Web.Contracts.SimulationReportHistogramBucket.t()],
-          cdf: [NetworkDefenseWeb.Web.Contracts.SimulationReportCdfPoint.t()],
-          convergence: [NetworkDefenseWeb.Web.Contracts.SimulationReportConvergencePoint.t()],
-          action_success: [NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess.t()],
-          host_compromise: [NetworkDefenseWeb.Web.Contracts.SimulationReportHostCompromise.t()],
-          capability_impact: [
-            NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityImpact.t()
+          histogram: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHistogramBucket.t()
           ],
-          edge_traversal: [NetworkDefenseWeb.Web.Contracts.SimulationReportEdgeTraversal.t()]
+          cdf: [NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCdfPoint.t()],
+          convergence: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportConvergencePoint.t()
+          ],
+          action_success: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportActionSuccess.t()
+          ],
+          host_compromise: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportHostCompromise.t()
+          ],
+          capability_impact: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityImpact.t()
+          ],
+          edge_traversal: [
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportEdgeTraversal.t()
+          ]
         }
 
   def changeset(schema, attrs) do

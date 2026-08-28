@@ -1,9 +1,12 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SaveManifestReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.{ManifestError, ManifestSummary}
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
+    ManifestError,
+    ManifestSummary
+  }
 
   @enum_values status: [:ok, :invalid_manifest, :invalid_request]
 

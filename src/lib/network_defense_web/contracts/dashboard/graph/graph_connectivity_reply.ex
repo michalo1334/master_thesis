@@ -1,14 +1,15 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphConnectivityReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
   embedded_schema do
-    embeds_many :rules, NetworkDefenseWeb.Web.Contracts.GraphConnectivityRule, on_replace: :delete
+    embeds_many :rules, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule,
+      on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          rules: [NetworkDefenseWeb.Web.Contracts.GraphConnectivityRule.t()]
+          rules: [NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule.t()]
         }
 
   def changeset(schema, attrs) do

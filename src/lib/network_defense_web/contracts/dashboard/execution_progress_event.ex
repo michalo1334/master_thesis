@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.ExecutionProgressEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

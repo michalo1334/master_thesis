@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DescribeManifestComparisonGroup do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestComparisonGroup do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.DescribeManifestPlanGroup
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlanGroup
 
   embedded_schema do
     field :index, :integer

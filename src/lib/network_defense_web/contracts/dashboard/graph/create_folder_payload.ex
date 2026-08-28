@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CreateFolderPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

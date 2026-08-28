@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OptimizationAction do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization

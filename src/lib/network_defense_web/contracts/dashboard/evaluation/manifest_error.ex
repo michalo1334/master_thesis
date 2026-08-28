@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.ManifestError do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

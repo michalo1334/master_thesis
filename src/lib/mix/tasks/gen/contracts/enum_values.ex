@@ -16,7 +16,7 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
     enum_fields = Enum.map_join(values, ", ", fn {field, _} -> field end)
     comment = Renderer.source_comment(context.module, "enum fields: #{enum_fields}")
 
-    {:emit, "#{comment}\n#{Renderer.interface(context.ts_name, context.fields, overrides)}"}
+    {:emit, "#{comment}\n#{Renderer.interface(context.module, context.fields, overrides)}"}
   end
 
   def render(_context), do: :skip

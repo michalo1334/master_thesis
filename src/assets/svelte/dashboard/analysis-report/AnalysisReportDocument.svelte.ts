@@ -1,10 +1,10 @@
-import type { EvaluationReport } from "../contract";
 import type {
   EvaluationAnalysis,
   EvaluationAnalysisErrorEvent,
   EvaluationAnalysisReadyEvent,
+  EvaluationReport,
   RequestEvaluationAnalysisPayload,
-} from "../../contracts.generated";
+} from "../../contracts.generated/dashboard/evaluation";
 import type { DashboardApi } from "../dashboard-api";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";

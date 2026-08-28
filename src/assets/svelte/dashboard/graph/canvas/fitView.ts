@@ -1,4 +1,4 @@
-import type { Node } from "../../contract";
+import type { Node } from "../../../contracts.generated/graph";
 import { clampZoom, type CanvasState } from "./canvasState";
 import { NODE_HEIGHT, NODE_WIDTH } from "./geometry";
 

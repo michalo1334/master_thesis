@@ -74,7 +74,7 @@ jobs:
       - run: mix deps.get
       - run: npm ci
       - run: mix gen.contracts
-      - run: git diff --exit-code -- assets/svelte/contracts.generated.ts
+      - run: git diff --exit-code -- assets/svelte/contracts.generated.ts assets/svelte/contracts.generated/
       - run: npm run typecheck
       - run: mix assets.build
 

@@ -1,4 +1,3 @@
-import type { NodeViewData } from "../../contract";
 import type { Point } from "./canvasState";
 
 export const NODE_WIDTH = 120;

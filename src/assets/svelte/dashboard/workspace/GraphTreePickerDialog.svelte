@@ -1,9 +1,8 @@
 <script lang="ts">
+  import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
   import { Button, Dialog } from "bits-ui";
   import { SvelteSet } from "svelte/reactivity";
   import Icon from "../../ui-kit/primitives/Icon.svelte";
-  import type { GraphSummary } from "../contract";
-
   interface Props {
     open: boolean;
     onOpenChange: (open: boolean) => void;

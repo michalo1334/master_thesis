@@ -1,11 +1,10 @@
-import type { EChartsOption } from "echarts";
 import type {
   SimulationReportActionSuccess,
   SimulationReportCdfPoint,
   SimulationReportConvergencePoint,
   SimulationReportHistogramBucket,
-} from "../../contracts.generated";
-
+} from "../../contracts.generated/dashboard/simulation";
+import type { EChartsOption } from "echarts";
 const colors = {
   accent: "#1769d2",
   positive: "#39825a",

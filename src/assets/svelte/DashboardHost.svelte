@@ -1,4 +1,14 @@
 <script lang="ts">
+  import type { ExecutionProgressEvent } from "./contracts.generated/dashboard";
+  import type * as EvaluationContracts from "./contracts.generated/dashboard/evaluation";
+  import type * as OptimizationContracts from "./contracts.generated/dashboard/optimization";
+  import type * as SimulationContracts from "./contracts.generated/dashboard/simulation";
+  import type {
+    FolderSummary,
+    GraphSummary,
+  } from "./contracts.generated/dashboard/graph";
+  import type { RunCancelledEvent } from "./contracts.generated/dashboard/runs";
+
   import type { Live } from "live_svelte";
   import { untrack } from "svelte";
   import { useLiveEvent } from "live_svelte";
@@ -11,29 +21,6 @@
     writeWorkspaceEnvelope,
   } from "./ui-kit/workspace/workspace-persistence";
   import { isDashboardWorkspaceState } from "./dashboard/workspace/persisted-documents";
-  import type {
-    GraphSummary,
-    FolderSummary,
-    SimulationCompletedEvent,
-    SimulationFailedEvent,
-    ExecutionProgressEvent,
-    SimulationReportReadyEvent,
-    OptimizationCompletedEvent,
-    OptimizationFailedEvent,
-    SimulationReportErrorEvent,
-    OptimizationReportReadyEvent,
-    OptimizationReportErrorEvent,
-    EvaluationCompletedEvent,
-    EvaluationFailedEvent,
-    RunCancelledEvent,
-    EvaluationReportReadyEvent,
-    EvaluationReportErrorEvent,
-  } from "./dashboard/contract";
-  import type {
-    EvaluationAnalysisReadyEvent,
-    EvaluationAnalysisErrorEvent,
-  } from "./contracts.generated";
-
   interface Props {
     live: Live;
     graphSummaries?: GraphSummary[];
@@ -67,11 +54,15 @@
   });
 
   useLiveEvent("simulation_completed", (payload: unknown) => {
-    model.onSimulationCompleted(payload as SimulationCompletedEvent);
+    model.onSimulationCompleted(
+      payload as SimulationContracts.SimulationCompletedEvent,
+    );
   });
 
   useLiveEvent("simulation_failed", (payload: unknown) => {
-    model.onSimulationFailed(payload as SimulationFailedEvent);
+    model.onSimulationFailed(
+      payload as SimulationContracts.SimulationFailedEvent,
+    );
   });
 
   useLiveEvent("simulation_progress", (payload: unknown) => {
@@ -79,11 +70,15 @@
   });
 
   useLiveEvent("optimization_completed", (payload: unknown) => {
-    model.onOptimizationCompleted(payload as OptimizationCompletedEvent);
+    model.onOptimizationCompleted(
+      payload as OptimizationContracts.OptimizationCompletedEvent,
+    );
   });
 
   useLiveEvent("optimization_failed", (payload: unknown) => {
-    model.onOptimizationFailed(payload as OptimizationFailedEvent);
+    model.onOptimizationFailed(
+      payload as OptimizationContracts.OptimizationFailedEvent,
+    );
   });
 
   useLiveEvent("optimization_progress", (payload: unknown) => {
@@ -93,7 +88,7 @@
   useLiveEvent("simulation_report_ready", (payload: unknown) => {
     model.onReportReadyEvent({
       reportKind: "simulation",
-      payload: payload as SimulationReportReadyEvent,
+      payload: payload as SimulationContracts.SimulationReportReadyEvent,
     });
   });
 
@@ -104,14 +99,14 @@
   useLiveEvent("simulation_report_error", (payload: unknown) => {
     model.onReportErrorEvent({
       reportKind: "simulation",
-      payload: payload as SimulationReportErrorEvent,
+      payload: payload as SimulationContracts.SimulationReportErrorEvent,
     });
   });
 
   useLiveEvent("optimization_report_ready", (payload: unknown) => {
     model.onReportReadyEvent({
       reportKind: "optimization",
-      payload: payload as OptimizationReportReadyEvent,
+      payload: payload as OptimizationContracts.OptimizationReportReadyEvent,
     });
   });
 
@@ -122,16 +117,20 @@
   useLiveEvent("optimization_report_error", (payload: unknown) => {
     model.onReportErrorEvent({
       reportKind: "optimization",
-      payload: payload as OptimizationReportErrorEvent,
+      payload: payload as OptimizationContracts.OptimizationReportErrorEvent,
     });
   });
 
   useLiveEvent("evaluation_completed", (payload: unknown) => {
-    model.onEvaluationCompleted(payload as EvaluationCompletedEvent);
+    model.onEvaluationCompleted(
+      payload as EvaluationContracts.EvaluationCompletedEvent,
+    );
   });
 
   useLiveEvent("evaluation_failed", (payload: unknown) => {
-    model.onEvaluationFailed(payload as EvaluationFailedEvent);
+    model.onEvaluationFailed(
+      payload as EvaluationContracts.EvaluationFailedEvent,
+    );
   });
 
   useLiveEvent("run_cancelled", (payload: unknown) => {
@@ -145,7 +144,7 @@
   useLiveEvent("evaluation_report_ready", (payload: unknown) => {
     model.onReportReadyEvent({
       reportKind: "evaluation",
-      payload: payload as EvaluationReportReadyEvent,
+      payload: payload as EvaluationContracts.EvaluationReportReadyEvent,
     });
   });
 
@@ -156,16 +155,20 @@
   useLiveEvent("evaluation_report_error", (payload: unknown) => {
     model.onReportErrorEvent({
       reportKind: "evaluation",
-      payload: payload as EvaluationReportErrorEvent,
+      payload: payload as EvaluationContracts.EvaluationReportErrorEvent,
     });
   });
 
   useLiveEvent("evaluation_analysis_ready", (payload: unknown) => {
-    model.onEvaluationAnalysisReady(payload as EvaluationAnalysisReadyEvent);
+    model.onEvaluationAnalysisReady(
+      payload as EvaluationContracts.EvaluationAnalysisReadyEvent,
+    );
   });
 
   useLiveEvent("evaluation_analysis_error", (payload: unknown) => {
-    model.onEvaluationAnalysisError(payload as EvaluationAnalysisErrorEvent);
+    model.onEvaluationAnalysisError(
+      payload as EvaluationContracts.EvaluationAnalysisErrorEvent,
+    );
   });
 </script>
 

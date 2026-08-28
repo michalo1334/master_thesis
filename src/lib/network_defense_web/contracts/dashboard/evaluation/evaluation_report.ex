@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationReport do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.{
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
     EvaluationExperimentSummary,
     EvaluationPlanSummary
   }

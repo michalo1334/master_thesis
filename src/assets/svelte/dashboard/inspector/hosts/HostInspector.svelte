@@ -1,5 +1,6 @@
 <script lang="ts">
-  import type { HostNode } from "../../../contracts.generated";
+  import type { HostNode } from "../../../contracts.generated/graph";
+
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
   import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
 

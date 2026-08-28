@@ -1,3 +1,4 @@
+import type { DashboardError } from "../../contracts.generated/dashboard";
 import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
@@ -6,7 +7,6 @@ import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalo
 import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import type { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
-import type { DashboardError } from "../contract";
 import { formatDashboardErrorCode } from "../error-code";
 import { UiWorkspaceDocument } from "../../ui-kit/workspace/WorkspaceDocument.svelte";
 

@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FolderSummary do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

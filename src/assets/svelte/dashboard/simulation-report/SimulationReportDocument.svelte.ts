@@ -1,4 +1,5 @@
-import type { LoadedGraph, SimulationReportData } from "../contract";
+import type { FetchSimulationReportReply } from "../../contracts.generated/dashboard/simulation";
+import type { GraphContract } from "../../contracts.generated/graph";
 import type { DashboardApi } from "../dashboard-api";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";
@@ -27,8 +28,8 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   experimentId = $state<string | null>(null);
   correlationId = $state<string | null>(null);
   runId = $state<string | null>(null);
-  reportData = $state<SimulationReportData | null>(null);
-  heatmapGraph = $state<LoadedGraph | null>(null);
+  reportData = $state<FetchSimulationReportReply | null>(null);
+  heatmapGraph = $state<GraphContract | null>(null);
   heatmapSelectedNodeId = $state<string>();
   heatmapSelectedEdgeId = $state<string>();
 
@@ -120,7 +121,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.heatmapSelectedEdgeId = undefined;
   }
 
-  setReportData(data: SimulationReportData): void {
+  setReportData(data: FetchSimulationReportReply): void {
     if (data.experiment_id !== this.experimentId) return;
     this.reportData = data;
     this.graphId = data.graph_id;

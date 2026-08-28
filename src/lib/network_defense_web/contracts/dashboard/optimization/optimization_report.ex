@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReport do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
@@ -22,7 +22,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReport do
     field :used_budget, :integer
     field :runtime_ms, :integer
 
-    embeds_many :actions, NetworkDefenseWeb.Web.Contracts.OptimizationAction, on_replace: :delete
+    embeds_many :actions, NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction,
+      on_replace: :delete
   end
 
   @type t :: %__MODULE__{
@@ -30,7 +31,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReport do
           requested_budget: integer(),
           used_budget: integer(),
           runtime_ms: integer(),
-          actions: [NetworkDefenseWeb.Web.Contracts.OptimizationAction.t()]
+          actions: [NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction.t()]
         }
 
   def changeset(schema, attrs) do

@@ -1,15 +1,15 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchExperimentsReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
   embedded_schema do
-    embeds_many :experiments, NetworkDefenseWeb.Web.Contracts.ExperimentSummary,
+    embeds_many :experiments, NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary,
       on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          experiments: [NetworkDefenseWeb.Web.Contracts.ExperimentSummary.t()]
+          experiments: [NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary.t()]
         }
 
   def changeset(schema, attrs) do

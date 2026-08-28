@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphProjectionPolicyLink do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionPolicyLink do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

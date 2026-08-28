@@ -1,7 +1,6 @@
+import type { GraphContract } from "../contracts.generated/graph";
 import { describe, expect, it, vi } from "vitest";
 import { createDashboardApi, type LiveServer } from "./dashboard-api";
-import type { LoadedGraph } from "./contract";
-
 describe("DashboardApi", () => {
   it("sends only the save contract fields", async () => {
     const reply = { status: "ok" as const };
@@ -11,7 +10,7 @@ describe("DashboardApi", () => {
         return 1;
       }),
     } as unknown as LiveServer;
-    const graph: LoadedGraph = {
+    const graph: GraphContract = {
       id: "g1",
       revision_id: "r1",
       parent_revision_id: "r0",
@@ -42,7 +41,7 @@ describe("DashboardApi", () => {
 
   it("rejects saves without a revision id", async () => {
     const live = { pushEvent: vi.fn() } as unknown as LiveServer;
-    const graph: LoadedGraph = {
+    const graph: GraphContract = {
       id: "g1",
       title: "Graph",
       nodes: [],
@@ -204,7 +203,7 @@ describe("DashboardApi", () => {
   });
 
   it("sends graph comparisons and returns the server result", async () => {
-    const baseGraph: LoadedGraph = {
+    const baseGraph: GraphContract = {
       id: "base",
       title: "Base",
       revision_id: "base-r1",

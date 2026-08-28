@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CancelRunPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :runs

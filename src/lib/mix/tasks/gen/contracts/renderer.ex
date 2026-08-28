@@ -18,12 +18,30 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
     if detail, do: base <> " — " <> detail, else: base
   end
 
-  def interface(name, fields, overrides \\ %{}) do
-    properties =
-      Enum.map(fields, fn {field, type} ->
-        property(field, type, Map.get(overrides, field))
-      end)
+  def module_namespace(module), do: module |> Module.split() |> Enum.join(".")
 
+  def contract_namespace(module), do: module |> Module.split() |> Enum.drop(-1) |> Enum.join(".")
+
+  def namespaced(namespace, body) do
+    "export declare namespace #{namespace} {\n#{indent(body, 2)}\n}"
+  end
+
+  def interface(module, fields, overrides \\ %{}) do
+    name = module |> Module.split() |> List.last()
+
+    namespaced(
+      contract_namespace(module),
+      properties_interface(name, properties(fields, overrides))
+    )
+  end
+
+  def properties(fields, overrides \\ %{}) do
+    Enum.map(fields, fn {field, type} ->
+      property(field, type, Map.get(overrides, field))
+    end)
+  end
+
+  def properties_interface(name, properties) do
     case properties do
       [] -> "export type #{name} = Record<never, never>;"
       _ -> "export interface #{name} {\n#{Enum.join(properties, "\n")}\n}"
@@ -41,7 +59,7 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
   def type({:atom, _, value}) when is_atom(value), do: "\"#{value}\""
 
   def type({:remote_type, _, [{:atom, _, module}, {:atom, _, :t}, _]}) do
-    module_name(module)
+    module_path(module)
   end
 
   def type({:type, _, :list, [item]}), do: "#{type(item)}[]"
@@ -70,16 +88,24 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
 
   defp optional?(_), do: false
 
-  defp module_name(module) do
+  defp module_path(module) do
     case Module.split(module) do
       ["String"] -> "string"
       ["Integer"] -> "number"
       ["Float"] -> "number"
       ["Boolean"] -> "boolean"
-      parts -> last_part(parts)
+      parts -> Enum.join(parts, ".")
     end
   end
 
-  defp last_part([part]), do: part
-  defp last_part([_ | parts]), do: last_part(parts)
+  defp indent(text, n) do
+    pad = String.duplicate(" ", n)
+
+    text
+    |> String.split("\n")
+    |> Enum.map_join("\n", fn
+      "" -> ""
+      line -> pad <> line
+    end)
+  end
 end

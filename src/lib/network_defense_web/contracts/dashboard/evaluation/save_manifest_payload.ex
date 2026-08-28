@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SaveManifestPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

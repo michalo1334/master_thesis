@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchGraphProjectionPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

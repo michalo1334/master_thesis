@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReportReadyEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportReadyEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
 
-  alias NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
 
   embedded_schema do
     field :document_id, :string

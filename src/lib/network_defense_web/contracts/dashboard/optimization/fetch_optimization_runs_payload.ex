@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationRunsPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization

@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CompareGraphsPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

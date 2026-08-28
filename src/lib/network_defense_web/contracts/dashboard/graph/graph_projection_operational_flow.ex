@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphProjectionOperationalFlow do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

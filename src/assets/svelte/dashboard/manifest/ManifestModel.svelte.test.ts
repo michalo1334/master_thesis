@@ -1,8 +1,7 @@
+import type { DescribeManifestReply } from "../../contracts.generated/dashboard/evaluation";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ManifestModel } from "./ManifestModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { DescribeManifestReply } from "../contract";
-
 function api(): DashboardApi {
   return {
     openGraph: vi.fn(),

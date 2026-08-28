@@ -1,6 +1,5 @@
+import type { Edge, Node } from "../../../contracts.generated/graph";
 import type { Component } from "svelte";
-import type { Node, Edge } from "../../../contracts.generated";
-import type { Selectable } from "../../contract";
 import EmptyInspector from "../../inspector/EmptyInspector.svelte";
 import { hostNode } from "./nodes/HostNode";
 import { serviceNode } from "./nodes/ServiceNode";
@@ -66,7 +65,7 @@ export function edgePresentation(type: Edge["type"]): EdgePresentation | null {
 }
 
 export function inspectorFor(
-  selectable: Selectable | undefined,
+  selectable: Node | Edge | undefined,
 ): Component<any> {
   if (!selectable) return EmptyInspector;
   return allInspectors[selectable.type] ?? EmptyInspector;

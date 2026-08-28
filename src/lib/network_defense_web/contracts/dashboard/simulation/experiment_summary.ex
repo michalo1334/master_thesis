@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.ExperimentSummary do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

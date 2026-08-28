@@ -1,4 +1,4 @@
-import type { SimulationReportSummary } from "../../contracts.generated";
+import type { SimulationReportSummary } from "../../contracts.generated/dashboard/simulation";
 import type { KpiMetric } from "../KpiCards.svelte";
 
 const formatNumber = (value: number) =>

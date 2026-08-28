@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.EvaluationAnalysisPhase1SummaryTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefenseWeb.Web.Contracts.{
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
     EvaluationAnalysisFeasibilityRow,
     EvaluationAnalysisRuntimeSummary
   }

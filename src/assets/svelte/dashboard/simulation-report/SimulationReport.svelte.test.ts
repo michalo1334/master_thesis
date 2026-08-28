@@ -1,9 +1,8 @@
+import type { FetchSimulationReportReply } from "../../contracts.generated/dashboard/simulation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import SimulationReport from "./SimulationReport.svelte";
 import { SimulationReportDocument } from "./SimulationReportDocument.svelte";
-import type { SimulationReportData } from "../contract";
-
 vi.mock(
   "./StatisticalChart.svelte",
   () =>
@@ -177,7 +176,7 @@ describe("SimulationReport", () => {
         max_mission_impact: 0,
         mission_impact_variance: 0,
       },
-    } as unknown as SimulationReportData);
+    } as unknown as FetchSimulationReportReply);
 
     render(SimulationReport, { props: { document } });
 

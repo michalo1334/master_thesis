@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationReportErrorEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportErrorEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   embedded_schema do
     field :document_id, :string

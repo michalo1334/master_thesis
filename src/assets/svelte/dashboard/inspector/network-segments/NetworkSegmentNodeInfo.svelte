@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { NetworkSegmentNode } from "../../../contracts.generated";
+  import type { NetworkSegmentNode } from "../../../contracts.generated/graph";
 
   interface Props {
     node: NetworkSegmentNode;

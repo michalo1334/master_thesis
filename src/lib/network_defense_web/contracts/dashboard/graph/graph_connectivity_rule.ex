@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.GraphConnectivityRule do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

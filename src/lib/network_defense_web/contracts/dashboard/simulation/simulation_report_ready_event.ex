@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportReadyEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportReadyEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
-  alias NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
 
   embedded_schema do
     field :document_id, :string

@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DescribeManifestPlanGroup do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlanGroup do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

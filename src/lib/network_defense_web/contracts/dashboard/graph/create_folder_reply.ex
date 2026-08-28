@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CreateFolderReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
@@ -9,12 +9,14 @@ defmodule NetworkDefenseWeb.Web.Contracts.CreateFolderReply do
 
   embedded_schema do
     field :status, :string
-    embeds_one :folder, NetworkDefenseWeb.Web.Contracts.FolderSummary, on_replace: :update
+
+    embeds_one :folder, NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary,
+      on_replace: :update
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          folder: NetworkDefenseWeb.Web.Contracts.FolderSummary.t() | nil
+          folder: NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary.t() | nil
         }
 
   def changeset(schema, attrs) do

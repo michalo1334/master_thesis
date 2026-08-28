@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.StartEvaluationReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Web.Contracts.ManifestError
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError
 
   @enum_values status: [:accepted, :rejected, :not_found]
 

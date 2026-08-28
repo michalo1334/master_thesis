@@ -1,9 +1,5 @@
-import type {
-  OptimizationCompletedEvent,
-  OptimizationReport,
-  OptimizationStrategy,
-  FetchOptimizationReportReply,
-} from "../contract";
+import type * as OptimizationContracts from "../../contracts.generated/dashboard/optimization";
+import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { DashboardApi } from "../dashboard-api";
 import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
@@ -37,10 +33,12 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   runId = $state<string | null>(null);
 
   optimizationId = $state<string | null>(null);
-  strategy: OptimizationStrategy;
+  strategy: OptimizationParams["strategy"];
   budget: number;
   optimizedGraphRevisionId = $state<string | undefined>();
-  reportData = $state.raw<OptimizationReport | undefined>();
+  reportData = $state.raw<
+    OptimizationContracts.OptimizationReport | undefined
+  >();
   analysis = $state.raw<OptimizationAnalysis | undefined>();
   openOptimizedGraph = $state<(() => Promise<boolean>) | undefined>();
   graphDiff = $state.raw<GraphDiffDocument | undefined>();
@@ -65,7 +63,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     correlationId?: string | null;
     analysisId?: string;
     analysisTitle?: string;
-    strategy: OptimizationStrategy;
+    strategy: OptimizationParams["strategy"];
     budget: number;
   }) {
     super();
@@ -149,7 +147,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
 
   complete(
     api: DashboardApi,
-    payload: OptimizationCompletedEvent,
+    payload: OptimizationContracts.OptimizationCompletedEvent,
     openOptimizedGraph: () => Promise<boolean>,
     createGraphDiff?: () => Promise<GraphDiffDocument | undefined>,
   ): void {
@@ -181,7 +179,9 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.progress = null;
   }
 
-  setReportData(data: FetchOptimizationReportReply): void {
+  setReportData(
+    data: OptimizationContracts.FetchOptimizationReportReply,
+  ): void {
     if (data.optimization_id !== this.optimizationId) return;
     this.reportData = data.report;
     this.analysis = toOptimizationAnalysis(data.report);

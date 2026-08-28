@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
@@ -11,7 +11,8 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply do
     field :graph_title, :string
     field :graph_revision_id, :string
 
-    embeds_one :report, NetworkDefenseWeb.Web.Contracts.OptimizationReport, on_replace: :update
+    embeds_one :report, NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport,
+      on_replace: :update
   end
 
   @type t :: %__MODULE__{
@@ -19,7 +20,7 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchOptimizationReportReply do
           graph_id: String.t(),
           graph_title: String.t(),
           graph_revision_id: String.t(),
-          report: NetworkDefenseWeb.Web.Contracts.OptimizationReport.t()
+          report: NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport.t()
         }
 
   def changeset(schema, attrs) do

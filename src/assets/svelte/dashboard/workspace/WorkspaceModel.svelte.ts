@@ -1,3 +1,8 @@
+import type * as DashboardGraphContracts from "../../contracts.generated/dashboard/graph";
+import type { GraphContract } from "../../contracts.generated/graph";
+import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type { SimulationParams } from "../../contracts.generated/simulation";
+import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
@@ -6,17 +11,7 @@ import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocumen
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type {
-  FolderSummary,
-  GraphSummary,
-  GraphDiffResult,
-  LoadedGraph,
-  OptimizationParams,
-  OptimizationParamsChange,
-  SimulationParams,
-  OptimizationStrategy,
-  DocumentCatalogItem,
-} from "../contract";
+import type { OptimizationParamsChange } from "../contract";
 import type { ForceParams } from "../graph/layout/ForceLayout.types";
 import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
@@ -44,14 +39,14 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   DashboardRecoveryContext
 > {
   /** Graphs available to open, owned by workspace so the picker has them. */
-  graphSummaries = $state.raw<GraphSummary[]>([]);
-  folders = $state.raw<FolderSummary[]>([]);
+  graphSummaries = $state.raw<DashboardGraphContracts.GraphSummary[]>([]);
+  folders = $state.raw<DashboardGraphContracts.FolderSummary[]>([]);
 
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
   graphComparisonPickerOpen = $state(false);
   graphComparisonPickerStatus = $state("");
-  graphComparisonBase = $state.raw<LoadedGraph>();
+  graphComparisonBase = $state.raw<GraphContract>();
   forceParams = $state<ForceParams>({ ...defaultForceParams });
   simulationParams = $state<SimulationParams>({
     initial_foothold_node_id: "",
@@ -62,7 +57,9 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     seed: 0,
   });
   optimizationParams = $state<
-    OptimizationParams & { simulation_params: SimulationParams }
+    OptimizationParams & {
+      simulation_params: SimulationParams;
+    }
   >({
     strategy: "cvss",
     budget: 1,
@@ -85,8 +82,8 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   private readonly api?: DashboardApi;
 
   constructor(
-    graphSummaries: GraphSummary[] = [],
-    folders: FolderSummary[] = [],
+    graphSummaries: DashboardGraphContracts.GraphSummary[] = [],
+    folders: DashboardGraphContracts.FolderSummary[] = [],
     api?: DashboardApi,
   ) {
     super();
@@ -115,7 +112,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     });
   }
 
-  upsertGraphSummary(graph: LoadedGraph): void {
+  upsertGraphSummary(graph: GraphContract): void {
     const previous = this.graphSummaries.find(
       ({ revision_id }) => revision_id === graph.revision_id,
     );
@@ -123,7 +120,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       previous?.folder_id ??
       this.graphSummaries.find(({ graph_id }) => graph_id === graph.id)
         ?.folder_id;
-    const summary: GraphSummary = {
+    const summary: DashboardGraphContracts.GraphSummary = {
       graph_id: graph.id,
       title: graph.title,
       revision_id: graph.revision_id ?? "",
@@ -335,7 +332,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   async openLoadedGraph(
-    graph: LoadedGraph,
+    graph: GraphContract,
     api: DashboardApi,
   ): Promise<EditableGraphDocument | undefined> {
     this.upsertGraphSummary(graph);
@@ -364,7 +361,10 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     return doc;
   }
 
-  async openGraph(api: DashboardApi, summary: GraphSummary): Promise<boolean> {
+  async openGraph(
+    api: DashboardApi,
+    summary: DashboardGraphContracts.GraphSummary,
+  ): Promise<boolean> {
     this.topologyPickerStatus = "";
     const existing = this.findOpenGraph(summary.revision_id);
     if (existing) {
@@ -392,7 +392,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
   async setGraphRevisionFavorite(
     api: DashboardApi,
-    summary: GraphSummary,
+    summary: DashboardGraphContracts.GraphSummary,
     favorite: boolean,
   ): Promise<boolean> {
     this.topologyPickerStatus = "";
@@ -443,7 +443,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
   async selectGraphForComparison(
     api: DashboardApi,
-    summary: GraphSummary,
+    summary: DashboardGraphContracts.GraphSummary,
   ): Promise<boolean> {
     this.graphComparisonPickerStatus = "";
     if (this.graphComparisonBase?.revision_id === summary.revision_id) {
@@ -777,7 +777,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     graphRevisionId: string;
     graphTitle: string;
     correlationId?: string;
-    strategy: OptimizationStrategy;
+    strategy: OptimizationParams["strategy"];
     budget: number;
   }): OptimizationReportDocument {
     const existing = info.correlationId
@@ -970,9 +970,9 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   private openGraphDiff(
-    base: LoadedGraph,
-    comparison: GraphSummary,
-    result: GraphDiffResult,
+    base: GraphContract,
+    comparison: DashboardGraphContracts.GraphSummary,
+    result: DashboardGraphContracts.GraphDiffResult,
   ): GraphDiffDocument {
     const document = new GraphDiffDocument(
       base,
@@ -987,7 +987,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
 function catalogOptimizationStrategy(
   strategy: string | null | undefined,
-): OptimizationStrategy {
+): OptimizationParams["strategy"] {
   switch (strategy) {
     case "null":
     case "random":
@@ -995,7 +995,7 @@ function catalogOptimizationStrategy(
     case "topology_segmentation":
     case "simulated_annealing":
     case "cvss":
-      return strategy as OptimizationStrategy;
+      return strategy as OptimizationParams["strategy"];
     default:
       return "cvss";
   }

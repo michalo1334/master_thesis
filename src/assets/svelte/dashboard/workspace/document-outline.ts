@@ -1,4 +1,4 @@
-import type { FolderSummary, GraphSummary } from "../contract";
+import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
 import {
   isGraphDiff,
   isReport,

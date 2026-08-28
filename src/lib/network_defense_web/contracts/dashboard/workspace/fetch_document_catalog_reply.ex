@@ -1,25 +1,29 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :workspace
 
   embedded_schema do
-    embeds_many :items, NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem, on_replace: :delete
-
-    embeds_many :related_items, NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem,
+    embeds_many :items, NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem,
       on_replace: :delete
+
+    embeds_many :related_items,
+                NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem,
+                on_replace: :delete
 
     field :total_count, :integer, default: 0
 
-    embeds_one :filter_options, NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions,
-      on_replace: :update
+    embeds_one :filter_options,
+               NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions,
+               on_replace: :update
   end
 
   @type t :: %__MODULE__{
-          items: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem.t()],
-          related_items: [NetworkDefenseWeb.Web.Contracts.DocumentCatalogItem.t()],
+          items: [NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem.t()],
+          related_items: [NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem.t()],
           total_count: non_neg_integer(),
-          filter_options: NetworkDefenseWeb.Web.Contracts.DocumentCatalogFilterOptions.t()
+          filter_options:
+            NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions.t()
         }
 
   def changeset(schema, attrs) do

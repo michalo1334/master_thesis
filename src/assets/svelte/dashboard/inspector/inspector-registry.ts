@@ -1,6 +1,7 @@
+import type { Edge, Node } from "../../contracts.generated/graph";
+import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
 import type { Component, ComponentProps } from "svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { GraphSummary, Selectable } from "../contract";
 import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { inspectorFor as selectableInspectorFor } from "../graph/presentation/registry";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
@@ -50,7 +51,7 @@ function makeRequest<C extends Component<any, any, any>>(
 
 interface SelectablePerspective {
   readonly id: string;
-  create(context: InspectorContext, selectable: Selectable): InspectorRequest;
+  create(context: InspectorContext, selectable: Node | Edge): InspectorRequest;
 }
 
 function matchesDocumentKind(
@@ -80,7 +81,7 @@ const missionCapabilityPerspective: SelectablePerspective = {
         api: context.api,
         revisionId: document.loadedRevisionId,
         canEditFlows: !!document.loadedRevisionId && !document.isDirty,
-        onUpdate: (next: Selectable) => document.updateSelection(next),
+        onUpdate: (next: Node | Edge) => document.updateSelection(next),
       },
       document.loadedRevisionId,
     );
@@ -92,7 +93,7 @@ const defaultSelectablePerspective: SelectablePerspective = {
   create: (context, selectable) =>
     makeRequest("selectable", selectableInspectorFor(selectable), {
       selectable,
-      onUpdate: (next: Selectable) =>
+      onUpdate: (next: Node | Edge) =>
         graphDocument(context).updateSelection(next),
     }),
 };

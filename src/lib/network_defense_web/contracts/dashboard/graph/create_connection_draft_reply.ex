@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.CreateConnectionDraftReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { HostNode } from "../../../contracts.generated";
+  import type { HostNode } from "../../../contracts.generated/graph";
 
   interface Props {
     node: HostNode;

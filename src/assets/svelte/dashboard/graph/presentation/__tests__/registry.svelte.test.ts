@@ -1,7 +1,6 @@
+import type { Edge, Node } from "../../../../contracts.generated/graph";
 import { describe, it, expect } from "vitest";
 import { nodePresentation, edgePresentation, inspectorFor } from "../registry";
-import type { Node, Edge } from "../../../../contracts.generated";
-
 const nodeTypes = [
   "Host",
   "Service",

@@ -1,3 +1,4 @@
+import type { GraphContract } from "../../../contracts.generated/graph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
@@ -8,8 +9,6 @@ import {
 } from "@testing-library/svelte";
 import MissionCapabilityInspector from "./MissionCapabilityInspector.svelte";
 import type { DashboardApi } from "../../dashboard-api";
-import type { LoadedGraph } from "../../contract";
-
 afterEach(cleanup);
 
 const graph = {
@@ -45,7 +44,7 @@ const graph = {
       data: {},
     },
   ],
-} satisfies LoadedGraph;
+} satisfies GraphContract;
 
 describe("MissionCapabilityInspector", () => {
   it("shows labels for selected required flows", () => {

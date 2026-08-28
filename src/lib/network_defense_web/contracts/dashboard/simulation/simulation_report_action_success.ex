@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportActionSuccess do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportActionSuccess do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation

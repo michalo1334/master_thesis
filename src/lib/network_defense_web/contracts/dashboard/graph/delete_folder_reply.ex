@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DeleteFolderReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

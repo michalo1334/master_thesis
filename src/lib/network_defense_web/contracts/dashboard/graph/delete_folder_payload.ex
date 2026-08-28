@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.DeleteFolderPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

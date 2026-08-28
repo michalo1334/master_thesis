@@ -1,9 +1,8 @@
+import type { GraphContract } from "../../contracts.generated/graph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { LoadedGraph } from "../contract";
-
-function graph(overrides: Partial<LoadedGraph> = {}): LoadedGraph {
+function graph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "g1",
     title: "Topology",

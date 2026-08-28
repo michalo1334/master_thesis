@@ -1,7 +1,7 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisErrorEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisErrorEvent do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   @enum_values mode: [:pilot, :analyze]
   def contract_meta, do: %{enum_values: @enum_values}

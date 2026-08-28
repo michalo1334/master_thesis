@@ -1,10 +1,11 @@
 <script lang="ts">
-  import type { LoadedGraph } from "../../contract";
+  import type { GraphContract } from "../../../contracts.generated/graph";
+
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
   import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
 
   interface Props {
-    graph: LoadedGraph;
+    graph: GraphContract;
     parentTitle?: string;
     onTitleChange: (title: string) => void;
     onOpenParent?: () => void;

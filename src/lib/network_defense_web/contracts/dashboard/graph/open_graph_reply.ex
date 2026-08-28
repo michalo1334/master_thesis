@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OpenGraphReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

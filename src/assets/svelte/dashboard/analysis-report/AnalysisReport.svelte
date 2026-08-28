@@ -1,15 +1,15 @@
 <script lang="ts">
+  import type {
+    EvaluationAnalysis,
+    EvaluationAnalysisMetadata,
+  } from "../../contracts.generated/dashboard/evaluation";
+
   import { Tabs } from "bits-ui";
   import type { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
   import type { DashboardApi } from "../dashboard-api";
   import ReportProgress from "../ReportProgress.svelte";
   import KpiCards, { type KpiMetric } from "../KpiCards.svelte";
   import { formatRuntime } from "../format";
-  import type {
-    EvaluationAnalysis,
-    EvaluationAnalysisMetadata,
-  } from "../../contracts.generated";
-
   interface Props {
     document: AnalysisReportDocument;
     api?: DashboardApi;

@@ -1,14 +1,14 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchRunsReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :runs
 
   embedded_schema do
-    embeds_many :runs, NetworkDefenseWeb.Web.Contracts.RunSummary, on_replace: :delete
+    embeds_many :runs, NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          runs: [NetworkDefenseWeb.Web.Contracts.RunSummary.t()]
+          runs: [NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary.t()]
         }
 
   def changeset(schema, attrs) do

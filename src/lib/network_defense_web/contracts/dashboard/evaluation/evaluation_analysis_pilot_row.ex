@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationAnalysisPilotRow do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 

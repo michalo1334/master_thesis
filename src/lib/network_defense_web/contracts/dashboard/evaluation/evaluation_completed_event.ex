@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.EvaluationCompletedEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

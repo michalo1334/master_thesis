@@ -7,7 +7,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Experiments}
   alias NetworkDefense.DocumentCatalog
-  alias NetworkDefenseWeb.Web.Contracts.FetchDocumentCatalogPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
 
   test "paginates catalog items after applying all filters" do
     baseline_count = DocumentCatalog.document_catalog(filters()).total_count

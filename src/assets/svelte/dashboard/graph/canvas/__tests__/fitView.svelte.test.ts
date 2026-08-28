@@ -1,6 +1,6 @@
+import type { Node } from "../../../../contracts.generated/graph";
 import { describe, it, expect } from "vitest";
 import { computeFitState } from "../fitView";
-import type { Node } from "../../../contract";
 import { MAX_ZOOM, MIN_ZOOM } from "../canvasState";
 
 function mkNode(id: string, x: number, y: number): Node {

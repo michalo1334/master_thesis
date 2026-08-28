@@ -1,7 +1,7 @@
+import type { Edge, Node } from "../../../contracts.generated/graph";
 import { describe, it, expect } from "vitest";
 import { applyForceLayout } from "./ForceLayout.svelte";
 import { defaultForceParams } from "./ForceLayout.types";
-import type { Node, Edge } from "../../contract";
 import { resolveOwnership } from "../ownership";
 
 type NodeType = "Host" | "Service" | "Vulnerability" | "NetworkSegment";
@@ -58,7 +58,13 @@ function mkEdge(
   to_id: string,
   type: Edge["type"],
 ): Edge {
-  return { id, from_id, to_id, type, data: {} } as Edge;
+  return {
+    id,
+    from_id,
+    to_id,
+    type,
+    data: {},
+  } as Edge;
 }
 
 function distance(a: Node, b: Node): number {

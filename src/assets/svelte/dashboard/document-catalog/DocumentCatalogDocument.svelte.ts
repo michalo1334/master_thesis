@@ -1,8 +1,7 @@
+import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";
 import type { PersistedWorkspaceDocument } from "../../ui-kit/workspace/workspace-persistence";
-import type { DocumentCatalogItem } from "../contract";
-
 export type CatalogItemOpener = (
   item: DocumentCatalogItem,
 ) => Promise<boolean> | boolean;

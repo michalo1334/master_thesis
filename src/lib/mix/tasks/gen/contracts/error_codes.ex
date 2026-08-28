@@ -8,6 +8,8 @@ defmodule Mix.Tasks.Gen.Contracts.ErrorCodes do
     values = Enum.map(Errors.codes(), &"\"#{&1}\"")
     comment = Renderer.source_comment(Errors, "union of codes/0")
 
-    "#{comment}\nexport type ErrorCode =\n  | " <> Enum.join(values, "\n  | ") <> ";"
+    body = "export type ErrorCode =\n  | " <> Enum.join(values, "\n  | ") <> ";"
+
+    "#{comment}\n" <> Renderer.namespaced(Renderer.module_namespace(Errors), body)
   end
 end

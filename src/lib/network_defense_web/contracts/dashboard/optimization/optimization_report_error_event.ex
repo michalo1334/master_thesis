@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.OptimizationReportErrorEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportErrorEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :optimization
 
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   embedded_schema do
     field :document_id, :string

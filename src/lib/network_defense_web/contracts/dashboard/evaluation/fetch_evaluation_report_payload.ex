@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchEvaluationReportPayload do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :evaluation

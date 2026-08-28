@@ -1,9 +1,7 @@
+import type { GraphContract } from "../../contracts.generated/graph";
+import type { GraphDiffResult } from "../../contracts.generated/dashboard/graph";
+import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { describe, expect, it, vi } from "vitest";
-import type {
-  DocumentCatalogItem,
-  GraphDiffResult,
-  LoadedGraph,
-} from "../contract";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
@@ -19,7 +17,7 @@ function graph(
   parentRevisionId: string | null = null,
 ): EditableGraphDocument {
   const document = new EditableGraphDocument();
-  const loadedGraph: LoadedGraph = {
+  const loadedGraph: GraphContract = {
     id,
     title,
     revision_id: `${id}-r1`,
@@ -49,7 +47,7 @@ function summary(graphId: string, revisionId: string, folderId?: string) {
 }
 
 function graphDiff(): GraphDiffDocument {
-  const graph: LoadedGraph = {
+  const graph: GraphContract = {
     id: "base",
     title: "Base",
     revision_id: "base-r1",

@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Web.Contracts.SimulationReportErrorEvent do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportErrorEvent do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
-  alias NetworkDefenseWeb.Web.Contracts.DashboardError
+  alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
   embedded_schema do
     field :document_id, :string

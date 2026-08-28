@@ -1,11 +1,11 @@
-defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefenseWeb.Web.Contracts.GraphProjectionOperationalFlow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow
 
   embedded_schema do
     field(:experiment_id, :string)
@@ -23,15 +23,15 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
 
     embeds_many(
       :capability_statuses,
-      NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus,
+      NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus,
       on_replace: :delete
     )
 
-    embeds_one(:summary, NetworkDefenseWeb.Web.Contracts.SimulationReportSummary,
+    embeds_one(:summary, NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary,
       on_replace: :update
     )
 
-    embeds_one(:charts, NetworkDefenseWeb.Web.Contracts.SimulationReportCharts,
+    embeds_one(:charts, NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts,
       on_replace: :update
     )
   end
@@ -48,10 +48,10 @@ defmodule NetworkDefenseWeb.Web.Contracts.FetchSimulationReportReply do
           graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
           operational_flows: [GraphProjectionOperationalFlow.t()],
           capability_statuses: [
-            NetworkDefenseWeb.Web.Contracts.SimulationReportCapabilityStatus.t()
+            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.t()
           ],
-          summary: NetworkDefenseWeb.Web.Contracts.SimulationReportSummary.t(),
-          charts: NetworkDefenseWeb.Web.Contracts.SimulationReportCharts.t()
+          summary: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary.t(),
+          charts: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts.t()
         }
 
   def changeset(schema, attrs) do

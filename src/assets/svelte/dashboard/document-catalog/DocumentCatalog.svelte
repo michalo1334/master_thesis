@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import type { DashboardApi, DocumentCatalogQuery } from "../dashboard-api";
   import type {
     DocumentCatalogItem,
     FetchDocumentCatalogReply,
-  } from "../contract";
+  } from "../../contracts.generated/dashboard/workspace";
+  import { onMount } from "svelte";
+  import type { DashboardApi, DocumentCatalogQuery } from "../dashboard-api";
   import FilterableTable from "../../ui-kit/composites/FilterableTable.svelte";
   import type {
     FilterableTableColumn,

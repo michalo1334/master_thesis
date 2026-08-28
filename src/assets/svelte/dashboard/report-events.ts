@@ -1,12 +1,15 @@
 import type {
   EvaluationReportErrorEvent,
   EvaluationReportReadyEvent,
+} from "../contracts.generated/dashboard/evaluation";
+import type {
   OptimizationReportErrorEvent,
   OptimizationReportReadyEvent,
+} from "../contracts.generated/dashboard/optimization";
+import type {
   SimulationReportErrorEvent,
   SimulationReportReadyEvent,
-} from "./contract";
-
+} from "../contracts.generated/dashboard/simulation";
 export type ReportKind = "simulation" | "optimization" | "evaluation";
 
 export type ReportReadyPayloadMap = {

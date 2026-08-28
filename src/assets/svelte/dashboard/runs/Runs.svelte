@@ -1,6 +1,6 @@
 <script lang="ts">
+  import type { RunSummary } from "../../contracts.generated/dashboard/runs";
   import { onMount } from "svelte";
-  import type { RunSummary } from "../../contracts.generated";
   import FilterableTable from "../../ui-kit/composites/FilterableTable.svelte";
   import type { FilterableTableColumn } from "../../ui-kit/composites/FilterableTable.types";
   import { formatTimestamp } from "../format";

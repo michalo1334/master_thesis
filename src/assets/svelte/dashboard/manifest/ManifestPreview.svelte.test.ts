@@ -1,8 +1,7 @@
+import type { DescribeManifestReply } from "../../contracts.generated/dashboard/evaluation";
 import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/svelte";
 import ManifestPreview from "./ManifestPreview.svelte";
-import type { DescribeManifestReply } from "../../contracts.generated";
-
 afterEach(cleanup);
 
 const content = {
