@@ -6,6 +6,9 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary
 
   embedded_schema do
     field(:experiment_id, :string)
@@ -17,23 +20,19 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
     field(:total_runtime_ms, :integer)
     field(:feasible, :boolean)
 
-    embeds_one(:graph, NetworkDefense.Graph.Contracts.GraphContract, on_replace: :update)
+    embeds_one(:graph, GraphContract, on_replace: :update)
 
     embeds_many(:operational_flows, GraphProjectionOperationalFlow, on_replace: :delete)
 
     embeds_many(
       :capability_statuses,
-      NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus,
+      SimulationReportCapabilityStatus,
       on_replace: :delete
     )
 
-    embeds_one(:summary, NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary,
-      on_replace: :update
-    )
+    embeds_one(:summary, SimulationReportSummary, on_replace: :update)
 
-    embeds_one(:charts, NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts,
-      on_replace: :update
-    )
+    embeds_one(:charts, SimulationReportCharts, on_replace: :update)
   end
 
   @type t :: %__MODULE__{
@@ -45,13 +44,13 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
           iteration_count: integer(),
           total_runtime_ms: integer(),
           feasible: boolean(),
-          graph: NetworkDefense.Graph.Contracts.GraphContract.t(),
+          graph: GraphContract.t(),
           operational_flows: [GraphProjectionOperationalFlow.t()],
           capability_statuses: [
-            NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.t()
+            SimulationReportCapabilityStatus.t()
           ],
-          summary: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary.t(),
-          charts: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts.t()
+          summary: SimulationReportSummary.t(),
+          charts: SimulationReportCharts.t()
         }
 
   def changeset(schema, attrs) do

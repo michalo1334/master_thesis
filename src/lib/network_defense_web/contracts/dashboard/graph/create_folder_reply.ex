@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderReply do
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary
+
   @enum_values status: [:ok, :invalid_folder, :unmapped_error]
 
   def contract_meta, do: %{enum_values: @enum_values}
@@ -10,13 +12,12 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderReply do
   embedded_schema do
     field :status, :string
 
-    embeds_one :folder, NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary,
-      on_replace: :update
+    embeds_one :folder, FolderSummary, on_replace: :update
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          folder: NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary.t() | nil
+          folder: FolderSummary.t() | nil
         }
 
   def changeset(schema, attrs) do

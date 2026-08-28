@@ -25,6 +25,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRea
     |> cast_embed(:analysis)
     |> validate_required([:document_id, :run_id, :mode, :analysis])
     |> validate_inclusion(:mode, ["pilot", "analyze"])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:run_id)
   end
 end

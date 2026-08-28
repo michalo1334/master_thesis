@@ -1,10 +1,8 @@
 defmodule NetworkDefenseWeb.EvaluationAnalysisPhase1SummaryTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
-    EvaluationAnalysisFeasibilityRow,
-    EvaluationAnalysisRuntimeSummary
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary
 
   test "casts a feasibility row" do
     changeset =

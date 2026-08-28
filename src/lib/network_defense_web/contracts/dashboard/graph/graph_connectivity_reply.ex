@@ -3,13 +3,14 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityReply do
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule
+
   embedded_schema do
-    embeds_many :rules, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule,
-      on_replace: :delete
+    embeds_many :rules, GraphConnectivityRule, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          rules: [NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityRule.t()]
+          rules: [GraphConnectivityRule.t()]
         }
 
   def changeset(schema, attrs) do

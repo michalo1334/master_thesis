@@ -22,7 +22,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestPayload d
     |> cast(attrs, [:manifest_id, :existing_manifest_id, :title, :content])
     |> validate_required([:manifest_id, :title, :content])
     |> validate_length(:manifest_id, min: 1, max: 255)
-    |> NetworkDefense.Contracts.validate_uuid(:existing_manifest_id)
+    |> Contracts.validate_uuid(:existing_manifest_id)
     |> validate_length(:title, min: 1, max: 255)
   end
 end

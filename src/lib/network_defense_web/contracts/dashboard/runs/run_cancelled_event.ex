@@ -15,6 +15,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunCancelledEvent do
     |> cast(attrs, [:kind, :run_id])
     |> validate_required([:kind, :run_id])
     |> validate_inclusion(:kind, ["simulation", "optimization", "evaluation"])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:run_id)
   end
 end

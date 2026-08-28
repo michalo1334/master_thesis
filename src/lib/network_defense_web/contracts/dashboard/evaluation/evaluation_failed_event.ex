@@ -24,6 +24,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationFailedEvent
     |> cast(attrs, [:run_id, :manifest_id, :manifest_title])
     |> cast_embed(:error)
     |> validate_required([:run_id, :manifest_id, :manifest_title, :error])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:run_id)
   end
 end

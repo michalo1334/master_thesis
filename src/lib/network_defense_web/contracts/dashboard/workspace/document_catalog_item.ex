@@ -78,10 +78,10 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem do
     |> validate_inclusion(:kind, Kind.strings())
     |> validate_length(:manifest_id, min: 1, max: 255)
     |> validate_length(:manifest_title, min: 1, max: 255)
-    |> NetworkDefense.Contracts.validate_uuid(:id)
-    |> NetworkDefense.Contracts.validate_uuid(:graph_id)
-    |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
-    |> NetworkDefense.Contracts.validate_uuid(:parent_revision_id)
-    |> NetworkDefense.Contracts.validate_uuid(:output_graph_revision_id)
+    |> Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:graph_id)
+    |> Contracts.validate_uuid(:graph_revision_id)
+    |> Contracts.validate_uuid(:parent_revision_id)
+    |> Contracts.validate_uuid(:output_graph_revision_id)
   end
 end

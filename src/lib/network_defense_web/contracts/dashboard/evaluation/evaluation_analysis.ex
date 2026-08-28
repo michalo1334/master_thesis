@@ -2,14 +2,12 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis do
   @moduledoc false
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
-    EvaluationAnalysisCapabilityRow,
-    EvaluationAnalysisFeasibilityRow,
-    EvaluationAnalysisMetadata,
-    EvaluationAnalysisPilotRow,
-    EvaluationAnalysisPrimaryRow,
-    EvaluationAnalysisSecondaryRow
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMetadata
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisSecondaryRow
 
   embedded_schema do
     embeds_one :metadata, EvaluationAnalysisMetadata

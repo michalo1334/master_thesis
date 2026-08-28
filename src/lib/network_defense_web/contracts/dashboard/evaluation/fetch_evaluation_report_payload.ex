@@ -14,6 +14,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReport
     schema
     |> cast(attrs, [:document_id, :run_id])
     |> validate_required([:document_id, :run_id])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:run_id)
   end
 end

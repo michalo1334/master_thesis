@@ -16,14 +16,15 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport 
 
   def contract_meta, do: %{enum_values: @enum_values}
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction
+
   embedded_schema do
     field :strategy, :string
     field :requested_budget, :integer
     field :used_budget, :integer
     field :runtime_ms, :integer
 
-    embeds_many :actions, NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction,
-      on_replace: :delete
+    embeds_many :actions, OptimizationAction, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
@@ -31,7 +32,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport 
           requested_budget: integer(),
           used_budget: integer(),
           runtime_ms: integer(),
-          actions: [NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationAction.t()]
+          actions: [OptimizationAction.t()]
         }
 
   def changeset(schema, attrs) do

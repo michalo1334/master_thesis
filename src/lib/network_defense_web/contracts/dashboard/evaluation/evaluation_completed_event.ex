@@ -21,7 +21,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEv
     schema
     |> cast(attrs, [:run_id, :manifest_id, :manifest_title, :source_graph_revision_id])
     |> validate_required([:run_id, :manifest_id, :manifest_title, :source_graph_revision_id])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
-    |> NetworkDefense.Contracts.validate_uuid(:source_graph_revision_id)
+    |> Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:source_graph_revision_id)
   end
 end

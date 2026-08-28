@@ -3,12 +3,10 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply 
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
-    GraphProjectionHost,
-    GraphProjectionOperationalFlow,
-    GraphProjectionPolicyLink,
-    GraphProjectionSegment
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionHost
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionPolicyLink
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionSegment
 
   @enum_values status: [:ok, :not_found, :invalid_graph, :unmapped_error]
 

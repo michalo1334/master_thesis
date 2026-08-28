@@ -3,11 +3,13 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterO
 
   use NetworkDefenseWeb.Contracts, category: :workspace
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption
+
   embedded_schema do
     field :types, {:array, :string}, default: []
 
     embeds_many :graphs,
-                NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption,
+                DocumentCatalogGraphFilterOption,
                 on_replace: :delete
 
     field :strategies, {:array, :string}, default: []
@@ -17,7 +19,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterO
   @type t :: %__MODULE__{
           types: [String.t()],
           graphs: [
-            NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFilterOption.t()
+            DocumentCatalogGraphFilterOption.t()
           ],
           strategies: [String.t()],
           revision_kinds: [String.t()]

@@ -3,13 +3,14 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsReply
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary
+
   embedded_schema do
-    embeds_many :experiments, NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary,
-      on_replace: :delete
+    embeds_many :experiments, ExperimentSummary, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          experiments: [NetworkDefenseWeb.Contracts.Dashboard.Simulation.ExperimentSummary.t()]
+          experiments: [ExperimentSummary.t()]
         }
 
   def changeset(schema, attrs) do

@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply do
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult
+
   @enum_values status: [:ok, :not_found, :invalid_graph, :unmapped_error]
 
   def contract_meta, do: %{enum_values: @enum_values}
@@ -10,13 +12,12 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply do
   embedded_schema do
     field :status, :string
 
-    embeds_one :result, NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult,
-      on_replace: :update
+    embeds_one :result, GraphDiffResult, on_replace: :update
   end
 
   @type t :: %__MODULE__{
           status: String.t(),
-          result: NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphDiffResult.t() | nil
+          result: GraphDiffResult.t() | nil
         }
 
   def changeset(schema, attrs) do

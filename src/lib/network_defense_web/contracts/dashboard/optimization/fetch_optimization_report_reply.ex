@@ -5,14 +5,16 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRe
 
   alias NetworkDefense.Optimization.OptimizationReport
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport,
+    as: OptimizationReportContract
+
   embedded_schema do
     field :optimization_id, :string
     field :graph_id, :string
     field :graph_title, :string
     field :graph_revision_id, :string
 
-    embeds_one :report, NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport,
-      on_replace: :update
+    embeds_one :report, OptimizationReportContract, on_replace: :update
   end
 
   @type t :: %__MODULE__{
@@ -20,7 +22,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRe
           graph_id: String.t(),
           graph_title: String.t(),
           graph_revision_id: String.t(),
-          report: NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReport.t()
+          report: OptimizationReportContract.t()
         }
 
   def changeset(schema, attrs) do

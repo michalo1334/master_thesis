@@ -51,7 +51,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationPlanSummary
       :selection_seed,
       :status
     ])
-    |> NetworkDefense.Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:id)
     |> validate_inclusion(:model_variant, @enum_values[:model_variant])
     |> validate_inclusion(:status, ["running", "completed", "failed"])
   end

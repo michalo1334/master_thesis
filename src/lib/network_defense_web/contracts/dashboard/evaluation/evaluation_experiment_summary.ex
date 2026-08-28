@@ -50,9 +50,9 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationExperimentS
       :max_blast_radius
     ])
     |> validate_required([:id, :trial_count])
-    |> NetworkDefense.Contracts.validate_uuid(:id)
-    |> NetworkDefense.Contracts.validate_uuid(:optimization_run_id)
-    |> NetworkDefense.Contracts.validate_uuid(:graph_id)
-    |> NetworkDefense.Contracts.validate_uuid(:graph_revision_id)
+    |> Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:optimization_run_id)
+    |> Contracts.validate_uuid(:graph_id)
+    |> Contracts.validate_uuid(:graph_revision_id)
   end
 end

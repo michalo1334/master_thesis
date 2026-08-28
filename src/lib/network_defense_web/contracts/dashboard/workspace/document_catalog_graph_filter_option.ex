@@ -14,6 +14,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogGraphFi
     schema
     |> cast(attrs, [:id, :title])
     |> validate_required([:id, :title])
-    |> NetworkDefense.Contracts.validate_uuid(:id)
+    |> Contracts.validate_uuid(:id)
   end
 end

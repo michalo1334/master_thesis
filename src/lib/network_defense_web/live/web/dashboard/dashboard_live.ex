@@ -17,97 +17,77 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.DocumentCatalog
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.{
-    ExecutionProgressEvent,
-    ReportRequestReply
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
-    GetManifestPayload,
-    GetManifestReply,
-    ListManifestsPayload,
-    ListManifestsReply,
-    SaveManifestPayload,
-    SaveManifestReply,
-    StartEvaluationPayload,
-    StartEvaluationReply,
-    DescribeManifestPayload,
-    DescribeManifestReply,
-    FetchEvaluationReportPayload,
-    RequestEvaluationAnalysisPayload,
-    RequestEvaluationAnalysisReply,
-    EvaluationCompletedEvent,
-    EvaluationFailedEvent,
-    EvaluationReportErrorEvent,
-    EvaluationReportReadyEvent,
-    EvaluationAnalysisReadyEvent,
-    EvaluationAnalysisErrorEvent
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
-    CreateConnectionDraftPayload,
-    CreateConnectionDraftReply,
-    CompareGraphsPayload,
-    CompareGraphsReply,
-    FetchGraphProjectionPayload,
-    FetchGraphProjectionReply,
-    CreateFolderPayload,
-    CreateFolderReply,
-    CreateNodeDraftPayload,
-    CreateNodeDraftReply,
-    DeleteFolderPayload,
-    DeleteFolderReply,
-    FolderSummary,
-    GraphConnectivityReply,
-    OpenGraphPayload,
-    OpenGraphReply,
-    SetGraphRevisionFavoritePayload,
-    SetGraphRevisionFavoriteReply,
-    GraphSummary,
-    MoveGraphToFolderPayload,
-    MoveGraphToFolderReply,
-    SaveGraphPayload,
-    SaveGraphReply
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.{
-    FetchOptimizationReportPayload,
-    FetchOptimizationReportReply,
-    FetchOptimizationRunsPayload,
-    FetchOptimizationRunsReply,
-    OptimizationCompletedEvent,
-    OptimizationFailedEvent,
-    OptimizationReportErrorEvent,
-    OptimizationReportReadyEvent,
-    RunOptimizationPayload,
-    RunOptimizationReply
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.{
-    FetchRunsPayload,
-    FetchRunsReply,
-    CancelRunPayload,
-    CancelRunReply,
-    RunCancelledEvent
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.{
-    FetchSimulationReportPayload,
-    FetchSimulationReportReply,
-    FetchExperimentsPayload,
-    FetchExperimentsReply,
-    RunSimulationReply,
-    RunSimulationPayload,
-    SimulationCompletedEvent,
-    SimulationFailedEvent,
-    SimulationReportErrorEvent,
-    SimulationReportReadyEvent
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.{
-    FetchDocumentCatalogPayload,
-    FetchDocumentCatalogReply
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.ReportRequestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisErrorEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisReadyEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationFailedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportErrorEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportReadyEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateFolderReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateNodeDraftPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateNodeDraftReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphSummary
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoritePayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoriteReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationCompletedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationFailedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportErrorEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportReadyEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.RunCancelledEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationCompletedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationFailedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportErrorEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportReadyEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
 
   @impl true
   def render(assigns) do

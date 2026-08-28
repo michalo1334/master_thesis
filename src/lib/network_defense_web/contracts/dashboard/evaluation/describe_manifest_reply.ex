@@ -3,11 +3,9 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
-    DescribeManifestComparisonGroup,
-    DescribeManifestPlan,
-    ManifestError
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestComparisonGroup
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlan
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError
 
   @enum_values status: [:ok, :invalid_manifest, :invalid_request]
 

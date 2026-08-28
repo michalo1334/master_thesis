@@ -29,31 +29,21 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
-    FetchGraphProjectionPayload,
-    FetchGraphProjectionReply,
-    OpenGraphReply,
-    SaveGraphPayload
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.{
-    FetchOptimizationReportPayload,
-    FetchOptimizationReportReply,
-    FetchOptimizationRunsPayload,
-    OptimizationCompletedEvent
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.{
-    FetchRunsPayload,
-    FetchRunsReply
-  }
-
-  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.{
-    FetchDocumentCatalogPayload,
-    FetchDocumentCatalogReply,
-    DocumentCatalogItem
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationCompletedEvent
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
 
   @graph_id "00000000-0000-0000-0000-000000000001"
   @parent_graph_id "00000000-0000-0000-0000-000000000011"
@@ -741,12 +731,10 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   test "requires capability status counts and minimum support" do
     assert {:error, changeset} =
-             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.validate(
-               %{
-                 "capability_id" => "capability-1",
-                 "operational" => true
-               }
-             )
+             SimulationReportCapabilityStatus.validate(%{
+               "capability_id" => "capability-1",
+               "operational" => true
+             })
 
     assert %{
              required_flow_count: ["can't be blank"],
@@ -756,16 +744,14 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
            } = errors_on(changeset)
 
     assert {:ok, status} =
-             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.validate(
-               %{
-                 "capability_id" => "capability-1",
-                 "operational" => true,
-                 "required_flow_count" => 2,
-                 "missing_flow_count" => 1,
-                 "supporting_host_count" => 3,
-                 "min_operational_support" => 2
-               }
-             )
+             SimulationReportCapabilityStatus.validate(%{
+               "capability_id" => "capability-1",
+               "operational" => true,
+               "required_flow_count" => 2,
+               "missing_flow_count" => 1,
+               "supporting_host_count" => 3,
+               "min_operational_support" => 2
+             })
 
     assert %{
              capability_id: "capability-1",
@@ -775,9 +761,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              supporting_host_count: 3,
              min_operational_support: 2
            } =
-             NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus.to_wire(
-               status
-             )
+             SimulationReportCapabilityStatus.to_wire(status)
   end
 
   defp errors_on(changeset) do

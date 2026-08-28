@@ -3,10 +3,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport do
 
   use NetworkDefenseWeb.Contracts, category: :evaluation
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.{
-    EvaluationExperimentSummary,
-    EvaluationPlanSummary
-  }
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationExperimentSummary
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationPlanSummary
 
   embedded_schema do
     field :run_id, :string
@@ -58,8 +56,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReport do
       :source_graph_title
     ])
     |> validate_inclusion(:status, ["running", "completed", "failed"])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
-    |> NetworkDefense.Contracts.validate_uuid(:graph_id)
-    |> NetworkDefense.Contracts.validate_uuid(:source_graph_revision_id)
+    |> Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:graph_id)
+    |> Contracts.validate_uuid(:source_graph_revision_id)
   end
 end

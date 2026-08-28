@@ -22,6 +22,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportError
     |> cast(attrs, [:document_id, :run_id])
     |> cast_embed(:error)
     |> validate_required([:document_id, :run_id, :error])
-    |> NetworkDefense.Contracts.validate_uuid(:run_id)
+    |> Contracts.validate_uuid(:run_id)
   end
 end
