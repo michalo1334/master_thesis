@@ -35,7 +35,6 @@ infra/modules/local/
   analysis/       Local Python analysis service
   app/            Phoenix application
   database/       Postgres and pgAdmin
-  observability/  Observability service stack
 ```
 
 `environments/local/terraform.sh` is the local helper. It runs Dockerized
@@ -63,17 +62,15 @@ by its service name. For behavior, HTTP interface, and CLI, see
 
 ## Observability services
 
-The `observability` module runs the following services:
-Alloy, cAdvisor, Grafana, Loki, OpenTelemetry Collector, node-exporter,
-postgres-exporter, Prometheus, and Tempo.
-
-Published service URLs come from the environment Terraform output.
+Observability is unavailable in temporary States 02-06. The observability
+module is removed; metrics, traces, and log collection are not provisioned in
+these states.
 
 ## Logging
 
-The app writes structured JSONL logs to a file on a shared volume. Grafana
-Alloy tails that file. Only this file stream is collected; it excludes
-non-structured stdio output such as compile messages and banners.
+The app writes structured JSONL logs to a file on a shared volume. In States
+02-06 the logs remain stored on that volume but are not collected. Collection
+returns when a later state reintroduces the observability stack.
 
 ## Health and readiness
 

@@ -70,20 +70,3 @@ module "database" {
   postgres_user     = local.database_cfg.user
   secret_mount_path = local.secret_mount_path
 }
-
-module "observability" {
-  source = "../../modules/local/observability"
-
-  grafana_user      = var.grafana.admin_user
-  log_volume_name   = docker_volume.application_logs.name
-  name_prefix       = local.name_prefix
-  network_name      = docker_network.stack.name
-  postgres_database = local.database_cfg.name
-  postgres_host     = local.postgres_host
-  postgres_image    = module.database.postgres_image
-  postgres_port     = local.postgres_port
-  postgres_user     = local.database_cfg.user
-  secret_mount_path = local.secret_mount_path
-
-  depends_on = [module.database]
-}

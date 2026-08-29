@@ -21,7 +21,6 @@ locals {
     "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
     "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
     "ANALYSIS_SERVICE_MAX_ZIP_BYTES=52428800",
-    "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
     "OTEL_SERVICE_NAME=network_defense"
   ]
   app_environment = concat(local.app_base_environment, local.app_mode_environment)
@@ -63,9 +62,7 @@ locals {
   postgres_host = module.database.postgres_host
   postgres_port = module.database.postgres_port
   required_secret_files = distinct(concat([
-    "grafana-admin-password",
     "pgadmin-password",
-    "postgres-exporter-password",
     "postgres-password"
   ], local.app_secret_files))
   secret_mount_path = abspath(var.secrets.directory)
