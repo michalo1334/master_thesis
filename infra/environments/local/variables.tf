@@ -1,88 +1,81 @@
-variable "app_image" {
-  description = "Container image for the app in prod mode. Required when app_mode is prod."
-  type        = string
-  default     = null
-  nullable    = true
+variable "deployment" {
+  description = "Provider-neutral deployment configuration validated by deployment_config."
+  type        = any
+  nullable    = false
 }
 
-variable "app_replicas" {
-  description = "Number of app replicas."
-  type        = number
-  default     = 2
+variable "application" {
+  description = "Local application host configuration."
+  type = object({
+    host      = string
+    log_level = string
+    host_ports = object({
+      http     = number
+      metrics  = number
+      assets   = number
+      debugger = number
+    })
+  })
 
   validation {
-    condition     = var.app_replicas >= 1 && var.app_replicas <= 5
-    error_message = "app_replicas must be between 1 and 5."
+    condition     = alltrue([for port in values(var.application.host_ports) : port >= 1 && port <= 65535])
+    error_message = "Every application host port must be between 1 and 65535."
   }
 }
 
-variable "app_mode" {
-  description = "Application run mode."
-  type        = string
+variable "database" {
+  description = "Local PostgreSQL host configuration."
+  type = object({
+    host_port = number
+  })
 
   validation {
-    condition     = contains(["dev", "prod"], var.app_mode)
-    error_message = "app_mode must be dev or prod."
+    condition     = var.database.host_port >= 1 && var.database.host_port <= 65535
+    error_message = "database.host_port must be between 1 and 65535."
   }
 }
 
-variable "app_port" {
-  description = "Application HTTP port."
-  type        = number
-}
-
-variable "analysis_port" {
-  description = "Loopback host port for the analysis service."
-  type        = number
-  default     = 8080
+variable "grafana" {
+  description = "Local Grafana host configuration."
+  type = object({
+    host_port  = number
+    admin_user = string
+  })
 
   validation {
-    condition     = var.analysis_port >= 1 && var.analysis_port <= 65535
-    error_message = "analysis_port must be between 1 and 65535."
+    condition     = var.grafana.host_port >= 1 && var.grafana.host_port <= 65535
+    error_message = "grafana.host_port must be between 1 and 65535."
   }
 }
 
-variable "grafana_user" {
-  description = "Grafana admin username."
-  type        = string
+variable "pgadmin" {
+  description = "Local pgAdmin host configuration."
+  type = object({
+    host_port   = number
+    admin_email = string
+  })
+
+  validation {
+    condition     = var.pgadmin.host_port >= 1 && var.pgadmin.host_port <= 65535
+    error_message = "pgadmin.host_port must be between 1 and 65535."
+  }
 }
 
-variable "log_file_level" {
-  description = "Log level for the file logger."
-  type        = string
+variable "prometheus" {
+  description = "Local Prometheus host configuration."
+  type = object({
+    host_port = number
+  })
+
+  validation {
+    condition     = var.prometheus.host_port >= 1 && var.prometheus.host_port <= 65535
+    error_message = "prometheus.host_port must be between 1 and 65535."
+  }
 }
 
-variable "log_file_path" {
-  description = "Absolute path to the JSONL log file inside the app container."
-  type        = string
-}
-
-variable "otel_endpoint" {
-  description = "OTLP HTTP endpoint for traces and metrics."
-  type        = string
-}
-
-variable "pgadmin_email" {
-  description = "pgAdmin default admin email."
-  type        = string
-}
-
-variable "phx_host" {
-  description = "Phoenix host for URL generation."
-  type        = string
-}
-
-variable "postgres_database" {
-  description = "PostgreSQL database name."
-  type        = string
-}
-
-variable "postgres_user" {
-  description = "PostgreSQL username."
-  type        = string
-}
-
-variable "secret_mount_path" {
-  description = "Host path to the directory containing secret files."
-  type        = string
+variable "secrets" {
+  description = "Local secret directory configuration."
+  type = object({
+    directory = string
+  })
 }

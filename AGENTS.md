@@ -23,7 +23,9 @@ General workflow is as follows:
 
 Project uses Terraform for provisioning infrastructure - `/infra`.
 
-Local environment module contains helper script that preloads local `.env` file. Use it for using Terraform locally - `/infra/environments/local/terraform.sh`
+Local environment module contains a helper script that supplies the fixed common
+manifest. It does not load a local `.env` file. Use it for local Terraform:
+`/infra/environments/local/terraform.sh`.
 
 ### Observability
 

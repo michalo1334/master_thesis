@@ -42,7 +42,8 @@ infra/
 └── - any stale scalar, .env, central-collector, or host-port reference found by review
 
 docs/
-└── ~ infrastructure.md                          # purpose, operation, Observer, limits
+├── ~ infrastructure.md                          # purpose, operation, Observer, limits
+└── ~ inprogress/cloud-evaluation-runbook.md     # remove stale local container and analysis checks
 ```
 
 ## Changes
@@ -61,7 +62,9 @@ docs/
 8. Document that Grafana is the central all-site view while LiveDashboard and
    Observer are site-local.
 9. Document healthcheck limits, including collector config validation.
-10. Perform a clean plan and apply from the final checked-in configuration.
+10. Remove hard-coded local container names and direct analysis host checks from
+    the cloud evaluation runbook.
+11. Perform a clean plan and apply from the final checked-in configuration.
 
 ## Destructive effects
 

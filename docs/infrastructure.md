@@ -12,14 +12,15 @@ Terraform inside a Docker container, so a docker CLI is required on the host.
 
 Refer to `infra/environments/local/` for the source of truth.
 
-Non-sensitive inputs use environment variables. Prefix them with `TF_VAR_`.
-The helper script loads them from the git-ignored `.env` file before every
-Terraform run. `.env.example` is the committed template.
+The checked-in common manifest defines deployment intent. The checked-in local
+auto tfvars file defines host access and operator identities. The helper passes
+the common manifest to Terraform commands that evaluate configuration; Terraform
+loads the local auto tfvars file normally.
 
 Secrets use files with restrictive permissions, mounted into containers as
-read-only. The host secrets directory is declared by `secret_mount_path`. The
-environment enforces via a precondition that all required secret files exist
-before apply (see `main.tf` and `locals.tf`).
+read-only. The local secrets object declares the host directory. The environment
+enforces via a precondition that all required secret files exist before apply
+(see `main.tf` and `locals.tf`).
 
 The app reads secrets from files under `/run/secrets`. See the module source
 for how each container mounts and reads them.
@@ -28,6 +29,8 @@ for how each container mounts and reads them.
 
 ```text
 infra/environments/local/   Terraform root for the local environment
+infra/deployments/          Provider-neutral deployment manifests
+infra/modules/common/       Provider-free deployment configuration validation
 infra/modules/local/
   analysis/       Local Python analysis service
   app/            Phoenix application
@@ -35,8 +38,8 @@ infra/modules/local/
   observability/  Observability service stack
 ```
 
-`environments/local/terraform.sh` is the local helper. It runs the Dockerized
-Terraform with environment variables preloaded from `.env`.
+`environments/local/terraform.sh` is the local helper. It runs Dockerized
+Terraform with the fixed deployment manifest.
 
 ## Local lifecycle
 
@@ -81,5 +84,5 @@ the health check paths.
 
 `terraform.sh destroy` removes every Terraform-managed resource: containers,
 the stack network, all data and log volumes, and the locally built images.
-Host files such as `.env`, the secrets directory, and the Terraform state are
-not managed by Terraform and remain on disk after destroy.
+Host secret files and Terraform state are not managed by Terraform and remain
+on disk after destroy.

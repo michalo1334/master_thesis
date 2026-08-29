@@ -45,8 +45,8 @@ C4Deployment
 ```text
 infra/environments/local/
 ├── ~ main.tf                         # site for_each + observability network
-├── ~ locals.tf                       # named deployment_config outputs
-└── ~ outputs.tf                      # remove analysis URL; keep available entries only
+├── ~ locals.tf                       # release database and pgAdmin port compatibility
+└── ~ outputs.tf                      # available app, PostgreSQL, and pgAdmin URLs
 
 infra/modules/local/analysis/
 ├── ~ main.tf                         # for_each sites; no host port
@@ -75,16 +75,18 @@ infra/modules/local/app/
 3. Attach PostgreSQL to every site network and observability. Keep its loopback
    database host port.
 4. Attach pgAdmin only to observability and keep its loopback host port.
-5. Replace pgAdmin's Terraform `file()` password handling with individual
+5. Pass `database.host_port` and `pgadmin.host_port` into the database module,
+   then remove their State 01 fixed-value compatibility requirement.
+6. Replace pgAdmin's Terraform `file()` password handling with individual
    read-only mounts and runtime pgpass generation.
-6. Build the analysis image once and create one internal-only analysis container
+7. Build the analysis image once and create one internal-only analysis container
    per declared site with alias `analysis`.
-7. Make the analysis module own and output the response-size contract.
-8. Map that named output to the existing app environment as
+8. Make the analysis module own and output the response-size contract.
+9. Map that named output to the existing app environment as
    `ANALYSIS_SERVICE_MAX_ZIP_BYTES`.
-9. Make Redis consume all declared site networks. With one site, behavior stays
+10. Make Redis consume all declared site networks. With one site, behavior stays
    unchanged.
-10. Feed the generated primary-site network into the existing app module as a
+11. Feed the generated primary-site network into the existing app module as a
    compatibility step. Do not add a second site yet.
 
 ## Destructive effects

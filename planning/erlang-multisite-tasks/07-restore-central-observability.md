@@ -69,15 +69,17 @@ infra/modules/local/observability/
 1. Recreate Grafana, Prometheus, Tempo, Loki, Alloy, cAdvisor, node-exporter,
    postgres-exporter, and its init container on observability.
 2. Keep pgAdmin in the database module. Do not duplicate it.
-3. Publish only Grafana and Prometheus loopback ports from this module.
-4. Keep Loki, Tempo, Alloy, and exporters internal.
-5. Mount the root application log volume into Alloy read-only. Parse
+3. Pass `grafana.host_port` and `prometheus.host_port` into the recreated module
+   and remove their State 01 fixed-value compatibility requirement.
+4. Publish only Grafana and Prometheus loopback ports from this module.
+5. Keep Loki, Tempo, Alloy, and exporters internal.
+6. Mount the root application log volume into Alloy read-only. Parse
    `app.<site>.<replica>.jsonl` into site and replica labels and push to Loki.
-6. Provision Grafana datasources for available central services.
-7. Configure Prometheus for itself and infrastructure exporters only. Do not add
+7. Provision Grafana datasources for available central services.
+8. Configure Prometheus for itself and infrastructure exporters only. Do not add
    app or collector targets before collectors exist.
-8. Keep Tempo healthy with no app trace producer.
-9. Read exporter secrets from mounted files at runtime; do not place values in
+9. Keep Tempo healthy with no app trace producer.
+10. Read exporter secrets from mounted files at runtime; do not place values in
    Terraform state.
 
 ## Destructive effects

@@ -80,8 +80,11 @@ src/
 8. Derive site, replica, role, provider, region, instance, service instance,
    PubSub node name, and site-qualified log path.
 9. Publish all four configured app host ports only from the coordinator.
-10. Output each site's coordinator long node name from runtime network data.
-11. Keep plain Erlang distribution on the private bridge. Publish no EPMD or
+10. Pass all four `application.host_ports` values to the app module as external
+    bindings with fixed internal ports, then remove their State 01 fixed-value
+    compatibility requirement.
+11. Output each site's coordinator long node name from runtime network data.
+12. Keep plain Erlang distribution on the private bridge. Publish no EPMD or
     distribution ports.
 
 ## Destructive effects

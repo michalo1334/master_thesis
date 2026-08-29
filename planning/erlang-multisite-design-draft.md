@@ -343,18 +343,18 @@ variable name, so no root variables file declares `sites`, `primary_site`, or
 ```hcl
 # infra/deployments/thesis-lab.tfvars
 deployment = {
-  name = "thesis-lab"
+  name = "network-defense-local"
   network = { sites = {
     site-west = { provider = "provider-a", region = "region-west", instance = "class-medium" }
     site-east = { provider = "provider-b", region = "region-east", instance = "class-medium" }
   }}
   application = {
-    service_name = "network_defense"
+    service_name = "network-defense"
     primary_site = "site-west"
     replicas = { site-west = 2, site-east = 2 }
   }
   pubsub = { adapter = "redis" }
-  database = { name = "network_defense", user = "network_defense" }
+  database = { name = "network_defense_dev", user = "postgres" }
 }
 ```
 
@@ -532,6 +532,14 @@ The eight host ports are the four `application.host_ports` values (`http`,
 `metrics`, `assets`, `debugger`) plus the `database`, `grafana`, `pgadmin`,
 and `prometheus` host ports. Every one must be 1-65535, and all eight must be
 pairwise unique.
+
+State 01 declares and validates all eight fields but keeps each value equal to
+the unchanged legacy module binding. This makes its derived outputs truthful
+without moving module changes forward. State 04 activates the database and
+pgAdmin fields, State 05 activates the app fields, and State 07 activates the
+Grafana and Prometheus fields. State 02 removes the remaining legacy
+observability host ports before State 07 restores only the final approved
+entries.
 
 ### Environment and secret handling
 

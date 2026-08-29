@@ -63,6 +63,11 @@ infra/
     ├── ~ terraform.sh
     └── - .env.example
 
+docs/
+└── ~ infrastructure.md                    # replace the Terraform .env workflow
+
+AGENTS.md                                  # replace the Terraform .env instruction
+
 infra/modules/local/{app,analysis,database,observability}/ = existing runtime contracts
 ```
 
@@ -75,23 +80,29 @@ infra/modules/local/{app,analysis,database,observability}/ = existing runtime co
    Prometheus, and the secrets directory.
 4. Map the new objects to the existing module inputs in root locals. Do not make
    child modules consume the full deployment object.
-5. Derive URL outputs from configured host ports.
-6. Make `terraform.sh` pass the fixed common manifest with an absolute
+5. Validate all eight host ports and temporarily require their current legacy
+   values. The app, database, pgAdmin, Grafana, and Prometheus modules do not
+   consume their new port fields until States 04, 05, and 07.
+6. Derive URL outputs from configured host ports while that compatibility rule
+   keeps the values equal to the actual bindings.
+7. Make `terraform.sh` pass the fixed common manifest with an absolute
    `-var-file` path. Let `local.auto.tfvars` load normally.
-7. Remove `.env` loading and the old scalar `TF_VAR_*` examples.
-8. Keep secret values in files. Terraform receives only the absolute secrets
+8. Remove `.env` loading and the old scalar `TF_VAR_*` examples. Update the
+   infrastructure guide and repository instruction to match.
+9. Keep secret values in files. Terraform receives only the absolute secrets
    directory and file paths.
-9. Keep the legacy analysis host port as a temporary module-owned constant until
+10. Keep the legacy analysis host port as a temporary module-owned constant until
    State 04 removes that publication. Do not expose it in the new input schema.
-10. Pin the legacy app module to dev mode in a compatibility local. Remove the
+11. Pin the legacy app module to dev mode in a compatibility local. Remove the
     production branch itself in State 05; do not expose mode or image variables.
 
 ## Review gate
 
 Check that the shared module has no provider or resources. Check that common
 fields have no defaults, local component objects have no defaults, and provider
-configuration cannot override common fields. Confirm that the runtime still has
-one site and two replicas.
+configuration cannot override common fields. Confirm that every configured host
+port equals its still-fixed legacy binding and that the runtime still has one
+site and two replicas.
 
 ## Working-state gate
 

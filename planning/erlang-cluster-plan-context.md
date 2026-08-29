@@ -245,6 +245,15 @@ EARS cases live in `erlang-multisite-design-draft.md`.
 - Local wrapper no longer requires or loads `.env`; it loads the fixed common
   manifest through the explicit `-var-file` path. `local.auto.tfvars` loads
   automatically. Exactly five approved host service entry points remain.
+- State 01 declares all eight final host-port fields while preserving the
+  unchanged legacy modules. It temporarily requires their current values. State
+  04 activates the database and pgAdmin fields, State 05 activates the app
+  fields, and State 07 activates the Grafana and Prometheus fields. This keeps
+  each intermediate state healthy and prevents outputs from diverging from
+  actual bindings.
+- The deployment service name is `network-defense`, which satisfies the
+  DNS-label-safe validation. The Elixir application name remains
+  `network_defense`.
 
 ## BEAM and Oban safeguard metrics decisions (2026-08-29)
 
