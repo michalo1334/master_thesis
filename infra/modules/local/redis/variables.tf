@@ -3,9 +3,9 @@ variable "name_prefix" {
   type        = string
 }
 
-variable "network_name" {
-  description = "Docker network name."
-  type        = string
+variable "site_networks" {
+  description = "Docker network name per declared site."
+  type        = map(string)
 }
 
 variable "password_file" {

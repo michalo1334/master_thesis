@@ -17,10 +17,10 @@ locals {
     "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
     "PHX_HOST=${var.application.host}",
     "PORT=${var.application.host_ports.http}",
-    "ANALYSIS_SERVICE_URL=${module.analysis.internal_url}",
+    "ANALYSIS_SERVICE_URL=http://analysis:8080",
     "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
     "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
-    "ANALYSIS_SERVICE_MAX_ZIP_BYTES=52428800",
+    "ANALYSIS_SERVICE_MAX_ZIP_BYTES=${module.analysis.max_response_size}",
     "OTEL_SERVICE_NAME=network_defense",
     "PUBSUB_ADAPTER=${local.pubsub_adapter}"
   ]
@@ -54,14 +54,20 @@ locals {
   ]
   application  = module.deployment_config.application
   database_cfg = module.deployment_config.database
+  inactive_host_ports = [
+    var.application.host_ports.http,
+    var.application.host_ports.metrics,
+    var.application.host_ports.assets,
+    var.application.host_ports.debugger,
+    var.grafana.host_port,
+    var.prometheus.host_port
+  ]
   legacy_host_ports = [
     4000,
     4001,
     5173,
     9229,
-    5433,
     3000,
-    5050,
     9090
   ]
   name_prefix    = module.deployment_config.config.name

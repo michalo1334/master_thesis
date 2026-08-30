@@ -76,13 +76,19 @@ infra/modules/local/app/
    database host port.
 4. Attach pgAdmin only to observability and keep its loopback host port.
 5. Pass `database.host_port` and `pgadmin.host_port` into the database module,
-   then remove their State 01 fixed-value compatibility requirement.
+   then remove only their State 01 fixed-value compatibility requirement. Keep
+   the compatibility requirement for app, Grafana, and Prometheus ports until
+   their modules consume those values.
 6. Replace pgAdmin's Terraform `file()` password handling with individual
-   read-only mounts and runtime pgpass generation.
+   read-only mounts and runtime pgpass generation. Escape backslashes and colons
+   in the password before writing the pgpass entry.
 7. Build the analysis image once and create one internal-only analysis container
    per declared site with alias `analysis`.
-8. Make the analysis module own and output the response-size contract.
-9. Map that named output to the existing app environment as
+8. Make the analysis module own and output `max_response_size`. Set the same
+   value as `NETWORK_DEFENSE_ANALYSIS_MAX_RESPONSE_BYTES` in each analysis
+   container. Do not output an analysis URL.
+9. Set the existing app environment's analysis URL to the derived
+   `http://analysis:8080`. Map `max_response_size` to
    `ANALYSIS_SERVICE_MAX_ZIP_BYTES`.
 10. Make Redis consume all declared site networks. With one site, behavior stays
    unchanged.
@@ -98,9 +104,11 @@ an unapproved volume destroy.
 
 ## Review gate
 
-Check that analysis has no host port, PostgreSQL is the only data container on
-both generated networks, Redis joins site networks only, and pgAdmin reads no
-secret through Terraform. Confirm the app still uses exactly one site network.
+Check that analysis has no host port or URL output, PostgreSQL is the only data
+container on both generated networks, Redis joins site networks only, and
+pgAdmin reads no secret through Terraform. Confirm that analysis and the app
+use the same response-size value, pgpass escapes its password, and the app
+still uses exactly one site network.
 
 ## Working-state gate
 

@@ -59,10 +59,10 @@ outputs rather than fixed URLs or ports.
 
 ## Analysis service
 
-The `analysis` module runs the local Python statistical analysis service. The
-service runs as a container on the stack network. The Phoenix app reaches it
-by its service name. For behavior, HTTP interface, and CLI, see
-`evaluation/analysis/README.md`.
+The `analysis` module runs one local Python statistical analysis service per
+declared site. The service is internal to its site network. The Phoenix app
+reaches it through the `analysis` alias. See `evaluation/analysis/README.md`
+for its behavior, HTTP interface, and CLI.
 
 ## Observability services
 
@@ -84,6 +84,6 @@ the health check paths.
 ## Teardown
 
 `terraform.sh destroy` removes every Terraform-managed resource: containers,
-the stack network, all data and log volumes, and the locally built images.
+networks, all data and log volumes, and the locally built images.
 Host secret files and Terraform state are not managed by Terraform and remain
 on disk after destroy.

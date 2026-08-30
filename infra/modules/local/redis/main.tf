@@ -7,9 +7,13 @@ resource "docker_container" "redis" {
   image   = docker_image.redis.image_id
   name    = "${var.name_prefix}-redis"
 
-  networks_advanced {
-    aliases = ["redis"]
-    name    = var.network_name
+  dynamic "networks_advanced" {
+    for_each = values(var.site_networks)
+
+    content {
+      aliases = ["redis"]
+      name    = networks_advanced.value
+    }
   }
 
   volumes {

@@ -93,8 +93,9 @@ ANALYSIS_SERVICE_URL=http://127.0.0.1:8080 \
   mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip
 ```
 
-App containers use the service name through Docker DNS. Host-side Mix commands
-use the configurable loopback port. The service has no authentication.
+Terraform-managed app containers use the site-local `analysis` alias through
+Docker DNS. The Terraform-managed service has no host port. Host-side commands
+need a separately published local service. The service has no authentication.
 
 TODO: Add service authentication before non-local or untrusted exposure. Until
 then, use the service only on trusted local or private networks.

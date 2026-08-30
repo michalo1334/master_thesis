@@ -14,18 +14,18 @@ resource "docker_image" "analysis" {
 }
 
 resource "docker_container" "analysis" {
+  for_each = var.sites
+
   image = docker_image.analysis.image_id
-  name  = "${var.name_prefix}-analysis"
+  name  = "${var.name_prefix}-analysis-${each.key}"
+
+  env = [
+    "NETWORK_DEFENSE_ANALYSIS_MAX_RESPONSE_BYTES=${local.max_response_size}"
+  ]
 
   networks_advanced {
     aliases = ["analysis"]
-    name    = var.network_name
-  }
-
-  ports {
-    external = var.analysis_port
-    internal = 8080
-    ip       = "127.0.0.1"
+    name    = var.site_networks[each.key]
   }
 
   restart      = "unless-stopped"

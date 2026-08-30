@@ -4,8 +4,10 @@ module "deployment_config" {
   deployment = var.deployment
 }
 
-resource "docker_network" "stack" {
-  name = "${local.name_prefix}-network"
+resource "docker_network" "site" {
+  for_each = module.deployment_config.sites
+
+  name = "${local.name_prefix}-${each.key}-network"
 
   lifecycle {
     precondition {
@@ -16,10 +18,14 @@ resource "docker_network" "stack" {
     }
 
     precondition {
-      condition     = local.all_host_ports == local.legacy_host_ports
-      error_message = "State 01 preserves the legacy fixed host ports until their modules consume the component configuration."
+      condition     = local.inactive_host_ports == local.legacy_host_ports
+      error_message = "State 04 preserves the legacy app, Grafana, and Prometheus host ports until their modules consume the component configuration."
     }
   }
+}
+
+resource "docker_network" "observability" {
+  name = "${local.name_prefix}-observability"
 }
 
 check "host_ports_valid" {
@@ -43,7 +49,8 @@ module "analysis" {
 
   analysis_source_path = abspath("${path.module}/../../../evaluation/analysis")
   name_prefix          = local.name_prefix
-  network_name         = docker_network.stack.name
+  site_networks        = { for site, network in docker_network.site : site => network.name }
+  sites                = module.deployment_config.sites
 }
 
 module "redis" {
@@ -51,7 +58,7 @@ module "redis" {
   source = "../../modules/local/redis"
 
   name_prefix   = local.name_prefix
-  network_name  = docker_network.stack.name
+  site_networks = { for site, network in docker_network.site : site => network.name }
   password_file = "${local.secret_mount_path}/redis-password"
 }
 
@@ -63,7 +70,7 @@ module "app" {
   app_source_path   = abspath("${path.module}/../../../src")
   log_volume_name   = docker_volume.application_logs.name
   name_prefix       = local.name_prefix
-  network_name      = docker_network.stack.name
+  network_name      = docker_network.site[local.application.primary_site].name
   pubsub_adapter    = local.pubsub_adapter
   secret_mount_path = local.secret_mount_path
 
@@ -73,10 +80,13 @@ module "app" {
 module "database" {
   source = "../../modules/local/database"
 
-  name_prefix       = local.name_prefix
-  network_name      = docker_network.stack.name
-  pgadmin_email     = var.pgadmin.admin_email
-  postgres_database = local.database_cfg.name
-  postgres_user     = local.database_cfg.user
-  secret_mount_path = local.secret_mount_path
+  name_prefix        = local.name_prefix
+  observability_name = docker_network.observability.name
+  pgadmin_email      = var.pgadmin.admin_email
+  pgadmin_host_port  = var.pgadmin.host_port
+  postgres_database  = local.database_cfg.name
+  postgres_host_port = var.database.host_port
+  postgres_user      = local.database_cfg.user
+  secret_mount_path  = local.secret_mount_path
+  site_networks      = { for site, network in docker_network.site : site => network.name }
 }

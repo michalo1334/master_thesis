@@ -27,7 +27,7 @@ resource "docker_container" "pgadmin" {
     "PGADMIN_CONFIG_UPGRADE_CHECK_ENABLED=False",
     "PGADMIN_SERVER_JSON_FILE=/pgadmin4/servers.json",
     "PGADMIN_REPLACE_SERVERS_ON_STARTUP=True",
-    "PGPASS_FILE=/pgpass/pgpass"
+    "PGPASS_FILE=/var/lib/pgadmin/.pgpass"
   ]
 
   upload {
@@ -49,28 +49,21 @@ resource "docker_container" "pgadmin" {
     })
   }
 
-  upload {
-    file        = "/pgpass/pgpass"
-    content     = "${local.postgres_host}:${local.postgres_ports[0].internal}:${var.postgres_database}:${var.postgres_user}:${chomp(file("${var.secret_mount_path}/postgres-password"))}\n"
-    permissions = "0600"
-  }
-
   entrypoint = ["/bin/sh", "-c", <<-EOT
     set -eu
-    PGPASS_USER_FILE="/var/lib/pgadmin/.pgpass"
-    # Keep pgpass in sync on every start (entrypoint.sh copies it only on first DB init).
-    if [ -f "/pgpass/pgpass" ]; then
-      cp /pgpass/pgpass "$PGPASS_USER_FILE"
-      chmod 600 "$PGPASS_USER_FILE"
-      chown 5050:5050 "$PGPASS_USER_FILE" 2>/dev/null || true
-    fi
+    pgpass="/var/lib/pgadmin/.pgpass"
+    password="$(cat /run/secrets/postgres-password)"
+    password="$(printf '%s' "$password" | sed 's/[\\:]/\\&/g')"
+    umask 077
+    printf '%s:%s:%s:%s:%s\n' "${local.postgres_host}" "${local.postgres_ports[0].internal}" "${var.postgres_database}" "${var.postgres_user}" "$password" > "$pgpass"
+    chown 5050:5050 "$pgpass"
     exec /entrypoint.sh
   EOT
   ]
 
   networks_advanced {
     aliases = ["pgadmin"]
-    name    = var.network_name
+    name    = var.observability_name
   }
 
   dynamic "ports" {
@@ -118,9 +111,13 @@ resource "docker_container" "postgres" {
     "POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password"
   ]
 
-  networks_advanced {
-    aliases = [local.postgres_host]
-    name    = var.network_name
+  dynamic "networks_advanced" {
+    for_each = concat([var.observability_name], values(var.site_networks))
+
+    content {
+      aliases = [local.postgres_host]
+      name    = networks_advanced.value
+    }
   }
 
   dynamic "ports" {
