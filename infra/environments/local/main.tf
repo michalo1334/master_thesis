@@ -46,6 +46,15 @@ module "analysis" {
   network_name         = docker_network.stack.name
 }
 
+module "redis" {
+  count  = local.pubsub_adapter == "redis" ? 1 : 0
+  source = "../../modules/local/redis"
+
+  name_prefix   = local.name_prefix
+  network_name  = docker_network.stack.name
+  password_file = "${local.secret_mount_path}/redis-password"
+}
+
 module "app" {
   source = "../../modules/local/app"
 
@@ -55,9 +64,10 @@ module "app" {
   log_volume_name   = docker_volume.application_logs.name
   name_prefix       = local.name_prefix
   network_name      = docker_network.stack.name
+  pubsub_adapter    = local.pubsub_adapter
   secret_mount_path = local.secret_mount_path
 
-  depends_on = [module.analysis, module.database]
+  depends_on = [module.analysis, module.database, module.redis]
 }
 
 module "database" {

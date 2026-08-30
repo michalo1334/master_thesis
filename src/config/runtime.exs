@@ -27,6 +27,31 @@ config :network_defense, :analysis_service,
     )
     |> String.to_integer()
 
+pubsub_opts =
+  case System.get_env("PUBSUB_ADAPTER") do
+    "redis" ->
+      [
+        adapter: Phoenix.PubSub.Redis,
+        redis_opts: [
+          host: System.get_env("REDIS_HOST", "redis"),
+          port: System.get_env("REDIS_PORT", "6379") |> String.to_integer(),
+          password: RuntimeConfig.read_secret("REDIS_PASSWORD")
+        ],
+        node_name: System.get_env("PUBSUB_NODE_NAME") || node()
+      ]
+
+    "pg2" ->
+      []
+
+    nil ->
+      []
+
+    other ->
+      raise "Unknown PUBSUB_ADAPTER #{inspect(other)}. Use redis or pg2."
+  end
+
+config :network_defense, :pubsub, pubsub_opts
+
 if (config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
      RuntimeConfig.read_secret("DATABASE_URL") do
   repo_config =

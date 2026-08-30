@@ -54,6 +54,7 @@ defmodule NetworkDefense.MixProject do
       {:sobelow, "~> 0.14.1", only: [:dev, :test], runtime: false},
       {:igniter, "~> 0.6", only: [:dev, :test]},
       {:phoenix, "~> 1.8.9"},
+      {:phoenix_pubsub_redis, "~> 3.1"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, ">= 0.0.0"},

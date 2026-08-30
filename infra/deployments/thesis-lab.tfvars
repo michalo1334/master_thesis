@@ -17,7 +17,7 @@ deployment = {
     }
   }
   pubsub = {
-    adapter = "pg2"
+    adapter = "redis"
   }
   database = {
     name = "network_defense_dev"

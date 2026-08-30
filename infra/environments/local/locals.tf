@@ -21,9 +21,15 @@ locals {
     "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
     "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
     "ANALYSIS_SERVICE_MAX_ZIP_BYTES=52428800",
-    "OTEL_SERVICE_NAME=network_defense"
+    "OTEL_SERVICE_NAME=network_defense",
+    "PUBSUB_ADAPTER=${local.pubsub_adapter}"
   ]
-  app_environment = concat(local.app_base_environment, local.app_mode_environment)
+  app_environment = concat(local.app_base_environment, local.app_mode_environment, local.app_redis_environment)
+  app_redis_environment = local.pubsub_adapter == "redis" ? [
+    "REDIS_HOST=redis",
+    "REDIS_PORT=6379",
+    "REDIS_PASSWORD_FILE=/run/secrets/redis-password"
+  ] : []
   app_mode_environment = [
     "LOG_FILE_LEVEL=${var.application.log_level}",
     "MIX_BUILD_PATH=/app/_build_docker",
@@ -58,12 +64,13 @@ locals {
     5050,
     9090
   ]
-  name_prefix   = module.deployment_config.config.name
-  postgres_host = module.database.postgres_host
-  postgres_port = module.database.postgres_port
+  name_prefix    = module.deployment_config.config.name
+  postgres_host  = module.database.postgres_host
+  postgres_port  = module.database.postgres_port
+  pubsub_adapter = module.deployment_config.pubsub.adapter
   required_secret_files = distinct(concat([
     "pgadmin-password",
     "postgres-password"
-  ], local.app_secret_files))
+  ], local.app_secret_files, local.pubsub_adapter == "redis" ? ["redis-password"] : []))
   secret_mount_path = abspath(var.secrets.directory)
 }

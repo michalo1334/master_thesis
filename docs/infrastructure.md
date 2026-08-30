@@ -22,6 +22,9 @@ read-only. The local secrets object declares the host directory. The environment
 enforces via a precondition that all required secret files exist before apply
 (see `main.tf` and `locals.tf`).
 
+Redis mode also requires an operator-created `redis-password` file with mode
+`0600`. Terraform mounts its path and never reads its value.
+
 The app reads secrets from files under `/run/secrets`. See the module source
 for how each container mounts and reads them.
 
@@ -35,6 +38,7 @@ infra/modules/local/
   analysis/       Local Python analysis service
   app/            Phoenix application
   database/       Postgres and pgAdmin
+  redis/          Authenticated ephemeral Phoenix PubSub broker
 ```
 
 `environments/local/terraform.sh` is the local helper. It runs Dockerized

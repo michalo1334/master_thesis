@@ -41,6 +41,11 @@ variable "network_name" {
   type        = string
 }
 
+variable "pubsub_adapter" {
+  description = "Phoenix PubSub adapter selected by the deployment manifest."
+  type        = string
+}
+
 variable "secret_mount_path" {
   description = "Host path to the directory containing secret files."
   type        = string
