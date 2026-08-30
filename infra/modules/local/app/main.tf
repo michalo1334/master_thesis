@@ -1,6 +1,4 @@
 resource "docker_image" "dev" {
-  count = var.app.mode == "dev" ? 1 : 0
-
   name = "${var.name_prefix}-app:dev"
 
   build {
@@ -28,73 +26,29 @@ resource "docker_image" "dev" {
   }
 }
 
-resource "docker_image" "prod" {
-  count = var.app.mode == "prod" ? 1 : 0
-
-  name = var.app.image
-
-  lifecycle {
-    precondition {
-      condition     = var.app.image != null && var.app.image != ""
-      error_message = "app_image is required for prod mode."
-    }
-  }
-}
-
 resource "docker_volume" "build" {
-  count = var.app.mode == "dev" ? 1 : 0
-
   name = "${var.name_prefix}-app-build"
 }
 
 resource "docker_volume" "dependencies" {
-  count = var.app.mode == "dev" ? 1 : 0
-
   name = "${var.name_prefix}-app-dependencies"
 }
 
-resource "docker_container" "migrate" {
-  count = var.app.mode == "prod" ? 1 : 0
-
-  attach   = true
-  command  = ["/app/bin/migrate"]
-  env      = var.app.environment
-  image    = local.image_id
-  must_run = false
-  name     = "${var.name_prefix}-app-migrate"
-
-  networks_advanced {
-    name = var.network_name
-  }
-
-  dynamic "volumes" {
-    for_each = [{ container_path = "/run/secrets", host_path = var.secret_mount_path, read_only = true }]
-    iterator = mount
-
-    content {
-      container_path = mount.value.container_path
-      host_path      = mount.value.host_path
-      read_only      = mount.value.read_only
-    }
-  }
-}
-
 resource "docker_container" "setup" {
-  count = var.app.mode == "dev" ? 1 : 0
-
   attach   = true
   command  = ["sh", "-c", "mix deps.get && mix ecto.migrate && mix run priv/repo/seeds.exs"]
-  env      = var.app.environment
-  image    = local.image_id
+  env      = local.setup_environment
+  image    = docker_image.dev.image_id
   must_run = false
   name     = "${var.name_prefix}-app-setup"
+  wait     = false
 
   networks_advanced {
-    name = var.network_name
+    name = var.site_networks[var.application.primary_site]
   }
 
   dynamic "volumes" {
-    for_each = local.volumes
+    for_each = local.setup_mounts
     iterator = mount
 
     content {
@@ -104,36 +58,43 @@ resource "docker_container" "setup" {
       volume_name    = try(mount.value.volume_name, null)
     }
   }
+
+  lifecycle {
+    postcondition {
+      condition     = self.exit_code == 0
+      error_message = "The app setup container must exit successfully."
+    }
+  }
 }
 
-resource "docker_container" "app" {
-  count = var.app_replicas
+resource "docker_container" "node" {
+  for_each = local.nodes
 
-  depends_on = [docker_container.migrate, docker_container.setup]
+  depends_on = [docker_container.setup]
 
-  env      = concat(var.app.environment, local.cluster_env[count.index])
-  hostname = "app-${count.index}"
-  image    = local.image_id
-  name     = "${var.name_prefix}-app-${count.index}"
+  env      = local.node_environment[each.key]
+  hostname = "app-${each.value.site}-${each.value.index}"
+  image    = docker_image.dev.image_id
+  name     = "${var.name_prefix}-app-${each.value.site}-${each.value.index}"
 
   networks_advanced {
-    aliases = ["app", "app-${count.index}", "network_defense"]
-    name    = var.network_name
+    aliases = ["app", "app-${each.value.index}", var.service_name]
+    name    = var.site_networks[each.value.site]
   }
 
   dynamic "ports" {
-    for_each = count.index == 0 ? local.ports : []
+    for_each = each.value.role == "coordinator" ? local.dev_host_ports : []
     iterator = port
 
     content {
       external = port.value.external
       internal = port.value.internal
-      ip       = port.value.ip
+      ip       = "127.0.0.1"
     }
   }
 
   dynamic "volumes" {
-    for_each = local.volumes
+    for_each = local.node_mounts[each.key]
     iterator = mount
 
     content {
@@ -148,13 +109,13 @@ resource "docker_container" "app" {
     interval     = "10s"
     retries      = 6
     start_period = "20s"
-    test         = ["CMD-SHELL", "curl -fsS http://localhost:$${PORT}${var.app.healthcheck_path} || exit 1"]
+    test         = ["CMD-SHELL", "curl -fsS http://localhost:4000/readyz || exit 1"]
     timeout      = "3s"
   }
 
   restart      = "unless-stopped"
-  stdin_open   = var.app.mode == "dev"
-  tty          = var.app.mode == "dev"
+  stdin_open   = true
+  tty          = true
   wait         = true
-  wait_timeout = var.app.mode == "dev" ? 180 : 90
+  wait_timeout = 180
 }

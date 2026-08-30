@@ -19,7 +19,7 @@ resource "docker_network" "site" {
 
     precondition {
       condition     = local.inactive_host_ports == local.legacy_host_ports
-      error_message = "State 04 preserves the legacy app, Grafana, and Prometheus host ports until their modules consume the component configuration."
+      error_message = "State 05 preserves the legacy Grafana and Prometheus host ports until their modules consume the component configuration."
     }
   }
 }
@@ -65,14 +65,23 @@ module "redis" {
 module "app" {
   source = "../../modules/local/app"
 
-  app               = local.app
-  app_replicas      = local.app_replicas
-  app_source_path   = abspath("${path.module}/../../../src")
-  log_volume_name   = docker_volume.application_logs.name
-  name_prefix       = local.name_prefix
-  network_name      = docker_network.site[local.application.primary_site].name
-  pubsub_adapter    = local.pubsub_adapter
-  secret_mount_path = local.secret_mount_path
+  adapter                = local.pubsub_adapter
+  analysis_max_zip_bytes = module.analysis.max_response_size
+  app_source_path        = abspath("${path.module}/../../../src")
+  application            = local.application
+  database               = local.database
+  database_host          = module.database.postgres_host
+  database_port          = module.database.postgres_port
+  host                   = var.application.host
+  host_ports             = var.application.host_ports
+  log_level              = var.application.log_level
+  log_volume_name        = docker_volume.application_logs.name
+  name_prefix            = local.name_prefix
+  nodes                  = local.nodes
+  secret_mount_path      = local.secret_mount_path
+  service_name           = local.application.service_name
+  site_networks          = { for site, network in docker_network.site : site => network.name }
+  sites                  = local.sites
 
   depends_on = [module.analysis, module.database, module.redis]
 }
@@ -84,9 +93,9 @@ module "database" {
   observability_name = docker_network.observability.name
   pgadmin_email      = var.pgadmin.admin_email
   pgadmin_host_port  = var.pgadmin.host_port
-  postgres_database  = local.database_cfg.name
+  postgres_database  = local.database.name
   postgres_host_port = var.database.host_port
-  postgres_user      = local.database_cfg.user
+  postgres_user      = local.database.user
   secret_mount_path  = local.secret_mount_path
   site_networks      = { for site, network in docker_network.site : site => network.name }
 }

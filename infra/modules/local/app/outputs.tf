@@ -1,9 +1,14 @@
-output "container_id" {
-  description = "ID of the primary application container (deprecated, use container_ids)."
-  value       = docker_container.app[0].id
+output "container_ids" {
+  description = "Application container IDs keyed by stable node identifier."
+  value = {
+    for key in keys(local.nodes) : key => docker_container.node[key].id
+  }
 }
 
-output "container_ids" {
-  description = "IDs of all application containers."
-  value       = [for c in docker_container.app : c.id]
+output "site_primary_node_names" {
+  description = "Long node name for replica 0 of each site."
+  value = {
+    for site in keys(var.sites) :
+    site => "app@${one([for network in docker_container.node["node-${site}-0"].network_data : network.ip_address if network.network_name == var.site_networks[site]])}"
+  }
 }

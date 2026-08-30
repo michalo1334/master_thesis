@@ -52,6 +52,18 @@ pubsub_opts =
 
 config :network_defense, :pubsub, pubsub_opts
 
+oban_queue_names =
+  :network_defense
+  |> Application.fetch_env!(Oban)
+  |> Keyword.fetch!(:queues)
+  |> Keyword.keys()
+
+config :network_defense, :oban_queue_names, oban_queue_names
+
+if System.get_env("ROLE") == "coordinator" do
+  config :network_defense, Oban, queues: false
+end
+
 if (config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
      RuntimeConfig.read_secret("DATABASE_URL") do
   repo_config =
