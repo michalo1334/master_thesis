@@ -16,11 +16,6 @@ resource "docker_network" "site" {
       ])
       error_message = "Secret directory must contain: ${join(", ", local.required_secret_files)}."
     }
-
-    precondition {
-      condition     = local.inactive_host_ports == local.legacy_host_ports
-      error_message = "State 05 preserves the legacy Grafana and Prometheus host ports until their modules consume the component configuration."
-    }
   }
 }
 
@@ -98,4 +93,23 @@ module "database" {
   postgres_user      = local.database.user
   secret_mount_path  = local.secret_mount_path
   site_networks      = { for site, network in docker_network.site : site => network.name }
+}
+
+module "observability" {
+  source = "../../modules/local/observability"
+
+  database              = local.database
+  grafana_admin_user    = var.grafana.admin_user
+  grafana_host_port     = var.grafana.host_port
+  log_volume_name       = docker_volume.application_logs.name
+  name_prefix           = local.name_prefix
+  observability_network = docker_network.observability.name
+  postgres_host         = module.database.postgres_host
+  postgres_image        = module.database.postgres_image
+  postgres_port         = module.database.postgres_port
+  prometheus_host_port  = var.prometheus.host_port
+  secret_mount_path     = local.secret_mount_path
+  service_name          = local.application.service_name
+
+  depends_on = [module.app, module.database]
 }

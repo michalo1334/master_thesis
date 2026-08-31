@@ -14,21 +14,15 @@ locals {
     "postgres-password",
     "secret-key-base"
   ]
-  application = module.deployment_config.application
-  database    = module.deployment_config.database
-  inactive_host_ports = [
-    var.grafana.host_port,
-    var.prometheus.host_port
-  ]
-  legacy_host_ports = [
-    3000,
-    9090
-  ]
+  application    = module.deployment_config.application
+  database       = module.deployment_config.database
   name_prefix    = module.deployment_config.config.name
   nodes          = module.deployment_config.nodes
   pubsub_adapter = module.deployment_config.pubsub.adapter
   required_secret_files = concat([
+    "grafana-admin-password",
     "pgadmin-password",
+    "postgres-exporter-password",
     ], local.app_secret_files, [
     for site in keys(module.deployment_config.sites) : "erlang-cookies/${site}/.erlang.cookie"
   ], local.pubsub_adapter == "redis" ? ["redis-password"] : [])

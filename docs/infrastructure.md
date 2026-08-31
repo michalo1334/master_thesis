@@ -38,6 +38,7 @@ infra/modules/local/
   analysis/       Local Python analysis service
   app/            Phoenix application
   database/       Postgres and pgAdmin
+  observability/  Central Grafana, Prometheus, logs, traces, and exporters
   redis/          Authenticated ephemeral Phoenix PubSub broker
 ```
 
@@ -66,15 +67,15 @@ for its behavior, HTTP interface, and CLI.
 
 ## Observability services
 
-Observability is unavailable in temporary States 02-06. The observability
-module is removed; metrics, traces, and log collection are not provisioned in
-these states.
+The observability module runs Grafana, Prometheus, Tempo, Loki, Alloy, and
+infrastructure exporters on the central observability network. Grafana and
+Prometheus are the only published observability entry points. Per-site
+collectors and application telemetry are added separately.
 
 ## Logging
 
-The app writes structured JSONL logs to a file on a shared volume. In States
-02-06 the logs remain stored on that volume but are not collected. Collection
-returns when a later state reintroduces the observability stack.
+The app writes site-qualified structured JSONL logs to a shared volume. Alloy
+tails those files and writes them to Loki.
 
 ## Health and readiness
 
