@@ -63,8 +63,9 @@ locals {
       "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
       "ANALYSIS_SERVICE_MAX_ZIP_BYTES=${var.analysis_max_zip_bytes}",
       "OTEL_SERVICE_NAME=${var.service_name}",
+      "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
       "OTEL_RESOURCE_ATTRIBUTES=provider=${node.provider},region=${node.region},instance=${node.instance},site=${node.site},replica=app-${node.site}-${node.index},role=${node.role},service.instance.id=app-${node.site}-${node.index}"
-    ], var.adapter == "redis" ? [
+      ], var.adapter == "redis" ? [
       "REDIS_HOST=redis",
       "REDIS_PORT=6379",
       "REDIS_PASSWORD_FILE=/run/secrets/redis-password",
@@ -79,7 +80,7 @@ locals {
       { container_path = "/run/secrets/secret-key-base", host_path = "${var.secret_mount_path}/secret-key-base", read_only = true },
       { container_path = "/run/secrets/live-view-signing-salt", host_path = "${var.secret_mount_path}/live-view-signing-salt", read_only = true },
       { container_path = "/run/secrets/erlang-cookie", host_path = "${var.secret_mount_path}/erlang-cookies/${node.site}/.erlang.cookie", read_only = true }
-    ], var.adapter == "redis" ? [
+      ], var.adapter == "redis" ? [
       { container_path = "/run/secrets/redis-password", host_path = "${var.secret_mount_path}/redis-password", read_only = true }
     ] : [])
   }

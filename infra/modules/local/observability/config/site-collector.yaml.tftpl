@@ -1,0 +1,59 @@
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: site-apps
+          static_configs:
+%{ for target in targets }
+            - targets: ["${target.endpoint}"]
+              labels:
+                provider: ${jsonencode(target.provider)}
+                region: ${jsonencode(target.region)}
+                instance: ${jsonencode(target.instance)}
+                site: ${jsonencode(target.site)}
+                replica: ${jsonencode(target.replica)}
+%{ endfor }
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  resource:
+    attributes:
+      - key: service.name
+        value: network_defense
+        action: insert
+  batch:
+    timeout: 5s
+    send_batch_size: 1000
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/tempo, debug]
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]

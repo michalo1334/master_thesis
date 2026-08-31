@@ -49,7 +49,7 @@ infra/environments/local/
 └── ~ main.tf                                   # pass normalized sites/nodes
 
 infra/modules/local/app/
-└── ~ locals.tf                                 # site-local OTel endpoint
+└── ~ locals.tf                                 # site-local OTel endpoint; retain node attributes
 
 infra/modules/local/observability/
 ├── ~ main.tf                                   # collector for_each sites
@@ -73,20 +73,24 @@ infra/modules/local/observability/
    configs.
 6. Export traces to Tempo and app metrics through the collector Prometheus
    exporter.
-7. Configure central Prometheus with one collector target per site and
-   `honor_labels: true`.
-8. Add the site-local OTel HTTP endpoint to every app node.
-9. Use `/otelcol-contrib validate` as the collector Docker healthcheck. State
+7. Configure central Prometheus with one `otel-collector-<site>:8889` target
+   per site in the `otel-collectors` scrape job and `honor_labels: true`, so
+   the receiver's `site-apps` job label survives.
+8. Restore `OTEL_EXPORTER_OTLP_ENDPOINT` to every app node and retain each
+   node's site-qualified OTel resource attributes.
+9. Include the network-only `health_check` extension on port 13133. Use
+   `/otelcol-contrib validate` as the collector Docker healthcheck. State
    clearly that it proves config validity while PID 1 runs, not pipeline
-   readiness or backend reachability.
+   readiness or backend reachability; it does not call the extension.
 10. Publish no collector host ports and restore none of the removed central
     collector ports.
 
 ## Review gate
 
 Check generated aliases and target lists for every node. Check that labels come
-from Prometheus receiver static configs, central Prometheus preserves them, and
-no collector can attach to a second site network.
+from Prometheus receiver static configs; the receiver job is `site-apps`; the
+central scrape job is `otel-collectors` with `honor_labels: true`; and no
+collector can attach to a second site network.
 
 ## Working-state gate
 

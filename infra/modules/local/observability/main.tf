@@ -367,6 +367,41 @@ resource "docker_container" "prometheus" {
   wait_timeout = 90
 }
 
+resource "docker_container" "site_collector" {
+  for_each = var.sites
+
+  command = ["--config=/etc/otelcol/config.yaml"]
+  image   = docker_image.stack["otel_collector"].image_id
+  name    = "${var.name_prefix}-otel-collector-${each.key}"
+
+  networks_advanced {
+    aliases = ["otel-collector"]
+    name    = var.site_networks[each.key]
+  }
+
+  networks_advanced {
+    aliases = ["otel-collector-${each.key}"]
+    name    = var.observability_network
+  }
+
+  upload {
+    content = local.collector_configs[each.key]
+    file    = "/etc/otelcol/config.yaml"
+  }
+
+  healthcheck {
+    interval     = "10s"
+    retries      = 6
+    start_period = "10s"
+    test         = ["CMD", "/otelcol-contrib", "validate", "--config=file:/etc/otelcol/config.yaml"]
+    timeout      = "5s"
+  }
+
+  restart      = "unless-stopped"
+  wait         = true
+  wait_timeout = 90
+}
+
 resource "docker_container" "tempo" {
   image   = docker_image.stack["tempo"].image_id
   name    = "${var.name_prefix}-tempo"

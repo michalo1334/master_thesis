@@ -5,6 +5,11 @@ global:
     service: ${service_name}
 
 scrape_configs:
+  - job_name: otel-collectors
+    honor_labels: true
+    static_configs:
+      - targets: ${jsonencode([for site in keys(sites) : "otel-collector-${site}:8889"])}
+
   - job_name: node
     static_configs:
       - targets: ["node-exporter:9100"]

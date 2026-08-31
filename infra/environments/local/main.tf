@@ -103,6 +103,7 @@ module "observability" {
   grafana_host_port     = var.grafana.host_port
   log_volume_name       = docker_volume.application_logs.name
   name_prefix           = local.name_prefix
+  nodes                 = local.nodes
   observability_network = docker_network.observability.name
   postgres_host         = module.database.postgres_host
   postgres_image        = module.database.postgres_image
@@ -110,6 +111,8 @@ module "observability" {
   prometheus_host_port  = var.prometheus.host_port
   secret_mount_path     = local.secret_mount_path
   service_name          = local.application.service_name
+  site_networks         = { for site, network in docker_network.site : site => network.name }
+  sites                 = local.sites
 
   depends_on = [module.app, module.database]
 }

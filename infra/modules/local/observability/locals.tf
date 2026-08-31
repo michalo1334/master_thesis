@@ -1,7 +1,26 @@
 locals {
-  config_path       = abspath("${path.module}/config")
-  alloy_config      = templatefile("${local.config_path}/alloy-config.alloy", { service_name = var.service_name })
-  prometheus_config = templatefile("${local.config_path}/prometheus.yaml.tftpl", { service_name = var.service_name })
+  config_path  = abspath("${path.module}/config")
+  alloy_config = templatefile("${local.config_path}/alloy-config.alloy", { service_name = var.service_name })
+  prometheus_config = templatefile("${local.config_path}/prometheus.yaml.tftpl", {
+    service_name = var.service_name
+    sites        = var.sites
+  })
+
+  collector_configs = {
+    for site, _ in var.sites : site => templatefile("${local.config_path}/site-collector.yaml.tftpl", {
+      targets = [
+        for key, node in var.nodes : {
+          endpoint = "app-${node.index}:4001"
+          site     = site
+          provider = var.sites[site].provider
+          region   = var.sites[site].region
+          instance = var.sites[site].instance
+          replica  = "app-${site}-${node.index}"
+        }
+        if node.site == site
+      ]
+    })
+  }
 
   container_volumes = {
     alloy = [
@@ -53,6 +72,7 @@ locals {
     grafana           = "grafana/grafana:11.2.0"
     loki              = "grafana/loki:3.3.2"
     node_exporter     = "quay.io/prometheus/node-exporter:v1.9.1"
+    otel_collector    = "otel/opentelemetry-collector-contrib:0.111.0"
     postgres_exporter = "quay.io/prometheuscommunity/postgres-exporter:v0.17.1"
     prometheus        = "prom/prometheus:v2.55.0"
     tempo             = "grafana/tempo:2.5.0"

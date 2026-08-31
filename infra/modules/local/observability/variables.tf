@@ -31,6 +31,14 @@ variable "name_prefix" {
   type        = string
 }
 
+variable "nodes" {
+  description = "Application nodes keyed by stable node identifier."
+  type = map(object({
+    site  = string
+    index = number
+  }))
+}
+
 variable "observability_network" {
   description = "Docker observability network name."
   type        = string
@@ -69,4 +77,18 @@ variable "secret_mount_path" {
 variable "service_name" {
   description = "Application service name used by telemetry configuration."
   type        = string
+}
+
+variable "site_networks" {
+  description = "Docker network name per declared site."
+  type        = map(string)
+}
+
+variable "sites" {
+  description = "Declared sites keyed by site name."
+  type = map(object({
+    provider = string
+    region   = string
+    instance = string
+  }))
 }
