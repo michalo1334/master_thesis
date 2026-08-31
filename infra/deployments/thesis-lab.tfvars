@@ -7,6 +7,11 @@ deployment = {
         region   = "placeholder-region"
         instance = "placeholder-instance"
       }
+      site-east = {
+        provider = "placeholder-provider"
+        region   = "placeholder-region"
+        instance = "placeholder-instance"
+      }
     }
   }
   application = {
@@ -14,6 +19,7 @@ deployment = {
     primary_site = "site-west"
     replicas = {
       site-west = 2
+      site-east = 2
     }
   }
   pubsub = {
