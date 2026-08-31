@@ -59,13 +59,14 @@ Local test gates, run from `src/`:
 
 Verified local stack gates:
 
-- Migration status: `docker exec network-defense-local-app-0 mix ecto.migrations`.
-- Application readiness: `curl -fsS http://127.0.0.1:4000/readyz`.
-- Database readiness: `docker exec network-defense-local-postgres pg_isready -U postgres -d network_defense_dev`.
-- Database container health: `docker inspect --format '{{.State.Health.Status}}' network-defense-local-postgres`.
-- Analysis-service health: `curl -fsS http://127.0.0.1:8080/healthz`.
-- Analysis-service container health: `docker inspect --format '{{.State.Health.Status}}' network-defense-local-analysis`.
-- Stack service URLs: run `./terraform.sh output` from `infra/environments/local`.
+- Terraform apply completes and configured container health checks pass.
+- The application readiness endpoint answers through the application URL from
+  `./terraform.sh output` in `infra/environments/local`.
+- The database accepts connections through the database URL from that output.
+- Inspect current Docker container state without assuming container names.
+- The managed analysis services are site-internal and have no host endpoint;
+  do not use an analysis host-port check.
+- Terraform output lists the current service URLs and site-primary node names.
 
 Deployed environment gates:
 
