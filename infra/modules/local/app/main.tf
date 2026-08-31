@@ -20,7 +20,8 @@ resource "docker_image" "dev" {
         "config/config.exs",
         "config/dev.exs",
         "config/runtime.exs",
-        "lib/network_defense/runtime_config.ex"
+        "lib/network_defense/runtime_config.ex",
+        "lib/network_defense_web/telemetry.ex"
       ] : filesha1("${var.app_source_path}/${filename}")
     ]))
   }

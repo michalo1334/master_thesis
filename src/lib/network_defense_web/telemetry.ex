@@ -11,6 +11,9 @@ defmodule NetworkDefenseWeb.Telemetry do
 
   @impl true
   def init(_arg) do
+    :erlang.system_flag(:scheduler_wall_time, true)
+    :ets.new(:beam_state, [:named_table, :public, :set])
+
     children = [
       {TelemetryMetricsPrometheus.Core, metrics: metrics()},
       {:telemetry_poller, measurements: periodic_measurements(), period: 10_000}
@@ -163,13 +166,53 @@ defmodule NetworkDefenseWeb.Telemetry do
       ),
       last_value("vm.total_run_queue_lengths.total"),
       last_value("vm.total_run_queue_lengths.cpu"),
-      last_value("vm.total_run_queue_lengths.io")
+      last_value("vm.total_run_queue_lengths.io"),
+      last_value("vm_system_counts_process_count",
+        event_name: [:vm, :system_counts],
+        measurement: :process_count
+      ),
+      last_value("beam_scheduler_utilization_ratio",
+        event_name: [:beam, :scheduler, :utilization],
+        measurement: :ratio,
+        tags: [:scheduler]
+      ),
+      sum("beam_gc_collections_total",
+        event_name: [:beam, :gc, :collections],
+        measurement: :count,
+        reporter_options: [prometheus_type: :counter]
+      ),
+      sum("beam_gc_words_reclaimed_total",
+        event_name: [:beam, :gc, :words_reclaimed],
+        measurement: :words,
+        reporter_options: [prometheus_type: :counter]
+      ),
+      sum("beam_reductions_total",
+        event_name: [:beam, :reductions],
+        measurement: :count,
+        reporter_options: [prometheus_type: :counter]
+      ),
+      sum("beam_context_switches_total",
+        event_name: [:beam, :context_switches],
+        measurement: :count,
+        reporter_options: [prometheus_type: :counter]
+      ),
+      last_value("beam_cluster_nodes",
+        event_name: [:beam, :cluster_nodes],
+        measurement: :count
+      ),
+      last_value("oban_queue_depth",
+        event_name: [:oban, :queue_depth],
+        measurement: :count,
+        tags: [:queue, :state, :scope]
+      )
     ]
   end
 
   defp periodic_measurements do
     [
-      {__MODULE__, :emit_cpu, []}
+      {__MODULE__, :emit_cpu, []},
+      {__MODULE__, :emit_beam, []},
+      {__MODULE__, :emit_oban, []}
     ]
   end
 
@@ -187,5 +230,131 @@ defmodule NetworkDefenseWeb.Telemetry do
       _ ->
         :ok
     end
+  end
+
+  @oban_states ~w(available scheduled retryable executing)
+
+  @doc false
+  def emit_beam do
+    emit_scheduler_utilization()
+    emit_beam_counters()
+    :telemetry.execute([:beam, :cluster_nodes], %{count: 1 + length(Node.list())}, %{})
+    :ok
+  end
+
+  defp emit_scheduler_utilization do
+    case :erlang.statistics(:scheduler_wall_time) do
+      schedulers when is_list(schedulers) ->
+        online = :erlang.system_info(:schedulers_online)
+
+        for {id, active, total} <- schedulers, id <= online do
+          emit_scheduler_sample(id, active, total)
+        end
+
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp emit_scheduler_sample(id, active, total) do
+    case :ets.lookup(:beam_state, {:scheduler, id}) do
+      [] ->
+        :ets.insert(:beam_state, {{:scheduler, id}, {active, total}})
+
+      [{_, {prev_active, prev_total}}] ->
+        :ets.insert(:beam_state, {{:scheduler, id}, {active, total}})
+        emit_scheduler_ratio(id, active - prev_active, total - prev_total)
+    end
+  end
+
+  defp emit_scheduler_ratio(id, active_delta, total_delta)
+       when total_delta > 0 and active_delta >= 0 do
+    :telemetry.execute(
+      [:beam, :scheduler, :utilization],
+      %{ratio: active_delta / total_delta},
+      %{scheduler: id}
+    )
+  end
+
+  defp emit_scheduler_ratio(_id, _active_delta, _total_delta), do: :ok
+
+  defp emit_beam_counters do
+    {collections, words_reclaimed, _} = :erlang.statistics(:garbage_collection)
+    {reductions, _} = :erlang.statistics(:reductions)
+    {context_switches, _} = :erlang.statistics(:context_switches)
+
+    emit_delta(:gc_collections, [:beam, :gc, :collections], :count, collections)
+    emit_delta(:gc_words_reclaimed, [:beam, :gc, :words_reclaimed], :words, words_reclaimed)
+    emit_delta(:reductions, [:beam, :reductions], :count, reductions)
+    emit_delta(:context_switches, [:beam, :context_switches], :count, context_switches)
+
+    :ok
+  end
+
+  defp emit_delta(key, event_name, measurement, cumulative) when is_number(cumulative) do
+    previous =
+      case :ets.lookup(:beam_state, key) do
+        [{_, value}] -> value
+        [] -> 0
+      end
+
+    :ets.insert(:beam_state, {key, cumulative})
+    delta = cumulative - previous
+
+    if delta >= 0 do
+      :telemetry.execute(event_name, %{measurement => delta}, %{})
+    else
+      :telemetry.execute(event_name, %{measurement => cumulative}, %{})
+    end
+  end
+
+  @doc false
+  def emit_oban do
+    if System.get_env("ROLE") == "coordinator" and repo_available?() do
+      try do
+        emit_oban_depth()
+        :ok
+      rescue
+        _ -> :ok
+      catch
+        _, _ -> :ok
+      end
+    else
+      :ok
+    end
+  end
+
+  defp repo_available? do
+    case Process.whereis(NetworkDefense.Repo) do
+      pid when is_pid(pid) -> true
+      _ -> false
+    end
+  end
+
+  defp emit_oban_depth do
+    import Ecto.Query
+
+    rows =
+      from(j in Oban.Job,
+        where: j.state in ^@oban_states,
+        group_by: [j.queue, j.state],
+        select: {j.queue, j.state, count(j.id)}
+      )
+      |> NetworkDefense.Repo.all()
+
+    counts = Map.new(rows, fn {queue, state, count} -> {{queue, state}, count} end)
+    queues = Application.get_env(:network_defense, :oban_queue_names, [])
+
+    for queue <- queues, state <- @oban_states do
+      :telemetry.execute(
+        [:oban, :queue_depth],
+        %{count: Map.get(counts, {to_string(queue), state}, 0)},
+        %{queue: to_string(queue), state: state, scope: "global"}
+      )
+    end
+
+    :ok
   end
 end

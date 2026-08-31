@@ -37,6 +37,8 @@ locals {
     grafana = [
       { container_path = "/var/lib/grafana", volume_name = docker_volume.data["grafana"].name },
       { container_path = "/etc/grafana/provisioning/datasources", host_path = "${local.config_path}/grafana-provisioning/datasources", read_only = true },
+      { container_path = "/etc/grafana/provisioning/dashboards", host_path = "${local.config_path}/grafana-provisioning/dashboards", read_only = true },
+      { container_path = "/var/lib/grafana/dashboards", host_path = "${local.config_path}/grafana-dashboards", read_only = true },
       { container_path = "/run/secrets/grafana-admin-password", host_path = "${var.secret_mount_path}/grafana-admin-password", read_only = true }
     ]
     loki = [
