@@ -1,7 +1,7 @@
 locals {
   nodes = {
     for key, node in var.nodes : key => merge(node, {
-      role     = node.site == var.application.primary_site && node.index == 0 ? "coordinator" : "worker"
+      role     = node.index == 0 ? "api" : "worker"
       provider = var.sites[node.site].provider
       region   = var.sites[node.site].region
       instance = var.sites[node.site].instance
@@ -9,9 +9,6 @@ locals {
   }
 
   dev_host_ports = [
-    { external = var.host_ports.http, internal = 4000 },
-    { external = var.host_ports.metrics, internal = 4001 },
-    { external = var.host_ports.assets, internal = 5173 },
     { external = var.host_ports.debugger, internal = 9229 }
   ]
 

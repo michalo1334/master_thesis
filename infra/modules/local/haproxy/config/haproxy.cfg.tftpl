@@ -1,0 +1,42 @@
+global
+  maxconn 4096
+
+defaults
+  mode http
+  retries 0
+  timeout connect 5s
+  timeout client 50s
+  timeout server 50s
+  timeout tunnel 1h
+
+resolvers docker
+  nameserver dns 127.0.0.11:53
+  resolve_retries 3
+  timeout retry 1s
+  hold valid 10s
+
+frontend http
+  bind *:80
+
+  acl liveview_ws path_beg /live/websocket
+  acl vite_assets path_beg /@ /assets /css /js /node_modules /src /svelte
+  acl vite_hmr path /
+  acl websocket hdr(Upgrade) -i websocket
+
+  use_backend phoenix if liveview_ws
+  use_backend vite if vite_assets
+  use_backend vite if vite_hmr websocket
+  default_backend phoenix
+
+backend phoenix
+  option httpchk GET /readyz
+  default-server init-addr last,libc,none resolvers docker resolve-prefer ipv4
+%{ for n in api_nodes }
+  server app-${n.site}-${n.index} ${name_prefix}-app-${n.site}-${n.index}:4000 check
+%{ endfor }
+
+backend vite
+  default-server init-addr last,libc,none resolvers docker resolve-prefer ipv4
+%{ for n in api_nodes }
+  server app-${n.site}-${n.index} ${name_prefix}-app-${n.site}-${n.index}:5173 check
+%{ endfor }

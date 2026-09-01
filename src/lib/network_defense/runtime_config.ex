@@ -3,14 +3,23 @@ defmodule NetworkDefense.RuntimeConfig do
   Reads runtime values from environment variables or mounted secret files.
   """
 
-  def load_dotenv do
-    if File.exists?(".env") do
-      ".env"
-      |> File.read!()
-      |> String.split("\n")
-      |> Enum.each(&load_dotenv_line/1)
+  @type role :: :api | :worker
+
+  @spec role() :: role()
+  def role do
+    case System.get_env("ROLE") do
+      "api" -> :api
+      "worker" -> :worker
+      nil -> :worker
+      value -> raise ArgumentError, "invalid ROLE: expected api or worker, got #{inspect(value)}"
     end
   end
+
+  @spec api?() :: boolean()
+  def api?, do: role() == :api
+
+  @spec worker?() :: boolean()
+  def worker?, do: role() == :worker
 
   # _FILE paths are deployment-controlled mounted secrets.
   # sobelow_skip ["Traversal.FileModule"]
@@ -21,15 +30,6 @@ defmodule NetworkDefense.RuntimeConfig do
 
       nil ->
         System.get_env(name) || default
-    end
-  end
-
-  defp load_dotenv_line("#" <> _), do: :ok
-
-  defp load_dotenv_line(line) do
-    case String.split(line, "=", parts: 2) do
-      [key, value] -> System.put_env(String.trim(key), String.trim(value))
-      _ -> :ok
     end
   end
 end

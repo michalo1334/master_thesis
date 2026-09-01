@@ -3,12 +3,23 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import liveSveltePlugin from "live_svelte/vitePlugin";
 import tailwindcss from "@tailwindcss/vite";
 
+const sharedHmrToken = {
+  name: "shared-hmr-token",
+  configResolved(config) {
+    // HAProxy routes HMR upgrades to any identical Vite server without affinity.
+    config.webSocketToken = "network-defense-local";
+  },
+};
+
 export default defineConfig({
+  // All Vite servers use the existing shared build volume for identical dependency URLs.
+  cacheDir: "/app/_build_docker/vite",
   server: {
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
     cors: { origin: "http://localhost:4000" },
+    hmr: { clientPort: 4000 },
   },
   optimizeDeps: {
     include: [
@@ -20,8 +31,7 @@ export default defineConfig({
     ],
   },
   ssr: {
-    noExternal:
-      process.env.NODE_ENV === "production" ? true : undefined,
+    noExternal: process.env.NODE_ENV === "production" ? true : undefined,
   },
   build: {
     manifest: true,
@@ -41,5 +51,6 @@ export default defineConfig({
     tailwindcss(),
     svelte({ compilerOptions: { css: "injected" } }),
     liveSveltePlugin({ entrypoint: "./js/server.ts" }),
+    sharedHmrToken,
   ],
 });

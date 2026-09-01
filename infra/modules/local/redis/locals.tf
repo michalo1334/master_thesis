@@ -9,8 +9,7 @@ locals {
     esac
     [ "$${#password}" -eq 64 ] || { echo "redis-password must be 64 hex characters" >&2; exit 1; }
     umask 077
-    printf 'requirepass %s\nsave ""\nappendonly no\n' "$password" > /tmp/redis.conf
-    chown redis:redis /tmp/redis.conf
-    exec /usr/local/bin/docker-entrypoint.sh redis-server /tmp/redis.conf
+    printf 'requirepass %s\nsave ""\nappendonly no\n' "$password" > /data/redis.conf
+    exec /usr/local/bin/docker-entrypoint.sh redis-server /data/redis.conf
   EOT
 }

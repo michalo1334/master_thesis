@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.Telemetry do
 
   import Telemetry.Metrics
 
+  alias NetworkDefense.RuntimeConfig
+
   @duration_buckets [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60]
 
   def start_link(arg) do
@@ -312,7 +314,7 @@ defmodule NetworkDefenseWeb.Telemetry do
 
   @doc false
   def emit_oban do
-    if System.get_env("ROLE") == "coordinator" and repo_available?() do
+    if RuntimeConfig.api?() and repo_available?() do
       try do
         emit_oban_depth()
         :ok

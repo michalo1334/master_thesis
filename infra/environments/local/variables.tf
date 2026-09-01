@@ -11,8 +11,6 @@ variable "application" {
     log_level = string
     host_ports = object({
       http     = number
-      metrics  = number
-      assets   = number
       debugger = number
     })
   })

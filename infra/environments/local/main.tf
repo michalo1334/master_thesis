@@ -31,7 +31,7 @@ check "host_ports_valid" {
 
   assert {
     condition     = length(local.all_host_ports) == length(distinct(local.all_host_ports))
-    error_message = "All eight configured host entry ports must be pairwise unique."
+    error_message = "All six configured host entry ports must be pairwise unique."
   }
 }
 
@@ -79,6 +79,17 @@ module "app" {
   sites                  = local.sites
 
   depends_on = [module.analysis, module.database, module.redis]
+}
+
+module "haproxy" {
+  source = "../../modules/local/haproxy"
+
+  host_port     = var.application.host_ports.http
+  name_prefix   = local.name_prefix
+  nodes         = local.nodes
+  site_networks = { for site, network in docker_network.site : site => network.name }
+
+  depends_on = [module.app]
 }
 
 module "database" {

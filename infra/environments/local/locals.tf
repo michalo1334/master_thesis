@@ -1,8 +1,6 @@
 locals {
   all_host_ports = [
     var.application.host_ports.http,
-    var.application.host_ports.metrics,
-    var.application.host_ports.assets,
     var.application.host_ports.debugger,
     var.database.host_port,
     var.grafana.host_port,

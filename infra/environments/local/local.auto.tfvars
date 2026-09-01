@@ -3,8 +3,6 @@ application = {
   log_level = "debug"
   host_ports = {
     http     = 4000
-    metrics  = 4001
-    assets   = 5173
     debugger = 9229
   }
 }

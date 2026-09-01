@@ -20,6 +20,7 @@ resource "docker_image" "dev" {
         "config/config.exs",
         "config/dev.exs",
         "config/runtime.exs",
+        "assets/vite.config.mjs",
         "lib/network_defense/runtime_config.ex",
         "lib/network_defense_web/telemetry.ex"
       ] : filesha1("${var.app_source_path}/${filename}")
@@ -84,7 +85,7 @@ resource "docker_container" "node" {
   }
 
   dynamic "ports" {
-    for_each = each.value.role == "coordinator" ? local.dev_host_ports : []
+    for_each = each.value.role == "api" && each.value.site == var.application.primary_site ? local.dev_host_ports : []
     iterator = port
 
     content {

@@ -44,11 +44,9 @@ variable "host" {
 }
 
 variable "host_ports" {
-  description = "Coordinator host port bindings."
+  description = "Application host port bindings."
   type = object({
     http     = number
-    metrics  = number
-    assets   = number
     debugger = number
   })
 }

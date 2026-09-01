@@ -20,7 +20,7 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   watchers: [vite: {PhoenixVite.Npm, :run, [:vite, ~w(dev)]}],
-  static_url: [host: "localhost", port: 5173]
+  static_url: [host: "localhost", port: 4000]
 
 # ## SSL Support
 #

@@ -1,6 +1,8 @@
 # Local multi-site BEAM design draft
 
-Status: planning only. Implementation files are unchanged.
+Status: historical design draft. Phase 1 implements the active-active model in
+`active-active-phase-1.md`. The remaining coordinator-specific sections record
+the design that Phase 1 replaced.
 
 Execution states: [`erlang-multisite-tasks/README.md`](erlang-multisite-tasks/README.md).
 
@@ -23,7 +25,22 @@ to local Docker resources. This reduces configuration drift, keeps secret
 values out of Terraform state, and preserves a usable local development
 workflow.
 
-## Selected design
+## Current Phase 1 Design
+
+HAProxy is the only loopback browser entry. It joins both site networks and
+routes Phoenix, Vite assets, and Vite HMR connections to either ready API node.
+Replica `0` in each site is an API node. All other replicas are workers. The
+primary site selects the one-shot setup network only.
+
+API nodes do not run workload queues. Workers have no browser route. API
+readiness checks PostgreSQL only. Redis and analysis failures can fail their
+own work, but do not remove an API from HAProxy. Vite servers use common client
+state so the edge can route without affinity.
+
+Each collector keeps its internal site-local app scrape. Each API reports the
+same global Oban queue depth. Grafana uses `max` for that replicated gauge.
+
+## Historical Design
 
 One local Terraform state creates isolated site networks, shared data services,
 and one central observability network. The app and analysis aggregate modules
@@ -254,6 +271,70 @@ C4Dynamic
 
   UpdateRelStyle(apps, collector, $offsetY="-30")
   UpdateRelStyle(collector, apps, $offsetY="30")
+```
+
+### Failure-mode overlay
+
+This C4 overlay shows the current simulator's failure behavior. Red marks a
+service-stopping single point of failure. Amber marks degraded behavior or
+lost transient progress. Gray marks a component that receives no application
+traffic in this phase.
+
+```mermaid
+C4Container
+  title Failure Modes - Current Two-Site Simulator
+
+  Person(operator, "Operator", "Uses the single published Phoenix entry point")
+  System_Ext(apiFailure, "Public API failure", "Failure", "The only published UI node stops")
+  System_Ext(workerFailure, "Worker or site-west failure", "Failure", "New work may move; executing work has no recovery")
+  System_Ext(postgresFailure, "PostgreSQL failure", "Failure", "Durable state, readiness, and Oban stop")
+  System_Ext(redisFailure, "Redis failure", "Failure", "Transient progress broadcasts are lost")
+  System_Ext(analysisFailure, "Primary analysis failure", "Failure", "The current synchronous analysis request fails")
+
+  Boundary(west, "site-west") {
+    Container(coordinator, "Coordinator / UI", "Phoenix + Oban", "Only public entry; workload queues disabled")
+    Container(westWorker, "Worker", "BEAM + Oban", "Claims global workload jobs")
+    Container(westAnalysis, "Analysis", "Python HTTP", "Only analysis endpoint used now")
+  }
+  Boundary(east, "site-east") {
+    Container(eastWorkers, "Workers", "BEAM + Oban", "May claim newly available global jobs")
+    Container(eastAnalysis, "Analysis", "Python HTTP", "Idle in this phase")
+  }
+  Boundary(shared, "Shared services") {
+    ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Domain state and Oban jobs")
+    ContainerQueue(redis, "Redis", "Redis", "Cross-site Phoenix PubSub")
+  }
+
+  Rel_D(operator, coordinator, "Uses", "HTTPS")
+  Rel_D(apiFailure, coordinator, "1. Removes the only UI entry", "process or site failure")
+  Rel_D(workerFailure, westWorker, "2. Loses executing work", "process or site failure")
+  Rel_R(workerFailure, eastWorkers, "3. May claim newly available work", "Oban through PostgreSQL")
+  Rel_D(postgresFailure, postgres, "4. Stops readiness and durable work", "database failure")
+  Rel_D(redisFailure, redis, "5. Drops transient progress", "broker failure")
+  Rel_D(analysisFailure, westAnalysis, "6. Fails the primary analysis request", "service failure")
+  Rel_D(coordinator, postgres, "Reads and writes", "SQL")
+  Rel_D(westWorker, postgres, "Claims and persists jobs", "SQL")
+  Rel_D(eastWorkers, postgres, "Claims and persists jobs", "SQL")
+  Rel_D(coordinator, redis, "Broadcasts progress", "Redis PubSub")
+  Rel_D(coordinator, westAnalysis, "Calls", "HTTP")
+
+  UpdateElementStyle(apiFailure, $bgColor="#C62828", $fontColor="#FFFFFF", $borderColor="#8E0000")
+  UpdateElementStyle(postgresFailure, $bgColor="#C62828", $fontColor="#FFFFFF", $borderColor="#8E0000")
+  UpdateElementStyle(analysisFailure, $bgColor="#C62828", $fontColor="#FFFFFF", $borderColor="#8E0000")
+  UpdateElementStyle(coordinator, $bgColor="#C62828", $fontColor="#FFFFFF", $borderColor="#8E0000")
+  UpdateElementStyle(postgres, $bgColor="#C62828", $fontColor="#FFFFFF", $borderColor="#8E0000")
+  UpdateElementStyle(workerFailure, $bgColor="#F9A825", $fontColor="#000000", $borderColor="#F57F17")
+  UpdateElementStyle(redisFailure, $bgColor="#F9A825", $fontColor="#000000", $borderColor="#F57F17")
+  UpdateElementStyle(westWorker, $bgColor="#F9A825", $fontColor="#000000", $borderColor="#F57F17")
+  UpdateElementStyle(eastWorkers, $bgColor="#F9A825", $fontColor="#000000", $borderColor="#F57F17")
+  UpdateElementStyle(redis, $bgColor="#F9A825", $fontColor="#000000", $borderColor="#F57F17")
+  UpdateElementStyle(eastAnalysis, $bgColor="#546E7A", $fontColor="#FFFFFF", $borderColor="#37474F")
+  UpdateRelStyle(apiFailure, coordinator, $lineColor="#C62828", $textColor="#C62828", $offsetY="-25")
+  UpdateRelStyle(workerFailure, westWorker, $lineColor="#F57F17", $textColor="#F57F17", $offsetY="-25")
+  UpdateRelStyle(workerFailure, eastWorkers, $lineColor="#F57F17", $textColor="#F57F17", $offsetY="25")
+  UpdateRelStyle(postgresFailure, postgres, $lineColor="#C62828", $textColor="#C62828", $offsetY="-25")
+  UpdateRelStyle(redisFailure, redis, $lineColor="#F57F17", $textColor="#F57F17", $offsetY="25")
+  UpdateRelStyle(analysisFailure, westAnalysis, $lineColor="#C62828", $textColor="#C62828", $offsetY="-25")
 ```
 
 ## Network contract

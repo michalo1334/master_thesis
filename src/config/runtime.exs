@@ -2,10 +2,6 @@ import Config
 
 alias NetworkDefense.RuntimeConfig
 
-if config_env() == :dev do
-  RuntimeConfig.load_dotenv()
-end
-
 config :network_defense, :analysis_service,
   url: System.get_env("ANALYSIS_SERVICE_URL"),
   connect_timeout_ms:
@@ -60,7 +56,7 @@ oban_queue_names =
 
 config :network_defense, :oban_queue_names, oban_queue_names
 
-if System.get_env("ROLE") == "coordinator" do
+if RuntimeConfig.api?() do
   config :network_defense, Oban, queues: false
 end
 

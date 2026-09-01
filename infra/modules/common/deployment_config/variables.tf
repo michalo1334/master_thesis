@@ -56,9 +56,9 @@ variable "deployment" {
     condition = alltrue([
       for key, replicas in var.deployment.application.replicas :
       contains(keys(var.deployment.network.sites), key) &&
-      replicas >= 1 && replicas <= 5
+      replicas >= 2 && replicas <= 5
     ])
-    error_message = "Each replica key must match a network site and each replica count must be between 1 and 5."
+    error_message = "Each replica key must match a network site and each replica count must be between 2 and 5."
   }
 
   validation {
