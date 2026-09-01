@@ -1573,7 +1573,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
     graph_title: string;
     id: string;
     kind:
-      "graph" | "analysis_report" | "optimization_report" | "simulation_report";
+      "graph" | "simulation_report" | "optimization_report" | "analysis_report";
     manifest_id?: string | null;
     manifest_title?: string | null;
     output_graph_revision_id?: string | null;
