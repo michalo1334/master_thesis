@@ -1,7 +1,7 @@
 ---
 description: Executes shell commands and returns a compact report — outcome plus extracted errors/warnings only. Use instead of running long or verbose commands directly; saves main-session tokens by discarding raw output. Pass the command(s) to run.
 mode: subagent
-model: commandcode/Qwen/Qwen3.7-Flash
+model: opencode/mimo-v2.5-free
 temperature: 0.1
 permission: allow
 ---

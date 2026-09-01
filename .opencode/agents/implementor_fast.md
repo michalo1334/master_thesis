@@ -1,8 +1,8 @@
 ---
 description: Fast code implementation and editing using DeepSeek V4 Flash
 mode: subagent
-model: opencode-go/deepseek-v4-flash
-temperature: 0.0
+model: singularityapi/deepseek-v4-flash-0731
+temperature: 0.2
 permission: allow
 ---
 <implementor_fast_instructions>
