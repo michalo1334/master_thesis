@@ -1,5 +1,6 @@
 global
   maxconn 4096
+  log stdout format raw local0
 
 defaults
   mode http
@@ -30,6 +31,7 @@ frontend http
 
 backend phoenix
   option httpchk GET /readyz
+  option log-health-checks
   default-server init-addr last,libc,none resolvers docker resolve-prefer ipv4
 %{ for n in api_nodes }
   server app-${n.site}-${n.index} ${name_prefix}-app-${n.site}-${n.index}:4000 check
