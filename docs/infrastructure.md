@@ -1,11 +1,11 @@
 # Infrastructure
 
-Terraform provisions the infrastructure using Docker. The modules and
-environments live in `infra/`.
+Terraform provisions the local Docker simulator. The modules and environments
+live in `infra/`.
 
-The local simulator exercises isolated BEAM sites, shared services, and central
-observability before cloud infrastructure exists. It does not emulate cloud
-control planes, IAM, quotas, WAN behavior, or provider failures.
+The simulator exercises isolated BEAM sites, shared services, active-active
+browser routing, and central observability. It does not emulate cloud control
+planes, IAM, quotas, WAN behavior, or provider failures.
 
 ## Prerequisites
 
@@ -48,6 +48,7 @@ infra/modules/local/
   analysis/       Local Python analysis service
   app/            Phoenix application
   database/       Postgres and pgAdmin
+  haproxy/        Local browser edge
   observability/  Central Grafana, Prometheus, logs, traces, and exporters
   redis/          Authenticated ephemeral Phoenix PubSub broker
 ```
@@ -69,23 +70,26 @@ Run Terraform through the helper script:
 Refer to the environment files for the accepted variables and exported
 outputs rather than fixed URLs or ports.
 
-The `urls` output contains the five host entry points: application, PostgreSQL,
-Grafana, pgAdmin, and Prometheus. Use it as the source of truth for published
-service URLs.
+The `urls` output contains five service URLs: application, PostgreSQL, Grafana,
+pgAdmin, and Prometheus. The application URL reaches HAProxy over local HTTP.
+Application nodes do not publish browser, Vite, or metrics ports. Only the
+primary site's API node retains the debugger publication. Use `urls` as the
+source of truth for published service URLs.
 
 ## Analysis service
 
 The `analysis` module runs one local Python statistical analysis service per
-declared site. The service is internal to its site network. The Phoenix app
-reaches it through the `analysis` alias. It has no host port. See
+declared site. The service is internal to its site network. An API node reaches
+it through the `analysis` alias. It has no host port. See
 `evaluation/analysis/README.md` for its behavior, HTTP interface, and CLI.
 
 ## Observability services
 
 The observability module runs Grafana, Prometheus, Tempo, Loki, Alloy, and
-infrastructure exporters on the central observability network. Grafana and
-Prometheus are the only published observability entry points. Per-site
-collectors and application telemetry are added separately.
+infrastructure exporters on the central observability network. It also runs one
+collector per site. Each collector joins its site network and the observability
+network. Grafana and Prometheus are the only published observability entry
+points.
 
 Grafana is the all-site view. LiveDashboard and OTP Observer are site-local;
 Redis PubSub does not extend LiveDashboard across site meshes.
@@ -117,7 +121,9 @@ tails those files and writes them to Loki.
 
 ## Health and readiness
 
-The app exposes health and readiness endpoints. See the app module source for
+The app exposes health and readiness endpoints. HAProxy checks API readiness
+before it routes browser traffic. The readiness check depends on PostgreSQL,
+not Redis or the analysis service. See the app and HAProxy module source for
 the health check paths.
 
 Terraform waits for configured container health checks and for the setup
