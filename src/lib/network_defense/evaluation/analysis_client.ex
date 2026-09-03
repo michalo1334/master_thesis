@@ -85,7 +85,7 @@ defmodule NetworkDefense.Evaluation.AnalysisClient do
   defp request(url, archive, run_id, mode, config) do
     path = if mode == "pilot", do: "/v1/pilot", else: "/v1/analyze"
 
-    options =
+    request =
       [
         method: :post,
         url: url <> path,
@@ -100,8 +100,10 @@ defmodule NetworkDefense.Evaluation.AnalysisClient do
         retry: false
       ]
       |> maybe_put_plug(config[:plug])
+      |> Req.new()
+      |> OpentelemetryReq.attach(propagate_trace_headers: true)
 
-    case Req.request(options) do
+    case Req.request(request) do
       {:ok, response} -> {:ok, response}
       {:error, _reason} -> {:error, :transport}
     end

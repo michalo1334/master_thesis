@@ -89,6 +89,7 @@ defmodule NetworkDefense.MixProject do
       {:opentelemetry_ecto, "~> 1.2"},
       {:opentelemetry_process_propagator, "~> 0.3"},
       {:opentelemetry_oban, "~> 1.0"},
+      {:opentelemetry_req, "~> 1.0"},
       {:oban, "~> 2.19"}
     ]
   end

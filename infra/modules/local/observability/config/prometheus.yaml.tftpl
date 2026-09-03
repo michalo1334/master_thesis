@@ -28,6 +28,12 @@ scrape_configs:
         labels:
           component: database
 
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels:
+          component: cache
+
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]

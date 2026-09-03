@@ -20,7 +20,9 @@ resource "docker_container" "analysis" {
   name  = "${var.name_prefix}-analysis-${each.key}"
 
   env = [
-    "NETWORK_DEFENSE_ANALYSIS_MAX_RESPONSE_BYTES=${local.max_response_size}"
+    "NETWORK_DEFENSE_ANALYSIS_MAX_RESPONSE_BYTES=${local.max_response_size}",
+    "OTEL_SERVICE_NAME=analysis",
+    "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318"
   ]
 
   networks_advanced {

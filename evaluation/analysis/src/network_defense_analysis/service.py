@@ -160,6 +160,27 @@ async def correlation_header(request: Request, call_next):
     return response
 
 
+def setup_telemetry(app: Starlette) -> None:
+    """Initialize OTel tracing if OTEL_EXPORTER_OTLP_ENDPOINT is configured."""
+    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
+        return
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.instrumentation.starlette import StarletteInstrumentor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    resource = Resource.create({
+        "service.name": os.environ.get("OTEL_SERVICE_NAME", "analysis"),
+    })
+    provider = TracerProvider(resource=resource)
+    provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces")))
+    trace.set_tracer_provider(provider)
+    StarletteInstrumentor.instrument_app(app)
+
+
 def create_app() -> Starlette:
     _, limit, response_limit, concurrency = settings()
     app = Starlette(
@@ -173,6 +194,7 @@ def create_app() -> Starlette:
 
     app.state.service = Service(limit, response_limit, concurrency)
     # TODO: authentication is required before non-local exposure.
+    setup_telemetry(app)
     return app
 
 

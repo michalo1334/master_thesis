@@ -52,9 +52,10 @@ module "redis" {
   count  = local.pubsub_adapter == "redis" ? 1 : 0
   source = "../../modules/local/redis"
 
-  name_prefix   = local.name_prefix
-  site_networks = { for site, network in docker_network.site : site => network.name }
-  password_file = "${local.secret_mount_path}/redis-password"
+  name_prefix           = local.name_prefix
+  site_networks         = { for site, network in docker_network.site : site => network.name }
+  password_file         = "${local.secret_mount_path}/redis-password"
+  observability_network = docker_network.observability.name
 }
 
 module "app" {
