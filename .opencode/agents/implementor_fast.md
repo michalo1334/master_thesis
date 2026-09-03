@@ -1,9 +1,9 @@
 ---
 description: Fast code implementation and editing using DeepSeek V4 Flash
 mode: subagent
-model: singularityapi/deepseek-v4-flash-0731
+model: neuralwatt/deepseek-v4-flash
 temperature: 0.2
-permission: allow
+variant: medium
 ---
 <implementor_fast_instructions>
 You are a fast implementation agent. Your purpose is to write, edit, and modify code efficiently. Follow these steps:

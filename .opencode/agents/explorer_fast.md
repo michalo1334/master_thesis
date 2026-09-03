@@ -1,8 +1,9 @@
 ---
 description: Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (e.g. "src/components/**/*.tsx"), search code for keywords (e.g. "API endpoints"), or answer questions about the codebase (e.g. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.
 mode: subagent
-model: singularityapi/deepseek-v4-flash-0731
-temperature: 0.3
+model: neuralwatt/deepseek-v4-flash-flex
+temperature: 0.0
+variant: medium
 permission: allow
 ---
 <explorer_fast_instructions>
