@@ -2,7 +2,7 @@
 description: Executes shell commands and returns a compact report — outcome plus extracted errors/warnings only. Use instead of running long or verbose commands directly; saves main-session tokens by discarding raw output. Pass the command(s) to run.
 mode: subagent
 model: opencode/mimo-v2.5-free
-temperature: 0.1
+temperature: 0.0
 permission: allow
 ---
 <cmd_runner_instructions>
