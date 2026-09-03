@@ -11,9 +11,10 @@ const sharedHmrToken = {
   },
 };
 
-export default defineConfig({
-  // All Vite servers use the existing shared build volume for identical dependency URLs.
-  cacheDir: "/app/_build_docker/vite",
+export default defineConfig(({ command }) => ({
+  // Dev server and build use separate cacheDirs to prevent build from
+  // clobbering the dev server's pre-bundled deps.
+  cacheDir: command === "build" ? "/app/_build_docker/vite-build" : "/app/_build_docker/vite",
   server: {
     host: "0.0.0.0",
     port: 5173,
@@ -53,4 +54,4 @@ export default defineConfig({
     liveSveltePlugin({ entrypoint: "./js/server.ts" }),
     sharedHmrToken,
   ],
-});
+}));
