@@ -105,6 +105,28 @@ defmodule NetworkDefenseWeb.Telemetry do
         unit: {:native, :second},
         reporter_options: [buckets: @duration_buckets]
       ),
+      counter("network_defense.scatter_gather.runs.total",
+        event_name: [:network_defense, :scatter_gather, :run],
+        tags: [:operation, :executor, :outcome]
+      ),
+      distribution("network_defense.scatter_gather.run.duration.seconds",
+        event_name: [:network_defense, :scatter_gather, :run],
+        measurement: :duration,
+        tags: [:operation, :executor, :outcome],
+        unit: {:native, :second},
+        reporter_options: [buckets: @duration_buckets]
+      ),
+      counter("network_defense.scatter_gather.partitions.total",
+        event_name: [:network_defense, :scatter_gather, :partition],
+        tags: [:operation, :executor, :outcome]
+      ),
+      distribution("network_defense.scatter_gather.partition.duration.seconds",
+        event_name: [:network_defense, :scatter_gather, :partition],
+        measurement: :duration,
+        tags: [:operation, :executor, :outcome],
+        unit: {:native, :second},
+        reporter_options: [buckets: @duration_buckets]
+      ),
       counter("network_defense.optimizer.runs.total",
         event_name: [:network_defense, :optimizer, :run]
       ),

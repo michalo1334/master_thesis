@@ -12,6 +12,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport
+  alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
@@ -19,12 +20,8 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulations.Errors
   alias NetworkDefense.Simulations.SimulationWorker
-  alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   import Ecto.Query
-
-  require OpenTelemetry.Tracer, as: Tracer
-  require Logger
 
   @simulation_events_topic "simulation_events"
   @trial_batch_size 500
@@ -104,9 +101,7 @@ defmodule NetworkDefense.Simulations do
         inserted
 
       {:error, reason} ->
-        Logger.error("Unable to enqueue simulation job: #{inspect(reason)}",
-          correlation_id: correlation_id
-        )
+        SimulationTelemetry.enqueue_failed(correlation_id, reason)
 
         Experiments.fail(experiment.id)
         {:error, :task_unavailable}
@@ -114,47 +109,17 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp run_experiment(graph, correlation_id, experiment) do
-    Tracer.with_span "simulation.run",
-      attributes: %{
-        "graph.id": graph.id,
-        "graph.revision_id": graph.revision_id,
-        "simulation.experiment_id": experiment.id,
-        "network_defense.correlation.id": correlation_id,
-        "simulation.run_count": experiment.total_trials,
-        "simulation.iteration_count": experiment.iteration_count,
-        "simulation.max_attempts": experiment.max_attempts
-      } do
-      Logger.debug("Simulation started",
-        event: "simulation.run.started",
-        experiment_id: experiment.id,
-        graph_id: graph.id,
-        graph_revision_id: graph.revision_id,
-        correlation_id: correlation_id,
-        run_count: experiment.total_trials,
-        iteration_count: experiment.iteration_count
-      )
+    try do
+      experiment =
+        SimulationTelemetry.run(experiment, graph, correlation_id, fn ->
+          run_batches(graph, correlation_id, experiment)
+        end)
 
-      try do
-        experiment = run_batches(graph, correlation_id, experiment)
-        Tracer.set_attributes(%{"simulation.completed_run_count": experiment.completed_trials})
-        Tracer.set_status(OpenTelemetry.status(:ok))
-
-        Logger.debug("Simulation completed",
-          event: "simulation.run.completed",
-          experiment_id: experiment.id,
-          graph_id: graph.id,
-          graph_revision_id: graph.revision_id,
-          correlation_id: correlation_id,
-          completed_run_count: experiment.completed_trials,
-          runtime_ms: experiment.runtime_ms
-        )
-
-        broadcast_simulation_completed(graph, experiment, correlation_id)
-        {:ok, experiment}
-      rescue
-        error ->
-          simulation_failure(graph, correlation_id, experiment, error, __STACKTRACE__)
-      end
+      broadcast_simulation_completed(graph, experiment, correlation_id)
+      {:ok, experiment}
+    rescue
+      error ->
+        simulation_failure(graph, correlation_id, experiment, error)
     end
   end
 
@@ -166,10 +131,7 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp simulation_failure(graph, correlation_id, experiment, error, stacktrace) do
-    Tracer.record_exception(error, stacktrace)
-    Tracer.set_status(OpenTelemetry.status(:error))
-    Logger.error(Exception.format(:error, error, stacktrace), correlation_id: correlation_id)
+  defp simulation_failure(graph, correlation_id, experiment, _error) do
     Experiments.fail(experiment.id)
     broadcast_simulation_failed(graph, correlation_id, :internal_error)
     {:error, :internal_error}
@@ -188,44 +150,20 @@ defmodule NetworkDefense.Simulations do
       {first_trial_index, last_trial_index} = Enum.min_max(trial_indexes)
 
       {elapsed_us, runs} =
-        Tracer.with_span "simulation.compute",
-          attributes: %{
-            "simulation.batch_size": length(trial_indexes),
-            "simulation.first_trial_index": first_trial_index,
-            "simulation.last_trial_index": last_trial_index
-          } do
-          :timer.tc(fn ->
-            Simulator.run_batch(
-              experiment,
-              graph,
-              initial_attacker_state,
-              trial_indexes,
-              rules: default_rules(),
-              max_attempts: experiment.max_attempts,
-              map_fn: &parallel_map_fn/2
-            )
-          end)
-        end
+        SimulationTelemetry.compute(experiment, trial_indexes, fn ->
+          run_batch_timed(experiment, graph, initial_attacker_state, trial_indexes)
+        end)
 
       runtime_ms = div(elapsed_us, 1000)
 
-      :telemetry.execute(
-        [:network_defense, :simulator, :run],
-        %{duration: System.convert_time_unit(elapsed_us, :microsecond, :native)},
-        %{}
-      )
-
       case Experiments.append_batch(experiment, runs, runtime_ms) do
         {:ok, saved} ->
-          Logger.debug("Simulation batch completed",
-            event: "simulation.batch.completed",
-            correlation_id: correlation_id,
-            experiment_id: saved.id,
-            completed_run_count: saved.completed_trials,
-            total_run_count: saved.total_trials,
-            first_trial_index: first_trial_index,
-            last_trial_index: last_trial_index,
-            runtime_ms: runtime_ms
+          SimulationTelemetry.batch_completed(
+            correlation_id,
+            saved,
+            first_trial_index,
+            last_trial_index,
+            runtime_ms
           )
 
           broadcast_simulation_progress(
@@ -244,6 +182,20 @@ defmodule NetworkDefense.Simulations do
       end
     end)
     |> complete_experiment()
+  end
+
+  defp run_batch_timed(experiment, graph, initial_attacker_state, trial_indexes) do
+    :timer.tc(fn ->
+      Simulator.run_batch(
+        experiment,
+        graph,
+        initial_attacker_state,
+        trial_indexes,
+        rules: default_rules(),
+        max_attempts: experiment.max_attempts,
+        map_fn: &parallel_map_fn/2
+      )
+    end)
   end
 
   defp complete_experiment(experiment) do
@@ -269,7 +221,10 @@ defmodule NetworkDefense.Simulations do
 
   @spec parallel_map_fn(Enumerable.t(), (term() -> term())) :: Enumerable.t()
   def parallel_map_fn(enum, fun) do
-    TaskSupervisor.async_stream(NetworkDefense.TaskSupervisor, enum, fun,
+    OpentelemetryProcessPropagator.Task.Supervisor.async_stream(
+      NetworkDefense.TaskSupervisor,
+      enum,
+      fun,
       ordered: false,
       timeout: :infinity
     )

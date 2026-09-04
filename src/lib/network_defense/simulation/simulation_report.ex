@@ -12,11 +12,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport.Charts
+  alias NetworkDefense.Simulation.Telemetry
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Statistics
-
-  require Logger
-  require OpenTelemetry.Tracer, as: Tracer
 
   @type t :: %__MODULE__{
           experiment_id: String.t(),
@@ -56,92 +54,58 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   """
   @spec generate(Experiment.t(), ReportProgress.progress_callback()) :: t()
   def generate(%Experiment{} = experiment, on_progress \\ ReportProgress.noop()) do
-    Tracer.with_span "simulation.report.generate",
-      attributes: %{
-        "simulation.experiment_id": experiment.id,
-        "graph.id": experiment.graph.id,
-        "graph.revision_id": experiment.graph_revision_id,
-        "simulation.run_count": length(experiment.runs),
-        "simulation.iteration_count": experiment.iteration_count
-      } do
-      Logger.debug("Simulation report generation started",
-        event: "report.simulation.started",
+    Telemetry.report(experiment, fn ->
+      graph = experiment.graph
+      runs = experiment.runs
+      on_progress.(graph.id, graph.revision_id, 1, 6, "Loading experiment data")
+      final_counts = final_foothold_counts(runs)
+      blast_radius_stats = Statistics.summary(final_counts)
+      on_progress.(graph.id, graph.revision_id, 2, 6, "Computing blast radius statistics")
+      final_mission_impacts = final_mission_impacts(runs, graph)
+      mission_impact_stats = Statistics.summary(final_mission_impacts)
+      on_progress.(graph.id, graph.revision_id, 3, 6, "Computing mission impact statistics")
+
+      operational_flows =
+        graph
+        |> MaterializeReachability.materialize()
+        |> MaterializeReachability.operational_flows()
+
+      on_progress.(graph.id, graph.revision_id, 4, 6, "Materializing operational flows")
+
+      action_success = action_successes(runs)
+      on_progress.(graph.id, graph.revision_id, 5, 6, "Aggregating action results")
+
+      host_compromise = host_compromise_probabilities(runs, graph)
+      capability_impact = capability_impact_probabilities(runs, graph)
+      edge_traversal = edge_traversal_probabilities(runs, graph, operational_flows)
+      on_progress.(graph.id, graph.revision_id, 6, 6, "Computing compromise probabilities")
+
+      report = %__MODULE__{
         experiment_id: experiment.id,
-        graph_id: experiment.graph.id,
+        graph_id: graph.id,
+        graph_title: graph_title(experiment),
+        graph: graph,
         graph_revision_id: experiment.graph_revision_id,
-        run_count: length(experiment.runs),
-        iteration_count: experiment.iteration_count
-      )
-
-      try do
-        graph = experiment.graph
-        runs = experiment.runs
-        on_progress.(graph.id, graph.revision_id, 1, 6, "Loading experiment data")
-        final_counts = final_foothold_counts(runs)
-        blast_radius_stats = Statistics.summary(final_counts)
-        on_progress.(graph.id, graph.revision_id, 2, 6, "Computing blast radius statistics")
-        final_mission_impacts = final_mission_impacts(runs, graph)
-        mission_impact_stats = Statistics.summary(final_mission_impacts)
-        on_progress.(graph.id, graph.revision_id, 3, 6, "Computing mission impact statistics")
-
-        operational_flows =
-          graph
-          |> MaterializeReachability.materialize()
-          |> MaterializeReachability.operational_flows()
-
-        on_progress.(graph.id, graph.revision_id, 4, 6, "Materializing operational flows")
-
-        action_success = action_successes(runs)
-        on_progress.(graph.id, graph.revision_id, 5, 6, "Aggregating action results")
-
-        host_compromise = host_compromise_probabilities(runs, graph)
-        capability_impact = capability_impact_probabilities(runs, graph)
-        edge_traversal = edge_traversal_probabilities(runs, graph, operational_flows)
-        on_progress.(graph.id, graph.revision_id, 6, 6, "Computing compromise probabilities")
-
-        report = %__MODULE__{
-          experiment_id: experiment.id,
-          graph_id: graph.id,
-          graph_title: graph_title(experiment),
-          graph: graph,
-          graph_revision_id: experiment.graph_revision_id,
-          operational_flows: operational_flows,
-          run_count: length(runs),
-          iteration_count: experiment.iteration_count,
-          total_runtime_ms: experiment.runtime_ms,
-          pre_attack_capability_statuses: MissionImpact.pre_attack_status(graph),
-          pre_attack_feasible: MissionImpact.pre_attack_feasible?(graph),
-          summary: summary(blast_radius_stats, mission_impact_stats, graph),
-          charts: %Charts{
-            histogram: histogram_buckets(final_counts),
-            cdf: cdf_series(Enum.sort(final_counts)),
-            convergence: convergence_series(final_counts),
-            action_success: action_success,
-            host_compromise: host_compromise,
-            capability_impact: capability_impact,
-            edge_traversal: edge_traversal
-          }
+        operational_flows: operational_flows,
+        run_count: length(runs),
+        iteration_count: experiment.iteration_count,
+        total_runtime_ms: experiment.runtime_ms,
+        pre_attack_capability_statuses: MissionImpact.pre_attack_status(graph),
+        pre_attack_feasible: MissionImpact.pre_attack_feasible?(graph),
+        summary: summary(blast_radius_stats, mission_impact_stats, graph),
+        charts: %Charts{
+          histogram: histogram_buckets(final_counts),
+          cdf: cdf_series(Enum.sort(final_counts)),
+          convergence: convergence_series(final_counts),
+          action_success: action_success,
+          host_compromise: host_compromise,
+          capability_impact: capability_impact,
+          edge_traversal: edge_traversal
         }
+      }
 
-        Tracer.set_status(OpenTelemetry.status(:ok))
-
-        Logger.debug("Simulation report generated",
-          event: "report.simulation.completed",
-          experiment_id: report.experiment_id,
-          graph_id: report.graph_id,
-          graph_revision_id: report.graph_revision_id,
-          run_count: report.run_count,
-          operational_flow_count: length(report.operational_flows)
-        )
-
-        report
-      rescue
-        error ->
-          Tracer.record_exception(error, __STACKTRACE__)
-          Tracer.set_status(OpenTelemetry.status(:error))
-          reraise error, __STACKTRACE__
-      end
-    end
+      report
+    end)
   end
 
   defp graph_title(%Experiment{graph: %Graph{title: title}}), do: title
