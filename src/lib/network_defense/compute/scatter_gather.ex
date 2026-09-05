@@ -1,6 +1,18 @@
 defmodule NetworkDefense.Compute.ScatterGather do
   @moduledoc false
 
+  @otp_app :network_defense
+
+  @spec run(module(), term(), keyword()) :: {:ok, term()} | {:error, term()}
+  def run(operation, input, opts) do
+    executor =
+      @otp_app
+      |> Application.fetch_env!(__MODULE__)
+      |> Keyword.fetch!(:executor)
+
+    executor.run(operation, input, opts)
+  end
+
   @type partition_key :: term()
   @type partition :: term()
   @type work_units :: pos_integer()

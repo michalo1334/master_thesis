@@ -3,7 +3,7 @@ defmodule NetworkDefense.Simulations do
   Public context module for working with simulation related aspects
   """
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Compute.LocalExecutor
+  alias NetworkDefense.Compute.ScatterGather
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
@@ -108,7 +108,7 @@ defmodule NetworkDefense.Simulations do
         result =
           try do
             SimulationTelemetry.run(experiment, graph, correlation_id, fn ->
-              LocalExecutor.run(SimulationOperation, experiment,
+              ScatterGather.run(SimulationOperation, experiment,
                 correlation_id: correlation_id,
                 max_concurrency: Keyword.get(opts, :max_concurrency, System.schedulers_online()),
                 on_progress: progress_callback(graph, correlation_id, opts)

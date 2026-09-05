@@ -33,6 +33,9 @@ config :network_defense,
     max_zip_bytes: 50 * 1024 * 1024
   ]
 
+config :network_defense, NetworkDefense.Compute.ScatterGather,
+  executor: NetworkDefense.Compute.LocalExecutor
+
 # Configures the endpoint
 live_view_signing_salt =
   if config_env() == :prod do
