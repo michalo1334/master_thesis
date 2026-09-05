@@ -73,6 +73,19 @@ end
 
 The operation owns partition contents and final persistence. The executor owns scheduling, concurrency, cancellation, and partition retrieval.
 
+### Executor Contract
+
+All ScatterGather executors implement one entry point. Operations do not depend on a concrete executor.
+
+```elixir
+defmodule NetworkDefense.Compute.ScatterGather.Executor do
+  @callback run(operation :: module(), input :: term(), opts :: keyword()) ::
+              {:ok, term()} | {:error, term()}
+end
+```
+
+`LocalExecutor` implements this behaviour. A future remote executor must implement the same callback and run the same `ScatterGather` operation callbacks.
+
 ### Local Executor
 
 The public entry point is:
@@ -86,7 +99,7 @@ def run(operation, input, opts)
 
 The progress callback receives `%{completed: completed_units, total: total_units}`. The executor calls it in the coordinator process after each successful partition. A callback failure fails the operation and stops remaining tasks.
 
-The implementation uses `OpentelemetryProcessPropagator.Task.Supervisor.async_stream/4` with:
+The implementation uses `OpentelemetryProcessPropagator.Task.Supervisor.async_stream_nolink/4` so a partition crash becomes an executor error instead of terminating the coordinator. It uses:
 
 ```elixir
 ordered: false,
@@ -173,6 +186,8 @@ This code shows the interface shape. Helper names that do not exist in the curre
 
 `Experiments.complete_with_runs/3` must insert all runs and mark the experiment complete in one transaction. The current `append_batch/3` and `complete/1` calls use separate transactions and cannot provide atomic final persistence.
 
+Experiment lifecycle functions lock the row and dispatch valid states through pattern-matched private function clauses. They use changesets only to construct state updates. They use `Repo.rollback/1` for expected transaction failures. They do not use conditional validation ladders, exceptions, or throws.
+
 The scatter-gather path accepts only an experiment with no completed trials. It does not preserve current batch checkpoints or persisted progress. A failed operation marks the experiment failed through the existing caller failure path. A retry can reuse the same empty experiment and recomputes all partitions.
 
 Optimization can implement the same behaviour later. Each optimization operation selects its own partition unit. V1 does not add nested scatter-gather.
@@ -231,15 +246,15 @@ A remote executor will introduce storage only when its transport requirements ar
 - WHEN partitions complete in a different order, THE executor SHALL preserve each result key and SHALL NOT reorder results.
 - WHEN a partition succeeds, THE executor SHALL add its work units and report the new completed and total values.
 - WHEN the progress callback fails, THE executor SHALL stop remaining tasks and SHALL NOT call `gather/3`.
-- WHEN a run completes, THE telemetry helper SHALL emit run and partition durations without partition keys in metric metadata.
-- WHEN a partition fails, THE telemetry helper SHALL add its key to the failure span and error log.
 - WHEN gather persists a simulation, THE database transaction SHALL contain all runs and the completed experiment state.
 - WHEN simulation scatter receives an experiment with completed trials, THE operation SHALL reject it before it starts tasks.
 
+Do not test telemetry events, metrics, spans, traces, or logs. Verify observability through the running application's endpoints.
+
 ## Execution
 
-1. Add the `ScatterGather` behaviour, `LocalExecutor`, and internal telemetry helper. Add focused executor tests.
+1. Add `LocalExecutor` against the existing `ScatterGather` behaviour and telemetry helper. Add focused behavioral executor tests.
 2. Add the atomic experiment completion transaction. Add one transaction test for rollback on failure.
 3. Add `SimulationOperation` by reusing the current simulation input loading and `Simulator.run_batch/5` logic.
 4. Route new simulation work through `LocalExecutor`. Remove the resume branch from this path. Keep existing failure and broadcast behavior.
-5. Register bounded telemetry metrics. Run the simulation tests and the project precommit checks.
+5. Launch the application and query runtime endpoints for observability output. Do not add observability tests. Run the project precommit checks.

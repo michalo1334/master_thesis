@@ -1317,14 +1317,14 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary (lib/network_defense_web/contracts/dashboard/runs/run_summary.ex)
+// NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary (lib/network_defense_web/contracts/dashboard/runs/run_summary.ex) — enum fields: status
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Runs {
   export interface RunSummary {
     completed?: number | null;
     id: string;
     kind: string;
     started_at?: string | null;
-    status: string;
+    status: "running" | "failed" | "completed" | "cancelled";
     title?: string | null;
     total?: number | null;
   }

@@ -11,7 +11,10 @@ defmodule NetworkDefense.Simulation.Experiments do
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Experiment.Status
   alias NetworkDefense.Simulation.Run
+
+  require Status
 
   # Ecto may add binds beyond the values present in each input map.
   @max_bind_parameters 45_000
@@ -24,63 +27,22 @@ defmodule NetworkDefense.Simulation.Experiments do
     |> Repo.insert(timeout: :infinity)
   end
 
-  def append_batch(%Experiment{} = experiment, runs, runtime_ms) when is_list(runs) do
+  @spec start_empty(Ecto.UUID.t()) :: {:ok, Experiment.t()} | {:error, term()}
+  def start_empty(experiment_id) do
     Repo.transaction(
-      fn ->
-        experiment = lock!(experiment.id)
-
-        if experiment.status != "running" do
-          Repo.rollback(:not_running)
-        end
-
-        if experiment.completed_trials + length(runs) > experiment.total_trials do
-          Repo.rollback(:too_many_trials)
-        end
-
-        now = DateTime.truncate(DateTime.utc_now(), :second)
-
-        run_maps =
-          Enum.map(runs, fn run ->
-            run
-            |> db_map(Run, %{
-              experiment_id: experiment.id,
-              inserted_at: now,
-              updated_at: now
-            })
-          end)
-
-        run_count = insert_all(Run, run_maps, :run)
-        if run_count != length(runs), do: Repo.rollback(:run)
-
-        insert_iteration_steps(runs, now)
-
-        experiment
-        |> Experiment.changeset(%{
-          completed_trials: experiment.completed_trials + length(runs),
-          runtime_ms: experiment.runtime_ms + runtime_ms
-        })
-        |> update_or_rollback(:experiment)
-      end,
+      fn -> experiment_id |> lock!() |> start_empty_locked() end,
       timeout: :infinity
     )
   end
 
-  def complete(%Experiment{} = experiment) do
+  @spec complete_with_runs(Experiment.t(), [Run.t()], non_neg_integer()) ::
+          {:ok, Experiment.t()} | {:error, term()}
+  def complete_with_runs(%Experiment{} = experiment, runs, runtime_ms) when is_list(runs) do
+    run_count = length(runs)
+
     Repo.transaction(
       fn ->
-        experiment = lock!(experiment.id)
-
-        if experiment.status != "running" do
-          Repo.rollback(:not_running)
-        end
-
-        if experiment.completed_trials != experiment.total_trials do
-          Repo.rollback(:incomplete)
-        end
-
-        experiment
-        |> Experiment.changeset(%{status: "completed"})
-        |> update_or_rollback(:experiment)
+        experiment.id |> lock!() |> complete_with_runs_locked(runs, run_count, runtime_ms)
       end,
       timeout: :infinity
     )
@@ -88,8 +50,8 @@ defmodule NetworkDefense.Simulation.Experiments do
 
   def fail(experiment_id) do
     Repo.update_all(
-      from(e in Experiment, where: e.id == ^experiment_id and e.status == "running"),
-      set: [status: "failed", updated_at: DateTime.utc_now()]
+      from(e in Experiment, where: e.id == ^experiment_id and e.status == :running),
+      set: [status: :failed, updated_at: DateTime.utc_now()]
     )
 
     :ok
@@ -98,8 +60,8 @@ defmodule NetworkDefense.Simulation.Experiments do
   def cancel(experiment_id) do
     result =
       Repo.update_all(
-        from(e in Experiment, where: e.id == ^experiment_id and e.status == "running"),
-        set: [status: "cancelled", updated_at: DateTime.utc_now()]
+        from(e in Experiment, where: e.id == ^experiment_id and e.status == :running),
+        set: [status: :cancelled, updated_at: DateTime.utc_now()]
       )
 
     Oban.cancel_all_jobs(
@@ -113,36 +75,6 @@ defmodule NetworkDefense.Simulation.Experiments do
       {1, _} -> {:ok, :cancelled}
       _ -> {:error, :not_running}
     end
-  end
-
-  def resume_or_load(experiment_id) do
-    Repo.transaction(
-      fn ->
-        experiment = lock!(experiment_id)
-
-        cond do
-          is_nil(experiment) ->
-            Repo.rollback(:not_found)
-
-          experiment.status in ["completed", "cancelled"] ->
-            experiment
-
-          experiment.completed_trials == experiment.total_trials ->
-            experiment
-            |> Experiment.changeset(%{status: "completed"})
-            |> update_or_rollback(:experiment)
-
-          is_nil(experiment.initial_foothold_node_id) ->
-            Repo.rollback(:not_resumable)
-
-          true ->
-            experiment
-            |> Experiment.changeset(%{status: "running"})
-            |> update_or_rollback(:experiment)
-        end
-      end,
-      timeout: :infinity
-    )
   end
 
   def get(id), do: Repo.get(Experiment, id)
@@ -255,6 +187,75 @@ defmodule NetworkDefense.Simulation.Experiments do
   defp lock!(id) do
     from(experiment in Experiment, where: experiment.id == ^id, lock: "FOR UPDATE")
     |> Repo.one()
+  end
+
+  defp start_empty_locked(nil), do: Repo.rollback(:not_found)
+
+  defp start_empty_locked(%Experiment{status: status} = experiment)
+       when Status.terminal?(status),
+       do: experiment
+
+  defp start_empty_locked(%Experiment{completed_trials: completed_trials})
+       when completed_trials != 0,
+       do: Repo.rollback(:partial_experiment_unsupported)
+
+  defp start_empty_locked(%Experiment{status: status} = experiment)
+       when Status.restartable?(status) do
+    experiment
+    |> Experiment.changeset(%{status: :running})
+    |> update_or_rollback(:experiment)
+  end
+
+  defp start_empty_locked(%Experiment{status: :running} = experiment), do: experiment
+
+  defp complete_with_runs_locked(nil, _runs, _run_count, _runtime_ms),
+    do: Repo.rollback(:not_found)
+
+  defp complete_with_runs_locked(%Experiment{status: status}, _runs, _run_count, _runtime_ms)
+       when status != :running,
+       do: Repo.rollback(:not_running)
+
+  defp complete_with_runs_locked(
+         %Experiment{completed_trials: completed_trials},
+         _runs,
+         _run_count,
+         _runtime_ms
+       )
+       when completed_trials != 0,
+       do: Repo.rollback(:incomplete)
+
+  defp complete_with_runs_locked(
+         %Experiment{total_trials: total_trials},
+         _runs,
+         run_count,
+         _runtime_ms
+       )
+       when run_count != total_trials,
+       do: Repo.rollback(:incomplete)
+
+  defp complete_with_runs_locked(
+         %Experiment{total_trials: run_count} = experiment,
+         runs,
+         run_count,
+         runtime_ms
+       ) do
+    now = DateTime.truncate(DateTime.utc_now(), :second)
+
+    run_maps =
+      Enum.map(runs, fn run ->
+        db_map(run, Run, %{experiment_id: experiment.id, inserted_at: now, updated_at: now})
+      end)
+
+    insert_all(Run, run_maps, :run)
+    insert_iteration_steps(runs, now)
+
+    experiment
+    |> Experiment.changeset(%{
+      completed_trials: experiment.total_trials,
+      runtime_ms: runtime_ms,
+      status: :completed
+    })
+    |> update_or_rollback(:experiment)
   end
 
   defp runs_query do

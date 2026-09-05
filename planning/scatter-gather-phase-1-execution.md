@@ -6,7 +6,7 @@ Add:
 
 - `src/lib/network_defense/compute/scatter_gather.ex`
 - `src/lib/network_defense/compute/telemetry.ex`
-- focused tests under `src/test/network_defense/compute/`
+- a behavior-contract test for `ScatterGather`
 
 Update the central metric list with bounded ScatterGather run and partition metrics.
 
@@ -17,13 +17,12 @@ Implement the callback and observability contracts from the design files. Do not
 Add:
 
 - `src/lib/network_defense/simulation/telemetry.ex`
-- focused helper tests if existing integration tests do not cover an error boundary
 
 Update:
 
 - `src/lib/network_defense/simulations.ex`
 - `src/lib/network_defense/simulation/simulation_report.ex`
-- affected tests
+- affected behavioral tests
 
 Move simulation run, compute, report, enqueue-failure, and current batch-completion tracing or logging into the helper. Keep persistence, PubSub, and progress in their current owners. Preserve current public function signatures and behavior.
 

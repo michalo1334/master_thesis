@@ -655,7 +655,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
   defp run_baseline(run, graph, schedule, plan_count, total) do
     case existing_experiment(run.id, nil) do
-      %Experiment{status: "completed"} ->
+      %Experiment{status: :completed} ->
         :ok
 
       %Experiment{} = experiment ->
@@ -678,7 +678,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
     label = "Post-defense attack trials (plan #{index} of #{plan_count})"
 
     case existing_experiment(run.id, optimization_run.id) do
-      %Experiment{status: "completed"} ->
+      %Experiment{status: :completed} ->
         :ok
 
       %Experiment{} = experiment ->
@@ -721,36 +721,28 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       )
 
     with {:ok, experiment} <- Experiments.create(experiment) do
-      base = progress_base(run.id, plan_count, experiment)
+      base = progress_base(run.id, plan_count)
       run_experiment(experiment, graph, base, total, label)
     end
   end
 
   defp resume_experiment(experiment, plan_count, total, label) do
-    case Experiments.resume_or_load(experiment.id) do
-      {:ok, %Experiment{status: "completed"} = _} ->
-        :ok
+    base = progress_base(experiment.evaluation_run_id, plan_count)
 
-      {:ok, experiment} ->
-        with {:ok, graph} <- load_source(experiment.graph_revision_id) do
-          base = progress_base(experiment.evaluation_run_id, plan_count, experiment)
-          run_experiment(experiment, graph, base, total, label)
-        end
-
-      error ->
-        error
+    with {:ok, graph} <- load_source(experiment.graph_revision_id) do
+      run_experiment(experiment, graph, base, total, label)
     end
   end
 
-  defp progress_base(evaluation_run_id, plan_count, experiment) do
-    plan_count + persisted_trials(evaluation_run_id) - experiment.completed_trials
-  end
+  defp progress_base(evaluation_run_id, plan_count),
+    do: plan_count + persisted_trials(evaluation_run_id)
 
   defp persisted_trials(evaluation_run_id) do
     import Ecto.Query
 
     Experiment
     |> where([experiment], experiment.evaluation_run_id == ^evaluation_run_id)
+    |> where([experiment], experiment.status == :completed)
     |> select([experiment], coalesce(sum(experiment.completed_trials), 0))
     |> NetworkDefense.Repo.one()
   end
@@ -788,15 +780,21 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   defp execute_experiment(experiment, graph, base, total, label) do
     run_id = experiment.evaluation_run_id
 
-    Simulations.run_batches(graph, run_id, experiment, fn saved ->
-      emit_progress(
-        run_id,
-        graph,
-        base + saved.completed_trials,
-        total,
-        "#{label}: #{saved.completed_trials} of #{saved.total_trials}"
-      )
-    end)
+    case Simulations.run(experiment.id,
+           correlation_id: run_id,
+           on_progress: fn %{completed: completed, total: experiment_total} ->
+             emit_progress(
+               run_id,
+               graph,
+               base + completed,
+               total,
+               "#{label}: #{completed} of #{experiment_total}"
+             )
+           end
+         ) do
+      {:ok, completed} -> completed
+      {:error, reason} -> raise "simulation failed: #{inspect(reason)}"
+    end
   end
 
   defp progress_total(run) do
@@ -944,6 +942,6 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
   defp failed_experiment(%Experiment{id: id} = experiment) do
     Experiments.fail(id)
-    Experiments.get(id) || %{experiment | status: "failed"}
+    Experiments.get(id) || %{experiment | status: :failed}
   end
 end

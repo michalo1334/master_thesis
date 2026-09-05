@@ -971,7 +971,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
                      5_000
 
-      assert %{status: "completed", total_trials: 101, completed_trials: 101} =
+      assert %{status: :completed, total_trials: 101, completed_trials: 101} =
                Experiments.get(experiment_id)
     end
 
@@ -1849,15 +1849,15 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp insert_running_experiment(graph_revision_id) do
-    insert_experiment(graph_revision_id, "running", 0)
+    insert_experiment(graph_revision_id, :running, 0)
   end
 
   defp insert_completed_experiment(graph_revision_id) do
-    insert_experiment(graph_revision_id, "completed", 10)
+    insert_experiment(graph_revision_id, :completed, 10)
   end
 
   defp insert_failed_experiment(graph_revision_id) do
-    insert_experiment(graph_revision_id, "failed", 0)
+    insert_experiment(graph_revision_id, :failed, 0)
   end
 
   defp insert_experiment(graph_revision_id, status, completed_trials) do

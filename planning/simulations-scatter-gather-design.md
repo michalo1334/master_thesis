@@ -189,11 +189,13 @@ def start_empty(experiment_id)
 def complete_with_runs(experiment, runs, runtime_ms)
 ```
 
-`start_empty/1` locks the experiment. It allows an empty running or failed experiment. It resets a failed experiment to running. It returns a completed or cancelled experiment without recomputation. It rejects any incomplete experiment that already has persisted runs.
+`start_empty/1` locks the experiment. Pattern-matched clauses allow an empty running or failed experiment. A failed experiment returns to running. A completed or cancelled experiment returns without recomputation. An incomplete experiment with `completed_trials > 0` is rejected.
+
+Existing experiment transactions insert runs and update `completed_trials` atomically. The new lifecycle relies on that invariant instead of querying for persisted runs separately.
 
 Old partial experiments are not migrated. `start_empty/1` returns `{:error, :partial_experiment_unsupported}`. Evaluation fails and must be started again. New ScatterGather execution cannot create this state.
 
-`complete_with_runs/3` uses one transaction. It locks the experiment, verifies the expected trial count, inserts all runs and iteration steps with the existing chunking helpers, sets `completed_trials`, stores wall-clock compute duration, and sets the status to completed. Any error rolls back the full gather.
+`complete_with_runs/3` uses one transaction. Pattern-matched clauses accept only an empty running experiment with the expected run count. The valid clause inserts all runs and iteration steps with the existing chunking helpers, sets `completed_trials`, stores wall-clock compute duration, and completes the experiment. Any error rolls back the full gather.
 
 Delete `append_batch/3` and `complete/1` after all callers migrate. Replace `resume_or_load/1` with `start_empty/1` after evaluation migration.
 
@@ -337,20 +339,16 @@ Delete no domain schema or persisted report fields.
 - WHEN an old partial experiment is found, THE context SHALL return `:partial_experiment_unsupported` and SHALL NOT compute it.
 - WHEN a completed evaluation experiment is found, THE evaluator SHALL skip its computation.
 - WHEN `Simulations.run/2` returns an error to evaluation, THE evaluator SHALL enter its existing experiment-failure path.
-- WHEN `Simulation.Telemetry.run/4` succeeds, THE helper SHALL preserve the run span attributes and completion log fields.
-- WHEN simulation compute runs, THE helper SHALL preserve the compute span and simulator-duration event.
-- WHEN a traced partition starts, THE compute span SHALL attach below the partition span.
-- WHEN a simulation callback raises, THE helper SHALL record the original exception and SHALL reraise with its stacktrace.
-- WHEN a simulation report is generated, THE report module SHALL contain no direct Tracer or Logger calls.
-- WHEN the rewrite is complete, THE Simulations context SHALL contain no direct Tracer, Logger, task-stream, or batch-persistence code.
+
+Do not test telemetry events, metrics, spans, traces, or logs. Verify observability through the running application's endpoints. Use source review to confirm that `Simulations` contains no direct observability, task-stream, or batch-persistence code.
 
 ## Execution
 
-1. Extend the ScatterGather partition contract with work units and an ephemeral progress callback. Add executor progress and callback-failure tests.
+1. Add `LocalExecutor` against the existing ScatterGather contract. Add behavioral executor progress and callback-failure tests.
 2. Add `Experiments.start_empty/1` and atomic `complete_with_runs/3`. Test rollback, restart, completed, and rejected partial states.
-3. Add `SimulationOperation` and `Simulation.Telemetry`. Preserve span names, attributes, event names, units, and trace propagation.
+3. Add `SimulationOperation`. Use the existing `Simulation.Telemetry` helper without observability tests.
 4. Replace `run_or_resume/2` and `run_batches/4` with `Simulations.run/2`. Simplify `SimulationWorker` and preserve PubSub payloads.
 5. Move shared setup helpers to `Simulator`. Update optimization callers. Delete unused Simulations exports and batch concurrency code.
 6. Migrate evaluation to `Simulations.run/2`. Preserve weighted progress and experiment-boundary resume. Delete partial-trial resume calculations.
-7. Move report tracing and logging into `Simulation.Telemetry.report/2`. Keep report output and progress unchanged.
-8. Delete obsolete experiment batch APIs after the last caller migrates. Register or preserve metrics and run the project precommit checks.
+7. Delete obsolete experiment batch APIs and the temporary batch-completion telemetry helper after the last caller migrates.
+8. Launch the application and query runtime endpoints for observability output. Run behavioral tests and the project precommit checks.

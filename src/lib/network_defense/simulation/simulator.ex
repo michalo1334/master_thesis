@@ -14,6 +14,36 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Seed, as: Seed
 
+  @spec initial_attacker_state(term(), Ecto.UUID.t()) :: AttackerState.t()
+  def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
+    case validate_initial_foothold(graph, foothold_id) do
+      :ok ->
+        AttackerState.new(foothold_id)
+
+      {:error, _reason} ->
+        raise ArgumentError, "initial foothold must identify a host in the graph"
+    end
+  end
+
+  @spec validate_initial_foothold(term(), Ecto.UUID.t()) ::
+          :ok | {:error, :invalid_initial_foothold}
+  def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
+    case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
+      %{type: NetworkDefense.Nodes.Host} -> :ok
+      _ -> {:error, :invalid_initial_foothold}
+    end
+  end
+
+  @spec default_rules() :: [Rule.t()]
+  def default_rules do
+    [
+      %NetworkDefense.Rules.RemoteServiceExploitation{},
+      %NetworkDefense.Rules.LocalVulnerabilityExploitation{},
+      %NetworkDefense.Rules.AcquireCredentialRule{},
+      %NetworkDefense.Rules.ReuseCredentialRule{}
+    ]
+  end
+
   @doc """
   Runs a Monte Carlo experiment against graph with supplied options.
 

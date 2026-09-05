@@ -8,7 +8,6 @@ defmodule NetworkDefense.Simulation.CharacterizationBaselineTest do
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Simulator
-  alias NetworkDefense.Simulations
   alias NetworkDefense.Topology.EnterpriseTopology
 
   @topology_seed 7
@@ -30,7 +29,7 @@ defmodule NetworkDefense.Simulation.CharacterizationBaselineTest do
         Simulator.run_experiment(
           graph,
           AttackerState.new(foothold.id),
-          rules: Simulations.default_rules(),
+          rules: Simulator.default_rules(),
           iteration_count: @iteration_count,
           seed: @simulation_seed,
           run_count: @run_count
@@ -87,7 +86,7 @@ defmodule NetworkDefense.Simulation.CharacterizationBaselineTest do
       Simulator.run_experiment(
         graph,
         AttackerState.new(foothold.id),
-        rules: Simulations.default_rules(),
+        rules: Simulator.default_rules(),
         iteration_count: @iteration_count,
         seed: @simulation_seed,
         run_count: @run_count

@@ -9,6 +9,7 @@
 - Keep telemetry metadata bounded. Never add partition keys to metric metadata.
 - Preserve original exception stacktraces.
 - Do not add dependencies, processes, configuration, migrations, or compatibility layers.
-- Do not implement work assigned to Phase 2.
+- Implement only the chunk assigned in the referenced execution plan.
+- Do not write or change tests that assert telemetry events, metrics, spans, traces, or logs.
 - Do not run build, test, lint, format, git, or other verbose commands. The main agent delegates those commands separately.
 - Report changed files, important decisions, and any unresolved risk.

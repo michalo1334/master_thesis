@@ -100,7 +100,7 @@ defmodule NetworkDefense.DocumentCatalog do
       on: revision.id == experiment.graph_revision_id,
       join: graph in Graph,
       on: graph.id == revision.graph_id,
-      where: experiment.status == "completed",
+      where: experiment.status == :completed,
       select: %{
         id: experiment.id,
         kind: @simulation_report_kind,

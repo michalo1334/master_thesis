@@ -1,6 +1,8 @@
 defmodule NetworkDefense.SimulationsTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefense.DataCase, async: false
   use Oban.Testing, repo: NetworkDefense.Repo
+
+  import Ecto.Query
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
@@ -32,7 +34,7 @@ defmodule NetworkDefense.SimulationsTest do
         max_attempts: 1,
         total_trials: 1,
         completed_trials: 1,
-        status: "completed"
+        status: :completed
       )
       |> Experiment.changeset(%{})
       |> Repo.insert!()
@@ -74,7 +76,7 @@ defmodule NetworkDefense.SimulationsTest do
         iteration_count: 1,
         total_trials: 1,
         completed_trials: 1,
-        status: "completed"
+        status: :completed
       )
       |> Experiment.changeset(%{})
       |> Repo.insert!()
@@ -92,7 +94,7 @@ defmodule NetworkDefense.SimulationsTest do
     assert {:error, :invalid_edge} = Graphs.insert(graph)
   end
 
-  test "dispatch and batch path simulates an unmaterialized canonical graph" do
+  test "dispatch simulates an unmaterialized canonical graph" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Canonical Dispatch"))
 
     foothold =
@@ -137,7 +139,7 @@ defmodule NetworkDefense.SimulationsTest do
                     %{correlation_id: ^correlation_id, experiment_id: ^experiment_id}},
                    5_000
 
-    assert %{status: "completed", total_trials: 5, completed_trials: 5} =
+    assert %{status: :completed, total_trials: 5, completed_trials: 5} =
              Experiments.get(experiment_id)
 
     assert %{runs: runs} = Experiments.load(experiment_id)
@@ -195,13 +197,17 @@ defmodule NetworkDefense.SimulationsTest do
       Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
 
     assert {:error, :infeasible_input} =
-             Simulations.prepare(graph.revision_id, %SimulationParams{
-               monte_carlo_trials: 1,
-               iterations_per_run: 1,
-               initial_foothold_node_id: foothold.id,
-               generate_seed: false,
-               seed: 42,
-               max_attempts: 1
+             Simulations.run_async(%RunSimulationRequest{
+               graph_revision_id: graph.revision_id,
+               correlation_id: "infeasible-prepare-request",
+               simulation_params: %SimulationParams{
+                 monte_carlo_trials: 1,
+                 iterations_per_run: 1,
+                 initial_foothold_node_id: foothold.id,
+                 generate_seed: false,
+                 seed: 42,
+                 max_attempts: 1
+               }
              })
 
     assert Repo.get_by(Experiment, graph_revision_id: graph.revision_id) == nil
@@ -270,7 +276,7 @@ defmodule NetworkDefense.SimulationsTest do
              })
   end
 
-  test "marks a resumed experiment failed when persistence fails" do
+  test "marks an experiment failed when final persistence fails" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Post Persistence Failure"))
 
     foothold =
@@ -286,7 +292,7 @@ defmodule NetworkDefense.SimulationsTest do
         max_attempts: 1,
         total_trials: 2,
         initial_foothold_node_id: foothold.id,
-        status: "running"
+        status: :running
       )
       |> Experiment.changeset(%{})
       |> Repo.insert!()
@@ -303,16 +309,16 @@ defmodule NetworkDefense.SimulationsTest do
       |> Repo.insert!()
     end)
 
-    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+    assert {:error, :internal_error} =
+             Simulations.run(experiment.id, correlation_id: correlation_id)
 
-    assert {:error, :internal_error} = Simulations.run_or_resume(experiment.id, correlation_id)
+    assert %{status: :failed} = Experiments.get(experiment.id)
 
-    assert_receive {:simulation_failed, %{correlation_id: ^correlation_id}}, 5_000
-
-    assert %{status: "failed"} = Experiments.get(experiment.id)
+    assert 2 ==
+             Repo.aggregate(from(run in Run, where: run.experiment_id == ^experiment.id), :count)
   end
 
-  test "simulation worker marks a running experiment failed when run_or_resume errors" do
+  test "simulation worker leaves execution failure ownership in the context" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Worker Failure"))
 
     experiment =
@@ -323,13 +329,13 @@ defmodule NetworkDefense.SimulationsTest do
         max_attempts: 1,
         total_trials: 2,
         completed_trials: 0,
-        status: "running"
+        status: :running
       )
       |> Experiment.changeset(%{})
       |> Repo.insert!()
 
-    assert {:error, :not_resumable} =
-             Simulations.run_or_resume(experiment.id, "worker-failure-correlation")
+    assert {:error, :internal_error} =
+             Simulations.run(experiment.id, correlation_id: "worker-failure-correlation")
 
     assert {:error, :failed} =
              perform_job(SimulationWorker, %{
@@ -337,7 +343,7 @@ defmodule NetworkDefense.SimulationsTest do
                "correlation_id" => "worker-failure-correlation"
              })
 
-    assert %{status: "failed"} = Experiments.get(experiment.id)
+    assert %{status: :failed} = Experiments.get(experiment.id)
   end
 
   test "completes a fully persisted running experiment during workflow recovery" do
@@ -353,16 +359,54 @@ defmodule NetworkDefense.SimulationsTest do
         total_trials: 1,
         completed_trials: 1,
         initial_foothold_node_id: foothold.id,
-        status: "running"
+        status: :running
       )
       |> Experiment.changeset(%{})
       |> Repo.insert!()
 
-    assert {:ok, %{id: experiment_id, status: "completed"}} =
-             Simulations.run_or_resume(experiment.id, "recovered-completion")
+    assert {:error, :partial_experiment_unsupported} =
+             Simulations.run(experiment.id, correlation_id: "recovered-completion")
 
-    assert experiment_id == experiment.id
-    assert %{status: "completed"} = Experiments.get(experiment.id)
+    assert %{status: :running} = Experiments.get(experiment.id)
+  end
+
+  test "publishes weighted simulation progress" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Simulation Progress"))
+    foothold = Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 19,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 2,
+        initial_foothold_node_id: foothold.id
+      )
+      |> Experiments.create()
+      |> elem(1)
+
+    correlation_id = "weighted-progress"
+    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+    assert {:ok, _} =
+             Simulations.run(experiment.id,
+               correlation_id: correlation_id,
+               max_concurrency: 1,
+               publish_events: true
+             )
+
+    assert_receive {:simulation_progress,
+                    %{
+                      correlation_id: ^correlation_id,
+                      graph_id: graph_id,
+                      graph_revision_id: graph_revision_id,
+                      completed: 2,
+                      total: 2
+                    }}
+
+    assert graph_id == graph.id
+    assert graph_revision_id == graph.revision_id
   end
 
   defp graph(title) do

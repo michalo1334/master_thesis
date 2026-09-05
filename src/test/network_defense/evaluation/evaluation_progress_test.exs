@@ -6,6 +6,7 @@ defmodule NetworkDefense.EvaluationProgressTest do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.Seed
+  alias NetworkDefense.Simulations
 
   setup do
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
@@ -67,12 +68,12 @@ defmodule NetworkDefense.EvaluationProgressTest do
           iteration_count: 1,
           max_attempts: 1,
           total_trials: 3,
-          completed_trials: 3,
           initial_foothold_node_id: entry_host_id
         )
       )
 
-    assert {:ok, %{status: "completed"}} = Experiments.complete(baseline)
+    assert {:ok, %{status: :completed}} =
+             Simulations.run(baseline.id, correlation_id: run.id)
 
     assert {:ok, %{status: "completed"}} = Evaluation.run(run.id)
 

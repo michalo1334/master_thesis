@@ -6,13 +6,13 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   alias NetworkDefense.Graph.{Graph, MaterializeReachability}
   alias NetworkDefense.Optimization.{Budget, Strategy}
   alias NetworkDefense.Relationships.{NetworkReachability, Runs, SegmentReachability}
-  alias NetworkDefense.Simulations
+  alias NetworkDefense.Simulation.Simulator
 
   defstruct [:initial_foothold_node_id, seed: nil]
 
   def new(graph, %{simulation_params: simulation_params}) do
     with :ok <-
-           Simulations.validate_initial_foothold(
+           Simulator.validate_initial_foothold(
              graph,
              simulation_params.initial_foothold_node_id
            ),

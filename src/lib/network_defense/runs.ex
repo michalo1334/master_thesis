@@ -32,7 +32,7 @@ defmodule NetworkDefense.Runs do
   defp cancel_record(schema, id, cancel_fun) do
     case Repo.get(schema, id) do
       nil -> {:error, :not_found}
-      %{status: "running"} -> cancel_fun.(id)
+      %{status: status} when status in [:running, "running"] -> cancel_fun.(id)
       _ -> {:error, :not_running}
     end
   end
@@ -47,7 +47,7 @@ defmodule NetworkDefense.Runs do
 
   defp active_experiments do
     Experiment
-    |> where([e], e.status == "running")
+    |> where([e], e.status == :running)
     |> preload(:graph_revision)
     |> order_by([e], desc: e.inserted_at)
     |> Repo.all()
@@ -56,7 +56,7 @@ defmodule NetworkDefense.Runs do
         id: e.id,
         kind: "simulation",
         title: e.graph_revision && e.graph_revision.title,
-        status: e.status,
+        status: Experiment.Status.to_wire(e.status),
         completed: e.completed_trials,
         total: e.total_trials,
         started_at: e.inserted_at

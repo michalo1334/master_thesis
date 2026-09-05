@@ -35,10 +35,9 @@ The current `simulation.batch.completed` log needs a temporary helper because ba
 
 Register the bounded ScatterGather metrics. Do not add a process, dependency, database migration, or executor in Phase 1.
 
-### Phase 1 Checks
+### Phase 1 Runtime Checks
 
 - WHEN the application launches, THE runtime endpoints SHALL report the expected telemetry, logs, and metrics.
-- WHEN simulation compute completes, THE helper SHALL emit simulator duration in native units.
 - WHEN report generation completes, THE report value and progress calls SHALL remain unchanged.
 - WHEN the current simulation path runs, THE persistence and PubSub results SHALL remain unchanged.
 
@@ -48,6 +47,8 @@ Phase 2 implements `LocalExecutor`, atomic experiment completion, `SimulationOpe
 
 The detailed contracts and decisions remain in `planning/map-reduce-design.md` and `planning/simulations-scatter-gather-design.md`.
 
+Phase 2 tests cover executor behavior, persistence, public results, progress, and PubSub payloads. They do not assert telemetry events, metrics, spans, traces, or logs. Observability verification launches the application and queries its runtime endpoints.
+
 ## Execution
 
-Implement only Phase 1 until the user reviews it. Do not start Phase 2.
+Phase 1 is complete. Phase 2 follows `planning/scatter-gather-phase-2-execution.md`.

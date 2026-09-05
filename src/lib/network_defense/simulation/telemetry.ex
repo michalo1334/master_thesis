@@ -106,26 +106,6 @@ defmodule NetworkDefense.Simulation.Telemetry do
     )
   end
 
-  @spec batch_completed(
-          String.t(),
-          Experiment.t(),
-          pos_integer(),
-          pos_integer(),
-          non_neg_integer()
-        ) :: :ok
-  def batch_completed(correlation_id, experiment, first_trial_index, last_trial_index, runtime_ms) do
-    Logger.debug("Simulation batch completed",
-      event: "simulation.batch.completed",
-      correlation_id: correlation_id,
-      experiment_id: experiment.id,
-      completed_run_count: experiment.completed_trials,
-      total_run_count: experiment.total_trials,
-      first_trial_index: first_trial_index,
-      last_trial_index: last_trial_index,
-      runtime_ms: runtime_ms
-    )
-  end
-
   defp execute(on_success, on_exception, on_error, fun) do
     try do
       result = fun.()
@@ -196,9 +176,11 @@ defmodule NetworkDefense.Simulation.Telemetry do
     ]
   end
 
+  defp completed_trials({:ok, %{completed_trials: completed_trials}}), do: completed_trials
   defp completed_trials(%{completed_trials: completed_trials}), do: completed_trials
   defp completed_trials(_result), do: 0
 
+  defp runtime_ms({:ok, %{runtime_ms: runtime_ms}}), do: runtime_ms
   defp runtime_ms(%{runtime_ms: runtime_ms}), do: runtime_ms
   defp runtime_ms(_result), do: 0
 end

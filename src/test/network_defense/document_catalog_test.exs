@@ -217,7 +217,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
       max_attempts: 1,
       total_trials: 1,
       completed_trials: 1,
-      status: "completed"
+      status: :completed
     })
     |> Experiments.create()
   end

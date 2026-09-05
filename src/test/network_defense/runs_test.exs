@@ -17,7 +17,7 @@ defmodule NetworkDefense.RunsTest do
       graph = insert_graph("runs-active")
       graph_revision_id = graph.revision_id
 
-      experiment = insert_experiment(graph_revision_id, "running")
+      experiment = insert_experiment(graph_revision_id, :running)
       optimization = insert_optimization(graph_revision_id, "running")
       evaluation = insert_evaluation("running")
 
@@ -63,8 +63,8 @@ defmodule NetworkDefense.RunsTest do
       graph = insert_graph("runs-inactive")
       graph_revision_id = graph.revision_id
 
-      insert_experiment(graph_revision_id, "completed")
-      insert_experiment(graph_revision_id, "failed")
+      insert_experiment(graph_revision_id, :completed)
+      insert_experiment(graph_revision_id, :failed)
       insert_optimization(graph_revision_id, "completed")
       insert_optimization(graph_revision_id, "failed")
       insert_evaluation("completed")
@@ -75,7 +75,7 @@ defmodule NetworkDefense.RunsTest do
 
     test "cancels running runs of every kind and excludes them from active runs" do
       graph = insert_graph("runs-cancel")
-      experiment = insert_experiment(graph.revision_id, "running")
+      experiment = insert_experiment(graph.revision_id, :running)
       optimization = insert_optimization(graph.revision_id, "running")
       evaluation = insert_evaluation("running")
 
@@ -88,19 +88,19 @@ defmodule NetworkDefense.RunsTest do
         refute Enum.any?(Runs.active(), &(&1.id == id))
       end
 
-      assert Repo.get!(Experiment, experiment).status == "cancelled"
+      assert Repo.get!(Experiment, experiment).status == :cancelled
       assert Repo.get!(OptimizationRun, optimization).status == "cancelled"
       assert Repo.get!(EvaluationRun, evaluation).status == "cancelled"
     end
 
     test "cancelling terminal runs returns not_running" do
       graph = insert_graph("runs-terminal")
-      experiment = insert_experiment(graph.revision_id, "completed")
+      experiment = insert_experiment(graph.revision_id, :completed)
       optimization = insert_optimization(graph.revision_id, "completed")
       evaluation = insert_evaluation("failed")
 
       for {kind, id, schema, status} <- [
-            {:simulation, experiment, Experiment, "completed"},
+            {:simulation, experiment, Experiment, :completed},
             {:optimization, optimization, OptimizationRun, "completed"},
             {:evaluation, evaluation, EvaluationRun, "failed"}
           ] do
@@ -112,30 +112,32 @@ defmodule NetworkDefense.RunsTest do
     test "evaluation cancellation only cancels running children" do
       evaluation = insert_evaluation("running")
       graph = insert_graph("evaluation-children")
-      completed_experiment = insert_experiment(graph.revision_id, "completed", evaluation)
+      completed_experiment = insert_experiment(graph.revision_id, :completed, evaluation)
       completed_optimization = insert_optimization(graph.revision_id, "completed", evaluation)
       running_optimization = insert_optimization(graph.revision_id, "running", evaluation)
 
       running_experiment =
-        insert_experiment(graph.revision_id, "running", evaluation, running_optimization)
+        insert_experiment(graph.revision_id, :running, evaluation, running_optimization)
 
       assert {:ok, _} = Runs.cancel(:evaluation, evaluation)
 
-      assert Repo.get!(Experiment, running_experiment).status == "cancelled"
-      assert Repo.get!(Experiment, completed_experiment).status == "completed"
+      assert Repo.get!(Experiment, running_experiment).status == :cancelled
+      assert Repo.get!(Experiment, completed_experiment).status == :completed
       assert Repo.get!(OptimizationRun, running_optimization).status == "cancelled"
       assert Repo.get!(OptimizationRun, completed_optimization).status == "completed"
     end
 
     test "cancelled runs cannot resume or complete" do
       graph = insert_graph("runs-no-resume")
-      experiment = insert_experiment(graph.revision_id, "running")
+      experiment = insert_experiment(graph.revision_id, :running)
       optimization = insert_optimization(graph.revision_id, "running")
       evaluation = insert_evaluation("running")
 
       assert {:ok, _} = Runs.cancel(:simulation, experiment)
-      assert {:ok, %{status: "cancelled"}} = Experiments.resume_or_load(experiment)
-      assert {:error, :not_running} = Experiments.complete(Repo.get!(Experiment, experiment))
+      assert {:ok, %{status: :cancelled}} = Experiments.start_empty(experiment)
+
+      assert {:error, :not_running} =
+               Experiments.complete_with_runs(Repo.get!(Experiment, experiment), [], 0)
 
       assert {:ok, _} = Runs.cancel(:optimization, optimization)
       assert {:ok, %{status: "cancelled"}} = OptimizationRuns.resume_or_load(optimization)

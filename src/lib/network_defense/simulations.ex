@@ -2,13 +2,12 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
-  alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Graph.MaterializeReachability
+  alias NetworkDefense.Compute.{LocalExecutor, SimulationOperation}
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
-  alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Experiment.Status
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport
@@ -17,14 +16,14 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulations.Errors
   alias NetworkDefense.Simulations.SimulationWorker
 
   import Ecto.Query
 
+  require Status
+
   @simulation_events_topic "simulation_events"
-  @trial_batch_size 500
   @report_timeout 60_000
 
   @type async_result :: {:ok, Oban.Job.t()} | {:error, Errors.error()}
@@ -40,23 +39,16 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  @spec prepare(Ecto.UUID.t(), SimulationParams.t()) ::
-          {:ok, Experiment.t()} | {:error, Errors.error()}
-  def prepare(graph_revision_id, %SimulationParams{} = simulation_params) do
-    with {:ok, {_graph, experiment}} <-
-           prepare_experiment(graph_revision_id, simulation_params) do
-      {:ok, experiment}
-    end
-  end
+  @spec run(Ecto.UUID.t(), keyword()) :: {:ok, Experiment.t()} | {:error, term()}
+  def run(experiment_id, opts) do
+    correlation_id = Keyword.fetch!(opts, :correlation_id)
 
-  @spec run_or_resume(Ecto.UUID.t(), String.t()) :: {:ok, Experiment.t()} | {:error, term()}
-  def run_or_resume(experiment_id, correlation_id) do
-    case Experiments.resume_or_load(experiment_id) do
-      {:ok, %Experiment{status: status} = experiment} when status in ["completed", "cancelled"] ->
+    case Experiments.start_empty(experiment_id) do
+      {:ok, %Experiment{status: status} = experiment} when Status.terminal?(status) ->
         {:ok, experiment}
 
       {:ok, experiment} ->
-        run_resumed_experiment(experiment, correlation_id)
+        run_empty(experiment, correlation_id, opts)
 
       error ->
         error
@@ -72,7 +64,8 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp prepare_experiment(%Graph{} = graph, simulation_params) do
-    with :ok <- validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
+    with :ok <-
+           Simulator.validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
          :ok <- validate_mission_feasibility(graph),
          {:ok, experiment} <- create_experiment(graph, simulation_params) do
       {:ok, experiment}
@@ -108,101 +101,76 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp run_experiment(graph, correlation_id, experiment) do
-    try do
-      experiment =
-        SimulationTelemetry.run(experiment, graph, correlation_id, fn ->
-          run_batches(graph, correlation_id, experiment)
-        end)
+  defp run_empty(experiment, correlation_id, opts) do
+    case load_graph(experiment.graph_revision_id) do
+      {:ok, graph} ->
+        result =
+          try do
+            SimulationTelemetry.run(experiment, graph, correlation_id, fn ->
+              LocalExecutor.run(SimulationOperation, experiment,
+                correlation_id: correlation_id,
+                max_concurrency: Keyword.get(opts, :max_concurrency, System.schedulers_online()),
+                on_progress: progress_callback(graph, correlation_id, opts)
+              )
+            end)
+          rescue
+            exception -> normalize_execution_exception(exception)
+          end
 
-      broadcast_simulation_completed(graph, experiment, correlation_id)
-      {:ok, experiment}
-    rescue
-      error ->
-        simulation_failure(graph, correlation_id, experiment, error)
+        finish_run(result, graph, experiment, correlation_id, opts)
+
+      {:error, _reason} = error ->
+        Experiments.fail(experiment.id)
+        error
     end
   end
 
-  defp run_resumed_experiment(experiment, correlation_id) do
-    case Graphs.load_revision(experiment.graph_revision_id) do
-      %Graph{} = graph -> run_experiment(graph, correlation_id, experiment)
-      nil -> {:error, :not_found}
-      _ -> {:error, :invalid_graph}
+  defp normalize_execution_exception(_exception), do: {:error, :internal_error}
+
+  defp finish_run({:ok, completed}, graph, _experiment, correlation_id, opts) do
+    if Keyword.get(opts, :publish_events, false) do
+      broadcast_simulation_completed(graph, completed, correlation_id)
     end
+
+    {:ok, completed}
   end
 
-  defp simulation_failure(graph, correlation_id, experiment, _error) do
+  defp finish_run({:error, _reason}, graph, experiment, correlation_id, opts) do
     Experiments.fail(experiment.id)
-    broadcast_simulation_failed(graph, correlation_id, :internal_error)
+
+    if Keyword.get(opts, :publish_events, false) do
+      broadcast_simulation_failed(graph, correlation_id, :internal_error)
+    end
+
     {:error, :internal_error}
   end
 
-  @spec run_batches(Graph.t(), String.t(), Experiment.t(), (Experiment.t() -> any())) ::
-          Experiment.t()
-  def run_batches(graph, correlation_id, experiment, on_batch_saved \\ fn _saved -> :ok end) do
-    graph = MaterializeReachability.materialize(graph)
+  defp progress_callback(graph, correlation_id, opts) do
+    on_progress = Keyword.get(opts, :on_progress, fn _progress -> :ok end)
 
-    initial_attacker_state = initial_attacker_state(graph, experiment.initial_foothold_node_id)
+    fn %{completed: completed, total: total} = progress ->
+      case on_progress.(progress) do
+        {:error, _reason} = error ->
+          error
 
-    (experiment.completed_trials + 1)..experiment.total_trials
-    |> Stream.chunk_every(@trial_batch_size)
-    |> Enum.reduce(experiment, fn trial_indexes, experiment ->
-      {first_trial_index, last_trial_index} = Enum.min_max(trial_indexes)
-
-      {elapsed_us, runs} =
-        SimulationTelemetry.compute(experiment, trial_indexes, fn ->
-          run_batch_timed(experiment, graph, initial_attacker_state, trial_indexes)
-        end)
-
-      runtime_ms = div(elapsed_us, 1000)
-
-      case Experiments.append_batch(experiment, runs, runtime_ms) do
-        {:ok, saved} ->
-          SimulationTelemetry.batch_completed(
-            correlation_id,
-            saved,
-            first_trial_index,
-            last_trial_index,
-            runtime_ms
-          )
-
-          broadcast_simulation_progress(
+        _result ->
+          publish_progress(
+            Keyword.get(opts, :publish_events, false),
             graph,
             correlation_id,
-            saved.completed_trials,
-            saved.total_trials
+            completed,
+            total
           )
 
-          on_batch_saved.(saved)
-
-          saved
-
-        {:error, reason} ->
-          raise "Failed to persist simulation batch: #{inspect(reason)}"
+          :ok
       end
-    end)
-    |> complete_experiment()
-  end
-
-  defp run_batch_timed(experiment, graph, initial_attacker_state, trial_indexes) do
-    :timer.tc(fn ->
-      Simulator.run_batch(
-        experiment,
-        graph,
-        initial_attacker_state,
-        trial_indexes,
-        rules: default_rules(),
-        max_attempts: experiment.max_attempts,
-        map_fn: &parallel_map_fn/2
-      )
-    end)
-  end
-
-  defp complete_experiment(experiment) do
-    case Experiments.complete(experiment) do
-      {:ok, completed} -> completed
-      {:error, reason} -> raise "Failed to complete simulation: #{inspect(reason)}"
     end
+  end
+
+  defp publish_progress(false, _graph, _correlation_id, _completed, _total), do: :ok
+
+  defp publish_progress(true, graph, correlation_id, completed, total) do
+    broadcast_simulation_progress(graph, correlation_id, completed, total)
   end
 
   defp create_experiment(graph, simulation_params) do
@@ -219,24 +187,13 @@ defmodule NetworkDefense.Simulations do
     |> Experiments.create()
   end
 
-  @spec parallel_map_fn(Enumerable.t(), (term() -> term())) :: Enumerable.t()
-  def parallel_map_fn(enum, fun) do
-    OpentelemetryProcessPropagator.Task.Supervisor.async_stream(
-      NetworkDefense.TaskSupervisor,
-      enum,
-      fun,
-      ordered: false,
-      timeout: :infinity
-    )
-  end
-
   @spec list_experiments([Ecto.UUID.t()]) :: [Experiment.t()]
   def list_experiments(graph_revision_ids) when is_list(graph_revision_ids) do
     query =
       from experiment in Experiment,
         join: revision in assoc(experiment, :graph_revision),
         where: revision.id in ^graph_revision_ids,
-        where: experiment.status == "completed",
+        where: experiment.status == :completed,
         order_by: [desc: :inserted_at],
         preload: [:graph_revision]
 
@@ -252,26 +209,6 @@ defmodule NetworkDefense.Simulations do
     case load_for_report(experiment_id) do
       nil -> nil
       experiment -> SimulationReport.generate(experiment, on_progress)
-    end
-  end
-
-  @spec initial_attacker_state(Graph.t(), Ecto.UUID.t()) :: AttackerState.t()
-  def initial_attacker_state(graph, foothold_id) when is_binary(foothold_id) do
-    case validate_initial_foothold(graph, foothold_id) do
-      :ok ->
-        AttackerState.new(foothold_id)
-
-      {:error, _reason} ->
-        raise ArgumentError, "initial foothold must identify a host in the graph"
-    end
-  end
-
-  @spec validate_initial_foothold(Graph.t(), Ecto.UUID.t()) ::
-          :ok | {:error, :invalid_initial_foothold}
-  def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
-    case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
-      %{type: NetworkDefense.Nodes.Host} -> :ok
-      _ -> {:error, :invalid_initial_foothold}
     end
   end
 
@@ -300,7 +237,7 @@ defmodule NetworkDefense.Simulations do
 
   defp load_for_report(experiment_id) do
     Experiment
-    |> where([experiment], experiment.status == "completed")
+    |> where([experiment], experiment.status == :completed)
     |> Repo.get(experiment_id)
     |> case do
       nil ->
@@ -317,16 +254,6 @@ defmodule NetworkDefense.Simulations do
             nil
         end
     end
-  end
-
-  @spec default_rules() :: [Rule.t()]
-  def default_rules do
-    [
-      %NetworkDefense.Rules.RemoteServiceExploitation{},
-      %NetworkDefense.Rules.LocalVulnerabilityExploitation{},
-      %NetworkDefense.Rules.AcquireCredentialRule{},
-      %NetworkDefense.Rules.ReuseCredentialRule{}
-    ]
   end
 
   defp broadcast_simulation_completed(graph, experiment, correlation_id) do

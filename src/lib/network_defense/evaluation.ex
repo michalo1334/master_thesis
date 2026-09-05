@@ -311,8 +311,8 @@ defmodule NetworkDefense.Evaluation do
     import Ecto.Query
 
     experiments
-    |> where([e], e.evaluation_run_id == ^run_id and e.status == "running")
-    |> NetworkDefense.Repo.update_all(set: [status: "cancelled", updated_at: DateTime.utc_now()])
+    |> where([e], e.evaluation_run_id == ^run_id and e.status == :running)
+    |> NetworkDefense.Repo.update_all(set: [status: :cancelled, updated_at: DateTime.utc_now()])
   end
 
   # Re-announcing a terminal result keeps listeners (the dashboard) in sync when

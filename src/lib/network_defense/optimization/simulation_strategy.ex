@@ -4,6 +4,7 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Simulation.Seed
+  alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulations
 
   @doc """
@@ -15,15 +16,15 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
     model = Map.get(params, :model, %{})
 
     with :ok <-
-           Simulations.validate_initial_foothold(
+           Simulator.validate_initial_foothold(
              graph,
              simulation_params.initial_foothold_node_id
            ) do
       {:ok,
        struct!(module,
          initial_attacker_state:
-           Simulations.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
-         rules: Simulations.default_rules(),
+           Simulator.initial_attacker_state(graph, simulation_params.initial_foothold_node_id),
+         rules: Simulator.default_rules(),
          run_count: simulation_params.monte_carlo_trials,
          iteration_count: simulation_params.iterations_per_run,
          seed: simulation_seed(simulation_params),

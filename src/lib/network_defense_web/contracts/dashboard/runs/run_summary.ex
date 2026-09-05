@@ -3,6 +3,9 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary do
 
   use NetworkDefenseWeb.Contracts, category: :runs
 
+  @enum_values status: NetworkDefense.Simulation.Experiment.Status.wire_values()
+  def contract_meta, do: %{enum_values: @enum_values}
+
   embedded_schema do
     field :id, :string
     field :kind, :string
@@ -27,5 +30,6 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary do
     schema
     |> cast(attrs, [:id, :kind, :title, :status, :completed, :total, :started_at])
     |> validate_required([:id, :kind, :status])
+    |> validate_inclusion(:status, @enum_values[:status])
   end
 end
