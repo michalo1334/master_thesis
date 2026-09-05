@@ -19,22 +19,15 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   """
 
   alias NetworkDefense.Evaluation
-  alias NetworkDefense.Evaluation.{EvaluationRuns, PlanPreview, SeedSchedule}
+  alias NetworkDefense.Evaluation.{EvaluationRuns, PlanPreview, SeedSchedule, StrategyFactory}
   alias NetworkDefense.Graph.{Graph, Graphs}
 
   alias NetworkDefense.Optimization.{
-    CvssStrategy,
-    NullStrategy,
     OptimizationAction,
     ModelVariant,
     OptimizationRun,
     OptimizationRuns,
-    Optimizer,
-    RandomStrategy,
-    SimulatedAnnealingStrategy,
-    SimulationInformedStrategy,
-    SimulationStrategy,
-    TopologySegmentationStrategy
+    Optimizer
   }
 
   alias NetworkDefense.Simulation.{Experiment, Experiments}
@@ -546,7 +539,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
          budget,
          selection_seed
        ) do
-    with {:ok, model} <- model_settings(run, model_variant) do
+    with {:ok, model} <- StrategyFactory.model_settings(run.resolved_manifest, model_variant) do
       case existing_plan(run.id, model_variant, strategy, budget, selection_seed) do
         %OptimizationRun{status: "completed"} = existing ->
           {:ok, existing}
@@ -562,7 +555,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
   defp run_plan(run, graph, schedule, model_variant, strategy, budget, selection_seed, model) do
     with {:ok, strategy_struct} <-
-           build_strategy(strategy, graph, schedule, selection_seed, model),
+           StrategyFactory.build(strategy, graph, schedule, selection_seed, model),
          {:ok, optimization_run} <-
            create_optimization_run(
              run,
@@ -583,7 +576,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
       {:ok, running} ->
         with {:ok, strategy_struct} <-
-               build_strategy(strategy, graph, schedule, selection_seed, model) do
+               StrategyFactory.build(strategy, graph, schedule, selection_seed, model) do
           execute_optimization(graph, running, strategy_struct, budget, model)
         end
 
@@ -608,7 +601,7 @@ defmodule NetworkDefense.Evaluation.Evaluator do
       requested_budget: budget,
       seed: strategy_struct.seed,
       selection_seed: selection_seed,
-      simulation_config: simulation_config(strategy_struct)
+      simulation_config: StrategyFactory.simulation_config(strategy_struct)
     )
     |> OptimizationRuns.create()
   end
@@ -805,87 +798,6 @@ defmodule NetworkDefense.Evaluation.Evaluator do
 
   defp emit_progress(run_id, graph, completed, total, detail) do
     Evaluation.broadcast_progress(run_id, graph, completed, total, detail)
-  end
-
-  defp build_strategy(strategy, graph, schedule, selection_seed, model) do
-    case strategy do
-      "null" ->
-        {:ok, %NullStrategy{}}
-
-      "random" ->
-        {:ok, %RandomStrategy{seed: selection_seed}}
-
-      "cvss" ->
-        {:ok, %CvssStrategy{}}
-
-      "topology_segmentation" ->
-        build_topology_strategy(graph, schedule)
-
-      "simulation_informed" ->
-        build_simulation_strategy(
-          SimulationInformedStrategy,
-          graph,
-          schedule,
-          selection_seed,
-          model
-        )
-
-      "simulated_annealing" ->
-        build_simulation_strategy(
-          SimulatedAnnealingStrategy,
-          graph,
-          schedule,
-          selection_seed,
-          model
-        )
-
-      other ->
-        {:error, "unknown strategy #{other}"}
-    end
-  end
-
-  defp build_simulation_strategy(module, graph, schedule, selection_seed, model) do
-    params = %{
-      simulation_params: %{
-        monte_carlo_trials: schedule.optimizer_trials,
-        iterations_per_run: schedule.optimizer_iterations,
-        initial_foothold_node_id: schedule.entry_host_id,
-        seed: SeedSchedule.optimizer_simulation_seed(selection_seed),
-        generate_seed: false,
-        max_attempts: schedule.max_attempts
-      },
-      model: model
-    }
-
-    SimulationStrategy.new(module, graph, params)
-  end
-
-  defp build_topology_strategy(graph, schedule) do
-    params = %{simulation_params: %{initial_foothold_node_id: schedule.entry_host_id}}
-
-    TopologySegmentationStrategy.new(graph, params)
-  end
-
-  defp simulation_config(%{seed: seed}) when is_integer(seed), do: %{seed: seed}
-  defp simulation_config(_strategy), do: nil
-
-  defp model_settings(run, model_variant) do
-    if model_variant in manifest_variants(run.resolved_manifest) do
-      {:ok, ModelVariant.definition(model_variant)}
-    else
-      {:error, "unknown model variant #{ModelVariant.to_wire(model_variant)}"}
-    end
-  end
-
-  defp model_variant!(wire) do
-    {:ok, variant} = ModelVariant.from_wire(wire)
-    variant
-  end
-
-  defp manifest_variants(manifest) do
-    manifest
-    |> Map.get("model_variants", [])
-    |> Enum.map(&model_variant!(&1["id"]))
   end
 
   defp existing_plan(evaluation_run_id, model_variant, strategy, budget, selection_seed) do

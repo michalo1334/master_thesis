@@ -18,12 +18,6 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   @spec to_wire(t()) :: String.t()
   def to_wire(objective), do: Atom.to_string(objective)
 
-  @doc "Number of foothold nodes held at the end of a run."
-  @spec final_foothold_count(Run.t()) :: non_neg_integer()
-  def final_foothold_count(run) do
-    run |> Run.current_attacker_state() |> AttackerState.foothold_nodes() |> length()
-  end
-
   @doc """
   Ranks expected {mission impact, blast radius} for a validated objective.
   Lower tuples win; `cost` is appended as the final tie breaker.

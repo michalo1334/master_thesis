@@ -12,10 +12,10 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
-  alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Statistics
 
   @spec generate(EvaluationRun.t(), ReportProgress.progress_callback()) :: map() | nil
@@ -97,7 +97,7 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
         "Aggregating experiment #{index} of #{experiment_count}"
       )
 
-      counts = Enum.map(experiment.runs, &SimulationObjective.final_foothold_count/1)
+      counts = Enum.map(experiment.runs, &Run.final_foothold_count/1)
       stats = Statistics.summary(counts)
 
       %{

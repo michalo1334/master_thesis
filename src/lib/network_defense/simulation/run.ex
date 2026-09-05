@@ -94,6 +94,12 @@ defmodule NetworkDefense.Simulation.Run do
 
   def current_seed(%__MODULE__{seed: seed}), do: seed
 
+  @doc "Number of foothold nodes held at the end of a run."
+  @spec final_foothold_count(t()) :: non_neg_integer()
+  def final_foothold_count(run) do
+    run |> current_attacker_state() |> AttackerState.foothold_nodes() |> length()
+  end
+
   def add_iteration_step(
         %__MODULE__{iterations: iterations} = state,
         %IterationStep{} = iteration

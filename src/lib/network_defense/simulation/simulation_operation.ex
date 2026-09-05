@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Compute.SimulationOperation do
+defmodule NetworkDefense.Simulation.SimulationOperation do
   @moduledoc false
 
   @behaviour NetworkDefense.Compute.ScatterGather

@@ -3,7 +3,7 @@ defmodule NetworkDefense.Simulations do
   Public context module for working with simulation related aspects
   """
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Compute.{LocalExecutor, SimulationOperation}
+  alias NetworkDefense.Compute.LocalExecutor
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
@@ -11,6 +11,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.SimulationReport
+  alias NetworkDefense.Simulation.SimulationOperation
   alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator

@@ -7,7 +7,6 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Actions.AttemptedAction
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
-  alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
@@ -111,7 +110,7 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   defp graph_title(%Experiment{graph: %Graph{title: title}}), do: title
 
   defp final_foothold_counts(runs) do
-    Enum.map(runs, &SimulationObjective.final_foothold_count/1)
+    Enum.map(runs, &Run.final_foothold_count/1)
   end
 
   defp final_mission_impacts(runs, graph) do

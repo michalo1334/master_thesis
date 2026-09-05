@@ -385,7 +385,7 @@ defmodule NetworkDefense.Evaluation.OutputContract do
       |> preload(runs: :iterations)
       |> Repo.all()
       |> Enum.map(fn experiment ->
-        counts = Enum.map(experiment.runs, &SimulationObjective.final_foothold_count/1)
+        counts = Enum.map(experiment.runs, &Run.final_foothold_count/1)
         stats = Statistics.summary(counts)
 
         %{

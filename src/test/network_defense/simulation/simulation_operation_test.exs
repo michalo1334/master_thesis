@@ -1,15 +1,14 @@
-defmodule NetworkDefense.Compute.SimulationOperationTest do
+defmodule NetworkDefense.Simulation.SimulationOperationTest do
   use NetworkDefense.DataCase, async: true
 
   import Ecto.Query
   import NetworkDefense.GraphFixtures
 
-  alias NetworkDefense.Compute.SimulationOperation
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Repo
   alias NetworkDefense.Relationships.Contains
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
+  alias NetworkDefense.Simulation.{Experiment, Experiments, Run, SimulationOperation}
 
   test "scatters weighted trial ranges and rejects completed trials" do
     experiment =
