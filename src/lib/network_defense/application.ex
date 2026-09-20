@@ -46,6 +46,7 @@ defmodule NetworkDefense.Application do
            [name: NetworkDefense.PubSub] ++ Application.get_env(:network_defense, :pubsub, [])},
           {Oban, Application.fetch_env!(:network_defense, Oban)},
           NetworkDefense.Compute.RabbitMQ.Connection,
+          NetworkDefense.Compute.RabbitMQ.Worker,
           # Start a worker by calling: NetworkDefense.Worker.start_link(arg)
           # {NetworkDefense.Worker, arg},
           # Start to serve requests, typically the last entry
