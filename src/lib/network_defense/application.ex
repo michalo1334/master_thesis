@@ -33,6 +33,7 @@ defmodule NetworkDefense.Application do
       node_js_children ++
         [
           {Task.Supervisor, name: NetworkDefense.TaskSupervisor},
+          NetworkDefense.Simulations.CoordinatorRegistry,
           NetworkDefenseWeb.Telemetry,
           {Bandit,
            scheme: :http,

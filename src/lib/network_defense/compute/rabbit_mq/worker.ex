@@ -79,8 +79,14 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
 
   defp process_delivery(channel, payload, meta) do
     case Envelope.decode_work(payload) do
-      {:ok, envelope} -> process_work(channel, envelope, meta)
-      {:error, _reason} -> acknowledge(channel, meta.delivery_tag)
+      {:ok, envelope} when is_binary(meta.reply_to) and byte_size(meta.reply_to) > 0 ->
+        process_work(channel, envelope, meta)
+
+      {:ok, _envelope} ->
+        acknowledge(channel, meta.delivery_tag)
+
+      {:error, _reason} ->
+        acknowledge(channel, meta.delivery_tag)
     end
   end
 

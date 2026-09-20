@@ -98,6 +98,16 @@ defmodule NetworkDefense.Compute.RabbitMQ.WorkerTest do
     refute_received {:published, _payload}
   end
 
+  test "acknowledges valid work with no reply queue without executing it" do
+    :meck.expect(NetworkDefense.Simulation.SimulationOperation, :execute, fn _fetch ->
+      flunk("executed")
+    end)
+
+    assert {:noreply, _state} = deliver(work_payload(), %{delivery_meta() | reply_to: nil})
+    assert_received {:ack, 7}
+    refute_received {:published, _payload}
+  end
+
   test "closes its channel without acknowledgement when result publication fails" do
     :meck.expect(NetworkDefense.Simulation.SimulationOperation, :execute, fn _fetch ->
       {:ok, :done}

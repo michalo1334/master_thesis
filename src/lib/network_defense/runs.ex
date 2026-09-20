@@ -14,7 +14,7 @@ defmodule NetworkDefense.Runs do
   def cancel(kind, id) when kind in ["simulation", "optimization", "evaluation"] do
     case kind do
       "simulation" ->
-        cancel_record(Experiment, id, &NetworkDefense.Simulation.Experiments.cancel/1)
+        cancel_record(Experiment, id, &NetworkDefense.Simulations.cancel/1)
 
       "optimization" ->
         cancel_record(OptimizationRun, id, &NetworkDefense.Optimization.OptimizationRuns.cancel/1)

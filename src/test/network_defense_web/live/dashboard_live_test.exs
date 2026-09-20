@@ -21,7 +21,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
-  alias NetworkDefense.Simulations.SimulationWorker
 
   describe "evaluation manifests" do
     @valid_manifest EvaluationFixtures.valid_manifest()
@@ -826,8 +825,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         }
       })
 
-      perform_simulation_job()
-
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
                      5_000
@@ -879,12 +876,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "accepted",
         graph_revision_id: graph_revision_id,
         correlation_id: ^correlation_id,
+        run_id: run_id,
         error: nil
       })
 
       assert has_element?(view, "#flash-info[role='alert']")
-
-      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{
@@ -896,6 +892,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                      5_000
 
       assert is_binary(experiment_id)
+      assert run_id == experiment_id
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
 
@@ -920,8 +917,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           }
         }
       })
-
-      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
@@ -964,8 +959,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           }
         }
       })
-
-      perform_simulation_job()
 
       assert_receive {:simulation_completed,
                       %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
@@ -1095,6 +1088,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         status: "accepted",
         graph_revision_id: ^graph_revision_id,
         correlation_id: ^correlation_id,
+        run_id: run_id,
         error: nil
       })
 
@@ -1110,11 +1104,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
                         graph_id: ^graph_id,
                         graph_revision_id: ^graph_revision_id,
                         output_graph_revision_id: optimized_revision_id,
-                        optimization_id: optimization_id
+                        optimization_id: ^run_id
                       }},
                      5_000
 
-      assert is_binary(optimization_id)
+      assert is_binary(run_id)
 
       assert %{
                id: ^graph_id,
@@ -2025,19 +2019,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       Graphs.list_summaries() |> Enum.filter(&(&1.graphId == id)) |> List.last()
     end)
     |> then(&Graphs.load_revision!(&1.revisionId))
-  end
-
-  defp perform_simulation_job do
-    assert [%{args: %{"experiment_id" => experiment_id, "correlation_id" => correlation_id}}] =
-             all_enqueued(worker: SimulationWorker)
-
-    assert :ok =
-             perform_job(SimulationWorker, %{
-               "experiment_id" => experiment_id,
-               "correlation_id" => correlation_id
-             })
-
-    {experiment_id, correlation_id}
   end
 
   defp perform_optimization_job do

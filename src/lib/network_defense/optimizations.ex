@@ -35,7 +35,7 @@ defmodule NetworkDefense.Optimizations do
     "simulated_annealing" => SimulatedAnnealingStrategy
   }
 
-  @type async_result :: {:ok, Oban.Job.t()} | {:error, Errors.error()}
+  @type async_result :: {:ok, OptimizationRun.t()} | {:error, Errors.error()}
   @type result :: {:ok, OptimizationRun.t()} | {:error, Errors.error()}
 
   @spec optimization_events_topic() :: String.t()
@@ -172,8 +172,8 @@ defmodule NetworkDefense.Optimizations do
     }
 
     case OpentelemetryOban.insert(OptimizationWorker.new(args)) do
-      {:ok, _job} = inserted ->
-        inserted
+      {:ok, _job} ->
+        {:ok, run}
 
       {:error, reason} ->
         failed_run = failed_run(run)

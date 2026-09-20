@@ -1016,14 +1016,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
     case payload_mod.validate(params) do
       {:ok, %{request: request}} ->
         case run_fun.(request) do
-          {:ok, job} ->
+          {:ok, %{id: id}} ->
             {:reply,
              reply_fun.(
                "accepted",
                request.graph_revision_id,
                request.correlation_id,
                nil,
-               get_in(job.args, ["experiment_id"]) || get_in(job.args, ["run_id"])
+               id
              ), put_flash(socket, :info, success_flash)}
 
           {:error, reason} ->

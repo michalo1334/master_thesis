@@ -481,11 +481,11 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
 
       Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
 
-      assert {:ok, _job} = Optimizations.run_async(request)
+      assert {:ok, %OptimizationRun{id: run_id}} = Optimizations.run_async(request)
 
       assert [
                %{
-                 args: %{"run_id" => run_id, "request" => request_params},
+                 args: %{"run_id" => ^run_id, "request" => request_params},
                  queue: "optimizations",
                  max_attempts: 1,
                  meta: %{"traceparent" => _}

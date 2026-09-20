@@ -99,13 +99,6 @@ defmodule NetworkDefense.Simulation.Telemetry do
     end
   end
 
-  @spec enqueue_failed(String.t(), term()) :: :ok
-  def enqueue_failed(correlation_id, reason) do
-    Logger.error("Unable to enqueue simulation job: #{inspect(reason)}",
-      correlation_id: correlation_id
-    )
-  end
-
   defp execute(on_success, on_exception, on_error, fun) do
     try do
       result = fun.()

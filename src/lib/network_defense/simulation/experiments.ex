@@ -64,13 +64,6 @@ defmodule NetworkDefense.Simulation.Experiments do
         set: [status: :cancelled, updated_at: DateTime.utc_now()]
       )
 
-    Oban.cancel_all_jobs(
-      from(j in Oban.Job,
-        where: j.worker == ^"NetworkDefense.Simulations.SimulationWorker",
-        where: fragment("? @> ?", j.args, ^%{"experiment_id" => experiment_id})
-      )
-    )
-
     case result do
       {1, _} -> {:ok, :cancelled}
       _ -> {:error, :not_running}

@@ -10,7 +10,7 @@ import Config
 config :network_defense, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [simulations: 1, optimizations: 1, evaluations: 1],
+  queues: [optimizations: 1, evaluations: 1],
   repo: NetworkDefense.Repo
 
 config :live_svelte, ssr: true
@@ -34,7 +34,7 @@ config :network_defense,
   ]
 
 config :network_defense, NetworkDefense.Compute.ScatterGather,
-  executor: NetworkDefense.Compute.LocalExecutor
+  executor: NetworkDefense.Compute.RabbitMQExecutor
 
 # Configures the endpoint
 live_view_signing_salt =

@@ -1,6 +1,9 @@
 import Config
 config :network_defense, Oban, testing: :manual
 
+config :network_defense, NetworkDefense.Compute.ScatterGather,
+  executor: NetworkDefense.Compute.LocalExecutor
+
 config :network_defense, :rabbitmq,
   host: "localhost",
   port: 5672,

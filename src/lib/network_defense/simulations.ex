@@ -18,7 +18,7 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
   alias NetworkDefense.Simulations.Errors
-  alias NetworkDefense.Simulations.SimulationWorker
+  alias NetworkDefense.Simulations.CoordinatorRegistry
 
   import Ecto.Query
 
@@ -27,7 +27,7 @@ defmodule NetworkDefense.Simulations do
   @simulation_events_topic "simulation_events"
   @report_timeout 60_000
 
-  @type async_result :: {:ok, Oban.Job.t()} | {:error, Errors.error()}
+  @type async_result :: {:ok, Experiment.t()} | {:error, Errors.error()}
 
   @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
@@ -36,7 +36,16 @@ defmodule NetworkDefense.Simulations do
   def run_async(%RunSimulationRequest{} = request) do
     with {:ok, {_graph, experiment}} <-
            prepare_experiment(request.graph_revision_id, request.simulation_params) do
-      enqueue_simulation(request.correlation_id, experiment)
+      start_simulation(request.correlation_id, experiment)
+    end
+  end
+
+  @spec cancel(Ecto.UUID.t()) :: {:ok, :cancelled} | {:error, :not_running}
+  def cancel(experiment_id) do
+    with {:ok, :cancelled} = result <- Experiments.cancel(experiment_id) do
+      CoordinatorRegistry.cancel(experiment_id)
+
+      result
     end
   end
 
@@ -84,19 +93,29 @@ defmodule NetworkDefense.Simulations do
     end
   end
 
-  defp enqueue_simulation(correlation_id, experiment) do
-    case OpentelemetryOban.insert(
-           SimulationWorker.new(%{
-             "experiment_id" => experiment.id,
-             "correlation_id" => correlation_id
-           })
+  defp start_simulation(correlation_id, experiment) do
+    parent = self()
+
+    case OpentelemetryProcessPropagator.Task.Supervisor.start_child(
+           NetworkDefense.TaskSupervisor,
+           fn ->
+             {:ok, _} =
+               CoordinatorRegistry.register_current(experiment.id)
+
+             send(parent, {:simulation_coordinator_registered, self()})
+             run(experiment.id, correlation_id: correlation_id, publish_events: true)
+           end
          ) do
-      {:ok, _job} = inserted ->
-        inserted
+      {:ok, pid} ->
+        receive do
+          {:simulation_coordinator_registered, ^pid} -> {:ok, experiment}
+        after
+          1_000 ->
+            Experiments.fail(experiment.id)
+            {:error, :task_unavailable}
+        end
 
-      {:error, reason} ->
-        SimulationTelemetry.enqueue_failed(correlation_id, reason)
-
+      {:error, _reason} ->
         Experiments.fail(experiment.id)
         {:error, :task_unavailable}
     end
@@ -128,23 +147,37 @@ defmodule NetworkDefense.Simulations do
 
   defp normalize_execution_exception(_exception), do: {:error, :internal_error}
 
-  defp finish_run({:ok, completed}, graph, _experiment, correlation_id, opts) do
-    if Keyword.get(opts, :publish_events, false) do
-      broadcast_simulation_completed(graph, completed, correlation_id)
-    end
+  defp finish_run({:ok, completed}, graph, experiment, correlation_id, opts) do
+    if cancelled?(experiment.id) do
+      {:error, :cancelled}
+    else
+      if Keyword.get(opts, :publish_events, false) do
+        broadcast_simulation_completed(graph, completed, correlation_id)
+      end
 
-    {:ok, completed}
+      {:ok, completed}
+    end
   end
+
+  defp finish_run({:error, :cancelled}, _graph, _experiment, _correlation_id, _opts),
+    do: {:error, :cancelled}
 
   defp finish_run({:error, _reason}, graph, experiment, correlation_id, opts) do
-    Experiments.fail(experiment.id)
+    if cancelled?(experiment.id) do
+      {:error, :cancelled}
+    else
+      Experiments.fail(experiment.id)
 
-    if Keyword.get(opts, :publish_events, false) do
-      broadcast_simulation_failed(graph, correlation_id, :internal_error)
+      if Keyword.get(opts, :publish_events, false) do
+        broadcast_simulation_failed(graph, correlation_id, :internal_error)
+      end
+
+      {:error, :internal_error}
     end
-
-    {:error, :internal_error}
   end
+
+  defp cancelled?(experiment_id),
+    do: match?(%Experiment{status: :cancelled}, Experiments.get(experiment_id))
 
   defp progress_callback(graph, correlation_id, opts) do
     on_progress = Keyword.get(opts, :on_progress, fn _progress -> :ok end)

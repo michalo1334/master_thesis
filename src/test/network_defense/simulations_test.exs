@@ -20,7 +20,7 @@ defmodule NetworkDefense.SimulationsTest do
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
   alias NetworkDefense.Simulation.{Experiment, Experiments, IterationStep, Run, SimulationReport}
   alias NetworkDefense.Simulations
-  alias NetworkDefense.Simulations.SimulationWorker
+  alias NetworkDefense.Simulations.CoordinatorRegistry
 
   test "reports load the graph revision pinned by the experiment" do
     assert {:ok, graph} = Graphs.insert(graph("Original"))
@@ -106,7 +106,7 @@ defmodule NetworkDefense.SimulationsTest do
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-    assert {:ok, _job} =
+    assert {:ok, _pid} =
              Simulations.run_async(%RunSimulationRequest{
                graph_revision_id: graph.revision_id,
                correlation_id: correlation_id,
@@ -120,23 +120,10 @@ defmodule NetworkDefense.SimulationsTest do
                }
              })
 
-    assert [
-             %{
-               args: %{"experiment_id" => experiment_id, "correlation_id" => ^correlation_id},
-               queue: "simulations",
-               max_attempts: 1,
-               meta: %{"traceparent" => _}
-             }
-           ] = all_enqueued(worker: SimulationWorker)
-
-    assert :ok =
-             perform_job(SimulationWorker, %{
-               "experiment_id" => experiment_id,
-               "correlation_id" => correlation_id
-             })
+    assert [] == all_enqueued()
 
     assert_receive {:simulation_completed,
-                    %{correlation_id: ^correlation_id, experiment_id: ^experiment_id}},
+                    %{correlation_id: ^correlation_id, experiment_id: experiment_id}},
                    5_000
 
     assert %{status: :completed, total_trials: 5, completed_trials: 5} =
@@ -223,7 +210,7 @@ defmodule NetworkDefense.SimulationsTest do
 
     Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
 
-    assert {:ok, _job} =
+    assert {:ok, _pid} =
              Simulations.run_async(%RunSimulationRequest{
                graph_revision_id: graph.revision_id,
                correlation_id: correlation_id,
@@ -237,20 +224,7 @@ defmodule NetworkDefense.SimulationsTest do
                }
              })
 
-    assert [
-             %{
-               args: %{"experiment_id" => experiment_id, "correlation_id" => ^correlation_id},
-               queue: "simulations",
-               max_attempts: 1,
-               meta: %{"traceparent" => _}
-             }
-           ] = all_enqueued(worker: SimulationWorker)
-
-    assert :ok =
-             perform_job(SimulationWorker, %{
-               "experiment_id" => experiment_id,
-               "correlation_id" => correlation_id
-             })
+    assert [] == all_enqueued()
 
     assert_receive {:simulation_completed, %{correlation_id: ^correlation_id}}, 5_000
   end
@@ -318,7 +292,30 @@ defmodule NetworkDefense.SimulationsTest do
              Repo.aggregate(from(run in Run, where: run.experiment_id == ^experiment.id), :count)
   end
 
-  test "simulation worker leaves execution failure ownership in the context" do
+  test "cancellation persists status and notifies the local coordinator" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Cancellation"))
+
+    experiment =
+      Experiment.new(
+        graph: graph,
+        master_seed: 7,
+        iteration_count: 1,
+        max_attempts: 1,
+        total_trials: 1,
+        status: :running
+      )
+      |> Experiment.changeset(%{})
+      |> Repo.insert!()
+
+    {:ok, _} = CoordinatorRegistry.register_current(experiment.id)
+    experiment_id = experiment.id
+
+    assert {:ok, :cancelled} = Simulations.cancel(experiment.id)
+    assert_receive {:cancel_simulation, ^experiment_id}
+    assert %{status: :cancelled} = Experiments.get(experiment.id)
+  end
+
+  test "simulation execution leaves failure ownership in the context" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Worker Failure"))
 
     experiment =
@@ -336,12 +333,6 @@ defmodule NetworkDefense.SimulationsTest do
 
     assert {:error, :internal_error} =
              Simulations.run(experiment.id, correlation_id: "worker-failure-correlation")
-
-    assert {:error, :failed} =
-             perform_job(SimulationWorker, %{
-               "experiment_id" => experiment.id,
-               "correlation_id" => "worker-failure-correlation"
-             })
 
     assert %{status: :failed} = Experiments.get(experiment.id)
   end
