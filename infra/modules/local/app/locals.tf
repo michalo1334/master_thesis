@@ -70,7 +70,7 @@ locals {
         "OTEL_SERVICE_NAME=${var.service_name}",
         "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
         "OTEL_RESOURCE_ATTRIBUTES=provider=${node.provider},region=${node.region},instance=${node.instance},site=${node.site},replica=app-${node.site}-${node.index},role=${node.role},service.instance.id=app-${node.site}-${node.index}"
-      ], var.adapter == "redis" ? [
+        ], var.adapter == "redis" ? [
         "REDIS_HOST=redis",
         "REDIS_PORT=6379",
         "REDIS_PASSWORD_FILE=/run/secrets/redis-password",
