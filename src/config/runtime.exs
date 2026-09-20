@@ -2,6 +2,10 @@ import Config
 
 alias NetworkDefense.RuntimeConfig
 
+if config_env() != :test do
+  config :network_defense, :rabbitmq, RuntimeConfig.rabbitmq()
+end
+
 config :network_defense, :analysis_service,
   url: System.get_env("ANALYSIS_SERVICE_URL"),
   connect_timeout_ms:

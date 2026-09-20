@@ -1,6 +1,15 @@
 import Config
 config :network_defense, Oban, testing: :manual
 
+config :network_defense, :rabbitmq,
+  host: "localhost",
+  port: 5672,
+  virtual_host: "/",
+  username: "guest",
+  password: nil,
+  max_message_bytes: 1_048_576,
+  result_inactivity_timeout_ms: 30_000
+
 # Configure your database
 #
 # The MIX_TEST_PARTITION environment variable can be used

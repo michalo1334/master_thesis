@@ -29,4 +29,11 @@ deployment = {
     name = "network_defense_dev"
     user = "postgres"
   }
+  rabbitmq = {
+    max_message_bytes            = 1048576
+    port                         = 5672
+    result_inactivity_timeout_ms = 30000
+    username                     = "network_defense"
+    virtual_host                 = "network_defense"
+  }
 }

@@ -10,6 +10,7 @@ locals {
   app_secret_files = [
     "live-view-signing-salt",
     "postgres-password",
+    "rabbitmq-password",
     "secret-key-base"
   ]
   application    = module.deployment_config.application
@@ -17,6 +18,7 @@ locals {
   name_prefix    = module.deployment_config.config.name
   nodes          = module.deployment_config.nodes
   pubsub_adapter = module.deployment_config.pubsub.adapter
+  rabbitmq       = merge(module.deployment_config.rabbitmq, { host = "rabbitmq" })
   required_secret_files = concat([
     "grafana-admin-password",
     "pgadmin-password",

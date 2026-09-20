@@ -34,6 +34,12 @@ scrape_configs:
         labels:
           component: cache
 
+  - job_name: rabbitmq
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+        labels:
+          component: broker
+
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]

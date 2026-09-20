@@ -1,5 +1,5 @@
 variable "deployment" {
-  description = "Deployment configuration: name, network sites, application, pubsub adapter, and database."
+  description = "Provider-neutral deployment configuration."
   type = object({
     name = string
     network = object({
@@ -20,6 +20,13 @@ variable "deployment" {
     database = object({
       name = string
       user = string
+    })
+    rabbitmq = object({
+      max_message_bytes            = number
+      port                         = number
+      result_inactivity_timeout_ms = number
+      username                     = string
+      virtual_host                 = string
     })
   })
 
@@ -87,5 +94,17 @@ variable "deployment" {
       can(regex("^[A-Za-z_][A-Za-z0-9_]*$", id)) && length(id) <= 63
     ])
     error_message = "database.name and database.user must be PostgreSQL identifiers of at most 63 characters."
+  }
+
+  validation {
+    condition = (
+      var.deployment.rabbitmq.port >= 1 &&
+      var.deployment.rabbitmq.port <= 65535 &&
+      var.deployment.rabbitmq.max_message_bytes > 0 &&
+      var.deployment.rabbitmq.result_inactivity_timeout_ms > 0 &&
+      trimspace(var.deployment.rabbitmq.username) != "" &&
+      trimspace(var.deployment.rabbitmq.virtual_host) != ""
+    )
+    error_message = "RabbitMQ ports and limits must be positive, and its username and virtual host must be nonempty."
   }
 }

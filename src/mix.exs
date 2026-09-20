@@ -90,7 +90,8 @@ defmodule NetworkDefense.MixProject do
       {:opentelemetry_process_propagator, "~> 0.3"},
       {:opentelemetry_oban, "~> 1.0"},
       {:opentelemetry_req, "~> 1.0"},
-      {:oban, "~> 2.19"}
+      {:oban, "~> 2.19"},
+      {:amqp, "~> 4.1"}
     ]
   end
 

@@ -74,6 +74,18 @@ variable "nodes" {
   }))
 }
 
+variable "rabbitmq" {
+  description = "RabbitMQ connection settings."
+  type = object({
+    host                         = string
+    max_message_bytes            = number
+    port                         = number
+    result_inactivity_timeout_ms = number
+    username                     = string
+    virtual_host                 = string
+  })
+}
+
 variable "secret_mount_path" {
   description = "Host path to the directory containing secret files."
   type        = string

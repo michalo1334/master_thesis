@@ -44,6 +44,13 @@ locals {
       "REPO_USERNAME=${var.database.user}",
       "REPO_DATABASE=${var.database.name}",
       "REPO_PASSWORD_FILE=/run/secrets/postgres-password",
+      "RABBITMQ_HOST=${var.rabbitmq.host}",
+      "RABBITMQ_MAX_MESSAGE_BYTES=${var.rabbitmq.max_message_bytes}",
+      "RABBITMQ_PORT=${var.rabbitmq.port}",
+      "RABBITMQ_RESULT_INACTIVITY_TIMEOUT_MS=${var.rabbitmq.result_inactivity_timeout_ms}",
+      "RABBITMQ_USERNAME=${var.rabbitmq.username}",
+      "RABBITMQ_VIRTUAL_HOST=${var.rabbitmq.virtual_host}",
+      "RABBITMQ_PASSWORD_FILE=/run/secrets/rabbitmq-password",
       "SECRET_KEY_BASE_FILE=/run/secrets/secret-key-base",
       "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
       "PHX_HOST=${var.host}",
@@ -74,6 +81,7 @@ locals {
     for key, node in local.nodes : key => concat(local.dev_mounts, [
       { container_path = "/var/log/${var.service_name}", volume_name = var.log_volume_name },
       { container_path = "/run/secrets/postgres-password", host_path = "${var.secret_mount_path}/postgres-password", read_only = true },
+      { container_path = "/run/secrets/rabbitmq-password", host_path = "${var.secret_mount_path}/rabbitmq-password", read_only = true },
       { container_path = "/run/secrets/secret-key-base", host_path = "${var.secret_mount_path}/secret-key-base", read_only = true },
       { container_path = "/run/secrets/live-view-signing-salt", host_path = "${var.secret_mount_path}/live-view-signing-salt", read_only = true },
       { container_path = "/run/secrets/erlang-cookie", host_path = "${var.secret_mount_path}/erlang-cookies/${node.site}/.erlang.cookie", read_only = true }

@@ -58,6 +58,19 @@ module "redis" {
   observability_network = docker_network.observability.name
 }
 
+module "rabbitmq" {
+  source = "../../modules/local/rabbitmq"
+
+  name_prefix           = local.name_prefix
+  max_message_bytes     = local.rabbitmq.max_message_bytes
+  observability_network = docker_network.observability.name
+  password_file         = "${local.secret_mount_path}/rabbitmq-password"
+  port                  = local.rabbitmq.port
+  site_networks         = { for site, network in docker_network.site : site => network.name }
+  username              = local.rabbitmq.username
+  virtual_host          = local.rabbitmq.virtual_host
+}
+
 module "app" {
   source = "../../modules/local/app"
 
@@ -74,12 +87,13 @@ module "app" {
   log_volume_name        = docker_volume.application_logs.name
   name_prefix            = local.name_prefix
   nodes                  = local.nodes
+  rabbitmq               = local.rabbitmq
   secret_mount_path      = local.secret_mount_path
   service_name           = local.application.service_name
   site_networks          = { for site, network in docker_network.site : site => network.name }
   sites                  = local.sites
 
-  depends_on = [module.analysis, module.database, module.redis]
+  depends_on = [module.analysis, module.database, module.rabbitmq, module.redis]
 }
 
 module "haproxy" {
@@ -126,5 +140,5 @@ module "observability" {
   site_networks         = { for site, network in docker_network.site : site => network.name }
   sites                 = local.sites
 
-  depends_on = [module.app, module.database]
+  depends_on = [module.app, module.database, module.rabbitmq]
 }

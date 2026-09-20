@@ -27,3 +27,8 @@ output "database" {
   description = "Database configuration."
   value       = var.deployment.database
 }
+
+output "rabbitmq" {
+  description = "RabbitMQ deployment configuration."
+  value       = var.deployment.rabbitmq
+}
