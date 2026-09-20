@@ -25,14 +25,15 @@ vulnerability source.
 ## Level 2: Container, Multi-Site Runtime
 
 Each configured site runs the same OTP application in two roles. Replica zero
-is an API node. It serves Phoenix, LiveView, and Vite traffic, but does not run
-workload queues. Other replicas are worker nodes. They run workload queues and
-receive no browser route. HAProxy is the only local browser entry and routes
-traffic to ready API nodes in every site.
+is an API node. It serves Phoenix, LiveView, and Vite traffic. Other replicas
+are worker nodes and receive no browser route. Every node consumes RabbitMQ
+scatter-gather work. HAProxy is the only local browser entry and routes traffic
+to ready API nodes in every site.
 
 Each site has its own Docker network and Erlang cookie. DNS discovery therefore
 forms a BEAM mesh only inside that site. Redis carries Phoenix PubSub broadcasts
-between sites. PostgreSQL stores durable state and Oban jobs.
+between sites. PostgreSQL stores durable state and Oban jobs. RabbitMQ carries
+cross-site scatter-gather work and results.
 
 ```mermaid
 C4Container
@@ -46,18 +47,20 @@ C4Container
     Container(haproxy, "HAProxy Edge", "HAProxy", "Only local browser entry")
 
     Boundary(siteNetwork, "Site Networks (one per site)") {
-      Container(appNodes, "Application Nodes", "Elixir, Phoenix, Oban, Vite", "API role serves traffic; worker role runs queues")
+      Container(appNodes, "Application Nodes", "Elixir, Phoenix, Oban, Vite", "API role serves traffic; every node consumes RabbitMQ work")
       Container(analysisSvc, "Analysis Service", "Python, Starlette", "Processes local analysis requests")
     }
 
     ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Durable domain state and Oban jobs")
     ContainerQueue(redis, "Redis PubSub", "Redis", "Cross-site Phoenix PubSub")
+    ContainerQueue(rabbitmq, "RabbitMQ", "RabbitMQ", "Shared cross-site compute broker")
   }
 
   Rel(securityAnalyst, haproxy, "Uses", "HTTP")
   Rel(haproxy, appNodes, "Routes API role", "HTTP/WebSocket")
   Rel(appNodes, postgres, "Uses", "Ecto")
   Rel(appNodes, redis, "PubSub", "Redis")
+  Rel(appNodes, rabbitmq, "Publish and consume partitions", "AMQP 0-9-1")
   Rel(appNodes, analysisSvc, "API role analyzes", "HTTP")
 ```
 
@@ -191,6 +194,40 @@ C4Deployment
   UpdateRelStyle(eastApi, postgres, $offsetY="20")
   UpdateRelStyle(eastWorker, postgres, $offsetY="-20")
 ```
+
+## Cross-Site Compute (RabbitMQ)
+
+The scatter-gather executor distributes partitions across application nodes in
+all site-local BEAM clusters. One shared RabbitMQ broker joins every site
+network and the central observability network. It carries cross-site work
+delivery and result transport.
+
+Erlang distribution remains site-local. Application nodes connect only to the
+shared broker and their site-local Erlang distribution mesh. No application node
+joins another site's BEAM mesh.
+
+```mermaid
+C4Container
+  title Container: Cross-Site Compute
+
+  Container_Ext(rabbit, "RabbitMQ", "RabbitMQ", "Shared cross-site work broker")
+  Container(appNodes, "Application Nodes", "Elixir, Phoenix, Oban", "API and worker nodes in every site, each with one consumer")
+  ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Durable domain state; no intermediate partitions")
+  Container(prometheus, "Prometheus", "Prometheus", "Central metrics store")
+
+  Rel(appNodes, rabbit, "Publish and consume partitions", "AMQP 0-9-1")
+  Rel(appNodes, postgres, "gather/3 final persistence", "Ecto")
+  Rel(prometheus, rabbit, "Scrapes broker metrics", "HTTP")
+```
+
+The shared queue makes every connected consumer eligible. It does not guarantee
+that a run uses every site. Durable coordinator recovery is future work. See
+[the design page](design/rabbitmq-distributed-executor.md) for flow, failure
+semantics, and security.
+
+A task exit produces a compact terminal error. The worker acknowledges that
+message. Only worker node, channel, or connection loss leaves work for broker
+redelivery.
 
 ## Availability Limits
 

@@ -25,68 +25,73 @@ locals {
     { container_path = "/app/deps", volume_name = docker_volume.dependencies.name }
   ]
 
-  setup_environment = [
+  runtime_environment = [
     "REPO_HOSTNAME=${var.database_host}",
     "REPO_PORT=${var.database_port}",
     "REPO_USERNAME=${var.database.user}",
     "REPO_DATABASE=${var.database.name}",
-    "REPO_PASSWORD_FILE=/run/secrets/postgres-password"
+    "REPO_PASSWORD_FILE=/run/secrets/postgres-password",
+    "RABBITMQ_HOST=${var.rabbitmq.host}",
+    "RABBITMQ_MAX_MESSAGE_BYTES=${var.rabbitmq.max_message_bytes}",
+    "RABBITMQ_PORT=${var.rabbitmq.port}",
+    "RABBITMQ_RESULT_INACTIVITY_TIMEOUT_MS=${var.rabbitmq.result_inactivity_timeout_ms}",
+    "RABBITMQ_USERNAME=${var.rabbitmq.username}",
+    "RABBITMQ_VIRTUAL_HOST=${var.rabbitmq.virtual_host}",
+    "RABBITMQ_PASSWORD_FILE=/run/secrets/rabbitmq-password"
   ]
 
-  setup_mounts = concat(local.dev_mounts, [
-    { container_path = "/run/secrets/postgres-password", host_path = "${var.secret_mount_path}/postgres-password", read_only = true }
-  ])
+  runtime_secret_mounts = [
+    { container_path = "/run/secrets/postgres-password", host_path = "${var.secret_mount_path}/postgres-password", read_only = true },
+    { container_path = "/run/secrets/rabbitmq-password", host_path = "${var.secret_mount_path}/rabbitmq-password", read_only = true }
+  ]
+
+  setup_environment = local.runtime_environment
+  setup_mounts      = concat(local.dev_mounts, local.runtime_secret_mounts)
 
   node_environment = {
-    for key, node in local.nodes : key => concat([
-      "REPO_HOSTNAME=${var.database_host}",
-      "REPO_PORT=${var.database_port}",
-      "REPO_USERNAME=${var.database.user}",
-      "REPO_DATABASE=${var.database.name}",
-      "REPO_PASSWORD_FILE=/run/secrets/postgres-password",
-      "RABBITMQ_HOST=${var.rabbitmq.host}",
-      "RABBITMQ_MAX_MESSAGE_BYTES=${var.rabbitmq.max_message_bytes}",
-      "RABBITMQ_PORT=${var.rabbitmq.port}",
-      "RABBITMQ_RESULT_INACTIVITY_TIMEOUT_MS=${var.rabbitmq.result_inactivity_timeout_ms}",
-      "RABBITMQ_USERNAME=${var.rabbitmq.username}",
-      "RABBITMQ_VIRTUAL_HOST=${var.rabbitmq.virtual_host}",
-      "RABBITMQ_PASSWORD_FILE=/run/secrets/rabbitmq-password",
-      "SECRET_KEY_BASE_FILE=/run/secrets/secret-key-base",
-      "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
-      "PHX_HOST=${var.host}",
-      "PHX_IP=0.0.0.0",
-      "PORT=4000",
-      "MIX_BUILD_PATH=/app/_build_docker",
-      "LOG_FILE_LEVEL=${var.log_level}",
-      "LOG_FILE_PATH=/var/log/${var.service_name}/app.${node.site}.${node.index}.jsonl",
-      "ROLE=${node.role}",
-      "PUBSUB_ADAPTER=${var.adapter}",
-      "DNS_CLUSTER_QUERY=app",
-      "ANALYSIS_SERVICE_URL=http://analysis:8080",
-      "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
-      "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
-      "ANALYSIS_SERVICE_MAX_ZIP_BYTES=${var.analysis_max_zip_bytes}",
-      "OTEL_SERVICE_NAME=${var.service_name}",
-      "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
-      "OTEL_RESOURCE_ATTRIBUTES=provider=${node.provider},region=${node.region},instance=${node.instance},site=${node.site},replica=app-${node.site}-${node.index},role=${node.role},service.instance.id=app-${node.site}-${node.index}"
+    for key, node in local.nodes : key => concat(
+      local.runtime_environment,
+      [
+        "SECRET_KEY_BASE_FILE=/run/secrets/secret-key-base",
+        "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
+        "PHX_HOST=${var.host}",
+        "PHX_IP=0.0.0.0",
+        "PORT=4000",
+        "MIX_BUILD_PATH=/app/_build_docker",
+        "LOG_FILE_LEVEL=${var.log_level}",
+        "LOG_FILE_PATH=/var/log/${var.service_name}/app.${node.site}.${node.index}.jsonl",
+        "ROLE=${node.role}",
+        "PUBSUB_ADAPTER=${var.adapter}",
+        "DNS_CLUSTER_QUERY=app",
+        "ANALYSIS_SERVICE_URL=http://analysis:8080",
+        "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
+        "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
+        "ANALYSIS_SERVICE_MAX_ZIP_BYTES=${var.analysis_max_zip_bytes}",
+        "OTEL_SERVICE_NAME=${var.service_name}",
+        "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
+        "OTEL_RESOURCE_ATTRIBUTES=provider=${node.provider},region=${node.region},instance=${node.instance},site=${node.site},replica=app-${node.site}-${node.index},role=${node.role},service.instance.id=app-${node.site}-${node.index}"
       ], var.adapter == "redis" ? [
-      "REDIS_HOST=redis",
-      "REDIS_PORT=6379",
-      "REDIS_PASSWORD_FILE=/run/secrets/redis-password",
-      "PUBSUB_NODE_NAME=${var.service_name}-${node.site}-app-${node.index}"
-    ] : [])
+        "REDIS_HOST=redis",
+        "REDIS_PORT=6379",
+        "REDIS_PASSWORD_FILE=/run/secrets/redis-password",
+        "PUBSUB_NODE_NAME=${var.service_name}-${node.site}-app-${node.index}"
+      ] : []
+    )
   }
 
   node_mounts = {
-    for key, node in local.nodes : key => concat(local.dev_mounts, [
-      { container_path = "/var/log/${var.service_name}", volume_name = var.log_volume_name },
-      { container_path = "/run/secrets/postgres-password", host_path = "${var.secret_mount_path}/postgres-password", read_only = true },
-      { container_path = "/run/secrets/rabbitmq-password", host_path = "${var.secret_mount_path}/rabbitmq-password", read_only = true },
-      { container_path = "/run/secrets/secret-key-base", host_path = "${var.secret_mount_path}/secret-key-base", read_only = true },
-      { container_path = "/run/secrets/live-view-signing-salt", host_path = "${var.secret_mount_path}/live-view-signing-salt", read_only = true },
-      { container_path = "/run/secrets/erlang-cookie", host_path = "${var.secret_mount_path}/erlang-cookies/${node.site}/.erlang.cookie", read_only = true }
-      ], var.adapter == "redis" ? [
-      { container_path = "/run/secrets/redis-password", host_path = "${var.secret_mount_path}/redis-password", read_only = true }
-    ] : [])
+    for key, node in local.nodes : key => concat(
+      local.dev_mounts,
+      [{ container_path = "/var/log/${var.service_name}", volume_name = var.log_volume_name }],
+      local.runtime_secret_mounts,
+      [
+        { container_path = "/run/secrets/secret-key-base", host_path = "${var.secret_mount_path}/secret-key-base", read_only = true },
+        { container_path = "/run/secrets/live-view-signing-salt", host_path = "${var.secret_mount_path}/live-view-signing-salt", read_only = true },
+        { container_path = "/run/secrets/erlang-cookie", host_path = "${var.secret_mount_path}/erlang-cookies/${node.site}/.erlang.cookie", read_only = true }
+      ],
+      var.adapter == "redis" ? [
+        { container_path = "/run/secrets/redis-password", host_path = "${var.secret_mount_path}/redis-password", read_only = true }
+      ] : []
+    )
   }
 }

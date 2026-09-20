@@ -27,8 +27,9 @@ read-only. The local secrets object declares the host directory. The environment
 enforces via a precondition that all required secret files exist before apply
 (see `main.tf` and `locals.tf`).
 
-Redis mode also requires an operator-created `redis-password` file with mode
-`0600`. Terraform mounts its path and never reads its value.
+Redis mode requires an operator-created `redis-password` file with mode `0600`.
+RabbitMQ requires an operator-created `rabbitmq-password` file with mode
+`0600`. Terraform mounts both paths and never reads their values.
 
 Keep the secret directory and its files restricted to the owner. Each
 `erlang-cookies/<site>/` directory must have mode `0700`, and its
@@ -50,6 +51,7 @@ infra/modules/local/
   database/       Postgres and pgAdmin
   haproxy/        Local browser edge
   observability/  Central Grafana, Prometheus, logs, traces, and exporters
+  rabbitmq/       Shared cross-site compute broker
   redis/          Authenticated ephemeral Phoenix PubSub broker
 ```
 
@@ -138,3 +140,24 @@ prove it can scrape every target or export every signal.
 networks, all data and log volumes, and the locally built images.
 Host secret files and Terraform state are not managed by Terraform and remain
 on disk after destroy.
+
+## RabbitMQ
+
+RabbitMQ carries cross-site work delivery. It attaches to every site network
+and the central observability network. Application nodes reach it over AMQP
+0-9-1 while Erlang distribution stays site-local.
+
+- Credentials arrive as a file-mounted secret, matching the existing secret
+  convention. The password is never a Terraform value.
+- Messages are transient. The broker keeps no durable intermediate records and
+  mounts no local data volume.
+- RabbitMQ enables its Prometheus plugin. Central Prometheus scrapes the broker
+  directly over the observability network. It collects queue depth,
+  unacknowledged messages, consumer count, delivery rate, acknowledgement rate,
+  and redelivery rate.
+- Use TLS for broker traffic that leaves a private deployment network.
+- The app module reads connection values (host, port, virtual host,
+  username) from environment variables, not from an AMQP URL.
+
+Apply the stack. Then run the opt-in broker test from `src/` with the command
+in [the executor design](design/rabbitmq-distributed-executor.md#local-broker-test).

@@ -19,6 +19,7 @@ The system does not require a complete static attack graph or prior enumeration 
 - [Architecture](docs/architecture.md) — system, container, and deployment views.
 - [Infrastructure](docs/infrastructure.md) — local provisioning and lifecycle.
 - [Dashboard design](docs/design/dashboard.md) — browser workflows.
+- [RabbitMQ distributed executor](docs/design/rabbitmq-distributed-executor.md) — cross-site work distribution.
 - [Analysis guide](evaluation/analysis/README.md) — statistical analysis service.
 - [Thesis source](thesis/) — tracked LaTeX source of the thesis.
 

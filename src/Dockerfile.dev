@@ -43,7 +43,8 @@ COPY prettier.config.mjs ./
 RUN mix deps.get
 
 # copy compile-time config and compile deps
-COPY config config
+RUN mkdir config
+COPY config/config.exs config/dev.exs config/
 RUN mix deps.compile
 
 # install npm packages
@@ -58,6 +59,9 @@ COPY priv priv
 COPY assets assets
 COPY test test
 RUN mix compile
+
+# Runtime configuration is evaluated only when the container starts.
+COPY config/runtime.exs config/
 
 # ---- runner stage ----
 FROM ${RUNNER_IMAGE} AS runner

@@ -3,7 +3,7 @@ resource "docker_image" "redis" {
 }
 
 resource "docker_image" "redis_exporter" {
-  name = "quay.io/oliver006/redis_exporter:v1.70.0"
+  name = "quay.io/oliver006/redis_exporter:v1.70.0-alpine"
 }
 
 resource "docker_container" "redis" {
@@ -46,6 +46,16 @@ resource "docker_container" "redis" {
 resource "docker_container" "redis_exporter" {
   image = docker_image.redis_exporter.image_id
   name  = "${var.name_prefix}-redis-exporter"
+  user  = "0"
+
+  entrypoint = ["/bin/sh", "-c", <<-EOT
+    set -eu
+    password="$(tr -d '\r\n' < /run/secrets/redis-password)"
+    printf '{"redis://redis:6379":"%s"}\n' "$password" > /tmp/redis-passwords.json
+    unset password
+    exec /redis_exporter --redis.addr=redis://redis:6379 --redis.password-file=/tmp/redis-passwords.json
+  EOT
+  ]
 
   networks_advanced {
     aliases = ["redis-exporter"]
@@ -62,10 +72,9 @@ resource "docker_container" "redis_exporter" {
     read_only      = true
   }
 
-  env = [
-    "REDIS_ADDR=redis:6379",
-    "REDIS_PASSWORD_FILE=/run/secrets/redis-password"
-  ]
+  tmpfs = {
+    "/tmp" = "rw,noexec,nosuid,nodev,size=1m,mode=0700"
+  }
 
   healthcheck {
     interval     = "10s"
