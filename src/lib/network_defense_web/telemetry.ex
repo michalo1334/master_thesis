@@ -6,6 +6,7 @@ defmodule NetworkDefenseWeb.Telemetry do
   alias NetworkDefense.RuntimeConfig
 
   @duration_buckets [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60]
+  @payload_buckets [256, 1_024, 4_096, 16_384, 65_536, 262_144, 1_048_576]
 
   def start_link(arg) do
     Supervisor.start_link(__MODULE__, arg, name: __MODULE__)
@@ -126,6 +127,17 @@ defmodule NetworkDefenseWeb.Telemetry do
         tags: [:operation, :executor, :outcome],
         unit: {:native, :second},
         reporter_options: [buckets: @duration_buckets]
+      ),
+      distribution("network_defense.rabbitmq.message.payload.bytes",
+        event_name: [:network_defense, :rabbitmq, :message],
+        measurement: :payload_size,
+        tags: [:direction],
+        unit: :byte,
+        reporter_options: [buckets: @payload_buckets]
+      ),
+      counter("network_defense.rabbitmq.redelivered_partitions.total",
+        event_name: [:network_defense, :rabbitmq, :partition_redelivered],
+        measurement: :count
       ),
       counter("network_defense.optimizer.runs.total",
         event_name: [:network_defense, :optimizer, :run]

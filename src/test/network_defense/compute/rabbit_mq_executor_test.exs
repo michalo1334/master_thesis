@@ -94,6 +94,46 @@ defmodule NetworkDefense.Compute.RabbitMQExecutorTest do
     assert_received :channel_closed
   end
 
+  test "emits work payload telemetry with only its fixed label" do
+    attach_telemetry_handler()
+
+    :meck.expect(NetworkDefense.Simulation.SimulationOperation, :scatter, fn input ->
+      input.partitions
+    end)
+
+    :meck.expect(NetworkDefense.Simulation.SimulationOperation, :gather, fn _results,
+                                                                            _input,
+                                                                            _stats ->
+      {:ok, :done}
+    end)
+
+    :meck.expect(AMQP.Basic, :publish, fn _channel, "", _queue, payload, _options ->
+      {:ok, work} = Envelope.decode_work(payload)
+
+      {:ok, result} =
+        work
+        |> Map.take([:version, :run_id, :partition_id, :partition_key])
+        |> Map.put(:outcome, {:ok, :done})
+        |> Envelope.encode_result()
+
+      send(self(), {:basic_deliver, result, %{}})
+      :ok
+    end)
+
+    assert {:ok, :done} =
+             RabbitMQExecutor.run(
+               NetworkDefense.Simulation.SimulationOperation,
+               input([{:key_not_a_label, 1, :partition}]),
+               correlation_id: "not-a-metric-label"
+             )
+
+    assert_receive {:telemetry, [:network_defense, :rabbitmq, :message], %{payload_size: bytes},
+                    metadata}
+
+    assert bytes > 0
+    assert metadata == %{direction: "work"}
+  end
+
   test "returns a partition error without gathering" do
     :meck.expect(NetworkDefense.Simulation.SimulationOperation, :scatter, fn input ->
       input.partitions
@@ -313,6 +353,22 @@ defmodule NetworkDefense.Compute.RabbitMQExecutorTest do
 
   defp input(partitions \\ [{:first, 2, :first}, {:second, 3, :second}]),
     do: %{partitions: partitions}
+
+  defp attach_telemetry_handler do
+    handler = "executor-telemetry-#{System.unique_integer([:positive])}"
+    parent = self()
+
+    :telemetry.attach(
+      handler,
+      [:network_defense, :rabbitmq, :message],
+      fn event, measurements, metadata, _config ->
+        send(parent, {:telemetry, event, measurements, metadata})
+      end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+  end
 
   defp safe_unload(module) do
     :meck.unload(module)

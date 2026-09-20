@@ -80,7 +80,7 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
   defp process_delivery(channel, payload, meta) do
     case Envelope.decode_work(payload) do
       {:ok, envelope} when is_binary(meta.reply_to) and byte_size(meta.reply_to) > 0 ->
-        process_work(channel, envelope, meta)
+        process_work(channel, payload, envelope, meta)
 
       {:ok, _envelope} ->
         acknowledge(channel, meta.delivery_tag)
@@ -90,8 +90,10 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
     end
   end
 
-  defp process_work(channel, envelope, meta) do
-    outcome = execute(envelope, meta)
+  defp process_work(channel, payload, envelope, meta) do
+    if Map.get(meta, :redelivered, false), do: Telemetry.redelivered_partition()
+
+    outcome = execute(envelope, meta, byte_size(payload))
 
     case publish_result(channel, envelope, outcome, meta) do
       :ok -> acknowledge(channel, meta.delivery_tag)
@@ -99,7 +101,7 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
     end
   end
 
-  defp execute(envelope, meta) do
+  defp execute(envelope, meta, work_payload_bytes) do
     context_token =
       envelope.trace_headers
       |> Map.to_list()
@@ -111,7 +113,7 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
         Telemetry.partition(
           envelope.operation_module,
           envelope.partition_key,
-          telemetry_metadata(meta),
+          telemetry_metadata(meta, work_payload_bytes),
           fn ->
             envelope.operation_module.execute(fn -> envelope.partition end)
           end
@@ -140,6 +142,7 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
     }
 
     with {:ok, payload} <- encode_result(result),
+         :ok <- Telemetry.message_payload("result", byte_size(payload)),
          reply_to when is_binary(reply_to) and byte_size(reply_to) > 0 <- meta.reply_to,
          :ok <-
            AMQP.Basic.publish(channel, "", reply_to, payload, correlation_id: meta.correlation_id),
@@ -174,10 +177,12 @@ defmodule NetworkDefense.Compute.RabbitMQ.Worker do
     :exit, _reason -> :close_channel
   end
 
-  defp telemetry_metadata(meta) do
+  defp telemetry_metadata(meta, work_payload_bytes) do
     %{
       correlation_id: Map.get(meta, :correlation_id) || "rabbitmq",
-      executor: __MODULE__
+      executor: __MODULE__,
+      redelivered: Map.get(meta, :redelivered, false),
+      work_payload_bytes: work_payload_bytes
     }
   end
 

@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Compute.RabbitMQ.WorkerTest do
   use ExUnit.Case, async: false
 
+  require OpenTelemetry.Tracer, as: Tracer
+
   alias NetworkDefense.Compute.RabbitMQ.{Envelope, Worker}
 
   setup do
@@ -90,6 +92,53 @@ defmodule NetworkDefense.Compute.RabbitMQ.WorkerTest do
              deliver(work_payload(%{"traceparent" => "00-trace"}), delivery_meta())
 
     assert_received {:trace_carrier, [{"traceparent", "00-trace"}]}
+  end
+
+  test "propagates the extracted trace context to partition execution" do
+    parent = self()
+
+    trace_id =
+      Tracer.with_span "incoming work" do
+        OpenTelemetry.Tracer.current_span_ctx() |> OpenTelemetry.Span.hex_trace_id()
+      end
+
+    :meck.expect(NetworkDefense.Simulation.SimulationOperation, :execute, fn _fetch ->
+      send(
+        parent,
+        {:execution_trace_id,
+         OpenTelemetry.Tracer.current_span_ctx() |> OpenTelemetry.Span.hex_trace_id()}
+      )
+
+      {:ok, :done}
+    end)
+
+    assert {:noreply, _state} =
+             deliver(
+               work_payload(%{"traceparent" => "00-#{trace_id}-0000000000000001-01"}),
+               delivery_meta()
+             )
+
+    assert_received {:execution_trace_id, ^trace_id}
+  end
+
+  test "emits bounded result payload and redelivery telemetry" do
+    attach_telemetry_handler()
+
+    :meck.expect(NetworkDefense.Simulation.SimulationOperation, :execute, fn _fetch ->
+      {:ok, :done}
+    end)
+
+    assert {:noreply, _state} =
+             deliver(work_payload(), Map.put(delivery_meta(), :redelivered, true))
+
+    assert_receive {:telemetry, [:network_defense, :rabbitmq, :message], %{payload_size: bytes},
+                    metadata}
+
+    assert bytes > 0
+    assert metadata == %{direction: "result"}
+
+    assert_receive {:telemetry, [:network_defense, :rabbitmq, :partition_redelivered],
+                    %{count: 1}, %{}}
   end
 
   test "acknowledges malformed work without publishing" do
@@ -214,6 +263,25 @@ defmodule NetworkDefense.Compute.RabbitMQ.WorkerTest do
 
   defp delivery_meta do
     %{delivery_tag: 7, reply_to: "reply", correlation_id: "correlation"}
+  end
+
+  defp attach_telemetry_handler do
+    handler = "worker-telemetry-#{System.unique_integer([:positive])}"
+    parent = self()
+
+    :telemetry.attach_many(
+      handler,
+      [
+        [:network_defense, :rabbitmq, :message],
+        [:network_defense, :rabbitmq, :partition_redelivered]
+      ],
+      fn event, measurements, metadata, _config ->
+        send(parent, {:telemetry, event, measurements, metadata})
+      end,
+      nil
+    )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
   end
 
   defp safe_unload(module) do

@@ -103,6 +103,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
     }
 
     with {:ok, payload} <- Envelope.encode_work(work),
+         :ok <- Telemetry.message_payload("work", byte_size(payload)),
          :ok <-
            AMQP.Basic.publish(channel, "", Worker.work_queue(), payload,
              reply_to: state.reply_queue,

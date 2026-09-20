@@ -8,6 +8,8 @@ defmodule NetworkDefense.Compute.Telemetry do
 
   @run_event [:network_defense, :scatter_gather, :run]
   @partition_event [:network_defense, :scatter_gather, :partition]
+  @rabbitmq_message_event [:network_defense, :rabbitmq, :message]
+  @rabbitmq_redelivery_event [:network_defense, :rabbitmq, :partition_redelivered]
 
   @spec run(module(), map(), (integer() -> term())) :: term()
   def run(operation, metadata, fun) when is_function(fun, 1) do
@@ -40,6 +42,17 @@ defmodule NetworkDefense.Compute.Telemetry do
     end
   end
 
+  @spec message_payload(String.t(), non_neg_integer()) :: :ok
+  def message_payload(direction, bytes)
+      when direction in ["work", "result"] and is_integer(bytes) and bytes >= 0 do
+    :telemetry.execute(@rabbitmq_message_event, %{payload_size: bytes}, %{direction: direction})
+  end
+
+  @spec redelivered_partition() :: :ok
+  def redelivered_partition do
+    :telemetry.execute(@rabbitmq_redelivery_event, %{count: 1}, %{})
+  end
+
   defp execute_callback(kind, metadata, started_at, fun) do
     try do
       result = fun.()
@@ -67,6 +80,7 @@ defmodule NetworkDefense.Compute.Telemetry do
       operation: Atom.to_string(operation),
       partition_count: Map.get(metadata, :partition_count, 0)
     }
+    |> Map.merge(Map.take(metadata, [:redelivered, :work_payload_bytes]))
   end
 
   defp run_attributes(metadata) do
@@ -83,7 +97,12 @@ defmodule NetworkDefense.Compute.Telemetry do
       "scatter_gather.operation" => metadata.operation,
       "scatter_gather.executor" => metadata.executor
     }
+    |> maybe_put("messaging.message.body.size", metadata[:work_payload_bytes])
+    |> maybe_put("messaging.rabbitmq.redelivered", metadata[:redelivered])
   end
+
+  defp maybe_put(attributes, _key, nil), do: attributes
+  defp maybe_put(attributes, key, value), do: Map.put(attributes, key, value)
 
   defp emit_duration(:run, started_at, metadata) do
     :telemetry.execute(
