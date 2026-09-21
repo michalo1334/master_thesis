@@ -21,7 +21,7 @@ The system does not require a complete static attack graph or prior enumeration 
 - [Dashboard design](docs/design/dashboard.md) — browser workflows.
 - [RabbitMQ distributed executor](docs/design/rabbitmq-distributed-executor.md) — cross-site work distribution.
 - [Analysis guide](evaluation/analysis/README.md) — statistical analysis service.
-- [Thesis source](thesis/) — tracked LaTeX source of the thesis.
+- Thesis source — maintained in a separate repository.
 
 ## Repository map
 
@@ -31,7 +31,6 @@ master_thesis/
 ├── src/           — Elixir simulation engine and web application
 ├── evaluation/    — Analysis service and scenarios
 ├── infra/         — Terraform infrastructure and local runtime configuration
-├── thesis/        — LaTeX source of the master's thesis
 └── planning/      — Working planning documents
 ```
 

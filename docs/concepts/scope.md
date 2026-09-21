@@ -1,8 +1,7 @@
 # Scope, Assumptions, and Limits
 
 This document states the boundaries of the master's thesis project. The thesis
-(source in [`../../thesis/`](../../thesis/)) holds the full research narrative.
-This page does not repeat it.
+holds the full research narrative. This page does not repeat it.
 
 ## Research questions
 
