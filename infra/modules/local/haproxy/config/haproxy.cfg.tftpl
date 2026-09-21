@@ -38,6 +38,7 @@ backend phoenix
 %{ endfor }
 
 backend vite
+  balance source
   default-server init-addr last,libc,none resolvers docker resolve-prefer ipv4
 %{ for n in api_nodes }
   server app-${n.site}-${n.index} ${name_prefix}-app-${n.site}-${n.index}:5173 check

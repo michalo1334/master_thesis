@@ -7,7 +7,7 @@ defmodule NetworkDefense.Simulation.SimulationOperation do
   alias NetworkDefense.Simulation.{Experiment, Experiments, Simulator}
   alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
 
-  @trial_batch_size 500
+  @trial_batch_size 25
 
   @impl true
   def scatter(%Experiment{completed_trials: completed_trials}) when completed_trials != 0 do
@@ -47,7 +47,9 @@ defmodule NetworkDefense.Simulation.SimulationOperation do
         )
       end)
     end)
-    |> then(fn {_elapsed_us, runs} -> {:ok, runs} end)
+    |> then(fn {_elapsed_us, runs} ->
+      {:ok, Enum.map(runs, &%{&1 | graph: nil, rules: []})}
+    end)
   end
 
   @impl true

@@ -13,7 +13,8 @@ defmodule NetworkDefense.Compute.RabbitMQExecutorTest do
       AMQP.Confirm,
       AMQP.Queue,
       NetworkDefense.Compute.RabbitMQ.Connection,
-      NetworkDefense.Simulation.SimulationOperation
+      NetworkDefense.Simulation.SimulationOperation,
+      :otel_propagator_text_map
     ]
 
     for module <- modules, do: :meck.new(module, [:passthrough])
@@ -50,6 +51,11 @@ defmodule NetworkDefense.Compute.RabbitMQExecutorTest do
   end
 
   test "gathers keyed unordered results, limits publications, and reports unique weighted progress" do
+    :meck.expect(:otel_propagator_text_map, :inject, fn carrier ->
+      send(self(), {:trace_carrier, carrier})
+      [{"traceparent", "00-trace"} | carrier]
+    end)
+
     :meck.expect(NetworkDefense.Simulation.SimulationOperation, :scatter, fn input ->
       input.partitions
     end)
@@ -85,6 +91,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutorTest do
              )
 
     assert_received {:reply_queue, [exclusive: true, auto_delete: true]}
+    assert_received {:trace_carrier, []}
     assert_received {:gathered, results}
     assert Enum.sort(results) == [{:first, :first}, {:second, :second}]
     assert_received {:progress, %{completed: 2, total: 5}}

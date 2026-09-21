@@ -31,6 +31,28 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
     end
   end
 
+  test "keeps trial partitions small enough for bounded result envelopes" do
+    experiment =
+      Experiment.new(
+        graph_revision_id: Ecto.UUID.generate(),
+        master_seed: 41,
+        iteration_count: 2,
+        max_attempts: 1,
+        total_trials: 63
+      )
+
+    partitions = experiment |> SimulationOperation.scatter() |> Enum.to_list()
+
+    assert Enum.sum_by(partitions, &elem(&1, 1)) == experiment.total_trials
+    assert Enum.all?(partitions, &(elem(&1, 1) <= 30))
+
+    assert partitions
+           |> Enum.flat_map(fn {_key, _weight, %{trial_indexes: range}} ->
+             Enum.to_list(range)
+           end) ==
+             Enum.to_list(1..experiment.total_trials)
+  end
+
   test "executes a partition sequentially and gathers its runs atomically" do
     {graph, foothold} = persisted_host_graph()
 
@@ -47,6 +69,8 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
              end)
 
     assert Enum.map(runs, & &1.trial_index) == [1, 2]
+    assert Enum.all?(runs, &is_nil(&1.graph))
+    assert Enum.all?(runs, &(&1.rules == []))
 
     assert {:ok, %{status: :completed, completed_trials: 2}} =
              SimulationOperation.gather([{{experiment.id, 1, 2}, runs}], experiment, %{

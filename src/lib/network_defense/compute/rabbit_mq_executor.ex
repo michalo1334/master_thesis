@@ -99,7 +99,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
       work_units: partition.work_units,
       operation: state.operation,
       partition: partition.partition,
-      trace_headers: :otel_propagator_text_map.inject(%{})
+      trace_headers: [] |> :otel_propagator_text_map.inject() |> Map.new()
     }
 
     with {:ok, payload} <- Envelope.encode_work(work),
