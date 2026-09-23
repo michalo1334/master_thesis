@@ -1,6 +1,6 @@
 import type { Edge, Node } from "../../../../contracts.generated/graph";
 import { describe, it, expect } from "vitest";
-import { nodePresentation, edgePresentation, inspectorFor } from "../registry";
+import { nodePresentation, edgePresentation } from "../registry";
 const nodeTypes = [
   "Host",
   "Service",
@@ -29,7 +29,6 @@ describe("presentation registry", () => {
         expect(pres!.color).toBeTruthy();
         expect(pres!.glyph).toBeDefined();
         expect(pres!.info).toBeDefined();
-        expect(pres!.inspector).toBeDefined();
       });
     });
 
@@ -48,7 +47,6 @@ describe("presentation registry", () => {
         expect(
           pres!.dashArray === null || typeof pres!.dashArray === "string",
         ).toBe(true);
-        expect(pres!.inspector).toBeDefined();
       });
     });
 
@@ -80,29 +78,6 @@ describe("presentation registry", () => {
 
     it("returns null for an unknown edge type", () => {
       expect(edgePresentation("UnknownType" as Edge["type"])).toBeNull();
-    });
-  });
-
-  describe("inspectorFor", () => {
-    const allTypes = [...nodeTypes, ...edgeTypes] as const;
-
-    allTypes.forEach((type) => {
-      it(`returns an inspector for ${type}`, () => {
-        const component = inspectorFor({ type } as Node | Edge);
-        expect(component).toBeDefined();
-      });
-    });
-
-    it("returns EmptyInspector for undefined selectable", () => {
-      const component = inspectorFor(undefined);
-      expect(component).toBeDefined();
-    });
-
-    it("returns EmptyInspector for unknown type", () => {
-      const component = inspectorFor({
-        type: "UnknownType",
-      } as unknown as Node);
-      expect(component).toBeDefined();
     });
   });
 });

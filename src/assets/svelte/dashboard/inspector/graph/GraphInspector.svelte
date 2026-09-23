@@ -1,14 +1,18 @@
 <script lang="ts">
   import type { GraphContract } from "../../../contracts.generated/graph";
+  import type { GraphValidationError } from "../../../contracts.generated/dashboard/graph";
 
   import Inspector from "../../../ui-kit/layout/Inspector.svelte";
   import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
+  import ErrorMessages from "../ErrorMessages.svelte";
+  import { pathsEqual } from "./validation-path";
 
   interface Props {
     graph: GraphContract;
     parentTitle?: string;
     onTitleChange: (title: string) => void;
     onOpenParent?: () => void;
+    errors?: readonly GraphValidationError[];
   }
 
   let {
@@ -16,7 +20,20 @@
     parentTitle = undefined,
     onTitleChange,
     onOpenParent = undefined,
+    errors = [],
   }: Props = $props();
+  const titleInputId = $props.id();
+  const titleErrorsId = `${titleInputId}-errors`;
+  let titleErrors = $derived(
+    errors
+      .filter((error) => pathsEqual(error.field_path, ["title"]))
+      .map((error) => error.message),
+  );
+  let graphErrors = $derived(
+    errors
+      .filter((error) => !pathsEqual(error.field_path, ["title"]))
+      .map((error) => error.message),
+  );
 
   function updateTitle(event: Event): void {
     const input = event.currentTarget as HTMLInputElement;
@@ -29,15 +46,20 @@
 </script>
 
 <Inspector title="Graph">
-  <label class="graph-title-field">
-    <span>Title</span>
+  <ErrorMessages errors={graphErrors} class="graph-errors" />
+  <div class="graph-title-field">
+    <label for={titleInputId}>Title</label>
     <input
+      id={titleInputId}
+      aria-invalid={titleErrors.length ? "true" : undefined}
+      aria-describedby={titleErrors.length ? titleErrorsId : undefined}
       type="text"
       value={graph.title}
       maxlength="255"
       onchange={updateTitle}
     />
-  </label>
+    <ErrorMessages errors={titleErrors} id={titleErrorsId} />
+  </div>
   <InspectorField
     fields={[
       { label: "Graph ID", value: graph.id },
@@ -70,7 +92,7 @@
     gap: var(--ui-space-1);
     margin-bottom: var(--ui-space-3);
   }
-  .graph-title-field span {
+  .graph-title-field label {
     color: var(--ui-color-text-secondary);
     font-size: var(--ui-text-xs);
     font-weight: 600;
@@ -90,6 +112,9 @@
   .graph-title-field input:focus-visible {
     outline: 2px solid var(--ui-color-focus);
     outline-offset: 1px;
+  }
+  :global(.graph-errors) {
+    margin-bottom: var(--ui-space-3);
   }
   .graph-parent-field {
     display: grid;

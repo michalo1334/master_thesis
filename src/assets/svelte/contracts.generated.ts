@@ -50,17 +50,17 @@ export declare namespace NetworkDefense.Graph.Contracts.Data {
   }
 }
 
-// NetworkDefense.Graph.Contracts.Data.CvssData (lib/network_defense/graph/contracts/data/cvss_data.ex)
+// NetworkDefense.Graph.Contracts.Data.CvssData (lib/network_defense/graph/contracts/data/cvss_data.ex) — enum fields: attack_vector, attack_complexity, privileges_required, user_interaction, scope, confidentiality_impact, integrity_impact, availability_impact
 export declare namespace NetworkDefense.Graph.Contracts.Data {
   export interface CvssData {
-    attack_complexity: string;
-    attack_vector: string;
-    availability_impact: string;
-    confidentiality_impact: string;
-    integrity_impact: string;
-    privileges_required: string;
-    scope: string;
-    user_interaction: string;
+    attack_complexity: "low" | "high";
+    attack_vector: "network" | "adjacent" | "local" | "physical";
+    availability_impact: "none" | "low" | "high";
+    confidentiality_impact: "none" | "low" | "high";
+    integrity_impact: "none" | "low" | "high";
+    privileges_required: "none" | "low" | "high";
+    scope: "unchanged" | "changed";
+    user_interaction: "none" | "required";
   }
 }
 
@@ -1072,6 +1072,16 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphValidationError (lib/network_defense_web/contracts/dashboard/graph/graph_validation_error.ex) — enum fields: entity_kind
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
+  export interface GraphValidationError {
+    entity_id?: string | null;
+    entity_kind: "graph" | "node" | "edge";
+    field_path: string[];
+    message: string;
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderPayload (lib/network_defense_web/contracts/dashboard/graph/move_graph_to_folder_payload.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   export interface MoveGraphToFolderPayload {
@@ -1119,6 +1129,8 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
 // NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply (lib/network_defense_web/contracts/dashboard/graph/save_graph_reply.ex) — enum fields: status
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   export interface SaveGraphReply {
+    errors?:
+      NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphValidationError[] | null;
     graph?:
       NetworkDefense.Graph.Contracts.GraphContract | null;
     status: "ok" | "stale" | "not_found" | "invalid_graph" | "unmapped_error";

@@ -8,10 +8,10 @@ source of truth for configurable ports, images, and sizes. See
 
 ```mermaid
 C4Context
-  title System Context: Network Defense Local Simulator
+  title System Context: NetworkDefense
 
   Person(securityAnalyst, "Security Analyst", "Models topology, runs simulations, and evaluates defenses")
-  System(networkDefense, "Network Defense", "Graph-based attack-propagation simulation and defense evaluation")
+  System(networkDefense, "NetworkDefense", "Graph-based attack-propagation simulation and defense evaluation")
 
   Rel(securityAnalyst, networkDefense, "Uses the dashboard", "HTTP")
 ```
@@ -43,7 +43,7 @@ C4Container
 
   Person(securityAnalyst, "Security Analyst", "Uses the dashboard")
 
-  System_Boundary(networkDefense, "Network Defense Local Simulator") {
+  System_Boundary(networkDefense, "NetworkDefense") {
     Container(haproxy, "HAProxy Edge", "HAProxy", "Only local browser entry")
 
     Boundary(siteNetwork, "Site Networks (one per site)") {

@@ -13,7 +13,7 @@
 <header class="dashboard-appbar">
   <div class="dashboard-brand">
     <span class="dashboard-brand-mark"><Icon name="shield" size={16} /></span>
-    <span>Blast Radius Simulator</span>
+    <span>NetworkDefense</span>
   </div>
   <span class="dashboard-appbar-divider" aria-hidden="true"></span>
   <div class="dashboard-app-actions">

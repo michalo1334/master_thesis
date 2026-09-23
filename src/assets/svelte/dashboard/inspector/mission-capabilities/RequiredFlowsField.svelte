@@ -4,13 +4,11 @@
     MissionCapabilityNode,
   } from "../../../contracts.generated/graph";
   import type { GraphProjectionOperationalFlow } from "../../../contracts.generated/dashboard/graph";
-
   import { onMount } from "svelte";
-  import type { DashboardApi } from "../../dashboard-api";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
-  import Inspector from "../../../ui-kit/layout/Inspector.svelte";
-  import InspectorField from "../../../ui-kit/layout/InspectorField.svelte";
   import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
+  import type { DashboardApi } from "../../dashboard-api";
+  import ErrorMessages from "../ErrorMessages.svelte";
   import { requiredFlows, type RequiredFlow } from "./mission-feasibility";
 
   interface RequiredFlowOption extends RequiredFlow {
@@ -25,6 +23,7 @@
     api: DashboardApi;
     revisionId?: string | null;
     canEditFlows: boolean;
+    errors?: readonly string[];
     onUpdate: (selectable: MissionCapabilityNode) => void;
   }
 
@@ -34,6 +33,7 @@
     api,
     revisionId = null,
     canEditFlows,
+    errors = [],
     onUpdate,
   }: Props = $props();
   let pickerOpen = $state(false);
@@ -42,6 +42,8 @@
   let flowOptions = $derived(optionsFor(graph, flows));
   let selectedFlowIds = $derived(requiredFlows(selectable.data).map(flowKey));
   let selectedFlows = $derived(flowSummariesFor(graph, selectable.data));
+  const fieldId = $props.id();
+  const errorsId = `${fieldId}-errors`;
   const columns: readonly FilterableTableColumn<RequiredFlowOption>[] = [
     {
       key: "source",
@@ -66,9 +68,7 @@
         if (reply.status === "ok") {
           flows = reply.operational_flows;
           status = "";
-        } else {
-          status = "Reachable flows are unavailable.";
-        }
+        } else status = "Reachable flows are unavailable.";
       })
       .catch(() => {
         if (active) status = "Reachable flows are unavailable.";
@@ -80,6 +80,22 @@
 
   function flowKey(flow: RequiredFlow): string {
     return `${flow.source_segment_id}:${flow.target_service_id}`;
+  }
+
+  function sourceLabel(
+    node: GraphContract["nodes"][number] | undefined,
+    fallback: string,
+  ): string {
+    if (node?.type !== "NetworkSegment") return fallback;
+    return node.data.name;
+  }
+
+  function targetLabel(
+    node: GraphContract["nodes"][number] | undefined,
+    fallback: string,
+  ): string {
+    if (node?.type !== "Service") return fallback;
+    return `${node.data.name}:${node.data.port}`;
   }
 
   function optionsFor(
@@ -116,14 +132,6 @@
       );
   }
 
-  function openPicker(): void {
-    if (!canEditFlows) {
-      status = "Save the graph before selecting required flows.";
-      return;
-    }
-    pickerOpen = true;
-  }
-
   function flowSummariesFor(
     graph: GraphContract,
     data: unknown,
@@ -135,16 +143,18 @@
       return {
         ...flow,
         id: flowKey(flow),
-        source:
-          source?.type === "NetworkSegment"
-            ? source.data.name
-            : flow.source_segment_id,
-        target:
-          target?.type === "Service"
-            ? `${target.data.name}:${target.data.port}`
-            : flow.target_service_id,
+        source: sourceLabel(source, flow.source_segment_id),
+        target: targetLabel(target, flow.target_service_id),
       };
     });
+  }
+
+  function openPicker(): void {
+    if (!canEditFlows) {
+      status = "Save the graph before selecting required flows.";
+      return;
+    }
+    pickerOpen = true;
   }
 
   function updateRequiredFlows(selected: RequiredFlowOption[]): boolean {
@@ -164,38 +174,27 @@
   }
 </script>
 
-<Inspector title="Mission capability">
-  <InspectorField
-    fields={[
-      { label: "Name", value: selectable.data.name },
-      { label: "Description", value: selectable.data.description ?? "—" },
-      { label: "Impact weight", value: String(selectable.data.impact_weight) },
-      {
-        label: "Minimum operational support",
-        value: String(selectable.data.min_operational_support),
-      },
-    ]}
-  />
-  <section class="required-flows" aria-labelledby="required-flows-title">
-    <h3 id="required-flows-title">Required flows</h3>
-    {#if selectedFlows.length}
-      <p>{selectedFlows.length} selected</p>
-      <ul aria-label="Selected required flows">
-        {#each selectedFlows as flow (flow.id)}
-          <li>{flow.source} to {flow.target}</li>
-        {/each}
-      </ul>
-    {:else}
-      <p>No required flows selected.</p>
-    {/if}
-    <button type="button" disabled={!canEditFlows} onclick={openPicker}
-      >Change required flows</button
-    >
-    {#if status}
-      <p class="required-flows-status" role="status">{status}</p>
-    {/if}
-  </section>
-</Inspector>
+<section class="required-flows" aria-labelledby="required-flows-title">
+  <h3 id="required-flows-title">Required flows</h3>
+  {#if selectedFlows.length}
+    <p>{selectedFlows.length} selected</p>
+    <ul aria-label="Selected required flows">
+      {#each selectedFlows as flow (flow.id)}
+        <li>{flow.source} to {flow.target}</li>
+      {/each}
+    </ul>
+  {:else}
+    <p>No required flows selected.</p>
+  {/if}
+  <button
+    type="button"
+    disabled={!canEditFlows}
+    aria-describedby={errors.length ? errorsId : undefined}
+    onclick={openPicker}>Change required flows</button
+  >
+  <ErrorMessages {errors} id={errorsId} />
+  {#if status}<p class="required-flows-status" role="status">{status}</p>{/if}
+</section>
 
 <OptionPickerDialog
   open={pickerOpen}
@@ -228,7 +227,8 @@
   .required-flows h3 {
     font-size: var(--ui-text-sm);
   }
-  .required-flows p {
+  .required-flows p,
+  .required-flows ul {
     color: var(--ui-color-text-secondary);
     font-size: var(--ui-text-sm);
   }
@@ -237,8 +237,6 @@
     gap: var(--ui-space-1);
     margin: 0;
     padding-left: 1.25rem;
-    color: var(--ui-color-text-secondary);
-    font-size: var(--ui-text-sm);
   }
   .required-flows button {
     width: fit-content;

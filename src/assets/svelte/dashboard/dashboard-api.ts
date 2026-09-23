@@ -117,7 +117,7 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
     },
     saveGraph(graph) {
       if (graph.revision_id == null) {
-        return Promise.resolve({ status: "invalid_graph" });
+        return Promise.resolve({ status: "invalid_graph", errors: [] });
       }
 
       return requestReply<

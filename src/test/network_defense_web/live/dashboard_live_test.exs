@@ -1818,6 +1818,159 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert latest_graph(graph.id).revision_id == graph.revision_id
     end
 
+    test "returns nested node validation errors with an entity and field path", %{conn: conn} do
+      graph = insert_graph("invalid-node-save")
+      source = insert_node(graph, "source")
+      source_id = source.id
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "revision_id" => source.graph_revision_id,
+          "title" => "invalid node graph",
+          "nodes" => [
+            %{
+              "id" => source_id,
+              "type" => "Host",
+              "data" => %{},
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => []
+        }
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        errors: [
+          %{
+            entity_kind: "node",
+            entity_id: ^source_id,
+            field_path: ["name"],
+            message: "can't be blank"
+          }
+        ]
+      })
+    end
+
+    test "returns nested required-flow validation errors with a list index", %{conn: conn} do
+      graph = insert_graph("invalid-required-flow-save")
+      capability_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "revision_id" => graph.revision_id,
+          "title" => "invalid capability graph",
+          "nodes" => [
+            %{
+              "id" => capability_id,
+              "type" => "MissionCapability",
+              "data" => %{
+                "name" => "Capability",
+                "impact_weight" => 1.0,
+                "min_operational_support" => 1,
+                "required_flows" => [
+                  %{
+                    "source_segment_id" => "not-a-uuid",
+                    "target_service_id" => Ecto.UUID.generate()
+                  }
+                ]
+              },
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => []
+        }
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        errors: [
+          %{
+            entity_kind: "node",
+            entity_id: ^capability_id,
+            field_path: ["required_flows", "0", "source_segment_id"],
+            message: "is invalid"
+          }
+        ]
+      })
+    end
+
+    test "returns a graph validation error when persistence rejects a valid graph", %{conn: conn} do
+      graph = insert_graph("invalid-edge-save")
+      segment_id = Ecto.UUID.generate()
+      host_id = Ecto.UUID.generate()
+      capability_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_graph", %{
+        "graph" => %{
+          "id" => graph.id,
+          "revision_id" => graph.revision_id,
+          "title" => "invalid edge graph",
+          "nodes" => [
+            %{
+              "id" => segment_id,
+              "type" => "NetworkSegment",
+              "data" => %{"name" => "segment"},
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            },
+            %{
+              "id" => host_id,
+              "type" => "Host",
+              "data" => %{"name" => "host"},
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            },
+            %{
+              "id" => capability_id,
+              "type" => "MissionCapability",
+              "data" => %{
+                "name" => "capability",
+                "impact_weight" => 1.0,
+                "min_operational_support" => 2,
+                "required_flows" => []
+              },
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => [
+            %{
+              "id" => Ecto.UUID.generate(),
+              "from_id" => segment_id,
+              "to_id" => host_id,
+              "type" => "Contains",
+              "data" => %{}
+            },
+            %{
+              "id" => Ecto.UUID.generate(),
+              "from_id" => host_id,
+              "to_id" => capability_id,
+              "type" => "Supports",
+              "data" => %{}
+            }
+          ]
+        }
+      })
+
+      assert_reply(view, %{
+        status: "unmapped_error",
+        errors: [
+          %{
+            entity_kind: "graph",
+            entity_id: nil,
+            field_path: [],
+            message: "invalid_mission_capability_support"
+          }
+        ]
+      })
+    end
+
     test "replaces a selected graph revision", %{conn: conn} do
       graph = insert_graph("stale-graph")
 

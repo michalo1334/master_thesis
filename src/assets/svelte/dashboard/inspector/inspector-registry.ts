@@ -3,23 +3,13 @@ import type { GraphSummary } from "../../contracts.generated/dashboard/graph";
 import type { Component, ComponentProps } from "svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
-import { inspectorFor as selectableInspectorFor } from "../graph/presentation/registry";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
 import GraphInspector from "./graph/GraphInspector.svelte";
-import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
+import SelectionInspector from "./graph/SelectionInspector.svelte";
 import ReportInspector from "./report/ReportInspector.svelte";
 
-/**
- * App-side inspector registry.
- *
- * Ordered perspectives dispatch one resolved request. Selectable inspectors
- * reuse the presentation registry (nodeRegistry + edgeRegistry → inspectorFor)
- * except MissionCapability, which has its own perspective keyed by
- * selectable.type. Every perspective factory returns exactly the props its
- * component expects - no context bag reaches an inspector.
- */
 export interface InspectorContext {
   document: WorkspaceDocument | undefined;
   api: DashboardApi;
@@ -49,11 +39,6 @@ function makeRequest<C extends Component<any, any, any>>(
   return { id, Component, props, key } as InspectorRequest;
 }
 
-interface SelectablePerspective {
-  readonly id: string;
-  create(context: InspectorContext, selectable: Node | Edge): InspectorRequest;
-}
-
 function matchesDocumentKind(
   kind: WorkspaceDocument["kind"],
 ): (context: InspectorContext) => boolean {
@@ -66,54 +51,29 @@ function graphDocument(context: InspectorContext): EditableGraphDocument {
   return context.document;
 }
 
-const missionCapabilityPerspective: SelectablePerspective = {
-  id: "selectable-mission-capability",
-  create: (context, selectable) => {
-    if (selectable.type !== "MissionCapability")
-      throw new Error("MissionCapability selectable required");
-    const document = graphDocument(context);
-    return makeRequest(
-      "selectable-mission-capability",
-      MissionCapabilityInspector,
-      {
-        selectable,
-        graph: document.graph,
-        api: context.api,
-        revisionId: document.loadedRevisionId,
-        canEditFlows: !!document.loadedRevisionId && !document.isDirty,
-        onUpdate: (next: Node | Edge) => document.updateSelection(next),
-      },
-      document.loadedRevisionId,
-    );
-  },
-};
-
-const defaultSelectablePerspective: SelectablePerspective = {
-  id: "selectable",
-  create: (context, selectable) =>
-    makeRequest("selectable", selectableInspectorFor(selectable), {
-      selectable,
-      onUpdate: (next: Node | Edge) =>
-        graphDocument(context).updateSelection(next),
-    }),
-};
-
-const selectablePerspectives: Readonly<Record<string, SelectablePerspective>> =
-  {
-    MissionCapability: missionCapabilityPerspective,
-  };
-
 const graphSelectablePerspective: InspectorPerspective = {
   id: "graph-selectable",
   matches: (context) =>
     context.document?.kind === "graph" &&
     context.document.selection !== undefined,
   create: (context) => {
-    const selectable = graphDocument(context).selection;
+    const document = graphDocument(context);
+    const selectable = document.selection;
     if (!selectable) throw new Error("selectable required");
-    const perspective =
-      selectablePerspectives[selectable.type] ?? defaultSelectablePerspective;
-    return perspective.create(context, selectable);
+    return makeRequest(
+      "selectable",
+      SelectionInspector,
+      {
+        selectable,
+        graph: document.graph,
+        api: context.api,
+        revisionId: document.loadedRevisionId,
+        canEditFlows: !!document.loadedRevisionId && !document.isDirty,
+        errors: document.selectedValidationErrors,
+        onUpdate: (next: Node | Edge) => document.updateSelection(next),
+      },
+      document.loadedRevisionId,
+    );
   },
 };
 
@@ -132,6 +92,7 @@ const graphPerspective: InspectorPerspective = {
     return makeRequest("graph", GraphInspector, {
       graph,
       parentTitle,
+      errors: document.graphValidationErrors,
       onTitleChange: (title: string) => document.setTitle(title),
       onOpenParent: graph.parent_revision_id
         ? () => context.onOpenParent?.(graph.parent_revision_id!)

@@ -56,25 +56,25 @@ defmodule NetworkDefenseWeb.CoreComponents do
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide("##{@id}")}
       role="alert"
-      class="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]"
+      class="fixed right-4 top-4 z-[250] w-[min(24rem,calc(100vw-2rem))]"
       {@rest}
     >
       <div class={[
         "flex items-start gap-3 rounded-md border px-4 py-3 shadow-lg",
         @kind == :info &&
-          "border-[var(--ds-color-accent)] bg-[var(--ds-color-accent-soft)] text-[var(--ds-color-text)]",
+          "border-[var(--ui-color-accent)] bg-[var(--ui-color-accent-soft)] text-[var(--ui-color-text)]",
         @kind == :error &&
-          "border-[var(--ds-color-danger)] bg-[var(--ds-color-paper)] text-[var(--ds-color-text)]"
+          "border-[var(--ui-color-danger)] bg-[var(--ui-color-paper)] text-[var(--ui-color-text)]"
       ]}>
         <.icon
           :if={@kind == :info}
           name="hero-information-circle"
-          class="size-5 shrink-0 text-[var(--ds-color-accent)]"
+          class="size-5 shrink-0 text-[var(--ui-color-accent)]"
         />
         <.icon
           :if={@kind == :error}
           name="hero-exclamation-circle"
-          class="size-5 shrink-0 text-[var(--ds-color-danger)]"
+          class="size-5 shrink-0 text-[var(--ui-color-danger)]"
         />
         <div class="min-w-0 flex-1">
           <p :if={@title} class="font-semibold">{@title}</p>

@@ -2,7 +2,7 @@
 
 A system for graph-based simulation of attack propagation in computer networks and simulation-based comparison of defensive actions. Defenses aim to reduce modeled mission impact; blast radius is a secondary safety outcome.
 
-The model combines network topology, stochastic state-transition simulation, and defense optimization. Vulnerabilities carry CVSS characteristics and a separately assigned, stylized success probability. The simulator selects uniformly from eligible actions, then samples the selected action's outcome. It does not estimate real-world exploit likelihood.
+The model combines network topology, stochastic state-transition simulation, and defense optimization. Vulnerabilities carry CVSS characteristics and a separately assigned success probability. The simulator selects uniformly from eligible actions, then samples the selected action's outcome. It does not estimate real-world exploit likelihood.
 
 The system does not require a complete static attack graph or prior enumeration of every attack path. Attack paths may emerge dynamically during simulation.
 

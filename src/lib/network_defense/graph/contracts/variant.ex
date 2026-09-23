@@ -7,8 +7,11 @@ defmodule NetworkDefense.Graph.Contracts.Variant do
     case for_type(get_field(changeset, :type), variants) do
       {:ok, {data_contract, _domain_type}} ->
         case data_contract.validate(get_field(changeset, :data) || %{}) do
-          {:ok, data} -> put_change(changeset, :data, data)
-          {:error, _changeset} -> add_error(changeset, :data, "is invalid")
+          {:ok, data} ->
+            put_change(changeset, :data, data)
+
+          {:error, data_changeset} ->
+            add_error(changeset, :data, "is invalid", nested_changeset: data_changeset)
         end
 
       :error ->

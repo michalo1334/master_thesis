@@ -7,7 +7,7 @@ holds the full research narrative. This page does not repeat it.
 
 Main research question:
 
-> Within controlled stylized network topologies, how do equal-action-count
+> Within controlled network topologies, how do equal-action-count
 > defense strategies differ from CVSS prioritization in reducing simulated
 > mission impact?
 
@@ -30,7 +30,7 @@ and mission capabilities.
 
 Current bounds:
 
-- one fixed stylized topology, policy, and attacker model;
+- one fixed topology, policy, and attacker model;
 - equal-action-count budgets only (each current defensive action has unit cost);
 - a finite horizon of attacker action steps per trial;
 - attacks start from a declared entry host.
@@ -101,7 +101,7 @@ status.
 
 The built-in catalog contains synthetic vulnerability entries. The baseline
 scenario can also use a reviewed static NVD subset. Each vulnerability has a
-stylized success probability. This probability is a scenario parameter, not a
+scenario success probability. This probability is a scenario parameter, not a
 measured exploit rate.
 
 NVD ingestion is deferred and is **not implemented**. No runtime evaluation

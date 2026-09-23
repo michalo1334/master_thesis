@@ -406,4 +406,49 @@ describe("NetworkCanvas", () => {
       within(container).queryAllByRole("img", { name: /Operational flow/ }),
     ).toHaveLength(0);
   });
+
+  it("assigns an unassigned host to a segment and resets the picker", async () => {
+    const graphWithUnassigned = graph();
+    graphWithUnassigned.nodes.push({
+      id: "host-c",
+      type: "Host",
+      data: { name: "C" },
+      view_data: { x_pos: 300, y_pos: 400 },
+    });
+    const document = new EditableGraphDocument();
+    document.replaceFromLoadedGraph(graphWithUnassigned);
+    const dashboardApi = api();
+    const createConnectionDraft = vi.fn().mockResolvedValue({
+      status: "ok",
+      edge: {
+        id: "assigned",
+        type: "Contains",
+        from_id: "dmz",
+        to_id: "host-c",
+        data: {},
+      },
+    });
+    dashboardApi.createConnectionDraft = createConnectionDraft;
+    render(NetworkCanvas, { props: { document, api: dashboardApi } });
+
+    document.selectNode("host-c");
+    const trigger = await screen.findByRole("button", {
+      name: "Assign selected host to a segment",
+    });
+    await fireEvent.keyDown(trigger, { key: "Enter" });
+    await fireEvent.pointerUp(
+      await screen.findByRole("option", { name: "DMZ" }),
+    );
+
+    await waitFor(() =>
+      expect(createConnectionDraft).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relationship_type: "Contains",
+          source_id: "dmz",
+          target_id: "host-c",
+        }),
+      ),
+    );
+    expect(trigger).toHaveTextContent("Assign selected host");
+  });
 });

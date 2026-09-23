@@ -19,3 +19,5 @@ export type ServiceNode = __Contracts.NetworkDefense.Graph.Contracts.ServiceNode
 export type StoresCredentialEdge = __Contracts.NetworkDefense.Graph.Contracts.StoresCredentialEdge;
 export type SupportsEdge = __Contracts.NetworkDefense.Graph.Contracts.SupportsEdge;
 export type VulnerabilityNode = __Contracts.NetworkDefense.Graph.Contracts.VulnerabilityNode;
+
+export { edgeDataContracts, nodeDataContracts } from "../contracts.generated.runtime";

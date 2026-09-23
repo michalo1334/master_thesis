@@ -50,6 +50,7 @@ describe("DashboardApi", () => {
 
     await expect(createDashboardApi(live).saveGraph(graph)).resolves.toEqual({
       status: "invalid_graph",
+      errors: [],
     });
     expect(live.pushEvent).not.toHaveBeenCalled();
   });

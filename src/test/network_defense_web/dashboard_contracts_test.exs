@@ -766,10 +766,16 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   defp errors_on(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {message, options} ->
-      Enum.reduce(options, message, fn {key, value}, acc ->
-        String.replace(acc, "%{#{key}}", to_string(value))
-      end)
+      Enum.reduce(options, message, &replace_error_option/2)
     end)
+  end
+
+  defp replace_error_option({key, value}, message) do
+    placeholder = "%{#{key}}"
+
+    if String.contains?(message, placeholder),
+      do: String.replace(message, placeholder, to_string(value)),
+      else: message
   end
 
   defp cvss do

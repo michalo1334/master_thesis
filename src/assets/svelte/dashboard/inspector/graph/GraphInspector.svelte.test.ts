@@ -62,4 +62,51 @@ describe("GraphInspector", () => {
       screen.queryByRole("button", { name: "Root revision" }),
     ).not.toBeInTheDocument();
   });
+
+  it("puts title errors with the title and graph errors in one summary", () => {
+    const graph: GraphContract = {
+      id: "graph-1",
+      title: "Topology",
+      revision_id: "revision-1",
+      parent_revision_id: null,
+      revision_kind: "original",
+      revision_number: 1,
+      nodes: [],
+      edges: [],
+    };
+    render(GraphInspector, {
+      props: {
+        graph,
+        onTitleChange: vi.fn(),
+        errors: [
+          {
+            entity_kind: "graph",
+            entity_id: null,
+            field_path: [],
+            message: "Graph is invalid",
+          },
+          {
+            entity_kind: "graph",
+            entity_id: null,
+            field_path: ["title"],
+            message: "Title is invalid",
+          },
+          {
+            entity_kind: "graph",
+            entity_id: null,
+            field_path: ["title"],
+            message: "Title must be unique",
+          },
+        ],
+      },
+    });
+    const [graphErrors, titleErrors] = screen.getAllByRole("alert");
+    expect(graphErrors).toHaveTextContent("Graph is invalid");
+    expect(titleErrors).toHaveTextContent("Title is invalid");
+    expect(titleErrors).toHaveTextContent("Title must be unique");
+    expect(screen.getByRole("textbox", { name: "Title" })).toHaveAttribute(
+      "aria-describedby",
+      titleErrors.id,
+    );
+  });
 });

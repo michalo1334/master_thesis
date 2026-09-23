@@ -16,3 +16,6 @@ export type ServiceData = __Contracts.NetworkDefense.Graph.Contracts.Data.Servic
 export type StoresCredentialData = __Contracts.NetworkDefense.Graph.Contracts.Data.StoresCredentialData;
 export type SupportsData = __Contracts.NetworkDefense.Graph.Contracts.Data.SupportsData;
 export type VulnerabilityData = __Contracts.NetworkDefense.Graph.Contracts.Data.VulnerabilityData;
+
+export { contractMetadata } from "../../contracts.generated.runtime";
+export type { ContractMetadata, FieldKind, FieldMetadata } from "../../contracts.generated.runtime";

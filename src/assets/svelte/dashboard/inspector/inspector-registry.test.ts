@@ -15,9 +15,8 @@ import {
   type InspectorContext,
   type InspectorRequest,
 } from "./inspector-registry";
-import EmptyInspector from "./EmptyInspector.svelte";
 import GraphInspector from "./graph/GraphInspector.svelte";
-import MissionCapabilityInspector from "./mission-capabilities/MissionCapabilityInspector.svelte";
+import SelectionInspector from "./graph/SelectionInspector.svelte";
 import ReportInspector from "./report/ReportInspector.svelte";
 
 function makeGraph(overrides: Partial<GraphContract> = {}): GraphContract {
@@ -130,19 +129,19 @@ describe("resolveInspector", () => {
     const request = resolveInspector(makeContext({ document }));
 
     expect(request?.id).toBe("selectable");
-    expect(request?.Component).not.toBe(GraphInspector);
+    expect(request?.Component).toBe(SelectionInspector);
     expect(propsOf(request).selectable).toEqual(node);
     expect(typeof propsOf(request).onUpdate).toBe("function");
   });
 
-  it("resolves MissionCapability with its key and dedicated props", () => {
+  it("resolves MissionCapability through the shared selection inspector", () => {
     const document = makeGraphDocument(makeGraph({ nodes: [capabilityNode] }));
     document.selectNode(capabilityNode.id);
 
     const request = resolveInspector(makeContext({ document }));
 
-    expect(request?.id).toBe("selectable-mission-capability");
-    expect(request?.Component).toBe(MissionCapabilityInspector);
+    expect(request?.id).toBe("selectable");
+    expect(request?.Component).toBe(SelectionInspector);
     expect(request?.key).toBe(document.loadedRevisionId);
     const props = propsOf(request);
     expect(props.selectable).toEqual(capabilityNode);
@@ -152,7 +151,7 @@ describe("resolveInspector", () => {
     expect(typeof props.onUpdate).toBe("function");
   });
 
-  it("remounts MissionCapability via its key when the revision changes", () => {
+  it("remounts selected fields when the revision changes", () => {
     const document = makeGraphDocument(makeGraph({ nodes: [capabilityNode] }));
     document.selectNode(capabilityNode.id);
     const first = resolveInspector(makeContext({ document }));
@@ -168,7 +167,7 @@ describe("resolveInspector", () => {
     expect(first?.key).not.toBe(second?.key);
   });
 
-  it("propagates selection updates for MissionCapability through onUpdate", () => {
+  it("propagates selection updates through onUpdate", () => {
     const document = makeGraphDocument(makeGraph({ nodes: [capabilityNode] }));
     document.selectNode(capabilityNode.id);
 
@@ -185,7 +184,7 @@ describe("resolveInspector", () => {
     });
   });
 
-  it("falls back to the selectable inspector for an unknown selectable type", () => {
+  it("uses the shared selection inspector for an unknown selectable type", () => {
     const unknown = {
       id: "unknown-1",
       type: "UnknownType",
@@ -202,7 +201,7 @@ describe("resolveInspector", () => {
     const request = resolveInspector(makeContext({ document }));
 
     expect(request?.id).toBe("selectable");
-    expect(request?.Component).toBe(EmptyInspector);
+    expect(request?.Component).toBe(SelectionInspector);
     expect(propsOf(request).selectable).toEqual(unknown);
     expect(typeof propsOf(request).onUpdate).toBe("function");
   });

@@ -15,7 +15,7 @@ The graph has six node types.
 | `host` | A compute resource. |
 | `service` | An application that listens on a protocol and port. A port is a service attribute, not a node. |
 | `network_segment` | A container for hosts. |
-| `vulnerability` | A weakness of a host or service. It carries CVSS characteristics and a stylized exploit probability. |
+| `vulnerability` | A weakness of a host or service. It carries CVSS characteristics and a scenario exploit probability. |
 | `credential` | A secret that authenticates to a service. |
 | `mission_capability` | An outcome that one or more hosts support. |
 

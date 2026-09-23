@@ -4,6 +4,7 @@ import type {
   Node,
 } from "../../contracts.generated/graph";
 import type { DashboardError } from "../../contracts.generated/dashboard";
+import type { GraphValidationError } from "../../contracts.generated/dashboard/graph";
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { RunOptimizationReply } from "../../contracts.generated/dashboard/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
@@ -74,6 +75,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   private _title = $state("Untitled");
   private _changeVersion = $state(0);
   private _savedChangeVersion = $state(0);
+  private _saveErrors = $state<GraphValidationError[]>([]);
 
   revision = $state(0);
   isSaving = $state(false);
@@ -163,6 +165,27 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     return this._selection;
   }
 
+  get selectedValidationErrors(): readonly GraphValidationError[] {
+    const selection = this._selection;
+    if (selection.kind === "node") {
+      return this._saveErrors.filter(
+        (error) =>
+          error.entity_kind === "node" && error.entity_id === selection.nodeId,
+      );
+    }
+    if (selection.kind === "edge") {
+      return this._saveErrors.filter(
+        (error) =>
+          error.entity_kind === "edge" && error.entity_id === selection.edgeId,
+      );
+    }
+    return [];
+  }
+
+  get graphValidationErrors(): readonly GraphValidationError[] {
+    return this._saveErrors.filter((error) => error.entity_kind === "graph");
+  }
+
   get selection():
     | GraphContract["nodes"][number]
     | GraphContract["edges"][number]
@@ -193,6 +216,9 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
 
     this._title = nextTitle;
     this.graph = { ...this._graph, title: nextTitle };
+    this._saveErrors = this._saveErrors.filter(
+      (error) => error.entity_kind !== "graph",
+    );
   }
 
   addNode(node: Node): void {
@@ -243,6 +269,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
           node.id === selectable.id ? selectable : node,
         ),
       };
+      this._clearValidationErrors("node", selectable.id);
     } else if (
       selection.kind === "edge" &&
       selectable.id === selection.edgeId &&
@@ -254,6 +281,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
           edge.id === selectable.id ? selectable : edge,
         ),
       };
+      this._clearValidationErrors("edge", selectable.id);
     }
   }
 
@@ -263,6 +291,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this._loaded = true;
     this._loadedRevisionId = graph.revision_id ?? null;
     this._savedChangeVersion = this._changeVersion;
+    this._saveErrors = [];
     this._preserveSelection(graph);
   }
 
@@ -271,6 +300,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this._title = graph.title;
     this._loadedRevisionId = graph.revision_id ?? null;
     this._savedChangeVersion = this._changeVersion;
+    this._saveErrors = [];
     this._preserveSelection(graph);
   }
 
@@ -288,11 +318,16 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
           this._loadedRevisionId = reply.graph.revision_id ?? null;
           this._preserveSelection(this._graph);
         }
+        this._saveErrors = [];
         this.saveStatusMessage = "Saved.";
         return true;
       } else if (reply.status === "not_found") {
         this.saveStatusMessage = "Save failed: graph no longer exists.";
       } else {
+        this._saveErrors =
+          this._changeVersion === savedChangeVersion
+            ? (reply.errors ?? [])
+            : [];
         this.saveStatusMessage = "Save failed.";
       }
       return false;
@@ -353,12 +388,30 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   }
 
   private _preserveSelection(graph: GraphContract): void {
+    this._saveErrors = this._saveErrors.filter(
+      (error) =>
+        error.entity_kind === "graph" ||
+        (error.entity_kind === "node" &&
+          graph.nodes.some((node) => node.id === error.entity_id)) ||
+        (error.entity_kind === "edge" &&
+          graph.edges.some((edge) => edge.id === error.entity_id)),
+    );
     const sel = this._selection;
     if (sel.kind === "node" && graph.nodes.some((n) => n.id === sel.nodeId))
       return;
     if (sel.kind === "edge" && graph.edges.some((e) => e.id === sel.edgeId))
       return;
     this._selection = { kind: "none" };
+  }
+
+  private _clearValidationErrors(
+    entityKind: "node" | "edge",
+    entityId: string,
+  ): void {
+    this._saveErrors = this._saveErrors.filter(
+      (error) =>
+        error.entity_kind !== entityKind || error.entity_id !== entityId,
+    );
   }
 }
 

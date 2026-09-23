@@ -1,5 +1,4 @@
 import type { Edge } from "../../../../contracts.generated/graph";
-import EditableSelectionInspector from "../../../inspector/graph/EditableSelectionInspector.svelte";
 
 function policyLabel(edge: Edge): string {
   if (edge.type !== "SegmentReachability") return edge.type;
@@ -11,6 +10,5 @@ function policyLabel(edge: Edge): string {
 export const segmentReachabilityEdge = {
   color: "var(--ui-color-edge-segment-reachability)",
   dashArray: "5 3" as string | null,
-  inspector: EditableSelectionInspector,
   label: policyLabel,
 };

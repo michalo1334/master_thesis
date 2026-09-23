@@ -164,15 +164,13 @@
         label="Initial foothold"
         value={simulationParams.initial_foothold_node_id}
         disabled={!hasActiveGraph || footholdHosts.length === 0}
-        onchange={(event) =>
-          onSimulationParamsChange({
-            initial_foothold_node_id: event.currentTarget.value,
-          })}
-      >
-        {#each footholdHosts as host (host.id)}
-          <option value={host.id}>{host.name}</option>
-        {/each}
-      </Select>
+        options={footholdHosts.map((host) => ({
+          value: host.id,
+          label: host.name,
+        }))}
+        onchange={(initial_foothold_node_id) =>
+          onSimulationParamsChange({ initial_foothold_node_id })}
+      />
       <Slider
         label="Monte Carlo trials"
         min={1}
@@ -218,18 +216,16 @@
         label="Strategy"
         value={activeOptimizationId}
         disabled={!hasActiveGraph}
-        onchange={(event) =>
+        options={availableOptimizationOptions.map((option) => ({
+          value: option.id,
+          label: option.title,
+          disabled: option.disabled,
+        }))}
+        onchange={(strategy) =>
           onOptimizationParamsChange({
-            strategy: event.currentTarget
-              .value as OptimizationParams["strategy"],
+            strategy: strategy as OptimizationParams["strategy"],
           })}
-      >
-        {#each availableOptimizationOptions as option (option.id)}
-          <option value={option.id} disabled={option.disabled}>
-            {option.title}
-          </option>
-        {/each}
-      </Select>
+      />
       <NumberInput
         label="Budget"
         value={optimizationParams.budget}
@@ -244,17 +240,15 @@
           label="Initial foothold"
           value={optimizationParams.simulation_params.initial_foothold_node_id}
           disabled={!hasActiveGraph || footholdHosts.length === 0}
-          onchange={(event) =>
+          options={footholdHosts.map((host) => ({
+            value: host.id,
+            label: host.name,
+          }))}
+          onchange={(initial_foothold_node_id) =>
             onOptimizationParamsChange({
-              simulation_params: {
-                initial_foothold_node_id: event.currentTarget.value,
-              },
+              simulation_params: { initial_foothold_node_id },
             })}
-        >
-          {#each footholdHosts as host (host.id)}
-            <option value={host.id}>{host.name}</option>
-          {/each}
-        </Select>
+        />
         <Slider
           label="Monte Carlo trials"
           min={1}
@@ -313,17 +307,15 @@
           label="Initial foothold"
           value={optimizationParams.simulation_params.initial_foothold_node_id}
           disabled={!hasActiveGraph || footholdHosts.length === 0}
-          onchange={(event) =>
+          options={footholdHosts.map((host) => ({
+            value: host.id,
+            label: host.name,
+          }))}
+          onchange={(initial_foothold_node_id) =>
             onOptimizationParamsChange({
-              simulation_params: {
-                initial_foothold_node_id: event.currentTarget.value,
-              },
+              simulation_params: { initial_foothold_node_id },
             })}
-        >
-          {#each footholdHosts as host (host.id)}
-            <option value={host.id}>{host.name}</option>
-          {/each}
-        </Select>
+        />
       </Ribbon.Section>
     {/if}
   </Ribbon.Tab>

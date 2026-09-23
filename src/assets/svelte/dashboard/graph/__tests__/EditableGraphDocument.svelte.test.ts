@@ -200,6 +200,90 @@ describe("EditableGraphDocument", () => {
       expect(doc.isDirty).toBe(true);
     });
 
+    it("keeps validation errors on the selected entity until it changes", async () => {
+      const node = hostNode("host-1");
+      doc.replaceFromLoadedGraph(makeGraph({ nodes: [node] }));
+      doc.selectNode(node.id);
+      doc.updateSelection({ ...node, data: { name: "" } });
+      const api = {
+        saveGraph: vi.fn().mockResolvedValue({
+          status: "invalid_graph",
+          errors: [
+            {
+              entity_kind: "node",
+              entity_id: node.id,
+              field_path: ["name"],
+              message: "can't be blank",
+            },
+          ],
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(doc.save(api)).resolves.toBe(false);
+      expect(doc.selectedValidationErrors).toHaveLength(1);
+
+      doc.updateSelection({ ...node, data: { name: "Updated" } });
+      expect(doc.selectedValidationErrors).toEqual([]);
+    });
+
+    it("clears validation errors when replacing or removing their entities", async () => {
+      const node = hostNode("host-1");
+      doc.replaceFromLoadedGraph(makeGraph({ nodes: [node] }));
+      doc.selectNode(node.id);
+      const api = {
+        saveGraph: vi.fn().mockResolvedValue({
+          status: "invalid_graph",
+          errors: [
+            {
+              entity_kind: "node",
+              entity_id: node.id,
+              field_path: ["name"],
+              message: "can't be blank",
+            },
+            {
+              entity_kind: "graph",
+              entity_id: null,
+              field_path: [],
+              message: "Graph is invalid",
+            },
+          ],
+        }),
+      } as unknown as DashboardApi;
+
+      await doc.save(api);
+      expect(doc.selectedValidationErrors).toHaveLength(1);
+      expect(doc.graphValidationErrors).toHaveLength(1);
+
+      doc.deleteSelection();
+      expect(doc.selectedValidationErrors).toEqual([]);
+
+      doc.replaceFromLoadedGraph(makeGraph());
+      expect(doc.graphValidationErrors).toEqual([]);
+    });
+
+    it("clears graph validation errors when the title changes", async () => {
+      doc.replaceFromLoadedGraph(makeGraph());
+      const api = {
+        saveGraph: vi.fn().mockResolvedValue({
+          status: "unmapped_error",
+          errors: [
+            {
+              entity_kind: "graph",
+              entity_id: null,
+              field_path: [],
+              message: "invalid_edge",
+            },
+          ],
+        }),
+      } as unknown as DashboardApi;
+
+      await doc.save(api);
+      expect(doc.graphValidationErrors).toHaveLength(1);
+
+      doc.setTitle("Renamed");
+      expect(doc.graphValidationErrors).toEqual([]);
+    });
+
     it("saves a changed title in the graph payload", async () => {
       doc.replaceFromLoadedGraph(makeGraph({ title: "Original" }));
       doc.setTitle("Renamed");

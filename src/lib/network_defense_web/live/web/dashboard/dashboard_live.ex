@@ -108,7 +108,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
           <div
             role="status"
             class="dashboard-loading"
-            style="min-height: 100dvh; display: grid; place-items: center; color: var(--ds-color-text); background: var(--ds-color-surface);"
+            style="min-height: 100dvh; display: grid; place-items: center; color: var(--ui-color-text); background: var(--ui-color-surface);"
           >
             Loading dashboard…
           </div>
@@ -145,8 +145,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:ok, %{graph: graph}} ->
         save_graph(graph, socket)
 
-      {:error, _changeset} ->
-        {:reply, save_graph_reply("invalid_graph"), socket}
+      {:error, changeset} ->
+        {:reply, save_graph_reply("invalid_graph", nil, graph_validation_errors(changeset)),
+         socket}
     end
   end
 
@@ -871,8 +872,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp save_graph(graph, socket) do
     case Graphs.replace(graph) do
-      {:ok, %{graph: persisted}} -> save_graph_success(persisted, socket)
-      {:error, reason} -> {:reply, save_graph_reply(save_error_status(reason)), socket}
+      {:ok, %{graph: persisted}} ->
+        save_graph_success(persisted, socket)
+
+      {:error, reason} ->
+        {:reply,
+         save_graph_reply(save_error_status(reason), nil, [
+           validation_error("graph", nil, [], Errors.to_wire(reason))
+         ]), socket}
     end
   end
 
@@ -1070,9 +1077,95 @@ defmodule NetworkDefenseWeb.DashboardLive do
     contract_reply(OpenGraphReply, %{status: status, graph: graph})
   end
 
-  defp save_graph_reply(status, graph \\ nil) do
-    contract_reply(SaveGraphReply, %{status: status, graph: graph})
+  defp save_graph_reply(status, graph \\ nil, errors \\ []) do
+    contract_reply(SaveGraphReply, %{status: status, graph: graph, errors: errors})
   end
+
+  defp graph_validation_errors(%Ecto.Changeset{changes: %{graph: graph_changeset}}) do
+    graph_errors(graph_changeset)
+  end
+
+  defp graph_validation_errors(_changeset), do: []
+
+  defp graph_errors(changeset) do
+    direct_errors(changeset, "graph", entity_id(changeset), []) ++
+      embedded_errors(changeset, :nodes, "node") ++
+      embedded_errors(changeset, :edges, "edge")
+  end
+
+  defp embedded_errors(changeset, field, kind) do
+    changeset.changes
+    |> Map.get(field, [])
+    |> List.wrap()
+    |> Enum.flat_map(&direct_errors(&1, kind, entity_id(&1), []))
+  end
+
+  defp direct_errors(changeset, kind, entity_id, path) do
+    direct =
+      Enum.flat_map(changeset.errors, fn {field, {message, options}} ->
+        case Keyword.get(options, :nested_changeset) do
+          %Ecto.Changeset{} = nested ->
+            direct_errors(nested, kind, entity_id, path)
+
+          _ ->
+            [
+              validation_error(
+                kind,
+                entity_id,
+                path ++ [to_string(field)],
+                format_error(message, options)
+              )
+            ]
+        end
+      end)
+
+    nested =
+      changeset.changes
+      |> Enum.flat_map(fn
+        {field, _nested} when kind == "graph" and field in [:nodes, :edges] ->
+          []
+
+        {field, %Ecto.Changeset{} = nested} ->
+          direct_errors(nested, kind, entity_id, path ++ [to_string(field)])
+
+        {field, nested} when is_list(nested) ->
+          nested
+          |> Enum.with_index()
+          |> Enum.flat_map(fn
+            {%Ecto.Changeset{} = nested, index} ->
+              direct_errors(nested, kind, entity_id, path ++ [to_string(field), to_string(index)])
+
+            {_value, _index} ->
+              []
+          end)
+
+        {_field, _value} ->
+          []
+      end)
+
+    direct ++ nested
+  end
+
+  defp validation_error(kind, entity_id, field_path, message) do
+    %{entity_kind: kind, entity_id: entity_id, field_path: field_path, message: message}
+  end
+
+  defp entity_id(changeset), do: Ecto.Changeset.get_field(changeset, :id)
+
+  defp format_error(message, options) do
+    Enum.reduce(options, message, fn
+      {key, value}, message when is_atom(key) ->
+        String.replace(message, "%{#{key}}", format_error_option(value))
+
+      _option, message ->
+        message
+    end)
+  end
+
+  defp format_error_option(value) when is_binary(value), do: value
+  defp format_error_option(value) when is_atom(value), do: Atom.to_string(value)
+  defp format_error_option(value) when is_number(value), do: to_string(value)
+  defp format_error_option(value), do: inspect(value)
 
   defp compare_graphs_reply(status, result \\ nil) do
     contract_reply(CompareGraphsReply, %{status: status, result: result})

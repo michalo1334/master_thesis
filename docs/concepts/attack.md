@@ -68,12 +68,12 @@ vulnerability present on the foothold host itself.
 
 | Action | Produced by | Outcome probability | Effect |
 | --- | --- | --- | --- |
-| `ExploitVulnerability` | Remote and local exploitation | The vulnerability's stylized exploit probability | Add a foothold or upgrade a privilege. |
+| `ExploitVulnerability` | Remote and local exploitation | The vulnerability's scenario exploit probability | Add a foothold or upgrade a privilege. |
 | `AcquireCredential` | Credential acquisition | Deterministic (probability `1`) | Add a credential. |
 | `ReuseCredential` | Credential reuse | Deterministic (probability `1`) | Add or upgrade a privilege. |
 
 Credential acquisition and reuse are deterministic. Only exploitation samples
-its outcome. The sampling uses the vulnerability's stylized success probability,
+its outcome. The sampling uses the vulnerability's success probability,
 which is a scenario parameter, not a measured exploit rate.
 
 The protocol definitions for rules and actions decide conditions and effects.

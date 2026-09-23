@@ -21,6 +21,7 @@
     NetworkOperationalFlow,
     NetworkSegmentLink,
   } from "./NetworkCanvasProjection";
+  import Select from "../../../ui-kit/primitives/Select.svelte";
 
   const COLLAPSED_RADIUS = { x: 130, y: 72 };
   const EXPANDED_RADIUS = { x: 235, y: 155 };
@@ -100,6 +101,7 @@
   let serverFlows = $state<readonly GraphProjectionOperationalFlow[]>();
   let projectedRevisionId = $state<string | null>(null);
   let projectionError = $state("");
+  let hostAssignment = $state("");
 
   let projection = $derived.by(() => {
     if (!effectiveGraph) {
@@ -120,6 +122,11 @@
         : undefined,
     );
   });
+  let assignableSegments = $derived(
+    projection.segments
+      .filter((segment) => segment.node)
+      .map((segment) => ({ value: segment.id, label: segment.name })),
+  );
   let zones = $derived.by<DisplayZone[]>(() =>
     projection.segments.map((segment) => {
       const expanded = expandedSegmentIds.has(segment.id);
@@ -582,10 +589,8 @@
     }
   }
 
-  function assignSelectedHost(event: Event): void {
-    const select = event.currentTarget as HTMLSelectElement;
-    const segmentId = select.value;
-    select.value = "";
+  function assignSelectedHost(segmentId: string): void {
+    hostAssignment = "";
     if (segmentId && selectedHost)
       void createContainment(segmentId, selectedHost.id);
   }
@@ -647,17 +652,13 @@
     <button type="button" onclick={expandAllZones}>Expand all zones</button>
     <button type="button" onclick={collapseAllZones}>Collapse all zones</button>
     {#if selectedHost && !isHeatmapMode}
-      <select
+      <Select
         aria-label="Assign selected host to a segment"
+        placeholder="Assign selected host"
+        bind:value={hostAssignment}
+        options={assignableSegments}
         onchange={assignSelectedHost}
-      >
-        <option value="">Assign selected host</option>
-        {#each projection.segments as segment (segment.id)}
-          {#if segment.node}
-            <option value={segment.id}>{segment.name}</option>
-          {/if}
-        {/each}
-      </select>
+      />
     {/if}
     <span
       >{projection.hosts.length} hosts · {projection.segments.length} zones</span
@@ -1058,12 +1059,21 @@
     max-inline-size: calc(100% - 2 * var(--ui-space-3));
   }
   .network-toolbar button,
-  .network-controls button,
-  .network-toolbar select {
+  .network-controls button {
     border: 0;
     border-radius: var(--ui-radius-sm);
     background: var(--ui-color-accent-soft);
     color: var(--ui-color-text);
+    padding: 0.25rem 0.5rem;
+  }
+  .network-toolbar :global(.dashboard-select) {
+    min-width: 9rem;
+    padding: 0;
+  }
+  .network-toolbar :global(.dashboard-select-control) {
+    min-height: 1.75rem;
+    border: 0;
+    background: var(--ui-color-accent-soft);
     padding: 0.25rem 0.5rem;
   }
   .network-toolbar-status {

@@ -113,7 +113,7 @@ describe("DashboardRibbon", () => {
     await openOptimizationTab();
 
     expect(
-      screen.getByRole("combobox", { name: "Strategy" }),
+      screen.getByRole("button", { name: "Strategy" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("spinbutton", { name: "Budget" }),
@@ -129,9 +129,12 @@ describe("DashboardRibbon", () => {
     });
     await openOptimizationTab();
 
-    await fireEvent.change(screen.getByRole("combobox", { name: "Strategy" }), {
-      target: { value: "simulation_informed" },
+    await fireEvent.keyDown(screen.getByRole("button", { name: "Strategy" }), {
+      key: "Enter",
     });
+    await fireEvent.pointerUp(
+      await screen.findByRole("option", { name: "Simulation-informed" }),
+    );
 
     expect(onOptimizationParamsChange).toHaveBeenCalledWith({
       strategy: "simulation_informed",
@@ -158,7 +161,7 @@ describe("DashboardRibbon", () => {
 
       expect(screen.getByText("Simulation settings")).toBeInTheDocument();
       expect(
-        screen.getByRole("combobox", { name: "Initial foothold" }),
+        screen.getByRole("button", { name: "Initial foothold" }),
       ).toBeInTheDocument();
       expect(
         screen.getByRole("spinbutton", { name: "Monte Carlo trials" }),
@@ -167,7 +170,7 @@ describe("DashboardRibbon", () => {
         screen.getByRole("spinbutton", { name: "Maximum attempts" }),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("combobox", { name: "Objective" }),
+        screen.queryByRole("button", { name: "Objective" }),
       ).not.toBeInTheDocument();
     },
   );
@@ -182,7 +185,7 @@ describe("DashboardRibbon", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: "Initial foothold" }),
+      screen.getByRole("button", { name: "Initial foothold" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("spinbutton", { name: "Monte Carlo trials" }),
@@ -191,7 +194,7 @@ describe("DashboardRibbon", () => {
       screen.queryByRole("spinbutton", { name: "Maximum attempts" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Objective" }),
+      screen.queryByRole("button", { name: "Objective" }),
     ).not.toBeInTheDocument();
   });
 
@@ -206,10 +209,10 @@ describe("DashboardRibbon", () => {
       }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Initial foothold" }),
+      screen.queryByRole("button", { name: "Initial foothold" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("combobox", { name: "Objective" }),
+      screen.queryByRole("button", { name: "Objective" }),
     ).not.toBeInTheDocument();
   });
 
@@ -221,9 +224,12 @@ describe("DashboardRibbon", () => {
     await openOptimizationTab();
 
     expect(screen.getByRole("button", { name: "Optimize" })).toBeDisabled();
+    await fireEvent.keyDown(screen.getByRole("button", { name: "Strategy" }), {
+      key: "Enter",
+    });
     expect(
-      screen.getByRole("option", { name: "Simulation-informed" }),
-    ).toBeDisabled();
+      await screen.findByRole("option", { name: "Simulation-informed" }),
+    ).toHaveAttribute("aria-disabled", "true");
     expect(onOptimize).not.toHaveBeenCalled();
   });
 

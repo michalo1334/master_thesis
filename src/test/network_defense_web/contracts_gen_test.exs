@@ -141,6 +141,40 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert File.read!(Registry.output_path()) == Registry.render_all()
   end
 
+  test "generates runtime field metadata from typespecs and enum metadata" do
+    output = Registry.render_runtime_metadata()
+
+    assert output =~
+             ~s("NetworkDefense.Graph.Contracts.Data.ServiceData": {\n    fields: [\n      {\n        name: "name",\n        kind: "string",\n        nullable: false,\n      },)
+
+    assert output =~
+             ~s(      {\n        name: "cvss",\n        kind: "object",\n        nullable: false,\n        contract: "NetworkDefense.Graph.Contracts.Data.CvssData",\n      })
+
+    assert output =~
+             ~s(      {\n        name: "required_flows",\n        kind: "list",\n        nullable: false,\n        itemContract:\n          "NetworkDefense.Graph.Contracts.Data.RequiredServiceFlowData",\n      })
+
+    assert output =~
+             ~s(      {\n        name: "attack_vector",\n        kind: "enum",\n        nullable: false,\n        choices: ["network", "adjacent", "local", "physical"],\n      })
+
+    refute output =~ "NetworkDefense.Simulation.Contracts"
+    refute output =~ "NetworkDefenseWeb.Contracts.Dashboard"
+    refute output =~ "required:"
+    refute output =~ "minimum:"
+  end
+
+  test "generates graph data contract mappings from discriminant metadata" do
+    output = Registry.render_runtime_metadata()
+
+    assert output =~ "export const nodeDataContracts = {"
+    assert output =~ ~s(Host: "NetworkDefense.Graph.Contracts.Data.HostData")
+    assert output =~ "export const edgeDataContracts = {"
+    assert output =~ ~s(Runs: "NetworkDefense.Graph.Contracts.Data.RunsData")
+  end
+
+  test "generated runtime metadata file is in sync with contracts" do
+    assert File.read!(Registry.runtime_output_path()) == Registry.render_runtime_metadata()
+  end
+
   test "uses a global generated file" do
     assert Registry.output_path() ==
              Path.join(File.cwd!(), "assets/svelte/contracts.generated.ts")
@@ -178,6 +212,9 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert graph_data =~
              ~s(export type HostData = __Contracts.NetworkDefense.Graph.Contracts.Data.HostData;)
 
+    assert graph_data =~
+             ~s(export { contractMetadata } from "../../contracts.generated.runtime";)
+
     errors = modules["errors.ts"]
     assert errors =~ ~s(import type * as __Contracts from "../contracts.generated";)
     assert errors =~ ~s(export type ErrorCode = __Contracts.NetworkDefense.Errors.ErrorCode;)
@@ -187,6 +224,9 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
     assert graph =~
              ~s(export type HostNode = __Contracts.NetworkDefense.Graph.Contracts.HostNode;)
+
+    assert graph =~
+             ~s(export { edgeDataContracts, nodeDataContracts } from "../contracts.generated.runtime";)
 
     dashboard = modules["dashboard.ts"]
     assert dashboard =~ ~s(import type * as __Contracts from "../contracts.generated";)

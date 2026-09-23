@@ -10,6 +10,7 @@ defmodule Mix.Tasks.Gen.Contracts do
     Mix.Task.run("compile")
     Registry.generate_all()
     IO.puts("Generated #{Registry.output_path()}")
+    IO.puts("Generated #{Registry.runtime_output_path()}")
   end
 
   def run(_args), do: Mix.raise("mix gen.contracts does not accept arguments")

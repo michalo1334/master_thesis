@@ -77,7 +77,7 @@ The study takes these measures after warm-up on a fixed documented environment.
 The mission-impact pilot selects the attack-trial count before the full study.
 It chooses the smallest trial count that meets `analysis.pilot.ci_half_width`
 for all selected tiers. It reports only measured behavior of the current
-stylized model.
+model.
 
 ## Frozen inputs
 
@@ -179,4 +179,4 @@ the comparison details and how to run it from `evaluation/analysis/`.
 ## Limits
 
 The study adds no directional hypothesis. It makes no claims beyond the
-measured stylized models.
+measured models.

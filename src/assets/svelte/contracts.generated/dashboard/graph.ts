@@ -24,6 +24,7 @@ export type GraphProjectionOperationalFlow = __Contracts.NetworkDefenseWeb.Contr
 export type GraphProjectionPolicyLink = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionPolicyLink;
 export type GraphProjectionSegment = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionSegment;
 export type GraphSummary = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphSummary;
+export type GraphValidationError = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphValidationError;
 export type MoveGraphToFolderPayload = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderPayload;
 export type MoveGraphToFolderReply = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderReply;
 export type OpenGraphPayload = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphPayload;

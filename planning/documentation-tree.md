@@ -5,7 +5,7 @@ Working taxonomy for the documentation cleanup. Code and tests define current be
 - Documentation
     - Project orientation
         - Scope, assumptions, and limits
-            - Main question: Within controlled stylized network topologies, how do equal-action-count defense strategies differ from CVSS prioritization in reducing simulated mission impact?
+            - Main question: Within controlled network topologies, how do equal-action-count defense strategies differ from CVSS prioritization in reducing simulated mission impact?
             - Feasibility sub-question: How does a pre-attack feasibility constraint change selected defense plans and directly measured operational loss?
             - Topology-scale sub-question: How does controlled growth in topology size affect simulation, strategy-selection, and total-evaluation runtime, and the mission-impact ranking of equal-budget defense strategies?
             - Model bounds and assumptions
