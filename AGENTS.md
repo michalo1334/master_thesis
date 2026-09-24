@@ -7,16 +7,39 @@ SEE README.md FIRST
 ## General workflow
 
 Your agent type:
+
 - main agent if the prompt doesn't contain any info
 - subagent if prompt specifies it
 
 Whenever you invoke/delegate to subagent always in prompt specify the subagent delegated to is a subagent.
 
 General workflow is as follows:
-- always use `explorer_fast` model for exploring and review, never `Explorer`
-- use `implementor_fast` for implementation
-- when you are the main agent your responsibility is general thinking/approaching the problem and orchestrating subagents. For exploration and implementation use subagents as much as possible Pass context (including those from subagents) to subagents via temporary markdown files. You can do small fixes or quick pass reviews.
-- split plan (designed during planning mode) into reasonably small but logical chunks (e.g. BE chunk, FE chunk OR BE + FE chunk, vertical slice style). Handoff each chunk to implementation subagent along with relevant context
+
+- use the `explorer` subagent for exploration and review
+- use the `implementor` subagent for implementation
+- when you are the main agent your responsibility is general thinking/approaching the problem and orchestrating
+  subagents. For exploration and implementation use subagents as much as possible Pass context (including those from
+  subagents) to subagents via temporary markdown files. You can do small fixes or quick pass reviews.
+- split plan (designed during planning mode) into reasonably small but logical chunks (e.g. BE chunk, FE chunk OR BE +
+  FE chunk, vertical slice style). Handoff each chunk to implementation subagent along with relevant context
+
+### Model codenames
+
+Use these names when specifying a model. Pi uses the full `provider/model` identifier. Codex custom agents use only the
+model ID for subscription models.
+
+| Codename   | Pi model ID                                               | Codex model ID (subscription) |
+| ---------- | --------------------------------------------------------- | ----------------------------- |
+| MAKORA     | `makora/deepseek-ai/DeepSeek-V4.1-Flash`                  | —                             |
+| NEURALWATT | `neuralwatt/deepseek-v4.1-flash`                          | —                             |
+| SOL56      | `openai-codex/gpt-5.6-sol`                                | `gpt-5.6-sol`                 |
+| SOL6       | `openai-codex/gpt-6-sol`                                  | `gpt-6-sol`                   |
+| ASTRA6     | `openai-codex/gpt-6-astra`                                | `gpt-6-astra`                 |
+| TERRA56    | `openai-codex/gpt-5.6-terra`                              | `gpt-5.6-terra`               |
+| DEEPSEEK   | `deepseek/deepseek-flash`                                 | —                             |
+| FIREWORKS  | `fireworks/accounts/fireworks/models/deepseek-v4p1-flash` | —                             |
+| CB_OSS120  | `cerebras/gpt-oss-120b`                                   | —                             |
+| CB_QWEN38  | `cerebras/qwen-3.8-27b`                                   | —                             |
 
 
 ## Plan mode / plan preparation:

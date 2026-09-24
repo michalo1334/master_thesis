@@ -1,0 +1,17 @@
+{
+  "packages": [
+    "npm:pi-mcp-adapter",
+    "npm:context-mode",
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:@juicesharp/rpiv-todo",
+    "npm:@juicesharp/rpiv-args",
+    "npm:@juicesharp/rpiv-btw",
+    "npm:cc-safety-net",
+    "npm:pi-markdown-preview",
+    "npm:@narumitw/pi-usage",
+    "npm:@tintinweb/pi-subagents@0.19.0",
+    "npm:pi-fusion@0.9.1",
+    "npm:@aliou/pi-neuralwatt",
+    "npm:statusline-pi@1.3.1"
+  ]
+}
