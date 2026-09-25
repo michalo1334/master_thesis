@@ -2,13 +2,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   use NetworkDefenseWeb.ConnCase
   use Oban.Testing, repo: NetworkDefense.Repo
 
+  import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
   alias NetworkDefense.Evaluation.EvaluationWorker
   alias NetworkDefense.EvaluationFixtures
+  alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
@@ -20,7 +23,9 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulations
+  alias NetworkDefenseWeb.DashboardLive
 
   describe "evaluation manifests" do
     @valid_manifest EvaluationFixtures.valid_manifest()
@@ -589,10 +594,33 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       source = insert_node(graph, "origin")
       target = insert_service(Graphs.load_revision!(source.graph_revision_id), "dest")
       graph = Graphs.load_revision!(target.graph_revision_id)
+      segment = Enum.find(Graph.nodes(graph), &(&1.type == NetworkSegment))
+      host = Enum.find(Graph.nodes(graph), &(&1.type == Host))
 
       {:ok, view, _html} = live(conn, ~p"/")
 
       render_hook(view, "open_graph", %{"graph_revision_id" => graph.revision_id})
+
+      assert_reply(view, %{
+        status: "ok",
+        graph: %{id: opened_graph_id},
+        topology_projection: %{
+          segments: [segment_entry],
+          hosts: [host_entry],
+          services: [service_entry]
+        }
+      })
+
+      assert opened_graph_id == graph.id
+      assert segment_entry.id == segment.id
+      assert segment_entry.host_ids == [host.id]
+      assert segment_entry.host_count == 1
+      assert segment_entry.service_count == 1
+      assert host_entry.id == host.id
+      assert host_entry.segment_id == segment.id
+      assert host_entry.service_ids == [target.id]
+      assert service_entry.id == target.id
+      assert service_entry.host_id == host.id
 
       assert has_element?(view, "#dashboard[data-name='DashboardHost']")
     end
@@ -806,6 +834,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     test "returns a report pinned to the experiment's graph revision", %{conn: conn} do
       graph = insert_graph("versioned-report")
       foothold = insert_node(graph, "entry-host")
+      foothold_id = foothold.id
       foothold_revision_id = foothold.graph_revision_id
       correlation_id = "versioned-report-request"
 
@@ -846,8 +875,17 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_push_event(view, "simulation_report_ready", %{
         document_id: ^document_id,
-        report: %{experiment_id: ^experiment_id, graph_revision_id: ^foothold_revision_id}
+        report: %{
+          experiment_id: ^experiment_id,
+          graph_revision_id: ^foothold_revision_id,
+          topology_projection: %{
+            segments: [%{id: segment_id, host_ids: [^foothold_id], host_count: 1}],
+            hosts: [%{id: ^foothold_id, segment_id: host_segment_id}]
+          }
+        }
       })
+
+      assert host_segment_id == segment_id
     end
 
     test "accepts a correlated simulation request and broadcasts its completion", %{conn: conn} do
@@ -1061,6 +1099,69 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       })
 
       assert has_element?(view, "#flash-error[role='alert']")
+    end
+  end
+
+  describe "simulation report wire mapping" do
+    test "maps a missing report lookup to not_found", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      document_id = Ecto.UUID.generate()
+      experiment_id = Ecto.UUID.generate()
+
+      send(view.pid, {:report_result, document_id, experiment_id, {:error, {:not_found, nil}}})
+
+      assert_push_event(view, "simulation_report_error", %{
+        document_id: ^document_id,
+        experiment_id: ^experiment_id,
+        error: %{code: "not_found"}
+      })
+    end
+
+    test "maps a projection or wire failure to an internal error", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      document_id = Ecto.UUID.generate()
+      experiment_id = Ecto.UUID.generate()
+
+      send(
+        view.pid,
+        {:report_result, document_id, experiment_id,
+         {:error, {:internal_error, "topology_projection"}}}
+      )
+
+      assert_push_event(view, "simulation_report_error", %{
+        document_id: ^document_id,
+        experiment_id: ^experiment_id,
+        error: %{code: "internal_error"}
+      })
+    end
+
+    test "returns an internal error and logs the stage when the report graph cannot map to wire" do
+      graph =
+        GraphFixtures.graph(
+          [GraphFixtures.node("host-not-a-uuid", Host, %{"name" => "host"})],
+          []
+        )
+
+      report = %SimulationReport{
+        experiment_id: Ecto.UUID.generate(),
+        graph_id: Ecto.UUID.generate(),
+        graph_title: "unmappable",
+        graph_revision_id: Ecto.UUID.generate(),
+        graph: graph,
+        run_count: 1,
+        iteration_count: 1,
+        total_runtime_ms: 1
+      }
+
+      log =
+        capture_log(fn ->
+          assert {:error, {:internal_error, "topology_projection"}} =
+                   DashboardLive.simulation_report_reply(report)
+        end)
+
+      assert log =~ "simulation report loaded but wire mapping failed"
     end
   end
 
@@ -1557,118 +1658,275 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
-  describe "fetch_graph_projection" do
-    test "returns segments, hosts, policy links, and derived operational flows for a saved revision",
-         %{
-           conn: conn
-         } do
-      graph = insert_graph("projection")
+  describe "project_topology_draft" do
+    test "projects an unsaved graph without persisting it", %{conn: conn} do
+      graph = insert_graph("draft-projection")
       source = insert_node(graph, "source")
       graph = Graphs.load_revision!(source.graph_revision_id)
       target = insert_service(graph, "target")
       graph = Graphs.load_revision!(target.graph_revision_id)
       segment = Enum.find(Graph.nodes(graph), &(&1.type == NetworkSegment))
-      host = Enum.find(Graph.nodes(graph), &(&1.type == Host))
-      policy_id = Ecto.UUID.generate()
-
-      assert {:ok, graph} =
-               Graphs.append_optimization(
-                 Graph.add_edge(
-                   graph,
-                   %{
-                     Edge.new(graph.id, segment.id, segment.id, %{
-                       type: Atom.to_string(SegmentReachability),
-                       data: %{"protocol" => "tcp", "port_start" => 443, "port_end" => 443}
-                     })
-                     | id: policy_id
-                   }
-                 )
-               )
+      document_id = Ecto.UUID.generate()
 
       {:ok, view, _html} = live(conn, ~p"/")
 
-      render_hook(view, "fetch_graph_projection", %{
-        "graph_revision_id" => graph.revision_id
+      render_hook(view, "project_topology_draft", draft_payload(graph, document_id, 4))
+
+      assert_reply(view, %{
+        status: "ok",
+        document_id: reply_document_id,
+        semantic_version: 4,
+        errors: [],
+        topology_projection: projection
+      })
+
+      assert reply_document_id == document_id
+      assert [%{id: segment_id, host_ids: [host_id], service_count: 1}] = projection.segments
+      assert segment_id == segment.id
+      assert host_id == source.id
+      assert [%{id: ^host_id, service_ids: [service_id]}] = projection.hosts
+      assert service_id == target.id
+      assert latest_graph(graph.id).revision_id == graph.revision_id
+    end
+
+    test "returns placement issues for incomplete membership", %{conn: conn} do
+      graph = insert_graph("draft-incomplete")
+      host_id = Ecto.UUID.generate()
+      document_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => document_id,
+        "semantic_version" => 1,
+        "graph" => %{
+          "id" => graph.id,
+          "title" => "incomplete graph",
+          "nodes" => [
+            %{
+              "id" => host_id,
+              "type" => "Host",
+              "data" => %{"name" => "lonely-host"},
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => []
+        }
       })
 
       assert_reply(view, %{
         status: "ok",
-        segments: [%{id: segment_id}],
-        hosts: [%{id: host_id}],
-        policy_links: [policy_link],
-        operational_flows: [operational_flow]
+        document_id: ^document_id,
+        errors: [],
+        topology_projection: %{
+          segments: [],
+          hosts: [%{id: reply_host_id, segment_id: nil}],
+          issues: [
+            %{code: "host_without_segment", severity: "warning", entity_id: issue_entity_id}
+          ]
+        }
       })
 
-      assert segment_id == segment.id
-      assert host_id == host.id
-
-      assert %{id: ^policy_id, from_id: ^segment_id, to_id: ^segment_id} = policy_link
-
-      target_id = target.id
-      assert %{id: flow_id, from_id: ^host_id, to_id: ^target_id} = operational_flow
-      assert {:ok, _uuid} = Ecto.UUID.cast(flow_id)
-
-      refute Enum.any?(
-               Graph.edges(Graphs.load_revision!(graph.revision_id)),
-               &(&1.type == NetworkReachability)
-             )
+      assert reply_host_id == host_id
+      assert issue_entity_id == host_id
+      assert latest_graph(graph.id).revision_id == graph.revision_id
     end
 
-    test "derives deterministic operational flow ids across repeated fetches", %{conn: conn} do
-      graph = insert_graph("projection-determinism")
-      source = insert_node(graph, "source")
-      graph = Graphs.load_revision!(source.graph_revision_id)
-      target = insert_service(graph, "target")
-      graph = Graphs.load_revision!(target.graph_revision_id)
-      graph_revision_id = graph.revision_id
+    test "rejects a structurally invalid draft with validation errors", %{conn: conn} do
+      graph = insert_graph("draft-invalid")
+      document_id = Ecto.UUID.generate()
+      host_id = Ecto.UUID.generate()
 
       {:ok, view, _html} = live(conn, ~p"/")
 
-      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => graph_revision_id})
-      assert_reply(view, %{operational_flows: first_flows})
-
-      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => graph_revision_id})
-      assert_reply(view, %{operational_flows: second_flows})
-
-      assert Enum.map(first_flows, & &1.id) == Enum.map(second_flows, & &1.id)
-    end
-
-    test "returns not_found for an unknown revision", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      render_hook(view, "fetch_graph_projection", %{
-        "graph_revision_id" => "00000000-0000-0000-0000-000000000000"
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => document_id,
+        "semantic_version" => 2,
+        "graph" => %{
+          "id" => graph.id,
+          "title" => "dangling graph",
+          "nodes" => [
+            %{
+              "id" => host_id,
+              "type" => "Host",
+              "data" => %{"name" => "host"},
+              "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+            }
+          ],
+          "edges" => [
+            %{
+              "id" => Ecto.UUID.generate(),
+              "from_id" => host_id,
+              "to_id" => Ecto.UUID.generate(),
+              "type" => "Runs",
+              "data" => %{}
+            }
+          ]
+        }
       })
-
-      assert_reply(view, %{
-        status: "not_found",
-        segments: [],
-        hosts: [],
-        policy_links: [],
-        operational_flows: []
-      })
-    end
-
-    test "rejects a projection request without a revision id", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/")
-
-      render_hook(view, "fetch_graph_projection", %{})
 
       assert_reply(view, %{
         status: "invalid_graph",
-        segments: [],
-        hosts: [],
-        policy_links: [],
-        operational_flows: []
+        document_id: ^document_id,
+        semantic_version: 2,
+        topology_projection: nil,
+        errors: [%{entity_kind: "graph", entity_id: nil, field_path: [field], message: message}]
       })
+
+      assert is_binary(field)
+      assert is_binary(message)
+      assert latest_graph(graph.id).revision_id == graph.revision_id
     end
 
-    test "rejects a projection request with a non-UUID revision id", %{conn: conn} do
+    test "reports a missing payload document id and keeps the request version", %{conn: conn} do
+      graph = insert_graph("draft-invalid-payload")
+
       {:ok, view, _html} = live(conn, ~p"/")
 
-      render_hook(view, "fetch_graph_projection", %{"graph_revision_id" => "not-a-uuid"})
+      render_hook(view, "project_topology_draft", %{
+        "semantic_version" => 1,
+        "graph" => %{"id" => graph.id, "title" => "payload", "nodes" => [], "edges" => []}
+      })
 
-      assert_reply(view, %{status: "invalid_graph"})
+      assert_reply(view, %{
+        status: "invalid_graph",
+        document_id: nil,
+        semantic_version: 1,
+        topology_projection: nil,
+        errors: [
+          %{
+            entity_kind: "graph",
+            entity_id: nil,
+            field_path: ["document_id"],
+            message: document_message
+          }
+        ]
+      })
+
+      assert document_message == "can't be blank"
+    end
+
+    test "drops an invalid payload document id but keeps the version and reports the error",
+         %{conn: conn} do
+      graph = insert_graph("draft-invalid-identity")
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => "not-a-uuid",
+        "semantic_version" => 2,
+        "graph" => %{"id" => graph.id, "title" => "payload", "nodes" => [], "edges" => []}
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        document_id: nil,
+        semantic_version: 2,
+        topology_projection: nil,
+        errors: [
+          %{
+            entity_kind: "graph",
+            entity_id: nil,
+            field_path: ["document_id"],
+            message: document_message
+          }
+        ]
+      })
+
+      assert is_binary(document_message)
+    end
+
+    test "drops a negative payload version but keeps the document id and reports the error",
+         %{conn: conn} do
+      graph = insert_graph("draft-invalid-version")
+      document_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => document_id,
+        "semantic_version" => -1,
+        "graph" => %{"id" => graph.id, "title" => "payload", "nodes" => [], "edges" => []}
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        document_id: ^document_id,
+        semantic_version: nil,
+        topology_projection: nil,
+        errors: [
+          %{
+            entity_kind: "graph",
+            entity_id: nil,
+            field_path: ["semantic_version"],
+            message: version_message
+          }
+        ]
+      })
+
+      assert is_binary(version_message)
+    end
+
+    test "reports a missing payload graph field", %{conn: conn} do
+      document_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => document_id,
+        "semantic_version" => 5
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        document_id: ^document_id,
+        semantic_version: 5,
+        topology_projection: nil,
+        errors: [
+          %{
+            entity_kind: "graph",
+            entity_id: nil,
+            field_path: ["graph"],
+            message: graph_message
+          }
+        ]
+      })
+
+      assert graph_message == "can't be blank"
+    end
+
+    test "keeps nested graph errors for an invalid draft payload", %{conn: conn} do
+      document_id = Ecto.UUID.generate()
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "project_topology_draft", %{
+        "document_id" => document_id,
+        "graph" => %{"title" => "no identity", "nodes" => [], "edges" => []}
+      })
+
+      assert_reply(view, %{
+        status: "invalid_graph",
+        document_id: ^document_id,
+        semantic_version: nil,
+        topology_projection: nil,
+        errors: errors
+      })
+
+      assert Enum.sort_by(errors, & &1.field_path) == [
+               %{
+                 entity_kind: "graph",
+                 entity_id: nil,
+                 field_path: ["id"],
+                 message: "can't be blank"
+               },
+               %{
+                 entity_kind: "graph",
+                 entity_id: nil,
+                 field_path: ["semantic_version"],
+                 message: "can't be blank"
+               }
+             ]
     end
   end
 
@@ -1746,11 +2004,28 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert_reply(view, %{
         status: "ok",
-        graph: %{title: "saved graph", edges: wire_edges}
+        graph: %{title: "saved graph", edges: wire_edges},
+        topology_projection: projection
       })
 
       assert Enum.map(wire_edges, & &1.type) |> Enum.sort() ==
                Enum.sort(["Contains", "Runs", "SegmentReachability"])
+
+      assert Enum.map(projection.segments, & &1.id) |> Enum.sort() ==
+               Enum.sort([segment.id, other_segment.id])
+
+      assert [
+               %{
+                 from_segment_id: from_segment_id,
+                 to_segment_id: to_segment_id,
+                 edge_ids: edge_ids
+               }
+             ] =
+               projection.policy_groups
+
+      assert from_segment_id == segment.id
+      assert to_segment_id == other_segment.id
+      assert edge_ids == [reachability_id]
 
       refute Enum.any?(wire_edges, &(&1.type == "NetworkReachability"))
 
@@ -1988,6 +2263,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       assert latest_graph(graph.id).title == "stale graph"
     end
+  end
+
+  defp draft_payload(graph, document_id, semantic_version) do
+    assert {:ok, wire_graph} = GraphContract.from_domain(graph)
+
+    %{
+      "document_id" => document_id,
+      "semantic_version" => semantic_version,
+      "graph" => GraphContract.to_params(wire_graph)
+    }
   end
 
   defp insert_graph(title) do

@@ -11,7 +11,6 @@
   import type {
     CanvasEdgeAppearance,
     CanvasNodeAppearance,
-    CanvasStructuralFlow,
   } from "./appearance";
   import {
     type DragState,
@@ -46,10 +45,6 @@
     edgeAppearance?: (
       edge: GraphContracts.Edge,
     ) => CanvasEdgeAppearance | undefined;
-    structuralFlows?: readonly CanvasStructuralFlow[];
-    structuralFlowAppearance?: (
-      flow: CanvasStructuralFlow,
-    ) => CanvasEdgeAppearance | undefined;
     onGraphChange?: (graph: GraphContracts.GraphContract) => void;
     onSelectNode?: (nodeId: string) => void;
     onSelectEdge?: (edgeId: string) => void;
@@ -73,8 +68,6 @@
     selectedEdgeId = undefined,
     nodeAppearance = undefined,
     edgeAppearance = undefined,
-    structuralFlows = [],
-    structuralFlowAppearance = undefined,
     onGraphChange = undefined,
     onSelectNode = undefined,
     onSelectEdge = undefined,
@@ -459,28 +452,6 @@
             ></defs
           >
           <g transform={worldTransform}>
-            {#each structuralFlows as flow (flow.id)}
-              {@const appearance = structuralFlowAppearance?.(flow)}
-              {@const sourcePosition = nodeCenter(flow.sourcePosition)}
-              {@const targetPosition = nodeCenter(flow.targetPosition)}
-              <g
-                class="canvas-structural-flow"
-                role="img"
-                aria-label={`Operational flow from ${flow.sourceName} to ${flow.serviceName}`}
-                style:--structural-flow-opacity={appearance?.opacity}
-                style:--structural-flow-stroke={appearance?.stroke}
-                style:--structural-flow-stroke-width={appearance?.strokeWidth}
-              >
-                <path
-                  d={`M ${sourcePosition.x} ${sourcePosition.y} L ${targetPosition.x} ${targetPosition.y}`}
-                />
-                <text
-                  x={(sourcePosition.x + targetPosition.x) / 2}
-                  y={(sourcePosition.y + targetPosition.y) / 2 - 4}
-                  text-anchor="middle">{flow.serviceName}</text
-                >
-              </g>
-            {/each}
             {#each graph.edges as edge (edge.id)}
               {@const source = graph.nodes.find(
                 (node) => node.id === edge.from_id,
@@ -699,22 +670,6 @@
   }
   .canvas-preview-arrow {
     fill: var(--ui-color-preview-edge);
-  }
-  .canvas-structural-flow,
-  .canvas-structural-flow path,
-  .canvas-structural-flow text {
-    pointer-events: none;
-  }
-  .canvas-structural-flow path {
-    fill: none;
-    stroke: var(--structural-flow-stroke, var(--ui-color-node-service));
-    stroke-opacity: var(--structural-flow-opacity, 1);
-    stroke-width: var(--structural-flow-stroke-width, 2);
-    stroke-dasharray: 6 4;
-  }
-  .canvas-structural-flow text {
-    fill: var(--structural-flow-stroke, var(--ui-color-text-secondary));
-    font: var(--ui-text-xs) var(--ui-font-mono);
   }
   :global(.dashboard-menu-separator) {
     height: 1px;

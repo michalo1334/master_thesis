@@ -1,4 +1,5 @@
 import type * as DashboardGraphContracts from "../../contracts.generated/dashboard/graph";
+import type { TopologyProjection } from "../../contracts.generated/dashboard/graph";
 import type { GraphContract } from "../../contracts.generated/graph";
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
@@ -12,8 +13,6 @@ import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocu
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { OptimizationParamsChange } from "../contract";
-import type { ForceParams } from "../graph/layout/ForceLayout.types";
-import { defaultForceParams } from "../graph/layout/ForceLayout.types";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
 import { dashboardRegistry } from "./dashboard-registry";
@@ -47,7 +46,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   graphComparisonPickerOpen = $state(false);
   graphComparisonPickerStatus = $state("");
   graphComparisonBase = $state.raw<GraphContract>();
-  forceParams = $state<ForceParams>({ ...defaultForceParams });
   simulationParams = $state<SimulationParams>({
     initial_foothold_node_id: "",
     monte_carlo_trials: 1000,
@@ -255,6 +253,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
   createGraphDocument(title?: string): EditableGraphDocument {
     const doc = new EditableGraphDocument();
+    if (this.api) doc.attachApi(this.api);
     this.documents.push(doc);
     this.activateDocument(doc);
     return doc;
@@ -327,12 +326,17 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   closeDocument(id: string): void {
+    const document = this.documents.find((d) => d.id === id);
     super.closeDocument(id);
+    if (document instanceof EditableGraphDocument) {
+      if (!this.documents.includes(document)) document.dispose();
+    }
     this.activateDocument(this.activeDocument);
   }
 
   async openLoadedGraph(
     graph: GraphContract,
+    projection: TopologyProjection,
     api: DashboardApi,
   ): Promise<EditableGraphDocument | undefined> {
     this.upsertGraphSummary(graph);
@@ -349,13 +353,15 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     ) as EditableGraphDocument | undefined;
 
     if (blankDoc) {
-      blankDoc.replaceFromLoadedGraph(graph);
+      blankDoc.attachApi(api);
+      blankDoc.replaceFromLoadedGraph(graph, projection);
       this.activateDocument(blankDoc);
       return blankDoc;
     }
 
     const doc = new EditableGraphDocument();
-    doc.replaceFromLoadedGraph(graph);
+    doc.attachApi(api);
+    doc.replaceFromLoadedGraph(graph, projection);
     this.documents.push(doc);
     this.activateDocument(doc);
     return doc;
@@ -374,8 +380,8 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
     try {
       const reply = await api.openGraph(summary.revision_id);
-      if (reply.status === "ok" && reply.graph) {
-        this.openLoadedGraph(reply.graph, api);
+      if (reply.status === "ok" && reply.graph && reply.topology_projection) {
+        this.openLoadedGraph(reply.graph, reply.topology_projection, api);
         return true;
       }
 
@@ -510,12 +516,12 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
     try {
       const reply = await api.openGraph(graphRevisionId);
-      if (reply.status !== "ok" || !reply.graph) {
+      if (reply.status !== "ok" || !reply.graph || !reply.topology_projection) {
         this.statusMessage = "Failed to open graph.";
         return false;
       }
 
-      await this.openLoadedGraph(reply.graph, api);
+      await this.openLoadedGraph(reply.graph, reply.topology_projection, api);
       return true;
     } catch {
       this.statusMessage = "Failed to open graph.";
@@ -872,10 +878,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     else report.markUnread();
   }
 
-  onForceParamsChange(change: Partial<ForceParams>): void {
-    Object.assign(this.forceParams, change);
-  }
-
   onSimulationParamsChange(change: Partial<SimulationParams>): void {
     Object.assign(this.simulationParams, change);
   }
@@ -895,7 +897,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
   private snapshotState(): DashboardWorkspaceState {
     return {
-      forceParams: { ...this.forceParams },
       simulationParams: { ...this.simulationParams },
       optimizationParams: {
         ...this.optimizationParams,
@@ -905,7 +906,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   private restoreState(state: DashboardWorkspaceState): void {
-    Object.assign(this.forceParams, state.forceParams);
     Object.assign(this.simulationParams, state.simulationParams);
     Object.assign(this.optimizationParams, {
       ...state.optimizationParams,
@@ -957,12 +957,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
         : "Could not update favourite.";
     this.topologyPickerStatus = message;
     this.graphComparisonPickerStatus = message;
-  }
-
-  applyForceLayout(): void {
-    const doc = this.activeGraph;
-    if (!doc) return;
-    doc.applyForceLayout(this.forceParams);
   }
 
   handleCreateDocument(typeId: string): void {

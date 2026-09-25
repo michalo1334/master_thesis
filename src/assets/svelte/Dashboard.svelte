@@ -56,14 +56,6 @@
     await model.saveActiveGraph();
   }
 
-  function handleForceLayout(): void {
-    model.applyForceLayout();
-  }
-
-  function handleArrangeNetwork(): void {
-    wm.activeGraph?.arrangeNetwork();
-  }
-
   async function handleRunSimulation(): Promise<void> {
     await model.runActiveSimulation();
   }
@@ -116,10 +108,6 @@
   />
   <DashboardRibbon
     hasActiveGraph={wm.hasActiveGraph}
-    forceParams={wm.forceParams}
-    onForceParamsChange={(change) => wm.onForceParamsChange(change)}
-    onForceLayout={handleForceLayout}
-    onArrangeNetwork={handleArrangeNetwork}
     onRunSimulation={handleRunSimulation}
     onCompareGraphs={() => wm.beginGraphComparison()}
     onOpenAnalysis={() => model.manifest.openDialog()}

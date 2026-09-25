@@ -5,8 +5,18 @@
   } from "../../../contracts.generated/dashboard/graph";
   import type { Node } from "../../../contracts.generated/graph";
   import { onMount } from "svelte";
-  import Canvas from "./Canvas.svelte";
-  import NetworkCanvas from "../network/NetworkCanvas.svelte";
+  import TopologyCanvas, {
+    type TopologyAddRequest,
+    type TopologyViewCommand,
+  } from "../unified/TopologyCanvas.svelte";
+  import TopologyToolbar from "../unified/TopologyToolbar.svelte";
+  import TopologyNavigator from "../unified/TopologyNavigator.svelte";
+  import UnplacedTray from "../unified/UnplacedTray.svelte";
+  import { arrangeTopology } from "../unified/layout";
+  import {
+    buildTopologyScene,
+    type TopologyEntitySelection,
+  } from "../topology-scene";
   import type {
     ConnectionOption,
     EditableGraphDocument,
@@ -25,19 +35,101 @@
     document: EditableGraphDocument;
     api: DashboardApi;
     onCompareGraphs?: () => void;
-    onArrangeNetwork?: () => void;
   }
 
-  let {
-    document,
-    api,
-    onCompareGraphs = undefined,
-    onArrangeNetwork = undefined,
-  }: Props = $props();
+  let { document, api, onCompareGraphs = undefined }: Props = $props();
   let connection = $state<ConnectionRequest>();
   let connectionPickerOpen = $state(false);
   let connectivityRules = $state<readonly GraphConnectivityRule[]>([]);
-  let canvasMode = $state<"topology" | "network">("topology");
+  let navigatorOpen = $state(false);
+  let unplacedOpen = $state(false);
+  /**
+   * Canvas controls share selection with the document and focus with the
+   * canvas. Each command carries a fresh token, so two identical commands both
+   * run, while the canvas clears a command it already ran.
+   */
+  let controlToken = $state(0);
+  /** Pending viewport command. The canvas clears it once it runs. */
+  let viewCommand = $state<TopologyViewCommand>();
+  /** Pending add request. The canvas clears it once it runs. */
+  let addRequest = $state<TopologyAddRequest>();
+
+  /**
+   * The scene joins the accepted projection to the editable graph.
+   * Search, the Navigator, and the Unplaced tray read this scene only.
+   */
+  let scene = $derived(
+    buildTopologyScene(document.graph, document.topologyProjection, {
+      pendingEntityIds: document.pendingProjectionEntityIds,
+    }),
+  );
+  let selectedEntityId = $derived(
+    document.canvasSelection.kind === "node"
+      ? document.canvasSelection.nodeId
+      : undefined,
+  );
+
+  function nextToken(): number {
+    controlToken += 1;
+    return controlToken;
+  }
+
+  /** Selects an entity and asks the canvas to make it legible. */
+  function focusEntity(entityId: string): void {
+    document.selectNode(entityId);
+    viewCommand = { kind: "focus", entityId, token: nextToken() };
+  }
+
+  /**
+   * Applies a selection from the Navigator or the Unplaced tray.
+   *
+   * A relationship has no world rectangle unless a projection group contains
+   * it, so an edge selection opens the inspector without a viewport command.
+   */
+  function focusSelection(selection: TopologyEntitySelection): void {
+    if (selection.kind === "edge") {
+      document.selectEdge(selection.id);
+      return;
+    }
+    focusEntity(selection.id);
+  }
+
+  /**
+   * Clears a command the canvas already ran.
+   *
+   * A command stays here until it is acknowledged, so a canvas remount cannot
+   * run the same command twice.
+   */
+  function acknowledgeViewCommand(token: number): void {
+    if (viewCommand?.token === token) viewCommand = undefined;
+  }
+
+  function acknowledgeAddRequest(token: number): void {
+    if (addRequest?.token === token) addRequest = undefined;
+  }
+
+  function fitViewport(): void {
+    viewCommand = { kind: "fit", token: nextToken() };
+  }
+
+  function resetViewport(): void {
+    viewCommand = { kind: "reset", token: nextToken() };
+  }
+
+  /**
+   * Arranges the graph with the deterministic layout.
+   *
+   * The arranged positions persist as geometry, so the command never requests
+   * a new projection. The fit afterwards changes the viewport only.
+   */
+  function arrangeScene(): void {
+    document.setNodePositions(arrangeTopology(scene).positions);
+    fitViewport();
+  }
+
+  function addFromToolbar(type: Node["type"]): void {
+    addRequest = { type, token: nextToken() };
+  }
 
   onMount(() => {
     let active = true;
@@ -201,41 +293,72 @@
 </script>
 
 <div class="editable-canvas">
-  <div class="canvas-mode-toggle" role="group" aria-label="Graph view">
-    <button
-      type="button"
-      aria-pressed={canvasMode === "topology"}
-      onclick={() => (canvasMode = "topology")}>Topology</button
-    >
-    <button
-      type="button"
-      aria-pressed={canvasMode === "network"}
-      onclick={() => (canvasMode = "network")}>Network</button
-    >
-  </div>
+  <TopologyToolbar
+    editable
+    {scene}
+    onAdd={addFromToolbar}
+    onSearchSelect={focusEntity}
+    onArrange={arrangeScene}
+    onFit={fitViewport}
+    onReset={resetViewport}
+    pinnedCount={document.pinnedEntityIds.length}
+    onClearPins={() => document.clearPins()}
+    unplacedCount={scene.unplaced.length}
+    {unplacedOpen}
+    onToggleUnplaced={() => (unplacedOpen = !unplacedOpen)}
+    {navigatorOpen}
+    onToggleNavigator={() => (navigatorOpen = !navigatorOpen)}
+  />
 
-  {#if canvasMode === "topology"}
-    <Canvas
+  <div class="canvas-stage">
+    <TopologyCanvas
       graph={document.graph}
-      fitVersion={document.revision}
+      projection={document.topologyProjection}
+      projectionStatus={document.projectionStatus}
+      projectionSource={document.acceptedProjection.source}
+      pendingEntityIds={document.pendingProjectionEntityIds}
+      {viewCommand}
+      {addRequest}
+      onViewCommandHandled={acknowledgeViewCommand}
+      onAddRequestHandled={acknowledgeAddRequest}
+      autoFit={document.loaded}
       selectedNodeId={document.canvasSelection.kind === "node"
         ? document.canvasSelection.nodeId
         : undefined}
       selectedEdgeId={document.canvasSelection.kind === "edge"
         ? document.canvasSelection.edgeId
         : undefined}
-      onGraphChange={(graph) => (document.graph = graph)}
+      pinnedEntityIds={document.pinnedEntityIds}
+      onTogglePin={(nodeId) => document.togglePin(nodeId)}
+      onClearPins={() => document.clearPins()}
+      onGeometryChange={(positions) => document.setNodePositions(positions)}
       onSelectNode={(nodeId) => document.selectNode(nodeId)}
       onSelectEdge={(edgeId) => document.selectEdge(edgeId)}
       onClearSelection={() => document.clearSelection()}
       onCreateConnection={chooseConnection}
       onDeleteSelection={() => document.deleteSelection()}
       onAddNode={addNode}
-      connectionRules={connectivityRules}
       {onCompareGraphs}
     />
-  {:else}
-    <NetworkCanvas {document} {api} {onArrangeNetwork} />
+    {#if navigatorOpen}
+      <div class="canvas-navigator">
+        <TopologyNavigator
+          {scene}
+          {selectedEntityId}
+          onSelect={focusSelection}
+        />
+      </div>
+    {/if}
+  </div>
+
+  {#if unplacedOpen && scene.unplaced.length > 0}
+    <div class="canvas-unplaced">
+      <UnplacedTray
+        {scene}
+        onSelect={focusSelection}
+        onClose={() => (unplacedOpen = false)}
+      />
+    </div>
   {/if}
 </div>
 
@@ -258,35 +381,28 @@
 <style>
   .editable-canvas {
     position: relative;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
   }
-  .canvas-mode-toggle {
+  .canvas-stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .canvas-navigator {
     position: absolute;
-    z-index: 2;
-    top: var(--ui-space-3);
+    z-index: 3;
+    top: 3.5rem;
     left: var(--ui-space-3);
-    display: flex;
-    overflow: hidden;
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-md);
-    background: var(--ui-color-paper);
-    box-shadow: var(--ui-shadow-md);
+    max-width: 20rem;
+    max-height: calc(100% - 5rem);
   }
-  .canvas-mode-toggle button {
-    min-height: 2rem;
-    border: 0;
-    border-right: 1px solid var(--ui-color-border);
-    background: transparent;
-    color: var(--ui-color-text-secondary);
-    padding: 0 0.625rem;
-  }
-  .canvas-mode-toggle button:last-child {
-    border-right: 0;
-  }
-  .canvas-mode-toggle button[aria-pressed="true"] {
-    background: var(--ui-color-accent-soft);
-    color: var(--ui-color-text);
-    font-weight: 700;
+  .canvas-unplaced {
+    flex: 0 0 auto;
+    max-height: 14rem;
+    overflow: auto;
+    border-top: 1px solid var(--ui-color-border);
   }
 </style>

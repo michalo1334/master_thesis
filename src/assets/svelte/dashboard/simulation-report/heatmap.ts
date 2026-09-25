@@ -1,10 +1,14 @@
-import type { Edge, Node } from "../../contracts.generated/graph";
+import type { Node } from "../../contracts.generated/graph";
+import type { TopologyProjection } from "../../contracts.generated/dashboard/graph";
 import type { SimulationReportCharts } from "../../contracts.generated/dashboard/simulation";
 import type {
   CanvasEdgeAppearance,
   CanvasNodeAppearance,
-  CanvasStructuralFlow,
 } from "../graph/canvas/appearance";
+import type {
+  TopologyFlowGroupScene,
+  TopologyPolicyGroupScene,
+} from "../graph/topology-scene";
 
 export interface HeatmapLegendItem {
   color: string;
@@ -32,86 +36,136 @@ export function heatTone(probability: number): HeatTone {
   return heatPalette[index];
 }
 
-export function hostHeatAppearance(
+/**
+ * Heat appearance for the unified topology canvas.
+ *
+ * Hosts use their compromise probability. A flow group uses the highest
+ * traversal probability of its flow IDs. A policy group uses the traversal heat
+ * of the projected flow groups that cross it, because a simulation traversal ID
+ * belongs to a materialized operational flow and never to a policy edge.
+ */
+export function simulationHeatmapAppearance(
   charts: SimulationReportCharts,
-  hostId: string,
-): CanvasNodeAppearance | undefined {
-  const probability = new Map(
+  projection?: TopologyProjection,
+): {
+  flowAppearance: (
+    group: TopologyFlowGroupScene,
+  ) => CanvasEdgeAppearance | undefined;
+  nodeAppearance: (node: Node) => CanvasNodeAppearance | undefined;
+  policyAppearance: (
+    group: TopologyPolicyGroupScene,
+  ) => CanvasEdgeAppearance | undefined;
+} {
+  const hostProbabilities = hostCompromiseProbabilities(charts);
+  const edgeProbabilities = edgeTraversalProbabilities(charts);
+  const policyHeat = policyTraversalHeat(projection, edgeProbabilities);
+
+  return {
+    nodeAppearance(node) {
+      if (node.type !== "Host") return undefined;
+      return nodeHeatAppearance(hostProbabilities.get(node.id));
+    },
+    policyAppearance(group) {
+      return edgeHeatAppearance(
+        policyHeat.get(
+          policySegmentKey(
+            group.group.from_segment_id,
+            group.group.to_segment_id,
+          ),
+        ),
+      );
+    },
+    flowAppearance(group) {
+      return edgeHeatAppearance(
+        maxProbability(edgeProbabilities, group.group.flow_ids),
+      );
+    },
+  };
+}
+
+/**
+ * Highest traversal probability per directed segment policy.
+ *
+ * The source and target segments of a policy come from the projected membership
+ * of each flow group's source and target host. Flow groups that cross the same
+ * directed policy aggregate under one key. A policy without a matching flow
+ * group has no heat of its own.
+ */
+function policyTraversalHeat(
+  projection: TopologyProjection | undefined,
+  edgeProbabilities: ReadonlyMap<string, number>,
+): Map<string, number> {
+  const segmentByHost = new Map(
+    (projection?.hosts ?? []).map((host) => [host.id, host.segment_id]),
+  );
+  const heat = new Map<string, number>();
+  for (const group of projection?.flow_groups ?? []) {
+    const from = segmentByHost.get(group.source_host_id);
+    const to = segmentByHost.get(group.target_host_id);
+    if (!from || !to) continue;
+    const probability = maxProbability(edgeProbabilities, group.flow_ids);
+    if (probability === undefined) continue;
+    const key = policySegmentKey(from, to);
+    const current = heat.get(key);
+    heat.set(
+      key,
+      current === undefined ? probability : Math.max(current, probability),
+    );
+  }
+  return heat;
+}
+
+function policySegmentKey(fromSegmentId: string, toSegmentId: string): string {
+  return `${fromSegmentId}:${toSegmentId}`;
+}
+
+function hostCompromiseProbabilities(
+  charts: SimulationReportCharts,
+): Map<string, number> {
+  return new Map(
     charts.host_compromise.map(({ host_id, compromise_probability }) => [
       host_id,
       compromise_probability,
     ]),
-  ).get(hostId);
+  );
+}
+
+function edgeTraversalProbabilities(
+  charts: SimulationReportCharts,
+): Map<string, number> {
+  return new Map(
+    charts.edge_traversal.map(({ edge_id, traversal_probability }) => [
+      edge_id,
+      traversal_probability,
+    ]),
+  );
+}
+
+function maxProbability(
+  probabilities: ReadonlyMap<string, number>,
+  ids: readonly string[],
+): number | undefined {
+  let max: number | undefined;
+  for (const id of ids) {
+    const probability = probabilities.get(id);
+    if (probability === undefined) continue;
+    max = max === undefined ? probability : Math.max(max, probability);
+  }
+  return max;
+}
+
+function nodeHeatAppearance(
+  probability: number | undefined,
+): CanvasNodeAppearance | undefined {
   if (probability === undefined) return undefined;
   const tone = heatTone(probability);
   return { cardFill: tone.fill, cardStroke: tone.color, cardStrokeWidth: 2.5 };
 }
 
-export function edgeIdsHeatAppearance(
-  charts: SimulationReportCharts,
-  edgeIds: readonly string[],
+function edgeHeatAppearance(
+  probability: number | undefined,
 ): CanvasEdgeAppearance | undefined {
-  let max: number | undefined;
-  const probabilities = new Map(
-    charts.edge_traversal.map(({ edge_id, traversal_probability }) => [
-      edge_id,
-      traversal_probability,
-    ]),
-  );
-  for (const id of edgeIds) {
-    const p = probabilities.get(id);
-    if (p !== undefined) max = max === undefined ? p : Math.max(max, p);
-  }
-  if (max === undefined) return undefined;
-  const tone = heatTone(max);
+  if (probability === undefined) return undefined;
+  const tone = heatTone(probability);
   return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
-}
-
-export function simulationHeatmapAppearance(charts: SimulationReportCharts): {
-  edgeAppearance: (edge: Edge) => CanvasEdgeAppearance | undefined;
-  flowAppearance: (
-    flow: CanvasStructuralFlow,
-  ) => CanvasEdgeAppearance | undefined;
-  nodeAppearance: (node: Node) => CanvasNodeAppearance | undefined;
-} {
-  const hostProbabilities = new Map(
-    charts.host_compromise.map(({ host_id, compromise_probability }) => [
-      host_id,
-      compromise_probability,
-    ]),
-  );
-  const edgeProbabilities = new Map(
-    charts.edge_traversal.map(({ edge_id, traversal_probability }) => [
-      edge_id,
-      traversal_probability,
-    ]),
-  );
-
-  return {
-    nodeAppearance(node) {
-      const probability = hostProbabilities.get(node.id);
-      if (node.type !== "Host" || probability === undefined) return undefined;
-
-      const tone = heatTone(probability);
-      return {
-        cardFill: tone.fill,
-        cardStroke: tone.color,
-        cardStrokeWidth: 2.5,
-      };
-    },
-    edgeAppearance(edge) {
-      return appearanceForEdge(edge.id);
-    },
-    flowAppearance(flow) {
-      return appearanceForEdge(flow.id);
-    },
-  };
-
-  function appearanceForEdge(id: string): CanvasEdgeAppearance | undefined {
-    const probability = edgeProbabilities.get(id);
-    if (probability === undefined) return undefined;
-
-    const tone = heatTone(probability);
-    return { opacity: 0.95, stroke: tone.color, strokeWidth: 3 };
-  }
 }

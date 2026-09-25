@@ -1,5 +1,5 @@
 import type { GraphContract } from "../../../contracts.generated/graph";
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
 
@@ -81,10 +81,6 @@ describe("EditableGraphDocument", () => {
       expect(doc.saveEligible).toBe(false);
     });
 
-    it("starts with revision 0", () => {
-      expect(doc.revision).toBe(0);
-    });
-
     it("starts not saving", () => {
       expect(doc.isSaving).toBe(false);
     });
@@ -141,7 +137,7 @@ describe("EditableGraphDocument", () => {
         revision_id: "r3",
         nodes: [hostNode("n1", 10, 20)],
       });
-      doc.replaceFromLoadedGraph(graph);
+      doc.replaceFromLoadedGraph(graph, emptyProjection());
       expect(doc.loaded).toBe(true);
       expect(doc.loadedRevisionId).toBe("r3");
       expect(doc.title).toBe("Server Topology");
@@ -149,7 +145,10 @@ describe("EditableGraphDocument", () => {
     });
 
     it("updates the title and marks the graph dirty", () => {
-      doc.replaceFromLoadedGraph(makeGraph({ title: "Original" }));
+      doc.replaceFromLoadedGraph(
+        makeGraph({ title: "Original" }),
+        emptyProjection(),
+      );
 
       doc.setTitle("  Renamed graph  ");
 
@@ -161,17 +160,57 @@ describe("EditableGraphDocument", () => {
     it("replaceFromSaveReply updates graph and revision", () => {
       doc.replaceFromLoadedGraph(
         makeGraph({ id: "sg", revision_id: "r1", title: "V1" }),
+        emptyProjection(),
       );
       const updated = makeGraph({ id: "sg", title: "V2", revision_id: "r2" });
-      doc.replaceFromSaveReply(updated);
+      doc.replaceFromSaveReply(
+        updated,
+        emptyProjection(),
+        doc.acceptedProjection.semanticVersion,
+      );
       expect(doc.loadedRevisionId).toBe("r2");
       expect(doc.title).toBe("V2");
     });
   });
 
+  describe("geometry-only updates", () => {
+    it("moves a node without requesting a projection", () => {
+      const projectTopologyDraft = vi.fn();
+      doc.attachApi({ projectTopologyDraft } as unknown as DashboardApi);
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [hostNode("n1", 10, 20)] }),
+        emptyProjection(),
+      );
+
+      doc.setNodePositions(new Map([["n1", { x: 400, y: 250 }]]));
+
+      expect(doc.graph.nodes[0]!.view_data).toEqual({ x_pos: 400, y_pos: 250 });
+      expect(projectTopologyDraft).not.toHaveBeenCalled();
+      expect(doc.projectionStatus).toBe("ready");
+      expect(doc.isDirty).toBe(true);
+    });
+
+    it("ignores unknown entities and unchanged positions", () => {
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [hostNode("n1", 10, 20)] }),
+        emptyProjection(),
+      );
+
+      doc.setNodePositions(
+        new Map([
+          ["missing", { x: 1, y: 2 }],
+          ["n1", { x: 10, y: 20 }],
+        ]),
+      );
+
+      expect(doc.graph.nodes[0]!.view_data).toEqual({ x_pos: 10, y_pos: 20 });
+      expect(doc.isDirty).toBe(false);
+    });
+  });
+
   describe("saving", () => {
     it("skips clean graphs when saving if dirty", async () => {
-      doc.replaceFromLoadedGraph(makeGraph());
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
       const api = { saveGraph: vi.fn() } as unknown as DashboardApi;
 
       await expect(doc.saveIfDirty(api)).resolves.toBe(true);
@@ -179,7 +218,7 @@ describe("EditableGraphDocument", () => {
     });
 
     it("reports manual save success and failure", async () => {
-      doc.replaceFromLoadedGraph(makeGraph());
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
       doc.addNode(hostNode("first"));
       const api = {
         saveGraph: vi
@@ -202,7 +241,10 @@ describe("EditableGraphDocument", () => {
 
     it("keeps validation errors on the selected entity until it changes", async () => {
       const node = hostNode("host-1");
-      doc.replaceFromLoadedGraph(makeGraph({ nodes: [node] }));
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [node] }),
+        emptyProjection(),
+      );
       doc.selectNode(node.id);
       doc.updateSelection({ ...node, data: { name: "" } });
       const api = {
@@ -228,7 +270,10 @@ describe("EditableGraphDocument", () => {
 
     it("clears validation errors when replacing or removing their entities", async () => {
       const node = hostNode("host-1");
-      doc.replaceFromLoadedGraph(makeGraph({ nodes: [node] }));
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [node] }),
+        emptyProjection(),
+      );
       doc.selectNode(node.id);
       const api = {
         saveGraph: vi.fn().mockResolvedValue({
@@ -257,12 +302,12 @@ describe("EditableGraphDocument", () => {
       doc.deleteSelection();
       expect(doc.selectedValidationErrors).toEqual([]);
 
-      doc.replaceFromLoadedGraph(makeGraph());
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
       expect(doc.graphValidationErrors).toEqual([]);
     });
 
     it("clears graph validation errors when the title changes", async () => {
-      doc.replaceFromLoadedGraph(makeGraph());
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
       const api = {
         saveGraph: vi.fn().mockResolvedValue({
           status: "unmapped_error",
@@ -285,7 +330,10 @@ describe("EditableGraphDocument", () => {
     });
 
     it("saves a changed title in the graph payload", async () => {
-      doc.replaceFromLoadedGraph(makeGraph({ title: "Original" }));
+      doc.replaceFromLoadedGraph(
+        makeGraph({ title: "Original" }),
+        emptyProjection(),
+      );
       doc.setTitle("Renamed");
       const api = {
         saveGraph: vi
@@ -303,7 +351,7 @@ describe("EditableGraphDocument", () => {
     });
 
     it("keeps edits made while saving dirty", async () => {
-      doc.replaceFromLoadedGraph(makeGraph());
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
       doc.addNode(hostNode("first"));
       let resolveSave!: (
         value: Awaited<ReturnType<DashboardApi["saveGraph"]>>,
@@ -410,9 +458,243 @@ describe("EditableGraphDocument", () => {
     });
   });
 
+  describe("pins", () => {
+    it("toggles a node pin without marking the graph dirty", () => {
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [hostNode("host-1"), hostNode("host-2")] }),
+        emptyProjection(),
+      );
+
+      doc.togglePin("host-2");
+      doc.togglePin("host-1");
+
+      expect(doc.pinnedEntityIds).toEqual(["host-1", "host-2"]);
+      expect(doc.isPinned("host-1")).toBe(true);
+      expect(doc.isDirty).toBe(false);
+    });
+
+    it("unpins a pinned entity and clears every pin", () => {
+      doc.graph = makeGraph({
+        nodes: [hostNode("host-1"), hostNode("host-2")],
+      });
+      doc.togglePin("host-1");
+      doc.togglePin("host-2");
+
+      doc.togglePin("host-1");
+      expect(doc.pinnedEntityIds).toEqual(["host-2"]);
+
+      doc.clearPins();
+      expect(doc.pinnedEntityIds).toEqual([]);
+      expect(doc.isPinned("host-2")).toBe(false);
+    });
+
+    it("ignores a pin for an entity the graph does not contain", () => {
+      doc.graph = makeGraph({ nodes: [hostNode("host-1")] });
+
+      doc.togglePin("missing-host");
+
+      expect(doc.pinnedEntityIds).toEqual([]);
+    });
+
+    it("drops a stale pin when its entity is deleted", () => {
+      doc.graph = makeGraph({
+        nodes: [hostNode("host-1"), hostNode("host-2")],
+      });
+      doc.togglePin("host-1");
+      doc.togglePin("host-2");
+      doc.selectNode("host-1");
+
+      doc.deleteSelection();
+
+      expect(doc.pinnedEntityIds).toEqual(["host-2"]);
+      expect(doc.canvasSelection).toEqual({ kind: "none" });
+    });
+
+    it("drops a pin that the reloaded graph no longer contains", () => {
+      doc.graph = makeGraph({
+        nodes: [hostNode("host-1"), hostNode("host-2")],
+      });
+      doc.togglePin("host-1");
+
+      doc.replaceFromLoadedGraph(
+        makeGraph({ revision_id: "r2", nodes: [hostNode("host-2")] }),
+        emptyProjection(),
+      );
+
+      expect(doc.pinnedEntityIds).toEqual([]);
+    });
+  });
+
+  describe("projection lifecycle", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function projection(marker: string) {
+      return {
+        ...emptyProjection(),
+        segments: [
+          {
+            id: marker,
+            host_ids: [],
+            host_count: 0,
+            service_count: 0,
+            context_count: 0,
+          },
+        ],
+      };
+    }
+
+    function markerOf(): string | undefined {
+      return doc.topologyProjection.segments[0]?.id;
+    }
+
+    function draftApi() {
+      return {
+        projectTopologyDraft: vi.fn(
+          (documentId: string, semanticVersion: number) =>
+            Promise.resolve({
+              status: "ok" as const,
+              document_id: documentId,
+              semantic_version: semanticVersion,
+              topology_projection: projection(`draft-${semanticVersion}`),
+              errors: [],
+            }),
+        ),
+      } as unknown as DashboardApi & {
+        projectTopologyDraft: ReturnType<typeof vi.fn>;
+      };
+    }
+
+    it("starts with an empty ready projection", () => {
+      expect(doc.projectionStatus).toBe("ready");
+      expect(doc.topologyProjection).toEqual(emptyProjection());
+      expect(doc.pendingProjectionEntityIds).toEqual([]);
+    });
+
+    it("requests a draft projection after a structural edit", async () => {
+      const api = draftApi();
+      doc.attachApi(api);
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
+
+      doc.addNode(hostNode("first"));
+
+      expect(doc.projectionStatus).toBe("pending");
+      await vi.waitFor(() => expect(markerOf()).toBe("draft-2"));
+      expect(doc.projectionStatus).toBe("ready");
+      expect(api.projectTopologyDraft).toHaveBeenCalledWith(
+        doc.id,
+        2,
+        expect.objectContaining({
+          nodes: [expect.objectContaining({ id: "first" })],
+        }),
+      );
+    });
+
+    it("does not request a projection for a geometry-only edit", () => {
+      const api = draftApi();
+      doc.attachApi(api);
+      const node = hostNode("n1", 10, 20);
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [node] }),
+        projection("rev"),
+      );
+
+      doc.graph = {
+        ...doc.graph,
+        nodes: doc.graph.nodes.map((current) => ({
+          ...current,
+          view_data: { x_pos: 400, y_pos: 250 },
+        })),
+      };
+
+      expect(api.projectTopologyDraft).not.toHaveBeenCalled();
+      expect(markerOf()).toBe("rev");
+      expect(doc.projectionStatus).toBe("ready");
+    });
+
+    it("debounces inspector field edits", async () => {
+      vi.useFakeTimers();
+      const api = draftApi();
+      doc.attachApi(api);
+      const node = hostNode("n1");
+      doc.replaceFromLoadedGraph(
+        makeGraph({ nodes: [node] }),
+        projection("rev"),
+      );
+      doc.selectNode(node.id);
+
+      doc.updateSelection({ ...node, data: { name: "changed" } });
+      doc.updateSelection({ ...node, data: { name: "changed again" } });
+
+      expect(api.projectTopologyDraft).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(300);
+      expect(api.projectTopologyDraft).toHaveBeenCalledTimes(1);
+    });
+
+    it("applies the saved projection when no semantic edit happened", async () => {
+      doc.replaceFromLoadedGraph(makeGraph(), projection("rev"));
+      const api = {
+        saveGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeGraph({ revision_id: "r2" }),
+          topology_projection: projection("saved"),
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(doc.save(api)).resolves.toBe(true);
+
+      expect(markerOf()).toBe("saved");
+      expect(doc.projectionStatus).toBe("ready");
+    });
+
+    it("does not let a stale saved projection overwrite a newer draft", async () => {
+      doc.replaceFromLoadedGraph(makeGraph(), projection("rev"));
+      let resolveSave!: (value: unknown) => void;
+      const projectTopologyDraft = vi.fn(() => new Promise<never>(() => {}));
+      const saveGraph = vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveSave = resolve;
+          }),
+      );
+      const api = {
+        projectTopologyDraft,
+        saveGraph,
+      } as unknown as DashboardApi;
+      doc.attachApi(api);
+
+      const saving = doc.save(api);
+      doc.addNode(hostNode("added"));
+      resolveSave({
+        status: "ok",
+        graph: makeGraph({ revision_id: "r2" }),
+        topology_projection: projection("stale-save"),
+      });
+
+      await expect(saving).resolves.toBe(true);
+      expect(markerOf()).toBe("rev");
+      expect(doc.projectionStatus).toBe("pending");
+    });
+
+    it("prunes pending projection entities when they are deleted", () => {
+      const projectTopologyDraft = vi.fn(() => new Promise<never>(() => {}));
+      const api = { projectTopologyDraft } as unknown as DashboardApi;
+      doc.attachApi(api);
+      doc.replaceFromLoadedGraph(makeGraph(), emptyProjection());
+
+      doc.addNode(hostNode("added"));
+      expect(doc.pendingProjectionEntityIds).toContain("added");
+
+      doc.deleteSelection();
+
+      expect(doc.pendingProjectionEntityIds).not.toContain("added");
+    });
+  });
+
   describe("startOptimization", () => {
     it("forwards the loaded graph, correlation ID, and parameters", async () => {
-      doc.replaceFromLoadedGraph(makeGraph({ id: "g1" }));
+      doc.replaceFromLoadedGraph(makeGraph({ id: "g1" }), emptyProjection());
       const api = {
         runOptimization: vi.fn().mockResolvedValue({
           status: "accepted",
@@ -456,4 +738,16 @@ describe("EditableGraphDocument", () => {
 
 function makeSaveReply(graph: GraphContract) {
   return { status: "ok" as const, graph };
+}
+
+function emptyProjection() {
+  return {
+    segments: [],
+    hosts: [],
+    services: [],
+    attachments: [],
+    policy_groups: [],
+    flow_groups: [],
+    issues: [],
+  };
 }

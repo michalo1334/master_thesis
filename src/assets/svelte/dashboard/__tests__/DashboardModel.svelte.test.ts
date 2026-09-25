@@ -23,6 +23,18 @@ function graph(overrides: Partial<GraphContract> = {}): GraphContract {
   };
 }
 
+function emptyProjection() {
+  return {
+    segments: [],
+    hosts: [],
+    services: [],
+    attachments: [],
+    policy_groups: [],
+    flow_groups: [],
+    issues: [],
+  };
+}
+
 function api(): DashboardApi & {
   requestSimulationReport: ReturnType<typeof vi.fn>;
   requestOptimizationReport: ReturnType<typeof vi.fn>;
@@ -38,7 +50,13 @@ function api(): DashboardApi & {
     fetchOptimizationRuns: vi.fn().mockResolvedValue({ runs: [] }),
     fetchRuns: vi.fn().mockResolvedValue({ runs: [] }),
     fetchGraphConnectivity: vi.fn(),
-    fetchGraphProjection: vi.fn(),
+    projectTopologyDraft: vi.fn().mockResolvedValue({
+      status: "ok",
+      document_id: null,
+      semantic_version: null,
+      topology_projection: emptyProjection(),
+      errors: [],
+    }),
     fetchDocumentCatalog: vi.fn(),
     createNodeDraft: vi.fn(),
     createConnectionDraft: vi.fn(),
@@ -79,7 +97,11 @@ describe("DashboardModel", () => {
   beforeEach(async () => {
     dashboardApi = api();
     model = new DashboardModel(dashboardApi);
-    await model.workspace.openLoadedGraph(graph(), dashboardApi);
+    await model.workspace.openLoadedGraph(
+      graph(),
+      emptyProjection(),
+      dashboardApi,
+    );
   });
 
   it("saves before simulating and scopes the report to the saved revision", async () => {

@@ -1,17 +1,16 @@
 defmodule NetworkDefenseWeb.DashboardLive do
   use NetworkDefenseWeb, :live_view
 
+  require Logger
+
   alias NetworkDefense.Errors
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.EvaluationRuns
   alias NetworkDefense.Evaluation.EvaluationWorker
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node}
-  alias NetworkDefense.Graph.MaterializeReachability
+  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node, TopologyProjection}
   alias NetworkDefense.Graph.SemanticConnectivity
-  alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Optimizations
-  alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulations
   alias NetworkDefense.DocumentCatalog
@@ -48,8 +47,6 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateNodeDraftReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.DeleteFolderReply
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FolderSummary
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphConnectivityReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphSummary
@@ -57,10 +54,16 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.MoveGraphToFolderReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.ProjectTopologyDraftPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.ProjectTopologyDraftReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoritePayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SetGraphRevisionFavoriteReply
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection,
+    as: TopologyProjectionContract
+
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload
@@ -353,8 +356,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
-  def handle_event("fetch_graph_projection", params, socket) do
-    {:reply, graph_projection(params), socket}
+  def handle_event("project_topology_draft", params, socket) do
+    {:reply, project_topology_draft(params), socket}
   end
 
   @impl true
@@ -730,11 +733,42 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
   end
 
-  defp simulation_report_reply(report) do
-    case FetchSimulationReportReply.from_domain(report) do
-      {:ok, reply} -> {:ok, FetchSimulationReportReply.to_wire(reply)}
-      {:error, _changeset} -> {:error, {:not_found, nil}}
+  # Public only so the two failure classes stay testable: a missing report is a
+  # `not_found` lookup, while a report that loads but fails wire mapping is a
+  # server defect and must never surface as `not_found`.
+  @doc false
+  def simulation_report_reply(report) do
+    with {:ok, projection} <- simulation_report_projection(report),
+         {:ok, reply} <- simulation_report_contract(report, projection) do
+      {:ok, FetchSimulationReportReply.to_wire(reply)}
+    else
+      {:error, stage, reason} ->
+        log_report_wire_failure(stage, report, reason)
+        {:error, {:internal_error, stage}}
     end
+  end
+
+  defp simulation_report_projection(report) do
+    case topology_projection(report.graph) do
+      {:ok, projection} -> {:ok, projection}
+      {:error, reason} -> {:error, "topology_projection", reason}
+    end
+  end
+
+  defp simulation_report_contract(report, projection) do
+    case FetchSimulationReportReply.from_domain(report, projection) do
+      {:ok, reply} -> {:ok, reply}
+      {:error, reason} -> {:error, "report_contract", reason}
+    end
+  end
+
+  defp log_report_wire_failure(stage, report, reason) do
+    Logger.error("simulation report loaded but wire mapping failed",
+      stage: stage,
+      graph_id: report.graph_id,
+      graph_revision_id: report.graph_revision_id,
+      reason: wire_failure_fields(reason)
+    )
   end
 
   defp fetch_optimization_report(%FetchOptimizationReportPayload{} = request, on_progress) do
@@ -864,9 +898,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp graph_open_reply({:error, _reason}), do: open_graph_reply("unmapped_error")
 
   defp graph_open_reply(graph) do
-    case GraphContract.from_domain(graph) do
-      {:ok, wire_graph} -> open_graph_reply("ok", wire_graph)
-      {:error, _changeset} -> open_graph_reply("unmapped_error")
+    with {:ok, wire_graph} <- GraphContract.from_domain(graph),
+         {:ok, wire_projection} <- topology_projection(graph) do
+      open_graph_reply("ok", wire_graph, wire_projection)
+    else
+      _error -> open_graph_reply("unmapped_error")
     end
   end
 
@@ -936,15 +972,50 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp save_graph_success(persisted, socket) do
-    case GraphContract.from_domain(persisted) do
-      {:ok, wire_graph} ->
-        {:reply, save_graph_reply("ok", wire_graph),
+    case save_graph_wire(persisted) do
+      {:ok, wire_graph, wire_projection} ->
+        {:reply, save_graph_reply("ok", wire_graph, [], wire_projection),
          assign(socket, :graph_summaries, graph_summaries())}
 
-      {:error, _changeset} ->
+      {:error, stage, reason} ->
+        log_post_persist_wire_failure(stage, persisted, reason)
         {:reply, save_graph_reply("unmapped_error"), socket}
     end
   end
+
+  # The graph is persisted at this point. A failure here returns an error reply
+  # for a save that did happen, so log it without graph data and without retry.
+  defp save_graph_wire(persisted) do
+    case GraphContract.from_domain(persisted) do
+      {:ok, wire_graph} ->
+        case topology_projection(persisted) do
+          {:ok, wire_projection} -> {:ok, wire_graph, wire_projection}
+          {:error, reason} -> {:error, "topology_projection", reason}
+        end
+
+      {:error, reason} ->
+        {:error, "graph_contract", reason}
+    end
+  end
+
+  defp log_post_persist_wire_failure(stage, persisted, reason) do
+    Logger.error("save_graph persisted but wire mapping failed",
+      stage: stage,
+      graph_id: persisted.id,
+      graph_revision_id: persisted.revision_id,
+      reason: wire_failure_fields(reason)
+    )
+  end
+
+  # Log field names only. Changeset values may contain graph data.
+  defp wire_failure_fields(%Ecto.Changeset{errors: errors}) do
+    errors
+    |> Enum.map(fn {field, _message} -> field end)
+    |> Enum.uniq()
+  end
+
+  defp wire_failure_fields(reason) when is_atom(reason), do: reason
+  defp wire_failure_fields(_reason), do: :unmapped_error
 
   defp save_error_status(:not_found), do: "not_found"
   defp save_error_status(:invalid_graph), do: "invalid_graph"
@@ -1073,15 +1144,26 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp dashboard_error(nil), do: nil
   defp dashboard_error(error), do: %{code: Errors.to_wire(error)}
 
-  defp open_graph_reply(status, graph \\ nil) do
-    contract_reply(OpenGraphReply, %{status: status, graph: graph})
+  defp open_graph_reply(status, graph \\ nil, projection \\ nil) do
+    contract_reply(OpenGraphReply, %{
+      status: status,
+      graph: graph,
+      topology_projection: projection
+    })
   end
 
-  defp save_graph_reply(status, graph \\ nil, errors \\ []) do
-    contract_reply(SaveGraphReply, %{status: status, graph: graph, errors: errors})
+  defp save_graph_reply(status, graph \\ nil, errors \\ [], projection \\ nil) do
+    contract_reply(SaveGraphReply, %{
+      status: status,
+      graph: graph,
+      topology_projection: projection,
+      errors: errors
+    })
   end
 
-  defp graph_validation_errors(%Ecto.Changeset{changes: %{graph: graph_changeset}}) do
+  defp graph_validation_errors(%Ecto.Changeset{
+         changes: %{graph: %Ecto.Changeset{} = graph_changeset}
+       }) do
     graph_errors(graph_changeset)
   end
 
@@ -1258,48 +1340,118 @@ defmodule NetworkDefenseWeb.DashboardLive do
     contract_reply(GraphConnectivityReply, %{rules: SemanticConnectivity.rules()})
   end
 
-  defp graph_projection(params) do
-    case FetchGraphProjectionPayload.validate(params) do
+  defp project_topology_draft(params) do
+    case ProjectTopologyDraftPayload.validate(params) do
       {:ok, request} ->
-        case Graphs.load_revision(request.graph_revision_id) do
-          %Graph{} = graph -> graph_projection_reply(build_graph_projection(graph))
-          nil -> graph_projection_reply("not_found")
-          {:error, _reason} -> graph_projection_reply("unmapped_error")
-        end
+        draft_topology_projection(request)
 
-      {:error, _changeset} ->
-        graph_projection_reply("invalid_graph")
+      {:error, changeset} ->
+        draft_reply(
+          "invalid_graph",
+          draft_request_document_id(changeset),
+          draft_request_semantic_version(changeset),
+          nil,
+          draft_payload_errors(changeset)
+        )
     end
   end
 
-  defp build_graph_projection(%Graph{} = graph) do
-    graph = MaterializeReachability.materialize(graph)
+  # An invalid payload still carries correlation data. Preserve a usable request
+  # identity and report both root payload errors and nested graph errors. Values
+  # that the reply contract rejects stay nil.
+  defp draft_request_document_id(%Ecto.Changeset{changes: changes}) do
+    case Map.get(changes, :document_id) do
+      value when is_binary(value) ->
+        case Ecto.UUID.cast(value) do
+          {:ok, _uuid} -> value
+          :error -> nil
+        end
 
-    %{
-      status: "ok",
-      segments: projection_ids(Graph.nodes(graph), NetworkSegment),
-      hosts: projection_ids(Graph.nodes(graph), Host),
-      policy_links: projection_links(Graph.edges(graph), SegmentReachability),
-      operational_flows: MaterializeReachability.operational_flows(graph)
-    }
+      _value ->
+        nil
+    end
   end
 
-  defp projection_ids(nodes, type) do
-    Enum.map(Enum.filter(nodes, &(&1.type == type)), fn node -> %{id: node.id} end)
+  defp draft_request_semantic_version(%Ecto.Changeset{changes: changes}) do
+    case Map.get(changes, :semantic_version) do
+      value when is_integer(value) and value >= 0 -> value
+      _value -> nil
+    end
   end
 
-  defp projection_links(edges, type) do
-    Enum.map(Enum.filter(edges, &(&1.type == type)), fn edge ->
-      %{id: edge.id, from_id: edge.from_id, to_id: edge.to_id}
+  defp draft_payload_errors(changeset) do
+    payload_errors(changeset) ++ graph_validation_errors(changeset)
+  end
+
+  # Root payload fields have no dedicated wire entity kind, so they use the
+  # graph kind with no entity id.
+  defp payload_errors(changeset) do
+    Enum.flat_map(changeset.errors, fn {field, {message, options}} ->
+      case Keyword.get(options, :nested_changeset) do
+        %Ecto.Changeset{} ->
+          []
+
+        _none ->
+          [
+            validation_error(
+              "graph",
+              nil,
+              [to_string(field)],
+              format_error(message, options)
+            )
+          ]
+      end
     end)
   end
 
-  defp graph_projection_reply(status) when is_binary(status) do
-    contract_reply(FetchGraphProjectionReply, %{status: status})
+  defp draft_topology_projection(request) do
+    case GraphContract.to_domain(request.graph, validate_membership: false) do
+      {:ok, %Graph{} = graph} ->
+        case topology_projection(graph) do
+          {:ok, projection} ->
+            draft_reply(
+              "ok",
+              request.document_id,
+              request.semantic_version,
+              projection,
+              []
+            )
+
+          {:error, _changeset} ->
+            draft_reply(
+              "unmapped_error",
+              request.document_id,
+              request.semantic_version,
+              nil,
+              []
+            )
+        end
+
+      {:error, changeset} ->
+        draft_reply(
+          "invalid_graph",
+          request.document_id,
+          request.semantic_version,
+          nil,
+          direct_errors(changeset, "graph", entity_id(changeset), [])
+        )
+    end
   end
 
-  defp graph_projection_reply(attrs) do
-    contract_reply(FetchGraphProjectionReply, attrs)
+  defp draft_reply(status, document_id, semantic_version, projection, errors) do
+    contract_reply(ProjectTopologyDraftReply, %{
+      status: status,
+      document_id: document_id,
+      semantic_version: semantic_version,
+      topology_projection: projection,
+      errors: errors
+    })
+  end
+
+  defp topology_projection(%Graph{} = graph) do
+    graph
+    |> TopologyProjection.project()
+    |> TopologyProjectionContract.from_domain()
   end
 
   defp node_draft_reply(status, node \\ nil) do

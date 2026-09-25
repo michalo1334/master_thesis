@@ -3,11 +3,10 @@
     GraphContract,
     MissionCapabilityNode,
   } from "../../../contracts.generated/graph";
-  import type { GraphProjectionOperationalFlow } from "../../../contracts.generated/dashboard/graph";
-  import { onMount } from "svelte";
+  import type { TopologyProjection } from "../../../contracts.generated/dashboard/graph";
   import type { FilterableTableColumn } from "../../../ui-kit/composites/FilterableTable.types";
   import OptionPickerDialog from "../../../ui-kit/composites/OptionPickerDialog.svelte";
-  import type { DashboardApi } from "../../dashboard-api";
+  import type { SelectionProjectionSource } from "../graph/selection-topology";
   import ErrorMessages from "../ErrorMessages.svelte";
   import { requiredFlows, type RequiredFlow } from "./mission-feasibility";
 
@@ -20,8 +19,9 @@
   interface Props {
     selectable: MissionCapabilityNode;
     graph: GraphContract;
-    api: DashboardApi;
-    revisionId?: string | null;
+    /** Accepted projection of the active graph document. */
+    projection?: TopologyProjection;
+    projectionSource?: SelectionProjectionSource;
     canEditFlows: boolean;
     errors?: readonly string[];
     onUpdate: (selectable: MissionCapabilityNode) => void;
@@ -30,18 +30,51 @@
   let {
     selectable,
     graph,
-    api,
-    revisionId = null,
+    projection = undefined,
+    projectionSource = "revision",
     canEditFlows,
     errors = [],
     onUpdate,
   }: Props = $props();
   let pickerOpen = $state(false);
-  let flows = $state<readonly GraphProjectionOperationalFlow[]>([]);
-  let status = $state("");
-  let flowOptions = $derived(optionsFor(graph, flows));
+  let flowOptions = $derived(optionsFor(graph, projection));
+  let optionIds = $derived(new Set(flowOptions.map((flow) => flow.id)));
   let selectedFlowIds = $derived(requiredFlows(selectable.data).map(flowKey));
   let selectedFlows = $derived(flowSummariesFor(graph, selectable.data));
+  /**
+   * Selected flows that the accepted projection does not offer.
+   *
+   * The projection is the only reachability source. An absent or partial option
+   * set cannot prove these flows unreachable, so they stay selected instead of
+   * being cleared on confirm.
+   */
+  let unofferedFlows = $derived(
+    selectedFlows.filter((flow) => !optionIds.has(flow.id)),
+  );
+  /**
+   * Reachability status of the offered options.
+   *
+   * Options come from the accepted projection, which can be a draft of unsaved
+   * edits. A missing projection leaves reachability unknown rather than
+   * claiming the flows are unreachable.
+   */
+  let reachabilityStatus = $derived(
+    !projection
+      ? "Reachable flows are unknown without an accepted projection."
+      : projectionSource === "draft" && projection.flow_groups.length > 0
+        ? "Draft reachability · Save before simulation"
+        : "",
+  );
+  let pickerStatus = $derived(
+    [
+      reachabilityStatus,
+      unofferedFlows.length > 0
+        ? `${unofferedFlows.length} selected ${unofferedFlows.length === 1 ? "flow is" : "flows are"} not currently reachable and stay selected.`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
   const fieldId = $props.id();
   const errorsId = `${fieldId}-errors`;
   const columns: readonly FilterableTableColumn<RequiredFlowOption>[] = [
@@ -56,27 +89,6 @@
       getValue: (flow) => flow.target,
     },
   ];
-
-  onMount(() => {
-    if (!revisionId || !canEditFlows) return;
-    let active = true;
-    status = "Loading reachable flows…";
-    void api
-      .fetchGraphProjection(revisionId)
-      .then((reply) => {
-        if (!active) return;
-        if (reply.status === "ok") {
-          flows = reply.operational_flows;
-          status = "";
-        } else status = "Reachable flows are unavailable.";
-      })
-      .catch(() => {
-        if (active) status = "Reachable flows are unavailable.";
-      });
-    return () => {
-      active = false;
-    };
-  });
 
   function flowKey(flow: RequiredFlow): string {
     return `${flow.source_segment_id}:${flow.target_service_id}`;
@@ -98,38 +110,44 @@
     return `${node.data.name}:${node.data.port}`;
   }
 
+  /**
+   * Reachable segment-to-service pairs of the accepted projection.
+   *
+   * The source segment comes from the projected membership of the group's
+   * source host. The target services come from the group's `service_ids`. Both
+   * sides resolve to names through the graph contract.
+   */
   function optionsFor(
     graph: GraphContract,
-    flows: readonly GraphProjectionOperationalFlow[],
+    projection: TopologyProjection | undefined,
   ): RequiredFlowOption[] {
+    if (!projection) return [];
     const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
-    return flows
-      .flatMap((flow) => {
-        const sourceSegmentId = graph.edges.find(
-          (edge) =>
-            edge.type === "Contains" &&
-            edge.to_id === flow.from_id &&
-            nodes.get(edge.from_id)?.type === "NetworkSegment",
-        )?.from_id;
-        const source = sourceSegmentId ? nodes.get(sourceSegmentId) : undefined;
-        const target = nodes.get(flow.to_id);
-        if (source?.type !== "NetworkSegment" || target?.type !== "Service")
-          return [];
-        return [
-          {
-            source_segment_id: source.id,
-            target_service_id: target.id,
-            id: `${source.id}:${target.id}`,
-            source: source.data.name,
-            target: `${target.data.name}:${target.data.port}`,
-          },
-        ];
-      })
-      .filter(
-        (option, index, options) =>
-          options.findIndex((candidate) => candidate.id === option.id) ===
-          index,
-      );
+    const segmentByHost = new Map(
+      projection.hosts.map((host) => [host.id, host.segment_id]),
+    );
+    const options: RequiredFlowOption[] = [];
+    const seen = new Set<string>();
+    for (const group of projection.flow_groups) {
+      const segmentId = segmentByHost.get(group.source_host_id);
+      const segment = segmentId ? nodes.get(segmentId) : undefined;
+      if (segment?.type !== "NetworkSegment") continue;
+      for (const serviceId of group.service_ids) {
+        const service = nodes.get(serviceId);
+        if (service?.type !== "Service") continue;
+        const id = `${segment.id}:${service.id}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        options.push({
+          source_segment_id: segment.id,
+          target_service_id: service.id,
+          id,
+          source: segment.data.name,
+          target: `${service.data.name}:${service.data.port}`,
+        });
+      }
+    }
+    return options;
   }
 
   function flowSummariesFor(
@@ -150,19 +168,20 @@
   }
 
   function openPicker(): void {
-    if (!canEditFlows) {
-      status = "Save the graph before selecting required flows.";
-      return;
-    }
     pickerOpen = true;
   }
 
+  /**
+   * Confirm the offered selection and keep every flow the projection does not
+   * offer. Without this merge an empty or partial option set would clear
+   * authored mission required flows.
+   */
   function updateRequiredFlows(selected: RequiredFlowOption[]): boolean {
     onUpdate({
       ...selectable,
       data: {
         ...selectable.data,
-        required_flows: selected.map(
+        required_flows: [...selected, ...unofferedFlows].map(
           ({ source_segment_id, target_service_id }) => ({
             source_segment_id,
             target_service_id,
@@ -193,7 +212,9 @@
     onclick={openPicker}>Change required flows</button
   >
   <ErrorMessages {errors} id={errorsId} />
-  {#if status}<p class="required-flows-status" role="status">{status}</p>{/if}
+  {#if reachabilityStatus}
+    <p class="required-flows-status" role="status">{reachabilityStatus}</p>
+  {/if}
 </section>
 
 <OptionPickerDialog
@@ -208,7 +229,7 @@
   initialSelection={selectedFlowIds}
   minSelections={0}
   emptyMessage="No reachable segment-to-service flows are available."
-  {status}
+  status={pickerStatus}
   onConfirm={updateRequiredFlows}
 />
 

@@ -17,8 +17,14 @@ plans and no non-functional constraints. Code and tests define behavior.
   supported relationship types.
 - The workspace shall let the user inspect the properties of a selected node or
   edge.
-- The workspace shall apply a force-directed layout to the active graph.
-- The workspace shall toggle between the topology view and the network view.
+- The workspace shall show one topology canvas; the workspace shall not offer
+  separate topology and network views.
+- The workspace shall place hosts and services inside their network segments
+  when the user requests an arrangement.
+- The workspace shall keep placement and geometry separate: a position change
+  shall not change segment membership.
+- While an entity has no unambiguous placement, the workspace shall list it as
+  unplaced with a reason.
 - The workspace shall let the user keep several graphs open and switch among
   them.
 

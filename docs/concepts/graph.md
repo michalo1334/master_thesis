@@ -76,6 +76,33 @@ reproduces the same flows. The projection logic lives in
 `src/lib/network_defense/graph/materialize_reachability.ex`. The policy data
 schema lives in `src/lib/network_defense/relationships/segment_reachability.ex`.
 
+## Topology projection
+
+Reachability projection (above) derives flows. Topology projection derives
+placement. For both, meaning belongs to Elixir and geometry belongs to the
+browser.
+
+The graph-domain projector derives graph meaning. It decides segment and host
+membership, context anchors, grouped segment policy, grouped operational flows,
+summary counts, result order, and placement issues. It is a pure function of a
+graph. Dashboard handlers only validate transport data and serialize its
+result.
+
+The browser derives geometry and interaction. It reads names, fields, and saved
+positions from the editable graph contract, then computes rectangles, edge
+paths, viewport scale, zoom detail, focus lenses, and pins. It never infers
+membership, ownership, anchors, or groups from raw edges.
+
+This split keeps each rule in one place. The rule that a host belongs to one
+segment is a graph rule, so Elixir states it once. Whether a card fits its
+label is a rendering rule, so the browser owns it. The browser joins projection
+IDs to graph entities and consumes the projection roles; it does not repeat
+the graph rules. The projector is
+`src/lib/network_defense/graph/topology_projection.ex`. The browser projection
+model is
+`src/assets/svelte/dashboard/graph/topology-projection-model.svelte.ts`, and the
+browser scene join is `src/assets/svelte/dashboard/graph/topology-scene.ts`.
+
 ## Graph revisions
 
 A graph has an immutable, linear revision history. Each graph starts with one

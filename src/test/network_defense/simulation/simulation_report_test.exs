@@ -6,6 +6,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
+  alias NetworkDefense.Graph.TopologyProjection
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
 
   alias NetworkDefense.Relationships.{
@@ -21,6 +22,9 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
+
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection,
+    as: TopologyProjectionContract
 
   import NetworkDefense.GraphFixtures
 
@@ -110,11 +114,11 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
             %FetchSimulationReportReply{
               summary: %{expected_blast_radius: 1.0},
               charts: %{convergence: [%{run: 1, mean_blast_radius: 1.0}]},
-              operational_flows: []
+              topology_projection: %{flow_groups: []}
             }} =
              experiment([run("source-host")], graph)
              |> SimulationReport.generate()
-             |> FetchSimulationReportReply.from_domain()
+             |> reply_from_domain()
   end
 
   test "reports and serializes final mission impact and capability disruption probabilities" do
@@ -164,7 +168,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
              %{capability_id: single.id, down_probability: 0.5}
            ]
 
-    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+    assert {:ok, reply} = reply_from_domain(report)
 
     assert %{summary: %{expected_mission_impact: 4.5}, charts: %{capability_impact: impacts}} =
              FetchSimulationReportReply.to_wire(reply)
@@ -200,7 +204,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
              %{edge_id: flow.id, traversal_probability: 0.5}
   end
 
-  test "serializes operational flows separately from the canonical report graph" do
+  test "serializes operational flows as grouped projection data beside the canonical report graph" do
     {graph, source_host_id} =
       canonical_policy_graph(Ecto.UUID.generate(), fn _ -> Ecto.UUID.generate() end)
 
@@ -212,17 +216,46 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
       |> experiment(graph)
       |> SimulationReport.generate()
 
-    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+    assert {:ok, reply} = reply_from_domain(report)
 
     assert %{
-             operational_flows: [
-               %{id: flow_id, from_id: from_id, to_id: to_id}
-             ],
+             topology_projection: %{
+               flow_groups: [
+                 %{
+                   source_host_id: group_source_host_id,
+                   target_host_id: group_target_host_id,
+                   service_ids: [service_id],
+                   flow_ids: [flow_id]
+                 }
+               ]
+             },
              graph: %{edges: edges}
            } = FetchSimulationReportReply.to_wire(reply)
 
-    assert {flow_id, from_id, to_id} == {flow.id, flow.from_id, flow.to_id}
+    assert group_source_host_id == source_host_id
+    assert group_target_host_id == target_host_id(report.graph, service_id)
+    assert {flow_id, service_id} == {flow.id, flow.to_id}
     refute Enum.any?(edges, &(&1.type == "NetworkReachability"))
+  end
+
+  test "report wire map carries the topology projection and no operational flow field" do
+    {graph, source_host_id} =
+      canonical_policy_graph(Ecto.UUID.generate(), fn _ -> Ecto.UUID.generate() end)
+
+    graph = %{graph | revision_id: Ecto.UUID.generate(), title: "Test graph"}
+    flow = operational_flow(graph)
+
+    report =
+      [run(source_host_id, [flow.id])]
+      |> experiment(graph)
+      |> SimulationReport.generate()
+
+    assert {:ok, reply} = reply_from_domain(report)
+    wire = FetchSimulationReportReply.to_wire(reply)
+
+    assert Map.has_key?(wire, :topology_projection)
+    refute Map.has_key?(wire, :operational_flows)
+    assert %{flow_groups: [_ | _]} = wire.topology_projection
   end
 
   test "reports and serializes pre-attack capability status and feasibility" do
@@ -296,7 +329,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
 
     assert capability_id == capability.id
 
-    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+    assert {:ok, reply} = reply_from_domain(report)
 
     assert %{
              feasible: true,
@@ -405,7 +438,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
              }
            ] = report.pre_attack_capability_statuses
 
-    assert {:ok, reply} = FetchSimulationReportReply.from_domain(report)
+    assert {:ok, reply} = reply_from_domain(report)
 
     assert %{
              feasible: false,
@@ -507,6 +540,28 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
       )
 
     {graph, source_host.id}
+  end
+
+  defp reply_from_domain(report) do
+    FetchSimulationReportReply.from_domain(report, wire_projection(report.graph))
+  end
+
+  defp wire_projection(graph) do
+    {:ok, projection} =
+      graph
+      |> TopologyProjection.project()
+      |> TopologyProjectionContract.from_domain()
+
+    projection
+  end
+
+  defp target_host_id(graph, service_id) do
+    graph
+    |> Graph.edges()
+    |> Enum.find_value(fn
+      %{type: Runs, from_id: host_id, to_id: ^service_id} -> host_id
+      _edge -> nil
+    end)
   end
 
   defp operational_flow(graph) do

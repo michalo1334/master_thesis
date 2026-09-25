@@ -101,6 +101,18 @@ describe("SimulationReport", () => {
             view_data: { x_pos: 0, y_pos: 0 },
           },
           {
+            id: "segment-2",
+            type: "NetworkSegment",
+            data: { name: "Server" },
+            view_data: { x_pos: 0, y_pos: 0 },
+          },
+          {
+            id: "host-2",
+            type: "Host",
+            data: { name: "Application" },
+            view_data: { x_pos: 0, y_pos: 0 },
+          },
+          {
             id: "service-available",
             type: "Service",
             data: { name: "Order API", port: 443, protocol: "tcp" },
@@ -152,13 +164,46 @@ describe("SimulationReport", () => {
         histogram: [],
         host_compromise: [],
       },
-      operational_flows: [
-        {
-          id: "flow-1",
-          from_id: "host-1",
-          to_id: "service-available",
-        },
-      ],
+      topology_projection: {
+        attachments: [],
+        flow_groups: [
+          {
+            source_host_id: "host-1",
+            target_host_id: "host-2",
+            service_ids: ["service-available"],
+            flow_ids: ["flow-1"],
+          },
+        ],
+        hosts: [
+          {
+            id: "host-1",
+            segment_id: "segment-1",
+            service_ids: [],
+            service_count: 0,
+            context_count: 0,
+          },
+          {
+            id: "host-2",
+            segment_id: "segment-2",
+            service_ids: ["service-available", "service-unavailable"],
+            service_count: 2,
+            context_count: 0,
+          },
+        ],
+        issues: [],
+        policy_groups: [
+          {
+            from_segment_id: "segment-1",
+            to_segment_id: "segment-2",
+            edge_ids: ["policy-1"],
+          },
+        ],
+        segments: [],
+        services: [
+          { id: "service-available", host_id: "host-2" },
+          { id: "service-unavailable", host_id: "host-2" },
+        ],
+      },
       summary: {
         expected_blast_radius: 0,
         median_blast_radius: 0,
@@ -208,5 +253,94 @@ describe("SimulationReport", () => {
         "1 required flow unavailable; 1 supporting host required",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("reports required flow reachability as unknown without a report projection", () => {
+    const document = new SimulationReportDocument(
+      "Topology",
+      "graph-1",
+      "revision-1",
+    );
+    document.markReady("experiment-1");
+    document.setReportData({
+      experiment_id: "experiment-1",
+      graph_id: "graph-1",
+      graph_revision_id: "revision-1",
+      graph_title: "Topology",
+      iteration_count: 1,
+      run_count: 1,
+      total_runtime_ms: 1,
+      feasible: false,
+      capability_statuses: [
+        {
+          capability_id: "capability-1",
+          operational: false,
+          required_flow_count: 1,
+          missing_flow_count: 1,
+          supporting_host_count: 0,
+          min_operational_support: 0,
+        },
+      ],
+      graph: {
+        id: "graph-1",
+        title: "Topology",
+        revision_id: "revision-1",
+        parent_revision_id: null,
+        revision_kind: "original",
+        revision_number: 1,
+        nodes: [
+          {
+            id: "capability-1",
+            type: "MissionCapability",
+            data: {
+              name: "Order entry",
+              impact_weight: 1,
+              min_operational_support: 0,
+              required_flows: [
+                {
+                  source_segment_id: "segment-1",
+                  target_service_id: "service-1",
+                },
+              ],
+            },
+            view_data: { x_pos: 0, y_pos: 0 },
+          },
+        ],
+        edges: [],
+      },
+      charts: {
+        action_success: [],
+        capability_impact: [],
+        cdf: [],
+        convergence: [],
+        edge_traversal: [],
+        histogram: [],
+        host_compromise: [],
+      },
+      topology_projection: null,
+      summary: {
+        expected_blast_radius: 0,
+        median_blast_radius: 0,
+        blast_radius_p95: 0,
+        blast_radius_p99: 0,
+        min_blast_radius: 0,
+        max_blast_radius: 0,
+        blast_radius_variance: 0,
+        host_count: 0,
+        expected_mission_impact: 0,
+        median_mission_impact: 0,
+        mission_impact_p95: 0,
+        mission_impact_p99: 0,
+        min_mission_impact: 0,
+        max_mission_impact: 0,
+        mission_impact_variance: 0,
+      },
+    } as unknown as FetchSimulationReportReply);
+
+    render(SimulationReport, { props: { document } });
+
+    expect(
+      screen.getByRole("list", { name: "Required flows for Order entry" }),
+    ).toHaveTextContent("segment-1 to service-1: Unknown");
   });
 });

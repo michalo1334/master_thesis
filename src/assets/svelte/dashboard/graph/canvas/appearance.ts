@@ -10,11 +10,3 @@ export interface CanvasEdgeAppearance {
   stroke?: string;
   strokeWidth?: number;
 }
-
-export interface CanvasStructuralFlow {
-  id: string;
-  sourceName: string;
-  sourcePosition: { x: number; y: number };
-  targetPosition: { x: number; y: number };
-  serviceName: string;
-}

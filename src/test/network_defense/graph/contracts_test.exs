@@ -15,6 +15,9 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
+  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
+  alias NetworkDefense.Relationships.{Contains, Runs}
 
   describe "CredentialData" do
     test "validates credential data" do
@@ -205,6 +208,191 @@ defmodule NetworkDefense.Graph.ContractsTest do
     end
   end
 
+  describe "GraphContract.to_domain/2" do
+    test "converts a valid contract into a domain graph" do
+      {params, ids} = complete_graph()
+
+      assert {:ok, contract} = GraphContract.validate(params)
+      assert {:ok, graph} = GraphContract.to_domain(contract)
+
+      assert graph.id == contract.id
+      assert graph.title == contract.title
+
+      assert Graph.nodes(graph) |> Enum.map(& &1.type) |> Enum.sort() == [
+               Host,
+               NetworkSegment,
+               Service
+             ]
+
+      assert Graph.edges(graph) |> Enum.map(& &1.type) |> Enum.sort() == [Contains, Runs]
+      assert Graph.node(graph, ids.host).data.name == "host"
+    end
+
+    test "rejects incomplete ownership by default, accepts it with validate_membership: false" do
+      {params, _ids} =
+        complete_graph(Map.put(unplaced("extra"), "view_data", %{"x_pos" => 3, "y_pos" => 3}))
+
+      assert {:ok, contract} = GraphContract.validate(params)
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert to_domain_error(changeset, :edges, "multiple_segments")
+
+      assert {:ok, graph} = GraphContract.to_domain(contract, validate_membership: false)
+      assert Enum.count(Graph.nodes(graph)) == 4
+      assert Enum.count(Graph.edges(graph)) == 2
+    end
+
+    test "rejects a node with an unknown type" do
+      {params, _ids} = complete_graph()
+      {:ok, contract} = GraphContract.validate(params)
+
+      unknown = %{Enum.at(contract.nodes, 0) | type: "Worm"}
+      contract = %{contract | nodes: List.replace_at(contract.nodes, 0, unknown)}
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert to_domain_error(changeset, :nodes, "invalid_node")
+    end
+
+    test "rejects node data that is invalid for its type" do
+      {params, _ids} = complete_graph()
+      {:ok, contract} = GraphContract.validate(params)
+
+      invalid = %{Enum.at(contract.nodes, 0) | data: %{}}
+      contract = %{contract | nodes: List.replace_at(contract.nodes, 0, invalid)}
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert to_domain_error(changeset, :nodes, "invalid_node")
+    end
+
+    test "rejects an edge with an unknown type" do
+      {params, _ids} = complete_graph()
+      {:ok, contract} = GraphContract.validate(params)
+
+      unknown = %{Enum.at(contract.edges, 0) | type: "FirewallRule"}
+      contract = %{contract | edges: List.replace_at(contract.edges, 0, unknown)}
+
+      assert {:error, changeset} =
+               GraphContract.to_domain(contract, validate_membership: false)
+
+      assert to_domain_error(changeset, :edges, "invalid_edge")
+    end
+
+    test "rejects duplicate node ids before hydration" do
+      {params, _ids} = complete_graph()
+      segment = Enum.at(params["nodes"], 0)
+      params = put_in(params, ["nodes"], [segment] ++ params["nodes"])
+
+      assert {:ok, contract} = GraphContract.validate(params)
+
+      assert {:error, changeset} =
+               GraphContract.to_domain(contract, validate_membership: false)
+
+      assert to_domain_error(changeset, :nodes, "duplicate_ids")
+    end
+
+    test "rejects duplicate edge ids before hydration" do
+      {params, _ids} = complete_graph()
+      edge = Enum.at(params["edges"], 0)
+      params = put_in(params, ["edges"], [edge] ++ params["edges"])
+
+      assert {:ok, contract} = GraphContract.validate(params)
+
+      assert {:error, changeset} =
+               GraphContract.to_domain(contract, validate_membership: false)
+
+      assert to_domain_error(changeset, :edges, "duplicate_ids")
+    end
+
+    test "rejects a contract that is missing its graph identity" do
+      assert {:error, changeset} = GraphContract.to_domain(%GraphContract{id: nil, title: nil})
+
+      assert to_domain_error(changeset, :id, "can't be blank")
+      assert to_domain_error(changeset, :title, "can't be blank")
+    end
+
+    test "rejects nil node and edge lists" do
+      contract = %GraphContract{
+        id: Ecto.UUID.generate(),
+        title: "Graph",
+        nodes: nil,
+        edges: nil
+      }
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+
+      assert to_domain_error(changeset, :nodes, "can't be blank")
+      assert to_domain_error(changeset, :edges, "can't be blank")
+    end
+
+    test "rejects a graph id that is not a uuid" do
+      contract = %GraphContract{id: "not-a-uuid", title: "Graph", nodes: [], edges: []}
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert to_domain_error(changeset, :id, "is invalid")
+    end
+
+    test "rejects node and edge values that are not lists of contracts" do
+      graph_id = Ecto.UUID.generate()
+
+      cases = [
+        {%{id: graph_id, title: "Graph", nodes: %{"id" => "segment"}, edges: []}, :nodes},
+        {%{id: graph_id, title: "Graph", nodes: [nil], edges: []}, :nodes},
+        {%{id: graph_id, title: "Graph", nodes: [], edges: %{"id" => "edge"}}, :edges},
+        {%{id: graph_id, title: "Graph", nodes: [], edges: [nil]}, :edges}
+      ]
+
+      Enum.each(cases, fn {attrs, field} ->
+        assert {:error, changeset} = GraphContract.to_domain(struct(GraphContract, attrs))
+        assert to_domain_error(changeset, field, "is invalid")
+      end)
+    end
+
+    test "rejects a dangling edge endpoint even with validate_membership: false" do
+      {params, %{host: host_id}} = complete_graph()
+
+      dangling = %{
+        "id" => Ecto.UUID.generate(),
+        "from_id" => host_id,
+        "to_id" => Ecto.UUID.generate(),
+        "type" => "Runs",
+        "data" => %{}
+      }
+
+      params = put_in(params, ["edges"], params["edges"] ++ [dangling])
+
+      assert {:ok, contract} = GraphContract.validate(params)
+
+      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert to_domain_error(changeset, :edges, "invalid_endpoints")
+
+      assert {:error, changeset} =
+               GraphContract.to_domain(contract, validate_membership: false)
+
+      assert to_domain_error(changeset, :edges, "invalid_endpoints")
+    end
+
+    test "rejects endpoints that do not match the relationship" do
+      {params, %{host: host_id, service: service_id}} = complete_graph()
+
+      reversed = %{
+        "id" => Ecto.UUID.generate(),
+        "from_id" => service_id,
+        "to_id" => host_id,
+        "type" => "Runs",
+        "data" => %{}
+      }
+
+      params = put_in(params, ["edges"], params["edges"] ++ [reversed])
+
+      assert {:ok, contract} = GraphContract.validate(params)
+
+      assert {:error, changeset} =
+               GraphContract.to_domain(contract, validate_membership: false)
+
+      assert to_domain_error(changeset, :edges, "invalid_endpoints")
+    end
+  end
+
   describe "SaveGraphContract" do
     test "requires a base revision and excludes response-only fields" do
       params = Map.put(graph_params(), "revision_id", Ecto.UUID.generate())
@@ -246,6 +434,83 @@ defmodule NetworkDefense.Graph.ContractsTest do
         }
       ]
     }
+  end
+
+  defp complete_graph, do: complete_graph(nil)
+
+  defp complete_graph(unplaced_host) do
+    segment_id = Ecto.UUID.generate()
+    host_id = Ecto.UUID.generate()
+    service_id = Ecto.UUID.generate()
+
+    segment = %{
+      "id" => segment_id,
+      "type" => "NetworkSegment",
+      "data" => %{"name" => "Segment"},
+      "view_data" => %{"x_pos" => 0, "y_pos" => 0}
+    }
+
+    host = %{
+      "id" => host_id,
+      "type" => "Host",
+      "data" => %{"name" => "host"},
+      "view_data" => %{"x_pos" => 1, "y_pos" => 1}
+    }
+
+    service = %{
+      "id" => service_id,
+      "type" => "Service",
+      "data" => %{"name" => "svc", "protocol" => "tcp", "port" => 443},
+      "view_data" => %{"x_pos" => 2, "y_pos" => 2}
+    }
+
+    nodes = [segment, host, service]
+
+    nodes =
+      if unplaced_host,
+        do: nodes ++ [Map.put(unplaced_host, "id", Ecto.UUID.generate())],
+        else: nodes
+
+    params = %{
+      "id" => Ecto.UUID.generate(),
+      "title" => "Graph",
+      "nodes" => nodes,
+      "edges" => [
+        %{
+          "id" => Ecto.UUID.generate(),
+          "from_id" => segment_id,
+          "to_id" => host_id,
+          "type" => "Contains",
+          "data" => %{}
+        },
+        %{
+          "id" => Ecto.UUID.generate(),
+          "from_id" => host_id,
+          "to_id" => service_id,
+          "type" => "Runs",
+          "data" => %{}
+        }
+      ]
+    }
+
+    {params, %{segment: segment_id, host: host_id, service: service_id}}
+  end
+
+  defp unplaced(name) do
+    %{"type" => "Host", "data" => %{"name" => name}}
+  end
+
+  defp to_domain_error(%Ecto.Changeset{errors: errors}, field, message) do
+    errors =
+      errors
+      |> Keyword.fetch(field)
+      |> case do
+        {:ok, {msg, opts}} -> [{msg, opts}]
+        {:ok, other} -> other
+        :error -> []
+      end
+
+    assert [{^message, _opts}] = errors
   end
 
   defp cvss do

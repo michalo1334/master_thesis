@@ -37,8 +37,20 @@ function makeGraphDocument(
   graph: GraphContract = makeGraph(),
 ): EditableGraphDocument {
   const document = new EditableGraphDocument();
-  document.replaceFromLoadedGraph(graph);
+  document.replaceFromLoadedGraph(graph, emptyProjection());
   return document;
+}
+
+function emptyProjection() {
+  return {
+    segments: [],
+    hosts: [],
+    services: [],
+    attachments: [],
+    policy_groups: [],
+    flow_groups: [],
+    issues: [],
+  };
 }
 
 function makeContext(
@@ -102,6 +114,7 @@ describe("resolveInspector", () => {
     expect(request?.Component).toBe(GraphInspector);
     const props = propsOf(request);
     expect(props.graph).toBe(document.graph);
+    expect(props.projection).toBe(document.topologyProjection);
     expect(typeof props.onTitleChange).toBe("function");
     const onOpenParentProp = props.onOpenParent as () => void;
     onOpenParentProp();
@@ -134,6 +147,30 @@ describe("resolveInspector", () => {
     expect(typeof propsOf(request).onUpdate).toBe("function");
   });
 
+  it("carries projection and pin state into the selection inspector", () => {
+    const node = {
+      id: "host-1",
+      type: "Host",
+      view_data: { x_pos: 0, y_pos: 0 },
+      data: { name: "Host A" },
+    } as const;
+    const document = makeGraphDocument(makeGraph({ nodes: [node] }));
+    document.selectNode(node.id);
+    document.togglePin(node.id);
+
+    const request = resolveInspector(makeContext({ document }));
+    const props = propsOf(request);
+
+    expect(props.projection).toBe(document.topologyProjection);
+    expect(props.projectionStatus).toBe(document.projectionStatus);
+    expect(props.projectionSource).toBe(document.acceptedProjection.source);
+    expect(props.pinned).toBe(true);
+
+    const togglePin = props.onTogglePin as (entityId: string) => void;
+    togglePin(node.id);
+    expect(document.isPinned(node.id)).toBe(false);
+  });
+
   it("resolves MissionCapability through the shared selection inspector", () => {
     const document = makeGraphDocument(makeGraph({ nodes: [capabilityNode] }));
     document.selectNode(capabilityNode.id);
@@ -146,7 +183,7 @@ describe("resolveInspector", () => {
     const props = propsOf(request);
     expect(props.selectable).toEqual(capabilityNode);
     expect(props.graph).toBe(document.graph);
-    expect(props.revisionId).toBe("revision-1");
+    expect(props.projection).toBe(document.topologyProjection);
     expect(props.canEditFlows).toBe(true);
     expect(typeof props.onUpdate).toBe("function");
   });
@@ -158,6 +195,7 @@ describe("resolveInspector", () => {
 
     document.replaceFromLoadedGraph(
       makeGraph({ nodes: [capabilityNode], revision_id: "revision-2" }),
+      emptyProjection(),
     );
     document.selectNode(capabilityNode.id);
     const second = resolveInspector(makeContext({ document }));

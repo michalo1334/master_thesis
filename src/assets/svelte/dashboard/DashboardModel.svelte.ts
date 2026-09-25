@@ -553,9 +553,4 @@ export class DashboardModel {
   async saveActiveGraph(): Promise<boolean> {
     return this.workspace.saveActiveGraph(this.api);
   }
-
-  /** Delegate force layout to the workspace. */
-  applyForceLayout(): void {
-    this.workspace.applyForceLayout();
-  }
 }

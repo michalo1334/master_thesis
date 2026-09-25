@@ -1,4 +1,5 @@
 import type { FetchSimulationReportReply } from "../../contracts.generated/dashboard/simulation";
+import type { TopologyProjection } from "../../contracts.generated/dashboard/graph";
 import type { GraphContract } from "../../contracts.generated/graph";
 import type { DashboardApi } from "../dashboard-api";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
@@ -30,6 +31,13 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
   runId = $state<string | null>(null);
   reportData = $state<FetchSimulationReportReply | null>(null);
   heatmapGraph = $state<GraphContract | null>(null);
+  /**
+   * Projection bundled with the report graph.
+   *
+   * The report never derives topology meaning in the browser, so a report
+   * without a projection cannot render the heatmap topology.
+   */
+  topologyProjection = $state<TopologyProjection | null>(null);
   heatmapSelectedNodeId = $state<string>();
   heatmapSelectedEdgeId = $state<string>();
 
@@ -91,6 +99,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.status = "pending";
     this.reportData = null;
     this.heatmapGraph = null;
+    this.topologyProjection = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
     this.progress = null;
@@ -101,6 +110,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
     this.status = "ready";
     this.reportData = null;
     this.heatmapGraph = null;
+    this.topologyProjection = null;
     this.clearHeatmapSelection();
     this.errorReason = "";
     this.progress = null;
@@ -133,6 +143,7 @@ export class SimulationReportDocument extends AsyncReportDocument<"simulation"> 
         view_data: { ...node.view_data },
       })),
     };
+    this.topologyProjection = data.topology_projection;
     this.clearHeatmapSelection();
     this.title = `Report for ${data.graph_title}`;
     this.status = "loaded";

@@ -8,6 +8,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Graph.TopologyProjection, as: DomainTopologyProjection
   alias NetworkDefense.Nodes.Credential
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
@@ -29,12 +30,16 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionPayload
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.FetchGraphProjectionReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.OpenGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.ProjectTopologyDraftPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.ProjectTopologyDraftReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload
@@ -44,6 +49,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogItem
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
+
+  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 3, node: 4]
 
   @graph_id "00000000-0000-0000-0000-000000000001"
   @parent_graph_id "00000000-0000-0000-0000-000000000011"
@@ -59,6 +66,23 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   @segment_id "00000000-0000-0000-0000-000000000012"
   @segment_b_id "00000000-0000-0000-0000-000000000013"
   @contains_edge_id "00000000-0000-0000-0000-000000000014"
+
+  # Projection transport fixture: deterministic UUIDs so array order is predictable.
+  @projection_graph_id "00000000-0000-0000-0000-000000000101"
+  @projection_segment_id "00000000-0000-0000-0000-000000000102"
+  @projection_segment_b_id "00000000-0000-0000-0000-000000000103"
+  @projection_host_id "00000000-0000-0000-0000-000000000104"
+  @projection_host_b_id "00000000-0000-0000-0000-000000000105"
+  @projection_service_id "00000000-0000-0000-0000-000000000106"
+  @projection_service_b_id "00000000-0000-0000-0000-000000000107"
+  @projection_vulnerability_id "00000000-0000-0000-0000-000000000108"
+  @projection_contains_edge_id "00000000-0000-0000-0000-000000000109"
+  @projection_contains_edge_b_id "00000000-0000-0000-0000-000000000110"
+  @projection_runs_edge_id "00000000-0000-0000-0000-000000000111"
+  @projection_runs_edge_b_id "00000000-0000-0000-0000-000000000112"
+  @projection_reachability_edge_id "00000000-0000-0000-0000-000000000113"
+  @projection_self_policy_edge_id "00000000-0000-0000-0000-000000000114"
+  @projection_vulnerability_edge_id "00000000-0000-0000-0000-000000000115"
   test "all dashboard contracts are embedded schemas with changesets" do
     Registry.list_contract_modules(:all)
     |> Enum.each(fn contract ->
@@ -670,63 +694,278 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
            } = FetchOptimizationReportReply.to_wire(reply)
   end
 
-  test "accepts a graph projection fetch payload with a UUID revision id" do
-    assert {:ok, %FetchGraphProjectionPayload{graph_revision_id: @graph_id}} =
-             FetchGraphProjectionPayload.validate(%{"graph_revision_id" => @graph_id})
+  test "converts a domain topology projection into wire contracts with contract type names" do
+    assert %{
+             segments: segments,
+             hosts: hosts,
+             services: services,
+             attachments: attachments,
+             policy_groups: policy_groups,
+             flow_groups: flow_groups,
+             issues: []
+           } = projection_wire()
+
+    assert segments == [
+             %{
+               id: @projection_segment_id,
+               host_ids: [@projection_host_id],
+               host_count: 1,
+               service_count: 1,
+               context_count: 1
+             },
+             %{
+               id: @projection_segment_b_id,
+               host_ids: [@projection_host_b_id],
+               host_count: 1,
+               service_count: 1,
+               context_count: 0
+             }
+           ]
+
+    assert hosts == [
+             %{
+               id: @projection_host_id,
+               segment_id: @projection_segment_id,
+               service_ids: [@projection_service_id],
+               service_count: 1,
+               context_count: 1
+             },
+             %{
+               id: @projection_host_b_id,
+               segment_id: @projection_segment_b_id,
+               service_ids: [@projection_service_b_id],
+               service_count: 1,
+               context_count: 0
+             }
+           ]
+
+    assert services == [
+             %{id: @projection_service_id, host_id: @projection_host_id},
+             %{id: @projection_service_b_id, host_id: @projection_host_b_id}
+           ]
+
+    assert attachments == [
+             %{
+               id: @projection_vulnerability_id,
+               node_type: "Vulnerability",
+               anchors: [
+                 %{
+                   node_id: @projection_host_id,
+                   edge_id: @projection_vulnerability_edge_id,
+                   relationship_type: "HasVulnerability"
+                 }
+               ]
+             }
+           ]
+
+    assert policy_groups == [
+             %{
+               from_segment_id: @projection_segment_id,
+               to_segment_id: @projection_segment_b_id,
+               edge_ids: [@projection_reachability_edge_id]
+             },
+             %{
+               from_segment_id: @projection_segment_b_id,
+               to_segment_id: @projection_segment_b_id,
+               edge_ids: [@projection_self_policy_edge_id]
+             }
+           ]
+
+    assert [
+             %{
+               source_host_id: @projection_host_id,
+               target_host_id: @projection_host_b_id,
+               service_ids: [@projection_service_b_id],
+               flow_ids: [flow_id]
+             },
+             %{
+               source_host_id: @projection_host_b_id,
+               target_host_id: @projection_host_b_id,
+               service_ids: [@projection_service_b_id],
+               flow_ids: [self_flow_id]
+             }
+           ] = flow_groups
+
+    assert {:ok, _uuid} = Ecto.UUID.cast(flow_id)
+    assert {:ok, _uuid} = Ecto.UUID.cast(self_flow_id)
   end
 
-  test "rejects a graph projection fetch payload without a UUID revision id" do
-    assert {:error, changeset} = FetchGraphProjectionPayload.validate(%{})
-    assert %{graph_revision_id: ["can't be blank"]} = errors_on(changeset)
+  test "rejects a projection with unknown enum values and negative counts" do
+    assert {:error, changeset} =
+             TopologyProjection.validate(%{
+               "segments" => [
+                 %{
+                   "id" => @segment_id,
+                   "host_count" => -1,
+                   "service_count" => 0,
+                   "context_count" => 0
+                 }
+               ]
+             })
+
+    assert %{segments: [%{host_count: ["must be greater than or equal to 0"]}]} =
+             errors_on(changeset)
 
     assert {:error, changeset} =
-             FetchGraphProjectionPayload.validate(%{"graph_revision_id" => "not-a-uuid"})
+             TopologyProjection.validate(%{
+               "attachments" => [
+                 %{
+                   "id" => @vulnerability_id,
+                   "node_type" => "NetworkSegment",
+                   "anchors" => [
+                     %{
+                       "node_id" => @host_id,
+                       "edge_id" => @vulnerability_edge_id,
+                       "relationship_type" => "Runs"
+                     }
+                   ]
+                 }
+               ]
+             })
 
-    assert %{graph_revision_id: ["is invalid"]} = errors_on(changeset)
+    assert %{
+             attachments: [
+               %{
+                 node_type: ["is invalid"],
+                 anchors: [%{relationship_type: ["is invalid"]}]
+               }
+             ]
+           } = errors_on(changeset)
+
+    assert {:ok, %TopologyProjectionAnchor{relationship_type: "AuthenticatesTo"}} =
+             TopologyProjectionAnchor.validate(%{
+               "node_id" => @host_id,
+               "edge_id" => @auth_edge_id,
+               "relationship_type" => "AuthenticatesTo"
+             })
   end
 
-  test "round trips an ok graph projection reply with endpoint records" do
-    attrs = %{
-      "status" => "ok",
-      "segments" => [%{"id" => @segment_id}, %{"id" => @segment_b_id}],
-      "hosts" => [%{"id" => @host_id}],
-      "policy_links" => [
-        %{"id" => @reachability_edge_id, "from_id" => @segment_b_id, "to_id" => @segment_id}
-      ],
-      "operational_flows" => [
-        %{"id" => @runs_edge_id, "from_id" => @host_id, "to_id" => @service_id}
-      ]
-    }
+  test "round trips a draft topology payload and reply" do
+    assert {:ok, payload} =
+             ProjectTopologyDraftPayload.validate(%{
+               "document_id" => @graph_id,
+               "semantic_version" => 3,
+               "graph" => %{
+                 "id" => @graph_id,
+                 "title" => "draft",
+                 "nodes" => [],
+                 "edges" => []
+               }
+             })
 
-    assert {:ok, reply} = FetchGraphProjectionReply.validate(attrs)
+    assert payload.document_id == @graph_id
+    assert payload.semantic_version == 3
+    assert payload.graph.id == @graph_id
+
+    assert {:ok, reply} =
+             ProjectTopologyDraftReply.validate(%{
+               "status" => "ok",
+               "document_id" => @graph_id,
+               "semantic_version" => 3,
+               "topology_projection" => projection_wire(),
+               "errors" => []
+             })
 
     assert %{
              status: "ok",
-             segments: [%{id: @segment_id}, %{id: @segment_b_id}],
-             hosts: [%{id: @host_id}],
-             policy_links: [
-               %{id: @reachability_edge_id, from_id: @segment_b_id, to_id: @segment_id}
-             ],
-             operational_flows: [%{id: @runs_edge_id, from_id: @host_id, to_id: @service_id}]
-           } = FetchGraphProjectionReply.to_wire(reply)
+             document_id: @graph_id,
+             semantic_version: 3,
+             errors: [],
+             topology_projection: %{segments: [%{id: @projection_segment_id} | _]}
+           } = ProjectTopologyDraftReply.to_wire(reply)
+
+    assert {:ok, error_reply} =
+             ProjectTopologyDraftReply.validate(%{
+               "status" => "invalid_graph",
+               "errors" => [
+                 %{
+                   "entity_kind" => "graph",
+                   "field_path" => ["edges"],
+                   "message" => "invalid_endpoints"
+                 }
+               ]
+             })
+
+    assert error_reply.topology_projection == nil
+    assert error_reply.document_id == nil
   end
 
-  test "accepts an error status projection reply with empty collections" do
-    assert {:ok, reply} = FetchGraphProjectionReply.validate(%{"status" => "not_found"})
+  test "rejects a draft payload without an identity, graph, or non-negative version" do
+    assert {:error, changeset} =
+             ProjectTopologyDraftPayload.validate(%{
+               "semantic_version" => 0,
+               "graph" => %{
+                 "id" => @graph_id,
+                 "title" => "draft",
+                 "nodes" => [],
+                 "edges" => []
+               }
+             })
 
-    assert %{
-             status: "not_found",
-             segments: [],
-             hosts: [],
-             policy_links: [],
-             operational_flows: []
-           } =
-             FetchGraphProjectionReply.to_wire(reply)
-  end
+    assert %{document_id: ["can't be blank"]} = errors_on(changeset)
 
-  test "rejects a graph projection reply with an unknown status" do
-    assert {:error, changeset} = FetchGraphProjectionReply.validate(%{"status" => "stale"})
+    assert {:error, changeset} =
+             ProjectTopologyDraftPayload.validate(%{
+               "document_id" => @graph_id,
+               "semantic_version" => -1
+             })
+
+    assert %{graph: ["can't be blank"]} = errors_on(changeset)
+
+    assert {:error, changeset} =
+             ProjectTopologyDraftPayload.validate(%{
+               "document_id" => "not-a-uuid",
+               "semantic_version" => 0,
+               "graph" => %{
+                 "id" => @graph_id,
+                 "title" => "draft",
+                 "nodes" => [],
+                 "edges" => []
+               }
+             })
+
+    assert %{document_id: ["is invalid"]} = errors_on(changeset)
+
+    assert {:error, changeset} = ProjectTopologyDraftReply.validate(%{"status" => "not_found"})
     assert %{status: ["is invalid"]} = errors_on(changeset)
+  end
+
+  test "bundles a matching topology projection into open and save replies" do
+    wire_projection = projection_wire()
+
+    assert {:ok, reply} =
+             OpenGraphReply.validate(%{
+               "status" => "ok",
+               "graph" => %{
+                 "id" => @graph_id,
+                 "title" => "open",
+                 "nodes" => [],
+                 "edges" => []
+               },
+               "topology_projection" => wire_projection
+             })
+
+    assert %{topology_projection: %{segments: [%{id: @projection_segment_id} | _]}} =
+             OpenGraphReply.to_wire(reply)
+
+    assert {:ok, save_reply} =
+             SaveGraphReply.validate(%{
+               "status" => "ok",
+               "graph" => %{
+                 "id" => @graph_id,
+                 "title" => "save",
+                 "nodes" => [],
+                 "edges" => []
+               },
+               "topology_projection" => wire_projection,
+               "errors" => []
+             })
+
+    assert %{status: "ok", topology_projection: %{hosts: [_ | _]}} =
+             SaveGraphReply.to_wire(save_reply)
+
+    assert {:ok, error_reply} = OpenGraphReply.validate(%{"status" => "not_found"})
+    assert error_reply.topology_projection == nil
   end
 
   test "requires capability status counts and minimum support" do
@@ -762,6 +1001,98 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              min_operational_support: 2
            } =
              SimulationReportCapabilityStatus.to_wire(status)
+  end
+
+  test "requires the report topology projection and omits the retired operational flow field" do
+    refute Map.has_key?(%FetchSimulationReportReply{}, :operational_flows)
+
+    assert {:error, changeset} = FetchSimulationReportReply.validate(%{})
+    assert %{topology_projection: ["can't be blank"]} = errors_on(changeset)
+
+    wire = FetchSimulationReportReply.to_wire(%FetchSimulationReportReply{})
+    assert Map.has_key?(wire, :topology_projection)
+    refute Map.has_key?(wire, :operational_flows)
+  end
+
+  defp projection_wire do
+    {:ok, wire} =
+      @projection_graph_id
+      |> projection_graph()
+      |> DomainTopologyProjection.project()
+      |> TopologyProjection.from_domain()
+
+    wire
+  end
+
+  defp projection_graph(graph_id) do
+    dmz =
+      node(
+        @projection_segment_id,
+        NetworkSegment,
+        %{"name" => "dmz", "cidr" => "10.0.0.0/24"},
+        graph_id
+      )
+
+    lan =
+      node(
+        @projection_segment_b_id,
+        NetworkSegment,
+        %{"name" => "lan", "cidr" => "10.0.1.0/24"},
+        graph_id
+      )
+
+    host = node(@projection_host_id, Host, %{"name" => "host-a"}, graph_id)
+    host_b = node(@projection_host_b_id, Host, %{"name" => "host-b"}, graph_id)
+
+    service =
+      node(
+        @projection_service_id,
+        Service,
+        %{"name" => "service", "protocol" => "tcp", "port" => 443},
+        graph_id
+      )
+
+    service_b =
+      node(
+        @projection_service_b_id,
+        Service,
+        %{"name" => "service-b", "protocol" => "tcp", "port" => 5432},
+        graph_id
+      )
+
+    vulnerability =
+      node(
+        @projection_vulnerability_id,
+        Vulnerability,
+        %{"identifier" => "CVE-1", "exploit_probability" => 0.5, "cvss" => cvss()},
+        graph_id
+      )
+
+    nodes = [dmz, lan, host, host_b, service, service_b, vulnerability]
+
+    edges = [
+      edge(@projection_contains_edge_id, dmz, host, Contains),
+      edge(@projection_contains_edge_b_id, lan, host_b, Contains),
+      edge(@projection_runs_edge_id, host, service, Runs),
+      edge(@projection_runs_edge_b_id, host_b, service_b, Runs),
+      edge(@projection_reachability_edge_id, dmz, lan, SegmentReachability, %{"protocol" => "tcp"}),
+      edge(
+        @projection_self_policy_edge_id,
+        lan,
+        lan,
+        SegmentReachability,
+        %{"protocol" => "tcp"}
+      ),
+      edge(
+        @projection_vulnerability_edge_id,
+        host,
+        vulnerability,
+        HasVulnerability,
+        %{"required_privilege" => "none", "granted_privilege" => "user"}
+      )
+    ]
+
+    graph(nodes, edges, graph_id)
   end
 
   defp errors_on(changeset) do
