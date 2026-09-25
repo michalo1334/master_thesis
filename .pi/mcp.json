@@ -14,6 +14,12 @@
       },
       "requestTimeoutMs": 120000
     },
+    "svelte": {
+      "command": "npx",
+      "args": ["-y", "@sveltejs/mcp"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
     "web-search": {
       "command": "sh",
       "args": [
