@@ -3,10 +3,17 @@ import type {
   GraphContract,
   Node,
 } from "../../../contracts.generated/graph";
-import type { DashboardApi } from "../../dashboard-api";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import SelectionInspector from "./SelectionInspector.svelte";
+import {
+  flowGroupRecord,
+  hostRecord,
+  issueRecord,
+  projectionOf,
+  segmentRecord,
+  serviceRecord,
+} from "../../graph/__tests__/topology-fixtures";
 
 afterEach(cleanup);
 
@@ -20,7 +27,7 @@ const graph: GraphContract = {
   nodes: [],
   edges: [],
 };
-const baseProps = { graph, api: {} as DashboardApi, canEditFlows: false };
+const baseProps = { graph, canEditFlows: false };
 
 describe("SelectionInspector", () => {
   it("updates scalar data while preserving identity and view data", async () => {
@@ -298,5 +305,321 @@ describe("SelectionInspector", () => {
       screen.getByRole("heading", { name: "Required flows" }),
     ).toBeInTheDocument();
     expect(screen.queryByLabelText("required flows")).toBeNull();
+  });
+
+  describe("topology sections", () => {
+    function topologyFixture() {
+      const nodes: Node[] = [
+        {
+          id: "zone-1",
+          type: "NetworkSegment",
+          data: { name: "Zone 1", cidr: null },
+          view_data: { x_pos: 0, y_pos: 0 },
+        },
+        {
+          id: "host-1",
+          type: "Host",
+          data: { name: "host-1" },
+          view_data: { x_pos: 0, y_pos: 0 },
+        },
+        {
+          id: "service-1",
+          type: "Service",
+          data: { name: "db-1", port: 5432, protocol: "tcp" },
+          view_data: { x_pos: 0, y_pos: 0 },
+        },
+      ];
+      const graph: GraphContract = {
+        ...baseProps.graph,
+        nodes,
+        edges: [],
+      };
+      const projection = projectionOf({
+        segments: [segmentRecord("zone-1", ["host-1"], { service_count: 1 })],
+        hosts: [hostRecord("host-1", "zone-1", ["service-1"])],
+        services: [serviceRecord("service-1", "host-1")],
+        flow_groups: [
+          flowGroupRecord("host-1", "host-1", ["service-1"], ["flow-1"]),
+        ],
+      });
+      return {
+        graph,
+        projection,
+        host: nodes[1]!,
+        service: nodes[2]!,
+      };
+    }
+
+    it("toggles the pin of the selected entity", async () => {
+      const { graph, projection, host } = topologyFixture();
+      const onTogglePin = vi.fn();
+      const { rerender } = render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: host,
+          projection,
+          pinned: false,
+          onTogglePin,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      const pin = screen.getByRole("button", { name: "Pin Host" });
+      expect(pin).toHaveAttribute("aria-pressed", "false");
+      await fireEvent.click(pin);
+      expect(onTogglePin).toHaveBeenCalledWith("host-1");
+
+      await rerender({
+        ...baseProps,
+        graph,
+        selectable: host,
+        projection,
+        pinned: true,
+        onTogglePin,
+        onUpdate: vi.fn(),
+      });
+
+      expect(
+        screen.getByRole("button", { name: "Unpin Host" }),
+      ).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("hides the pin action when the document cannot pin", () => {
+      const { graph, projection, host } = topologyFixture();
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: host,
+          projection,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(screen.queryByText(/^Pin /)).toBeNull();
+    });
+
+    it("shows the relationship summary and draft reachability", () => {
+      const { graph, projection, service } = topologyFixture();
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: service,
+          projection,
+          projectionSource: "draft" as const,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(
+        screen.getByRole("heading", { name: "Relationships" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Runs on host-1")).toBeInTheDocument();
+      expect(
+        screen.getByText("Draft reachability · Save before simulation"),
+      ).toBeInTheDocument();
+    });
+
+    it("hides draft reachability for a saved projection", () => {
+      const { graph, projection, service } = topologyFixture();
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: service,
+          projection,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(
+        screen.queryByText("Draft reachability · Save before simulation"),
+      ).toBeNull();
+    });
+
+    it("reports a typed placement issue", () => {
+      const graph: GraphContract = {
+        ...baseProps.graph,
+        nodes: [
+          {
+            id: "orphan-1",
+            type: "Host",
+            data: { name: "orphan-1" },
+            view_data: { x_pos: 0, y_pos: 0 },
+          },
+        ],
+      };
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: graph.nodes[0]!,
+          projection: projectionOf({
+            issues: [issueRecord("host_without_segment", "orphan-1")],
+          }),
+          onUpdate: vi.fn(),
+        },
+      });
+
+      const section = document.querySelector("[data-placement-status]")!;
+      expect(section.getAttribute("data-placement-status")).toBe(
+        "placement_issue",
+      );
+      expect(section.getAttribute("data-placement-reason")).toBe(
+        "host_without_segment",
+      );
+      expect(screen.getByText("no segment")).toBeInTheDocument();
+    });
+
+    it("shows the pending and error projection status", async () => {
+      const { graph, projection, host } = topologyFixture();
+      const { rerender } = render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable: host,
+          projection,
+          projectionStatus: "pending" as const,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(
+        document.querySelector("[data-projection-status='pending']"),
+      ).not.toBeNull();
+
+      await rerender({
+        ...baseProps,
+        graph,
+        selectable: host,
+        projection,
+        projectionStatus: "error" as const,
+        onUpdate: vi.fn(),
+      });
+
+      expect(
+        document.querySelector("[data-projection-status='error']"),
+      ).not.toBeNull();
+    });
+
+    it("offers required flows from the accepted projection membership", async () => {
+      const { graph, projection } = topologyFixture();
+      const selectable = {
+        id: "capability-1",
+        type: "MissionCapability",
+        data: {
+          name: "Order entry",
+          description: null,
+          impact_weight: 1,
+          min_operational_support: 1,
+          required_flows: [],
+        },
+        view_data: { x_pos: 0, y_pos: 0 },
+      } satisfies Node;
+
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable,
+          projection,
+          canEditFlows: true,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      await fireEvent.click(
+        screen.getByRole("button", { name: "Change required flows" }),
+      );
+
+      expect(screen.getByText("Zone 1")).toBeInTheDocument();
+      expect(screen.getByText("db-1:5432")).toBeInTheDocument();
+    });
+
+    it("reports unknown reachability without an accepted projection", () => {
+      const selectable = {
+        id: "capability-1",
+        type: "MissionCapability",
+        data: {
+          name: "Order entry",
+          description: null,
+          impact_weight: 1,
+          min_operational_support: 1,
+          required_flows: [],
+        },
+        view_data: { x_pos: 0, y_pos: 0 },
+      } satisfies Node;
+
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          selectable,
+          canEditFlows: true,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Reachable flows are unknown without an accepted projection.",
+      );
+    });
+
+    it("labels reachable flow options from a draft projection as unsaved", () => {
+      const { graph, projection } = topologyFixture();
+      const selectable = {
+        id: "capability-1",
+        type: "MissionCapability",
+        data: {
+          name: "Order entry",
+          description: null,
+          impact_weight: 1,
+          min_operational_support: 1,
+          required_flows: [],
+        },
+        view_data: { x_pos: 0, y_pos: 0 },
+      } satisfies Node;
+
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          graph,
+          selectable,
+          projection,
+          projectionSource: "draft" as const,
+          canEditFlows: true,
+          onUpdate: vi.fn(),
+        },
+      });
+
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Draft reachability · Save before simulation",
+      );
+    });
+
+    it("hides the pin action for an edge selection", () => {
+      const edge = {
+        id: "edge-1",
+        type: "Runs",
+        from_id: "host-1",
+        to_id: "service-1",
+        data: {},
+      } satisfies Edge;
+      render(SelectionInspector, {
+        props: {
+          ...baseProps,
+          selectable: edge,
+          pinned: false,
+          onTogglePin: vi.fn(),
+          onUpdate: vi.fn(),
+        },
+      });
+
+      // Pinning applies to nodes and segment headers only, never to edges.
+      expect(screen.queryByText(/^(Pin|Unpin) /)).toBeNull();
+      expect(screen.queryByRole("button")).toBeNull();
+    });
   });
 });

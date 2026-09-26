@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Tabs } from "bits-ui";
   import type { SimulationReportDocument } from "./SimulationReportDocument.svelte";
-  import Canvas from "../graph/canvas/Canvas.svelte";
   import KpiCards from "../KpiCards.svelte";
   import StatisticalChart from "./StatisticalChart.svelte";
   import {
@@ -41,7 +40,12 @@
     id: string;
     source: string;
     target: string;
-    availability: "Available" | "Unavailable";
+    /**
+     * `Unknown` when the report carries no projection, so reachability cannot
+     * be decided. A present projection materializes every reachable flow, so a
+     * flow group absence is a real `Unavailable`.
+     */
+    availability: "Available" | "Unavailable" | "Unknown";
   };
 
   let {
@@ -69,14 +73,11 @@
     const report = document.reportData;
     if (!report) return [];
     const nodes = new Map(report.graph.nodes.map((node) => [node.id, node]));
-    const hostsBySegment = report.graph.edges.reduce<Record<string, string[]>>(
-      (hosts, edge) => {
-        if (edge.type === "Contains")
-          (hosts[edge.from_id] ??= []).push(edge.to_id);
-        return hosts;
-      },
-      {},
+    const projection = document.topologyProjection;
+    const segmentByHost = new Map(
+      (projection?.hosts ?? []).map((host) => [host.id, host.segment_id]),
     );
+    const flowGroups = projection?.flow_groups ?? [];
 
     return report.capability_statuses.map((value) => {
       const status = value as CapabilityStatus;
@@ -86,13 +87,17 @@
           ? capability.data.required_flows.map((flow, index) => {
               const source = nodes.get(flow.source_segment_id);
               const target = nodes.get(flow.target_service_id);
-              const available = report.operational_flows.some(
-                (operationalFlow) =>
-                  operationalFlow.to_id === flow.target_service_id &&
-                  (hostsBySegment[flow.source_segment_id] ?? []).includes(
-                    operationalFlow.from_id,
-                  ),
-              );
+              const availability: RequiredFlowStatus["availability"] =
+                !projection
+                  ? "Unknown"
+                  : flowGroups.some(
+                        (group) =>
+                          group.service_ids.includes(flow.target_service_id) &&
+                          segmentByHost.get(group.source_host_id) ===
+                            flow.source_segment_id,
+                      )
+                    ? "Available"
+                    : "Unavailable";
               return {
                 id: `${flow.source_segment_id}:${flow.target_service_id}:${index}`,
                 source:
@@ -103,7 +108,7 @@
                   target?.type === "Service"
                     ? `${target.data.name}:${target.data.port}`
                     : flow.target_service_id,
-                availability: available ? "Available" : "Unavailable",
+                availability,
               } satisfies RequiredFlowStatus;
             })
           : [];
@@ -385,10 +390,9 @@
           <div class="simulation-report-heatmap-header">
             <h2 id="heatmap-title">Attack-path heatmap</h2>
             <p id="heatmap-description">
-              Host cards and traversed edges are colored by their probability
-              across simulation runs. Dashed lines show operational flows. Drag
-              nodes to arrange this report view; positions are local and are not
-              saved to the topology.
+              Host cards, segment policies, and operational flows are colored by
+              their probability across simulation runs. Select an entity to
+              highlight it. Scroll to zoom and drag the background to pan.
             </p>
           </div>
           <ul

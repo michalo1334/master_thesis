@@ -4,15 +4,21 @@ import type {
   Node,
 } from "../../contracts.generated/graph";
 import type { DashboardError } from "../../contracts.generated/dashboard";
-import type { GraphValidationError } from "../../contracts.generated/dashboard/graph";
+import type {
+  GraphValidationError,
+  TopologyProjection,
+} from "../../contracts.generated/dashboard/graph";
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { RunOptimizationReply } from "../../contracts.generated/dashboard/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
 import type { DashboardApi } from "../dashboard-api";
-import type { ForceParams } from "./layout/ForceLayout.types";
-import { applyForceLayout as runForceLayout } from "./layout/ForceLayout.svelte";
-import { arrangeNetwork as arrangeNetworkLayout } from "./network/NetworkCanvasLayout";
 import { WorkspaceDocumentBase } from "../workspace/WorkspaceDocument.svelte";
+import {
+  TopologyProjectionModel,
+  type AcceptedTopologyProjection,
+  type ProjectionUrgency,
+  type TopologyProjectionState,
+} from "./topology-projection-model.svelte";
 import type { DashboardRecoveryContext } from "../workspace/recovery-context";
 import {
   isPersistedDocumentOfKind,
@@ -70,14 +76,16 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
 
   private _graph = $state<GraphContract>(blankGraph("Untitled"));
   private _selection = $state<CanvasSelection>({ kind: "none" });
+  private _pinnedEntityIds = $state<string[]>([]);
   private _loaded = $state(false);
   private _loadedRevisionId = $state<string | null>(null);
   private _title = $state("Untitled");
   private _changeVersion = $state(0);
   private _savedChangeVersion = $state(0);
   private _saveErrors = $state<GraphValidationError[]>([]);
+  private _api?: DashboardApi;
+  private readonly _projection: TopologyProjectionModel;
 
-  revision = $state(0);
   isSaving = $state(false);
   saveStatusMessage = $state("");
 
@@ -86,6 +94,22 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this._graph = blankGraph(title);
     this._title = title;
     this.id = crypto.randomUUID();
+    this._projection = new TopologyProjectionModel({
+      documentId: this.id,
+      request: (documentId, semanticVersion, graph) => {
+        const api = this._api;
+        if (!api) {
+          return Promise.resolve({
+            status: "unmapped_error" as const,
+            document_id: documentId,
+            semantic_version: semanticVersion,
+            topology_projection: null,
+            errors: [],
+          });
+        }
+        return api.projectTopologyDraft(documentId, semanticVersion, graph);
+      },
+    });
   }
 
   static fromPersisted(
@@ -115,14 +139,19 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   recover(context: DashboardRecoveryContext): void {
     const persisted = this.persistedData as PersistedGraph | undefined;
     if (!persisted) return;
+    this.attachApi(context.api);
     void (async () => {
       try {
         const reply = await context.api.openGraph(persisted.ids.revisionId);
-        if (reply.status !== "ok" || !reply.graph) {
+        if (
+          reply.status !== "ok" ||
+          !reply.graph ||
+          !reply.topology_projection
+        ) {
           context.workspace.statusMessage = "Failed to open graph.";
           return;
         }
-        this.replaceFromLoadedGraph(reply.graph);
+        this.replaceFromLoadedGraph(reply.graph, reply.topology_projection);
         context.workspace.upsertGraphSummary(reply.graph);
         context.workspace.ensureInitialFoothold(this);
       } catch {
@@ -156,13 +185,65 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
   }
 
   set graph(value: GraphContract) {
-    this._graph = value;
-    this._changeVersion++;
-    this._preserveSelection(value);
+    this._applyGraph(value, "immediate");
+  }
+
+  get topologyProjection(): TopologyProjection {
+    return this._projection.acceptedProjection;
+  }
+
+  get topologyProjectionState(): TopologyProjectionState {
+    return this._projection.state;
+  }
+
+  get acceptedProjection(): AcceptedTopologyProjection {
+    return this._projection.accepted;
+  }
+
+  get projectionStatus(): TopologyProjectionState["status"] {
+    return this._projection.status;
+  }
+
+  get pendingProjectionEntityIds(): readonly string[] {
+    return this._projection.pendingEntityIds;
+  }
+
+  /** Composes the API used for draft projection requests. */
+  attachApi(api: DashboardApi): void {
+    this._api = api;
+  }
+
+  dispose(): void {
+    this._projection.dispose();
   }
 
   get canvasSelection(): CanvasSelection {
     return this._selection;
+  }
+
+  /**
+   * Entities whose adjacency lens stays visible after selection moves.
+   *
+   * Pins are view state. They never enter the graph, the projection request,
+   * or the dirty comparison.
+   */
+  get pinnedEntityIds(): readonly string[] {
+    return this._pinnedEntityIds;
+  }
+
+  isPinned(entityId: string): boolean {
+    return this._pinnedEntityIds.includes(entityId);
+  }
+
+  togglePin(entityId: string): void {
+    if (!this._graph.nodes.some((node) => node.id === entityId)) return;
+    this._pinnedEntityIds = this._pinnedEntityIds.includes(entityId)
+      ? this._pinnedEntityIds.filter((id) => id !== entityId)
+      : [...this._pinnedEntityIds, entityId].sort();
+  }
+
+  clearPins(): void {
+    this._pinnedEntityIds = [];
   }
 
   get selectedValidationErrors(): readonly GraphValidationError[] {
@@ -256,6 +337,40 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     }
   }
 
+  /**
+   * Geometry-only update for drag frames.
+   *
+   * Positions never change projection semantics, so this path skips the
+   * semantic fingerprint entirely: a pointer move must not walk the whole
+   * graph. It still marks the document dirty because positions persist with
+   * the graph.
+   */
+  setNodePositions(
+    positions: ReadonlyMap<string, { x: number; y: number }>,
+  ): void {
+    if (positions.size === 0) return;
+
+    let changed = false;
+    const nodes = this._graph.nodes.map((node): Node => {
+      const next = positions.get(node.id);
+      if (
+        !next ||
+        (next.x === node.view_data.x_pos && next.y === node.view_data.y_pos)
+      ) {
+        return node;
+      }
+      changed = true;
+      return {
+        ...node,
+        view_data: { ...node.view_data, x_pos: next.x, y_pos: next.y },
+      };
+    });
+    if (!changed) return;
+
+    this._graph = { ...this._graph, nodes };
+    this._changeVersion++;
+  }
+
   updateSelection(selectable: Node | Edge): void {
     const selection = this._selection;
     if (
@@ -263,29 +378,38 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
       selectable.id === selection.nodeId &&
       "view_data" in selectable
     ) {
-      this.graph = {
-        ...this.graph,
-        nodes: this.graph.nodes.map((node) =>
-          node.id === selectable.id ? selectable : node,
-        ),
-      };
+      this._applyGraph(
+        {
+          ...this.graph,
+          nodes: this.graph.nodes.map((node) =>
+            node.id === selectable.id ? selectable : node,
+          ),
+        },
+        "deferred",
+      );
       this._clearValidationErrors("node", selectable.id);
     } else if (
       selection.kind === "edge" &&
       selectable.id === selection.edgeId &&
       !("view_data" in selectable)
     ) {
-      this.graph = {
-        ...this.graph,
-        edges: this.graph.edges.map((edge) =>
-          edge.id === selectable.id ? selectable : edge,
-        ),
-      };
+      this._applyGraph(
+        {
+          ...this.graph,
+          edges: this.graph.edges.map((edge) =>
+            edge.id === selectable.id ? selectable : edge,
+          ),
+        },
+        "deferred",
+      );
       this._clearValidationErrors("edge", selectable.id);
     }
   }
 
-  replaceFromLoadedGraph(graph: GraphContract): void {
+  replaceFromLoadedGraph(
+    graph: GraphContract,
+    projection: TopologyProjection,
+  ): void {
     this._graph = graph;
     this._title = graph.title;
     this._loaded = true;
@@ -293,30 +417,53 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     this._savedChangeVersion = this._changeVersion;
     this._saveErrors = [];
     this._preserveSelection(graph);
+    this._projection.initializeFromRevision(graph, projection);
   }
 
-  replaceFromSaveReply(graph: GraphContract): void {
+  replaceFromSaveReply(
+    graph: GraphContract,
+    projection: TopologyProjection | null,
+    savedSemanticVersion: number,
+  ): void {
+    const projectionIsCurrent =
+      projection != null &&
+      savedSemanticVersion === this._projection.semanticVersion;
     this._graph = graph;
     this._title = graph.title;
     this._loadedRevisionId = graph.revision_id ?? null;
     this._savedChangeVersion = this._changeVersion;
     this._saveErrors = [];
     this._preserveSelection(graph);
+    if (projectionIsCurrent && projection) {
+      this._projection.initializeFromRevision(graph, projection);
+    }
   }
 
   async save(api: DashboardApi): Promise<boolean> {
     if (!this.saveEligible || this.isSaving) return false;
+    this.attachApi(api);
     this.isSaving = true;
     const savedChangeVersion = this._changeVersion;
+    const savedSemanticVersion = this._projection.semanticVersion;
     try {
       const reply = await api.saveGraph($state.snapshot(this._graph));
       if (reply.status === "ok" && reply.graph) {
         if (this._changeVersion === savedChangeVersion) {
-          this.replaceFromSaveReply(reply.graph);
+          this.replaceFromSaveReply(
+            reply.graph,
+            reply.topology_projection ?? null,
+            savedSemanticVersion,
+          );
         } else {
           this._graph = { ...this._graph, ...revisionMetadata(reply.graph) };
           this._loadedRevisionId = reply.graph.revision_id ?? null;
           this._preserveSelection(this._graph);
+          if (savedSemanticVersion === this._projection.semanticVersion) {
+            this._projection.acceptSaved(
+              reply.topology_projection ?? null,
+              savedSemanticVersion,
+            );
+          }
         }
         this._saveErrors = [];
         this.saveStatusMessage = "Saved.";
@@ -377,17 +524,21 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
     return api.runOptimization(this.loadedRevisionId, correlationId, params);
   }
 
-  applyForceLayout(params: ForceParams): void {
-    runForceLayout(this._graph.nodes, this._graph.edges, params);
-    this.graph = { ...this._graph };
-    this.revision++;
-  }
-
-  arrangeNetwork(): void {
-    this.graph = arrangeNetworkLayout(this._graph);
+  private _applyGraph(value: GraphContract, urgency: ProjectionUrgency): void {
+    this._graph = value;
+    this._changeVersion++;
+    this._preserveSelection(value);
+    const snapshot = $state.snapshot(value) as GraphContract;
+    this._projection.observeGraph(snapshot, urgency);
+    this._projection.pruneDeletedEntityState(snapshot);
   }
 
   private _preserveSelection(graph: GraphContract): void {
+    const pinned = this._pinnedEntityIds.filter((id) =>
+      graph.nodes.some((node) => node.id === id),
+    );
+    if (pinned.length !== this._pinnedEntityIds.length)
+      this._pinnedEntityIds = pinned;
     this._saveErrors = this._saveErrors.filter(
       (error) =>
         error.entity_kind === "graph" ||

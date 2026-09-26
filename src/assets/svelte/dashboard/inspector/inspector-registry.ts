@@ -66,10 +66,14 @@ const graphSelectablePerspective: InspectorPerspective = {
       {
         selectable,
         graph: document.graph,
-        api: context.api,
-        revisionId: document.loadedRevisionId,
         canEditFlows: !!document.loadedRevisionId && !document.isDirty,
         errors: document.selectedValidationErrors,
+        projection: document.topologyProjection,
+        pendingEntityIds: document.pendingProjectionEntityIds,
+        projectionStatus: document.projectionStatus,
+        projectionSource: document.acceptedProjection.source,
+        pinned: document.isPinned(selectable.id),
+        onTogglePin: (entityId: string) => document.togglePin(entityId),
         onUpdate: (next: Node | Edge) => document.updateSelection(next),
       },
       document.loadedRevisionId,
@@ -93,6 +97,10 @@ const graphPerspective: InspectorPerspective = {
       graph,
       parentTitle,
       errors: document.graphValidationErrors,
+      projection: document.topologyProjection,
+      pendingEntityIds: document.pendingProjectionEntityIds,
+      projectionStatus: document.projectionStatus,
+      projectionSource: document.acceptedProjection.source,
       onTitleChange: (title: string) => document.setTitle(title),
       onOpenParent: graph.parent_revision_id
         ? () => context.onOpenParent?.(graph.parent_revision_id!)

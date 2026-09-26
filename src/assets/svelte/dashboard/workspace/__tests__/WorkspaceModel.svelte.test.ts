@@ -53,6 +53,18 @@ function hostNode(id: string, name = id) {
   };
 }
 
+function projection() {
+  return {
+    segments: [],
+    hosts: [],
+    services: [],
+    attachments: [],
+    policy_groups: [],
+    flow_groups: [],
+    issues: [],
+  };
+}
+
 describe("WorkspaceModel", () => {
   let model: WorkspaceModel;
 
@@ -100,13 +112,6 @@ describe("WorkspaceModel", () => {
       const persistence = createWorkspaceEnvelope(
         {
           state: {
-            forceParams: {
-              repulsion: -100,
-              linkDistance: 120,
-              collisionRadius: 40,
-              centerStrength: 0.1,
-              alphaDecay: 0.03,
-            },
             simulationParams: {
               initial_foothold_node_id: "host-1",
               monte_carlo_trials: 10,
@@ -154,6 +159,7 @@ describe("WorkspaceModel", () => {
         openGraph: vi.fn().mockResolvedValue({
           status: "ok",
           graph: makeLoadedGraph(),
+          topology_projection: projection(),
         }),
         requestSimulationReport: vi.fn(),
       } as unknown as DashboardApi;
@@ -163,7 +169,6 @@ describe("WorkspaceModel", () => {
       const [graph, report, runs] = model.documents;
 
       expect(model.selectedDocumentId).toBe(report?.id);
-      expect(model.forceParams.repulsion).toBe(-100);
       expect(api.openGraph).not.toHaveBeenCalled();
       expect(api.requestSimulationReport).toHaveBeenCalledWith(
         report!.id,
@@ -186,10 +191,60 @@ describe("WorkspaceModel", () => {
       expect(model.toPersistence()?.selectedDocumentKey).toBe("runs:");
     });
 
+    it("does not recover an editable graph when the open reply omits the projection", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "r1" }),
+        }),
+      } as unknown as DashboardApi;
+      model = new WorkspaceModel([], [], api);
+      model.restorePersistence(
+        createWorkspaceEnvelope(
+          {
+            state: {
+              simulationParams: {
+                initial_foothold_node_id: "",
+                monte_carlo_trials: 10,
+                iterations_per_run: 20,
+                max_attempts: 1,
+                generate_seed: false,
+                seed: 0,
+              },
+              optimizationParams: {
+                strategy: "cvss" as const,
+                budget: 1,
+                simulation_params: {
+                  initial_foothold_node_id: "",
+                  monte_carlo_trials: 10,
+                  iterations_per_run: 20,
+                  max_attempts: 1,
+                  generate_seed: false,
+                  seed: 0,
+                },
+              },
+            },
+            documents: [
+              { kind: "graph", ids: { revisionId: "r1" }, title: "Topology" },
+            ],
+            selectedDocumentKey: "graph:revisionId:r1",
+          },
+          1,
+        ),
+      );
+
+      await vi.waitFor(() =>
+        expect(model.statusMessage).toBe("Failed to open graph."),
+      );
+      expect((model.activeDocument as EditableGraphDocument).loaded).toBe(
+        false,
+      );
+    });
+
     it("does not persist unsaved graphs", () => {
       const unsaved = model.createGraphDocument();
       const saved = model.createGraphDocument();
-      saved.replaceFromLoadedGraph(makeLoadedGraph());
+      saved.replaceFromLoadedGraph(makeLoadedGraph(), projection());
       saved.setTitle("Unsaved change");
 
       expect(model.toPersistence()?.documents).not.toContainEqual(
@@ -203,6 +258,7 @@ describe("WorkspaceModel", () => {
         openGraph: vi.fn().mockResolvedValue({
           status: "ok",
           graph: makeLoadedGraph({ revision_id: "r1" }),
+          topology_projection: projection(),
         }),
       } as unknown as DashboardApi;
       model = new WorkspaceModel([], [], api);
@@ -210,13 +266,6 @@ describe("WorkspaceModel", () => {
         createWorkspaceEnvelope(
           {
             state: {
-              forceParams: {
-                repulsion: -100,
-                linkDistance: 120,
-                collisionRadius: 40,
-                centerStrength: 0.1,
-                alphaDecay: 0.03,
-              },
               simulationParams: {
                 initial_foothold_node_id: "",
                 monte_carlo_trials: 10,
@@ -458,6 +507,7 @@ describe("WorkspaceModel", () => {
           Promise.resolve({
             status: "ok" as const,
             graph: makeLoadedGraph({ revision_id: revisionId }),
+            topology_projection: projection(),
           }),
         ),
         compareGraphs: vi.fn().mockResolvedValue({
@@ -541,6 +591,34 @@ describe("WorkspaceModel", () => {
       model.createGraphDocument();
       model.closeDocument("nonexistent");
       expect(model.documents.length).toBe(1);
+    });
+
+    it("disposes a closed graph document so a pending debounce never issues", async () => {
+      vi.useFakeTimers();
+      try {
+        const projectTopologyDraft = vi.fn(() => new Promise<never>(() => {}));
+        const api = { projectTopologyDraft } as unknown as DashboardApi;
+        model = new WorkspaceModel([], [], api);
+        const doc = model.createGraphDocument();
+        doc.replaceFromLoadedGraph(
+          makeLoadedGraph({ nodes: [hostNode("n1")] }),
+          projection(),
+        );
+        doc.selectNode("n1");
+        doc.updateSelection({
+          ...hostNode("n1"),
+          data: { name: "renamed" },
+        });
+
+        expect(projectTopologyDraft).not.toHaveBeenCalled();
+
+        model.closeDocument(doc.id);
+        await vi.advanceTimersByTimeAsync(300);
+
+        expect(projectTopologyDraft).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("keeps active analysis reports open until they load or fail", () => {
@@ -651,7 +729,7 @@ describe("WorkspaceModel", () => {
     it("creates a new graph document", async () => {
       const graph = makeLoadedGraph({ id: "g1", title: "My Graph" });
       const noopApi = {} as any;
-      const result = await model.openLoadedGraph(graph, noopApi);
+      const result = await model.openLoadedGraph(graph, projection(), noopApi);
       expect(model.documents.length).toBe(1);
       expect(model.documents[0].kind).toBe("graph");
       expect(model.documents[0].title).toBe("My Graph");
@@ -663,7 +741,7 @@ describe("WorkspaceModel", () => {
         nodes: [hostNode("host-1", "Gateway"), hostNode("host-2", "API")],
       });
 
-      await model.openLoadedGraph(graph, {} as DashboardApi);
+      await model.openLoadedGraph(graph, projection(), {} as DashboardApi);
 
       expect(model.activeFootholdHosts).toEqual([
         { id: "host-1", name: "Gateway" },
@@ -677,7 +755,7 @@ describe("WorkspaceModel", () => {
       model.createGraphDocument();
       const blankId = model.documents[0].id;
       const graph = makeLoadedGraph({ id: "g2", title: "Reused" });
-      const result = await model.openLoadedGraph(graph, noopApi);
+      const result = await model.openLoadedGraph(graph, projection(), noopApi);
       expect(model.documents.length).toBe(1);
       expect(model.documents[0].id).toBe(blankId);
       expect(model.documents[0].title).toBe("Reused");
@@ -688,12 +766,14 @@ describe("WorkspaceModel", () => {
       const noopApi = {} as any;
       await model.openLoadedGraph(
         makeLoadedGraph({ id: "g3", title: "First" }),
+        projection(),
         noopApi,
       );
       model.createGraphDocument();
       const blankId = model.selectedDocumentId;
       const result = await model.openLoadedGraph(
         makeLoadedGraph({ id: "g3" }),
+        projection(),
         noopApi,
       );
       expect(model.documents.length).toBe(2);
@@ -708,6 +788,7 @@ describe("WorkspaceModel", () => {
         openGraph: vi.fn().mockResolvedValue({
           status: "ok",
           graph: makeLoadedGraph({ revision_id: "simulated-r1" }),
+          topology_projection: projection(),
         }),
       } as unknown as DashboardApi;
 
@@ -719,12 +800,28 @@ describe("WorkspaceModel", () => {
       expect(model.activeGraph?.loadedRevisionId).toBe("simulated-r1");
     });
 
+    it("rejects an open reply that omits the bundled projection", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "simulated-r1" }),
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(model.openGraphRevision(api, "simulated-r1")).resolves.toBe(
+        false,
+      );
+
+      expect(model.statusMessage).toBe("Failed to open graph.");
+      expect(model.documents).toHaveLength(0);
+    });
+
     it("activates an already-open dirty revision before fetching", async () => {
       const original = makeLoadedGraph({
         title: "Persisted",
         revision_id: "simulated-r1",
       });
-      await model.openLoadedGraph(original, {} as DashboardApi);
+      await model.openLoadedGraph(original, projection(), {} as DashboardApi);
       model.activeGraph!.setTitle("Unsaved edit");
       const api = {
         openGraph: vi.fn().mockResolvedValue({ status: "ok", graph: original }),
@@ -741,6 +838,52 @@ describe("WorkspaceModel", () => {
     });
   });
 
+  describe("openGraph picker", () => {
+    it("hands the bundled projection to the new editable document", async () => {
+      const bundled = {
+        ...projection(),
+        segments: [
+          {
+            id: "segment-alpha",
+            host_ids: [],
+            host_count: 0,
+            service_count: 0,
+            context_count: 0,
+          },
+        ],
+      };
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "r1" }),
+          topology_projection: bundled,
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(
+        model.openGraph(api, makeGraphSummary({ revision_id: "r1" })),
+      ).resolves.toBe(true);
+
+      expect(model.activeGraph?.topologyProjection).toEqual(bundled);
+    });
+
+    it("rejects a picker reply that omits the bundled projection", async () => {
+      const api = {
+        openGraph: vi.fn().mockResolvedValue({
+          status: "ok",
+          graph: makeLoadedGraph({ revision_id: "r1" }),
+        }),
+      } as unknown as DashboardApi;
+
+      await expect(
+        model.openGraph(api, makeGraphSummary({ revision_id: "r1" })),
+      ).resolves.toBe(false);
+
+      expect(model.topologyPickerStatus).toBe("Failed to open topology.");
+      expect(model.documents).toHaveLength(0);
+    });
+  });
+
   describe("analysis report navigation", () => {
     it("opens a source revision and selects a requested capability node", async () => {
       const api = {
@@ -750,6 +893,7 @@ describe("WorkspaceModel", () => {
             revision_id: "source-r1",
             nodes: [hostNode("capability-1")],
           }),
+          topology_projection: projection(),
         }),
       } as unknown as DashboardApi;
       const report = new AnalysisReportDocument("run-1", {
@@ -772,7 +916,7 @@ describe("WorkspaceModel", () => {
         revision_id: "source-r1",
         nodes: [hostNode("capability-1"), hostNode("capability-2")],
       });
-      await model.openLoadedGraph(graph, {} as DashboardApi);
+      await model.openLoadedGraph(graph, projection(), {} as DashboardApi);
       const api = { openGraph: vi.fn() } as unknown as DashboardApi;
       const report = new AnalysisReportDocument("run-1", {
         manifest_id: "manifest-1",
@@ -960,7 +1104,7 @@ describe("WorkspaceModel", () => {
 
     it("requires saving the active graph before comparing revisions", () => {
       const document = model.createGraphDocument();
-      document.replaceFromLoadedGraph(graphs.base);
+      document.replaceFromLoadedGraph(graphs.base, projection());
       document.addNode(hostNode("unsaved", "Unsaved host"));
 
       model.beginGraphComparisonWithActive(document);
@@ -1108,43 +1252,6 @@ describe("WorkspaceModel", () => {
 
       expect(existing).toBe(report);
       expect(model.selectedDocumentId).toBe(report.id);
-    });
-  });
-
-  describe("applyForceLayout", () => {
-    it("delegates to active graph synchronously", () => {
-      const doc = model.createGraphDocument();
-      const originalRev = doc.revision;
-      doc.replaceFromLoadedGraph(
-        makeLoadedGraph({
-          id: "g1",
-          nodes: [
-            {
-              id: "n1",
-              type: "Host",
-              data: { name: "h1" },
-              view_data: { x_pos: 0, y_pos: 0 },
-            },
-            {
-              id: "n2",
-              type: "Host",
-              data: { name: "h2" },
-              view_data: { x_pos: 100, y_pos: 100 },
-            },
-          ],
-          edges: [],
-        }),
-      );
-      const graphBefore = doc.graph;
-      model.applyForceLayout();
-      // Force layout alters node positions, so the graph reference should change
-      expect(doc.graph).not.toBe(graphBefore);
-      expect(doc.revision).toBeGreaterThan(originalRev);
-    });
-
-    it("no-ops without active graph", () => {
-      model.applyForceLayout();
-      expect(model.documents.length).toBe(0);
     });
   });
 });

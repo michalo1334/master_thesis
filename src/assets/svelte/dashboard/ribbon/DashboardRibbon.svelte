@@ -5,7 +5,6 @@
   import Icon from "../../ui-kit/primitives/Icon.svelte";
   import { Ribbon } from "../../ui-kit/layout";
   import Slider from "../../ui-kit/primitives/Slider.svelte";
-  import type { ForceParams } from "../graph/layout/ForceLayout.types";
   import type { OptimizationParamsChange } from "../contract";
   import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
   import NumberInput from "../../ui-kit/primitives/NumberInput.svelte";
@@ -19,10 +18,6 @@
 
   interface Props {
     hasActiveGraph: boolean;
-    forceParams: ForceParams;
-    onForceParamsChange: (change: Partial<ForceParams>) => void;
-    onForceLayout: () => void;
-    onArrangeNetwork?: () => void;
     onRunSimulation: () => void;
     onCompareGraphs: () => void;
     onOpenAnalysis: () => void;
@@ -41,10 +36,6 @@
 
   let {
     hasActiveGraph,
-    forceParams,
-    onForceParamsChange,
-    onForceLayout,
-    onArrangeNetwork = () => {},
     onRunSimulation,
     onCompareGraphs,
     onOpenAnalysis,
@@ -93,62 +84,6 @@
         ><Icon name="download" size={22} /><span>Download results</span
         ></RibbonButton
       >
-    </Ribbon.Section>
-  </Ribbon.Tab>
-  <Ribbon.Tab title="Layout">
-    <Ribbon.Section title="Layout">
-      <RibbonButton disabled={!hasActiveGraph} onclick={onForceLayout}
-        ><Icon name="squares-2x2" size={22} /><span>Force-directed</span
-        ></RibbonButton
-      >
-      <RibbonButton disabled={!hasActiveGraph} onclick={onArrangeNetwork}
-        ><Icon name="graph" size={22} /><span>Arrange network</span
-        ></RibbonButton
-      >
-    </Ribbon.Section>
-    <Ribbon.Section title="Parameters">
-      <Slider
-        label="Repulsion"
-        min={-1000}
-        max={-10}
-        value={forceParams.repulsion}
-        onchange={(v) => onForceParamsChange({ repulsion: v })}
-        disabled={!hasActiveGraph}
-      />
-      <Slider
-        label="Link dist."
-        min={50}
-        max={500}
-        value={forceParams.linkDistance}
-        onchange={(v) => onForceParamsChange({ linkDistance: v })}
-        disabled={!hasActiveGraph}
-      />
-      <Slider
-        label="Collision rad."
-        min={30}
-        max={150}
-        value={forceParams.collisionRadius}
-        onchange={(v) => onForceParamsChange({ collisionRadius: v })}
-        disabled={!hasActiveGraph}
-      />
-      <Slider
-        label="Center grav."
-        min={0}
-        max={0.3}
-        step={0.01}
-        value={forceParams.centerStrength}
-        onchange={(v) => onForceParamsChange({ centerStrength: v })}
-        disabled={!hasActiveGraph}
-      />
-      <Slider
-        label="Alpha decay"
-        min={0.005}
-        max={0.1}
-        step={0.005}
-        value={forceParams.alphaDecay}
-        onchange={(v) => onForceParamsChange({ alphaDecay: v })}
-        disabled={!hasActiveGraph}
-      />
     </Ribbon.Section>
   </Ribbon.Tab>
   <Ribbon.Tab title="Simulation">

@@ -46,9 +46,11 @@ export interface DashboardApi {
     graphRevisionIds: string[],
   ): Promise<OptimizationContracts.FetchOptimizationRunsReply>;
   fetchGraphConnectivity(): Promise<DashboardGraphContracts.GraphConnectivityReply>;
-  fetchGraphProjection(
-    graphRevisionId: string,
-  ): Promise<DashboardGraphContracts.FetchGraphProjectionReply>;
+  projectTopologyDraft(
+    documentId: string,
+    semanticVersion: number,
+    graph: GraphContract,
+  ): Promise<DashboardGraphContracts.ProjectTopologyDraftReply>;
   fetchDocumentCatalog(
     query: DocumentCatalogQuery,
   ): Promise<FetchDocumentCatalogReply>;
@@ -196,11 +198,15 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         {},
       );
     },
-    fetchGraphProjection(graphRevisionId) {
+    projectTopologyDraft(documentId, semanticVersion, graph) {
       return requestReply<
-        DashboardGraphContracts.FetchGraphProjectionPayload,
-        DashboardGraphContracts.FetchGraphProjectionReply
-      >(live, "fetch_graph_projection", { graph_revision_id: graphRevisionId });
+        DashboardGraphContracts.ProjectTopologyDraftPayload,
+        DashboardGraphContracts.ProjectTopologyDraftReply
+      >(live, "project_topology_draft", {
+        document_id: documentId,
+        semantic_version: semanticVersion,
+        graph,
+      });
     },
     fetchDocumentCatalog(query) {
       return requestReply<

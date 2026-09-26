@@ -19,6 +19,8 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchType do
   end
 
   defp error_modules do
+    load_application(:network_defense)
+
     :network_defense
     |> Application.spec(:modules)
     |> Enum.filter(fn module ->
@@ -27,8 +29,16 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchType do
     end)
   end
 
+  defp load_application(application) do
+    case Application.load(application) do
+      :ok -> :ok
+      {:error, {:already_loaded, ^application}} -> :ok
+      {:error, reason} -> raise "could not load #{inspect(application)}: #{inspect(reason)}"
+    end
+  end
+
   defp issues_for(context, module) do
-    case code_atoms(module, MapSet.new()) do
+    case code_atoms(module, %{}) do
       {:ok, type_codes} ->
         list_codes = MapSet.new(module.codes())
 
@@ -44,11 +54,11 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchType do
   end
 
   defp code_atoms(module, visited) do
-    if MapSet.member?(visited, module) do
+    if Map.has_key?(visited, module) do
       {:error, "has a cyclic @type code reference"}
     else
       with {:ok, type} <- code_type(module) do
-        type_atoms(type, MapSet.put(visited, module))
+        type_atoms(type, Map.put(visited, module, true))
       end
     end
   end

@@ -18,10 +18,17 @@ config :network_defense, :rabbitmq,
 # The MIX_TEST_PARTITION environment variable can be used
 # to provide built-in test partitioning in CI environment.
 # Run `mix help test` for more information.
+repo_password =
+  case System.get_env("REPO_PASSWORD_FILE") || System.get_env("POSTGRES_PASSWORD_FILE") do
+    path when is_binary(path) -> path |> File.read!() |> String.trim()
+    nil -> System.get_env("REPO_PASSWORD") || System.get_env("POSTGRES_PASSWORD") || "postgres"
+  end
+
 config :network_defense, NetworkDefense.Repo,
   username: System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") || "postgres",
-  password: System.get_env("REPO_PASSWORD") || System.get_env("POSTGRES_PASSWORD") || "postgres",
+  password: repo_password,
   hostname: System.get_env("REPO_HOSTNAME") || "localhost",
+  port: System.get_env("REPO_PORT", "5432") |> String.to_integer(),
   database: "network_defense_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2

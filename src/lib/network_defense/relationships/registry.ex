@@ -52,5 +52,8 @@ defmodule NetworkDefense.Relationships.Registry do
   def contract_type_for_canonical(module),
     do: Registry.contract_type_for(@canonical_types, module)
 
+  def contract_type_for_canonical_short(type),
+    do: Registry.contract_type_for_short(@canonical_types, type)
+
   def canonical_contract_types, do: Registry.contract_types(@canonical_types)
 end

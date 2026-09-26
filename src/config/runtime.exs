@@ -64,8 +64,9 @@ if RuntimeConfig.api?() do
   config :network_defense, Oban, queues: false
 end
 
-if (config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
-     RuntimeConfig.read_secret("DATABASE_URL") do
+if config_env() != :test and
+     ((config_env() == :prod or System.get_env("REPO_HOSTNAME")) ||
+        RuntimeConfig.read_secret("DATABASE_URL")) do
   repo_config =
     if System.get_env("REPO_HOSTNAME") do
       [

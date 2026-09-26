@@ -5,7 +5,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
 
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.GraphProjectionOperationalFlow
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportSummary
@@ -22,7 +22,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
 
     embeds_one(:graph, GraphContract, on_replace: :update)
 
-    embeds_many(:operational_flows, GraphProjectionOperationalFlow, on_replace: :delete)
+    embeds_one(:topology_projection, TopologyProjection, on_replace: :update)
 
     embeds_many(
       :capability_statuses,
@@ -45,7 +45,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
           total_runtime_ms: integer(),
           feasible: boolean(),
           graph: GraphContract.t(),
-          operational_flows: [GraphProjectionOperationalFlow.t()],
+          topology_projection: TopologyProjection.t(),
           capability_statuses: [
             SimulationReportCapabilityStatus.t()
           ],
@@ -66,7 +66,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
       :feasible
     ])
     |> cast_embed(:graph, required: true)
-    |> cast_embed(:operational_flows)
+    |> cast_embed(:topology_projection, required: true)
     |> cast_embed(:capability_statuses)
     |> cast_embed(:summary, required: true)
     |> cast_embed(:charts, required: true)
@@ -82,12 +82,20 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
     ])
   end
 
-  @spec from_domain(SimulationReport.t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
-  def from_domain(%SimulationReport{} = report) do
+  @doc """
+  Converts a domain report into its wire contract.
+
+  `topology_projection` is the wire projection of the same `report.graph`. The
+  caller builds it from that graph, so the report graph and its projection can
+  never disagree.
+  """
+  @spec from_domain(SimulationReport.t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
+  def from_domain(%SimulationReport{} = report, topology_projection) do
     with {:ok, wire_graph} <- GraphContract.from_domain(report.graph) do
       report
       |> Contracts.to_wire()
       |> Map.put(:graph, wire_graph)
+      |> Map.put(:topology_projection, topology_projection)
       |> Map.put(:feasible, report.pre_attack_feasible)
       |> Map.put(:capability_statuses, capability_statuses(report))
       |> validate()

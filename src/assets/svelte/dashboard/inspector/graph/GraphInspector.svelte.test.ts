@@ -2,6 +2,15 @@ import type { GraphContract } from "../../../contracts.generated/graph";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import GraphInspector from "./GraphInspector.svelte";
+import {
+  graphContract,
+  hostNode,
+  hostRecord,
+  issueRecord,
+  projectionOf,
+  segmentNode,
+  segmentRecord,
+} from "../../graph/__tests__/topology-fixtures";
 afterEach(cleanup);
 
 describe("GraphInspector", () => {
@@ -61,6 +70,74 @@ describe("GraphInspector", () => {
     expect(
       screen.queryByRole("button", { name: "Root revision" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows document-level projection state and placement counts", async () => {
+    const graph = graphContract([
+      segmentNode("zone-1"),
+      hostNode("host-1"),
+      hostNode("orphan-1"),
+    ]);
+    const projection = projectionOf({
+      segments: [segmentRecord("zone-1", ["host-1"])],
+      hosts: [hostRecord("host-1", "zone-1")],
+      issues: [issueRecord("host_without_segment", "orphan-1")],
+    });
+    const { container, rerender } = render(GraphInspector, {
+      props: {
+        graph,
+        onTitleChange: vi.fn(),
+        projection,
+        projectionStatus: "pending" as const,
+      },
+    });
+
+    const section = container.querySelector("[data-projection-status]")!;
+    expect(section.getAttribute("data-projection-status")).toBe("pending");
+    expect(screen.getByText("Updating")).toBeInTheDocument();
+    expect(screen.getByText("Placement issues")).toBeInTheDocument();
+    expect(screen.getByText("Unplaced")).toBeInTheDocument();
+
+    await rerender({
+      graph,
+      onTitleChange: vi.fn(),
+      projection,
+      projectionStatus: "error" as const,
+    });
+
+    expect(
+      container.querySelector("[data-projection-status='error']"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Stale · grouping unavailable"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the draft flow state of a draft projection", () => {
+    const graph = graphContract([segmentNode("zone-1"), hostNode("host-1")]);
+    render(GraphInspector, {
+      props: {
+        graph,
+        onTitleChange: vi.fn(),
+        projection: projectionOf({
+          segments: [segmentRecord("zone-1", ["host-1"])],
+          hosts: [hostRecord("host-1", "zone-1")],
+        }),
+        projectionSource: "draft" as const,
+      },
+    });
+
+    expect(screen.getByText("Ready · draft flows unsaved")).toBeInTheDocument();
+  });
+
+  it("hides every topology field without a projection", () => {
+    const graph = graphContract([hostNode("host-1")]);
+    const { container } = render(GraphInspector, {
+      props: { graph, onTitleChange: vi.fn() },
+    });
+
+    expect(container.querySelector("[data-projection-status]")).toBeNull();
+    expect(screen.queryByText("Topology")).toBeNull();
   });
 
   it("puts title errors with the title and graph errors in one summary", () => {

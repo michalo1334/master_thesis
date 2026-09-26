@@ -11,7 +11,6 @@
   import type {
     CanvasEdgeAppearance,
     CanvasNodeAppearance,
-    CanvasStructuralFlow,
   } from "./appearance";
   import {
     type DragState,
@@ -23,9 +22,13 @@
     type Point,
     ZOOM_STEP,
   } from "./canvasState";
+  import {
+    exceedsDragThreshold,
+    pointerDelta,
+    screenDeltaToWorld,
+  } from "./pointer-math";
 
   const PAN_STEP = 40;
-  const DRAG_THRESHOLD = 4;
   const nodeTypes = [
     "Host",
     "Service",
@@ -45,10 +48,6 @@
     ) => CanvasNodeAppearance | undefined;
     edgeAppearance?: (
       edge: GraphContracts.Edge,
-    ) => CanvasEdgeAppearance | undefined;
-    structuralFlows?: readonly CanvasStructuralFlow[];
-    structuralFlowAppearance?: (
-      flow: CanvasStructuralFlow,
     ) => CanvasEdgeAppearance | undefined;
     onGraphChange?: (graph: GraphContracts.GraphContract) => void;
     onSelectNode?: (nodeId: string) => void;
@@ -73,8 +72,6 @@
     selectedEdgeId = undefined,
     nodeAppearance = undefined,
     edgeAppearance = undefined,
-    structuralFlows = [],
-    structuralFlowAppearance = undefined,
     onGraphChange = undefined,
     onSelectNode = undefined,
     onSelectEdge = undefined,
@@ -231,13 +228,15 @@
   function handlePointerMove(event: PointerEvent) {
     pointerGraphPosition = graphPosition(event);
     if (nodeDragState?.pointerId === event.pointerId) {
-      const deltaX = event.clientX - nodeDragState.start.x;
-      const deltaY = event.clientY - nodeDragState.start.y;
-      if (!nodeDragState.moved && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD)
+      const delta = pointerDelta(nodeDragState.start, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+      if (!nodeDragState.moved && exceedsDragThreshold(delta))
         nodeDragState.moved = true;
       if (!nodeDragState.moved) return;
 
-      const scale = canvasState.zoom / 100;
+      const worldDelta = screenDeltaToWorld(delta, canvasState.zoom);
       updateGraph({
         nodes: graph.nodes.map((node) =>
           node.id === nodeDragState?.nodeId
@@ -245,8 +244,8 @@
                 ...node,
                 view_data: {
                   ...node.view_data,
-                  x_pos: nodeDragState.nodePos.x + deltaX / scale,
-                  y_pos: nodeDragState.nodePos.y + deltaY / scale,
+                  x_pos: nodeDragState.nodePos.x + worldDelta.x,
+                  y_pos: nodeDragState.nodePos.y + worldDelta.y,
                 },
               }
             : node,
@@ -256,13 +255,15 @@
     }
     if (!dragState || dragState.pointerId !== event.pointerId) return;
 
-    didPan ||=
-      event.clientX !== dragState.start.x ||
-      event.clientY !== dragState.start.y;
+    const delta = pointerDelta(dragState.start, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    didPan ||= delta.x !== 0 || delta.y !== 0;
     updateCanvasState({
       pan: {
-        x: dragState.pan.x + event.clientX - dragState.start.x,
-        y: dragState.pan.y + event.clientY - dragState.start.y,
+        x: dragState.pan.x + delta.x,
+        y: dragState.pan.y + delta.y,
       },
     });
   }
@@ -459,28 +460,6 @@
             ></defs
           >
           <g transform={worldTransform}>
-            {#each structuralFlows as flow (flow.id)}
-              {@const appearance = structuralFlowAppearance?.(flow)}
-              {@const sourcePosition = nodeCenter(flow.sourcePosition)}
-              {@const targetPosition = nodeCenter(flow.targetPosition)}
-              <g
-                class="canvas-structural-flow"
-                role="img"
-                aria-label={`Operational flow from ${flow.sourceName} to ${flow.serviceName}`}
-                style:--structural-flow-opacity={appearance?.opacity}
-                style:--structural-flow-stroke={appearance?.stroke}
-                style:--structural-flow-stroke-width={appearance?.strokeWidth}
-              >
-                <path
-                  d={`M ${sourcePosition.x} ${sourcePosition.y} L ${targetPosition.x} ${targetPosition.y}`}
-                />
-                <text
-                  x={(sourcePosition.x + targetPosition.x) / 2}
-                  y={(sourcePosition.y + targetPosition.y) / 2 - 4}
-                  text-anchor="middle">{flow.serviceName}</text
-                >
-              </g>
-            {/each}
             {#each graph.edges as edge (edge.id)}
               {@const source = graph.nodes.find(
                 (node) => node.id === edge.from_id,
@@ -699,22 +678,6 @@
   }
   .canvas-preview-arrow {
     fill: var(--ui-color-preview-edge);
-  }
-  .canvas-structural-flow,
-  .canvas-structural-flow path,
-  .canvas-structural-flow text {
-    pointer-events: none;
-  }
-  .canvas-structural-flow path {
-    fill: none;
-    stroke: var(--structural-flow-stroke, var(--ui-color-node-service));
-    stroke-opacity: var(--structural-flow-opacity, 1);
-    stroke-width: var(--structural-flow-stroke-width, 2);
-    stroke-dasharray: 6 4;
-  }
-  .canvas-structural-flow text {
-    fill: var(--structural-flow-stroke, var(--ui-color-text-secondary));
-    font: var(--ui-text-xs) var(--ui-font-mono);
   }
   :global(.dashboard-menu-separator) {
     height: 1px;

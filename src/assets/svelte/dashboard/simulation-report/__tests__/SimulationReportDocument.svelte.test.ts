@@ -31,7 +31,15 @@ function makeReport(
     graph_title: "Topology",
     feasible: true,
     iteration_count: 100,
-    operational_flows: [],
+    topology_projection: {
+      attachments: [],
+      flow_groups: [],
+      hosts: [],
+      issues: [],
+      policy_groups: [],
+      segments: [],
+      services: [],
+    },
     summary: {
       expected_blast_radius: 2,
       median_blast_radius: 2,
@@ -114,5 +122,28 @@ describe("SimulationReportDocument", () => {
 
     expect(document.heatmapSelectedNodeId).toBeUndefined();
     expect(document.heatmapSelectedEdgeId).toBeUndefined();
+  });
+
+  it("keeps the bundled projection with the report graph", () => {
+    const document = new SimulationReportDocument("Topology", "g1", "r1");
+    document.markReady("sim-1");
+
+    expect(document.topologyProjection).toBeNull();
+
+    document.setReportData(makeReport());
+
+    expect(document.topologyProjection).toEqual({
+      attachments: [],
+      flow_groups: [],
+      hosts: [],
+      issues: [],
+      policy_groups: [],
+      segments: [],
+      services: [],
+    });
+
+    document.markReady("sim-2");
+
+    expect(document.topologyProjection).toBeNull();
   });
 });

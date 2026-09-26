@@ -1,9 +1,7 @@
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
-import type { ForceParams } from "../graph/layout/ForceLayout.types";
 
 export interface DashboardWorkspaceState {
-  forceParams: ForceParams;
   simulationParams: SimulationParams;
   optimizationParams: OptimizationParams;
 }
@@ -13,20 +11,8 @@ export function isDashboardWorkspaceState(
 ): value is DashboardWorkspaceState {
   if (!isRecord(value)) return false;
   return (
-    isForceParams(value.forceParams) &&
     isSimulationParams(value.simulationParams) &&
     isOptimizationParams(value.optimizationParams)
-  );
-}
-
-function isForceParams(value: unknown): value is ForceParams {
-  return (
-    isRecord(value) &&
-    isNumber(value.repulsion) &&
-    isNumber(value.linkDistance) &&
-    isNumber(value.collisionRadius) &&
-    isNumber(value.centerStrength) &&
-    isNumber(value.alphaDecay)
   );
 }
 

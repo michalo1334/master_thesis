@@ -28,7 +28,6 @@ export default defineConfig(({ command }) => ({
       "phoenix",
       "phoenix_html",
       "phoenix_live_view",
-      "d3-force",
     ],
   },
   ssr: {

@@ -30,6 +30,56 @@ Source references:
 - workspace document and folders:
   [`WorkspaceModel.svelte.ts`](../../src/assets/svelte/dashboard/workspace/WorkspaceModel.svelte.ts).
 
+### Topology canvas
+
+The workspace shows one topology canvas for a graph. It does not offer a
+separate network view. Elixir owns graph meaning and the browser owns geometry
+and interaction ([graph](../concepts/graph.md)).
+
+Open and Save return the graph and its matching projection from the same
+revision. The canvas renders that projection. A new blank graph starts with an
+empty projection.
+
+When the user changes graph meaning, the browser sends the unsaved graph for a
+draft projection. While the server works, the canvas keeps the last accepted
+projection and marks changed entities as pending. The browser ignores a reply
+whose version is older than the current one, so a slow reply cannot overwrite a
+newer state. A geometry-only change, such as a drag or an arrangement, does not
+request a projection.
+
+```mermaid
+sequenceDiagram
+    participant Browser as Browser projection model
+    participant Server as DashboardLive
+    participant Projector as TopologyProjection
+    Browser->>Server: project_topology_draft(graph)
+    Server->>Projector: project(graph)
+    Projector-->>Server: topology projection
+    Server-->>Browser: projection with request identity
+    Browser->>Browser: accept only when the version still matches
+```
+
+When an entity has no unambiguous placement, the canvas lists it in the
+Unplaced tray with a reason. The user keeps full graph editing. When projection
+fails, the canvas shows a non-blocking error and keeps flat editing available.
+It does not restore a second projector in TypeScript.
+
+Zoom changes entity detail, not positions or connection representation. Every
+zoom level uses one directed connection bundle per ordered segment pair. The
+bundle shows a connection count. Its hover, keyboard-focus, and click detail
+lists `service · source host → target host`. Selecting a host shows that host's
+outgoing projected connections. Segment containment draws no line: the enclosing
+frame and the projected host list already show it.
+
+Source references:
+
+- Elixir projector:
+  [`topology_projection.ex`](../../src/lib/network_defense/graph/topology_projection.ex);
+- browser projection model:
+  [`topology-projection-model.svelte.ts`](../../src/assets/svelte/dashboard/graph/topology-projection-model.svelte.ts);
+- scene join:
+  [`topology-scene.ts`](../../src/assets/svelte/dashboard/graph/topology-scene.ts).
+
 ### Simulation and report
 
 The user runs an attack simulation on the active graph revision. The system

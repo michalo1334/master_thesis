@@ -27,7 +27,15 @@ function graph(
     nodes: [],
     edges: [],
   };
-  document.replaceFromLoadedGraph(loadedGraph);
+  document.replaceFromLoadedGraph(loadedGraph, {
+    segments: [],
+    hosts: [],
+    services: [],
+    attachments: [],
+    policy_groups: [],
+    flow_groups: [],
+    issues: [],
+  });
   return document;
 }
 
