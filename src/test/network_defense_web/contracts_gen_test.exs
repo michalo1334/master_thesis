@@ -88,6 +88,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert NetworkDefense.Simulation.Contracts.RunSimulationRequest in modules
     assert NetworkDefense.Optimization.Contracts.RunOptimizationRequest in modules
     assert NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply in modules
+    assert NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor in modules
     assert NetworkDefense.Graph.Contracts.GraphContract.contract_category() == :graph
 
     assert NetworkDefense.Simulation.Contracts.RunSimulationRequest.contract_category() ==
@@ -192,6 +193,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
           "dashboard.ts",
           "dashboard/evaluation.ts",
           "dashboard/graph.ts",
+          "dashboard/graph/topology_projection.ts",
           "dashboard/optimization.ts",
           "dashboard/runs.ts",
           "dashboard/simulation.ts",
@@ -231,10 +233,20 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     dashboard = modules["dashboard.ts"]
     assert dashboard =~ ~s(import type * as __Contracts from "../contracts.generated";)
 
+    topology_projection = modules["dashboard/graph/topology_projection.ts"]
+
+    for child <- ~w(Anchor Attachment FlowGroup Host Issue PolicyGroup Segment Service) do
+      assert topology_projection =~
+               "export type #{child} = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.#{child};"
+    end
+
+    refute graph =~ "TopologyProjectionHost"
+
     assert Map.keys(modules) |> Enum.sort() == [
              "dashboard.ts",
              "dashboard/evaluation.ts",
              "dashboard/graph.ts",
+             "dashboard/graph/topology_projection.ts",
              "dashboard/optimization.ts",
              "dashboard/runs.ts",
              "dashboard/simulation.ts",

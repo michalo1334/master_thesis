@@ -1,22 +1,21 @@
 import { NODE_HEIGHT, NODE_WIDTH } from "../canvas/geometry";
+import type { Point } from "../canvas/canvasState";
 import type {
   TopologyAttachmentAnchorScene,
   TopologyAttachmentScene,
   TopologyScene,
   TopologySegmentScene,
 } from "../topology-scene";
-
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export interface Size {
-  width: number;
-  height: number;
-}
-
-export interface Rect extends Point, Size {}
+import {
+  frameRect,
+  inflateRect,
+  pointInRectInterior,
+  rectAt,
+  rectanglesOverlap,
+  type Rect,
+  type Size,
+} from "./canvas-geometry";
+import { compareStrings } from "./ordering";
 
 export interface TopologySegmentFrame {
   id: string;
@@ -268,9 +267,43 @@ export function measureSegmentFrame(
 }
 
 function frameRects(frames: Map<string, TopologySegmentFrame>): Rect[] {
-  return [...frames.values()].map((frame) =>
-    toRect(frame.position, frame.size),
-  );
+  return [...frames.values()].map(frameRect);
+}
+
+export interface TopologySegmentMember {
+  id: string;
+  position: Point;
+  size: Size;
+  hostIndex: number;
+  serviceIndex: number | null;
+}
+
+/** Flattens a segment's hosts and services in their established layout order. */
+export function segmentMembers(
+  segment: TopologySegmentScene,
+): TopologySegmentMember[] {
+  return segment.hosts.flatMap((host, hostIndex) => [
+    {
+      id: host.id,
+      position: {
+        x: host.node.view_data.x_pos,
+        y: host.node.view_data.y_pos,
+      },
+      size: NODE_SIZE,
+      hostIndex,
+      serviceIndex: null,
+    },
+    ...host.services.map((service, serviceIndex) => ({
+      id: service.id,
+      position: {
+        x: service.node.view_data.x_pos,
+        y: service.node.view_data.y_pos,
+      },
+      size: SERVICE_SIZE,
+      hostIndex,
+      serviceIndex,
+    })),
+  ]);
 }
 
 function writeMemberPositions(
@@ -279,22 +312,18 @@ function writeMemberPositions(
   packed: PackedSegment,
   origin: Point,
 ): void {
-  segment.hosts.forEach((host, index) => {
-    const member = packed.members[index];
-    if (!member) return;
-    positions.set(host.id, {
-      x: origin.x + member.offset.x,
-      y: origin.y + member.offset.y,
+  for (const member of segmentMembers(segment)) {
+    const packedMember = packed.members[member.hostIndex];
+    const offset =
+      member.serviceIndex === null
+        ? packedMember?.offset
+        : packedMember?.services[member.serviceIndex];
+    if (!offset) continue;
+    positions.set(member.id, {
+      x: origin.x + offset.x,
+      y: origin.y + offset.y,
     });
-    host.services.forEach((service, serviceIndex) => {
-      const offset = member.services[serviceIndex];
-      if (!offset) return;
-      positions.set(service.id, {
-        x: origin.x + offset.x,
-        y: origin.y + offset.y,
-      });
-    });
-  });
+  }
 }
 
 /**
@@ -311,29 +340,12 @@ function recordMemberPositions(
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  const include = (point: Point, size: Size) => {
-    minX = Math.min(minX, point.x);
-    minY = Math.min(minY, point.y);
-    maxX = Math.max(maxX, point.x + size.width);
-    maxY = Math.max(maxY, point.y + size.height);
-  };
-
-  for (const host of segment.hosts) {
-    const point = {
-      x: host.node.view_data.x_pos,
-      y: host.node.view_data.y_pos,
-    };
-    positions.set(host.id, point);
-    include(point, NODE_SIZE);
-
-    for (const service of host.services) {
-      const servicePoint = {
-        x: service.node.view_data.x_pos,
-        y: service.node.view_data.y_pos,
-      };
-      positions.set(service.id, servicePoint);
-      include(servicePoint, SERVICE_SIZE);
-    }
+  for (const member of segmentMembers(segment)) {
+    positions.set(member.id, member.position);
+    minX = Math.min(minX, member.position.x);
+    minY = Math.min(minY, member.position.y);
+    maxX = Math.max(maxX, member.position.x + member.size.width);
+    maxY = Math.max(maxY, member.position.y + member.size.height);
   }
 
   if (!Number.isFinite(minX)) return null;
@@ -355,7 +367,7 @@ function placeContext(
   const placed: Rect[] = [];
   for (const attachment of attachments) {
     const frozen = frozenPositions?.get(attachment.id);
-    if (frozen) placed.push(toRect(frozen, CONTEXT_SIZE));
+    if (frozen) placed.push(rectAt(frozen, CONTEXT_SIZE));
   }
 
   for (const attachment of attachments) {
@@ -378,7 +390,7 @@ function placeContext(
     const outside = pushOutside(centroid, frames, CONTEXT_GAP);
     const slot = findFreeSlot(outside, CONTEXT_SIZE, [...frames, ...placed]);
     positions.set(attachment.id, slot);
-    placed.push(toRect(slot, CONTEXT_SIZE));
+    placed.push(rectAt(slot, CONTEXT_SIZE));
   }
 }
 
@@ -408,12 +420,6 @@ function compareSegmentAnchors(
   return compareStrings(a.segment.id, b.segment.id);
 }
 
-function compareStrings(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
-}
-
 function sceneAnchorOrigin(scene: TopologyScene): Point {
   let x = Infinity;
   let y = Infinity;
@@ -422,37 +428,6 @@ function sceneAnchorOrigin(scene: TopologyScene): Point {
     y = Math.min(y, segment.node.view_data.y_pos);
   }
   return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : { x: 0, y: 0 };
-}
-
-function toRect(position: Point, size: Size): Rect {
-  return { x: position.x, y: position.y, ...size };
-}
-
-function inflate(rect: Rect, gap: number): Rect {
-  return {
-    x: rect.x - gap,
-    y: rect.y - gap,
-    width: rect.width + 2 * gap,
-    height: rect.height + 2 * gap,
-  };
-}
-
-function overlaps(a: Rect, b: Rect, gap = 0): boolean {
-  return (
-    a.x < b.x + b.width + gap &&
-    b.x < a.x + a.width + gap &&
-    a.y < b.y + b.height + gap &&
-    b.y < a.y + a.height + gap
-  );
-}
-
-function contains(rect: Rect, point: Point): boolean {
-  return (
-    point.x > rect.x &&
-    point.x < rect.x + rect.width &&
-    point.y > rect.y &&
-    point.y < rect.y + rect.height
-  );
 }
 
 function distance(a: Point, b: Point): number {
@@ -469,10 +444,10 @@ function pushOutside(
 
   for (let pass = 0; pass <= frames.length; pass++) {
     const blocker = frames.find((frame) =>
-      contains(inflate(frame, gap), current),
+      pointInRectInterior(current, inflateRect(frame, gap)),
     );
     if (!blocker) break;
-    const bounds = inflate(blocker, gap);
+    const bounds = inflateRect(blocker, gap);
     const escapes: Point[] = [
       { x: bounds.x, y: current.y },
       { x: bounds.x + bounds.width, y: current.y },
@@ -506,8 +481,12 @@ function findFreeSlot(
       x: point.x + offset.x * stepX,
       y: point.y + offset.y * stepY,
     };
-    const rect = toRect(candidate, size);
-    if (!obstacles.some((obstacle) => overlaps(rect, obstacle, CONTEXT_GAP))) {
+    const rect = rectAt(candidate, size);
+    if (
+      !obstacles.some((obstacle) =>
+        rectanglesOverlap(rect, obstacle, CONTEXT_GAP),
+      )
+    ) {
       return candidate;
     }
   }

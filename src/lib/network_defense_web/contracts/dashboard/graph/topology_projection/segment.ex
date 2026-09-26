@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionSegment do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Segment do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

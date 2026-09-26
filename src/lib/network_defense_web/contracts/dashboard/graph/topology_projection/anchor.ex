@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

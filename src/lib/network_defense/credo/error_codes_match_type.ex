@@ -19,12 +19,22 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchType do
   end
 
   defp error_modules do
+    load_application(:network_defense)
+
     :network_defense
     |> Application.spec(:modules)
     |> Enum.filter(fn module ->
       Code.ensure_loaded?(module) and function_exported?(module, :codes, 0) and
         Module.split(module) |> List.last() == "Errors"
     end)
+  end
+
+  defp load_application(application) do
+    case Application.load(application) do
+      :ok -> :ok
+      {:error, {:already_loaded, ^application}} -> :ok
+      {:error, reason} -> raise "could not load #{inspect(application)}: #{inspect(reason)}"
+    end
   end
 
   defp issues_for(context, module) do

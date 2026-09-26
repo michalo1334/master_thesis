@@ -4,35 +4,37 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection do
   use NetworkDefenseWeb.Contracts, category: :graph
 
   alias NetworkDefense.Graph.TopologyProjection, as: DomainProjection
+  alias NetworkDefense.Nodes.Registry, as: NodeRegistry
+  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.{
-    TopologyProjectionAttachment,
-    TopologyProjectionFlowGroup,
-    TopologyProjectionHost,
-    TopologyProjectionIssue,
-    TopologyProjectionPolicyGroup,
-    TopologyProjectionSegment,
-    TopologyProjectionService
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.{
+    Attachment,
+    FlowGroup,
+    Host,
+    Issue,
+    PolicyGroup,
+    Segment,
+    Service
   }
 
   embedded_schema do
-    embeds_many :segments, TopologyProjectionSegment, on_replace: :delete
-    embeds_many :hosts, TopologyProjectionHost, on_replace: :delete
-    embeds_many :services, TopologyProjectionService, on_replace: :delete
-    embeds_many :attachments, TopologyProjectionAttachment, on_replace: :delete
-    embeds_many :policy_groups, TopologyProjectionPolicyGroup, on_replace: :delete
-    embeds_many :flow_groups, TopologyProjectionFlowGroup, on_replace: :delete
-    embeds_many :issues, TopologyProjectionIssue, on_replace: :delete
+    embeds_many :segments, Segment, on_replace: :delete
+    embeds_many :hosts, Host, on_replace: :delete
+    embeds_many :services, Service, on_replace: :delete
+    embeds_many :attachments, Attachment, on_replace: :delete
+    embeds_many :policy_groups, PolicyGroup, on_replace: :delete
+    embeds_many :flow_groups, FlowGroup, on_replace: :delete
+    embeds_many :issues, Issue, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
-          segments: [TopologyProjectionSegment.t()],
-          hosts: [TopologyProjectionHost.t()],
-          services: [TopologyProjectionService.t()],
-          attachments: [TopologyProjectionAttachment.t()],
-          policy_groups: [TopologyProjectionPolicyGroup.t()],
-          flow_groups: [TopologyProjectionFlowGroup.t()],
-          issues: [TopologyProjectionIssue.t()]
+          segments: [Segment.t()],
+          hosts: [Host.t()],
+          services: [Service.t()],
+          attachments: [Attachment.t()],
+          policy_groups: [PolicyGroup.t()],
+          flow_groups: [FlowGroup.t()],
+          issues: [Issue.t()]
         }
 
   @doc """
@@ -101,7 +103,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection do
   defp attachment_attrs(attachment) do
     %{
       id: attachment.id,
-      node_type: node_type(attachment.kind),
+      node_type: NodeRegistry.contract_type_for_short(attachment.kind),
       anchors: Enum.map(attachment.anchors, &anchor_attrs/1)
     }
   end
@@ -110,7 +112,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection do
     %{
       node_id: anchor.node_id,
       edge_id: anchor.edge_id,
-      relationship_type: relationship_type(anchor.relationship_type)
+      relationship_type:
+        RelationshipRegistry.contract_type_for_canonical_short(anchor.relationship_type)
     }
   end
 
@@ -139,13 +142,4 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection do
       related_ids: issue.related_ids
     }
   end
-
-  defp node_type(:vulnerability), do: "Vulnerability"
-  defp node_type(:credential), do: "Credential"
-  defp node_type(:mission_capability), do: "MissionCapability"
-
-  defp relationship_type(:has_vulnerability), do: "HasVulnerability"
-  defp relationship_type(:stores_credential), do: "StoresCredential"
-  defp relationship_type(:authenticates_to), do: "AuthenticatesTo"
-  defp relationship_type(:supports), do: "Supports"
 end

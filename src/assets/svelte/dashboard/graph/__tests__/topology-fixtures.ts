@@ -16,17 +16,17 @@ import type {
   SupportsEdge,
   VulnerabilityNode,
 } from "../../../contracts.generated/graph";
+import type { TopologyProjection } from "../../../contracts.generated/dashboard/graph";
 import type {
-  TopologyProjection,
-  TopologyProjectionAnchor,
-  TopologyProjectionAttachment,
-  TopologyProjectionFlowGroup,
-  TopologyProjectionHost,
-  TopologyProjectionIssue,
-  TopologyProjectionPolicyGroup,
-  TopologyProjectionSegment,
-  TopologyProjectionService,
-} from "../../../contracts.generated/dashboard/graph";
+  Anchor,
+  Attachment,
+  FlowGroup,
+  Host,
+  Issue,
+  PolicyGroup,
+  Segment,
+  Service,
+} from "../../../contracts.generated/dashboard/graph/topology_projection";
 
 export function graphContract(
   nodes: Node[],
@@ -210,7 +210,7 @@ export function segmentRecord(
   id: string,
   hostIds: string[] = [],
   counts: { service_count?: number; context_count?: number } = {},
-): TopologyProjectionSegment {
+): Segment {
   return {
     id,
     host_ids: [...hostIds],
@@ -225,7 +225,7 @@ export function hostRecord(
   segmentId: string | null = null,
   serviceIds: string[] = [],
   contextCount = 0,
-): TopologyProjectionHost {
+): Host {
   return {
     id,
     segment_id: segmentId,
@@ -238,15 +238,15 @@ export function hostRecord(
 export function serviceRecord(
   id: string,
   hostId: string | null = null,
-): TopologyProjectionService {
+): Service {
   return { id, host_id: hostId };
 }
 
 export function anchorRecord(
   nodeId: string,
   edgeId: string,
-  relationshipType: TopologyProjectionAnchor["relationship_type"],
-): TopologyProjectionAnchor {
+  relationshipType: Anchor["relationship_type"],
+): Anchor {
   return {
     node_id: nodeId,
     edge_id: edgeId,
@@ -256,9 +256,9 @@ export function anchorRecord(
 
 export function attachmentRecord(
   id: string,
-  nodeType: TopologyProjectionAttachment["node_type"],
-  anchors: TopologyProjectionAnchor[] = [],
-): TopologyProjectionAttachment {
+  nodeType: Attachment["node_type"],
+  anchors: Anchor[] = [],
+): Attachment {
   return { id, node_type: nodeType, anchors };
 }
 
@@ -266,7 +266,7 @@ export function policyGroupRecord(
   fromSegmentId: string,
   toSegmentId: string,
   edgeIds: string[] = [],
-): TopologyProjectionPolicyGroup {
+): PolicyGroup {
   return {
     from_segment_id: fromSegmentId,
     to_segment_id: toSegmentId,
@@ -279,7 +279,7 @@ export function flowGroupRecord(
   targetHostId: string,
   serviceIds: string[] = [],
   flowIds: string[] = [],
-): TopologyProjectionFlowGroup {
+): FlowGroup {
   return {
     source_host_id: sourceHostId,
     target_host_id: targetHostId,
@@ -289,10 +289,10 @@ export function flowGroupRecord(
 }
 
 export function issueRecord(
-  code: TopologyProjectionIssue["code"],
+  code: Issue["code"],
   entityId: string,
   relatedIds: string[] = [],
-): TopologyProjectionIssue {
+): Issue {
   return {
     code,
     severity: "warning",

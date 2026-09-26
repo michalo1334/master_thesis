@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionHost do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Host do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

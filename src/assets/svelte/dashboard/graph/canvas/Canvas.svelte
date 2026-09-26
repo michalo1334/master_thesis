@@ -22,9 +22,13 @@
     type Point,
     ZOOM_STEP,
   } from "./canvasState";
+  import {
+    exceedsDragThreshold,
+    pointerDelta,
+    screenDeltaToWorld,
+  } from "./pointer-math";
 
   const PAN_STEP = 40;
-  const DRAG_THRESHOLD = 4;
   const nodeTypes = [
     "Host",
     "Service",
@@ -224,13 +228,15 @@
   function handlePointerMove(event: PointerEvent) {
     pointerGraphPosition = graphPosition(event);
     if (nodeDragState?.pointerId === event.pointerId) {
-      const deltaX = event.clientX - nodeDragState.start.x;
-      const deltaY = event.clientY - nodeDragState.start.y;
-      if (!nodeDragState.moved && Math.hypot(deltaX, deltaY) >= DRAG_THRESHOLD)
+      const delta = pointerDelta(nodeDragState.start, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+      if (!nodeDragState.moved && exceedsDragThreshold(delta))
         nodeDragState.moved = true;
       if (!nodeDragState.moved) return;
 
-      const scale = canvasState.zoom / 100;
+      const worldDelta = screenDeltaToWorld(delta, canvasState.zoom);
       updateGraph({
         nodes: graph.nodes.map((node) =>
           node.id === nodeDragState?.nodeId
@@ -238,8 +244,8 @@
                 ...node,
                 view_data: {
                   ...node.view_data,
-                  x_pos: nodeDragState.nodePos.x + deltaX / scale,
-                  y_pos: nodeDragState.nodePos.y + deltaY / scale,
+                  x_pos: nodeDragState.nodePos.x + worldDelta.x,
+                  y_pos: nodeDragState.nodePos.y + worldDelta.y,
                 },
               }
             : node,
@@ -249,13 +255,15 @@
     }
     if (!dragState || dragState.pointerId !== event.pointerId) return;
 
-    didPan ||=
-      event.clientX !== dragState.start.x ||
-      event.clientY !== dragState.start.y;
+    const delta = pointerDelta(dragState.start, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    didPan ||= delta.x !== 0 || delta.y !== 0;
     updateCanvasState({
       pan: {
-        x: dragState.pan.x + event.clientX - dragState.start.x,
-        y: dragState.pan.y + event.clientY - dragState.start.y,
+        x: dragState.pan.x + delta.x,
+        y: dragState.pan.y + delta.y,
       },
     });
   }

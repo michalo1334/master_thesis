@@ -1,4 +1,4 @@
-import type { TopologyProjectionIssue } from "../../contracts.generated/dashboard/graph";
+import type { Issue } from "../../contracts.generated/dashboard/graph/topology_projection";
 import type {
   TopologyMissingRelationship,
   TopologyScene,
@@ -6,7 +6,7 @@ import type {
 } from "./topology-scene";
 
 /** Typed reason for each projector placement issue. */
-export const ISSUE_REASONS: Record<TopologyProjectionIssue["code"], string> = {
+export const ISSUE_REASONS: Record<Issue["code"], string> = {
   host_without_segment: "no segment",
   host_multiple_segments: "multiple segments",
   service_without_host: "no host",

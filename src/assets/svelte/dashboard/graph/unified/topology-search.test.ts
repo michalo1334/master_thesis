@@ -27,6 +27,7 @@ import { buildTopologyScene } from "../topology-scene";
 import {
   ATTACHED_CONTEXT_PATH,
   searchTopology,
+  topologySearchMatchRank,
   UNPLACED_PATH,
 } from "./topology-search";
 
@@ -87,6 +88,18 @@ function projection() {
 }
 
 describe("searchTopology", () => {
+  it("ranks prefix, substring, and type matches in precedence order", () => {
+    const prefix = hostNode("web-host");
+    const substring = hostNode("primary-web-host");
+    const type = serviceNode("nginx");
+
+    expect(topologySearchMatchRank(prefix, "web")).toBe(0);
+    expect(topologySearchMatchRank(substring, "web")).toBe(1);
+    expect(topologySearchMatchRank(type, "service")).toBe(2);
+    expect(topologySearchMatchRank(type, "missing")).toBe(-1);
+    expect(topologySearchMatchRank(type, "   ")).toBe(-1);
+  });
+
   it("returns nothing for an empty or blank query", () => {
     const scene = buildTopologyScene(fixture(), projection());
 

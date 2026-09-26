@@ -21,14 +21,15 @@
     ZOOM_STEP,
     type Point,
   } from "../canvas/canvasState";
-  import { NODE_HEIGHT, NODE_WIDTH } from "../canvas/geometry";
   import {
-    buildTopologyScene,
-    topologyEntityLabel,
-    type TopologyHostScene,
-    type TopologyServiceScene,
-    type TopologyUnplacedEntry,
-  } from "../topology-scene";
+    exceedsDragThreshold,
+    pointerDelta,
+    screenDeltaToWorld,
+    translatePositionMap,
+  } from "../canvas/pointer-math";
+  import { NODE_WIDTH } from "../canvas/geometry";
+  import { buildTopologyScene, topologyEntityLabel } from "../topology-scene";
+  import { indexTopologyScene } from "../topology-scene-index";
   import {
     CONTEXT_SIZE,
     SEGMENT_HEADER_HEIGHT,
@@ -44,12 +45,21 @@
   import {
     connectRects,
     fitRects,
-    frameRect,
-    nodeRect,
     pointInRect,
     rectCenter,
     type Rect,
   } from "./canvas-geometry";
+  import { buildTopologySpatialView } from "./canvas-spatial-view-model";
+  import {
+    buildContextLinks,
+    buildDrawnEntityIds,
+    buildStructuralLinks,
+    indexRunsEdges,
+  } from "./canvas-link-view-model";
+  import {
+    buildTopologyConnectionHandles,
+    type TopologyConnectionHandleView,
+  } from "./canvas-handle-view-model";
   import {
     initialDetailLevel,
     resolveDetailLevel,
@@ -182,7 +192,6 @@
   const FOCUS_MAX_ZOOM = 150;
   /** World-space margin a focus command keeps around the focused entity. */
   const FOCUS_MARGIN = 160;
-  const DRAG_THRESHOLD = 4;
   const PAN_STEP = 40;
   /** Size of the square pin control, in world units. */
   const PIN_SIZE = 16;
@@ -207,34 +216,6 @@
     label: string;
     pinned: boolean;
     position: Point;
-  }
-
-  interface ConnectionHandle {
-    key: string;
-    nodeId: string;
-    label: string;
-    type: Node["type"];
-    position: Point;
-    width: number;
-    offset: number;
-    pointer: (event: PointerEvent) => void;
-    keydown: (event: KeyboardEvent) => void;
-  }
-
-  interface StructuralLink {
-    edge: Edge;
-    sourceRect: Rect;
-    targetRect: Rect;
-    label: string;
-    color: string | undefined;
-    dash: string | null;
-    appearance: CanvasEdgeAppearance | undefined;
-  }
-
-  interface HostView {
-    host: TopologyHostScene;
-    position: Point;
-    services: Array<{ scene: TopologyServiceScene; position: Point }>;
   }
 
   interface DragState {
@@ -310,11 +291,8 @@
   let layout = $derived(
     measureTopology(scene, { freezeContextPositions: frozenContextPositions }),
   );
-  let nodeById = $derived.by(() => {
-    const map = new Map<string, Node>();
-    for (const node of graph.nodes) map.set(node.id, node);
-    return map;
-  });
+  let sceneIndex = $derived(indexTopologyScene(scene));
+  let nodeById = $derived(sceneIndex.nodesById);
   let pendingIds = $derived(new Set(pendingEntityIds));
   let placementIssueIds = $derived(
     new Set(
@@ -349,92 +327,21 @@
     connectionState?.sourceId ?? keyboardConnection?.sourceId,
   );
 
-  /** World rectangle of every entity the layout places. */
-  let nodeRects = $derived.by(() => {
-    const rects = new Map<string, Rect>();
-    for (const segment of scene.segments) {
-      const frame = layout.frames.get(segment.id);
-      if (frame) rects.set(segment.id, frameRect(frame));
-      for (const host of segment.hosts) {
-        const position = layout.positions.get(host.id);
-        if (position)
-          rects.set(
-            host.id,
-            nodeRect(position, { width: NODE_WIDTH, height: NODE_HEIGHT }),
-          );
-        for (const service of host.services) {
-          const servicePosition = layout.positions.get(service.id);
-          if (servicePosition)
-            rects.set(service.id, nodeRect(servicePosition, SERVICE_SIZE));
-        }
-      }
-    }
-    for (const attachment of scene.attachments) {
-      const position = layout.positions.get(attachment.id);
-      if (position) rects.set(attachment.id, nodeRect(position, CONTEXT_SIZE));
-    }
-    return rects;
-  });
-
-  /** Hosts and services whose layout position is known, grouped by host. */
-  let hostViews = $derived.by(() => {
-    const views: HostView[] = [];
-    for (const segment of scene.segments) {
-      for (const host of segment.hosts) {
-        const position = layout.positions.get(host.id);
-        if (!position) continue;
-        const services = host.services.flatMap((service) => {
-          const servicePosition = layout.positions.get(service.id);
-          return servicePosition
-            ? [{ scene: service, position: servicePosition }]
-            : [];
-        });
-        views.push({ host, position, services });
-      }
-    }
-    return views;
-  });
-
   /**
-   * Entities the projection cannot place. They keep their authored position
-   * and carry a distinct cue instead of disappearing from the canvas.
+   * Flat canvas geometry and member rows. The pure builder preserves projection
+   * order while omitting members that the layout cannot place.
    */
-  let unplacedFloaters = $derived.by(() => {
-    const floaters: Array<{
-      entry: TopologyUnplacedEntry;
-      node: Node;
-      position: Point;
-    }> = [];
-    for (const entry of scene.unplaced) {
-      const node = entry.node;
-      if (!node) continue;
-      if (nodeRects.has(entry.entityId)) continue;
-      floaters.push({
-        entry,
-        node,
-        position: { x: node.view_data.x_pos, y: node.view_data.y_pos },
-      });
-    }
-    return floaters;
-  });
-
-  /**
-   * World rectangle of every entity the canvas draws, including Unplaced ones.
-   * Pin controls and lens lookup need one map.
-   */
-  let entityRects = $derived.by(() => {
-    const rects = new Map<string, Rect>(nodeRects);
-    for (const floater of unplacedFloaters) {
-      rects.set(
-        floater.node.id,
-        nodeRect(floater.position, {
-          width: NODE_WIDTH,
-          height: UNPLACED_CARD_HEIGHT,
-        }),
-      );
-    }
-    return rects;
-  });
+  let spatialView = $derived(
+    buildTopologySpatialView(scene, sceneIndex, layout, {
+      serviceSize: SERVICE_SIZE,
+      contextSize: CONTEXT_SIZE,
+      unplacedCardHeight: UNPLACED_CARD_HEIGHT,
+    }),
+  );
+  let nodeRects = $derived(spatialView.nodeRects);
+  let entityRects = $derived(spatialView.entityRects);
+  let hostViews = $derived(spatialView.hostViews);
+  let unplacedFloaters = $derived(spatialView.unplacedFloaters);
 
   function pinnableKind(type: Node["type"]): PinnableKind {
     switch (type) {
@@ -525,45 +432,21 @@
    * an assistive technology sees two separate controls. The handle exposes the
    * same connection path to pointer and keyboard.
    */
-  let connectionHandles = $derived.by(() => {
-    const handles: ConnectionHandle[] = [];
-    if (!editable || !onCreateConnection) return handles;
-    for (const view of hostViews) {
-      if (!revealsHost(view.host.id)) continue;
-      const near = detail === "near";
-      handles.push({
-        key: `host:${view.host.id}`,
-        nodeId: view.host.id,
-        label: view.host.node.data.name,
-        type: view.host.node.type,
-        position: view.position,
-        width: NODE_WIDTH,
-        offset: near ? 36 : HOST_GLYPH_HEIGHT / 2,
-        pointer: (event) => startConnection(view.host.node, event),
-        keydown: (event) => startKeyboardConnection(view.host.node, event),
-      });
-      for (const service of view.services) {
-        if (!revealsService(service.scene.id)) continue;
-        handles.push({
-          key: `service:${service.scene.id}`,
-          nodeId: service.scene.id,
-          label: service.scene.node.data.name,
-          type: service.scene.node.type,
-          position: service.position,
-          width: SERVICE_SIZE.width,
-          offset: SERVICE_SIZE.height / 2,
-          pointer: (event) => startConnection(service.scene.node, event),
-          keydown: (event) =>
-            startKeyboardConnection(service.scene.node, event),
-        });
-      }
-    }
-    return handles;
-  });
+  let connectionHandles = $derived(
+    editable && onCreateConnection
+      ? buildTopologyConnectionHandles(hostViews, {
+          detail,
+          revealsHost,
+          revealsService,
+          serviceSize: SERVICE_SIZE,
+          hostGlyphHeight: HOST_GLYPH_HEIGHT,
+        })
+      : [],
+  );
 
   /** Connection handles by entity id, for placement beside each entity. */
   let connectionHandleById = $derived(
-    new Map(connectionHandles.map((handle) => [handle.nodeId, handle])),
+    new Map(connectionHandles.map((handle) => [handle.node.id, handle])),
   );
 
   function isDimmed(entityId: string): boolean {
@@ -748,32 +631,14 @@
    * raw edge never adds membership. Segment containment draws no connector:
    * the projected host list and the enclosing frame already show it.
    */
-  let structuralEdges = $derived.by(() => {
-    const map = new Map<string, Edge>();
-    for (const edge of graph.edges) {
-      if (edge.type !== "Runs") continue;
-      const key = `${edge.type}:${edge.from_id}:${edge.to_id}`;
-      if (!map.has(key)) map.set(key, edge);
-    }
-    return map;
-  });
+  let structuralEdges = $derived(indexRunsEdges(graph.edges));
 
-  let structuralLinks = $derived.by<StructuralLink[]>(() => {
-    const links: StructuralLink[] = [];
-    for (const segment of scene.segments) {
-      for (const host of segment.hosts) {
-        const hostRect = nodeRects.get(host.id);
-        if (!hostRect) continue;
-        for (const service of host.services) {
-          const serviceRect = nodeRects.get(service.id);
-          if (!serviceRect) continue;
-          const runs = structuralEdges.get(`Runs:${host.id}:${service.id}`);
-          if (runs) links.push(structuralLink(runs, hostRect, serviceRect));
-        }
-      }
-    }
-    return links;
-  });
+  let structuralLinks = $derived(
+    buildStructuralLinks(sceneIndex, nodeRects, structuralEdges, {
+      edgePresentation: (edge) => edgePresentation(edge.type),
+      edgeAppearance,
+    }),
+  );
 
   /**
    * Ownership connectors to draw.
@@ -789,66 +654,22 @@
     ),
   );
 
-  function structuralLink(
-    edge: Edge,
-    sourceRect: Rect,
-    targetRect: Rect,
-  ): StructuralLink {
-    const presentation = edgePresentation(edge.type);
-    return {
-      edge,
-      sourceRect,
-      targetRect,
-      label: presentation?.label?.(edge) ?? edge.type,
-      color: presentation?.color,
-      dash: presentation?.dashArray ?? null,
-      appearance: edgeAppearance?.(edge),
-    };
-  }
-
   /**
    * Anchor relationships of attached context the lens reveals.
    *
    * One line joins a revealed context card to the entity its projection anchor
    * names. The canvas reads the anchor record, never a raw edge.
    */
-  let contextLinks = $derived.by(() => {
-    const links: Array<{
-      key: string;
-      attachmentId: string;
-      path: { source: Point; target: Point };
-      label: string;
-    }> = [];
-    if (!lens.active) return links;
-    for (const attachment of scene.attachments) {
-      if (!lens.visibleIds.has(attachment.id)) continue;
-      const contextRect = nodeRects.get(attachment.id);
-      if (!contextRect) continue;
-      for (const anchor of attachment.anchors) {
-        const anchorRect = nodeRects.get(anchor.node.id);
-        if (!anchorRect) continue;
-        links.push({
-          key: `${attachment.id}:${anchor.edge.id}`,
-          attachmentId: attachment.id,
-          path: connectRects(contextRect, anchorRect),
-          label: `${anchor.anchor.relationship_type} anchor to ${entityLabel(
-            anchor.node,
-          )}`,
-        });
-      }
-    }
-    return links;
-  });
+  let contextLinks = $derived(
+    buildContextLinks(scene, {
+      lensActive: lens.active,
+      visibleIds: lens.visibleIds,
+      entityRects,
+      entityLabel,
+    }),
+  );
 
-  let worldRects = $derived([
-    ...nodeRects.values(),
-    ...unplacedFloaters.map((floater) =>
-      nodeRect(floater.position, {
-        width: NODE_WIDTH,
-        height: UNPLACED_CARD_HEIGHT,
-      }),
-    ),
-  ]);
+  let worldRects = $derived([...entityRects.values()]);
 
   function segmentName(segmentId: string): string {
     const node = nodeById.get(segmentId);
@@ -983,19 +804,17 @@
       return;
     }
 
-    if (
-      Math.hypot(
-        event.clientX - panState.start.x,
-        event.clientY - panState.start.y,
-      ) >= DRAG_THRESHOLD
-    )
-      panMoved = true;
+    const delta = pointerDelta(panState.start, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (exceedsDragThreshold(delta)) panMoved = true;
 
     view = {
       ...view,
       pan: {
-        x: panState.pan.x + event.clientX - panState.start.x,
-        y: panState.pan.y + event.clientY - panState.start.y,
+        x: panState.pan.x + delta.x,
+        y: panState.pan.y + delta.y,
       },
     };
   }
@@ -1004,19 +823,18 @@
     const state = dragState;
     if (!state) return;
 
-    const deltaX = event.clientX - state.start.x;
-    const deltaY = event.clientY - state.start.y;
-    if (!state.moved && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) return;
+    const delta = pointerDelta(state.start, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (!state.moved && !exceedsDragThreshold(delta)) return;
     state.moved = true;
 
-    const scale = view.zoom / 100;
-    const delta = { x: deltaX / scale, y: deltaY / scale };
-    const positions = new Map<string, Point>();
-    for (const id of state.ids) {
-      const origin = state.origins.get(id);
-      if (origin)
-        positions.set(id, { x: origin.x + delta.x, y: origin.y + delta.y });
-    }
+    const positions = translatePositionMap(
+      state.ids,
+      state.origins,
+      screenDeltaToWorld(delta, view.zoom),
+    );
     scheduleGeometryUpdate(positions);
   }
 
@@ -1358,19 +1176,13 @@
   }
 
   /** Entities the scene currently draws, for focus cleanup. */
-  let drawnEntityIds = $derived.by(() => {
-    const ids = new Set<string>();
-    for (const segment of scene.segments) {
-      ids.add(segment.id);
-      for (const host of segment.hosts) {
-        ids.add(host.id);
-        for (const service of host.services) ids.add(service.id);
-      }
-    }
-    for (const attachment of scene.attachments) ids.add(attachment.id);
-    for (const floater of unplacedFloaters) ids.add(floater.node.id);
-    return ids;
-  });
+  let drawnEntityIds = $derived(
+    buildDrawnEntityIds(
+      sceneIndex.projectedEntityIds,
+      scene.attachments.map((attachment) => attachment.id),
+      unplacedFloaters,
+    ),
+  );
 
   /**
    * Clears DOM focus state when its entity leaves the scene, so a deleted or
@@ -1518,20 +1330,20 @@
     Connection and pin controls render next to the entity they belong to.
     Each control is a sibling of the entity, never nested inside its button.
   -->
-  {#snippet connectionHandle(handle: ConnectionHandle)}
+  {#snippet connectionHandle(handle: TopologyConnectionHandleView)}
     <circle
       class="topology-connection-handle"
-      class:is-source={connectionSourceId === handle.nodeId}
-      cx={handle.position.x + handle.width}
+      class:is-source={connectionSourceId === handle.node.id}
+      cx={handle.position.x + (handle.side === "right" ? handle.width : 0)}
       cy={handle.position.y + handle.offset}
       r="6"
       role="button"
       tabindex="0"
       data-graph-interactive
       data-graph-gesture
-      aria-label={`Create connection from ${handle.type} ${handle.label}`}
-      onpointerdown={(event) => handle.pointer(event)}
-      onkeydown={(event) => handle.keydown(event)}
+      aria-label={`Create connection from ${handle.node.type} ${handle.node.data.name}`}
+      onpointerdown={(event) => startConnection(handle.node, event)}
+      onkeydown={(event) => startKeyboardConnection(handle.node, event)}
     />
   {/snippet}
   {#snippet pinControl(target: PinTarget)}

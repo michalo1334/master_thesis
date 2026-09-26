@@ -1,4 +1,8 @@
 import type { Node } from "../../../contracts.generated/graph";
+import {
+  type IndexedTopologyEntity,
+  indexTopologyScene,
+} from "../topology-scene-index";
 import { topologyEntityLabel, type TopologyScene } from "../topology-scene";
 
 export interface TopologySearchResult {
@@ -26,6 +30,30 @@ interface RankedResult {
   order: number;
 }
 
+/** Returns the search precedence for a node, or `-1` when it does not match. */
+export function topologySearchMatchRank(node: Node, query: string): number {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return -1;
+
+  const label = topologyEntityLabel(node).toLowerCase();
+  return [
+    label.startsWith(needle),
+    label.includes(needle),
+    node.type.toLowerCase().includes(needle),
+  ].findIndex(Boolean);
+}
+
+function projectedPath(entity: IndexedTopologyEntity): string {
+  switch (entity.kind) {
+    case "segment":
+      return entity.segment.node.data.name;
+    case "host":
+      return `${entity.segment.node.data.name} / ${entity.host.node.data.name}`;
+    case "service":
+      return `${entity.segment.node.data.name} / ${entity.host.host.node.data.name} / ${entity.service.node.data.name}`;
+  }
+}
+
 /**
  * Finds entities whose label or type matches the query.
  *
@@ -42,6 +70,7 @@ export function searchTopology(
   const needle = query.trim().toLowerCase();
   if (!needle || limit <= 0) return [];
 
+  const index = indexTopologyScene(scene);
   const seen = new Set<string>();
   const matches: RankedResult[] = [];
   let order = 0;
@@ -51,14 +80,7 @@ export function searchTopology(
     seen.add(node.id);
 
     const label = topologyEntityLabel(node);
-    const lowerLabel = label.toLowerCase();
-    const rank = lowerLabel.startsWith(needle)
-      ? 0
-      : lowerLabel.includes(needle)
-        ? 1
-        : node.type.toLowerCase().includes(needle)
-          ? 2
-          : -1;
+    const rank = topologySearchMatchRank(node, needle);
     if (rank < 0) return;
 
     matches.push({
@@ -68,23 +90,8 @@ export function searchTopology(
     });
   };
 
-  for (const segment of scene.segments) {
-    add(segment.node, segment.node.data.name, false);
-    for (const host of segment.hosts) {
-      add(
-        host.node,
-        `${segment.node.data.name} / ${host.node.data.name}`,
-        false,
-      );
-      for (const service of host.services) {
-        add(
-          service.node,
-          `${segment.node.data.name} / ${host.node.data.name} / ${service.node.data.name}`,
-          false,
-        );
-      }
-    }
-  }
+  for (const entity of index.projectedEntities)
+    add(entity.node, projectedPath(entity), false);
 
   for (const attachment of scene.attachments) {
     add(attachment.node, ATTACHED_CONTEXT_PATH, false);

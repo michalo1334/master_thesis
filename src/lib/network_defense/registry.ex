@@ -19,5 +19,15 @@ defmodule NetworkDefense.Registry do
     if module in types, do: module |> Module.split() |> List.last()
   end
 
+  def contract_type_for_short(types, type) when is_atom(type) do
+    type
+    |> Atom.to_string()
+    |> Macro.camelize()
+    |> then(&module_for_short(types, &1))
+    |> then(&contract_type_for(types, &1))
+  end
+
+  def contract_type_for_short(_types, _type), do: nil
+
   def contract_types(types), do: Enum.map(types, &contract_type_for(types, &1))
 end

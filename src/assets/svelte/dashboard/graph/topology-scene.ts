@@ -3,17 +3,17 @@ import type {
   GraphContract,
   Node,
 } from "../../contracts.generated/graph";
+import type { TopologyProjection } from "../../contracts.generated/dashboard/graph";
 import type {
-  TopologyProjection,
-  TopologyProjectionAnchor,
-  TopologyProjectionAttachment,
-  TopologyProjectionFlowGroup,
-  TopologyProjectionHost,
-  TopologyProjectionIssue,
-  TopologyProjectionPolicyGroup,
-  TopologyProjectionSegment,
-  TopologyProjectionService,
-} from "../../contracts.generated/dashboard/graph";
+  Anchor,
+  Attachment,
+  FlowGroup,
+  Host,
+  Issue,
+  PolicyGroup,
+  Segment,
+  Service,
+} from "../../contracts.generated/dashboard/graph/topology_projection";
 
 export type TopologySegmentNode = Extract<Node, { type: "NetworkSegment" }>;
 export type TopologyHostNode = Extract<Node, { type: "Host" }>;
@@ -30,14 +30,14 @@ export type TopologyReachabilityEdge = Extract<
 export interface TopologyServiceScene {
   id: string;
   node: TopologyServiceNode;
-  service: TopologyProjectionService;
+  service: Service;
   hostId: string | null;
 }
 
 export interface TopologyHostScene {
   id: string;
   node: TopologyHostNode;
-  host: TopologyProjectionHost;
+  host: Host;
   segmentId: string | null;
   services: TopologyServiceScene[];
 }
@@ -45,12 +45,12 @@ export interface TopologyHostScene {
 export interface TopologySegmentScene {
   id: string;
   node: TopologySegmentNode;
-  segment: TopologyProjectionSegment;
+  segment: Segment;
   hosts: TopologyHostScene[];
 }
 
 export interface TopologyAttachmentAnchorScene {
-  anchor: TopologyProjectionAnchor;
+  anchor: Anchor;
   node: Node;
   edge: Edge;
 }
@@ -58,13 +58,13 @@ export interface TopologyAttachmentAnchorScene {
 export interface TopologyAttachmentScene {
   id: string;
   node: TopologyContextNode;
-  attachment: TopologyProjectionAttachment;
+  attachment: Attachment;
   /** Only anchors whose node and edge exist in the graph. */
   anchors: TopologyAttachmentAnchorScene[];
 }
 
 export interface TopologyPolicyGroupScene {
-  group: TopologyProjectionPolicyGroup;
+  group: PolicyGroup;
   from: TopologySegmentScene;
   to: TopologySegmentScene;
   /** Only policy edges that exist in the graph. */
@@ -72,7 +72,7 @@ export interface TopologyPolicyGroupScene {
 }
 
 export interface TopologyFlowGroupScene {
-  group: TopologyProjectionFlowGroup;
+  group: FlowGroup;
   source: TopologyHostScene;
   target: TopologyHostScene;
   /** Only flow services that exist in the graph. */
@@ -140,7 +140,7 @@ export interface TopologyUnplacedEntry {
   edge: Edge | null;
   status: TopologyUnplacedStatus;
   /** Projector issue that explains the placement. */
-  issue: TopologyProjectionIssue | null;
+  issue: Issue | null;
   /** Projection reference that failed to join. */
   missing: TopologyMissingReference | null;
 }
@@ -151,7 +151,7 @@ export interface TopologyScene {
   policyGroups: TopologyPolicyGroupScene[];
   flowGroups: TopologyFlowGroupScene[];
   /** Every issue the projector reported, sorted by code and entity. */
-  issues: TopologyProjectionIssue[];
+  issues: Issue[];
   /** Issues, missing references, unplaced entities, and pending entities. */
   unplaced: TopologyUnplacedEntry[];
 }
@@ -650,10 +650,7 @@ function compareAnchors(
   );
 }
 
-function compareIssues(
-  a: TopologyProjectionIssue,
-  b: TopologyProjectionIssue,
-): number {
+function compareIssues(a: Issue, b: Issue): number {
   return compareKeys(
     [a.code, a.entity_id, ...a.related_ids],
     [b.code, b.entity_id, ...b.related_ids],

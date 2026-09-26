@@ -1,4 +1,5 @@
 import type { TopologyScene } from "../topology-scene";
+import { compareStrings } from "./ordering";
 
 /**
  * One directed connection summary between two ordered segments.
@@ -222,10 +223,4 @@ function sortConnectionDetails(
       compareStrings(left.sourceHostId, right.sourceHostId) ||
       compareStrings(left.targetHostId, right.targetHostId),
   );
-}
-
-/** Locale-independent order, so projection output stays machine independent. */
-function compareStrings(left: string, right: string): number {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
 }

@@ -1,10 +1,10 @@
 import type { Edge, Node } from "../../../contracts.generated/graph";
 import type {
-  TopologyProjectionAttachment,
-  TopologyProjectionHost,
-  TopologyProjectionSegment,
-  TopologyProjectionService,
-} from "../../../contracts.generated/dashboard/graph";
+  Attachment,
+  Host,
+  Segment,
+  Service,
+} from "../../../contracts.generated/dashboard/graph/topology_projection";
 import { describe, expect, it } from "vitest";
 import type { TopologyScene } from "../topology-scene";
 import { buildTopologyScene } from "../topology-scene";
@@ -39,7 +39,9 @@ import {
   measureTopology,
   measureSegmentFrame,
   packSegment,
+  segmentMembers,
 } from "./layout";
+import { compareStrings } from "./ordering";
 
 interface ServiceSpec {
   id: string;
@@ -82,9 +84,9 @@ interface SceneSpec {
 function buildScene(spec: SceneSpec): TopologyScene {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
-  const segments: TopologyProjectionSegment[] = [];
-  const hosts: TopologyProjectionHost[] = [];
-  const services: TopologyProjectionService[] = [];
+  const segments: Segment[] = [];
+  const hosts: Host[] = [];
+  const services: Service[] = [];
 
   for (const segment of spec.segments) {
     nodes.push(segmentNode(segment.id, segment.anchor.x, segment.anchor.y));
@@ -111,7 +113,7 @@ function buildScene(spec: SceneSpec): TopologyScene {
     );
   }
 
-  const attachments: TopologyProjectionAttachment[] = [];
+  const attachments: Attachment[] = [];
   for (const attachment of spec.attachments ?? []) {
     nodes.push(contextNode(attachment.id, attachment.kind));
     const anchors = attachment.anchorNodeIds.map((nodeId, index) => {
@@ -202,12 +204,6 @@ function serialized(layout: TestLayout): string {
   return JSON.stringify({ frames, positions });
 }
 
-function compareStrings(a: string, b: string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
-}
-
 interface TestRect {
   x: number;
   y: number;
@@ -278,6 +274,24 @@ const singleSegment: SceneSpec = {
     },
   ],
 };
+
+describe("segmentMembers", () => {
+  it("flattens hosts and services in layout order", () => {
+    const scene = buildScene(singleSegment);
+
+    expect(
+      segmentMembers(scene.segments[0]!).map((member) => [
+        member.id,
+        member.hostIndex,
+        member.serviceIndex,
+      ]),
+    ).toEqual([
+      ["host-1", 0, null],
+      ["service-1", 0, 0],
+      ["host-2", 1, null],
+    ]);
+  });
+});
 
 describe("arrangeTopology", () => {
   it("keeps every member inside its segment frame", () => {

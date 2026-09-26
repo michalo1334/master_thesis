@@ -1131,19 +1131,19 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
 // NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection (lib/network_defense_web/contracts/dashboard/graph/topology_projection.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   export interface TopologyProjection {
-    attachments: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAttachment[];
-    flow_groups: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionFlowGroup[];
-    hosts: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionHost[];
-    issues: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionIssue[];
-    policy_groups: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionPolicyGroup[];
-    segments: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionSegment[];
-    services: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionService[];
+    attachments: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Attachment[];
+    flow_groups: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.FlowGroup[];
+    hosts: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Host[];
+    issues: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Issue[];
+    policy_groups: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.PolicyGroup[];
+    segments: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Segment[];
+    services: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Service[];
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor (lib/network_defense_web/contracts/dashboard/graph/topology_projection_anchor.ex) — enum fields: relationship_type
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionAnchor {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor (lib/network_defense_web/contracts/dashboard/graph/topology_projection/anchor.ex) — enum fields: relationship_type
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Anchor {
     edge_id: string;
     node_id: string;
     relationship_type:
@@ -1151,18 +1151,18 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAttachment (lib/network_defense_web/contracts/dashboard/graph/topology_projection_attachment.ex) — enum fields: node_type
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionAttachment {
-    anchors: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor[];
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Attachment (lib/network_defense_web/contracts/dashboard/graph/topology_projection/attachment.ex) — enum fields: node_type
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Attachment {
+    anchors: NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor[];
     id: string;
     node_type: "Vulnerability" | "Credential" | "MissionCapability";
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionFlowGroup (lib/network_defense_web/contracts/dashboard/graph/topology_projection_flow_group.ex)
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionFlowGroup {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.FlowGroup (lib/network_defense_web/contracts/dashboard/graph/topology_projection/flow_group.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface FlowGroup {
     flow_ids: string[];
     service_ids: string[];
     source_host_id: string;
@@ -1170,9 +1170,9 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionHost (lib/network_defense_web/contracts/dashboard/graph/topology_projection_host.ex)
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionHost {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Host (lib/network_defense_web/contracts/dashboard/graph/topology_projection/host.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Host {
     context_count: number;
     id: string;
     segment_id?: string | null;
@@ -1181,9 +1181,9 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionIssue (lib/network_defense_web/contracts/dashboard/graph/topology_projection_issue.ex) — enum fields: code, severity
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionIssue {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Issue (lib/network_defense_web/contracts/dashboard/graph/topology_projection/issue.ex) — enum fields: code, severity
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Issue {
     code:
       | "host_without_segment"
       | "host_multiple_segments"
@@ -1196,18 +1196,18 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionPolicyGroup (lib/network_defense_web/contracts/dashboard/graph/topology_projection_policy_group.ex)
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionPolicyGroup {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.PolicyGroup (lib/network_defense_web/contracts/dashboard/graph/topology_projection/policy_group.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface PolicyGroup {
     edge_ids: string[];
     from_segment_id: string;
     to_segment_id: string;
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionSegment (lib/network_defense_web/contracts/dashboard/graph/topology_projection_segment.ex)
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionSegment {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Segment (lib/network_defense_web/contracts/dashboard/graph/topology_projection/segment.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Segment {
     context_count: number;
     host_count: number;
     host_ids: string[];
@@ -1216,9 +1216,9 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionService (lib/network_defense_web/contracts/dashboard/graph/topology_projection_service.ex)
-export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph {
-  export interface TopologyProjectionService {
+// NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Service (lib/network_defense_web/contracts/dashboard/graph/topology_projection/service.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection {
+  export interface Service {
     host_id?: string | null;
     id: string;
   }

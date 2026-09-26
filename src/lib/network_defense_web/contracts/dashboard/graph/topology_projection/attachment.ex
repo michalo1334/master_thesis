@@ -1,9 +1,9 @@
-defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAttachment do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Attachment do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor
 
   @node_types ~w(Vulnerability Credential MissionCapability)
 
@@ -14,13 +14,13 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAttachme
   embedded_schema do
     field :id, :string
     field :node_type, :string
-    embeds_many :anchors, TopologyProjectionAnchor, on_replace: :delete
+    embeds_many :anchors, Anchor, on_replace: :delete
   end
 
   @type t :: %__MODULE__{
           id: String.t(),
           node_type: String.t(),
-          anchors: [TopologyProjectionAnchor.t()]
+          anchors: [Anchor.t()]
         }
 
   def changeset(schema, attrs) do

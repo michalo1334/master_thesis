@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionFlowGroup do
+defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.FlowGroup do
   @moduledoc false
 
   use NetworkDefenseWeb.Contracts, category: :graph

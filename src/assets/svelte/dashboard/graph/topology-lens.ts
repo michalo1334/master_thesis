@@ -2,11 +2,10 @@ import type { GraphContract } from "../../contracts.generated/graph";
 import type {
   TopologyAttachmentScene,
   TopologyFlowGroupScene,
-  TopologyHostScene,
   TopologyPolicyGroupScene,
   TopologyScene,
-  TopologyServiceScene,
 } from "./topology-scene";
+import { indexTopologyScene } from "./topology-scene-index";
 
 /**
  * Entities and grouped relationships the canvas keeps at full emphasis.
@@ -57,19 +56,17 @@ export function computeTopologyLens(
   scene: TopologyScene,
   focusIds: readonly string[],
 ): TopologyLens {
-  const segments = new Map(scene.segments.map((entry) => [entry.id, entry]));
-  const hosts = new Map<string, TopologyHostScene>();
-  const services = new Map<
-    string,
-    { service: TopologyServiceScene; hostId: string }
-  >();
-  for (const segment of scene.segments) {
-    for (const host of segment.hosts) {
-      hosts.set(host.id, host);
-      for (const service of host.services)
-        services.set(service.id, { service, hostId: host.id });
-    }
-  }
+  const index = indexTopologyScene(scene);
+  const segments = new Map(
+    index.segments.map((entry) => [entry.id, entry.segment]),
+  );
+  const hosts = new Map(index.hosts.map((entry) => [entry.id, entry.host]));
+  const services = new Map(
+    index.services.map((entry) => [
+      entry.id,
+      { service: entry.service, hostId: entry.host.id },
+    ]),
+  );
   const attachments = new Map<string, TopologyAttachmentScene>(
     scene.attachments.map((entry) => [entry.id, entry]),
   );

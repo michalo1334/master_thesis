@@ -3,8 +3,11 @@ import {
   boundsOfRects,
   connectRects,
   fitRects,
+  inflateRect,
   pointInRect,
+  pointInRectInterior,
   rectCenter,
+  rectanglesOverlap,
   type Rect,
 } from "./canvas-geometry";
 import { MAX_ZOOM } from "../canvas/canvasState";
@@ -87,11 +90,25 @@ describe("canvas geometry", () => {
     expect(fitRects([], { width: 800, height: 600 })).toBeNull();
   });
 
-  it("detects points inside a rectangle", () => {
+  it("includes rectangle boundaries for pointer hit-testing", () => {
     const area = rect(10, 10, 100, 50);
     expect(pointInRect({ x: 10, y: 10 }, area)).toBe(true);
     expect(pointInRect({ x: 110, y: 60 }, area)).toBe(true);
     expect(pointInRect({ x: 9, y: 30 }, area)).toBe(false);
     expect(pointInRect({ x: 50, y: 61 }, area)).toBe(false);
+  });
+
+  it("keeps rectangle boundaries outside strict layout containment", () => {
+    const area = rect(10, 10, 100, 50);
+    expect(pointInRectInterior({ x: 10, y: 30 }, area)).toBe(false);
+    expect(pointInRectInterior({ x: 50, y: 60 }, area)).toBe(false);
+    expect(pointInRectInterior({ x: 50, y: 30 }, area)).toBe(true);
+  });
+
+  it("inflates rectangles and detects overlap with a layout gap", () => {
+    const area = rect(10, 20, 100, 50);
+    expect(inflateRect(area, 8)).toEqual(rect(2, 12, 116, 66));
+    expect(rectanglesOverlap(area, rect(110, 20, 40, 50))).toBe(false);
+    expect(rectanglesOverlap(area, rect(110, 20, 40, 50), 1)).toBe(true);
   });
 });

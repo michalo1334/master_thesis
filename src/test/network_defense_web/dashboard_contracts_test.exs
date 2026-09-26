@@ -39,7 +39,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.SaveGraphReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection
-  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjectionAnchor
+  alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRunsPayload
@@ -694,6 +694,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
            } = FetchOptimizationReportReply.to_wire(reply)
   end
 
+  # Projection ID arrays are sorted normalized references to root records, not owned embeds.
   test "converts a domain topology projection into wire contracts with contract type names" do
     assert %{
              segments: segments,
@@ -832,8 +833,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              ]
            } = errors_on(changeset)
 
-    assert {:ok, %TopologyProjectionAnchor{relationship_type: "AuthenticatesTo"}} =
-             TopologyProjectionAnchor.validate(%{
+    assert {:ok, %Anchor{relationship_type: "AuthenticatesTo"}} =
+             Anchor.validate(%{
                "node_id" => @host_id,
                "edge_id" => @auth_edge_id,
                "relationship_type" => "AuthenticatesTo"

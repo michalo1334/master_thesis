@@ -1,9 +1,11 @@
 import { clampZoom, type Point } from "../canvas/canvasState";
 
-export interface Rect extends Point {
+export interface Size {
   width: number;
   height: number;
 }
+
+export interface Rect extends Point, Size {}
 
 /** Space kept around the content when the viewport fits the scene. */
 export const FIT_PADDING = 60;
@@ -113,14 +115,16 @@ export function fitRects(
   };
 }
 
-/** Node card placed by the projection scene and measured by the layout. */
-export function nodeRect(
-  position: Point,
-  size: { width: number; height: number },
-): Rect {
+export function rectAt(position: Point, size: Size): Rect {
   return { x: position.x, y: position.y, ...size };
 }
 
+/** Node card placed by the projection scene and measured by the layout. */
+export function nodeRect(position: Point, size: Size): Rect {
+  return rectAt(position, size);
+}
+
+/** Inclusive pointer hit-testing for canvas elements. */
 export function pointInRect(point: Point, rect: Rect): boolean {
   return (
     point.x >= rect.x &&
@@ -130,9 +134,34 @@ export function pointInRect(point: Point, rect: Rect): boolean {
   );
 }
 
-export function frameRect(frame: {
-  position: Point;
-  size: { width: number; height: number };
-}): Rect {
-  return { x: frame.position.x, y: frame.position.y, ...frame.size };
+/** Strict interior containment for layout decisions. */
+export function pointInRectInterior(point: Point, rect: Rect): boolean {
+  return (
+    point.x > rect.x &&
+    point.x < rect.x + rect.width &&
+    point.y > rect.y &&
+    point.y < rect.y + rect.height
+  );
+}
+
+export function inflateRect(rect: Rect, gap: number): Rect {
+  return {
+    x: rect.x - gap,
+    y: rect.y - gap,
+    width: rect.width + 2 * gap,
+    height: rect.height + 2 * gap,
+  };
+}
+
+export function rectanglesOverlap(a: Rect, b: Rect, gap = 0): boolean {
+  return (
+    a.x < b.x + b.width + gap &&
+    b.x < a.x + a.width + gap &&
+    a.y < b.y + b.height + gap &&
+    b.y < a.y + a.height + gap
+  );
+}
+
+export function frameRect(frame: { position: Point; size: Size }): Rect {
+  return rectAt(frame.position, frame.size);
 }
