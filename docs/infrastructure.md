@@ -160,4 +160,4 @@ and the central observability network. Application nodes reach it over AMQP
   username) from environment variables, not from an AMQP URL.
 
 Apply the stack. Then run the opt-in broker test from `src/` with the command
-in [the executor design](design/rabbitmq-distributed-executor.md#local-broker-test).
+in [the executor design](design/rabbitmq-distributed-executor.md#local-broker-exercises).

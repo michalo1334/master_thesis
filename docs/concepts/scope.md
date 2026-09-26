@@ -14,13 +14,13 @@ Main research question:
 Sub-questions:
 
 1. How does a pre-attack feasibility constraint change selected defense plans
-   and directly measured operational loss?
+   and modeled pre-attack mission disruption?
 2. How does controlled growth in topology size affect simulation,
-   strategy-selection, and total-evaluation runtime, and the mission-impact
-   ranking of equal-budget defense strategies?
+   plan-selection, and total-evaluation runtime, and the mission-impact
+   contrasts between equal-action-count strategies and CVSS prioritization?
 
-Mission impact is the primary outcome. Blast radius is a secondary safety
-outcome.
+Simulated mission impact is the primary outcome. Blast radius is a secondary
+safety outcome.
 
 ## Model bounds and assumptions
 
@@ -31,9 +31,13 @@ and mission capabilities.
 Current bounds:
 
 - one fixed topology, policy, and attacker model;
-- equal-action-count budgets only (each current defensive action has unit cost);
+- equal-action-count budgets only;
 - a finite horizon of attacker action steps per trial;
 - attacks start from a declared entry host.
+
+Each current defense action has unit cost. Equal action counts compare plan
+cardinality. They do not represent equal money, effort, deployment complexity,
+or operational risk.
 
 The simulator selects uniformly from eligible actions and then samples the
 selected action's outcome. It does not estimate real-world exploit likelihood.
@@ -44,58 +48,66 @@ beyond measured scenarios.
 
 ## Approved topology-scale study
 
-The approved study is a research design, not current implementation. It uses
-three controlled size tiers. A runtime pilot will select their exact sizes before
-the full study. This page does not prescribe how the variants will be
-constructed. Variants preserve roles, edges, exposure, reachability patterns,
-attacker context, and equal budgets.
+The approved Azure study is a research design, not current implementation. It
+uses three controlled size tiers and one frozen graph per tier. A runtime pilot
+selects the exact tier sizes before the full study. The tier designs preserve
+the declared role schema, exposure template, reachability policy pattern,
+attacker context, and equal-action-count budgets. A diagnostic records how
+attack-relevant structure changes as the graph grows.
 
-Current code supports the fixed baseline scenario and generic generated topology
-sources. It can freeze a generated topology source into an immutable graph
-revision. The cloud study is blocked until the planned tooling exists (see the
+Current code supports the fixed baseline scenario and generic generated
+topology sources. It can freeze a generated source into an immutable graph
+revision. The Azure study is blocked until the planned tooling exists (see the
 [cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
 
-Local rehearsal work informed the cloud-study plan. It does not support cloud
-runtime, topology-scale, optimizer-quality, or strategy-effect claims. Such
-claims require the completed cloud study.
+Local runs are pilots. They validate the workflow and select study parameters.
+They do not support final cloud-runtime, topology-scale, optimizer-quality, or
+strategy-effect claims. Those claims require the completed Azure study.
 
-The cloud study requires fixed-environment evidence. Future tooling records
-that evidence automatically before the study starts.
-
-The study freezes variants, graph data, metrics, strategies, budgets, seeds,
-trial count, and stopping rules before the full study begins. It adds no
-directional hypothesis.
+The Azure study requires a fixed environment record before measured runs. It
+freezes graph data, metrics, strategies, action-count budgets, plan-selection
+seeds, attack seeds, sample counts, and stopping rules before final collection.
+The study is exploratory and has no directional hypothesis.
 
 ## Compared methods
 
-The approved full-study matrix will compare defensive methods under shared
-action budgets of one through three:
+The primary study compares four alternatives with CVSS prioritization:
 
 - random defense selection;
-- CVSS (vulnerability-score) priority ordering;
 - topology-driven policy segmentation;
-- simulation-informed patching;
-- simulated-annealing search over patching and segmentation actions.
+- simulation-informed defense selection;
+- simulated-annealing search over defense plans.
 
-The matrix will use equal budgets and multiple fixed selection seeds. A
-mission-impact pilot will choose the attack-trial count before the full study.
-Current baseline experiments use a budget-one subset of this strategy matrix.
+Each comparison uses equal action-count budgets of one, two, and three. The
+null strategy is a descriptive no-defense control. It is not part of the
+primary comparison family. A mission-impact pilot selects one common number of
+plan-selection seeds and one common number of attacks per plan before final
+collection.
 
 ## Outcome metrics
 
-The full study will report expected mission impact and strategy ranking. Blast
-radius is its secondary safety outcome. It will also report direct pre-attack
-feasibility, including unavailable required flows and affected mission
-capabilities.
+The primary estimand is the paired mean difference in simulated mission impact
+between each alternative and CVSS. Results order strategies by these contrasts
+within each tier and budget. This order is not a universal total ranking.
 
-The full study will report median simulation, strategy-selection, and
-total-evaluation durations on a fixed documented environment after warm-up.
-The fixed environment record is a future tooling prerequisite: no automatic
-environment record exists yet (see the
+Blast radius is the secondary safety outcome. It counts all foothold hosts at
+the end of a trial, including the initial foothold. The study also reports
+modeled pre-attack mission disruption through unavailable required flows and
+affected mission capabilities.
+
+Primary intervals must include plan-selection variation and attack-outcome
+variation. The precision target is a confidence-interval half-width of one
+mission-impact point. Holm correction applies once across the 36 primary
+comparisons: four alternatives, three budgets, and three tiers.
+
+Each tier has one excluded warm-up and five accepted measured Azure replicas.
+The study reports the median and observed range of simulation, plan-selection,
+and total-evaluation durations from one recorded environment. Automatic
+environment recording remains planned tooling (see the
 [cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
 
-It will also report host compromise probabilities and per-capability disruption
-status.
+The study also reports host compromise probabilities and per-capability
+disruption status.
 
 ## Evidence boundary and data-source status
 

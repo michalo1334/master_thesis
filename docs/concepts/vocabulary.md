@@ -22,9 +22,12 @@ states its precise semantics.
   its own seed from the simulation seed.
 - **Baseline simulation**: The simulation on the source graph revision before
   defense.
-- **Blast radius**: The number of foothold hosts at the end of a trial.
+- **Blast radius**: The number of foothold hosts at the end of a trial,
+  including the initial foothold.
 - **Mission impact**: The weighted impact of mission capabilities disrupted at
   the end of a trial.
+- **Modeled pre-attack mission disruption**: Required-flow or mission-support
+  loss caused by a defense plan before attacker footholds are applied.
 
 ## Optimization
 
@@ -33,7 +36,10 @@ states its precise semantics.
 - **Plan**: The actions selected by one strategy for one budget and selection
   seed.
 - **Budget**: The maximum number of defense actions an optimization run may
-  apply.
+  apply. Equal budgets compare action counts, not money, effort, deployment
+  complexity, or operational risk.
+- **Null strategy**: A descriptive no-defense control. It is not part of the
+  topology-scale study's primary comparison family.
 - **Pre-attack feasibility**: The condition where each mission capability is
   operational before attacker footholds are applied.
 
@@ -45,8 +51,10 @@ states its precise semantics.
   frozen manifest. It cannot be exported or analyzed.
 - **Measured run**: One timed, exported run of a frozen manifest.
 - **Replica**: One measured run among the repeats of the same frozen manifest.
+  The topology-scale study uses five accepted replicas after one warm-up.
+- **Primary comparison family**: The 36 mission-impact comparisons formed by
+  four alternatives, three action-count budgets, and three topology tiers.
+  Holm correction applies once to this complete family.
 
-Timing names: the study reports simulation, strategy-selection, and
-total-evaluation durations. The runner and the analysis record the same values
-as simulation, plan-selection, and total-evaluator durations. Strategy
-selection is plan selection.
+Timing names: use simulation, plan-selection, and total-evaluation duration.
+The study reports the median and observed range across five accepted replicas.

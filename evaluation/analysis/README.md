@@ -22,8 +22,53 @@ cat evaluation.zip | uv run network-defense-analysis analyze - --output - > anal
 ```
 
 Run the commands from this directory. The analysis engine reads local files
-only. Treat the reported uncertainty as simulator uncertainty for the exported
-scenario.
+only. Current intervals describe attack-outcome uncertainty for the exported
+scenario. They condition on the manifest's plan-selection seeds.
+
+## Azure-study analysis extension
+
+The approved Azure topology-scale study requires analysis behavior that is not
+implemented yet:
+
+- include variation between selected plans and variation between attack
+  outcomes in the primary interval;
+- select one common plan-selection seed count and one common attacks-per-plan
+  count;
+- use a confidence-interval half-width target of one mission-impact point;
+- treat a zero-difference and zero-width primary comparison as non-informative,
+  not as an automatic precision pass;
+- compare random, topology segmentation, simulation-informed, and
+  simulated-annealing strategies with CVSS at three budgets and three tiers;
+- apply Holm correction once across the complete family of 36 primary
+  comparisons.
+
+Simulated mission impact is primary. Blast radius is secondary and includes the
+initial foothold. Ordering the CVSS contrasts does not establish a universal
+total ranking. The study-level runtime report uses one excluded warm-up and the
+median and observed range from five accepted Azure replicas.
+
+### Current and required uncertainty
+
+```mermaid
+flowchart TB
+    subgraph Current[Current implementation]
+        C1[Declared plans] --> C2[Average plans at each attack seed]
+        C2 --> C3[Resample attack seeds]
+        C3 --> C4[Attack-outcome interval]
+    end
+
+    subgraph Required[Required Azure-study analysis]
+        R1[Plan-selection seeds] --> R2[Attack seeds within each selected plan]
+        R2 --> R3[Resample plans and attacks]
+        R3 --> R4[Plan-and-attack interval]
+    end
+
+    C4 -. extend .-> R4
+```
+
+The current interval answers how attack outcomes vary for the declared plans.
+The required interval answers how outcomes vary when the strategy can also
+select different plans.
 
 ## Analysis output
 
@@ -80,11 +125,12 @@ curl -H 'content-type: application/zip' --data-binary @evaluation.zip \
 ```
 
 The service accepts raw ZIP requests and returns raw ZIP responses for
-`/v1/analyze` and `/v1/pilot`. It returns HTTP 413, `Request too large`, when
-the request exceeds the compressed ZIP limit. It returns HTTP 429, `Service
-busy`, when no analysis slot is available. The image starts the service by default. Override
-the command to run the CLI, for example
-`docker run --rm network-defense-analysis network-defense-analysis --help`.
+`/v1/analyze` and `/v1/pilot`. It returns an `application/problem+json`
+response with HTTP 413 when the request exceeds the compressed ZIP limit. It
+returns the same media type with HTTP 429 when no analysis slot is available.
+The image starts the service by default. Override the command to run the CLI,
+for example `docker run --rm network-defense-analysis
+network-defense-analysis --help`.
 
 Phoenix uses Req and the explicit task:
 

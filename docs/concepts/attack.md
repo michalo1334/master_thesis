@@ -120,7 +120,8 @@ disrupted. A capability is disrupted when any of these conditions holds:
   minimum operational support.
 
 Mission impact is the sum of the impact weights of the disrupted capabilities.
-Blast radius is the number of compromised compute resources, a separate outcome.
+Blast radius is the number of foothold hosts at the end of the trial, including
+the initial foothold. It is a separate outcome.
 
 The mission impact module computes the final status and impact from the graph
 and the trial's footholds.

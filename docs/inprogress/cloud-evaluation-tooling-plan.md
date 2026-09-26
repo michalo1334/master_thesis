@@ -3,21 +3,21 @@
 ## Status
 
 Planned work. Nothing on this page is current behavior. The measured cloud
-study is blocked until all four items below exist. The
+study is blocked until all five items below exist. The
 [runbook prerequisites](cloud-evaluation-runbook.md#prerequisites) and the
 [topology-scale cloud protocol](topology-scale-study.md#cloud-protocol) state
 this block on the study side.
 
 ## Design
 
-The cloud study needs four tooling items. Each item states its purpose, its
+The cloud study needs five tooling items. Each item states its purpose, its
 dependency order, and its planned output at a high level. Commands, field
 names, schemas, and deployment resources are decided when each item is built.
 
 1. **One-off evaluator.** Runs one Mix task inside the deployed environment
    with the application identity, mounted secrets, database access, and
-   non-conflicting listeners. Every other item and every study command depends
-   on it, so it comes first. Until it exists there is no supported way to run
+   non-conflicting listeners. Every runtime tooling item and every study
+   command depends on it, so it comes first. Until it exists there is no supported way to run
     the study Mix commands against the deployed environment. The runner
     commands it will wrap are the ones in
     [evaluation lifecycle](../concepts/evaluation.md#resumability-and-runner-commands).
@@ -43,6 +43,13 @@ names, schemas, and deployment resources are decided when each item is built.
     one-off evaluator and builds on the frozen-manifest flow in
     [evaluation lifecycle](../concepts/evaluation.md#resumability-and-runner-commands).
     Its planned output is one automatic warm-up before the first measured run.
+5. **Nested study analysis and pilot.** Extends the primary interval to include
+   plan-selection and attack-outcome variation. The pilot selects one common
+   plan-selection seed count and attacks-per-plan count for a one-point
+   half-width target. The final analysis applies Holm correction once across
+   all 36 primary comparisons. A degenerate comparison is a non-informative
+   stop condition. Its planned output is the approved study analysis and pilot
+   result.
 
 ## Work order
 
@@ -50,6 +57,7 @@ names, schemas, and deployment resources are decided when each item is built.
 2. Topology diagnostic. Blocks tier selection and freeze.
 3. Automatic environment record. Blocks preflight.
 4. Automatic once-per-frozen-manifest warm-up. Blocks the measured-run phase.
+5. Nested study analysis and pilot. Blocks final sample sizing and analysis.
 
 ## Acceptance conditions
 
@@ -61,4 +69,8 @@ names, schemas, and deployment resources are decided when each item is built.
   or mismatch against the expected record.
 - A frozen manifest with the warm-up setting produces exactly one warm-up run
   before its first measured run.
+- The primary interval includes plan-selection and attack-outcome variation.
+  The pilot selects both common sample counts, enforces the one-point target,
+  and rejects degenerate comparisons as non-informative.
+- The final analysis applies Holm correction across all 36 primary comparisons.
 - The runbook and the protocol no longer mark the cloud study as blocked.

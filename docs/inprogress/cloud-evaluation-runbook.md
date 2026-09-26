@@ -26,8 +26,8 @@ Receive these inputs before you start:
 
 - the source manifests for the measured tiers;
 - the tier host counts (edge counts are generated outputs, not inputs);
-- the common attack-trial count;
-- the selection seeds;
+- the common attacks-per-plan count;
+- the common plan-selection seed count;
 - the list of strategies and budgets;
 - the generated environment record;
 - the path to write durable evidence.
@@ -38,8 +38,8 @@ Use the values in the source manifests. Do not invent values.
 
 The study starts only after the
 [tooling plan](cloud-evaluation-tooling-plan.md) is complete: the one-off
-evaluator, the topology diagnostic, the automatic environment record, and the
-automatic once-per-frozen-manifest warm-up.
+evaluator, topology diagnostic, automatic environment record, automatic
+once-per-frozen-manifest warm-up, and nested study analysis and pilot.
 
 Check every gate before you run timed measures. Stop the study if a gate
 fails.
@@ -107,10 +107,11 @@ Follow the manual replication process in the topology-scale protocol:
 1. Import the source manifest with `mix evaluate.import --file PATH`.
 2. Run the two pilots. The runtime pilot owns the tier host counts: it selects
    host counts that fit the environment capacity and pass the topology
-   diagnostic. The mission-impact pilot owns the common trial count: it runs
-   `mix evaluate.analyze --run-id RUN_ID --mode pilot --output pilot.zip` and
-   chooses the smallest trial count that meets `analysis.pilot.ci_half_width`
-   for all selected tiers. Confirm both before you freeze.
+   diagnostic. The mission-impact pilot owns the common plan-selection seed
+   count and attacks-per-plan count. Both counts must meet the one-point
+   half-width target for every non-degenerate primary comparison. The current
+   pilot cannot select both counts and must be extended before this step can
+   run. Confirm both pilots before you freeze.
 3. Freeze each measured tier with `mix evaluate.freeze
    --manifest-id SOURCE --frozen-manifest-id TARGET`.
 4. Run one warm-up with `mix evaluate.warmup --manifest-id TARGET`. Warm-up is
@@ -134,10 +135,14 @@ Follow the manual replication process in the topology-scale protocol:
    acceptance.
 9. Run each analysis serially with
    `mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip`.
-   Do not start the next analysis until the previous one completes. See the
-   [analysis guide](../../evaluation/analysis/README.md) for interpretation.
+   Do not start the next analysis until the previous one completes. The final
+   primary analysis includes both plan-selection and attack-outcome variation
+   and applies Holm correction once across all 36 comparisons. See the
+   [analysis guide](../../evaluation/analysis/README.md) for implementation
+   status and interpretation.
 10. For each tier, use the five accepted runtime summaries. Report the median
-    simulation, plan-selection, and total-evaluation durations.
+    and observed range of simulation, plan-selection, and total-evaluation
+    durations.
 11. After the timing runs complete, run one separate feasibility run with a
     manifest reserved for that run. It is not tier-runtime evidence.
 
@@ -178,9 +183,12 @@ and run ID. Do not rely on a directory layout.
 
 ## Interpretation limits
 
-- The reported intervals include simulator uncertainty only. They condition on
-  the declared selection seeds and exclude plan-selection uncertainty.
+- Primary intervals include plan-selection variation and attack-outcome
+  variation. They do not include graph-generation or environment variation.
 - One frozen graph exists per tier. The study contains no graph replication
   within a host-count tier.
+- Results apply to the declared model, three frozen graphs, and recorded Azure
+  environment. They are not absolute performance or real-world effectiveness
+  claims.
 
 Describe these limits with every reported result.

@@ -25,9 +25,12 @@ Inputs fall into these categories:
 - **Strategies and plans.** The defense strategies to run, each under a
   budget. A plan is one strategy under one budget for one selection seed.
 - **Budget.** The maximum number of defense actions a plan may apply. Current
-  defensive actions have unit cost, so budget and action count are equal.
-- **Trials and iterations.** The attack-trial count per experiment and the
-  optional optimizer trials and iterations for simulation-based strategies.
+  defensive actions have unit cost, so budget and action count are equal. This
+  equality does not represent equal money, effort, or deployment complexity.
+- **Trials and iterations.** The attack-trial count per plan and the optional
+  optimizer trials and iterations for simulation-based strategies. The Azure
+  pilot must select both the common plan-selection seed count and the common
+  attacks-per-plan count.
 - **Objectives.** The analyzed outcomes, such as blast radius and mission
   impact, plus the comparisons declared for later analysis.
 - **Seeds.** Deterministic random inputs for the evaluation.
@@ -141,8 +144,55 @@ Terminology follows [vocabulary.md](vocabulary.md). Statistical analysis,
 including comparisons and uncertainty, is described in the
 [evaluation analysis README](../../evaluation/analysis/README.md).
 
+## Study analysis contract
+
+The Azure topology-scale study compares random, topology segmentation,
+simulation-informed, and simulated-annealing strategies with CVSS. It evaluates
+action-count budgets of one, two, and three on three frozen topology tiers. The
+null strategy is a descriptive control only.
+
+The primary estimand is the paired mean difference in simulated mission impact
+against CVSS. Blast radius is secondary and includes the initial foothold.
+Ordering the CVSS contrasts does not establish a universal ranking between all
+strategies.
+
+Primary intervals must include variation between selected plans and variation
+between attack outcomes. The pilot must select one common plan-selection seed
+count and attacks-per-plan count that meet a half-width target of one
+mission-impact point. A zero-difference and zero-width comparison is a
+non-informative stop condition, not an automatic precision pass. Holm
+correction applies across all 36 primary comparisons.
+
+The current analysis implementation does not yet satisfy this study contract.
+It conditions on the declared selection seeds and selects only the attack-trial
+count. The required nested uncertainty analysis and two-dimensional pilot are
+planned work.
+
+### Where the two sources of variation enter
+
+```mermaid
+flowchart LR
+    C[Fixed tier and action-count budget]
+    C --> AS[Alternative plan-selection seeds]
+    C --> CS[CVSS plan-selection seeds]
+    AS --> AP[Selected alternative plans]
+    CS --> CP[Selected CVSS plans]
+    AP --> AA[Paired attack seeds for each plan]
+    CP --> AA
+    AA --> D[Paired mission-impact differences]
+    D --> I[Interval over plans and attacks]
+```
+
+For example, one tier and one budget can produce several alternative plans and
+several CVSS plans. Every selected plan is evaluated with the declared attack
+seeds. Differences between plans measure plan-selection variation. Differences
+between attacks against one plan measure attack-outcome variation. The primary
+interval must include both sources.
+
 ## Relationship to the topology-scale study
 
-The topology-scale protocol uses the commands above. It defines which manifests
-to run, when to warm up, how many timing replicas to collect, and how to compare
-them.
+The [topology-scale protocol](../inprogress/topology-scale-study.md) defines
+which manifests to run, when to warm up, how many timing replicas to collect,
+and how to compare them. Local runs are pilots. Final cloud-runtime,
+topology-scale, and strategy-effect evidence requires the completed Azure
+study.
