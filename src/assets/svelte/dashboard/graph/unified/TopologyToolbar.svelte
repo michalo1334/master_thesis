@@ -21,8 +21,6 @@
     unplacedCount?: number;
     unplacedOpen?: boolean;
     onToggleUnplaced?: () => void;
-    navigatorOpen?: boolean;
-    onToggleNavigator?: () => void;
   }
 
   let {
@@ -38,8 +36,6 @@
     unplacedCount = 0,
     unplacedOpen = false,
     onToggleUnplaced = undefined,
-    navigatorOpen = false,
-    onToggleNavigator = undefined,
   }: Props = $props();
 
   /** Unique prefix for the combobox listbox and option ids. */
@@ -66,7 +62,6 @@
   let showsAdd = $derived(editable && Boolean(onAdd));
   let showsClearPins = $derived(pinnedCount > 0 && Boolean(onClearPins));
   let showsUnplaced = $derived(unplacedCount > 0 && Boolean(onToggleUnplaced));
-  let showsNavigator = $derived(Boolean(onToggleNavigator));
   /** Toolbar controls in DOM order. Keep in step with the markup below. */
   let itemKeys = $derived([
     ...(showsAdd ? ["add"] : []),
@@ -76,7 +71,6 @@
     "reset",
     ...(showsClearPins ? ["clear-pins"] : []),
     ...(showsUnplaced ? ["unplaced"] : []),
-    ...(showsNavigator ? ["navigator"] : []),
   ]);
   let focusTarget = $derived(
     itemKeys.includes(focusKey ?? "") ? focusKey : itemKeys[0],
@@ -392,18 +386,6 @@
       <span aria-hidden="true">&#9888;</span>
       <span aria-hidden="true">{unplacedCount}</span>
     </button>
-  {/if}
-
-  {#if showsNavigator}
-    <button
-      type="button"
-      class="topology-toolbar-button"
-      data-toolbar-key="navigator"
-      tabindex={tabindexOf("navigator")}
-      aria-pressed={navigatorOpen}
-      aria-label="Navigator"
-      onclick={onToggleNavigator}>Navigator</button
-    >
   {/if}
 </div>
 

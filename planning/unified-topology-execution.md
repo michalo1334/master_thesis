@@ -62,9 +62,12 @@ Each chunk must leave its scope tested. Later chunks can remove temporary caller
 4. `04-scene-layout.md` adds the pure scene adapter and deterministic browser layout.
 5. `05-unified-canvas-rendering.md` adds unified rendering and semantic zoom.
 6. `06-focus-pins-inspector.md` adds local disclosure, pins, accessibility, and inspector feedback.
-7. `07-toolbar-navigator-unplaced.md` adds canvas controls, search, Navigator, and Unplaced interactions.
+7. `07-toolbar-search-unplaced.md` adds canvas controls, search, and Unplaced interactions.
 8. `08-secondary-consumers.md` migrates mission-flow and simulation-report consumers.
 9. `09-cutover-docs.md` removes all old paths and updates documentation.
 10. `10-integration-check.md` runs the full checks and repairs integration defects.
+11. `11-edge-refinement.md` removes the obsolete hierarchy panel and introduces segment-pair connection bundles.
+12. `12-connection-detail-refinement.md` keeps bundles at every zoom and adds directional host-level details.
+13. Rerun `10-integration-check.md`, including the browser post-check.
 
 Chunks run in order. A chunk can start only after the prior chunk passes its targeted checks and review.

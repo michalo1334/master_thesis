@@ -67,7 +67,7 @@ export function showsServices(level: TopologyDetailLevel): boolean {
   return level === "near";
 }
 
-/** Containment and ownership connectors appear only at near detail. */
+/** Service ownership connectors appear only at near detail. */
 export function showsStructuralEdges(level: TopologyDetailLevel): boolean {
   return level === "near";
 }

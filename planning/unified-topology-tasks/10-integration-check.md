@@ -47,7 +47,7 @@ Check these flows:
 1. Open a graph and confirm that the topology appears immediately.
 2. Move an entity and confirm that no semantic projection request occurs.
 3. Change a semantic field and confirm that projection feedback appears.
-4. Select, focus, pin, unpin, search, and use the Navigator.
+4. Select, focus, pin, unpin, and search.
 5. Arrange, Fit, Reset, and open the Unplaced tray.
 6. Open a simulation report and confirm heat appearance on the unified canvas.
 7. Check the browser console and failed requests after each main flow.

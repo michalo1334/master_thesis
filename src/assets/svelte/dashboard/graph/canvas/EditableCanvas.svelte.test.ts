@@ -131,22 +131,6 @@ describe("EditableCanvas topology controls", () => {
     expect(api.createNodeDraft).toHaveBeenCalledTimes(2);
   });
 
-  it("shows the Navigator tree and selects through it", async () => {
-    const { document } = renderCanvas();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Navigator" }));
-
-    const host = screen.getByRole("button", { name: "Host web-1" });
-    expect(host).toBeInTheDocument();
-
-    await fireEvent.click(host);
-
-    expect(document.canvasSelection).toEqual({
-      kind: "node",
-      nodeId: "web-1",
-    });
-  });
-
   it("opens the Unplaced tray from the count and selects an entry", async () => {
     const { document } = renderCanvas();
 

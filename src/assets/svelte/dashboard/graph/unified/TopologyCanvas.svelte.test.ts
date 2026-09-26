@@ -303,7 +303,7 @@ describe("TopologyCanvas", () => {
     }
   });
 
-  it("renders grouped policy and flow data instead of raw edges", () => {
+  it("renders a grouped segment-pair bundle instead of raw edges", () => {
     const { graph, projection } = prepare();
     const withoutGroups = projectionOf({
       segments: projection.segments,
@@ -317,7 +317,10 @@ describe("TopologyCanvas", () => {
     });
 
     expect(container.querySelector("[data-policy-from]")).toBeNull();
-    expect(container.querySelector(".topology-flow")).not.toBeNull();
+    expect(container.querySelector(".topology-flow")).toBeNull();
+    expect(
+      container.querySelector("[data-bundle-key='segment-a:segment-b']"),
+    ).not.toBeNull();
   });
 
   it("summarizes at far detail and reveals editable detail near", async () => {
@@ -348,7 +351,7 @@ describe("TopologyCanvas", () => {
     ).not.toBeNull();
     expect(
       container.querySelectorAll(".topology-structural-edge"),
-    ).toHaveLength(5);
+    ).toHaveLength(1);
     expect(hostPosition(container, "host-a1")).toEqual(hostBefore);
     expect(
       container
@@ -371,6 +374,278 @@ describe("TopologyCanvas", () => {
 
     await zoom(-1);
     expect(container.querySelector("[data-node-id='host-a1']")).not.toBeNull();
+  });
+
+  it("summarizes relationships into one directed bundle per segment pair at far detail", async () => {
+    const { graph, projection } = prepare();
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection, autoFit: false },
+    });
+
+    await zoom(FAR_ZOOM_CLICKS);
+
+    expect(container.querySelector(".topology-policy")).toBeNull();
+    expect(container.querySelector(".topology-flow")).toBeNull();
+    expect(container.querySelectorAll("[data-bundle-key]")).toHaveLength(1);
+
+    const bundle = container.querySelector(
+      "[data-bundle-key='segment-a:segment-b']",
+    )!;
+    expect(bundle.getAttribute("data-bundle-connections")).toBe("2");
+    expect(bundle.getAttribute("aria-label")).toBe(
+      "Zone A to Zone B, 2 connections, service-a1 · host-a1 → host-b1",
+    );
+    expect(
+      container.querySelector("[data-bundle-visual='segment-a:segment-b']")
+        ?.textContent,
+    ).toContain("2");
+    expect(bundle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("keeps segment-pair bundles and hides detailed lines at every zoom", async () => {
+    const { graph, projection } = prepare();
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection, autoFit: false },
+    });
+
+    for (const zoomChange of [0, FAR_ZOOM_CLICKS, -NEAR_ZOOM_CLICKS]) {
+      if (zoomChange !== 0) await zoom(zoomChange);
+      expect(container.querySelector(".topology-policy")).toBeNull();
+      expect(container.querySelector(".topology-flow")).toBeNull();
+      expect(container.querySelectorAll("[data-bundle-key]")).toHaveLength(1);
+    }
+  });
+
+  it("opens one bundle popover on hover, keyboard focus, and click", async () => {
+    const { graph, projection } = prepare();
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection, autoFit: false },
+    });
+    await zoom(FAR_ZOOM_CLICKS);
+    const bundle = container.querySelector(
+      "[data-bundle-key='segment-a:segment-b']",
+    )!;
+
+    await fireEvent.pointerEnter(bundle);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Zone A → Zone B");
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "service-a1 · host-a1 → host-b1",
+    );
+
+    await fireEvent.pointerLeave(bundle);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    await fireEvent.focus(bundle);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+
+    await fireEvent.blur(bundle);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+
+    await fireEvent.click(bundle);
+    expect(bundle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "service-a1 · host-a1 → host-b1",
+    );
+
+    await fireEvent.keyDown(container.querySelector(".topology-surface")!, {
+      key: "Escape",
+    });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(bundle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("layers bundle hit areas over frames but below headers and members", async () => {
+    const { graph, projection } = prepare();
+    const onSelectEdge = vi.fn();
+    const { container } = render(TopologyCanvas, {
+      props: {
+        graph,
+        projection,
+        autoFit: false,
+        onSelectEdge,
+        onSelectNode: vi.fn(),
+      },
+    });
+    const bundle = container.querySelector(
+      "[data-bundle-key='segment-a:segment-b']",
+    )!;
+    const hit = bundle.querySelector(".topology-bundle-hit")!;
+    const frame = container.querySelector(
+      "[data-segment-id='segment-a'] .topology-segment-frame",
+    )!;
+    const header = container.querySelector(
+      "[data-segment-header='segment-a']",
+    )!;
+    const host = container.querySelector("[data-node-id='host-a1']")!;
+
+    // The visual path cannot own the pointer. The transparent stroke explicitly
+    // does, so exposed portions of the line retain hover and click behavior.
+    expect(getComputedStyle(hit).pointerEvents).toBe("stroke");
+    expect(
+      frame.compareDocumentPosition(bundle) &
+        globalThis.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      bundle.compareDocumentPosition(header) &
+        globalThis.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      bundle.compareDocumentPosition(host) &
+        globalThis.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await fireEvent.pointerEnter(bundle);
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    await fireEvent.click(hit);
+    expect(onSelectEdge).toHaveBeenCalledWith("policy-ab");
+  });
+
+  it("clamps a bundle popover to a narrow viewport", async () => {
+    Object.defineProperty(window.Element.prototype, "clientWidth", {
+      configurable: true,
+      value: 390,
+    });
+    Object.defineProperty(window.Element.prototype, "clientHeight", {
+      configurable: true,
+      value: 180,
+    });
+    const { graph, projection } = prepare();
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection, autoFit: false },
+    });
+
+    await fireEvent.click(
+      container.querySelector("[data-bundle-key='segment-a:segment-b']")!,
+    );
+
+    const popover = screen.getByRole("tooltip");
+    expect(Number.parseFloat(popover.style.left)).toBeGreaterThanOrEqual(8);
+    expect(Number.parseFloat(popover.style.left)).toBeLessThanOrEqual(126);
+    expect(Number.parseFloat(popover.style.top)).toBe(8);
+  });
+
+  it("shows only selected host outgoing details and closes them correctly", async () => {
+    const { graph, projection } = prepare();
+    const withIncoming = projectionOf({
+      ...projection,
+      flow_groups: [
+        ...projection.flow_groups,
+        flowGroupRecord("host-b1", "host-a1", ["service-a1"], ["flow-ba"]),
+      ],
+    });
+    const { container, rerender } = render(TopologyCanvas, {
+      props: {
+        graph,
+        projection: withIncoming,
+        autoFit: false,
+        selectedNodeId: "host-a1",
+      },
+    });
+
+    const panel = () => container.querySelector("[data-host-connections]");
+    expect(panel()).toHaveAttribute("data-host-connections", "host-a1");
+    expect(panel()).toHaveTextContent("service-a1 · host-a1 → host-b1");
+    expect(panel()).not.toHaveTextContent("host-b1 → host-a1");
+
+    await rerender({
+      graph,
+      projection: withIncoming,
+      autoFit: false,
+      selectedNodeId: "host-b1",
+    });
+    expect(panel()).toHaveAttribute("data-host-connections", "host-b1");
+    expect(panel()).toHaveTextContent("service-a1 · host-b1 → host-a1");
+
+    await rerender({
+      graph,
+      projection: withIncoming,
+      autoFit: false,
+      selectedNodeId: "segment-a",
+    });
+    expect(panel()).toBeNull();
+
+    await rerender({
+      graph,
+      projection: withIncoming,
+      autoFit: false,
+      selectedNodeId: undefined,
+    });
+    expect(panel()).toBeNull();
+
+    await rerender({
+      graph,
+      projection: withIncoming,
+      autoFit: false,
+      selectedNodeId: "host-a1",
+    });
+    expect(panel()).not.toBeNull();
+    await fireEvent.keyDown(container.querySelector(".topology-surface")!, {
+      key: "Escape",
+    });
+    expect(panel()).toBeNull();
+  });
+
+  it("shows an empty selected-host outgoing detail", () => {
+    const { graph, projection } = prepare();
+    const withoutFlows = projectionOf({ ...projection, flow_groups: [] });
+    render(TopologyCanvas, {
+      props: {
+        graph,
+        projection: withoutFlows,
+        autoFit: false,
+        selectedNodeId: "host-a1",
+      },
+    });
+
+    expect(screen.getByText("No outgoing connections")).toBeInTheDocument();
+  });
+
+  it("lists no service in a bundle without a flow", async () => {
+    const { graph, projection } = prepare();
+    const policyOnly = projectionOf({
+      segments: projection.segments,
+      hosts: projection.hosts,
+      services: projection.services,
+      attachments: projection.attachments,
+      policy_groups: projection.policy_groups,
+    });
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection: policyOnly, autoFit: false },
+    });
+
+    await zoom(FAR_ZOOM_CLICKS);
+    const bundle = container.querySelector(
+      "[data-bundle-key='segment-a:segment-b']",
+    )!;
+    expect(bundle.getAttribute("data-bundle-connections")).toBe("1");
+    expect(bundle.getAttribute("aria-label")).toBe(
+      "Zone A to Zone B, 1 connection, no services",
+    );
+
+    await fireEvent.click(bundle);
+
+    expect(screen.getByRole("tooltip")).toHaveTextContent("No services");
+  });
+
+  it("draws no bundle loop line for self-segment policy", async () => {
+    const { graph, projection } = prepare();
+    const selfPolicy = projectionOf({
+      ...projection,
+      policy_groups: [
+        ...projection.policy_groups,
+        policyGroupRecord("segment-a", "segment-a", ["policy-aa"]),
+      ],
+    });
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection: selfPolicy, autoFit: false },
+    });
+
+    await zoom(FAR_ZOOM_CLICKS);
+
+    expect(
+      container.querySelector("[data-bundle-key='segment-a:segment-a']"),
+    ).toBeNull();
+    expect(container.querySelector(".topology-self-policy")).not.toBeNull();
   });
 
   it("shows a distinct pending cue and keeps editing state", () => {
@@ -656,15 +931,14 @@ describe("TopologyCanvas", () => {
     expect(world.getAttribute("transform")).toMatch(/scale\(1\)/);
   });
 
-  it("passes appearance hooks to nodes, policies, and flows", () => {
+  it("passes appearance hooks to nodes and bundles", () => {
     const { graph, projection } = prepare();
     const { container } = render(TopologyCanvas, {
       props: {
         graph,
         projection,
         nodeAppearance: () => ({ cardOpacity: 0.4 }),
-        policyAppearance: () => ({ strokeWidth: 7 }),
-        flowAppearance: () => ({ strokeWidth: 5 }),
+        bundleAppearance: () => ({ strokeWidth: 7 }),
       },
     });
 
@@ -674,11 +948,8 @@ describe("TopologyCanvas", () => {
         .getAttribute("style"),
     ).toMatch(/--node-card-opacity:\s*0\.4/);
     expect(
-      container.querySelector(".topology-policy")!.getAttribute("style"),
-    ).toMatch(/--policy-stroke-width:\s*7/);
-    expect(
-      container.querySelector(".topology-flow")!.getAttribute("style"),
-    ).toMatch(/--flow-stroke-width:\s*5/);
+      container.querySelector(".topology-bundle")!.getAttribute("style"),
+    ).toMatch(/--bundle-stroke-width:\s*7/);
   });
 
   it("coalesces a drag into one geometry update per animation frame", async () => {
@@ -908,14 +1179,26 @@ describe("TopologyCanvas", () => {
 
     expect(
       container.querySelectorAll(".topology-structural-edge"),
-    ).toHaveLength(5);
+    ).toHaveLength(1);
     expect(
       container.querySelector("[data-edge-id='contains-stray']"),
     ).toBeNull();
     expect(container.querySelector("[data-edge-id='runs-stray']")).toBeNull();
-    expect(
-      container.querySelector("[data-edge-id='contains-a1']"),
-    ).not.toBeNull();
+    expect(container.querySelector("[data-edge-id='runs-a1']")).not.toBeNull();
+  });
+
+  it("never draws an authored Contains connector", async () => {
+    const { graph, projection } = prepare();
+    const { container } = render(TopologyCanvas, {
+      props: { graph, projection, autoFit: false, onSelectEdge: vi.fn() },
+    });
+
+    await zoom(-NEAR_ZOOM_CLICKS);
+
+    for (const edge of graph.edges) {
+      if (edge.type !== "Contains") continue;
+      expect(container.querySelector(`[data-edge-id='${edge.id}']`)).toBeNull();
+    }
   });
 
   it("does not let a finished drag swallow the next selection", async () => {

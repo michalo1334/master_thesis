@@ -37,7 +37,7 @@ Keep graph actions in one compact toolbar. Keep the existing inspector on the ri
 ┌──────────────────────────────────────────────────────────┬──────────────────┐
 │ Add ▾  Search…  Arrange  Fit  Reset  Clear pins  ⚠ 3    │ Inspector        │
 ├──────────────────────────────────────────────────────────┤                  │
-│ Navigator ▸                                              │ Selected entity  │
+│                                                          │ Selected entity  │
 │                                                          │ Fields           │
 │       ┌ DMZ ───────────────┐      ┌ Internal ─────────┐  │ Relationships    │
 │       │ hosts and services │ ───▶ │ hosts/services   │  │ Placement status │
@@ -54,7 +54,6 @@ The toolbar contains:
 - Arrange, Fit, and Reset.
 - Clear pins, only when pins exist.
 - Unplaced count, only when unplaced entities exist.
-- Navigator toggle.
 
 Do not add a density switch, context-layer switch, or presentation selector.
 
@@ -107,11 +106,12 @@ Place a singly attached context node near its network anchor. Place shared conte
 
 Use a consistent visual hierarchy:
 
-- Segment reachability: strong directed line, visible at low zoom.
+- Connectivity at every zoom: one directed bundle per segment pair with a connection count and directional detail popover.
+- Bundle detail: each row shows `service · source host → target host`.
 - Self-segment policy: selectable indicator in the segment header.
-- Containment and service ownership: thin structural line at high detail.
+- Service ownership: thin structural line at high detail.
+- Segment containment: spatial enclosure only. Do not draw `Contains` lines.
 - Context relationship: revealed through focus or a pin.
-- Operational flow: separate overlay with clear draft or saved status.
 
 Do not render every context edge at baseline. Show compact context counts instead.
 
@@ -134,8 +134,10 @@ Show:
 
 - Segment headers and boundaries.
 - Summary counts.
-- Directed segment policy.
-- Self-policy indicators.
+- One directed connection bundle per ordered segment pair.
+- A connection count on each bundle.
+- A directional connection popover on hover, keyboard focus, or click.
+- Self-policy indicators without loop lines.
 - Pinned context exceptions.
 
 Hide individual hosts, services, and normal context edges.
@@ -155,7 +157,7 @@ Show:
 - Compact host glyphs or cards.
 - Per-host service counts.
 - Selected or pinned context.
-- Segment policy.
+- The same segment-pair connection bundles used at far zoom.
 
 ### Near zoom
 
@@ -172,9 +174,10 @@ Show:
 
 - Full host cards.
 - Service cards and labels.
-- Containment and ownership relationships.
+- Service ownership relationships. Segment enclosure shows containment.
 - Connection handles and edit actions.
 - Selected or pinned context.
+- The same segment-pair connection bundles used at far zoom.
 
 ### Focus override
 
@@ -194,6 +197,8 @@ Focused:              [Credential]
 
 The lens can reveal detail above the current zoom baseline. It must not move the anchor, resize the segment, or run layout.
 
+Selecting a host also opens a view-only list of that host's outgoing projected connections. Each row shows the service and `source host → target host`. Incoming-only connections do not appear.
+
 ## Selection and Pins
 
 Selection controls the inspector and activates a temporary adjacency lens.
@@ -210,7 +215,7 @@ Pinned state uses both an icon and an outline. Pins are view state. They do not 
 
 If a pinned entity is deleted or no longer exists after reload, remove its pin.
 
-## Search and Navigator
+## Search
 
 Search focuses an entity. It does not filter the graph or change layout.
 
@@ -220,25 +225,6 @@ A search result must:
 2. Select the entity.
 3. Activate its adjacency lens.
 4. Keep surrounding topology visible for orientation.
-
-The Navigator is a DOM-based hierarchy:
-
-```text
-DMZ
-├─ web-1
-│  └─ nginx
-├─ web-2
-└─ dns
-
-Attached context
-├─ ordering capability
-└─ deployment credential
-
-Unplaced
-└─ orphan-service
-```
-
-Navigator focus activates the same lens as canvas focus. Activation selects the entity and opens the inspector.
 
 ## Unplaced Tray
 
@@ -332,7 +318,7 @@ Do not duplicate editable graph fields in a separate topology panel.
 
 ## Accessibility
 
-- Provide keyboard access through the canvas and Navigator.
+- Provide keyboard access through the canvas and Search.
 - Make keyboard focus activate the same adjacency lens as pointer selection.
 - Keep focus visible at every zoom level.
 - Use text, shape, icon, and line style with color.

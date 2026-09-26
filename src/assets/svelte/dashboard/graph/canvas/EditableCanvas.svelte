@@ -10,7 +10,6 @@
     type TopologyViewCommand,
   } from "../unified/TopologyCanvas.svelte";
   import TopologyToolbar from "../unified/TopologyToolbar.svelte";
-  import TopologyNavigator from "../unified/TopologyNavigator.svelte";
   import UnplacedTray from "../unified/UnplacedTray.svelte";
   import { arrangeTopology } from "../unified/layout";
   import {
@@ -41,7 +40,6 @@
   let connection = $state<ConnectionRequest>();
   let connectionPickerOpen = $state(false);
   let connectivityRules = $state<readonly GraphConnectivityRule[]>([]);
-  let navigatorOpen = $state(false);
   let unplacedOpen = $state(false);
   /**
    * Canvas controls share selection with the document and focus with the
@@ -56,17 +54,12 @@
 
   /**
    * The scene joins the accepted projection to the editable graph.
-   * Search, the Navigator, and the Unplaced tray read this scene only.
+   * Search and the Unplaced tray read this scene only.
    */
   let scene = $derived(
     buildTopologyScene(document.graph, document.topologyProjection, {
       pendingEntityIds: document.pendingProjectionEntityIds,
     }),
-  );
-  let selectedEntityId = $derived(
-    document.canvasSelection.kind === "node"
-      ? document.canvasSelection.nodeId
-      : undefined,
   );
 
   function nextToken(): number {
@@ -81,7 +74,7 @@
   }
 
   /**
-   * Applies a selection from the Navigator or the Unplaced tray.
+   * Applies a selection from the Unplaced tray.
    *
    * A relationship has no world rectangle unless a projection group contains
    * it, so an edge selection opens the inspector without a viewport command.
@@ -306,8 +299,6 @@
     unplacedCount={scene.unplaced.length}
     {unplacedOpen}
     onToggleUnplaced={() => (unplacedOpen = !unplacedOpen)}
-    {navigatorOpen}
-    onToggleNavigator={() => (navigatorOpen = !navigatorOpen)}
   />
 
   <div class="canvas-stage">
@@ -340,15 +331,6 @@
       onAddNode={addNode}
       {onCompareGraphs}
     />
-    {#if navigatorOpen}
-      <div class="canvas-navigator">
-        <TopologyNavigator
-          {scene}
-          {selectedEntityId}
-          onSelect={focusSelection}
-        />
-      </div>
-    {/if}
   </div>
 
   {#if unplacedOpen && scene.unplaced.length > 0}
@@ -390,14 +372,6 @@
     position: relative;
     flex: 1 1 auto;
     min-height: 0;
-  }
-  .canvas-navigator {
-    position: absolute;
-    z-index: 3;
-    top: 3.5rem;
-    left: var(--ui-space-3);
-    max-width: 20rem;
-    max-height: calc(100% - 5rem);
   }
   .canvas-unplaced {
     flex: 0 0 auto;

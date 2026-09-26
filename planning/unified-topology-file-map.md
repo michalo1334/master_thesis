@@ -46,9 +46,9 @@ The exact split is not fixed. Keep these names unless implementation finds a sma
 | `src/assets/svelte/dashboard/graph/topology-scene.ts` | Join projection IDs to graph entities. Produce segment, attachment, policy, flow, and Unplaced scene data. Do not inspect raw edges for network meaning. | Required behavior; conditional name |
 | `src/assets/svelte/dashboard/graph/unified/TopologyCanvas.svelte` | Render the single modeless canvas. Own geometry, semantic zoom, focus lenses, pins, drag, and selection. | Required behavior; conditional path |
 | `src/assets/svelte/dashboard/graph/unified/layout.ts` | Add deterministic Arrange behavior and stable segment bounds. | Required behavior; conditional path |
-| `src/assets/svelte/dashboard/graph/unified/TopologyToolbar.svelte` | Add Add, Search, Arrange, Fit, Reset, Clear pins, Unplaced count, and Navigator controls. | Conditional split |
+| `src/assets/svelte/dashboard/graph/unified/TopologyToolbar.svelte` | Add Add, Search, Arrange, Fit, Reset, Clear pins, and Unplaced count controls. | Conditional split |
 | `src/assets/svelte/dashboard/graph/unified/UnplacedTray.svelte` | Show projection issues and unplaced entities. | Conditional split |
-| `src/assets/svelte/dashboard/graph/unified/TopologyNavigator.svelte` | Show a segment, host, service, attached-context, and Unplaced tree. | Conditional split |
+| `src/assets/svelte/dashboard/graph/unified/topology-bundles.ts` | Group accepted policy and flow groups into one directed bundle per ordered segment pair at every zoom. Add deterministic `service · source host → target host` details. | Required behavior; conditional name |
 
 ## Modify
 
@@ -81,7 +81,7 @@ The exact split is not fixed. Keep these names unless implementation finds a sma
 | `src/assets/svelte/dashboard/graph/canvas/canvasState.ts` | Extend shared state only if semantic zoom, pins, or focus need shared primitives. | Unified canvas | Conditional |
 | `src/assets/svelte/dashboard/graph/canvas/Canvas.svelte` | Extend shared rendering only if the unified canvas can reuse it without semantic coupling. | Unified canvas | Conditional |
 | `src/assets/svelte/dashboard/graph/canvas/EditableCanvas.svelte` | Replace any old Network canvas integration with the unified canvas. | Unified canvas | Required consumer migration |
-| `src/assets/svelte/ui-kit/workspace/DocumentOutline.svelte` | Change only if the topology Navigator can reuse this generic component. | Navigator decision | Conditional |
+| `src/assets/svelte/ui-kit/workspace/DocumentOutline.svelte` | Change only if the topology canvas can reuse this generic component. | Conditional |
 
 Update API mocks if TypeScript reports missing interface members:
 
@@ -141,7 +141,7 @@ The generator can update other barrels. Check the generated diff.
 | `src/test/network_defense/graph/topology_projection_test.exs` | Membership, attachments, anchors, self-policy, flow groups, counts, deterministic order, and each issue code. Port semantic fixtures from `NetworkCanvasProjection.test.ts`. |
 | `src/assets/svelte/dashboard/graph/__tests__/TopologyProjectionModel.svelte.test.ts` | Fingerprints, urgency, request versions, stale replies, save conflicts, and deletion pruning. |
 | `src/assets/svelte/dashboard/graph/__tests__/topology-scene.test.ts` | ID joins, missing references, Unplaced data, and absence of raw-edge inference. |
-| Tests beside the unified canvas | Stable world coordinates, zoom hysteresis, keyboard focus, pins, drag rules, pending state, and placement issues. |
+| Tests beside the unified canvas | Stable world coordinates, zoom hysteresis, keyboard focus, pins, drag rules, all-zoom bundles, directional host details, pending state, and placement issues. |
 
 ### Modify
 
@@ -206,7 +206,7 @@ A conditional canvas extension can still change a shared canvas file. Do not add
 6. Replace the browser API method.
 7. Add the browser projection model. Compose it into editable documents.
 8. Add the scene adapter.
-9. Add the unified canvas, layout, toolbar, Navigator, Unplaced tray, and inspector sections.
+9. Add the unified canvas, layout, toolbar, Unplaced tray, and inspector sections.
 10. Migrate mission-flow and simulation-report consumers.
 11. Delete the old projector, renderer, layout, endpoint, contracts, ownership helper, and obsolete controls.
 12. Update documentation and run the full post-change checks.

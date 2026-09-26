@@ -25,9 +25,7 @@
   import {
     buildTopologyScene,
     topologyEntityLabel,
-    type TopologyFlowGroupScene,
     type TopologyHostScene,
-    type TopologyPolicyGroupScene,
     type TopologyServiceScene,
     type TopologyUnplacedEntry,
   } from "../topology-scene";
@@ -37,6 +35,12 @@
     SERVICE_SIZE,
     measureTopology,
   } from "./layout";
+  import {
+    buildConnectionBundles,
+    buildOutgoingConnectionDetails,
+    connectionDetailLabel,
+    type TopologyConnectionBundle,
+  } from "./topology-bundles";
   import {
     connectRects,
     fitRects,
@@ -54,11 +58,7 @@
     showsStructuralEdges,
     type TopologyDetailLevel,
   } from "./semantic-zoom";
-  import {
-    computeTopologyLens,
-    flowGroupKey,
-    policyGroupKey,
-  } from "../topology-lens";
+  import { computeTopologyLens } from "../topology-lens";
   import { unplacedReason, unplacedReasonCode } from "../topology-placement";
   import { TOPOLOGY_NODE_TYPES } from "./topology-node-types";
 
@@ -126,11 +126,9 @@
     onClearPins?: () => void;
     nodeAppearance?: (node: Node) => CanvasNodeAppearance | undefined;
     edgeAppearance?: (edge: Edge) => CanvasEdgeAppearance | undefined;
-    policyAppearance?: (
-      group: TopologyPolicyGroupScene,
-    ) => CanvasEdgeAppearance | undefined;
-    flowAppearance?: (
-      group: TopologyFlowGroupScene,
+    /** Appearance of every segment-pair connection bundle. */
+    bundleAppearance?: (
+      bundle: TopologyConnectionBundle,
     ) => CanvasEdgeAppearance | undefined;
     onGeometryChange?: (positions: ReadonlyMap<string, Point>) => void;
     onSelectNode?: (nodeId: string) => void;
@@ -166,8 +164,7 @@
     onClearPins = undefined,
     nodeAppearance = undefined,
     edgeAppearance = undefined,
-    policyAppearance = undefined,
-    flowAppearance = undefined,
+    bundleAppearance = undefined,
     onGeometryChange = undefined,
     onSelectNode = undefined,
     onSelectEdge = undefined,
@@ -195,6 +192,10 @@
   const HOST_GLYPH_HEIGHT = 32;
   /** Height of the unplaced card, which carries a label and a reason. */
   const UNPLACED_CARD_HEIGHT = 46;
+  /** Viewport inset and bounded size for an anchored bundle detail. */
+  const BUNDLE_POPOVER_MARGIN = 8;
+  const BUNDLE_POPOVER_MAX_WIDTH = 16 * 16;
+  const BUNDLE_POPOVER_MAX_HEIGHT = 12 * 16;
   /** Stable empty freeze, so a missing snapshot never invalidates the layout. */
   const NO_CONTEXT_FREEZE: ReadonlyMap<string, Point> = new Map();
   /** Segment width that leaves room for a CIDR next to the name. */
@@ -596,72 +597,161 @@
     return pinTargetIds.has(entityId) ? base + PIN_LABEL_INSET : base;
   }
 
-  let policyLines = $derived.by(() => {
-    const lines: Array<{
-      key: string;
-      group: TopologyPolicyGroupScene;
-      path: { source: Point; target: Point };
-      selected: boolean;
-      dimmed: boolean;
-      appearance: CanvasEdgeAppearance | undefined;
-      label: string;
-    }> = [];
-    for (const group of scene.policyGroups) {
-      const { from_segment_id: fromId, to_segment_id: toId } = group.group;
-      if (fromId === toId) continue;
-      const from = nodeRects.get(fromId);
-      const to = nodeRects.get(toId);
-      if (!from || !to) continue;
-      const key = policyGroupKey(group);
-      lines.push({
-        key,
-        group,
-        path: connectRects(from, to),
-        selected: group.edges.some((edge) => edge.id === selectedEdgeId),
-        dimmed: lens.active && !lens.policyKeys.has(key),
-        appearance: policyAppearance?.(group),
-        label: `Segment policy from ${segmentName(fromId)} to ${segmentName(toId)}`,
-      });
-    }
-    return lines;
-  });
+  /** One directed segment-pair connection bundle stays visible at every zoom. */
+  let showsBundles = $derived(true);
 
-  let flowLines = $derived.by(() => {
-    const lines: Array<{
-      key: string;
-      group: TopologyFlowGroupScene;
-      path: { source: Point; target: Point };
-      label: string;
-      dimmed: boolean;
-      appearance: CanvasEdgeAppearance | undefined;
-    }> = [];
-    for (const group of scene.flowGroups) {
-      const from = nodeRects.get(group.group.source_host_id);
-      const to = nodeRects.get(group.group.target_host_id);
-      if (!from || !to) continue;
-      const names = group.services.map((service) => service.node.data.name);
-      const key = flowGroupKey(group);
-      lines.push({
-        key,
-        group,
-        path: connectRects(from, to),
-        label: `Operational flow from ${hostName(group.group.source_host_id)} to ${names.join(", ") || hostName(group.group.target_host_id)}`,
-        dimmed: lens.active && !lens.flowKeys.has(key),
-        appearance: flowAppearance?.(group),
-      });
-    }
-    return lines;
-  });
+  interface BundleView {
+    key: string;
+    bundle: TopologyConnectionBundle;
+    path: { source: Point; target: Point };
+    /** Visible connection count. */
+    count: string;
+    /** Accessible name: direction, connection count, and service summary. */
+    label: string;
+    /** Popover heading. */
+    title: string;
+    appearance: CanvasEdgeAppearance | undefined;
+    dimmed: boolean;
+    selected: boolean;
+  }
 
   /**
-   * Authored `Contains` and `Runs` edges, keyed by relationship and endpoints.
-   * Structural connectors may only use an edge that projection membership
-   * confirms, so raw edges never add membership.
+   * Bundle disclosure state.
+   *
+   * Pointer hover, keyboard focus, and click each open one popover. Escape
+   * closes it. The state lives in the view only and is never persisted.
+   */
+  let hoveredBundleKey = $state<string>();
+  let focusedBundleKey = $state<string>();
+  let openedBundleKey = $state<string>();
+  let bundlePopoverKey = $derived(
+    hoveredBundleKey ?? focusedBundleKey ?? openedBundleKey,
+  );
+
+  let bundleViews = $derived.by<BundleView[]>(() => {
+    const views: BundleView[] = [];
+    if (!showsBundles) return views;
+    for (const bundle of buildConnectionBundles(scene)) {
+      if (bundle.isSelf) continue;
+      const from = nodeRects.get(bundle.fromSegmentId);
+      const to = nodeRects.get(bundle.toSegmentId);
+      if (!from || !to) continue;
+      const fromName = segmentName(bundle.fromSegmentId);
+      const toName = segmentName(bundle.toSegmentId);
+      views.push({
+        key: bundle.key,
+        bundle,
+        path: connectRects(from, to),
+        count: String(bundle.connectionCount),
+        label: `${fromName} to ${toName}, ${countLabel(
+          bundle.connectionCount,
+          "connection",
+          "connections",
+        )}, ${connectionSummary(bundle)}`,
+        title: `${fromName} → ${toName}`,
+        appearance: bundleAppearance?.(bundle),
+        dimmed:
+          lens.active &&
+          !lens.visibleIds.has(bundle.fromSegmentId) &&
+          !lens.visibleIds.has(bundle.toSegmentId),
+        selected: Boolean(
+          selectedEdgeId && bundle.policyEdgeIds.includes(selectedEdgeId),
+        ),
+      });
+    }
+    return views;
+  });
+
+  /** CSS-pixel position of a world point inside the surface. */
+  function worldToScreen(point: Point): Point {
+    const scale = view.zoom / 100;
+    return {
+      x: point.x * scale + view.pan.x,
+      y: point.y * scale + view.pan.y,
+    };
+  }
+
+  /** Keeps an overlay with a bounded size inside its measured viewport. */
+  function clampOverlayCoordinate(
+    coordinate: number,
+    viewportSize: number,
+    overlayMaximumSize: number,
+  ): number {
+    const margin = Math.min(BUNDLE_POPOVER_MARGIN, viewportSize / 2);
+    const availableSize = Math.max(0, viewportSize - margin * 2);
+    const overlaySize = Math.min(overlayMaximumSize, availableSize);
+    const maximum = Math.max(margin, viewportSize - margin - overlaySize);
+    return Math.min(Math.max(coordinate, margin), maximum);
+  }
+
+  /** Service list of an open bundle popover, anchored to the bundle line. */
+  let bundlePopover = $derived.by(() => {
+    const key = bundlePopoverKey;
+    if (!key) return undefined;
+    const entry = bundleViews.find((candidate) => candidate.key === key);
+    if (!entry) return undefined;
+    const anchor = worldToScreen({
+      x: (entry.path.source.x + entry.path.target.x) / 2,
+      y: (entry.path.source.y + entry.path.target.y) / 2,
+    });
+    return {
+      key,
+      title: entry.title,
+      detailRows: entry.bundle.detailRows,
+      position: {
+        x: clampOverlayCoordinate(
+          anchor.x + PIN_LABEL_INSET,
+          viewport.width,
+          BUNDLE_POPOVER_MAX_WIDTH,
+        ),
+        y: clampOverlayCoordinate(
+          anchor.y + 10,
+          viewport.height,
+          BUNDLE_POPOVER_MAX_HEIGHT,
+        ),
+      },
+    };
+  });
+
+  /** The selected host's local, view-only outgoing connection disclosure. */
+  let dismissedHostConnectionId = $state<string>();
+  let hostConnectionPanel = $derived.by(() => {
+    const node = selectedNodeId ? nodeById.get(selectedNodeId) : undefined;
+    if (node?.type !== "Host" || dismissedHostConnectionId === node.id)
+      return undefined;
+    return {
+      hostId: node.id,
+      hostLabel: node.data.name,
+      detailRows: buildOutgoingConnectionDetails(scene, node.id),
+    };
+  });
+
+  /** A changed selection reopens a host disclosure after Escape closed it. */
+  $effect(() => {
+    if (
+      dismissedHostConnectionId !== undefined &&
+      dismissedHostConnectionId !== selectedNodeId
+    )
+      dismissedHostConnectionId = undefined;
+  });
+
+  function toggleBundlePopover(bundle: BundleView): void {
+    openedBundleKey = openedBundleKey === bundle.key ? undefined : bundle.key;
+    const edgeId = bundle.bundle.policyEdgeIds[0];
+    if (edgeId) onSelectEdge?.(edgeId);
+  }
+
+  /**
+   * Authored `Runs` edges, keyed by relationship and endpoints.
+   *
+   * Ownership may only use an edge that projection membership confirms, so a
+   * raw edge never adds membership. Segment containment draws no connector:
+   * the projected host list and the enclosing frame already show it.
    */
   let structuralEdges = $derived.by(() => {
     const map = new Map<string, Edge>();
     for (const edge of graph.edges) {
-      if (edge.type !== "Contains" && edge.type !== "Runs") continue;
+      if (edge.type !== "Runs") continue;
       const key = `${edge.type}:${edge.from_id}:${edge.to_id}`;
       if (!map.has(key)) map.set(key, edge);
     }
@@ -671,18 +761,9 @@
   let structuralLinks = $derived.by<StructuralLink[]>(() => {
     const links: StructuralLink[] = [];
     for (const segment of scene.segments) {
-      const frame = layout.frames.get(segment.id);
-      if (!frame) continue;
-      const segmentRect = frameRect(frame);
       for (const host of segment.hosts) {
         const hostRect = nodeRects.get(host.id);
         if (!hostRect) continue;
-        const contains = structuralEdges.get(
-          `Contains:${segment.id}:${host.id}`,
-        );
-        if (contains) {
-          links.push(structuralLink(contains, segmentRect, hostRect));
-        }
         for (const service of host.services) {
           const serviceRect = nodeRects.get(service.id);
           if (!serviceRect) continue;
@@ -695,7 +776,7 @@
   });
 
   /**
-   * Containment or ownership connectors to draw.
+   * Ownership connectors to draw.
    *
    * Near detail shows every connector. Outside near detail only the lens
    * reveals a connector, and only between two entities the projection places.
@@ -774,11 +855,6 @@
     return node?.type === "NetworkSegment" ? node.data.name : segmentId;
   }
 
-  function hostName(hostId: string): string {
-    const node = nodeById.get(hostId);
-    return node?.type === "Host" ? node.data.name : hostId;
-  }
-
   /** Name of a graph entity, for visible and accessible text. */
   function entityLabel(node: Node): string {
     return topologyEntityLabel(node);
@@ -786,6 +862,13 @@
 
   function countLabel(count: number, singular: string, plural: string): string {
     return `${count} ${count === 1 ? singular : plural}`;
+  }
+
+  /** Directional flow rows in a bundle name, or text for a policy-only bundle. */
+  function connectionSummary(bundle: TopologyConnectionBundle): string {
+    return bundle.detailRows.length > 0
+      ? bundle.detailRows.map(connectionDetailLabel).join(", ")
+      : "no services";
   }
 
   function cueOf(entityId: string): "pending" | "placement-issue" | undefined {
@@ -1207,14 +1290,14 @@
     onTogglePin?.(entityId);
   }
 
-  function handlePolicyClick(policy: { group: TopologyPolicyGroupScene }) {
-    const edge = policy.group.edges[0];
-    if (edge) onSelectEdge?.(edge.id);
-  }
-
   function handleKeydown(event: KeyboardEvent) {
     switch (event.key) {
       case "Escape":
+        hoveredBundleKey = undefined;
+        focusedBundleKey = undefined;
+        openedBundleKey = undefined;
+        if (selectedNodeId && nodeById.get(selectedNodeId)?.type === "Host")
+          dismissedHostConnectionId = selectedNodeId;
         connectionState = undefined;
         keyboardConnection = undefined;
         pointerPosition = undefined;
@@ -1524,75 +1607,31 @@
             class:is-stale={stale}
             transform={worldTransform}
           >
-            {#each flowLines as line (line.key)}
+            <!-- Visual bundle lines remain behind segment frames. -->
+            {#each bundleViews as bundle (bundle.key)}
+              {@const path = `M ${bundle.path.source.x} ${bundle.path.source.y} L ${bundle.path.target.x} ${bundle.path.target.y}`}
               <g
-                class={["topology-flow", line.dimmed && "is-dimmed"]}
-                role="img"
-                aria-label={line.label}
-                style:--flow-opacity={line.appearance?.opacity}
-                style:--flow-stroke={line.appearance?.stroke}
-                style:--flow-stroke-width={line.appearance?.strokeWidth}
+                class={[
+                  "topology-bundle-visual",
+                  bundle.selected && "is-selected",
+                  bundle.dimmed && "is-dimmed",
+                ]}
+                data-bundle-visual={bundle.key}
+                style:--bundle-opacity={bundle.appearance?.opacity}
+                style:--bundle-stroke={bundle.appearance?.stroke}
+                style:--bundle-stroke-width={bundle.appearance?.strokeWidth}
               >
                 <path
-                  d={`M ${line.path.source.x} ${line.path.source.y} L ${
-                    line.path.target.x
-                  } ${line.path.target.y}`}
+                  class="topology-bundle-line"
+                  d={path}
                   marker-end={`url(#${arrowMarkerId})`}
                 />
                 <text
-                  x={(line.path.source.x + line.path.target.x) / 2}
-                  y={(line.path.source.y + line.path.target.y) / 2 - 6}
-                  text-anchor="middle"
-                  >{line.group.services
-                    .map((service) => service.node.data.name)
-                    .join(", ")}</text
+                  class="topology-bundle-count"
+                  x={(bundle.path.source.x + bundle.path.target.x) / 2}
+                  y={(bundle.path.source.y + bundle.path.target.y) / 2 - 8}
+                  text-anchor="middle">{bundle.count}</text
                 >
-              </g>
-            {/each}
-            {#each policyLines as line (line.key)}
-              <g
-                class={[
-                  "topology-policy",
-                  line.selected && "is-selected",
-                  line.dimmed && "is-dimmed",
-                ]}
-                data-policy-from={line.group.group.from_segment_id}
-                data-policy-to={line.group.group.to_segment_id}
-                role={onSelectEdge ? "button" : "img"}
-                tabindex={onSelectEdge ? 0 : undefined}
-                aria-label={line.label}
-                data-graph-interactive={onSelectEdge ? true : undefined}
-                style:--policy-opacity={line.appearance?.opacity}
-                style:--policy-stroke={line.appearance?.stroke}
-                style:--policy-stroke-width={line.appearance?.strokeWidth}
-                onclick={onSelectEdge
-                  ? (event) => {
-                      event.stopPropagation();
-                      if (panConsumed()) return;
-                      handlePolicyClick(line);
-                    }
-                  : undefined}
-                onkeydown={onSelectEdge
-                  ? (event) => {
-                      if (event.key !== "Enter" && event.key !== " ") return;
-                      event.preventDefault();
-                      handlePolicyClick(line);
-                    }
-                  : undefined}
-              >
-                <path
-                  class="topology-policy-hit"
-                  d={`M ${line.path.source.x} ${line.path.source.y} L ${
-                    line.path.target.x
-                  } ${line.path.target.y}`}
-                />
-                <path
-                  class="topology-policy-line"
-                  d={`M ${line.path.source.x} ${line.path.source.y} L ${
-                    line.path.target.x
-                  } ${line.path.target.y}`}
-                  marker-end={`url(#${arrowMarkerId})`}
-                />
               </g>
             {/each}
             {#each scene.segments as segment (segment.id)}
@@ -1626,80 +1665,134 @@
                     height={frame.size.height}
                     rx="18"
                   />
-                  <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-                  <g
-                    class="topology-segment-header"
-                    data-segment-header={segment.id}
-                    data-graph-interactive={editable || onSelectNode
-                      ? true
-                      : undefined}
-                    data-graph-gesture={editable ? true : undefined}
-                    onpointerdown={editable
-                      ? (event) => startSegmentDrag(segment.id, event)
-                      : undefined}
-                    onclick={onSelectNode
-                      ? (event) => handleNodeClick(segment.node, event)
-                      : undefined}
-                    onkeydown={onSelectNode
-                      ? (event) => handleNodeKeydown(segment.node, event)
-                      : undefined}
-                    onfocus={onSelectNode
-                      ? () => handleEntityFocus(segment.id)
-                      : undefined}
-                    onblur={onSelectNode
-                      ? () => handleEntityBlur(segment.id)
-                      : undefined}
-                    tabindex={onSelectNode ? 0 : undefined}
-                    role={onSelectNode ? "button" : undefined}
+                </g>
+              {/if}
+            {/each}
+            <!--
+              Hit areas sit above segment frames but below headers and members.
+              This leaves the single visual line readable behind frames while its
+              exposed portions retain pointer ownership.
+            -->
+            {#each bundleViews as bundle (bundle.key)}
+              {@const path = `M ${bundle.path.source.x} ${bundle.path.source.y} L ${bundle.path.target.x} ${bundle.path.target.y}`}
+              <g
+                class="topology-bundle"
+                data-bundle-key={bundle.key}
+                data-bundle-from={bundle.bundle.fromSegmentId}
+                data-bundle-to={bundle.bundle.toSegmentId}
+                data-bundle-connections={bundle.bundle.connectionCount}
+                role="button"
+                tabindex="0"
+                aria-expanded={bundlePopoverKey === bundle.key}
+                aria-label={bundle.label}
+                data-graph-interactive
+                style:--bundle-opacity={bundle.appearance?.opacity}
+                style:--bundle-stroke={bundle.appearance?.stroke}
+                style:--bundle-stroke-width={bundle.appearance?.strokeWidth}
+                onpointerenter={() => (hoveredBundleKey = bundle.key)}
+                onpointerleave={() => {
+                  if (hoveredBundleKey === bundle.key)
+                    hoveredBundleKey = undefined;
+                }}
+                onfocus={() => (focusedBundleKey = bundle.key)}
+                onblur={() => {
+                  if (focusedBundleKey === bundle.key)
+                    focusedBundleKey = undefined;
+                }}
+                onclick={(event) => {
+                  event.stopPropagation();
+                  if (panConsumed()) return;
+                  toggleBundlePopover(bundle);
+                }}
+                onkeydown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  toggleBundlePopover(bundle);
+                }}
+              >
+                <path class="topology-bundle-hit" d={path} />
+              </g>
+            {/each}
+            {#each scene.segments as segment (segment.id)}
+              {@const frame = layout.frames.get(segment.id)}
+              {#if frame}
+                <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+                <g
+                  class={[
+                    "topology-segment-header",
+                    isDimmed(segment.id) && "is-dimmed",
+                  ]}
+                  transform={`translate(${frame.position.x} ${frame.position.y})`}
+                  data-segment-header={segment.id}
+                  data-graph-interactive={editable || onSelectNode
+                    ? true
+                    : undefined}
+                  data-graph-gesture={editable ? true : undefined}
+                  onpointerdown={editable
+                    ? (event) => startSegmentDrag(segment.id, event)
+                    : undefined}
+                  onclick={onSelectNode
+                    ? (event) => handleNodeClick(segment.node, event)
+                    : undefined}
+                  onkeydown={onSelectNode
+                    ? (event) => handleNodeKeydown(segment.node, event)
+                    : undefined}
+                  onfocus={onSelectNode
+                    ? () => handleEntityFocus(segment.id)
+                    : undefined}
+                  onblur={onSelectNode
+                    ? () => handleEntityBlur(segment.id)
+                    : undefined}
+                  tabindex={onSelectNode ? 0 : undefined}
+                  role={onSelectNode ? "button" : undefined}
+                >
+                  <rect
+                    class="topology-segment-header-bg"
+                    width={frame.size.width}
+                    height={SEGMENT_HEADER_HEIGHT}
+                    rx="18"
+                  />
+                  <text class="topology-segment-name" x="16" y="19"
+                    >{segment.node.data.name}</text
                   >
-                    <rect
-                      class="topology-segment-header-bg"
-                      width={frame.size.width}
-                      height={SEGMENT_HEADER_HEIGHT}
-                      rx="18"
-                    />
-                    <text class="topology-segment-name" x="16" y="19"
-                      >{segment.node.data.name}</text
+                  <text class="topology-segment-meta" x="16" y="33"
+                    >{countLabel(segment.segment.host_count, "host", "hosts")} ·
+                    {countLabel(
+                      segment.segment.service_count,
+                      "service",
+                      "services",
+                    )}{detail === "far"
+                      ? ` · ${countLabel(segment.segment.context_count, "context item", "context items")}`
+                      : ""}</text
+                  >
+                  {#if segment.node.data.cidr && frame.size.width >= CIDR_MIN_WIDTH}
+                    <text
+                      class="topology-segment-cidr"
+                      x={frame.size.width - labelInset(segment.id, 16)}
+                      y="19"
+                      text-anchor="end">{segment.node.data.cidr}</text
                     >
-                    <text class="topology-segment-meta" x="16" y="33"
-                      >{countLabel(segment.segment.host_count, "host", "hosts")} ·
-                      {countLabel(
-                        segment.segment.service_count,
-                        "service",
-                        "services",
-                      )}{detail === "far"
-                        ? ` · ${countLabel(segment.segment.context_count, "context item", "context items")}`
-                        : ""}</text
+                  {/if}
+                  {#if selfPolicyIds.has(segment.id)}
+                    <g
+                      class="topology-self-policy"
+                      role="img"
+                      aria-label={`${segment.node.data.name} self-segment policy`}
                     >
-                    {#if segment.node.data.cidr && frame.size.width >= CIDR_MIN_WIDTH}
+                      <rect
+                        x={frame.size.width - 104}
+                        y="24"
+                        width="88"
+                        height="16"
+                        rx="8"
+                      />
                       <text
-                        class="topology-segment-cidr"
-                        x={frame.size.width - labelInset(segment.id, 16)}
-                        y="19"
-                        text-anchor="end">{segment.node.data.cidr}</text
+                        x={frame.size.width - 60}
+                        y="37"
+                        text-anchor="middle">self-policy</text
                       >
-                    {/if}
-                    {#if selfPolicyIds.has(segment.id)}
-                      <g
-                        class="topology-self-policy"
-                        role="img"
-                        aria-label={`${segment.node.data.name} self-segment policy`}
-                      >
-                        <rect
-                          x={frame.size.width - 104}
-                          y="24"
-                          width="88"
-                          height="16"
-                          rx="8"
-                        />
-                        <text
-                          x={frame.size.width - 60}
-                          y="37"
-                          text-anchor="middle">self-policy</text
-                        >
-                      </g>
-                    {/if}
-                  </g>
+                    </g>
+                  {/if}
                 </g>
                 {#if pinTargetById.get(segment.id)}
                   {@render pinControl(pinTargetById.get(segment.id)!)}
@@ -2080,6 +2173,48 @@
             {/if}
           </g>
         </svg>
+        {#if bundlePopover}
+          <div
+            class="topology-bundle-popover"
+            role="tooltip"
+            data-bundle-popover={bundlePopover.key}
+            style:left={`${bundlePopover.position.x}px`}
+            style:top={`${bundlePopover.position.y}px`}
+          >
+            <p class="topology-bundle-popover-title">{bundlePopover.title}</p>
+            {#if bundlePopover.detailRows.length > 0}
+              <ul class="topology-bundle-popover-services">
+                {#each bundlePopover.detailRows as row (`${row.serviceId}:${row.sourceHostId}:${row.targetHostId}`)}
+                  <li>{connectionDetailLabel(row)}</li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="topology-bundle-popover-empty">No services</p>
+            {/if}
+          </div>
+        {/if}
+        {#if hostConnectionPanel}
+          <aside
+            class="topology-host-connections"
+            data-host-connections={hostConnectionPanel.hostId}
+            aria-label={`${hostConnectionPanel.hostLabel} outgoing connections`}
+          >
+            <p class="topology-host-connections-title">
+              {hostConnectionPanel.hostLabel} outgoing connections
+            </p>
+            {#if hostConnectionPanel.detailRows.length > 0}
+              <ul class="topology-host-connections-list">
+                {#each hostConnectionPanel.detailRows as row (`${row.serviceId}:${row.sourceHostId}:${row.targetHostId}`)}
+                  <li>{connectionDetailLabel(row)}</li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="topology-host-connections-empty">
+                No outgoing connections
+              </p>
+            {/if}
+          </aside>
+        {/if}
       </div>
     </ContextMenu.Trigger>
     <ContextMenu.Portal>
@@ -2202,6 +2337,7 @@
     height: 100%;
   }
   .topology-surface {
+    position: relative;
     width: 100%;
     height: 100%;
     touch-action: none;
@@ -2252,47 +2388,101 @@
       var(--ui-color-edge-segment-reachability)
     );
   }
-  .topology-policy {
-    cursor: default;
-  }
-  .topology-policy[data-graph-interactive] {
+  .topology-bundle {
     cursor: pointer;
   }
-  .topology-policy-hit {
+  .topology-bundle-hit {
     fill: none;
     stroke: transparent;
-    stroke-width: 14;
+    stroke-width: 16;
+    /* Keep the transparent stroke eligible for pointer hit testing. */
+    pointer-events: stroke;
   }
-  .topology-policy-line {
+  .topology-bundle-line {
     fill: none;
     pointer-events: none;
-    stroke: var(--policy-stroke, var(--ui-color-edge-segment-reachability));
-    stroke-opacity: var(--policy-opacity, 1);
-    stroke-width: var(--policy-stroke-width, 2.5);
+    stroke: var(--bundle-stroke, var(--ui-color-edge-segment-reachability));
+    stroke-opacity: var(--bundle-opacity, 1);
+    stroke-width: var(--bundle-stroke-width, 3);
   }
-  .topology-policy.is-selected .topology-policy-line {
+  .topology-bundle-visual.is-selected .topology-bundle-line {
     stroke: var(--ui-color-focus);
     stroke-width: 4;
   }
-  .topology-policy:focus-visible .topology-policy-hit {
+  .topology-bundle:focus-visible .topology-bundle-hit {
     stroke: var(--ui-color-focus);
     stroke-opacity: 0.35;
   }
-  .topology-flow,
-  .topology-flow path,
-  .topology-flow text {
+  .topology-bundle:focus,
+  .topology-bundle:focus-visible {
+    outline: none;
+  }
+  .topology-bundle-count {
+    fill: var(--ui-color-text);
+    font: var(--ui-text-xs) var(--ui-font-mono);
+    font-weight: 700;
     pointer-events: none;
   }
-  .topology-flow path {
-    fill: none;
-    stroke: var(--flow-stroke, var(--ui-color-accent));
-    stroke-opacity: var(--flow-opacity, 0.85);
-    stroke-width: var(--flow-stroke-width, 2.5);
-    stroke-dasharray: 7 4;
+  .topology-bundle-popover {
+    position: absolute;
+    z-index: 2;
+    box-sizing: border-box;
+    width: min(16rem, calc(100% - 1rem));
+    min-width: 0;
+    max-width: calc(100% - 1rem);
+    max-height: min(12rem, calc(100% - 1rem));
+    overflow-wrap: anywhere;
+    overflow-y: auto;
+    padding: var(--ui-space-2);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-sm);
+    /* The popover only describes the bundle, so it never holds the pointer. */
+    pointer-events: none;
   }
-  .topology-flow text {
-    fill: var(--flow-stroke, var(--ui-color-accent));
-    font: var(--ui-text-xs) var(--ui-font-mono);
+  .topology-bundle-popover-title {
+    margin: 0 0 var(--ui-space-1);
+    font-weight: 700;
+  }
+  .topology-bundle-popover-services {
+    margin: 0;
+    padding-left: var(--ui-space-4);
+  }
+  .topology-bundle-popover-empty {
+    margin: 0;
+    color: var(--ui-color-text-muted);
+  }
+  .topology-host-connections {
+    position: absolute;
+    z-index: 2;
+    top: var(--ui-space-3);
+    right: var(--ui-space-3);
+    min-width: 14rem;
+    max-width: 22rem;
+    padding: var(--ui-space-2);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-color-paper);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-color-text);
+    font-size: var(--ui-text-sm);
+  }
+  .topology-host-connections-title {
+    margin: 0 0 var(--ui-space-1);
+    font-weight: 700;
+  }
+  .topology-host-connections-list {
+    display: grid;
+    gap: var(--ui-space-1);
+    margin: 0;
+    padding-left: var(--ui-space-4);
+  }
+  .topology-host-connections-empty {
+    margin: 0;
+    color: var(--ui-color-text-muted);
   }
   .topology-segment-frame {
     fill: var(--ui-color-paper);
@@ -2376,9 +2566,7 @@
     stroke-width: 3;
   }
   .topology-structural-edge:focus,
-  .topology-structural-edge:focus-visible,
-  .topology-policy:focus,
-  .topology-policy:focus-visible {
+  .topology-structural-edge:focus-visible {
     outline: none;
   }
   .topology-structural-label {
@@ -2472,12 +2660,11 @@
   .topology-context.is-dimmed,
   .topology-unplaced.is-dimmed,
   .topology-structural-edge.is-dimmed,
-  .topology-policy.is-dimmed,
-  .topology-flow.is-dimmed {
+  .topology-bundle-visual.is-dimmed {
     opacity: var(--topology-dim-opacity);
   }
   .topology-segment.is-dimmed .topology-segment-frame,
-  .topology-segment.is-dimmed .topology-segment-header {
+  .topology-segment-header.is-dimmed {
     opacity: var(--topology-dim-opacity);
   }
   .topology-service-name {

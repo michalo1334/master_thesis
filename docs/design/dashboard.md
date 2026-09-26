@@ -64,6 +64,13 @@ Unplaced tray with a reason. The user keeps full graph editing. When projection
 fails, the canvas shows a non-blocking error and keeps flat editing available.
 It does not restore a second projector in TypeScript.
 
+Zoom changes entity detail, not positions or connection representation. Every
+zoom level uses one directed connection bundle per ordered segment pair. The
+bundle shows a connection count. Its hover, keyboard-focus, and click detail
+lists `service · source host → target host`. Selecting a host shows that host's
+outgoing projected connections. Segment containment draws no line: the enclosing
+frame and the projected host list already show it.
+
 Source references:
 
 - Elixir projector:

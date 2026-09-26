@@ -11,7 +11,6 @@ function renderToolbar(
     pinnedCount: number;
     unplacedCount: number;
     unplacedOpen: boolean;
-    navigatorOpen: boolean;
   }> = {},
 ) {
   const { scene } = buildTopologyFixture();
@@ -23,7 +22,6 @@ function renderToolbar(
     onReset: vi.fn(),
     onClearPins: vi.fn(),
     onToggleUnplaced: vi.fn(),
-    onToggleNavigator: vi.fn(),
   };
   const result = render(TopologyToolbar, {
     props: {
@@ -189,7 +187,6 @@ describe("TopologyToolbar", () => {
       onReset: vi.fn(),
       onClearPins: vi.fn(),
       onToggleUnplaced: vi.fn(),
-      onToggleNavigator: vi.fn(),
     };
     const { rerender } = render(TopologyToolbar, {
       props: { ...base, pinnedCount: 1 },
@@ -261,16 +258,5 @@ describe("TopologyToolbar", () => {
     await fireEvent.click(button);
 
     expect(onToggleUnplaced).toHaveBeenCalledOnce();
-  });
-
-  it("toggles the Navigator and reports its state", async () => {
-    const { onToggleNavigator } = renderToolbar({ navigatorOpen: false });
-    const button = screen.getByRole("button", { name: "Navigator" });
-
-    expect(button).toHaveAttribute("aria-pressed", "false");
-
-    await fireEvent.click(button);
-
-    expect(onToggleNavigator).toHaveBeenCalledOnce();
   });
 });
