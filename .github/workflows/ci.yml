@@ -102,6 +102,11 @@ jobs:
         with:
           elixir-version: "1.20.2"
           otp-version: "29.0.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/package-lock.json
       - uses: actions/cache@v4
         with:
           path: |
@@ -112,6 +117,8 @@ jobs:
           key: mix-${{ runner.os }}-${{ hashFiles('src/mix.lock') }}
           restore-keys: mix-${{ runner.os }}-
       - run: mix deps.get
+      - run: npm ci
+      - run: mix assets.build
       - run: mix test
 
   static-analysis:
