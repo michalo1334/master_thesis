@@ -247,7 +247,7 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
     runs
     |> Enum.find_index(fn run ->
-      not (is_map(run) and MapSet.member?(ids, run["model_variant"]))
+      not (is_map(run) and Map.has_key?(ids, run["model_variant"]))
     end)
     |> case do
       nil -> :ok
@@ -255,10 +255,14 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
     end
   end
 
-  defp declared_variant_ids(%{"model_variants" => variants}) when is_list(variants),
-    do: MapSet.new(variants, fn variant -> if is_map(variant), do: variant["id"], else: nil end)
+  defp declared_variant_ids(%{"model_variants" => variants}) when is_list(variants) do
+    Map.new(variants, fn variant ->
+      id = if is_map(variant), do: variant["id"], else: nil
+      {id, true}
+    end)
+  end
 
-  defp declared_variant_ids(_), do: MapSet.new()
+  defp declared_variant_ids(_), do: %{}
 
   defp seeds(run, path) do
     case run["selection_seeds"] do
