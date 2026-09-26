@@ -1,6 +1,5 @@
 import type { Node } from "../../contracts.generated/graph";
 import type { SimulationReportCharts } from "../../contracts.generated/dashboard/simulation";
-import { buildTopologyScene } from "../graph/topology-scene";
 import {
   containsEdge,
   flowGroupRecord,
@@ -101,26 +100,22 @@ function scene() {
       ),
     ],
   });
-  return { graph, projection, scene: buildTopologyScene(graph, projection) };
+  return { graph, projection };
 }
 
-function policyGroup(from: string, to: string) {
-  const group = scene().scene.policyGroups.find(
-    (entry) =>
-      entry.group.from_segment_id === from && entry.group.to_segment_id === to,
-  );
-  expect(group).toBeDefined();
-  return group!;
-}
-
-function flowGroup(sourceHost: string, targetHost: string) {
-  const group = scene().scene.flowGroups.find(
-    (entry) =>
-      entry.group.source_host_id === sourceHost &&
-      entry.group.target_host_id === targetHost,
-  );
-  expect(group).toBeDefined();
-  return group!;
+function bundleOf(from: string, to: string) {
+  return {
+    key: `${from}:${to}`,
+    fromSegmentId: from,
+    toSegmentId: to,
+    isSelf: from === to,
+    policyEdgeIds: [],
+    flowIds: [],
+    serviceIds: [],
+    serviceLabels: [],
+    detailRows: [],
+    connectionCount: 0,
+  };
 }
 
 function hostNodeById(id: string): Node {
@@ -152,46 +147,22 @@ it("leaves unreported hosts and non-host nodes unstyled", () => {
   ).toBeUndefined();
 });
 
-it("derives policy heat from projected flow groups, not policy edge ids", () => {
+it("styles a segment-pair bundle with the heat of its projected flows", () => {
   const appearance = simulationHeatmapAppearance(charts, scene().projection);
 
   // The policy edge reports 0.95, but only the crossing flow groups count.
   expect(
-    appearance.policyAppearance(policyGroup("segment-north", "segment-south")),
+    appearance.bundleAppearance(bundleOf("segment-north", "segment-south")),
   ).toMatchObject({ stroke: "#ea580c" });
-});
-
-it("leaves a policy without a matching projected flow unstyled", () => {
-  const appearance = simulationHeatmapAppearance(charts, scene().projection);
-
   expect(
-    appearance.policyAppearance(policyGroup("segment-north", "segment-north")),
+    appearance.bundleAppearance(bundleOf("segment-north", "segment-north")),
   ).toBeUndefined();
 });
 
-it("leaves policy heat absent without a projection", () => {
+it("leaves bundle heat absent without a projection", () => {
   const appearance = simulationHeatmapAppearance(charts, undefined);
 
   expect(
-    appearance.policyAppearance(policyGroup("segment-north", "segment-south")),
-  ).toBeUndefined();
-});
-
-it("styles each flow group from its own flow ids", () => {
-  const appearance = simulationHeatmapAppearance(charts, scene().projection);
-
-  expect(
-    appearance.flowAppearance(flowGroup("north-1", "south-1")),
-  ).toMatchObject({ stroke: "#15803d" });
-  expect(
-    appearance.flowAppearance(flowGroup("north-1", "south-2")),
-  ).toMatchObject({ stroke: "#ea580c" });
-});
-
-it("leaves an untraversed flow group unstyled", () => {
-  const appearance = simulationHeatmapAppearance(charts, scene().projection);
-
-  expect(
-    appearance.flowAppearance(flowGroup("north-1", "south-3")),
+    appearance.bundleAppearance(bundleOf("segment-north", "segment-south")),
   ).toBeUndefined();
 });

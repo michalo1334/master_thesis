@@ -1,6 +1,6 @@
 import type { FetchSimulationReportReply } from "../../contracts.generated/dashboard/simulation";
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, render, screen } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
 import {
   containsEdge,
   flowGroupRecord,
@@ -100,18 +100,29 @@ function styleProperty(selector: string, property: string): string {
 }
 
 describe("HeatmapCanvas", () => {
-  it("colors hosts, segment policies, and operational flows by their heat", () => {
+  it("colors hosts and keeps the heatmap bundle at every zoom", async () => {
     render(HeatmapCanvas, { props: { document: heatmapDocument() } });
 
     expect(styleProperty('[data-node-id="host-a1"]', "--node-card-fill")).toBe(
       "#fee2e2",
     );
-    // The policy edge reports 0.6, but policy heat comes from the crossing flow
+    // The policy edge reports 0.6, but bundle heat comes from the crossing flow
     // group at 0.3, never from the policy edge's own traversal ID.
-    expect(styleProperty(".topology-policy", "--policy-stroke")).toBe(
+    expect(styleProperty(".topology-bundle", "--bundle-stroke")).toBe(
       "#ca8a04",
     );
-    expect(styleProperty(".topology-flow", "--flow-stroke")).toBe("#ca8a04");
+
+    for (let index = 0; index < 5; index++)
+      await fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(styleProperty(".topology-bundle", "--bundle-stroke")).toBe(
+      "#ca8a04",
+    );
+
+    for (let index = 0; index < 10; index++)
+      await fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(styleProperty(".topology-bundle", "--bundle-stroke")).toBe(
+      "#ca8a04",
+    );
   });
 
   it("offers no Topology and Network view toggle", () => {

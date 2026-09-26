@@ -5,10 +5,7 @@ import type {
   CanvasEdgeAppearance,
   CanvasNodeAppearance,
 } from "../graph/canvas/appearance";
-import type {
-  TopologyFlowGroupScene,
-  TopologyPolicyGroupScene,
-} from "../graph/topology-scene";
+import type { TopologyConnectionBundle } from "../graph/unified/topology-bundles";
 
 export interface HeatmapLegendItem {
   color: string;
@@ -39,21 +36,18 @@ export function heatTone(probability: number): HeatTone {
 /**
  * Heat appearance for the unified topology canvas.
  *
- * Hosts use their compromise probability. A flow group uses the highest
- * traversal probability of its flow IDs. A policy group uses the traversal heat
- * of the projected flow groups that cross it, because a simulation traversal ID
- * belongs to a materialized operational flow and never to a policy edge.
+ * Hosts use their compromise probability. A bundle uses the highest traversal
+ * heat of its projected flow groups. A simulation traversal ID belongs to a
+ * materialized operational flow and never to a policy edge. The same bundle
+ * appears at every zoom level.
  */
 export function simulationHeatmapAppearance(
   charts: SimulationReportCharts,
   projection?: TopologyProjection,
 ): {
-  flowAppearance: (
-    group: TopologyFlowGroupScene,
-  ) => CanvasEdgeAppearance | undefined;
   nodeAppearance: (node: Node) => CanvasNodeAppearance | undefined;
-  policyAppearance: (
-    group: TopologyPolicyGroupScene,
+  bundleAppearance: (
+    bundle: TopologyConnectionBundle,
   ) => CanvasEdgeAppearance | undefined;
 } {
   const hostProbabilities = hostCompromiseProbabilities(charts);
@@ -65,31 +59,22 @@ export function simulationHeatmapAppearance(
       if (node.type !== "Host") return undefined;
       return nodeHeatAppearance(hostProbabilities.get(node.id));
     },
-    policyAppearance(group) {
+    bundleAppearance(bundle) {
       return edgeHeatAppearance(
         policyHeat.get(
-          policySegmentKey(
-            group.group.from_segment_id,
-            group.group.to_segment_id,
-          ),
+          policySegmentKey(bundle.fromSegmentId, bundle.toSegmentId),
         ),
-      );
-    },
-    flowAppearance(group) {
-      return edgeHeatAppearance(
-        maxProbability(edgeProbabilities, group.group.flow_ids),
       );
     },
   };
 }
 
 /**
- * Highest traversal probability per directed segment policy.
+ * Highest traversal probability per directed segment bundle.
  *
- * The source and target segments of a policy come from the projected membership
- * of each flow group's source and target host. Flow groups that cross the same
- * directed policy aggregate under one key. A policy without a matching flow
- * group has no heat of its own.
+ * The source and target segments come from projected host membership. Flow
+ * groups that cross the same directed segment pair aggregate under one key. A
+ * policy-only bundle has no heat of its own.
  */
 function policyTraversalHeat(
   projection: TopologyProjection | undefined,

@@ -27,8 +27,7 @@
       {projection}
       readOnly
       nodeAppearance={appearance.nodeAppearance}
-      policyAppearance={appearance.policyAppearance}
-      flowAppearance={appearance.flowAppearance}
+      bundleAppearance={appearance.bundleAppearance}
       selectedNodeId={document.heatmapSelectedNodeId}
       selectedEdgeId={document.heatmapSelectedEdgeId}
       onSelectNode={(nodeId) => document.selectHeatmapNode(nodeId)}
