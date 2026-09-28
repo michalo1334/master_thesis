@@ -5,75 +5,94 @@ defmodule NetworkDefense.Evaluation.AnalysisClient do
   require OpenTelemetry.Tracer, as: Tracer
   alias NetworkDefense.Observability
 
-  @spec analyze(binary(), String.t(), :pilot | :analyze | String.t()) ::
-          {:ok, binary()} | {:error, term()}
-  def analyze(archive, run_id, mode)
-      when is_binary(archive) and is_binary(run_id) and
-             mode in [:pilot, :analyze, "pilot", "analyze"] do
-    config = Application.get_env(:network_defense, :analysis_service, [])
-    mode = to_string(mode)
-    started_at = System.monotonic_time()
+  @type analysis_mode :: :pilot | :analyze
+  @type analysis_status :: :completed | :failed
 
-    Logger.debug("Evaluation analysis started",
-      event: "evaluation.analysis.started",
-      run_id: run_id,
-      mode: mode,
-      input_size_bytes: byte_size(archive)
+  @analysis_endpoint "/v1/analyze"
+  @study_pilot_endpoint "/v1/study/pilot"
+  @study_analysis_endpoint "/v1/study/analyze"
+
+  @spec analyze(binary(), String.t()) :: {:ok, binary()} | {:error, term()}
+  def analyze(archive, run_id) when is_binary(archive) and is_binary(run_id) do
+    run_lifecycle(archive, run_id, :analyze, analysis_operation())
+  end
+
+  @spec analyze_study(binary(), String.t(), analysis_mode()) ::
+          {:ok, binary()} | {:error, term()}
+  def analyze_study(bundle, study_id, mode)
+      when is_binary(bundle) and is_binary(study_id) and mode in [:pilot, :analyze] do
+    run_lifecycle(bundle, study_id, mode, study_operation(mode))
+  end
+
+  def analyze_study(_bundle, _study_id, _mode), do: {:error, :invalid_mode}
+
+  defp run_lifecycle(archive, identifier, mode, operation) do
+    config = Application.get_env(:network_defense, :analysis_service, [])
+    started_at = System.monotonic_time()
+    identifier_metadata = [{operation.identifier_metadata_key, identifier}]
+
+    Logger.debug(
+      "#{operation.log_subject} started",
+      [event: "#{operation.event_prefix}.started"] ++
+        identifier_metadata ++
+        [mode: mode, input_size_bytes: byte_size(archive)]
     )
 
-    Tracer.with_span "evaluation.analysis",
+    Tracer.with_span operation.event_prefix,
       attributes: %{
-        "evaluation.run_id" => run_id,
-        "evaluation.analysis.mode" => mode,
-        "evaluation.analysis.input_bytes" => byte_size(archive)
+        operation.identifier_otel_key => identifier,
+        "#{operation.event_prefix}.mode" => operation.mode_attribute,
+        "#{operation.event_prefix}.input_bytes" => byte_size(archive)
       } do
       result =
         with {:ok, url} <- configured_url(config),
-             {:ok, response} <- request(url, archive, run_id, mode, config),
+             {:ok, response} <- request(url, archive, identifier, operation.endpoint, config),
              :ok <- validate_status(response.status),
              :ok <- validate_content_type(response.headers) do
           validate_body(response.body, config[:max_zip_bytes])
         end
 
-      status = if match?({:ok, _}, result), do: "completed", else: "failed"
+      status = result_status(result)
+      status_text = Atom.to_string(status)
+      output_bytes = output_size(result)
+      error = normalized_error(result)
 
       Logger.log(
-        if(status == "completed", do: :debug, else: :error),
-        "Evaluation analysis #{status}",
-        event: "evaluation.analysis.#{status}",
-        run_id: run_id,
-        mode: mode,
-        input_size_bytes: byte_size(archive),
-        output_size_bytes: output_size(result),
-        runtime_ms: Observability.duration_ms(started_at),
-        error: normalized_error(result)
+        log_level(status),
+        "#{operation.log_subject} #{status_text}",
+        [event: "#{operation.event_prefix}.#{status_text}"] ++
+          identifier_metadata ++
+          [
+            mode: mode,
+            status: status,
+            input_size_bytes: byte_size(archive),
+            output_size_bytes: output_bytes,
+            runtime_ms: Observability.duration_ms(started_at),
+            error: error
+          ]
       )
 
       Tracer.set_attributes(
         %{
-          "evaluation.analysis.status" => status,
-          "evaluation.analysis.output_bytes" => output_size(result),
-          "error.type" => normalized_error(result)
+          "#{operation.event_prefix}.status" => status_text,
+          "#{operation.event_prefix}.output_bytes" => output_bytes,
+          "error.type" => error
         }
         |> Map.reject(fn {_key, value} -> is_nil(value) end)
       )
 
-      if status == "completed",
-        do: Tracer.set_status(OpenTelemetry.status(:ok)),
-        else: Tracer.set_status(OpenTelemetry.status(:error))
+      Tracer.set_status(trace_status(status))
 
-      Observability.emit_duration([:network_defense, :evaluation, :analysis], started_at, %{
-        run_id: run_id,
+      Observability.emit_duration(operation.metric_event, started_at, %{
+        operation.identifier_metadata_key => identifier,
         mode: mode,
         status: status,
-        error: normalized_error(result)
+        error: error
       })
 
       result
     end
   end
-
-  def analyze(_archive, _run_id, _mode), do: {:error, :invalid_mode}
 
   defp configured_url(config) do
     case config[:url] do
@@ -82,18 +101,16 @@ defmodule NetworkDefense.Evaluation.AnalysisClient do
     end
   end
 
-  defp request(url, archive, run_id, mode, config) do
-    path = if mode == "pilot", do: "/v1/pilot", else: "/v1/analyze"
-
+  defp request(url, archive, correlation_id, endpoint, config) do
     request =
       [
         method: :post,
-        url: url <> path,
+        url: url <> endpoint,
         body: archive,
         headers: [
           {"content-type", "application/zip"},
           {"accept", "application/zip"},
-          {"x-correlation-id", run_id}
+          {"x-correlation-id", correlation_id}
         ],
         connect_options: [timeout: config[:connect_timeout_ms]],
         receive_timeout: config[:timeout_ms],
@@ -108,6 +125,52 @@ defmodule NetworkDefense.Evaluation.AnalysisClient do
       {:error, _reason} -> {:error, :transport}
     end
   end
+
+  defp analysis_operation do
+    %{
+      endpoint: @analysis_endpoint,
+      event_prefix: "evaluation.analysis",
+      metric_event: [:network_defense, :evaluation, :analysis],
+      identifier_metadata_key: :run_id,
+      identifier_otel_key: "evaluation.run_id",
+      log_subject: "Evaluation analysis",
+      mode_attribute: "analyze"
+    }
+  end
+
+  defp study_operation(:pilot) do
+    %{
+      endpoint: @study_pilot_endpoint,
+      event_prefix: "evaluation.study",
+      metric_event: [:network_defense, :evaluation, :study],
+      identifier_metadata_key: :study_id,
+      identifier_otel_key: "evaluation.study_id",
+      log_subject: "Evaluation study analysis",
+      mode_attribute: "study-pilot"
+    }
+  end
+
+  defp study_operation(:analyze) do
+    %{
+      endpoint: @study_analysis_endpoint,
+      event_prefix: "evaluation.study",
+      metric_event: [:network_defense, :evaluation, :study],
+      identifier_metadata_key: :study_id,
+      identifier_otel_key: "evaluation.study_id",
+      log_subject: "Evaluation study analysis",
+      mode_attribute: "study-analyze"
+    }
+  end
+
+  @spec result_status({:ok, term()} | {:error, term()}) :: analysis_status()
+  defp result_status({:ok, _result}), do: :completed
+  defp result_status({:error, _reason}), do: :failed
+
+  defp log_level(:completed), do: :debug
+  defp log_level(:failed), do: :error
+
+  defp trace_status(:completed), do: OpenTelemetry.status(:ok)
+  defp trace_status(:failed), do: OpenTelemetry.status(:error)
 
   defp maybe_put_plug(options, nil), do: options
   defp maybe_put_plug(options, plug), do: Keyword.put(options, :plug, plug)

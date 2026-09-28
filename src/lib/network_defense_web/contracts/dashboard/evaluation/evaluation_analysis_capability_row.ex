@@ -60,7 +60,15 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCap
         :ci_upper,
         :ci_half_width
       ])
-      |> validate_required([:model_variant, :baseline_model_variant])
+      |> validate_required([
+        :comparison,
+        :strategy,
+        :model_variant,
+        :baseline,
+        :baseline_model_variant,
+        :budget,
+        :capability_id
+      ])
       |> validate_inclusion(:model_variant, @enum_values[:model_variant])
       |> validate_inclusion(:baseline_model_variant, @enum_values[:baseline_model_variant])
 end

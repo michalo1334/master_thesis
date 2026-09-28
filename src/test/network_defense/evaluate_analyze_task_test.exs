@@ -3,6 +3,9 @@ defmodule Mix.Tasks.Evaluate.AnalyzeTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Error
+  alias Mix.Task
+  alias Mix.Tasks.Evaluate.Analyze
   alias NetworkDefense.Evaluation
 
   setup do
@@ -12,16 +15,14 @@ defmodule Mix.Tasks.Evaluate.AnalyzeTest do
 
   test "writes the validated result and reports its digest" do
     output = Path.join(System.tmp_dir!(), "analysis-#{System.unique_integer([:positive])}.zip")
-    :meck.expect(Evaluation, :analyze, fn "run-123", "pilot" -> {:ok, "result-zip"} end)
-    Mix.Task.reenable("evaluate.analyze")
+    :meck.expect(Evaluation, :analyze, fn "run-123" -> {:ok, "result-zip"} end)
+    Task.reenable("evaluate.analyze")
 
     response =
       capture_io(fn ->
-        Mix.Tasks.Evaluate.Analyze.run([
+        Analyze.run([
           "--run-id",
           "run-123",
-          "--mode",
-          "pilot",
           "--output",
           output
         ])
@@ -30,29 +31,29 @@ defmodule Mix.Tasks.Evaluate.AnalyzeTest do
 
     assert File.read!(output) == "result-zip"
     assert response["run_id"] == "run-123"
-    assert response["mode"] == "pilot"
     assert response["path"] == output
     assert response["byte_size"] == 10
     assert response["sha256"] == Base.encode16(:crypto.hash(:sha256, "result-zip"), case: :lower)
+    refute Map.has_key?(response, "mode")
 
     File.rm!(output)
   end
 
-  test "validates required options and mode" do
-    Mix.Task.reenable("evaluate.analyze")
+  test "validates required options and rejects the removed mode option" do
+    Task.reenable("evaluate.analyze")
 
-    assert_raise Mix.Error, "missing required option --run-id", fn ->
-      Mix.Tasks.Evaluate.Analyze.run([])
+    assert_raise Error, "missing required option --run-id", fn ->
+      Analyze.run([])
     end
 
-    Mix.Task.reenable("evaluate.analyze")
+    Task.reenable("evaluate.analyze")
 
-    assert_raise Mix.Error, "mode must be pilot or analyze", fn ->
-      Mix.Tasks.Evaluate.Analyze.run([
+    assert_raise Error, "invalid options: analyze, --mode", fn ->
+      Analyze.run([
         "--run-id",
         "run",
         "--mode",
-        "unknown",
+        "analyze",
         "--output",
         "result.zip"
       ])

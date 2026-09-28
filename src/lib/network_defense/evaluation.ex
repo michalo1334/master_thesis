@@ -12,18 +12,24 @@ defmodule NetworkDefense.Evaluation do
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
 
   alias NetworkDefense.Evaluation.{
+    AnalysisClient,
+    AnalysisLimits,
+    AnalysisResult,
     EvaluationManifest,
     EvaluationManifests,
     EvaluationReport,
-    AnalysisResult,
     EvaluationRun,
     EvaluationRuns,
-    AnalysisClient,
     Evaluator,
     OutputContract,
     PlanPreview,
-    Preflight
+    Preflight,
+    StudyBundle,
+    StudyTierValidator
   }
+
+  alias NetworkDefense.Optimization.OptimizationRuns
+  alias NetworkDefense.Simulation.Experiment
 
   alias NetworkDefense.Optimization.ModelVariant
 
@@ -293,8 +299,8 @@ defmodule NetworkDefense.Evaluation do
 
   def cancel(run_id) do
     with {:ok, run} <- EvaluationRuns.cancel(run_id) do
-      cancel_children(NetworkDefense.Simulation.Experiment, run_id)
-      NetworkDefense.Optimization.OptimizationRuns.cancel_by_evaluation(run_id)
+      cancel_children(Experiment, run_id)
+      OptimizationRuns.cancel_by_evaluation(run_id)
 
       Oban.cancel_all_jobs(
         from(j in Oban.Job,
@@ -345,20 +351,70 @@ defmodule NetworkDefense.Evaluation do
     end
   end
 
-  @spec analyze(String.t(), :pilot | :analyze | String.t()) ::
-          {:ok, binary()} | {:error, term()}
-  def analyze(run_id, mode) when mode in [:pilot, :analyze, "pilot", "analyze"] do
+  @spec analyze(String.t()) :: {:ok, binary()} | {:error, term()}
+  def analyze(run_id) do
     with {:ok, archive, _filename} <- download_archive(run_id) do
-      AnalysisClient.analyze(archive, run_id, mode)
+      AnalysisClient.analyze(archive, run_id)
     end
   end
 
-  def analyze(_run_id, _mode), do: {:error, :invalid_mode}
+  @type study_tier_run :: {String.t(), Ecto.UUID.t()}
+
+  @spec analyze_study([study_tier_run()], :pilot | :analyze, map()) ::
+          {:ok, binary()} | {:error, term()}
+  def analyze_study(tier_runs, mode, study_spec) do
+    with :ok <- validate_study_tier_runs(tier_runs),
+         {:ok, tiers} <- export_study_tiers(tier_runs),
+         {:ok, bundle} <- StudyBundle.archive(tiers, study_spec),
+         {:ok, result} <- AnalysisClient.analyze_study(bundle, study_spec["study_id"], mode) do
+      {:ok, result}
+    else
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp validate_study_tier_runs(tier_runs) when is_list(tier_runs) do
+    case StudyTierValidator.validate(tier_runs) do
+      {:error, :invalid_tier} -> {:error, :invalid_study_tiers}
+      other -> StudyTierValidator.normalize(other)
+    end
+  end
+
+  defp validate_study_tier_runs(_tier_runs), do: {:error, :no_tiers}
+
+  defp export_study_tiers(tier_runs) do
+    tier_runs
+    |> Enum.reduce_while({:ok, []}, fn {label, run_id}, {:ok, acc} ->
+      case export_study_tier(label, run_id) do
+        {:ok, tier} -> {:cont, {:ok, [tier | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, tiers} -> {:ok, Enum.reverse(tiers)}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp export_study_tier(label, run_id) do
+    case EvaluationRuns.get(run_id) do
+      nil ->
+        {:error, :not_found}
+
+      %EvaluationRun{status: "completed"} = run ->
+        case OutputContract.archive(run) do
+          {:ok, archive, _filename} -> {:ok, %{tier: label, run_id: run_id, archive: archive}}
+          {:error, reason} -> {:error, reason}
+        end
+
+      %EvaluationRun{} ->
+        {:error, :incomplete}
+    end
+  end
 
   @spec parse_analysis(binary()) :: {:ok, map()} | {:error, term()}
   def parse_analysis(response) when is_binary(response) do
-    config = Application.get_env(:network_defense, :analysis_service, [])
-    AnalysisResult.parse(response, config[:max_zip_bytes] || 50_000_000)
+    AnalysisResult.parse(response, AnalysisLimits.max_zip_bytes())
   end
 
   defp run_evaluator(run) do

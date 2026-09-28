@@ -18,7 +18,7 @@ defmodule NetworkDefenseWeb.EvaluationDownloadControllerTest do
     alias NetworkDefense.EvaluationFixtures
 
     manifest =
-      EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 1)
+      EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 2)
 
     manifest_id = "controller-warmup-#{System.unique_integer([:positive])}"
     assert {:ok, _manifest} = EvaluationFixtures.save_manifest(manifest_id, manifest)

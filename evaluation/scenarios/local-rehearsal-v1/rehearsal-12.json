@@ -55,8 +55,7 @@
     "bootstrap_resamples": 1000,
     "permutation_resamples": 1000,
     "multiplicity_correction": "holm",
-    "seed": 20303,
-    "pilot": { "ci_half_width": 0.5 }
+    "seed": 20303
   },
   "evaluation": {
     "trials": 500,

@@ -200,7 +200,7 @@ defmodule Mix.Tasks.Seed.FixedOrderFulfilmentTest do
           "outcome" => "blast_radius"
         }
       ])
-      |> put_in(["evaluation", "trials"], 1)
+      |> put_in(["evaluation", "trials"], 2)
 
     {:ok, _manifest} =
       Evaluation.save(%{existing_manifest_id: manifest.id, content: probe})

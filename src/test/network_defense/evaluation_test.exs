@@ -150,6 +150,17 @@ defmodule NetworkDefense.EvaluationTest do
       assert log =~ "$.bogus"
     end
 
+    test "treats analysis.pilot as an unknown manifest key" do
+      manifest = put_in(@valid_manifest, ["analysis", "pilot"], %{"ci_half_width" => 0.5})
+
+      assert log =
+               capture_log(fn ->
+                 assert {:ok, ^manifest} = ManifestContract.validate(manifest)
+               end)
+
+      assert log =~ "analysis.pilot"
+    end
+
     test "rejects an invalid schema version" do
       manifest = Map.put(@valid_manifest, "schema_version", 1)
       assert {:error, errors} = ManifestContract.validate(manifest)
@@ -459,6 +470,10 @@ defmodule NetworkDefense.EvaluationTest do
 
     test "rejects invalid numeric values" do
       manifest = put_in(@valid_manifest, ["evaluation", "trials"], 0)
+      assert {:error, errors} = ManifestContract.validate(manifest)
+      assert Enum.any?(errors, &(&1.path == "evaluation.trials"))
+
+      manifest = put_in(@valid_manifest, ["evaluation", "trials"], 1)
       assert {:error, errors} = ManifestContract.validate(manifest)
       assert Enum.any?(errors, &(&1.path == "evaluation.trials"))
     end
@@ -1194,7 +1209,7 @@ defmodule NetworkDefense.EvaluationTest do
   end
 
   describe "Warm-up" do
-    @warmup_manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 1)
+    @warmup_manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 2)
 
     test "restricts purpose to evaluation and warmup in the changeset" do
       base = %{
@@ -1233,7 +1248,7 @@ defmodule NetworkDefense.EvaluationTest do
       assert {:ok, warmup} = Evaluation.warm_up(warm_id)
 
       assert {:error, :not_exportable} = Evaluation.download_archive(warmup.id)
-      assert {:error, :not_exportable} = Evaluation.analyze(warmup.id, "analyze")
+      assert {:error, :not_exportable} = Evaluation.analyze(warmup.id)
 
       eval_id = manifest_id()
       assert {:ok, _manifest} = save_manifest(eval_id, @warmup_manifest)

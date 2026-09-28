@@ -116,7 +116,7 @@ A warm-up run cannot be exported or analyzed.
 The [analysis archive-file list](../../evaluation/analysis/README.md#evaluation-archive-files)
 describes the archive contents. For analysis:
 
-- `mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip`
+- `mix evaluate.analyze --run-id RUN_ID --output analysis.zip`
 
 The [`evaluate.optimization`](../../src/lib/mix/tasks/evaluate.optimization.ex)
 task runs a single optimization synchronously and prints a JSON record. The
@@ -163,10 +163,23 @@ mission-impact point. A zero-difference and zero-width comparison is a
 non-informative stop condition, not an automatic precision pass. Holm
 correction applies across all 36 primary comparisons.
 
-The current analysis implementation does not yet satisfy this study contract.
-It conditions on the declared selection seeds and selects only the attack-trial
-count. The required nested uncertainty analysis and two-dimensional pilot are
-planned work.
+The current analysis and pilot implement this contract. The crossed estimator
+builds one tested plan-by-attack matrix and one CVSS plan-by-attack matrix per
+comparison. It samples plan rows independently and shares the sampled attack
+columns across both sides. The two-dimensional pilot selects the common plan
+count and attacks-per-plan count. One Holm correction covers the complete
+36-comparison family. High coverage above the accepted range is conservative.
+It can select a larger sample but does not invalidate the result.
+
+The versioned study specification declares the family rules and the candidate
+grid. The `mix evaluate.study` task builds the study bundle in Elixir and calls
+the Python service. Statistics stay in Python. Study execution is Mix-only. The
+dashboard does not start study runs. See the
+[analysis guide](../../evaluation/analysis/README.md#single-archive-and-study-analysis).
+
+Current limits: each tier has one frozen graph, and the study has one recorded
+environment. The results do not cover graph-generation or environment
+variation.
 
 ### Where the two sources of variation enter
 

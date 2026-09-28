@@ -3,7 +3,6 @@ import type {
   EvaluationAnalysisErrorEvent,
   EvaluationAnalysisReadyEvent,
   EvaluationReport,
-  RequestEvaluationAnalysisPayload,
 } from "../../contracts.generated/dashboard/evaluation";
 import type { DashboardApi } from "../dashboard-api";
 import { AsyncReportDocument } from "../workspace/WorkspaceDocument.svelte";
@@ -142,12 +141,8 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     api.requestEvaluationReport(documentId, runId);
   }
 
-  async startAnalysis(
-    api: DashboardApi,
-    documentId: string,
-    mode: RequestEvaluationAnalysisPayload["mode"],
-  ): Promise<void> {
-    const session = this.session(mode);
+  async startAnalysis(api: DashboardApi, documentId: string): Promise<void> {
+    const session = this.finalAnalysis;
     if (session.status === "loading") return;
     session.status = "loading";
     session.data = null;
@@ -155,11 +150,10 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
     const reply = await api.requestEvaluationAnalysis({
       document_id: documentId,
       run_id: this.runId,
-      mode,
     });
     if (reply.status !== "processing") {
       session.status = "error";
-      session.error = `Unable to start ${mode === "pilot" ? "pilot" : "final"} analysis (${reply.status}).`;
+      session.error = `Unable to start final analysis (${reply.status}).`;
     }
   }
 
@@ -173,28 +167,19 @@ export class AnalysisReportDocument extends AsyncReportDocument<"evaluation"> {
 
   setAnalysisError(event: EvaluationAnalysisErrorEvent): void {
     if (!this.matchesAnalysisEvent(event)) return;
-    if (event.mode !== "pilot" && event.mode !== "analyze") return;
     const session = this.session(event.mode);
     session.status = "error";
     session.data = null;
     session.error = `Analysis failed (${event.error.code}).`;
   }
 
-  private matchesAnalysisEvent(event: {
-    document_id: string;
-    run_id: string;
-    mode: string;
-  }): boolean {
-    return (
-      event.document_id === this.id &&
-      event.run_id === this.runId &&
-      (event.mode === "pilot" || event.mode === "analyze")
-    );
+  private matchesAnalysisEvent(
+    event: EvaluationAnalysisReadyEvent | EvaluationAnalysisErrorEvent,
+  ): boolean {
+    return event.document_id === this.id && event.run_id === this.runId;
   }
 
-  private session(
-    mode: RequestEvaluationAnalysisPayload["mode"],
-  ): AnalysisSession {
+  private session(mode: AnalysisMode): AnalysisSession {
     return mode === "pilot" ? this.pilotAnalysis : this.finalAnalysis;
   }
 
@@ -209,6 +194,8 @@ export type AnalysisSession = {
   data: EvaluationAnalysis | null;
   error: string;
 };
+
+type AnalysisMode = EvaluationAnalysisReadyEvent["mode"];
 
 type PersistedAnalysisReport = PersistedWorkspaceDocument & {
   ids: { runId: string; manifestId: string };

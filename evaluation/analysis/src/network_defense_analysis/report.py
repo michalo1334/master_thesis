@@ -6,7 +6,7 @@ import math
 import shutil
 import statistics
 import time
-from importlib.metadata import version
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib
@@ -15,9 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from .contracts import (_configuration, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_phase_one_evidence, _normalise_plans, _normalise_summary, _normalise_trials)
+from .contracts import (_configuration, _dependency_versions, _finite, _load, _manifest_requirements, _normalise_capabilities, _normalise_phase_one_evidence, _normalise_plans, _normalise_summary, _normalise_trials, _package_version)
 from .errors import _error
-from .statistics import _bootstrap_interval, _comparison_groups, _holm, _paired_statistics, _pairs
+from .statistics import CrossedComparison, PrimaryStatistics, _bootstrap_interval, _comparison_groups, _comparison_stream_seed, _crossed_comparison, _crossed_statistics, _holm, _pairs
 
 OUTPUT_HEADERS = {
     "primary_results.csv": (
@@ -35,6 +35,10 @@ OUTPUT_HEADERS = {
         "d_z",
         "p_raw",
         "p_adjusted",
+        "informative",
+        "tested_plan_count",
+        "baseline_plan_count",
+        "attacks_per_plan",
     ),
     "secondary_results.csv": (
         "comparison",
@@ -77,14 +81,6 @@ OUTPUT_HEADERS = {
     ),
     "runtime.csv": ("plan_id", "kind", "runtime_ms"),
     "cdf.csv": ("model_variant", "strategy", "budget", "blast_radius", "probability"),
-    "pilot_results.csv": (
-        "comparison",
-        "ci_half_width",
-        "target",
-        "passes",
-        "paired_attack_seed_count",
-        "approximate_trials",
-    ),
     "host_probabilities.csv": (
         "model_variant", "strategy", "budget", "host_id", "host_name", "entry_host", "compromise_probability",
     ),
@@ -111,7 +107,9 @@ def _runtime(value: str | int | float | None, field: str) -> float:
 
 
 def _clear_outputs(destination: Path) -> None:
-    names = set(OUTPUT_HEADERS) | {"analysis.json", "metadata.json"}
+    # ``pilot_results.csv`` is a stale legacy single-run artifact. Analysis
+    # output no longer writes it, but clearing removes any leftover file.
+    names = set(OUTPUT_HEADERS) | {"analysis.json", "metadata.json", "pilot_results.csv"}
     for name in names:
         path = destination / name
         if path.is_file():
@@ -157,7 +155,125 @@ def _plot(output: Path, cdf: list[dict], variation: list[dict]) -> None:
     plt.close(figure)
 
 
-def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> None:
+def _trial_outcome_index(trials: dict[tuple[str, int], dict]) -> dict[tuple[str, int], dict]:
+    """Index trial rows by plan ID and attack seed for direct lookup."""
+
+    return {
+        (plan_id, value["seed"]): value
+        for (plan_id, _), value in trials.items()
+    }
+
+
+def _plan_variation_values(
+    by_seed: dict[tuple[str, int], dict],
+    plan_id: str,
+    schedule: list[int],
+    outcome: str,
+) -> list[float]:
+    """Return one plan's outcome per declared attack seed in schedule order."""
+
+    values = []
+    for seed in schedule:
+        value = by_seed.get((plan_id, seed))
+        if value is None or outcome not in value:
+            raise _error(
+                f"missing plan variation outcome for plan {plan_id}, attack seed {seed}"
+            )
+        values.append(value[outcome])
+    return values
+
+
+@dataclass(frozen=True)
+class _PrimaryComparison:
+    """One primary comparison plus the crossed data later outputs reuse."""
+
+    index: int
+    comparison: dict
+    left: list[str]
+    right: list[str]
+    outcome: str
+    schedule: list[int]
+    crossed: CrossedComparison
+    statistics: PrimaryStatistics
+    row: dict
+
+
+def _primary_comparisons(
+    manifest: dict,
+    plans: list[dict],
+    trial_rows: list[dict],
+    *,
+    stream_seed_offset: int = 0,
+):
+    """Build one crossed primary row per declared comparison.
+
+    Callers that span several tiers pass a distinct ``stream_seed_offset`` so
+    every tier resamples from its own deterministic stream. Single-archive
+    analysis keeps the default offset to preserve existing output.
+    """
+
+    expected_trials = _manifest_requirements(manifest)
+    configuration = _configuration(manifest)
+    identities = _normalise_plans(plans)
+    trials, schedules = _normalise_trials(set(identities), trial_rows, expected_trials)
+    comparisons = []
+    for comparison_index, comparison in enumerate(configuration["primary_comparisons"]):
+        left, right = _comparison_groups(identities, comparison)
+        outcome = comparison.get("outcome")
+        if outcome not in ("blast_radius", "mission_impact"):
+            raise _error(f"unsupported outcome: {outcome}")
+        crossed = _crossed_comparison(
+            left,
+            right,
+            identities,
+            trials,
+            schedules,
+            outcome,
+        )
+        statistics = _crossed_statistics(
+            crossed,
+            configuration,
+            _comparison_stream_seed(
+                configuration["seed"], stream_seed_offset, comparison_index
+            ),
+        )
+        row = {
+            "comparison": comparison_index,
+            "strategy": comparison["strategy"],
+            "model_variant": comparison["model_variant"],
+            "baseline": comparison["baseline"],
+            "baseline_model_variant": comparison["baseline_model_variant"],
+            "budget": comparison["budget"],
+            "outcome": outcome,
+            "paired_mean_difference": statistics.mean_difference,
+            "ci_lower": statistics.ci_lower,
+            "ci_upper": statistics.ci_upper,
+            "ci_half_width": statistics.ci_half_width,
+            "d_z": None,
+            "p_raw": statistics.p_raw,
+            "p_adjusted": None,
+            "informative": statistics.informative,
+            "tested_plan_count": statistics.tested_plan_count,
+            "baseline_plan_count": statistics.baseline_plan_count,
+            "attacks_per_plan": statistics.attacks_per_plan,
+        }
+        comparisons.append(
+            _PrimaryComparison(
+                index=comparison_index,
+                comparison=comparison,
+                left=left,
+                right=right,
+                outcome=outcome,
+                schedule=list(crossed.attack_seeds),
+                crossed=crossed,
+                statistics=statistics,
+                row=row,
+            )
+        )
+    return expected_trials, configuration, identities, trials, schedules, comparisons
+
+
+def analyze(source: str | Path, output: str | Path) -> None:
     started = time.monotonic()
     loaded = _load(source)
     temporary = loaded.temporary
@@ -172,10 +288,8 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
     hashes = loaded.hashes
     checksum_hash = loaded.checksum_hash
     try:
-        expected_trials = _manifest_requirements(manifest)
-        configuration = _configuration(manifest)
-        identities = _normalise_plans(plans)
-        trials, schedules = _normalise_trials(set(identities), trial_rows, expected_trials)
+        expected_trials, configuration, identities, trials, schedules, primary_comparisons = _primary_comparisons(manifest, plans, trial_rows)
+        by_seed = _trial_outcome_index(trials)
         capabilities, capability_names = _normalise_capabilities(set(identities), capability_rows, trials)
         flows, hosts = _normalise_phase_one_evidence(set(identities), trial_rows, flow_rows, host_rows, expected_trials)
         summary = _normalise_summary(trial_rows, summary, expected_trials)
@@ -188,35 +302,15 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         secondary = []
         capability_results = []
         variation = []
-        pilot = []
-        comparisons = configuration["primary_comparisons"]
-        for comparison_index, comparison in enumerate(comparisons):
-            left, right = _comparison_groups(identities, comparison)
-            outcome = comparison.get("outcome")
-            if outcome not in ("blast_radius", "mission_impact"):
-                raise _error(f"unsupported outcome: {outcome}")
-            schedule, differences = _pairs(left, right, trials, schedules, outcome)
-            mean, low, high, effect, p_value = _paired_statistics(
-                differences, configuration, int(configuration["seed"]) + comparison_index * 2
-            )
-            primary.append(
-                {
-                    "comparison": comparison_index,
-                    "strategy": comparison["strategy"],
-                    "model_variant": comparison["model_variant"],
-                    "baseline": comparison["baseline"],
-                    "baseline_model_variant": comparison["baseline_model_variant"],
-                    "budget": comparison["budget"],
-                    "outcome": outcome,
-                    "paired_mean_difference": mean,
-                    "ci_lower": low,
-                    "ci_upper": high,
-                    "ci_half_width": (high - low) / 2,
-                    "d_z": effect,
-                    "p_raw": p_value,
-                    "p_adjusted": None,
-                }
-            )
+        for primary_comparison in primary_comparisons:
+            comparison_index = primary_comparison.index
+            comparison = primary_comparison.comparison
+            left = primary_comparison.left
+            right = primary_comparison.right
+            outcome = primary_comparison.outcome
+            comparison_data = primary_comparison.crossed
+            schedule = primary_comparison.schedule
+            primary.append(primary_comparison.row)
             other_outcome = "mission_impact" if outcome == "blast_radius" else "blast_radius"
             _, secondary_differences = _pairs(left, right, trials, schedules, other_outcome)
             secondary_low, secondary_high = _bootstrap_interval(
@@ -237,32 +331,20 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
                     "ci_half_width": (secondary_high - secondary_low) / 2,
                 }
             )
-            target = float(configuration.get("pilot", {}).get("ci_half_width", math.inf))
-            passes = (high - low) / 2 <= target
-            pilot.append(
-                {
-                    "comparison": comparison_index,
-                    "ci_half_width": (high - low) / 2,
-                    "target": target,
-                    "passes": passes,
-                    "paired_attack_seed_count": len(schedule),
-                    "approximate_trials": None if passes else math.ceil(len(schedule) * (((high - low) / 2) / target) ** 2),
-                }
-            )
 
             baseline_values = [
-                value[outcome]
+                value
                 for pid in right
-                for (candidate, _), value in trials.items()
-                if candidate == pid
+                for value in _plan_variation_values(
+                    by_seed, pid, schedules[pid], outcome
+                )
             ]
             baseline_means = np.mean(baseline_values)
             for plan_id in left + right:
                 identity = identities[plan_id]
-                values = [
-                    next(value[outcome] for (candidate, _), value in trials.items() if candidate == plan_id and value["seed"] == seed)
-                    for seed in schedules[plan_id]
-                ]
+                values = _plan_variation_values(
+                    by_seed, plan_id, schedules[plan_id], outcome
+                )
                 variation.append(
                     {
                         "comparison": comparison_index,
@@ -396,9 +478,6 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         _write_csv(destination / "cdf.csv", cdf, OUTPUT_HEADERS["cdf.csv"])
         _plot(destination, cdf, variation)
 
-        all_pass = all(row["passes"] for row in pilot)
-        if mode == "pilot":
-            _write_csv(destination / "pilot_results.csv", pilot, OUTPUT_HEADERS["pilot_results.csv"])
         metadata = {
             "manifest_id": manifest.get("id"),
             "schema_version": manifest.get("schema_version"),
@@ -410,13 +489,12 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
             "input_trial_count": len(trial_rows),
             "declared_plan_trial_count": sum(len(schedule) for schedule in schedules.values()),
             "runtime_summary": runtime_summary,
-            "command_mode": mode,
-            "pilot_comparison_pass": pilot,
-            "pilot_all_pass": all_pass,
-            "simulator_only_uncertainty": True,
-            "estimand_note": "Confidence intervals and tests condition on the manifest-declared selection-seed set. Plan-selection variation is reported separately.",
-            "package_version": "0.1.0",
-            "dependencies": {name: version(name) for name in ("numpy", "scipy", "matplotlib")},
+            "command_mode": "analyze",
+            "simulator_only_uncertainty": False,
+            "uncertainty_sources": ["plan_selection", "attack_outcome"],
+            "estimand_note": "The interval includes independent plan-row and shared attack-column resampling.",
+            "package_version": _package_version(),
+            "dependencies": _dependency_versions(),
             "analysis_runtime_seconds": time.monotonic() - started,
         }
         (destination / "metadata.json").write_text(json.dumps(_json_safe(metadata), sort_keys=True, indent=2) + "\n")
@@ -426,4 +504,4 @@ def analyze(source: str | Path, output: str | Path, mode: str = "analyze") -> No
         if temporary:
             shutil.rmtree(temporary, ignore_errors=True)
 
-__all__ = ["OUTPUT_HEADERS", "analyze"]
+__all__ = ["OUTPUT_HEADERS", "analyze", "_primary_comparisons"]

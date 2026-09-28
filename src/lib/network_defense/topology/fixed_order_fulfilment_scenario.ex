@@ -360,8 +360,7 @@ defmodule NetworkDefense.Topology.FixedOrderFulfilmentScenario do
       "bootstrap_resamples" => 100,
       "permutation_resamples" => 100,
       "multiplicity_correction" => "holm",
-      "seed" => 9001,
-      "pilot" => %{"ci_half_width" => 0.25}
+      "seed" => 9001
     }
   end
 

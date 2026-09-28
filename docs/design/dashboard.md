@@ -120,8 +120,15 @@ for one evaluation. The user starts the evaluation from the manifest.
 
 On completion, the system opens an analysis report. The report lists the plans
 and the aggregate results of the experiments. Statistical analysis is a
-follow-on step; the user triggers it. A completed analysis report offers a
-download of the result archive. No other view offers a download.
+follow-on step; the user triggers it.
+
+The dashboard renders study-analysis results. It does not start study
+collection, a study pilot, or final study analysis. Use `mix evaluate.study`
+for those operations.
+
+The browser download URL serves the completed evaluation output-contract ZIP.
+The ZIP is input to statistical analysis. It is not a study-analysis result
+ZIP. No other view offers a download.
 
 Source references:
 

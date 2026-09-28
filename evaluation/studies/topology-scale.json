@@ -1,0 +1,33 @@
+{
+  "study_id": "topology-scale-study",
+  "specification_version": 1,
+  "expected_family": {
+    "strategies": [
+      "random",
+      "topology_segmentation",
+      "simulation_informed",
+      "simulated_annealing"
+    ],
+    "baseline": "cvss",
+    "budgets": [1, 2, 3],
+    "outcome": "mission_impact"
+  },
+  "pilot": {
+    "ci_half_width": 1.0,
+    "plan_count_candidates": [5, 6, 8],
+    "attacks_per_plan_candidates": [10, 12, 16],
+    "guard_quantile": 0.9,
+    "subsamples": 100,
+    "seed": 700001,
+    "selection_rule": "lowest_predicted_runtime"
+  },
+  "multiplicity_correction": "holm",
+  "pilot_seed_schedule": {
+    "selection": [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008],
+    "evaluation": [11001, 11002, 11003]
+  },
+  "final_seed_schedule": {
+    "selection": [20001, 20002, 20003, 20004, 20005, 20006, 20007, 20008],
+    "evaluation": [21001, 21002, 21003]
+  }
+}

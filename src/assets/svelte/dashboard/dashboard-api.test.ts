@@ -423,12 +423,11 @@ describe("DashboardApi", () => {
       createDashboardApi(live).requestEvaluationAnalysis({
         document_id: "document-1",
         run_id: "run-1",
-        mode: "pilot",
       }),
     ).resolves.toEqual(reply);
     expect(live.pushEvent).toHaveBeenCalledWith(
       "request_evaluation_analysis",
-      { document_id: "document-1", run_id: "run-1", mode: "pilot" },
+      { document_id: "document-1", run_id: "run-1" },
       expect.any(Function),
     );
   });

@@ -284,21 +284,18 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
     unknown(
       analysis,
       "analysis",
-      ~w(primary_comparisons confidence_level bootstrap_resamples permutation_resamples multiplicity_correction seed pilot)
+      ~w(primary_comparisons confidence_level bootstrap_resamples permutation_resamples multiplicity_correction seed)
     )
 
-    with :ok <- comparisons(analysis["primary_comparisons"], manifest),
-         :ok <-
-           fields(analysis, "analysis", [
-             {"confidence_level", &(is_number(&1) and &1 > 0 and &1 < 1),
-              "must be strictly between 0 and 1"},
-             {"bootstrap_resamples", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
-             {"permutation_resamples", &(is_integer(&1) and &1 > 0),
-              "must be a positive integer"},
-             {"multiplicity_correction", &(&1 in @corrections), "must be \"holm\" or \"none\""},
-             {"seed", &(is_integer(&1) and &1 >= 0), "must be a non-negative integer"}
-           ]) do
-      pilot(analysis["pilot"])
+    with :ok <- comparisons(analysis["primary_comparisons"], manifest) do
+      fields(analysis, "analysis", [
+        {"confidence_level", &(is_number(&1) and &1 > 0 and &1 < 1),
+         "must be strictly between 0 and 1"},
+        {"bootstrap_resamples", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
+        {"permutation_resamples", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
+        {"multiplicity_correction", &(&1 in @corrections), "must be \"holm\" or \"none\""},
+        {"seed", &(is_integer(&1) and &1 >= 0), "must be a non-negative integer"}
+      ])
     end
   end
 
@@ -428,26 +425,12 @@ defmodule NetworkDefense.Evaluation.Contracts.EvaluationManifest do
 
   defp matching_seeds(_, _, _, _, _, _, _), do: :ok
 
-  defp pilot(%{} = pilot) do
-    unknown(pilot, "analysis.pilot", ~w(ci_half_width))
-
-    field(
-      pilot,
-      "ci_half_width",
-      &(is_number(&1) and &1 > 0),
-      "must be a positive number",
-      "analysis.pilot"
-    )
-  end
-
-  defp pilot(_), do: error("analysis.pilot", "is required")
-
   defp evaluation(%{"evaluation" => %{} = evaluation}) do
     unknown(evaluation, "evaluation", ~w(trials seed optimizer_trials optimizer_iterations))
 
     with :ok <-
            fields(evaluation, "evaluation", [
-             {"trials", &(is_integer(&1) and &1 > 0), "must be a positive integer"},
+             {"trials", &(is_integer(&1) and &1 >= 2), "must be at least 2"},
              {"seed", &(is_integer(&1) and &1 >= 0), "must be a non-negative integer"}
            ]),
          :ok <-

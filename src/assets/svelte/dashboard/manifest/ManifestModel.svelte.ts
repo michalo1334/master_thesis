@@ -27,7 +27,7 @@ const DEFAULT_MANIFEST = `{
     { "strategy": "simulation_informed", "model_variant": "full", "baseline": "cvss", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" },
     { "strategy": "simulation_informed", "model_variant": "blast_only", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" },
     { "strategy": "simulation_informed", "model_variant": "full_unconstrained", "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 1, "outcome": "blast_radius" }
-  ], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001, "pilot": { "ci_half_width": 0.25 } },
+  ], "confidence_level": 0.95, "bootstrap_resamples": 10000, "permutation_resamples": 10000, "multiplicity_correction": "holm", "seed": 7001 },
   "evaluation": { "trials": 1000, "seed": 9001 }
 }`;
 const DEFAULT_MANIFEST_ID = "fixed-enterprise-v1";

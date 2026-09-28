@@ -3,6 +3,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   require Logger
 
+  alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Errors
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.EvaluationRuns
@@ -13,19 +14,17 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulations
-  alias NetworkDefense.DocumentCatalog
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
+  alias Phoenix.PubSub
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
-  alias NetworkDefenseWeb.Contracts.Dashboard.ReportRequestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisErrorEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisReadyEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationFailedEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportErrorEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationReportReadyEvent
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestReply
@@ -37,6 +36,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CreateConnectionDraftPayload
@@ -74,6 +74,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.OptimizationReportReadyEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Optimization.RunOptimizationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.ReportRequestReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Runs.FetchRunsPayload
@@ -129,9 +130,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
       |> assign(:folders, folder_summaries())
 
     if connected?(socket) do
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
-      Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
+      PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+      PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
+      PubSub.subscribe(NetworkDefense.PubSub, Evaluation.evaluation_events_topic())
     end
 
     {:ok, socket}
@@ -292,7 +293,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
                %{
                  document_id: request.document_id,
                  run_id: request.run_id,
-                 mode: request.mode,
+                 mode: "analyze",
                  error: dashboard_error(:task_unavailable)
                }
              )}
@@ -829,7 +830,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp start_evaluation_analysis(%RequestEvaluationAnalysisPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       result =
-        case Evaluation.analyze(request.run_id, request.mode) do
+        case Evaluation.analyze(request.run_id) do
           {:ok, zip} ->
             Evaluation.parse_analysis(zip)
 
@@ -839,7 +840,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       send(
         owner,
-        {:evaluation_analysis_result, request.document_id, request.run_id, request.mode, result}
+        {:evaluation_analysis_result, request.document_id, request.run_id, "analyze", result}
       )
     end)
   end

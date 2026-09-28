@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/svelte";
 import AnalysisReport from "./AnalysisReport.svelte";
 import { AnalysisReportDocument } from "./AnalysisReportDocument.svelte";
@@ -53,7 +54,7 @@ function analysisFixture(
       schema_version: 1,
       estimand_note: "tested strategy minus baseline",
     },
-    pilot_comparison_pass: [],
+    pilot_results: [],
     primary_results: [],
     secondary_results: [],
     ...overrides,
@@ -64,6 +65,64 @@ function apiFixture(reply = { status: "processing" }): DashboardApi {
   return {
     requestEvaluationAnalysis: vi.fn().mockResolvedValue(reply),
   } as unknown as DashboardApi;
+}
+
+function surveyPilotFixture(
+  metadata: {
+    recommended_plan_selection_seed_count: number | null;
+    recommended_attacks_per_plan: number | null;
+    insufficient_pilot: boolean;
+  },
+  informative = true,
+): EvaluationAnalysis {
+  return analysisFixture({
+    metadata: {
+      ...analysisFixture().metadata,
+      command_mode: "study-pilot",
+      family_scope: "study",
+      family_size: 36,
+      ...metadata,
+    },
+    pilot_results: [
+      {
+        comparison_id: "small|full|simulation_informed|cvss|1|mission_impact",
+        tier: "small",
+        informative,
+        candidate_plan_count: 6,
+        candidate_attacks_per_plan: 12,
+        guarded_ci_half_width: informative ? 0.5 : 0,
+        target: 1,
+        passes: informative,
+      },
+    ],
+  });
+}
+
+function studyPrimaryRow(
+  overrides: Partial<EvaluationAnalysis["primary_results"][number]> = {},
+): EvaluationAnalysis["primary_results"][number] {
+  return {
+    comparison: 0,
+    comparison_id: "small|full|simulation_informed|cvss|1|mission_impact",
+    tier: "small",
+    strategy: "simulation_informed",
+    model_variant: "full",
+    baseline: "cvss",
+    baseline_model_variant: "full",
+    budget: 1,
+    outcome: "mission_impact",
+    informative: true,
+    tested_plan_count: 6,
+    baseline_plan_count: 6,
+    attacks_per_plan: 12,
+    paired_mean_difference: -0.5,
+    ci_lower: -1,
+    ci_upper: 0,
+    ci_half_width: 0.5,
+    p_raw: 0.02,
+    p_adjusted: 0.04,
+    ...overrides,
+  };
 }
 
 async function openStatisticalAnalysis(
@@ -129,41 +188,44 @@ describe("AnalysisReport", () => {
     expect(screen.getByRole("heading", { name: "Summary" })).toBeVisible();
   });
 
-  it("runs pilot analysis and renders a matching ready result", async () => {
+  it("renders a study-pilot ready result", async () => {
     const document = loadedDocument();
     const api = apiFixture();
     await openStatisticalAnalysis(document, api);
-
-    await fireEvent.click(screen.getByRole("button", { name: "Run pilot" }));
-    expect(api.requestEvaluationAnalysis).toHaveBeenCalledWith({
-      document_id: document.id,
-      run_id: "run-1",
-      mode: "pilot",
-    });
 
     document.setAnalysisReady({
       document_id: document.id,
       run_id: "run-1",
       mode: "pilot",
-      analysis: analysisFixture({
-        pilot_comparison_pass: [{ comparison: 0.125, passes: true }],
+      analysis: surveyPilotFixture({
+        recommended_plan_selection_seed_count: 6,
+        recommended_attacks_per_plan: 12,
+        insufficient_pilot: false,
       }),
     });
-    await waitFor(() => expect(screen.getByText("0.125")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("small")).toBeInTheDocument());
     expect(
       screen.getByRole("heading", { name: "Pilot planning results" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Guarded half-width" }),
+    ).toBeInTheDocument();
   });
 
-  it("announces pilot errors", async () => {
+  it("announces study-pilot errors", async () => {
     const document = loadedDocument();
-    const api = apiFixture({ status: "rejected" });
+    const api = apiFixture();
     await openStatisticalAnalysis(document, api);
 
-    await fireEvent.click(screen.getByRole("button", { name: "Run pilot" }));
+    document.setAnalysisError({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "pilot",
+      error: { code: "invalid_analysis" },
+    });
 
     expect(
-      await screen.findByText("Unable to start pilot analysis (rejected)."),
+      await screen.findByText("Analysis failed (invalid_analysis)."),
     ).toBeInTheDocument();
   });
 
@@ -178,7 +240,6 @@ describe("AnalysisReport", () => {
     expect(api.requestEvaluationAnalysis).toHaveBeenCalledWith({
       document_id: document.id,
       run_id: "run-1",
-      mode: "analyze",
     });
 
     document.setAnalysisReady({
@@ -234,7 +295,6 @@ describe("AnalysisReport", () => {
           analysis_runtime_seconds: 2.5,
           simulator_only_uncertainty: true,
           package_version: "1.2.3",
-          pilot_all_pass: true,
         },
       }),
     });
@@ -360,6 +420,151 @@ describe("AnalysisReport", () => {
     expect(
       screen.getByRole("button", { name: "Mission communications" }),
     ).toHaveAttribute("title", "capability-1");
+  });
+
+  it("renders the study pilot recommendation summary", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "pilot",
+      analysis: surveyPilotFixture({
+        recommended_plan_selection_seed_count: 6,
+        recommended_attacks_per_plan: 12,
+        insufficient_pilot: false,
+      }),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText("Recommended plan count")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText("Recommended attacks per plan"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Candidate plans")).toBeInTheDocument();
+    expect(
+      screen.getByRole("columnheader", { name: "Guarded half-width" }),
+    ).toBeInTheDocument();
+
+    const summary = screen.getByText("Recommended plan count").closest("dl");
+    expect(summary).not.toBeNull();
+    expect(within(summary!).getByText("6")).toBeInTheDocument();
+    expect(within(summary!).getByText("12")).toBeInTheDocument();
+    expect(
+      within(summary!).getByText("Recommendation available"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the insufficient pilot state", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "pilot",
+      analysis: surveyPilotFixture({
+        recommended_plan_selection_seed_count: null,
+        recommended_attacks_per_plan: null,
+        insufficient_pilot: true,
+      }),
+    });
+
+    expect(await screen.findByText("Insufficient pilot")).toBeInTheDocument();
+  });
+
+  it("shows the non-informative pilot count and blocking warning", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "pilot",
+      analysis: surveyPilotFixture(
+        {
+          recommended_plan_selection_seed_count: null,
+          recommended_attacks_per_plan: null,
+          insufficient_pilot: true,
+        },
+        false,
+      ),
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Non-informative comparisons"),
+      ).toBeInTheDocument(),
+    );
+    const summary = screen
+      .getByText("Non-informative comparisons")
+      .closest("dl");
+    expect(within(summary!).getByText("1")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("non-informative");
+  });
+
+  it("labels the study-family Holm adjustment", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        metadata: {
+          ...analysisFixture().metadata,
+          command_mode: "study-analyze",
+          family_scope: "study",
+          family_size: 36,
+        },
+        primary_results: [studyPrimaryRow()],
+      }),
+    });
+
+    expect(
+      await screen.findByText(
+        "Holm adjustment covers the complete declared study family.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a blocking warning for non-informative primary comparisons", async () => {
+    const document = loadedDocument();
+    const api = apiFixture();
+    await openStatisticalAnalysis(document, api);
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis: analysisFixture({
+        metadata: {
+          ...analysisFixture().metadata,
+          command_mode: "study-analyze",
+          family_scope: "study",
+          family_size: 36,
+        },
+        primary_results: [
+          studyPrimaryRow({
+            informative: false,
+            paired_mean_difference: 0,
+            ci_half_width: 0,
+          }),
+        ],
+      }),
+    });
+
+    await waitFor(() =>
+      expect(screen.getByText("Comparison ID")).toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("columnheader", { name: "Tested plans" }),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("non-informative");
+    expect(alert).toHaveTextContent("not a pass");
   });
 
   it("falls back to the capability UUID when its name is missing", async () => {

@@ -4,18 +4,48 @@ defmodule NetworkDefenseWeb.EvaluationAnalysisCapabilityRowTest do
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow
 
   test "casts an optional capability name" do
-    assert EvaluationAnalysisCapabilityRow.changeset(%EvaluationAnalysisCapabilityRow{}, %{
-             "capability_id" => "capability",
-             "model_variant" => "full",
-             "baseline_model_variant" => "full",
-             "capability_name" => "Capability"
-           }).valid?
+    assert EvaluationAnalysisCapabilityRow.changeset(
+             %EvaluationAnalysisCapabilityRow{},
+             required_fields(%{"capability_name" => "Capability"})
+           ).valid?
 
-    assert EvaluationAnalysisCapabilityRow.changeset(%EvaluationAnalysisCapabilityRow{}, %{
-             "capability_id" => "capability",
-             "model_variant" => "full",
-             "baseline_model_variant" => "full"
-           }).valid?
+    assert EvaluationAnalysisCapabilityRow.changeset(
+             %EvaluationAnalysisCapabilityRow{},
+             required_fields()
+           ).valid?
+  end
+
+  test "requires the non-null capability row fields" do
+    changeset =
+      EvaluationAnalysisCapabilityRow.changeset(%EvaluationAnalysisCapabilityRow{}, %{
+        "model_variant" => "full",
+        "baseline_model_variant" => "full"
+      })
+
+    refute changeset.valid?
+
+    assert %{
+             capability_id: ["can't be blank"],
+             comparison: ["can't be blank"],
+             strategy: ["can't be blank"],
+             baseline: ["can't be blank"],
+             budget: ["can't be blank"]
+           } = errors_on(changeset)
+  end
+
+  defp required_fields(overrides \\ %{}) do
+    Map.merge(
+      %{
+        "comparison" => 0,
+        "strategy" => "simulation_informed",
+        "model_variant" => "full",
+        "baseline" => "cvss",
+        "baseline_model_variant" => "full",
+        "budget" => 1,
+        "capability_id" => "capability"
+      },
+      overrides
+    )
   end
 
   test "requires tested and baseline model variants" do

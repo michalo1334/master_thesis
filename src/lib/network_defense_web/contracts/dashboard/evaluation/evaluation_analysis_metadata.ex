@@ -10,7 +10,17 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMet
     field :model_version, :string
     field :model_variants, {:array, :map}
     field :command_mode, :string
-    field :pilot_all_pass, :boolean
+    field :study_id, :string
+    field :specification_version, :integer
+    field :family_scope, :string
+    field :family_size, :integer
+    field :tier_labels, {:array, :string}
+    field :expected_family, :map
+    field :multiplicity_correction, :string
+    field :uncertainty_sources, {:array, :string}
+    field :recommended_plan_selection_seed_count, :integer
+    field :recommended_attacks_per_plan, :integer
+    field :insufficient_pilot, :boolean
     field :input_trial_count, :integer
     field :declared_plan_trial_count, :integer
     field :simulator_only_uncertainty, :boolean
@@ -25,12 +35,22 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMet
   end
 
   @type t :: %__MODULE__{
-          manifest_id: String.t(),
-          schema_version: integer(),
-          model_version: String.t(),
+          manifest_id: String.t() | nil,
+          schema_version: integer() | nil,
+          model_version: String.t() | nil,
           model_variants: [map()] | nil,
           command_mode: String.t(),
-          pilot_all_pass: boolean() | nil,
+          study_id: String.t() | nil,
+          specification_version: integer() | nil,
+          family_scope: String.t() | nil,
+          family_size: integer() | nil,
+          tier_labels: [String.t()] | nil,
+          expected_family: map() | nil,
+          multiplicity_correction: String.t() | nil,
+          uncertainty_sources: [String.t()] | nil,
+          recommended_plan_selection_seed_count: integer() | nil,
+          recommended_attacks_per_plan: integer() | nil,
+          insufficient_pilot: boolean() | nil,
           input_trial_count: integer() | nil,
           declared_plan_trial_count: integer() | nil,
           simulator_only_uncertainty: boolean() | nil,
@@ -41,7 +61,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMet
           estimand_note: String.t() | nil,
           package_version: String.t() | nil,
           dependencies: map() | nil,
-          runtime_summary: EvaluationAnalysisRuntimeSummary.t()
+          runtime_summary: EvaluationAnalysisRuntimeSummary.t() | nil
         }
 
   def changeset(schema, attrs) do
@@ -52,7 +72,17 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMet
       :model_version,
       :model_variants,
       :command_mode,
-      :pilot_all_pass,
+      :study_id,
+      :specification_version,
+      :family_scope,
+      :family_size,
+      :tier_labels,
+      :expected_family,
+      :multiplicity_correction,
+      :uncertainty_sources,
+      :recommended_plan_selection_seed_count,
+      :recommended_attacks_per_plan,
+      :insufficient_pilot,
       :input_trial_count,
       :declared_plan_trial_count,
       :simulator_only_uncertainty,
@@ -64,7 +94,27 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMet
       :package_version,
       :dependencies
     ])
-    |> cast_embed(:runtime_summary, required: true)
-    |> validate_required([:manifest_id, :schema_version, :model_version, :command_mode])
+    |> cast_embed(:runtime_summary)
+    |> validate_metadata_identity()
+  end
+
+  defp validate_metadata_identity(changeset) do
+    if get_field(changeset, :family_scope) == "study" do
+      validate_required(changeset, [
+        :study_id,
+        :specification_version,
+        :family_scope,
+        :family_size,
+        :command_mode
+      ])
+    else
+      validate_required(changeset, [
+        :manifest_id,
+        :schema_version,
+        :model_version,
+        :command_mode,
+        :runtime_summary
+      ])
+    end
   end
 end

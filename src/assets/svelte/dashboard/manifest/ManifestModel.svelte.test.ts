@@ -122,7 +122,6 @@ const validContent = {
     permutation_resamples: 100,
     multiplicity_correction: "holm",
     seed: 9001,
-    pilot: { ci_half_width: 0.25 },
   },
   evaluation: { trials: 1000, seed: 9001 },
 };

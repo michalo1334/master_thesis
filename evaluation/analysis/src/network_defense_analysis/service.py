@@ -19,6 +19,7 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Route
 
 from .archive import MAX_COMPRESSED_STDIN, write_result_zip
+from .study import analyze_study, pilot_study
 from . import AnalysisError, analyze
 
 logger = logging.getLogger("uvicorn.error")
@@ -64,11 +65,31 @@ async def healthz(request: Request) -> Response:
     return JSONResponse({"status": "ok"})
 
 
-async def analyze_route(request: Request) -> Response:
+def _run_analysis(input_path: Path, output_dir: Path, result_path: Path) -> None:
+    analyze(input_path, output_dir)
+    with result_path.open("wb") as stream:
+        write_result_zip(output_dir, stream)
+
+
+def _run_study_analysis(input_path: Path, _output_dir: Path, result_path: Path) -> None:
+    analyze_study(input_path, result_path)
+
+
+def _run_study_pilot(input_path: Path, _output_dir: Path, result_path: Path) -> None:
+    pilot_study(input_path, result_path)
+
+
+async def _archive_request(
+    request: Request,
+    runner,
+    *,
+    mode: str,
+    filename: str,
+    invalid_detail: str,
+) -> Response:
     service = request.app.state.service
     correlation_id = request.state.correlation_id
     started = time.monotonic()
-    mode = request.url.path.rsplit("/", 1)[-1]
     status = 500
     request_dir = output_dir = None
     acquired = False
@@ -103,19 +124,23 @@ async def analyze_route(request: Request) -> Response:
                     return _problem(status, "Request too large", "request exceeds the compressed ZIP limit")
                 target.write(chunk)
         output_dir = Path(tempfile.mkdtemp(prefix="analysis-output-"))
-        await asyncio.to_thread(analyze, input_path, output_dir, mode)
-        result_path = request_dir / "result.zip"
-        with result_path.open("wb") as stream:
-            write_result_zip(output_dir, stream)
+        result_path = request_dir / filename
+        await asyncio.to_thread(runner, input_path, output_dir, result_path)
         if result_path.stat().st_size > service.response_limit:
             status = 500
             return _problem(status, "Analysis failed", "analysis result exceeds the configured limit")
         status = 200
         cleanup = BackgroundTask(_cleanup, request_dir, output_dir, service)
-        return FileResponse(result_path, media_type="application/zip", filename=f"{mode}-result.zip", headers={"X-Correlation-ID": correlation_id}, background=cleanup)
+        return FileResponse(
+            result_path,
+            media_type="application/zip",
+            filename=filename,
+            headers={"X-Correlation-ID": correlation_id},
+            background=cleanup,
+        )
     except AnalysisError:
         status = 422
-        return _problem(status, "Invalid analysis input", "the ZIP does not satisfy the analysis contract")
+        return _problem(status, "Invalid analysis input", invalid_detail)
     except asyncio.CancelledError:
         raise
     except (OSError, ValueError):
@@ -123,7 +148,7 @@ async def analyze_route(request: Request) -> Response:
         return _problem(status, "Analysis failed", "internal analysis failure")
     except Exception:
         status = 500
-        logger.exception("analysis failed")
+        logger.exception("%s failed", mode)
         return _problem(status, "Analysis failed", "internal analysis failure")
     finally:
         if acquired and status != 200:
@@ -131,6 +156,36 @@ async def analyze_route(request: Request) -> Response:
         if status != 200:
             _remove(request_dir, output_dir)
         logger.info("mode=%s correlation_id=%s status=%s elapsed_ms=%.1f", mode, correlation_id, status, (time.monotonic() - started) * 1000)
+
+
+async def analyze_route(request: Request) -> Response:
+    return await _archive_request(
+        request,
+        _run_analysis,
+        mode="analyze",
+        filename="analyze-result.zip",
+        invalid_detail="the ZIP does not satisfy the analysis contract",
+    )
+
+
+async def study_analyze_route(request: Request) -> Response:
+    return await _archive_request(
+        request,
+        _run_study_analysis,
+        mode="study-analyze",
+        filename="study-analysis.zip",
+        invalid_detail="the ZIP does not satisfy the study contract",
+    )
+
+
+async def study_pilot_route(request: Request) -> Response:
+    return await _archive_request(
+        request,
+        _run_study_pilot,
+        mode="study-pilot",
+        filename="study-pilot.zip",
+        invalid_detail="the ZIP does not satisfy the study contract",
+    )
 
 
 def _remove(request_dir: Path | None, output_dir: Path | None) -> None:
@@ -187,7 +242,8 @@ def create_app() -> Starlette:
         routes=[
             Route("/healthz", healthz),
             Route("/v1/analyze", analyze_route, methods=["POST"], name="analyze"),
-            Route("/v1/pilot", analyze_route, methods=["POST"], name="pilot"),
+            Route("/v1/study/analyze", study_analyze_route, methods=["POST"], name="study-analyze"),
+            Route("/v1/study/pilot", study_pilot_route, methods=["POST"], name="study-pilot"),
         ],
         middleware=[Middleware(BaseHTTPMiddleware, dispatch=correlation_header)],
     )

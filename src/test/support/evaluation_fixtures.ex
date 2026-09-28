@@ -55,8 +55,7 @@ defmodule NetworkDefense.EvaluationFixtures do
         "bootstrap_resamples" => 100,
         "permutation_resamples" => 100,
         "multiplicity_correction" => "holm",
-        "seed" => 9001,
-        "pilot" => %{"ci_half_width" => 0.25}
+        "seed" => 9001
       },
       "evaluation" => %{"trials" => 10, "seed" => 9001}
     }

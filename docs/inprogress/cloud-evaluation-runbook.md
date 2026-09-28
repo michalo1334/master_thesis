@@ -1,9 +1,9 @@
 # Measured Cloud Evaluation Runbook
 
-**Status: blocked.** The cloud study is blocked until the planned tooling
-exists. See the
-[cloud evaluation tooling plan](cloud-evaluation-tooling-plan.md). Do not start
-timed cloud runs before every tooling item there is complete.
+**Status: blocked.** Tooling items 1 through 4 block the cloud study. See the
+[cloud evaluation tooling plan](cloud-evaluation-tooling-plan.md). The crossed
+study analysis and pilot are current behavior. Do not start timed cloud runs
+before items 1 through 4 are complete.
 
 This runbook tells an agent how to execute the measured cloud study once that
 tooling exists. It works without this conversation. Use the
@@ -36,10 +36,11 @@ Use the values in the source manifests. Do not invent values.
 
 ## Prerequisites
 
-The study starts only after the
-[tooling plan](cloud-evaluation-tooling-plan.md) is complete: the one-off
-evaluator, topology diagnostic, automatic environment record, automatic
-once-per-frozen-manifest warm-up, and nested study analysis and pilot.
+The study starts only after tooling items 1 through 4 in the
+[tooling plan](cloud-evaluation-tooling-plan.md) are complete: the one-off
+evaluator, topology diagnostic, automatic environment record, and automatic
+once-per-frozen-manifest warm-up. The crossed study analysis and pilot are
+current behavior.
 
 Check every gate before you run timed measures. Stop the study if a gate
 fails.
@@ -88,7 +89,7 @@ flowchart TD
     D --> E[Run one warm-up]
     E --> F[Run five new measured runs]
     F --> G[Semantic-compare each replica with the first]
-    G --> H[Run serial analysis]
+    G --> H[Run final study analysis]
     H --> I[Calculate runtimes]
     I --> J[Run separate feasibility run]
     J --> K[Write evidence and hand-off outputs]
@@ -107,17 +108,15 @@ Follow the manual replication process in the topology-scale protocol:
 1. Import the source manifest with `mix evaluate.import --file PATH`.
 2. Run the two pilots. The runtime pilot owns the tier host counts: it selects
    host counts that fit the environment capacity and pass the topology
-   diagnostic. The mission-impact pilot owns the common plan-selection seed
-   count and attacks-per-plan count. Both counts must meet the one-point
-   half-width target for every non-degenerate primary comparison. The current
-   pilot cannot select both counts and must be extended before this step can
-   run. Confirm both pilots before you freeze.
+   diagnostic. Run `mix evaluate.study --mode pilot` for the mission-impact
+   pilot. It selects the common plan-selection seed count and attacks-per-plan
+   count. Both counts must meet the one-point half-width target for every
+   non-degenerate primary comparison. Confirm both pilots before you freeze.
 3. Freeze each measured tier with `mix evaluate.freeze
-   --manifest-id SOURCE --frozen-manifest-id TARGET`.
-4. Run one warm-up with `mix evaluate.warmup --manifest-id TARGET`. Warm-up is
-   manual today; requesting it automatically once per frozen manifest is
-   planned tooling. Do not use the warm-up result as a timing or outcome
-   sample.
+--manifest-id SOURCE --frozen-manifest-id TARGET`.
+4. Confirm that the automatic warm-up completed exactly once for the frozen
+   manifest. Do not run a second manual warm-up. Do not use the warm-up result
+   as a timing or outcome sample.
 5. Run five new evaluations with
    `mix evaluate.manifest --manifest-id TARGET --output ARCHIVE`. Write one
    archive for each run. `mix evaluate.manifest` starts a new run on every
@@ -128,18 +127,18 @@ Follow the manual replication process in the topology-scale protocol:
    samples, log it in the evidence, and, after confirming no duplicate
    execution, start a fresh replacement run. Stop if the problem recurs or
    cannot be diagnosed.
-7. Use the first timed archive for outcome analysis. Run analysis for every
-   accepted archive so each replica produces a runtime summary.
-8. Compare each other timed archive with the first one before you accept its
+7. Compare each other timed archive with the first one before you accept its
    timing result. A comparison error, including a malformed archive, stops
    acceptance.
-9. Run each analysis serially with
-   `mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip`.
-   Do not start the next analysis until the previous one completes. The final
-   primary analysis includes both plan-selection and attack-outcome variation
-   and applies Holm correction once across all 36 comparisons. See the
-   [analysis guide](../../evaluation/analysis/README.md) for implementation
-   status and interpretation.
+8. Designate one accepted archive for each tier as the outcome archive. Run
+   single-run analysis for every accepted archive to produce its runtime
+   summary.
+9. Run `mix evaluate.study --mode analyze` across the designated tier run IDs
+   for the final primary analysis. The analysis includes plan-selection and
+   attack-outcome variation and applies Holm correction once across all 36
+   comparisons. Keep single-run analysis separate for replica runtime
+   summaries. See the [analysis guide](../../evaluation/analysis/README.md)
+   for interpretation.
 10. For each tier, use the five accepted runtime summaries. Report the median
     and observed range of simulation, plan-selection, and total-evaluation
     durations.

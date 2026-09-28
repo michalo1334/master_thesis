@@ -7,9 +7,10 @@ import math
 import re
 import shutil
 from dataclasses import dataclass
+from importlib.metadata import version
 from pathlib import Path
 
-from .archive import _read_input
+from .archive import _read_input, verify_checksum_file
 from .errors import AnalysisError
 
 
@@ -102,26 +103,9 @@ def _input_hashes(root: Path) -> dict[str, str]:
 
 
 def _verify_checksums(root: Path) -> None:
-    entries = []
-    for line in (root / "checksums.txt").read_text().splitlines():
-        if not line.strip():
-            raise _error("malformed checksums.txt")
-        parts = line.split()
-        if len(parts) != 2:
-            raise _error("malformed checksums.txt")
-        name, expected = parts
-        if name in entries or name not in PAYLOAD_FILES or len(expected) != 64:
-            raise _error(f"invalid checksum entry: {name}")
-        try:
-            int(expected, 16)
-        except ValueError as exc:
-            raise _error(f"invalid checksum entry: {name}") from exc
-        path = root / name
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
-            raise _error(f"checksum mismatch: {name}")
-        entries.append(name)
-    if set(entries) != set(PAYLOAD_FILES):
-        raise _error("checksums.txt does not cover exactly the payload files")
+    verify_checksum_file(
+        root, PAYLOAD_FILES, "checksums.txt does not cover exactly the payload files"
+    )
 
 
 def _csv_rows(path: Path, expected: tuple[str, ...]) -> list[dict[str, str]]:
@@ -159,6 +143,18 @@ def _integer(value: str | int | None, field: str) -> int:
     if isinstance(value, str) and not re.fullmatch(r"[+-]?\d+", value):
         raise _error(f"invalid {field}")
     return int(value)
+
+
+def _dependency_versions() -> dict[str, str]:
+    """Return the installed versions of the numeric runtime dependencies."""
+
+    return {name: version(name) for name in ("numpy", "scipy", "matplotlib")}
+
+
+def _package_version() -> str:
+    """Return the installed analysis package version from package metadata."""
+
+    return version("network-defense-analysis")
 
 
 def _load(source: str | Path) -> LoadedExport:
@@ -224,11 +220,6 @@ def _configuration(manifest: dict) -> dict:
             raise _error(f"{field} must be positive")
     if _integer(configuration["seed"], "analysis seed") < 0:
         raise _error("analysis seed must be non-negative")
-    pilot = configuration.get("pilot")
-    if not isinstance(pilot, dict) or "ci_half_width" not in pilot:
-        raise _error("manifest analysis.pilot.ci_half_width is required")
-    if _finite(pilot["ci_half_width"], "pilot ci_half_width") <= 0:
-        raise _error("pilot ci_half_width must be positive")
     return configuration
 
 

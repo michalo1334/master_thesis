@@ -5,7 +5,7 @@ defmodule Mix.Tasks.Evaluate.ManifestTest do
 
   alias NetworkDefense.EvaluationFixtures
 
-  @manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 1)
+  @manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 2)
 
   test "runs a saved manifest" do
     manifest_id = "cli-#{System.unique_integer([:positive])}"

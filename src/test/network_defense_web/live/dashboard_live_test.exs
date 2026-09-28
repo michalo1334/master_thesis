@@ -150,7 +150,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       manifest =
         @valid_manifest
         |> Map.put("id", manifest_id)
-        |> put_in(["evaluation", "trials"], 1)
+        |> put_in(["evaluation", "trials"], 2)
 
       render_hook(view, "save_manifest", %{
         "manifest_id" => manifest_id,
@@ -186,7 +186,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       manifest =
         @valid_manifest
         |> Map.put("id", manifest_id)
-        |> put_in(["evaluation", "trials"], 1)
+        |> put_in(["evaluation", "trials"], 2)
 
       render_hook(view, "save_manifest", %{
         "manifest_id" => manifest_id,
@@ -345,8 +345,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "request_evaluation_analysis", %{
         "document_id" => Ecto.UUID.generate(),
-        "run_id" => Ecto.UUID.generate(),
-        "mode" => "invalid"
+        "run_id" => "not-a-uuid"
       })
 
       assert_reply(view, %{status: "invalid_params"})
@@ -359,8 +358,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
       render_hook(view, "request_evaluation_analysis", %{
         "document_id" => document_id,
-        "run_id" => run_id,
-        "mode" => "pilot"
+        "run_id" => run_id
       })
 
       assert_reply(view, %{status: "processing"})
@@ -368,7 +366,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_push_event(view, "evaluation_analysis_error", %{
         document_id: ^document_id,
         run_id: ^run_id,
-        mode: "pilot",
+        mode: "analyze",
         error: %{code: "not_found"}
       })
     end
@@ -390,7 +388,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             evaluator_runtime_ms: 3.0
           }
         },
-        pilot_comparison_pass: [],
+        pilot_results: [],
         primary_results: [],
         secondary_results: [],
         capability_results: [],

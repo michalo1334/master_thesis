@@ -9,66 +9,88 @@ The analysis reads a completed evaluation archive. The archive contains
 `checksums.txt`.
 
 The resolved manifest declares the strategy runs, comparisons, outcomes,
-resampling settings, correction, and pilot precision target. The analysis core
+resampling settings, and correction. The analysis core
 does not use the database or the network. The CLI and HTTP service only
 transport the evaluation archive.
 
 ```sh
 uv sync --frozen
-uv run network-defense-analysis pilot /path/to/export --output /path/to/pilot
 uv run network-defense-analysis analyze /path/to/evaluation.zip --output /path/to/analysis
-cat evaluation.zip | uv run network-defense-analysis pilot - --output - > pilot.zip
 cat evaluation.zip | uv run network-defense-analysis analyze - --output - > analysis.zip
 ```
 
 Run the commands from this directory. The analysis engine reads local files
-only. Current intervals describe attack-outcome uncertainty for the exported
-scenario. They condition on the manifest's plan-selection seeds.
+only.
 
-## Azure-study analysis extension
+## Single-archive and study analysis
 
-The approved Azure topology-scale study requires analysis behavior that is not
-implemented yet:
+Single-archive commands keep their behavior. The primary interval already
+includes plan-selection and attack-outcome variation. It does not include
+graph-generation or environment variation.
 
-- include variation between selected plans and variation between attack
-  outcomes in the primary interval;
-- select one common plan-selection seed count and one common attacks-per-plan
-  count;
-- use a confidence-interval half-width target of one mission-impact point;
-- treat a zero-difference and zero-width primary comparison as non-informative,
-  not as an automatic precision pass;
-- compare random, topology segmentation, simulation-informed, and
-  simulated-annealing strategies with CVSS at three budgets and three tiers;
-- apply Holm correction once across the complete family of 36 primary
-  comparisons.
+`study-pilot` and `study-analyze` analyze one study bundle. The bundle is a ZIP
+that holds `study.json`, `checksums.txt`, and one tier archive per declared tier
+under `tiers/`.
 
-Simulated mission impact is primary. Blast radius is secondary and includes the
-initial foothold. Ordering the CVSS contrasts does not establish a universal
-total ranking. The study-level runtime report uses one excluded warm-up and the
-median and observed range from five accepted Azure replicas.
-
-### Current and required uncertainty
-
-```mermaid
-flowchart TB
-    subgraph Current[Current implementation]
-        C1[Declared plans] --> C2[Average plans at each attack seed]
-        C2 --> C3[Resample attack seeds]
-        C3 --> C4[Attack-outcome interval]
-    end
-
-    subgraph Required[Required Azure-study analysis]
-        R1[Plan-selection seeds] --> R2[Attack seeds within each selected plan]
-        R2 --> R3[Resample plans and attacks]
-        R3 --> R4[Plan-and-attack interval]
-    end
-
-    C4 -. extend .-> R4
+```sh
+uv run network-defense-analysis study-pilot study.zip --output pilot.zip
+uv run network-defense-analysis study-analyze study.zip --output analysis.zip
 ```
 
-The current interval answers how attack outcomes vary for the declared plans.
-The required interval answers how outcomes vary when the strategy can also
-select different plans.
+The service exposes the same modes at `POST /v1/study/pilot` and
+`POST /v1/study/analyze`. Both accept and return `application/zip`.
+
+### Crossed estimator
+
+One comparison builds a tested plan-by-attack matrix and a CVSS plan-by-attack
+matrix. The bootstrap samples plan rows independently on the two sides. It
+samples attack columns once and uses them on both sides. A finite-sample factor
+corrects small plan and attack counts. A negative mean contrast favors the
+alternative.
+
+The crossed structure matches the design. The old nested structure averaged the
+plans before resampling and lost plan-selection variation.
+
+### Study specification and Mix task
+
+One versioned study specification declares the family rules. An example is
+`evaluation/studies/topology-scale.json`. It declares the alternative
+strategies, the CVSS baseline, the action-count budgets, the primary outcome,
+the pilot candidate grid, the precision target, the correction method, and the
+disjoint pilot and final seed schedules.
+
+The `mix evaluate.study` task builds the bundle in Elixir and calls the Python
+service. Run it from the Elixir project:
+
+```sh
+cd src
+mix evaluate.study \
+  --spec ../evaluation/studies/topology-scale.json \
+  --tier small=RUN_ID \
+  --tier medium=RUN_ID \
+  --tier large=RUN_ID \
+  --mode pilot \
+  --output study-pilot.zip
+```
+
+Use `--mode analyze` for the final family. Statistics stay in Python.
+
+### Pilot, correction, and conservative coverage
+
+The two-dimensional pilot selects one common plan count and attacks-per-plan
+count. A candidate passes only when every informative comparison meets the
+precision target. A non-informative comparison has a zero contrast and a
+zero-width interval. It blocks every candidate and stays in the family.
+
+The final analysis applies one Holm correction across the complete declared
+family. High coverage above the accepted range is conservative, not invalid. It
+can select a larger sample. Read `informative`, `ci_half_width`, `passes`, and
+`p_*` for each comparison. A non-informative row is not a success.
+
+### Current limits
+
+- One frozen graph per tier. The study has no graph replication inside a tier.
+- One recorded environment. The results do not cover environment variation.
 
 ## Analysis output
 
@@ -125,7 +147,7 @@ curl -H 'content-type: application/zip' --data-binary @evaluation.zip \
 ```
 
 The service accepts raw ZIP requests and returns raw ZIP responses for
-`/v1/analyze` and `/v1/pilot`. It returns an `application/problem+json`
+`/v1/analyze`. It returns an `application/problem+json`
 response with HTTP 413 when the request exceeds the compressed ZIP limit. It
 returns the same media type with HTTP 429 when no analysis slot is available.
 The image starts the service by default. Override the command to run the CLI,
@@ -136,7 +158,7 @@ Phoenix uses Req and the explicit task:
 
 ```sh
 ANALYSIS_SERVICE_URL=http://127.0.0.1:8080 \
-  mix evaluate.analyze --run-id RUN_ID --mode analyze --output analysis.zip
+  mix evaluate.analyze --run-id RUN_ID --output analysis.zip
 ```
 
 Terraform-managed app containers use the site-local `analysis` alias through

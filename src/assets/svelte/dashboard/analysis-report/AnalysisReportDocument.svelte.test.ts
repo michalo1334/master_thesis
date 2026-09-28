@@ -15,13 +15,13 @@ const analysis = {
     },
     schema_version: 1,
   },
-  pilot_comparison_pass: [],
+  pilot_results: [],
   primary_results: [],
   secondary_results: [],
 };
 
 describe("AnalysisReportDocument statistical analysis", () => {
-  it("tracks independent sessions and ignores mismatched events and duplicate requests", async () => {
+  it("loads the final session on a request and routes ready and error events by mode", async () => {
     const document = new AnalysisReportDocument("run-1", {
       manifest_id: "m",
       title: "M",
@@ -32,19 +32,33 @@ describe("AnalysisReportDocument statistical analysis", () => {
         .mockResolvedValue({ status: "processing" }),
     };
 
-    const first = document.startAnalysis(api as never, document.id, "pilot");
-    expect(document.pilotAnalysis.status).toBe("loading");
-    await document.startAnalysis(api as never, document.id, "pilot");
+    const first = document.startAnalysis(api as never, document.id);
+    expect(document.finalAnalysis.status).toBe("loading");
+    await document.startAnalysis(api as never, document.id);
     expect(api.requestEvaluationAnalysis).toHaveBeenCalledTimes(1);
     await first;
+    expect(api.requestEvaluationAnalysis).toHaveBeenCalledWith({
+      document_id: document.id,
+      run_id: "run-1",
+    });
 
     document.setAnalysisReady({
       document_id: "other",
       run_id: "run-1",
-      mode: "pilot",
+      mode: "analyze",
       analysis,
     });
-    expect(document.pilotAnalysis.status).toBe("loading");
+    expect(document.finalAnalysis.status).toBe("loading");
+
+    document.setAnalysisReady({
+      document_id: document.id,
+      run_id: "run-1",
+      mode: "analyze",
+      analysis,
+    });
+    expect(document.finalAnalysis.status).toBe("loaded");
+    expect(document.pilotAnalysis.status).toBe("idle");
+
     document.setAnalysisReady({
       document_id: document.id,
       run_id: "run-1",
@@ -52,7 +66,6 @@ describe("AnalysisReportDocument statistical analysis", () => {
       analysis,
     });
     expect(document.pilotAnalysis.status).toBe("loaded");
-    expect(document.finalAnalysis.status).toBe("idle");
 
     document.setAnalysisError({
       document_id: document.id,

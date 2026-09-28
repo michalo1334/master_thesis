@@ -4,7 +4,8 @@ Question: how does controlled growth in topology size affect simulation,
 plan-selection, and total-evaluation runtime, and the mission-impact contrasts
 between equal-action-count strategies and CVSS prioritization?
 
-See the [scope page](../concepts/scope.md) for the research boundary.
+See the [scope page](../concepts/scope.md) for the research boundary. See the
+[methodology](topology-scale-methodology.md) for frozen study decisions.
 
 ## Status
 
@@ -12,10 +13,10 @@ Local runs are pilots. They validate the workflow and select study parameters.
 They do not support final cloud-runtime, topology-scale, optimizer-quality, or
 strategy-effect claims.
 
-The Azure study is blocked until the planned tooling exists: see the
-[cloud evaluation tooling plan](cloud-evaluation-tooling-plan.md). This study
-uses a manual, manifest-driven process. Each command acts on one saved manifest
-or one archive. The system does not include a study batch runner.
+The Azure study is blocked until tooling items 1 through 4 exist. See the
+[cloud evaluation tooling plan](cloud-evaluation-tooling-plan.md). The
+`mix evaluate.study` task builds a study bundle and runs pilot or final study
+analysis. It does not start evaluation runs.
 
 ## Size tiers
 
@@ -111,8 +112,8 @@ non-degenerate primary comparison.
 
 A zero-difference and zero-width comparison does not pass the precision gate.
 It is non-informative and stops the study for investigation. The current pilot
-selects only the attack-trial count and therefore does not yet implement this
-contract.
+implements this contract: it selects both counts and rejects a non-informative
+comparison.
 
 ## Frozen inputs
 
@@ -147,13 +148,14 @@ Pilot ownership:
 
 The primary analysis includes plan-selection and attack-outcome variation.
 Holm correction applies once across all 36 primary comparisons: four
-alternatives, three budgets, and three tiers. The current analysis and pilot
-must be extended before they can enforce these rules.
+alternatives, three budgets, and three tiers. The analysis and pilot enforce
+these rules. The study specification declares the family, and the
+`mix evaluate.study` task runs the pilot and the final analysis.
 
-When the tooling is complete, Mix commands run in a one-off application task
-with the deployed application identity, mounted secrets, database access, and
-non-conflicting listeners. That task does not exist yet. Do not run host-side
-Mix without credentials.
+When tooling items 1 through 4 are complete, Mix commands run in a one-off
+application task with the deployed application identity, mounted secrets,
+database access, and non-conflicting listeners. The one-off evaluator does not
+exist yet. Do not run host-side Mix without credentials.
 
 The feasibility input uses a separate manifest reserved for the feasibility
 run. It is not tier-runtime evidence. Run it once after the timing runs
@@ -176,9 +178,9 @@ application, database, and analysis services.
    `mix evaluate.freeze --manifest-id SOURCE --frozen-manifest-id TARGET`.
 5. Use the frozen manifest for all warm-up and measured runs. A manifest that
    already names a graph revision needs no freeze step.
-6. Run `mix evaluate.warmup --manifest-id TARGET` once. Warm-up is manual
-   today; automatic once-per-frozen-manifest warm-up is planned tooling. Do not
-   use its result as a timing or outcome sample.
+6. Confirm that the automatic warm-up completed exactly once for the frozen
+   manifest. Do not run a second manual warm-up. Do not use the warm-up result
+   as a timing or outcome sample.
 7. Run five new evaluations with
    `mix evaluate.manifest --manifest-id TARGET --output ARCHIVE`. Write one
    archive for each run. The task starts a new run on every invocation. Save the
@@ -187,11 +189,13 @@ application, database, and analysis services.
    replica. Never resume a timing replica: exclude the run from the timing
    samples, log it, and, after confirming no duplicate execution, start a
    fresh replacement. Stop if the problem recurs or cannot be diagnosed.
-9. Use the first timed archive for outcome analysis. Run analysis for every
-   accepted archive so each replica produces a runtime summary.
-10. Compare each other timed archive with the first one before accepting its
+9. Compare each other timed archive with the first one before accepting its
    timing result. A comparison error, including a malformed archive, stops
    acceptance.
+10. Designate one accepted archive for each tier as the outcome archive. Run
+    `mix evaluate.study --mode analyze` across the designated tier run IDs. Run
+    single-run analysis for every accepted archive to produce its runtime
+    summary.
 11. For each tier, report the median and observed range from five accepted
     runtime summaries.
 

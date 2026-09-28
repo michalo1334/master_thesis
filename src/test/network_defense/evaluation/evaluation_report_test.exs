@@ -3,6 +3,7 @@ defmodule NetworkDefense.Evaluation.EvaluationReportTest do
 
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.EvaluationReport
+  alias NetworkDefense.Evaluation.EvaluationRuns
   alias NetworkDefense.EvaluationFixtures
 
   @eval_manifest EvaluationFixtures.analysis_manifest()
@@ -125,7 +126,7 @@ defmodule NetworkDefense.Evaluation.EvaluationReportTest do
              EvaluationFixtures.save_manifest(manifest_id, @eval_manifest, "Report manifest")
 
     assert {:ok, run} = Evaluation.start(manifest_id)
-    assert {:ok, failed} = NetworkDefense.Evaluation.EvaluationRuns.fail(run, "boom")
+    assert {:ok, failed} = EvaluationRuns.fail(run, "boom")
 
     report = Evaluation.report(failed.id)
     assert report.status == "failed"

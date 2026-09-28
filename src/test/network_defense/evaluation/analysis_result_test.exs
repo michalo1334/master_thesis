@@ -149,22 +149,126 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
              )
   end
 
+  test "parses a study analysis result with every new field present" do
+    assert {:ok, result} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("study-analyze"),
+                 "primary_results.json" => Jason.encode!([study_primary_row()])
+               }),
+               10_000
+             )
+
+    assert result.metadata["family_scope"] == "study"
+    assert result.metadata["family_size"] == 36
+    assert [%{"tier" => "small", "comparison_id" => _id}] = result.primary_results
+    assert result.pilot_results == []
+  end
+
+  test "parses a study pilot result with every new field present" do
+    assert {:ok, result} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("study-pilot"),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+
+    assert result.metadata["recommended_plan_selection_seed_count"] == 6
+    assert result.metadata["recommended_attacks_per_plan"] == 12
+    assert result.metadata["insufficient_pilot"] == false
+    assert [%{"tier" => "small", "guarded_ci_half_width" => 0.5}] = result.pilot_results
+    assert result.primary_results == []
+  end
+
+  test "accepts missing new fields in legacy results" do
+    assert {:ok, result} =
+             AnalysisResult.parse(
+               zip(%{"metadata.json" => metadata(), "analysis.json" => analysis()}),
+               10_000
+             )
+
+    assert result.metadata["manifest_id"] == "manifest"
+    assert result.pilot_results == []
+    assert result.primary_results == []
+  end
+
+  test "rejects wrong study field types" do
+    assert {:error, :malformed_row} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("study-analyze"),
+                 "primary_results.json" => Jason.encode!([%{study_primary_row() | "tier" => 1}])
+               }),
+               10_000
+             )
+
+    assert {:error, :malformed_row} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("study-pilot"),
+                 "pilot_results.json" =>
+                   Jason.encode!([%{study_pilot_row() | "informative" => "yes"}])
+               }),
+               10_000
+             )
+
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" =>
+                   Jason.encode!(Map.put(study_metadata_map("study-pilot"), "family_size", "36")),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" =>
+                   Jason.encode!(
+                     Map.put(study_metadata_map("study-pilot"), "insufficient_pilot", "no")
+                   ),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+  end
+
+  test "rejects an incomplete study bundle" do
+    assert {:error, :missing_or_duplicate} =
+             AnalysisResult.parse(
+               zip(%{"study_metadata.json" => study_metadata("study-pilot")}),
+               10_000
+             )
+
+    assert {:error, :missing_or_duplicate} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("study-analyze"),
+                 "primary_results.json" => "[]",
+                 "pilot_results.json" => "[]"
+               }),
+               10_000
+             )
+  end
+
   test "requires the metadata model variants list" do
     for metadata <- [
           Jason.encode!(%{
             "manifest_id" => "manifest",
             "schema_version" => 3,
             "model_version" => "model",
-            "command_mode" => "analyze",
-            "pilot_comparison_pass" => []
+            "command_mode" => "analyze"
           }),
           Jason.encode!(%{
             "manifest_id" => "manifest",
             "schema_version" => 3,
             "model_version" => "model",
             "model_variants" => "full",
-            "command_mode" => "analyze",
-            "pilot_comparison_pass" => []
+            "command_mode" => "analyze"
           })
         ] do
       assert {:error, :malformed_field} =
@@ -267,8 +371,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       "schema_version" => 3,
       "model_version" => "model",
       "model_variants" => [%{"id" => "full", "objective" => "mission_then_blast_radius"}],
-      "command_mode" => "pilot",
-      "pilot_comparison_pass" => [],
+      "command_mode" => "analyze",
       "runtime_summary" =>
         Map.merge(
           %{
@@ -299,6 +402,68 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       "pre_attack_feasible" => true,
       "unavailable_required_flow_count" => 0,
       "affected_capability_count" => 0
+    }
+  end
+
+  defp study_metadata(mode), do: Jason.encode!(study_metadata_map(mode))
+
+  defp study_metadata_map(mode) do
+    %{
+      "study_id" => "study-1",
+      "specification_version" => 2,
+      "family_scope" => "study",
+      "family_size" => 36,
+      "command_mode" => mode,
+      "multiplicity_correction" => "holm",
+      "expected_family" => %{
+        "strategies" => ["simulation_informed"],
+        "baseline" => "cvss",
+        "budgets" => [1, 2, 3],
+        "outcome" => "mission_impact"
+      },
+      "tier_labels" => ["small", "medium", "large"],
+      "uncertainty_sources" => ["plan_selection", "attack_outcome"],
+      "recommended_plan_selection_seed_count" => 6,
+      "recommended_attacks_per_plan" => 12,
+      "insufficient_pilot" => false
+    }
+  end
+
+  defp study_primary_row do
+    %{
+      "comparison" => 0,
+      "comparison_id" => "small|full|simulation_informed|cvss|1|mission_impact",
+      "tier" => "small",
+      "strategy" => "simulation_informed",
+      "model_variant" => "full",
+      "baseline" => "cvss",
+      "baseline_model_variant" => "full",
+      "budget" => 1,
+      "outcome" => "mission_impact",
+      "informative" => true,
+      "tested_plan_count" => 6,
+      "baseline_plan_count" => 6,
+      "attacks_per_plan" => 12,
+      "paired_mean_difference" => 0.0,
+      "ci_lower" => 0.0,
+      "ci_upper" => 0.0,
+      "ci_half_width" => 0.0,
+      "d_z" => nil,
+      "p_raw" => 1.0,
+      "p_adjusted" => 1.0
+    }
+  end
+
+  defp study_pilot_row do
+    %{
+      "comparison_id" => "small|full|simulation_informed|cvss|1|mission_impact",
+      "tier" => "small",
+      "informative" => true,
+      "candidate_plan_count" => 6,
+      "candidate_attacks_per_plan" => 12,
+      "guarded_ci_half_width" => 0.5,
+      "target" => 1.0,
+      "passes" => true
     }
   end
 

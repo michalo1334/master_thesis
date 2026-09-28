@@ -439,7 +439,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     capability_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisCapabilityRow[];
     feasibility_summary: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisFeasibilityRow[];
     metadata: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisMetadata;
-    pilot_comparison_pass: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow[];
+    pilot_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow[];
     primary_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow[];
     secondary_results: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisSecondaryRow[];
   }
@@ -508,34 +508,48 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     declared_plan_trial_count?: number | null;
     dependencies?: Record<string, unknown> | null;
     estimand_note?: string | null;
+    expected_family?: Record<string, unknown> | null;
+    family_scope?: string | null;
+    family_size?: number | null;
     input_hashes?: Record<string, unknown> | null;
     input_trial_count?: number | null;
-    manifest_id: string;
+    insufficient_pilot?: boolean | null;
+    manifest_id?: string | null;
     model_variants?: Record<string, unknown>[] | null;
-    model_version: string;
+    model_version?: string | null;
+    multiplicity_correction?: string | null;
     package_version?: string | null;
-    pilot_all_pass?: boolean | null;
-    runtime_summary: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary;
-    schema_version: number;
+    recommended_attacks_per_plan?: number | null;
+    recommended_plan_selection_seed_count?: number | null;
+    runtime_summary?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisRuntimeSummary | null;
+    schema_version?: number | null;
     simulator_only_uncertainty?: boolean | null;
+    specification_version?: number | null;
+    study_id?: string | null;
+    tier_labels?: string[] | null;
+    uncertainty_sources?: string[] | null;
   }
 }
 
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPilotRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_pilot_row.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface EvaluationAnalysisPilotRow {
-    approximate_trials?: number | null;
-    ci_half_width?: number | null;
-    comparison: number;
-    paired_attack_seed_count?: number | null;
+    candidate_attacks_per_plan?: number | null;
+    candidate_plan_count?: number | null;
+    comparison_id?: string | null;
+    guarded_ci_half_width?: number | null;
+    informative?: boolean | null;
     passes?: boolean | null;
     target?: number | null;
+    tier?: string | null;
   }
 }
 
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisPrimaryRow (lib/network_defense_web/contracts/dashboard/evaluation/evaluation_analysis_primary_row.ex) — enum fields: model_variant, baseline_model_variant
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface EvaluationAnalysisPrimaryRow {
+    attacks_per_plan?: number | null;
     baseline: string;
     baseline_model_variant:
       | "blast_only"
@@ -544,12 +558,15 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
       | "mission_only_unconstrained"
       | "full"
       | "full_unconstrained";
+    baseline_plan_count?: number | null;
     budget: number;
     ci_half_width?: number | null;
     ci_lower?: number | null;
     ci_upper?: number | null;
     comparison: number;
+    comparison_id?: string | null;
     d_z?: number | null;
+    informative?: boolean | null;
     model_variant:
       | "blast_only"
       | "blast_only_unconstrained"
@@ -562,6 +579,8 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     p_raw?: number | null;
     paired_mean_difference?: number | null;
     strategy: string;
+    tested_plan_count?: number | null;
+    tier?: string | null;
   }
 }
 
@@ -764,11 +783,10 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
-// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_payload.ex) — enum fields: mode
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/request_evaluation_analysis_payload.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface RequestEvaluationAnalysisPayload {
     document_id: string;
-    mode: "pilot" | "analyze";
     run_id: string;
   }
 }

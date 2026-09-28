@@ -1,35 +1,54 @@
 import csv
 import hashlib
 import json
+import math
 import shutil
+import stat
 import subprocess
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
 
+import numpy as np
+
+import network_defense_analysis.statistics as statistics_module
 from network_defense_analysis import AnalysisError, analyze
-from network_defense_analysis.statistics import _holm
+from network_defense_analysis.archive import _safe_extract
+from network_defense_analysis.contracts import _dependency_versions, _package_version
+from network_defense_analysis.report import _plan_variation_values
+from network_defense_analysis.statistics import (
+    CrossedComparison,
+    DegenerateContrastWarning,
+    _bootstrap_contrast,
+    _child_seeds,
+    _comparison_stream_seed,
+    _crossed_comparison,
+    _crossed_statistics,
+    _finite_sample_correction,
+    _holm,
+)
 
 
 class AnalysisTest(unittest.TestCase):
     @staticmethod
-    def make_fixture(*, confidence_width=1.0, two_comparisons=False, multiple_selection=False, cross_model=False, cross_scenario="feasibility_only"):
+    def make_fixture(*, two_comparisons=False, cross_model=False, cross_scenario="feasibility_only"):
         directory = Path(tempfile.mkdtemp())
         variants = [
             {"id": "full", "objective": "mission_then_blast_radius", "require_pre_attack_feasibility": True},
         ]
         runs = [
-            {"model_variant": "full", "strategy": "unusual-tested", "budget": 8, "selection_seeds": [101, 111] if multiple_selection else [101]},
-            {"model_variant": "full", "strategy": "ordinary-baseline", "budget": 8, "selection_seeds": [202, 222] if multiple_selection else [202]},
+            {"model_variant": "full", "strategy": "unusual-tested", "budget": 8, "selection_seeds": [101, 102, 103, 104, 105]},
+            {"model_variant": "full", "strategy": "ordinary-baseline", "budget": 8, "selection_seeds": [202, 203, 204, 205, 206]},
         ]
         comparisons = [
             {"strategy": "unusual-tested", "model_variant": "full", "baseline": "ordinary-baseline", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
         ]
         if two_comparisons:
             runs.extend([
-                {"model_variant": "full", "strategy": "second-tested", "budget": 8, "selection_seeds": [303, 333] if multiple_selection else [303]},
-                {"model_variant": "full", "strategy": "second-baseline", "budget": 8, "selection_seeds": [404, 444] if multiple_selection else [404]},
+                {"model_variant": "full", "strategy": "second-tested", "budget": 8, "selection_seeds": [303, 304, 305, 306, 307]},
+                {"model_variant": "full", "strategy": "second-baseline", "budget": 8, "selection_seeds": [404, 405, 406, 407, 408]},
             ])
             comparisons.append(
                 {"strategy": "second-tested", "model_variant": "full", "baseline": "second-baseline", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
@@ -43,8 +62,8 @@ class AnalysisTest(unittest.TestCase):
             cross_id, cross_objective, cross_feasibility = cross_variants[cross_scenario]
             variants.append({"id": cross_id, "objective": cross_objective, "require_pre_attack_feasibility": cross_feasibility})
             runs.extend([
-                {"model_variant": "full", "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101]},
-                {"model_variant": cross_id, "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101]},
+                {"model_variant": "full", "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101, 102, 103, 104, 105]},
+                {"model_variant": cross_id, "strategy": "simulation_informed", "budget": 8, "selection_seeds": [101, 102, 103, 104, 105]},
             ])
             comparisons.append(
                 {"strategy": "simulation_informed", "model_variant": cross_id, "baseline": "simulation_informed", "baseline_model_variant": "full", "budget": 8, "outcome": "blast_radius"}
@@ -54,7 +73,7 @@ class AnalysisTest(unittest.TestCase):
             "model_version": "test-model",
             "id": "test-manifest",
             "model_variants": variants,
-            "evaluation": {"trials": 2},
+            "evaluation": {"trials": 10},
             "strategy_runs": runs,
             "analysis": {
                 "primary_comparisons": comparisons,
@@ -63,7 +82,6 @@ class AnalysisTest(unittest.TestCase):
                 "permutation_resamples": 200,
                 "multiplicity_correction": "holm" if two_comparisons else "none",
                 "seed": 700,
-                "pilot": {"ci_half_width": confidence_width},
             },
         }
         (directory / "manifest.resolved.json").write_text(json.dumps(manifest))
@@ -88,14 +106,14 @@ class AnalysisTest(unittest.TestCase):
                 )
         (directory / "plans.jsonl").write_text("\n".join(json.dumps(plan) for plan in plans) + "\n")
         values = {
-            ("full", "unusual-tested"): [3.0, 4.0],
-            ("full", "ordinary-baseline"): [6.0, 8.0],
-            ("full", "second-tested"): [2.0, 4.0],
-            ("full", "second-baseline"): [3.0, 7.0],
+            ("full", "unusual-tested"): [3.0, 4.0, 3.0, 4.0, 3.0, 4.0, 3.0, 4.0, 3.0, 4.0],
+            ("full", "ordinary-baseline"): [6.0, 8.0, 6.0, 8.0, 6.0, 8.0, 6.0, 8.0, 6.0, 8.0],
+            ("full", "second-tested"): [2.0, 4.0, 2.0, 4.0, 2.0, 4.0, 2.0, 4.0, 2.0, 4.0],
+            ("full", "second-baseline"): [3.0, 7.0, 3.0, 7.0, 3.0, 7.0, 3.0, 7.0, 3.0, 7.0],
         }
         if cross_model:
-            values[("full", "simulation_informed")] = [3.0, 4.0]
-            values[(cross_id, "simulation_informed")] = [5.0, 6.0]
+            values[("full", "simulation_informed")] = [3.0, 4.0, 3.0, 4.0, 3.0, 4.0, 3.0, 4.0, 3.0, 4.0]
+            values[(cross_id, "simulation_informed")] = [5.0, 6.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0, 5.0, 6.0]
         trial_rows = []
         capability_rows = []
         flow_rows = []
@@ -127,7 +145,7 @@ class AnalysisTest(unittest.TestCase):
                     {"experiment_id": f"experiment-{plan_id}", "plan_id": plan_id, "trial_index": index, "seed": 900 + index, "host_id": "host-beta", "host_name": "Host beta", "entry_host": "false", "compromised": "true" if value >= 5 else "false"},
                 ])
             flow_rows.append({"experiment_id": f"experiment-{plan_id}", "plan_id": plan_id, "capability_id": "cap-alpha", "capability_name": "Capability alpha", "source_segment_id": "segment-alpha", "target_service_id": "service-alpha", "available": "true"})
-        for index in range(1, 3):
+        for index in range(1, 11):
             trial_rows.append({"experiment_id": "experiment-baseline", "plan_id": "", "trial_index": index, "seed": 900 + index, "blast_radius": 99, "mission_impact": 99})
             host_rows.extend([
                 {"experiment_id": "experiment-baseline", "plan_id": "", "trial_index": index, "seed": 900 + index, "host_id": "host-entry", "host_name": "Entry host", "entry_host": "true", "compromised": "true"},
@@ -144,7 +162,7 @@ class AnalysisTest(unittest.TestCase):
                 {
                     "experiment_id": f"experiment-{plan['id']}",
                     "plan_id": plan["id"],
-                    "trial_count": 2,
+                    "trial_count": 10,
                     "expected_blast_radius": 4,
                     "median_blast_radius": 4,
                     "blast_radius_p95": 4,
@@ -157,7 +175,7 @@ class AnalysisTest(unittest.TestCase):
             ] + [{
                 "experiment_id": "experiment-baseline",
                 "plan_id": "",
-                "trial_count": 2,
+                "trial_count": 10,
                 "expected_blast_radius": 99,
                 "median_blast_radius": 99,
                 "blast_radius_p95": 99,
@@ -241,14 +259,74 @@ class AnalysisTest(unittest.TestCase):
         self.assertEqual(_holm([0.01, 0.04, 0.03]), [0.03, 0.06, 0.06])
 
     def test_multiple_selection_seeds_are_aggregated(self):
-        directory = self.remember(self.make_fixture(multiple_selection=True))
+        directory = self.remember(self.make_fixture())
         output = self.remember(Path(tempfile.mkdtemp()))
         analyze(directory, output)
         with (output / "plan_variation.csv").open(newline="") as stream:
             rows = list(csv.DictReader(stream))
-        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(rows), 10)
         with (output / "primary_results.csv").open(newline="") as stream:
             self.assertAlmostEqual(float(next(csv.DictReader(stream))["paired_mean_difference"]), -3.5)
+
+    def test_primary_rows_preserve_old_fields_and_add_crossed_fields(self):
+        directory = self.remember(self.make_fixture())
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "primary_results.csv").open(newline="") as stream:
+            reader = csv.DictReader(stream)
+            headers = list(reader.fieldnames)
+            row = next(reader)
+        for field in (
+            "comparison", "strategy", "model_variant", "baseline", "baseline_model_variant",
+            "budget", "outcome", "paired_mean_difference", "ci_lower", "ci_upper",
+            "ci_half_width", "d_z", "p_raw", "p_adjusted",
+        ):
+            self.assertIn(field, headers)
+        for field in ("informative", "tested_plan_count", "baseline_plan_count", "attacks_per_plan"):
+            self.assertIn(field, headers)
+        self.assertEqual(row["d_z"], "")
+        self.assertEqual(row["informative"], "True")
+        self.assertEqual(row["tested_plan_count"], "5")
+        self.assertEqual(row["baseline_plan_count"], "5")
+        self.assertEqual(row["attacks_per_plan"], "10")
+        analysis = json.loads((output / "analysis.json").read_text())
+        primary_row = analysis["primary_results"][0]
+        self.assertIsNone(primary_row["d_z"])
+        self.assertIs(primary_row["informative"], True)
+        self.assertEqual(primary_row["tested_plan_count"], 5)
+        self.assertEqual(primary_row["baseline_plan_count"], 5)
+        self.assertEqual(primary_row["attacks_per_plan"], 10)
+
+    def test_secondary_results_keep_their_columns(self):
+        directory = self.remember(self.make_fixture())
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        with (output / "secondary_results.csv").open(newline="") as stream:
+            reader = csv.DictReader(stream)
+            headers = list(reader.fieldnames)
+            row = next(reader)
+        self.assertEqual(
+            headers,
+            [
+                "comparison", "strategy", "model_variant", "baseline", "baseline_model_variant",
+                "budget", "outcome", "mean_difference", "ci_lower", "ci_upper", "ci_half_width",
+            ],
+        )
+        self.assertNotIn("informative", headers)
+        self.assertEqual(row["outcome"], "mission_impact")
+
+    def test_metadata_declares_crossed_uncertainty(self):
+        directory = self.remember(self.make_fixture())
+        output = self.remember(Path(tempfile.mkdtemp()))
+        analyze(directory, output)
+        for name in ("metadata.json", "analysis.json"):
+            metadata = json.loads((output / name).read_text())
+            self.assertIs(metadata["simulator_only_uncertainty"], False)
+            self.assertEqual(metadata["uncertainty_sources"], ["plan_selection", "attack_outcome"])
+            self.assertEqual(
+                metadata["estimand_note"],
+                "The interval includes independent plan-row and shared attack-column resampling.",
+            )
 
     def test_missing_pair_rejected(self):
         directory = self.remember(self.make_fixture())
@@ -461,30 +539,17 @@ class AnalysisTest(unittest.TestCase):
         with self.assertRaises(AnalysisError):
             analyze(directory, directory / "out")
 
-    def test_pilot_pass_and_fail_recommendation(self):
-        passing = self.remember(self.make_fixture(confidence_width=10))
-        pass_output = self.remember(Path(tempfile.mkdtemp()))
-        analyze(passing, pass_output, "pilot")
-        with (pass_output / "pilot_results.csv").open(newline="") as stream:
-            self.assertEqual(next(csv.DictReader(stream))["passes"], "True")
-
-        failing = self.remember(self.make_fixture(confidence_width=0.00001))
-        fail_output = self.remember(Path(tempfile.mkdtemp()))
-        analyze(failing, fail_output, "pilot")
-        with (fail_output / "pilot_results.csv").open(newline="") as stream:
-            row = next(csv.DictReader(stream))
-        self.assertEqual(row["passes"], "False")
-        self.assertGreater(int(row["approximate_trials"]), 2)
-        metadata = json.loads((fail_output / "metadata.json").read_text())
-        self.assertFalse(metadata["pilot_all_pass"])
-
-    def test_stale_pilot_output_is_removed(self):
+    def test_stale_legacy_pilot_output_is_removed(self):
         directory = self.remember(self.make_fixture())
         output = self.remember(Path(tempfile.mkdtemp()))
-        analyze(directory, output, "pilot")
-        self.assertTrue((output / "pilot_results.csv").exists())
-        analyze(directory, output, "analyze")
-        self.assertFalse((output / "pilot_results.csv").exists())
+        stale = output / "pilot_results.csv"
+        stale.write_text("comparison,passes\n")
+        analyze(directory, output)
+        self.assertFalse(stale.exists())
+        self.assertEqual(
+            json.loads((output / "metadata.json").read_text())["command_mode"],
+            "analyze",
+        )
 
     def test_capability_and_secondary_outputs(self):
         directory = self.remember(self.make_fixture())
@@ -518,7 +583,7 @@ class AnalysisTest(unittest.TestCase):
         self.assertEqual(runtime, {"median_plan_selection_runtime_ms": "3.0", "median_simulation_runtime_ms": "4.0", "evaluator_runtime_ms": "12.0"})
         analysis = json.loads((output / "analysis.json").read_text())
         self.assertEqual(len(analysis["host_probabilities"]), 4)
-        self.assertEqual(len(analysis["feasibility_summary"]), 3)
+        self.assertEqual(len(analysis["feasibility_summary"]), 11)
         self.assertEqual(analysis["runtime_summary"]["evaluator_runtime_ms"], 12.0)
 
     def test_incomplete_phase_one_evidence_rejected(self):
@@ -583,6 +648,13 @@ class AnalysisTest(unittest.TestCase):
         completed = subprocess.run(command, cwd=Path(__file__).parents[1], capture_output=True, text=True)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertTrue((output / "figures" / "blast_radius_cdf.png").is_file())
+
+    def test_cli_rejects_legacy_pilot_command(self):
+        completed = subprocess.run(
+            ["uv", "run", "network-defense-analysis", "pilot", "input.zip", "--output", "out.zip"],
+            cwd=Path(__file__).parents[1], capture_output=True,
+        )
+        self.assertNotEqual(completed.returncode, 0)
 
     def test_unsafe_zip_rejected(self):
         archive = Path(tempfile.mkdtemp()) / "unsafe.zip"
@@ -735,3 +807,416 @@ class AnalysisTest(unittest.TestCase):
         result = json.loads(completed.stdout)
         self.assertEqual(result["equal"], False)
         self.assertIn("trials", result["differences"])
+
+
+class RefactorHelperTest(unittest.TestCase):
+    def test_comparison_stream_seed_preserves_existing_arithmetic(self):
+        self.assertEqual(_comparison_stream_seed(700, 0, 0), 700)
+        self.assertEqual(_comparison_stream_seed(700, 0, 3), 706)
+        self.assertEqual(_comparison_stream_seed(6300, 2_000_000, 5), 2_006_310)
+        self.assertEqual(_comparison_stream_seed("700", 0, 1), 702)
+
+    def test_legacy_paired_statistics_removed(self):
+        self.assertFalse(hasattr(statistics_module, "_paired_statistics"))
+
+    def test_plan_variation_uses_indexed_lookup(self):
+        by_seed = {
+            ("plan-a", seed): {"seed": seed, "mission_impact": float(seed)}
+            for seed in (1, 2, 3)
+        }
+        self.assertEqual(
+            _plan_variation_values(by_seed, "plan-a", [1, 2, 3], "mission_impact"),
+            [1.0, 2.0, 3.0],
+        )
+
+    def test_plan_variation_missing_cell_raises_analysis_error(self):
+        by_seed = {("plan-a", 1): {"seed": 1, "blast_radius": 2.0}}
+        with self.assertRaises(AnalysisError):
+            _plan_variation_values(by_seed, "plan-a", [1, 2], "blast_radius")
+
+    def test_package_metadata_helpers(self):
+        self.assertTrue(_package_version())
+        versions = _dependency_versions()
+        self.assertEqual(set(versions), {"numpy", "scipy", "matplotlib"})
+        self.assertTrue(all(versions.values()))
+
+    def test_non_regular_zip_member_rejected(self):
+        archive = Path(tempfile.mkdtemp()) / "fifo.zip"
+        with zipfile.ZipFile(archive, "w") as target:
+            info = zipfile.ZipInfo("fifo")
+            info.create_system = 3
+            info.external_attr = (stat.S_IFIFO | 0o600) << 16
+            target.writestr(info, "bad")
+        with self.assertRaises(AnalysisError):
+            analyze(archive, archive.parent / "out")
+
+    def test_symlink_zip_member_rejected(self):
+        archive = Path(tempfile.mkdtemp()) / "link.zip"
+        with zipfile.ZipFile(archive, "w") as target:
+            info = zipfile.ZipInfo("link")
+            info.create_system = 3
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+            target.writestr(info, "target")
+        with self.assertRaises(AnalysisError):
+            analyze(archive, archive.parent / "out")
+
+    def test_zero_unix_mode_member_accepted(self):
+        archive = Path(tempfile.mkdtemp()) / "plain.zip"
+        with zipfile.ZipFile(archive, "w") as target:
+            info = zipfile.ZipInfo("plain.txt")
+            info.create_system = 3
+            info.external_attr = 0
+            target.writestr(info, "ok")
+        root, temporary = _safe_extract(archive)
+        try:
+            self.assertEqual((root / "plain.txt").read_text(), "ok")
+        finally:
+            shutil.rmtree(temporary, ignore_errors=True)
+
+
+class CrossedComparisonTest(unittest.TestCase):
+    @staticmethod
+    def crossed_inputs(*, tested_plan_count=6, baseline_plan_count=5, attack_count=12):
+        """Return normalized crossed inputs in the archive loader shape.
+
+        Plan IDs run opposite to the selection-seed order. A constructor that
+        sorts by plan ID would produce a different row order than one that
+        sorts by the normalized plan identity.
+        """
+
+        attack_seeds = [7001 + index for index in range(attack_count)]
+        tested_ids = [f"tested-{index}" for index in reversed(range(tested_plan_count))]
+        baseline_ids = [f"baseline-{index}" for index in reversed(range(baseline_plan_count))]
+        tested_seeds = [41 + index for index in range(tested_plan_count)]
+        baseline_seeds = [61 + index for index in range(baseline_plan_count)]
+        sides = [
+            (tested_ids, tested_seeds, "unusual-tested", 100.0),
+            (baseline_ids, baseline_seeds, "ordinary-baseline", 200.0),
+        ]
+        identities = {}
+        trials = {}
+        schedules = {}
+        expected = {}
+        for plan_ids, selection_seeds, strategy, base in sides:
+            for plan_id, selection_seed in zip(plan_ids, selection_seeds):
+                identities[plan_id] = ("full", strategy, 8, selection_seed)
+                schedules[plan_id] = list(attack_seeds)
+                rows = []
+                for trial_index, seed in enumerate(attack_seeds, 1):
+                    value = base + selection_seed + trial_index
+                    trials[(plan_id, trial_index)] = {
+                        "seed": seed,
+                        "blast_radius": value,
+                        "mission_impact": value,
+                    }
+                    rows.append(value)
+                expected[plan_id] = rows
+        return {
+            "attack_seeds": attack_seeds,
+            "identities": identities,
+            "trials": trials,
+            "schedules": schedules,
+            "tested": tested_ids,
+            "baseline": baseline_ids,
+            "expected": expected,
+        }
+
+    @staticmethod
+    def build(data):
+        return _crossed_comparison(
+            data["tested"],
+            data["baseline"],
+            data["identities"],
+            data["trials"],
+            data["schedules"],
+            "mission_impact",
+        )
+
+    def test_matrix_values_and_shape(self):
+        data = self.crossed_inputs(tested_plan_count=6, baseline_plan_count=5, attack_count=12)
+        comparison = self.build(data)
+        self.assertEqual(comparison.tested.shape, (6, 12))
+        self.assertEqual(comparison.baseline.shape, (5, 12))
+        self.assertEqual(comparison.attack_seeds, tuple(data["attack_seeds"]))
+        self.assertEqual(
+            comparison.tested_plan_ids,
+            ("tested-5", "tested-4", "tested-3", "tested-2", "tested-1", "tested-0"),
+        )
+        self.assertEqual(
+            comparison.baseline_plan_ids,
+            ("baseline-4", "baseline-3", "baseline-2", "baseline-1", "baseline-0"),
+        )
+        for index, plan_id in enumerate(comparison.tested_plan_ids):
+            np.testing.assert_array_equal(
+                comparison.tested[index],
+                np.asarray(data["expected"][plan_id], dtype=float),
+            )
+        for index, plan_id in enumerate(comparison.baseline_plan_ids):
+            np.testing.assert_array_equal(
+                comparison.baseline[index],
+                np.asarray(data["expected"][plan_id], dtype=float),
+            )
+
+    def test_different_plan_counts_on_each_side(self):
+        data = self.crossed_inputs(tested_plan_count=7, baseline_plan_count=5, attack_count=12)
+        comparison = self.build(data)
+        self.assertEqual(comparison.tested.shape, (7, 12))
+        self.assertEqual(comparison.baseline.shape, (5, 12))
+        self.assertEqual(len(comparison.tested_plan_ids), 7)
+        self.assertEqual(len(comparison.baseline_plan_ids), 5)
+
+    def test_plan_rows_follow_normalized_identity_order(self):
+        data = self.crossed_inputs()
+        comparison = _crossed_comparison(
+            list(reversed(data["tested"])),
+            list(reversed(data["baseline"])),
+            data["identities"],
+            data["trials"],
+            data["schedules"],
+            "mission_impact",
+        )
+        self.assertEqual(
+            list(comparison.tested_plan_ids),
+            sorted(data["tested"], key=data["identities"].__getitem__),
+        )
+        self.assertEqual(
+            list(comparison.baseline_plan_ids),
+            sorted(data["baseline"], key=data["identities"].__getitem__),
+        )
+        # The constructor must not sort by generated plan ID.
+        self.assertNotEqual(list(comparison.tested_plan_ids), sorted(data["tested"]))
+        self.assertEqual(comparison.tested_plan_ids[0], "tested-5")
+        self.assertLess(
+            data["identities"][comparison.tested_plan_ids[0]][3],
+            data["identities"][comparison.tested_plan_ids[-1]][3],
+        )
+
+    def test_attack_columns_follow_declared_schedule_order(self):
+        data = self.crossed_inputs()
+        reversed_seeds = list(reversed(data["attack_seeds"]))
+        data["schedules"] = {
+            plan_id: list(reversed_seeds) for plan_id in data["schedules"]
+        }
+        comparison = self.build(data)
+        self.assertEqual(comparison.attack_seeds, tuple(reversed_seeds))
+        for index, plan_id in enumerate(comparison.tested_plan_ids):
+            np.testing.assert_array_equal(
+                comparison.tested[index],
+                np.asarray(list(reversed(data["expected"][plan_id])), dtype=float),
+            )
+
+    def test_empty_side_rejected(self):
+        data = self.crossed_inputs()
+        with self.assertRaises(AnalysisError):
+            _crossed_comparison(
+                [],
+                data["baseline"],
+                data["identities"],
+                data["trials"],
+                data["schedules"],
+                "mission_impact",
+            )
+        with self.assertRaises(AnalysisError):
+            _crossed_comparison(
+                data["tested"],
+                [],
+                data["identities"],
+                data["trials"],
+                data["schedules"],
+                "mission_impact",
+            )
+
+    def test_missing_cell_rejected_with_plan_and_seed(self):
+        data = self.crossed_inputs()
+        del data["trials"][("tested-3", 1)]
+        with self.assertRaises(AnalysisError) as context:
+            self.build(data)
+        message = str(context.exception)
+        self.assertIn("tested-3", message)
+        self.assertIn(str(data["attack_seeds"][0]), message)
+
+    def test_inconsistent_schedule_rejected(self):
+        data = self.crossed_inputs()
+        data["schedules"]["baseline-2"] = list(reversed(data["attack_seeds"]))
+        with self.assertRaises(AnalysisError):
+            self.build(data)
+
+    def test_bootstrap_is_deterministic_from_one_seed(self):
+        comparison = self.build(self.crossed_inputs())
+        first = _bootstrap_contrast(comparison, resamples=64, seed=4242)
+        second = _bootstrap_contrast(comparison, resamples=64, seed=4242)
+        self.assertEqual(first.shape, (64,))
+        np.testing.assert_array_equal(first, second)
+
+    def test_exact_finite_sample_correction_factor(self):
+        expected = math.sqrt((5.0 / 4.0) * (10.0 / 9.0))
+        self.assertAlmostEqual(_finite_sample_correction(5, 6, 10), expected, places=12)
+        self.assertAlmostEqual(_finite_sample_correction(6, 5, 10), expected, places=12)
+        larger_ratio = math.sqrt((6.0 / 5.0) * (10.0 / 9.0))
+        self.assertAlmostEqual(_finite_sample_correction(6, 7, 10), larger_ratio, places=12)
+
+    def test_finite_sample_correction_rejects_degenerate_counts(self):
+        for counts in ((1, 5, 10), (5, 1, 10), (5, 5, 1)):
+            with self.assertRaises(AnalysisError):
+                _finite_sample_correction(*counts)
+
+    def test_bootstrap_rejects_small_plan_and_attack_counts(self):
+        short_tested = self.build(
+            self.crossed_inputs(tested_plan_count=4, baseline_plan_count=5, attack_count=12)
+        )
+        with self.assertRaises(AnalysisError):
+            _bootstrap_contrast(short_tested, resamples=16, seed=1)
+        short_baseline = self.build(
+            self.crossed_inputs(tested_plan_count=5, baseline_plan_count=4, attack_count=12)
+        )
+        with self.assertRaises(AnalysisError):
+            _bootstrap_contrast(short_baseline, resamples=16, seed=1)
+        short_attacks = self.build(
+            self.crossed_inputs(tested_plan_count=5, baseline_plan_count=5, attack_count=9)
+        )
+        with self.assertRaises(AnalysisError):
+            _bootstrap_contrast(short_attacks, resamples=16, seed=1)
+
+    def test_bootstrap_accepts_minimum_counts_and_rejects_zero_resamples(self):
+        comparison = self.build(
+            self.crossed_inputs(tested_plan_count=5, baseline_plan_count=5, attack_count=10)
+        )
+        values = _bootstrap_contrast(comparison, resamples=32, seed=7)
+        self.assertEqual(values.shape, (32,))
+        self.assertTrue(np.all(np.isfinite(values)))
+        with self.assertRaises(AnalysisError):
+            _bootstrap_contrast(comparison, resamples=0, seed=7)
+
+    def test_bootstrap_pairs_attack_columns_across_sides(self):
+        # Every tested row equals its matching baseline row plus 3.0. Both
+        # sides share one attack-column profile. Paired column sampling keeps
+        # every replicate at 3.0. Independent column sampling would mix column
+        # means and add visible spread, so this test fails if the columns are
+        # sampled separately.
+        base = np.arange(12, dtype=float)
+        tested = np.broadcast_to(base + 3.0, (6, 12)).copy()
+        baseline = np.broadcast_to(base, (5, 12)).copy()
+        comparison = CrossedComparison(
+            tested=tested,
+            baseline=baseline,
+            tested_plan_ids=tuple(f"tested-{index}" for index in range(6)),
+            baseline_plan_ids=tuple(f"baseline-{index}" for index in range(5)),
+            attack_seeds=tuple(range(12)),
+        )
+        observed = float(comparison.tested.mean() - comparison.baseline.mean())
+        self.assertAlmostEqual(observed, 3.0, places=12)
+        values = _bootstrap_contrast(comparison, resamples=200, seed=11)
+        np.testing.assert_allclose(values, 3.0, rtol=0.0, atol=1e-9)
+
+    def test_crossed_comparison_rejects_mismatched_attack_columns(self):
+        with self.assertRaises(AnalysisError):
+            CrossedComparison(
+                tested=np.zeros((5, 10)),
+                baseline=np.zeros((5, 9)),
+                tested_plan_ids=tuple(f"tested-{index}" for index in range(5)),
+                baseline_plan_ids=tuple(f"baseline-{index}" for index in range(5)),
+                attack_seeds=tuple(range(10)),
+            )
+        with self.assertRaises(AnalysisError):
+            CrossedComparison(
+                tested=np.zeros(10),
+                baseline=np.zeros(10),
+                tested_plan_ids=("tested-0",),
+                baseline_plan_ids=("baseline-0",),
+                attack_seeds=tuple(range(10)),
+            )
+
+
+class CrossedStatisticsTest(unittest.TestCase):
+    CONFIGURATION = {"confidence_level": 0.9, "bootstrap_resamples": 400}
+
+    @staticmethod
+    def comparison(tested, baseline):
+        tested = np.asarray(tested, dtype=float)
+        baseline = np.asarray(baseline, dtype=float)
+        return CrossedComparison(
+            tested=tested,
+            baseline=baseline,
+            tested_plan_ids=tuple(f"tested-{index}" for index in range(tested.shape[0])),
+            baseline_plan_ids=tuple(f"baseline-{index}" for index in range(baseline.shape[0])),
+            attack_seeds=tuple(range(tested.shape[1])),
+        )
+
+    @staticmethod
+    def varied(rows, columns, shift=0.0):
+        row_effect = np.arange(rows, dtype=float)[:, None]
+        column_effect = np.arange(columns, dtype=float)[None, :] * 0.5
+        return shift + row_effect + column_effect
+
+    def test_positive_and_negative_contrast_signs(self):
+        base = self.varied(5, 10, 5.0)
+        positive = _crossed_statistics(self.comparison(base + 2.0, base), self.CONFIGURATION, 31)
+        negative = _crossed_statistics(self.comparison(base, base + 2.0), self.CONFIGURATION, 31)
+        self.assertAlmostEqual(positive.mean_difference, 2.0, places=9)
+        self.assertAlmostEqual(negative.mean_difference, -2.0, places=9)
+        self.assertTrue(positive.informative)
+        self.assertTrue(negative.informative)
+
+    def test_plan_variation_changes_interval_width(self):
+        columns = np.arange(10, dtype=float)[None, :] * 0.2
+        baseline = 5.0 + np.zeros((5, 1)) + columns
+        low_plan = np.linspace(0.0, 0.2, 5)[:, None] + columns
+        high_plan = np.linspace(0.0, 8.0, 5)[:, None] + columns
+        low = _crossed_statistics(self.comparison(low_plan, baseline), self.CONFIGURATION, 32)
+        high = _crossed_statistics(self.comparison(high_plan, baseline), self.CONFIGURATION, 32)
+        self.assertGreater(high.ci_half_width, low.ci_half_width)
+
+    def test_attack_variation_changes_interval_width(self):
+        rows = np.arange(5, dtype=float)[:, None] * 0.1
+        baseline = 5.0 + rows + np.zeros((1, 10))
+        low_attack = 3.0 + rows + np.linspace(0.0, 0.1, 10)[None, :]
+        high_attack = 3.0 + rows + np.linspace(0.0, 8.0, 10)[None, :]
+        low = _crossed_statistics(self.comparison(low_attack, baseline), self.CONFIGURATION, 33)
+        high = _crossed_statistics(self.comparison(high_attack, baseline), self.CONFIGURATION, 33)
+        self.assertGreater(high.ci_half_width, low.ci_half_width)
+
+    def test_all_zero_is_non_informative_with_unit_p_value(self):
+        zeros = np.zeros((5, 10))
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            result = _crossed_statistics(self.comparison(zeros, zeros), self.CONFIGURATION, 34)
+        self.assertFalse(result.informative)
+        self.assertEqual(result.p_raw, 1.0)
+        self.assertEqual(result.ci_lower, 0.0)
+        self.assertEqual(result.ci_upper, 0.0)
+        self.assertEqual(records, [])
+
+    def test_zero_width_non_zero_contrast_warns_and_stays_informative(self):
+        baseline = np.full((5, 10), 4.0)
+        tested = np.full((5, 10), 7.0)
+        with warnings.catch_warnings(record=True) as records:
+            warnings.simplefilter("always")
+            result = _crossed_statistics(self.comparison(tested, baseline), self.CONFIGURATION, 35)
+        self.assertTrue(result.informative)
+        self.assertAlmostEqual(result.mean_difference, 3.0, places=9)
+        self.assertEqual(result.ci_lower, result.ci_upper)
+        self.assertEqual(len(records), 1)
+        self.assertIs(records[0].category, DegenerateContrastWarning)
+        self.assertEqual(
+            str(records[0].message),
+            "informative primary contrast has a zero-width confidence interval",
+        )
+        self.assertGreater(result.p_raw, 0.0)
+
+    def test_p_value_is_deterministic_and_never_zero(self):
+        base = self.varied(5, 10, 4.0)
+        comparison = self.comparison(base + 1.5, base)
+        first = _crossed_statistics(comparison, self.CONFIGURATION, 36)
+        second = _crossed_statistics(comparison, self.CONFIGURATION, 36)
+        self.assertEqual(first.p_raw, second.p_raw)
+        self.assertGreater(first.p_raw, 0.0)
+        self.assertLessEqual(first.p_raw, 1.0)
+
+    def test_interval_and_null_streams_use_distinct_child_seeds(self):
+        interval_seed, null_seed = _child_seeds(1234)
+        self.assertNotEqual(interval_seed, null_seed)
+        self.assertEqual(_child_seeds(1234), (interval_seed, null_seed))
+
+
+if __name__ == "__main__":
+    unittest.main()

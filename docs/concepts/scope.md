@@ -30,7 +30,7 @@ and mission capabilities.
 
 Current bounds:
 
-- one fixed topology, policy, and attacker model;
+- one fixed topology, policy, and attacker model per evaluation archive;
 - equal-action-count budgets only;
 - a finite horizon of attacker action steps per trial;
 - attacks start from a declared entry host.
@@ -48,7 +48,7 @@ beyond measured scenarios.
 
 ## Approved topology-scale study
 
-The approved Azure study is a research design, not current implementation. It
+The crossed-study workflow is implemented. The Azure study has not run. It
 uses three controlled size tiers and one frozen graph per tier. A runtime pilot
 selects the exact tier sizes before the full study. The tier designs preserve
 the declared role schema, exposure template, reachability policy pattern,
@@ -57,7 +57,7 @@ attack-relevant structure changes as the graph grows.
 
 Current code supports the fixed baseline scenario and generic generated
 topology sources. It can freeze a generated source into an immutable graph
-revision. The Azure study is blocked until the planned tooling exists (see the
+revision. Tooling items 1 through 4 still block Azure collection (see the
 [cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
 
 Local runs are pilots. They validate the workflow and select study parameters.
