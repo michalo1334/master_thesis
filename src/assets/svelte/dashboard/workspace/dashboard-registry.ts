@@ -15,6 +15,7 @@ import GraphDiff from "../graph/GraphDiff.svelte";
 import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
 import AnalysisReport from "../analysis-report/AnalysisReport.svelte";
+import ImportedStudyResults from "../analysis-report/ImportedStudyResults.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
 
@@ -58,6 +59,9 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
     "analysis-report": {
       view: AnalysisReport as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: AnalysisReportDocument.fromPersisted,
+    },
+    "imported-study-results": {
+      view: ImportedStudyResults as unknown as DashboardDocumentRegistration["view"],
     },
     "document-catalog": {
       view: DocumentCatalog as unknown as DashboardDocumentRegistration["view"],

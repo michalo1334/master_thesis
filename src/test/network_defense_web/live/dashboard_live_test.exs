@@ -425,6 +425,78 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       })
     end
 
+    test "imports a pilot study result archive", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{
+        "archive" => study_archive("pilot") |> Base.encode64()
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        analysis: %{metadata: %{command_mode: "study-pilot"}, pilot_results: []}
+      })
+    end
+
+    test "imports a final study result archive", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{
+        "archive" => study_archive("analyze") |> Base.encode64()
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        analysis: %{metadata: %{command_mode: "study-analyze"}, primary_results: []}
+      })
+    end
+
+    test "rejects a study import without an archive payload", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{})
+      assert_reply(view, %{status: "error", error: %{code: "malformed_payload"}})
+    end
+
+    test "rejects a malformed study import payload", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{"archive" => "not base64!"})
+      assert_reply(view, %{status: "error", error: %{code: "malformed_payload"}})
+    end
+
+    test "rejects an invalid study import archive", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{"archive" => Base.encode64("not a ZIP")})
+      assert_reply(view, %{status: "error", error: %{code: "invalid_archive"}})
+    end
+
+    test "rejects an oversized study import archive", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      prior_limit = Application.get_env(:network_defense, :analysis_service)
+      Application.put_env(:network_defense, :analysis_service, max_zip_bytes: 1)
+
+      on_exit(fn ->
+        if prior_limit,
+          do: Application.put_env(:network_defense, :analysis_service, prior_limit),
+          else: Application.delete_env(:network_defense, :analysis_service)
+      end)
+
+      render_hook(view, "import_study_results", %{"archive" => Base.encode64("too large")})
+      assert_reply(view, %{status: "error", error: %{code: "file_too_large"}})
+    end
+
+    test "rejects an ordinary evaluation analysis archive", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "import_study_results", %{
+        "archive" => legacy_analysis_archive() |> Base.encode64()
+      })
+
+      assert_reply(view, %{status: "error", error: %{code: "unsupported_archive"}})
+    end
+
     test "forwards evaluation progress events", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
 
@@ -2474,5 +2546,55 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     assert [%{args: %{"run_id" => run_id}}] = all_enqueued(worker: EvaluationWorker)
     assert :ok = perform_job(EvaluationWorker, %{"run_id" => run_id})
     run_id
+  end
+
+  defp study_archive(mode) do
+    result_file = if mode == "pilot", do: "pilot_results.json", else: "primary_results.json"
+
+    zip(%{
+      "study_metadata.json" =>
+        Jason.encode!(%{
+          "study_id" => "imported-study",
+          "specification_version" => 1,
+          "family_scope" => "study",
+          "family_size" => 1,
+          "command_mode" => "study-#{mode}",
+          "expected_family" => %{},
+          "tier_labels" => ["small"],
+          "uncertainty_sources" => ["attack_outcome"]
+        }),
+      result_file => "[]"
+    })
+  end
+
+  defp legacy_analysis_archive do
+    zip(%{
+      "metadata.json" =>
+        Jason.encode!(%{
+          "manifest_id" => "evaluation-run",
+          "schema_version" => 1,
+          "model_version" => "model",
+          "command_mode" => "analyze",
+          "model_variants" => [],
+          "runtime_summary" => %{
+            "median_plan_selection_runtime_ms" => 0,
+            "median_simulation_runtime_ms" => 0,
+            "evaluator_runtime_ms" => 0
+          }
+        }),
+      "analysis.json" =>
+        Jason.encode!(%{
+          "primary_results" => [],
+          "secondary_results" => [],
+          "capability_results" => [],
+          "feasibility_summary" => []
+        })
+    })
+  end
+
+  defp zip(files) do
+    entries = Enum.map(files, fn {name, content} -> {String.to_charlist(name), content} end)
+    {:ok, {_, archive}} = :zip.create(~c"study-results.zip", entries, [:memory])
+    archive
   end
 end

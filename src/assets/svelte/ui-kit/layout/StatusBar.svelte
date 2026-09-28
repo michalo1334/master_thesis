@@ -2,9 +2,14 @@
   interface Props {
     documentName: string;
     statusMessage?: string;
+    statusElement?: HTMLElement;
   }
 
-  let { documentName, statusMessage }: Props = $props();
+  let {
+    documentName,
+    statusMessage,
+    statusElement = $bindable<HTMLElement | undefined>(),
+  }: Props = $props();
 </script>
 
 <footer class="dashboard-statusbar">
@@ -13,7 +18,13 @@
   </span>
   <span class="dashboard-status-item">Blank grid canvas</span>
   {#if statusMessage}
-    <span class="dashboard-status-item" role="status">{statusMessage}</span>
+    <span
+      bind:this={statusElement}
+      class="dashboard-status-item"
+      role="status"
+      aria-live="polite"
+      tabindex="-1">{statusMessage}</span
+    >
   {/if}
   <span class="dashboard-status-item dashboard-status-selection">
     {#if documentName}Document: <strong>{documentName}</strong>{/if}

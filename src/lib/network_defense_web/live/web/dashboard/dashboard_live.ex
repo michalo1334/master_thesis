@@ -6,6 +6,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Errors
   alias NetworkDefense.Evaluation
+  alias NetworkDefense.Evaluation.AnalysisLimits
+  alias NetworkDefense.Evaluation.AnalysisResult
   alias NetworkDefense.Evaluation.EvaluationRuns
   alias NetworkDefense.Evaluation.EvaluationWorker
   alias NetworkDefense.Graph.Contracts.GraphContract
@@ -28,6 +30,8 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload
@@ -302,6 +306,11 @@ defmodule NetworkDefenseWeb.DashboardLive do
       {:error, _changeset} ->
         {:reply, analysis_request_reply("invalid_params"), socket}
     end
+  end
+
+  @impl true
+  def handle_event("import_study_results", params, socket) do
+    {:reply, import_study_results(params), socket}
   end
 
   @impl true
@@ -827,6 +836,35 @@ defmodule NetworkDefenseWeb.DashboardLive do
     )
   end
 
+  defp import_study_results(params) do
+    with {:ok, request} <- ImportStudyResultsPayload.validate(params),
+         {:ok, archive} <- Base.decode64(request.archive, padding: true),
+         :ok <- validate_import_size(archive),
+         {:ok, analysis} <- AnalysisResult.parse(archive, AnalysisLimits.max_zip_bytes()),
+         :ok <- validate_study_analysis(analysis) do
+      import_study_results_reply({:ok, analysis})
+    else
+      {:error, %Ecto.Changeset{}} -> import_study_results_reply({:error, :malformed_payload})
+      :error -> import_study_results_reply({:error, :malformed_payload})
+      {:error, :file_too_large} -> import_study_results_reply({:error, :file_too_large})
+      {:error, :member_too_large} -> import_study_results_reply({:error, :file_too_large})
+      {:error, :unsupported_archive} -> import_study_results_reply({:error, :unsupported_archive})
+      {:error, _reason} -> import_study_results_reply({:error, :invalid_archive})
+    end
+  end
+
+  defp validate_import_size(archive) do
+    if byte_size(archive) <= AnalysisLimits.max_zip_bytes(),
+      do: :ok,
+      else: {:error, :file_too_large}
+  end
+
+  defp validate_study_analysis(%{metadata: %{"family_scope" => "study", "command_mode" => mode}})
+       when mode in ["study-pilot", "study-analyze"],
+       do: :ok
+
+  defp validate_study_analysis(_analysis), do: {:error, :unsupported_archive}
+
   defp start_evaluation_analysis(%RequestEvaluationAnalysisPayload{} = request, owner) do
     TaskSupervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
       result =
@@ -1135,6 +1173,24 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   defp analysis_request_reply(status),
     do: contract_reply(RequestEvaluationAnalysisReply, %{status: status})
+
+  defp import_study_results_reply({:ok, analysis}) do
+    contract_reply(ImportStudyResultsReply, %{status: "ok", analysis: analysis})
+  end
+
+  defp import_study_results_reply({:error, code}) do
+    contract_reply(ImportStudyResultsReply, %{
+      status: "error",
+      error: %{code: Atom.to_string(code), message: import_error_message(code)}
+    })
+  end
+
+  defp import_error_message(:malformed_payload), do: "The import payload is not valid base64."
+  defp import_error_message(:file_too_large), do: "The selected file exceeds the import limit."
+  defp import_error_message(:invalid_archive), do: "Select a valid study result ZIP."
+
+  defp import_error_message(:unsupported_archive),
+    do: "Select a study result ZIP from mix evaluate.study."
 
   defp failure_payload(payload) do
     payload

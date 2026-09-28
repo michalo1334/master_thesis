@@ -21,6 +21,8 @@
     onRunSimulation: () => void;
     onCompareGraphs: () => void;
     onOpenAnalysis: () => void;
+    onOpenStudyResults: () => void;
+    isImportingStudyResults: boolean;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
     optimizationOptions: readonly OptimizationOption[];
     activeOptimizationId: OptimizationParams["strategy"];
@@ -39,6 +41,8 @@
     onRunSimulation,
     onCompareGraphs,
     onOpenAnalysis,
+    onOpenStudyResults,
+    isImportingStudyResults,
     onOptimize,
     optimizationOptions,
     activeOptimizationId,
@@ -68,6 +72,14 @@
       >
       <RibbonButton onclick={onOpenAnalysis} aria-label="Analysis"
         ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
+      >
+      <RibbonButton
+        onclick={onOpenStudyResults}
+        disabled={isImportingStudyResults}
+        aria-label="Open study results"
+        ><Icon name="download" size={22} /><span
+          >{isImportingStudyResults ? "Opening…" : "Open study results"}</span
+        ></RibbonButton
       >
       <RibbonButton
         disabled={!downloadResultsHref}

@@ -3,12 +3,14 @@ import type { TopologyProjection } from "../../contracts.generated/dashboard/gra
 import type { GraphContract } from "../../contracts.generated/graph";
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
+import type { EvaluationAnalysis } from "../../contracts.generated/dashboard/evaluation";
 import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
+import { ImportedStudyResultsDocument } from "../analysis-report/ImportedStudyResultsDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
@@ -802,6 +804,15 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     this.documents.push(report);
     this.activateDocument(report);
     return report;
+  }
+
+  openImportedStudyResults(
+    analysis: EvaluationAnalysis,
+  ): ImportedStudyResultsDocument {
+    const document = new ImportedStudyResultsDocument(analysis);
+    this.documents.push(document);
+    this.activateDocument(document);
+    return document;
   }
 
   openPendingAnalysisReport(

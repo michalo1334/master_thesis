@@ -10,6 +10,7 @@
   import ReportProgress from "../ReportProgress.svelte";
   import KpiCards, { type KpiMetric } from "../KpiCards.svelte";
   import { formatRuntime } from "../format";
+  import StudyAnalysis from "./StudyAnalysis.svelte";
   interface Props {
     document: AnalysisReportDocument;
     api?: DashboardApi;
@@ -508,256 +509,220 @@
               {document.finalAnalysis.error}
             </p>{/if}
           {#if document.pilotAnalysis.data}
-            <h3>Pilot planning results</h3>
-            {#if nonInformativePilotComparisons > 0}
-              <p class="analysis-report-blocking" role="alert">
-                Blocking: {nonInformativePilotComparisons} pilot comparison(s) are
-                non-informative. A zero-width non-informative result is not a pass.
-              </p>
-            {/if}
-            <dl class="analysis-report-summary">
-              <div>
-                <dt>Recommended plan count</dt>
-                <dd>
-                  {formatCount(
-                    pilotRecommendationMetadata?.recommended_plan_selection_seed_count,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Recommended attacks per plan</dt>
-                <dd>
-                  {formatCount(
-                    pilotRecommendationMetadata?.recommended_attacks_per_plan,
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt>Pilot state</dt>
-                <dd>
-                  {insufficientPilot
-                    ? "Insufficient pilot"
-                    : "Recommendation available"}
-                </dd>
-              </div>
-              <div>
-                <dt>Non-informative comparisons</dt>
-                <dd>{nonInformativePilotComparisons}</dd>
-              </div>
-            </dl>
-            <div class="analysis-report-table-wrap">
-              <table class="analysis-report-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Tier</th>
-                    <th scope="col">Comparison</th>
-                    <th scope="col">Candidate plans</th>
-                    <th scope="col">Candidate attacks per plan</th>
-                    <th scope="col">Guarded half-width</th>
-                    <th scope="col">Target</th>
-                    <th scope="col">Informative</th>
-                    <th scope="col">Pass</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each pilotRows as row (`${row.comparison_id}:${row.candidate_plan_count}:${row.candidate_attacks_per_plan}`)}
-                    <tr class={rowClass(row.informative)}>
-                      <td>{formatValue(row.tier)}</td>
-                      <td>{formatValue(row.comparison_id)}</td>
-                      <td>{formatCount(row.candidate_plan_count)}</td>
-                      <td>{formatCount(row.candidate_attacks_per_plan)}</td>
-                      <td>{formatNumber(row.guarded_ci_half_width)}</td>
-                      <td>{formatNumber(row.target)}</td>
-                      <td>{formatBoolean(row.informative)}</td>
-                      <td
-                        >{row.passes == null
-                          ? "—"
-                          : row.passes
-                            ? "Pass"
-                            : "Fail"}</td
-                      >
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
+            <StudyAnalysis analysis={document.pilotAnalysis.data} />
           {/if}
           {#if document.finalAnalysis.data}
             {@const analysis = document.finalAnalysis.data}
             {@const runtimeSummary = analysis.metadata.runtime_summary}
-            <h3>Final analysis</h3>
-            <KpiCards metrics={metadataKpis(analysis.metadata)} />
-            {#if runtimeSummary}
-              <section
-                class="analysis-report-runtime"
-                aria-labelledby="runtime-summary-title"
-              >
-                <h3 id="runtime-summary-title">Archive runtime summary</h3>
-                <dl class="analysis-report-summary">
-                  <div>
-                    <dt>Median plan selection</dt>
-                    <dd>
-                      {formatRuntime(
-                        runtimeSummary.median_plan_selection_runtime_ms,
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Median simulation</dt>
-                    <dd>
-                      {formatRuntime(
-                        runtimeSummary.median_simulation_runtime_ms,
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Total evaluator</dt>
-                    <dd>
-                      {formatRuntime(runtimeSummary.evaluator_runtime_ms)}
-                    </dd>
-                  </div>
-                </dl>
-              </section>
-            {/if}
-            <section
-              class="analysis-report-feasibility"
-              aria-labelledby="feasibility-summary-title"
-            >
-              <h3 id="feasibility-summary-title">Pre-attack feasibility</h3>
-              <div class="analysis-report-table-wrap">
-                <table class="analysis-report-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Experiment</th>
-                      <th scope="col">Plan</th>
-                      <th scope="col">Direct feasibility</th>
-                      <th scope="col">Unavailable required flows</th>
-                      <th scope="col">Affected capabilities</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each analysis.feasibility_summary as row (row.experiment_id)}
-                      <tr>
-                        <th scope="row" title={row.experiment_id}
-                          >{row.experiment_id.slice(0, 8)}</th
-                        >
-                        <td title={row.plan_id}>{row.plan_id || "Baseline"}</td>
-                        <td
-                          >{row.pre_attack_feasible
-                            ? "Feasible"
-                            : "Infeasible"}</td
-                        >
-                        <td>{row.unavailable_required_flow_count}</td>
-                        <td>{row.affected_capability_count}</td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-            <section
-              class="analysis-report-reproducibility"
-              aria-labelledby="reproducibility-title"
-            >
-              <h3 id="reproducibility-title">Reproducibility</h3>
-              {#snippet metadataRows(
-                rows: readonly (readonly [string, unknown])[],
-              )}
-                <dl class="analysis-report-metadata">
-                  {#each rows as [label, value] (label)}
-                    <div class="analysis-report-metadata-row">
-                      <dt>{label}</dt>
+            {#if isStudyFamily}
+              <StudyAnalysis {analysis} />
+            {:else}
+              <h3>Final analysis</h3>
+              <KpiCards metrics={metadataKpis(analysis.metadata)} />
+              {#if runtimeSummary}
+                <section
+                  class="analysis-report-runtime"
+                  aria-labelledby="runtime-summary-title"
+                >
+                  <h3 id="runtime-summary-title">Archive runtime summary</h3>
+                  <dl class="analysis-report-summary">
+                    <div>
+                      <dt>Median plan selection</dt>
                       <dd>
-                        {#if typeof value === "object" && value !== null}
-                          <pre>{formatMetadataValue(value)}</pre>
-                        {:else}
-                          {formatMetadataValue(value)}
-                        {/if}
+                        {formatRuntime(
+                          runtimeSummary.median_plan_selection_runtime_ms,
+                        )}
                       </dd>
                     </div>
-                  {/each}
-                </dl>
-              {/snippet}
-              {@render metadataRows([
-                ["Manifest ID", analysis.metadata.manifest_id],
-                ["Model variants", analysis.metadata.model_variants],
-                ["Checksums hash", analysis.metadata.checksums_hash],
-                ["Estimand", analysis.metadata.estimand_note],
-              ])}
-              {#each [["Input hashes", analysis.metadata.input_hashes], ["Analysis configuration", analysis.metadata.analysis_configuration], ["Dependencies", analysis.metadata.dependencies]] as [title, values] (title)}
-                {@const rows = metadataEntries(values)}
-                <section class="analysis-report-metadata-group">
-                  <h4>{title}</h4>
-                  {#if rows.length > 0}
-                    {@render metadataRows(rows)}
-                  {:else}
-                    <p>—</p>
-                  {/if}
+                    <div>
+                      <dt>Median simulation</dt>
+                      <dd>
+                        {formatRuntime(
+                          runtimeSummary.median_simulation_runtime_ms,
+                        )}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Total evaluator</dt>
+                      <dd>
+                        {formatRuntime(runtimeSummary.evaluator_runtime_ms)}
+                      </dd>
+                    </div>
+                  </dl>
                 </section>
-              {/each}
-            </section>
-            <h3>Primary results</h3>
-            {#if isStudyFamily}
-              <p class="analysis-report-note analysis-report-family-label">
-                Holm adjustment covers the complete declared study family.
-              </p>
-            {/if}
-            {#if hasNonInformativePrimary}
-              <p class="analysis-report-blocking" role="alert">
-                Blocking: one or more primary comparisons are non-informative. A
-                zero-width non-informative result is not a pass.
-              </p>
-            {/if}
-            {#if isStudyPrimary}
-              <div class="analysis-report-table-wrap">
-                <table class="analysis-report-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Tier</th>
-                      <th scope="col">Comparison</th>
-                      <th scope="col">Comparison ID</th>
-                      <th scope="col">Strategy (tested model)</th>
-                      <th scope="col">Baseline (model)</th>
-                      <th scope="col">Budget</th>
-                      <th scope="col">Tested plans</th>
-                      <th scope="col">Baseline plans</th>
-                      <th scope="col">Attacks per plan</th>
-                      <th scope="col">Informative</th>
-                      <th scope="col">CI half-width</th>
-                      <th scope="col">CI lower</th>
-                      <th scope="col">CI upper</th>
-                      <th scope="col">Outcome</th>
-                      <th scope="col">Paired mean difference</th>
-                      <th scope="col">d_z</th>
-                      <th scope="col">p raw</th>
-                      <th scope="col">p adjusted</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each primaryRows as row (`study-${row.comparison_id}`)}
-                      <tr class={rowClass(row.informative)}>
-                        <td>{formatValue(row.tier)}</td>
-                        <td>{formatNumber(row.comparison)}</td>
-                        <td>{formatValue(row.comparison_id)}</td>
-                        {@render testedStrategyCell(row)}
-                        {@render baselineStrategyCell(row)}
-                        <td>{row.budget}</td>
-                        <td>{formatCount(row.tested_plan_count)}</td>
-                        <td>{formatCount(row.baseline_plan_count)}</td>
-                        <td>{formatCount(row.attacks_per_plan)}</td>
-                        <td>{formatBoolean(row.informative)}</td>
-                        {@render intervalCells(row)}
-                        <td>{row.outcome}</td>
-                        <td>{formatNumber(row.paired_mean_difference)}</td>
-                        <td>{formatNumber(row.d_z)}</td>
-                        <td>{formatNumber(row.p_raw)}</td>
-                        <td>{formatNumber(row.p_adjusted)}</td>
+              {/if}
+              <section
+                class="analysis-report-feasibility"
+                aria-labelledby="feasibility-summary-title"
+              >
+                <h3 id="feasibility-summary-title">Pre-attack feasibility</h3>
+                <div class="analysis-report-table-wrap">
+                  <table class="analysis-report-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Experiment</th>
+                        <th scope="col">Plan</th>
+                        <th scope="col">Direct feasibility</th>
+                        <th scope="col">Unavailable required flows</th>
+                        <th scope="col">Affected capabilities</th>
                       </tr>
+                    </thead>
+                    <tbody>
+                      {#each analysis.feasibility_summary as row (row.experiment_id)}
+                        <tr>
+                          <th scope="row" title={row.experiment_id}
+                            >{row.experiment_id.slice(0, 8)}</th
+                          >
+                          <td title={row.plan_id}
+                            >{row.plan_id || "Baseline"}</td
+                          >
+                          <td
+                            >{row.pre_attack_feasible
+                              ? "Feasible"
+                              : "Infeasible"}</td
+                          >
+                          <td>{row.unavailable_required_flow_count}</td>
+                          <td>{row.affected_capability_count}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+              <section
+                class="analysis-report-reproducibility"
+                aria-labelledby="reproducibility-title"
+              >
+                <h3 id="reproducibility-title">Reproducibility</h3>
+                {#snippet metadataRows(
+                  rows: readonly (readonly [string, unknown])[],
+                )}
+                  <dl class="analysis-report-metadata">
+                    {#each rows as [label, value] (label)}
+                      <div class="analysis-report-metadata-row">
+                        <dt>{label}</dt>
+                        <dd>
+                          {#if typeof value === "object" && value !== null}
+                            <pre>{formatMetadataValue(value)}</pre>
+                          {:else}
+                            {formatMetadataValue(value)}
+                          {/if}
+                        </dd>
+                      </div>
                     {/each}
-                  </tbody>
-                </table>
-              </div>
-            {:else}
+                  </dl>
+                {/snippet}
+                {@render metadataRows([
+                  ["Manifest ID", analysis.metadata.manifest_id],
+                  ["Model variants", analysis.metadata.model_variants],
+                  ["Checksums hash", analysis.metadata.checksums_hash],
+                  ["Estimand", analysis.metadata.estimand_note],
+                ])}
+                {#each [["Input hashes", analysis.metadata.input_hashes], ["Analysis configuration", analysis.metadata.analysis_configuration], ["Dependencies", analysis.metadata.dependencies]] as [title, values] (title)}
+                  {@const rows = metadataEntries(values)}
+                  <section class="analysis-report-metadata-group">
+                    <h4>{title}</h4>
+                    {#if rows.length > 0}
+                      {@render metadataRows(rows)}
+                    {:else}
+                      <p>—</p>
+                    {/if}
+                  </section>
+                {/each}
+              </section>
+              <h3>Primary results</h3>
+              {#if hasNonInformativePrimary}
+                <p class="analysis-report-blocking" role="alert">
+                  Blocking: one or more primary comparisons are non-informative.
+                  A zero-width non-informative result is not a pass.
+                </p>
+              {/if}
+              {#if isStudyPrimary}
+                <div class="analysis-report-table-wrap">
+                  <table class="analysis-report-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Tier</th>
+                        <th scope="col">Comparison</th>
+                        <th scope="col">Comparison ID</th>
+                        <th scope="col">Strategy (tested model)</th>
+                        <th scope="col">Baseline (model)</th>
+                        <th scope="col">Budget</th>
+                        <th scope="col">Tested plans</th>
+                        <th scope="col">Baseline plans</th>
+                        <th scope="col">Attacks per plan</th>
+                        <th scope="col">Informative</th>
+                        <th scope="col">CI half-width</th>
+                        <th scope="col">CI lower</th>
+                        <th scope="col">CI upper</th>
+                        <th scope="col">Outcome</th>
+                        <th scope="col">Paired mean difference</th>
+                        <th scope="col">d_z</th>
+                        <th scope="col">p raw</th>
+                        <th scope="col">p adjusted</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {#each primaryRows as row (`study-${row.comparison_id}`)}
+                        <tr class={rowClass(row.informative)}>
+                          <td>{formatValue(row.tier)}</td>
+                          <td>{formatNumber(row.comparison)}</td>
+                          <td>{formatValue(row.comparison_id)}</td>
+                          {@render testedStrategyCell(row)}
+                          {@render baselineStrategyCell(row)}
+                          <td>{row.budget}</td>
+                          <td>{formatCount(row.tested_plan_count)}</td>
+                          <td>{formatCount(row.baseline_plan_count)}</td>
+                          <td>{formatCount(row.attacks_per_plan)}</td>
+                          <td>{formatBoolean(row.informative)}</td>
+                          {@render intervalCells(row)}
+                          <td>{row.outcome}</td>
+                          <td>{formatNumber(row.paired_mean_difference)}</td>
+                          <td>{formatNumber(row.d_z)}</td>
+                          <td>{formatNumber(row.p_raw)}</td>
+                          <td>{formatNumber(row.p_adjusted)}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </div>
+              {:else}
+                <div class="analysis-report-table-wrap">
+                  <table class="analysis-report-table">
+                    <thead
+                      ><tr
+                        ><th scope="col">Strategy (tested model)</th><th
+                          scope="col">Baseline (model)</th
+                        ><th scope="col">Budget</th><th scope="col"
+                          >Comparison</th
+                        ><th scope="col">CI half-width</th><th scope="col"
+                          >CI lower</th
+                        ><th scope="col">CI upper</th><th scope="col"
+                          >Outcome</th
+                        ><th scope="col">Paired mean difference</th><th
+                          scope="col">d_z</th
+                        ><th scope="col">p raw</th><th scope="col"
+                          >p adjusted</th
+                        ></tr
+                      ></thead
+                    ><tbody
+                      >{#each primaryRows as row (`legacy-${row.comparison}`)}<tr
+                          >{@render testedStrategyCell(
+                            row,
+                          )}{@render baselineStrategyCell(row)}<td
+                            >{row.budget}</td
+                          ><td>{formatNumber(row.comparison)}</td
+                          >{@render intervalCells(row)}<td>{row.outcome}</td><td
+                            >{formatNumber(row.paired_mean_difference)}</td
+                          ><td>{formatNumber(row.d_z)}</td><td
+                            >{formatNumber(row.p_raw)}</td
+                          ><td>{formatNumber(row.p_adjusted)}</td></tr
+                        >{/each}</tbody
+                    >
+                  </table>
+                </div>
+              {/if}
+              <h3>Secondary results</h3>
               <div class="analysis-report-table-wrap">
                 <table class="analysis-report-table">
                   <thead
@@ -768,100 +733,70 @@
                       ><th scope="col">CI half-width</th><th scope="col"
                         >CI lower</th
                       ><th scope="col">CI upper</th><th scope="col">Outcome</th
-                      ><th scope="col">Paired mean difference</th><th
-                        scope="col">d_z</th
-                      ><th scope="col">p raw</th><th scope="col">p adjusted</th
-                      ></tr
+                      ><th scope="col">Mean difference</th></tr
                     ></thead
                   ><tbody
-                    >{#each primaryRows as row (`legacy-${row.comparison}`)}<tr
+                    >{#each analysis.secondary_results as row (row.comparison)}<tr
                         >{@render testedStrategyCell(
                           row,
                         )}{@render baselineStrategyCell(row)}<td
                           >{row.budget}</td
                         ><td>{formatNumber(row.comparison)}</td
                         >{@render intervalCells(row)}<td>{row.outcome}</td><td
-                          >{formatNumber(row.paired_mean_difference)}</td
-                        ><td>{formatNumber(row.d_z)}</td><td
-                          >{formatNumber(row.p_raw)}</td
-                        ><td>{formatNumber(row.p_adjusted)}</td></tr
+                          >{formatNumber(row.mean_difference)}</td
+                        ></tr
+                      >{/each}</tbody
+                  >
+                </table>
+              </div>
+              <h3>Capability results</h3>
+              <div class="analysis-report-table-wrap">
+                <table class="analysis-report-table">
+                  <thead
+                    ><tr
+                      ><th scope="col">Capability</th><th scope="col"
+                        >Strategy (tested model)</th
+                      ><th scope="col">Baseline (model)</th><th scope="col"
+                        >Budget</th
+                      ><th scope="col">Comparison</th><th scope="col"
+                        >Baseline probability</th
+                      ><th scope="col">Tested probability</th><th scope="col"
+                        >Difference</th
+                      ><th scope="col">CI half-width</th><th scope="col"
+                        >CI lower</th
+                      ><th scope="col">CI upper</th></tr
+                    ></thead
+                  ><tbody
+                    >{#each analysis.capability_results as row (`${row.comparison}:${row.capability_id}`)}<tr
+                        ><td
+                          >{#if document.openSourceGraph}
+                            <button
+                              type="button"
+                              class="analysis-report-link"
+                              onclick={() =>
+                                void document.openSourceGraph?.(
+                                  row.capability_id,
+                                )}
+                              title={row.capability_id}
+                              >{capabilityName(row)}</button
+                            >
+                          {:else}
+                            {capabilityName(row)}
+                          {/if}</td
+                        >{@render testedStrategyCell(
+                          row,
+                        )}{@render baselineStrategyCell(row)}<td
+                          >{row.budget}</td
+                        ><td>{formatNumber(row.comparison)}</td><td
+                          >{formatNumber(row.baseline_probability)}</td
+                        ><td>{formatNumber(row.tested_probability)}</td><td
+                          >{formatNumber(row.probability_difference)}</td
+                        >{@render intervalCells(row)}</tr
                       >{/each}</tbody
                   >
                 </table>
               </div>
             {/if}
-            <h3>Secondary results</h3>
-            <div class="analysis-report-table-wrap">
-              <table class="analysis-report-table">
-                <thead
-                  ><tr
-                    ><th scope="col">Strategy (tested model)</th><th scope="col"
-                      >Baseline (model)</th
-                    ><th scope="col">Budget</th><th scope="col">Comparison</th
-                    ><th scope="col">CI half-width</th><th scope="col"
-                      >CI lower</th
-                    ><th scope="col">CI upper</th><th scope="col">Outcome</th
-                    ><th scope="col">Mean difference</th></tr
-                  ></thead
-                ><tbody
-                  >{#each analysis.secondary_results as row (row.comparison)}<tr
-                      >{@render testedStrategyCell(
-                        row,
-                      )}{@render baselineStrategyCell(row)}<td>{row.budget}</td
-                      ><td>{formatNumber(row.comparison)}</td
-                      >{@render intervalCells(row)}<td>{row.outcome}</td><td
-                        >{formatNumber(row.mean_difference)}</td
-                      ></tr
-                    >{/each}</tbody
-                >
-              </table>
-            </div>
-            <h3>Capability results</h3>
-            <div class="analysis-report-table-wrap">
-              <table class="analysis-report-table">
-                <thead
-                  ><tr
-                    ><th scope="col">Capability</th><th scope="col"
-                      >Strategy (tested model)</th
-                    ><th scope="col">Baseline (model)</th><th scope="col"
-                      >Budget</th
-                    ><th scope="col">Comparison</th><th scope="col"
-                      >Baseline probability</th
-                    ><th scope="col">Tested probability</th><th scope="col"
-                      >Difference</th
-                    ><th scope="col">CI half-width</th><th scope="col"
-                      >CI lower</th
-                    ><th scope="col">CI upper</th></tr
-                  ></thead
-                ><tbody
-                  >{#each analysis.capability_results as row (`${row.comparison}:${row.capability_id}`)}<tr
-                      ><td
-                        >{#if document.openSourceGraph}
-                          <button
-                            type="button"
-                            class="analysis-report-link"
-                            onclick={() =>
-                              void document.openSourceGraph?.(
-                                row.capability_id,
-                              )}
-                            title={row.capability_id}
-                            >{capabilityName(row)}</button
-                          >
-                        {:else}
-                          {capabilityName(row)}
-                        {/if}</td
-                      >{@render testedStrategyCell(
-                        row,
-                      )}{@render baselineStrategyCell(row)}<td>{row.budget}</td
-                      ><td>{formatNumber(row.comparison)}</td><td
-                        >{formatNumber(row.baseline_probability)}</td
-                      ><td>{formatNumber(row.tested_probability)}</td><td
-                        >{formatNumber(row.probability_difference)}</td
-                      >{@render intervalCells(row)}</tr
-                    >{/each}</tbody
-                >
-              </table>
-            </div>
           {/if}
         </section>
       </Tabs.Content>

@@ -30,6 +30,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
 
@@ -83,6 +85,53 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   @projection_reachability_edge_id "00000000-0000-0000-0000-000000000113"
   @projection_self_policy_edge_id "00000000-0000-0000-0000-000000000114"
   @projection_vulnerability_edge_id "00000000-0000-0000-0000-000000000115"
+  test "validates study result import contracts" do
+    assert {:ok, %ImportStudyResultsPayload{archive: "YXJjaGl2ZQ=="}} =
+             ImportStudyResultsPayload.validate(%{"archive" => "YXJjaGl2ZQ=="})
+
+    assert {:error, payload_changeset} = ImportStudyResultsPayload.validate(%{})
+    assert %{archive: ["can't be blank"]} = errors_on(payload_changeset)
+
+    assert {:ok, reply} =
+             ImportStudyResultsReply.validate(%{
+               "status" => "error",
+               "error" => %{
+                 "code" => "invalid_archive",
+                 "message" => "Select a valid study result ZIP."
+               }
+             })
+
+    assert %{status: "error", error: %{code: "invalid_archive"}} =
+             ImportStudyResultsReply.to_wire(reply)
+
+    assert {:error, reply_changeset} = ImportStudyResultsReply.validate(%{"status" => "error"})
+    assert %{error: ["can't be blank"]} = errors_on(reply_changeset)
+
+    assert {:error, reply_changeset} =
+             ImportStudyResultsReply.validate(%{
+               "status" => "ok",
+               "analysis" => study_results_analysis(),
+               "error" => %{
+                 "code" => "invalid_archive",
+                 "message" => "Select a valid study result ZIP."
+               }
+             })
+
+    assert %{error: ["must be absent"]} = errors_on(reply_changeset)
+
+    assert {:error, reply_changeset} =
+             ImportStudyResultsReply.validate(%{
+               "status" => "error",
+               "analysis" => study_results_analysis(),
+               "error" => %{
+                 "code" => "invalid_archive",
+                 "message" => "Select a valid study result ZIP."
+               }
+             })
+
+    assert %{analysis: ["must be absent"]} = errors_on(reply_changeset)
+  end
+
   test "all dashboard contracts are embedded schemas with changesets" do
     Registry.list_contract_modules(:all)
     |> Enum.each(fn contract ->
@@ -1094,6 +1143,18 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     ]
 
     graph(nodes, edges, graph_id)
+  end
+
+  defp study_results_analysis do
+    %{
+      "metadata" => %{
+        "study_id" => "imported-study",
+        "specification_version" => 1,
+        "family_scope" => "study",
+        "family_size" => 1,
+        "command_mode" => "pilot"
+      }
+    }
   end
 
   defp errors_on(changeset) do

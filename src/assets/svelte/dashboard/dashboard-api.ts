@@ -94,6 +94,9 @@ export interface DashboardApi {
   requestEvaluationAnalysis(
     payload: EvaluationContracts.RequestEvaluationAnalysisPayload,
   ): Promise<EvaluationContracts.RequestEvaluationAnalysisReply>;
+  importStudyResults(
+    payload: EvaluationContracts.ImportStudyResultsPayload,
+  ): Promise<EvaluationContracts.ImportStudyResultsReply>;
   cancelRun(
     payload: RunsContracts.CancelRunPayload,
   ): Promise<RunsContracts.CancelRunReply>;
@@ -315,6 +318,12 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         EvaluationContracts.RequestEvaluationAnalysisPayload,
         EvaluationContracts.RequestEvaluationAnalysisReply
       >(live, "request_evaluation_analysis", payload);
+    },
+    importStudyResults(payload) {
+      return requestReply<
+        EvaluationContracts.ImportStudyResultsPayload,
+        EvaluationContracts.ImportStudyResultsReply
+      >(live, "import_study_results", payload);
     },
     cancelRun(payload) {
       return requestReply<

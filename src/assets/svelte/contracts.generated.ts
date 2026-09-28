@@ -753,6 +753,24 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload (lib/network_defense_web/contracts/dashboard/evaluation/import_study_results_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ImportStudyResultsPayload {
+    archive: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsReply (lib/network_defense_web/contracts/dashboard/evaluation/import_study_results_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ImportStudyResultsReply {
+    analysis?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis | null;
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyResultsImportError | null;
+    status: "ok" | "error";
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_manifests_payload.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export type ListManifestsPayload = Record<never, never>;
@@ -831,6 +849,18 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
     run_id?: string | null;
     status: "accepted" | "rejected" | "not_found";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyResultsImportError (lib/network_defense_web/contracts/dashboard/evaluation/study_results_import_error.ex) — enum fields: code
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyResultsImportError {
+    code:
+      | "malformed_payload"
+      | "file_too_large"
+      | "invalid_archive"
+      | "unsupported_archive";
+    message: string;
   }
 }
 

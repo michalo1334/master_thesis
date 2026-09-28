@@ -30,15 +30,18 @@ function renderRibbon({
   activeOptimizationId = "simulation_informed",
   footholdHosts = [{ id: "host-1", name: "Host 1" }],
   hasActiveGraph = true,
+  isImportingStudyResults = false,
 }: {
   activeOptimizationId?: OptimizationParams["strategy"];
   footholdHosts?: readonly { id: string; name: string }[];
   hasActiveGraph?: boolean;
+  isImportingStudyResults?: boolean;
 } = {}) {
   const onOptimize = vi.fn();
   const onOptimizationParamsChange = vi.fn();
   const onCompareGraphs = vi.fn();
   const onOpenAnalysis = vi.fn();
+  const onOpenStudyResults = vi.fn();
 
   render(DashboardRibbon, {
     props: {
@@ -46,6 +49,8 @@ function renderRibbon({
       onRunSimulation: vi.fn(),
       onCompareGraphs,
       onOpenAnalysis,
+      onOpenStudyResults,
+      isImportingStudyResults,
       onOptimize,
       optimizationOptions,
       activeOptimizationId,
@@ -64,6 +69,7 @@ function renderRibbon({
   return {
     onCompareGraphs,
     onOpenAnalysis,
+    onOpenStudyResults,
     onOptimize,
     onOptimizationParamsChange,
   };
@@ -90,6 +96,29 @@ describe("DashboardRibbon", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
 
     expect(onOpenAnalysis).toHaveBeenCalledOnce();
+  });
+
+  it("opens study results from the Home tab", async () => {
+    const { onOpenStudyResults } = renderRibbon();
+
+    await fireEvent.click(
+      screen.getByRole("button", { name: "Open study results" }),
+    );
+
+    expect(onOpenStudyResults).toHaveBeenCalledOnce();
+  });
+
+  it("disables the visible study results control while an import is active", async () => {
+    const { onOpenStudyResults } = renderRibbon({
+      isImportingStudyResults: true,
+    });
+    const control = screen.getByRole("button", {
+      name: "Open study results",
+    });
+
+    expect(control).toBeDisabled();
+    expect(control).toHaveTextContent("Opening…");
+    expect(onOpenStudyResults).not.toHaveBeenCalled();
   });
 
   it("leaves topology layout actions to the canvas toolbar", async () => {

@@ -237,6 +237,26 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
              )
   end
 
+  test "rejects a study result whose command mode does not match its members" do
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("pilot"),
+                 "primary_results.json" => Jason.encode!([study_primary_row()])
+               }),
+               10_000
+             )
+
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               zip(%{
+                 "study_metadata.json" => study_metadata("analyze"),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+  end
+
   test "rejects an incomplete study bundle" do
     assert {:error, :missing_or_duplicate} =
              AnalysisResult.parse(

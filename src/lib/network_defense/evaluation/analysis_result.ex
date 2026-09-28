@@ -140,6 +140,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     with {:ok, metadata} <- read_json(entries, @study_metadata_file, max_bytes),
          {:ok, primary_results} <- read_json_list(entries, @study_primary_file, max_bytes),
          :ok <- validate_study_metadata(metadata),
+         :ok <- validate_study_command_mode(metadata, "study-analyze"),
          :ok <- rows(primary_results, @primary_fields) do
       {:ok, result_map(metadata, [], primary_results, [], [], [])}
     end
@@ -149,6 +150,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     with {:ok, metadata} <- read_json(entries, @study_metadata_file, max_bytes),
          {:ok, pilot_results} <- read_json_list(entries, @study_pilot_file, max_bytes),
          :ok <- validate_study_metadata(metadata),
+         :ok <- validate_study_command_mode(metadata, "study-pilot"),
          :ok <- rows(pilot_results, @study_pilot_fields) do
       {:ok, result_map(metadata, pilot_results, [], [], [], [])}
     end
@@ -271,6 +273,9 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
       {:error, :malformed_field}
     end
   end
+
+  defp validate_study_command_mode(%{"command_mode" => expected}, expected), do: :ok
+  defp validate_study_command_mode(_metadata, _expected), do: {:error, :malformed_field}
 
   defp validate_binary(value) when is_binary(value), do: :ok
   defp validate_binary(_value), do: {:error, :malformed_field}

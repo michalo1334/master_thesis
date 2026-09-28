@@ -432,6 +432,25 @@ describe("DashboardApi", () => {
     );
   });
 
+  it("imports study results through the typed LiveView reply callback", async () => {
+    const reply = { status: "error" as const, error: null, analysis: null };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await expect(
+      createDashboardApi(live).importStudyResults({ archive: "c3R1ZHk=" }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "import_study_results",
+      { archive: "c3R1ZHk=" },
+      expect.any(Function),
+    );
+  });
+
   it("describes an editor manifest through the LiveView reply callback", async () => {
     const reply = {
       status: "ok" as const,

@@ -122,20 +122,22 @@ On completion, the system opens an analysis report. The report lists the plans
 and the aggregate results of the experiments. Statistical analysis is a
 follow-on step; the user triggers it.
 
-The dashboard renders study-analysis results. It does not start study
-collection, a study pilot, or final study analysis. Use `mix evaluate.study`
-for those operations.
+The dashboard opens completed study-analysis result ZIPs and renders them in a
+read-only report. It does not start study collection, a study pilot, or final
+study analysis. Use `mix evaluate.study` for those operations.
 
 The browser download URL serves the completed evaluation output-contract ZIP.
 The ZIP is input to statistical analysis. It is not a study-analysis result
-ZIP. No other view offers a download.
+ZIP. Imported study reports do not offer a download.
 
 Source references:
 
 - manifest model:
   [`ManifestModel.svelte.ts`](../../src/assets/svelte/dashboard/manifest/ManifestModel.svelte.ts);
-- analysis report view:
+- evaluation analysis report:
   [`AnalysisReport.svelte`](../../src/assets/svelte/dashboard/analysis-report/AnalysisReport.svelte);
+- imported study report:
+  [`ImportedStudyResults.svelte`](../../src/assets/svelte/dashboard/analysis-report/ImportedStudyResults.svelte);
 - evaluation lifecycle: [evaluation](../concepts/evaluation.md).
 
 ## Why save before run
