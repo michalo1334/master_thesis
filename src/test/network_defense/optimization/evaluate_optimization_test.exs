@@ -3,9 +3,9 @@ defmodule Mix.Tasks.Evaluate.OptimizationTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.Evaluate.Optimization
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.GraphFixtures
-  alias Mix.Tasks.Evaluate.Optimization
 
   @revision_id Ecto.UUID.generate()
 

@@ -1,13 +1,15 @@
 defmodule NetworkDefense.Graph.ContractsTest do
   use ExUnit.Case, async: true
 
+  alias Ecto.UUID
+
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
     CredentialData,
-    NetworkSegmentData,
     CvssData,
     HasVulnerabilityData,
     MissionCapabilityData,
+    NetworkSegmentData,
     RequiredServiceFlowData,
     SegmentReachabilityData,
     StoresCredentialData
@@ -140,8 +142,8 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
   describe "RequiredServiceFlowData" do
     test "requires a source segment and a target service" do
-      segment_id = Ecto.UUID.generate()
-      service_id = Ecto.UUID.generate()
+      segment_id = UUID.generate()
+      service_id = UUID.generate()
 
       assert {:ok, _} =
                RequiredServiceFlowData.validate(%{
@@ -163,8 +165,8 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
   describe "MissionCapabilityData" do
     test "accepts required service flows" do
-      segment_id = Ecto.UUID.generate()
-      service_id = Ecto.UUID.generate()
+      segment_id = UUID.generate()
+      service_id = UUID.generate()
 
       assert {:ok, capability} =
                MissionCapabilityData.validate(%{
@@ -186,7 +188,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
                  "name" => "Orders",
                  "impact_weight" => 2.0,
                  "min_operational_support" => 1,
-                 "required_flows" => [%{"source_segment_id" => Ecto.UUID.generate()}]
+                 "required_flows" => [%{"source_segment_id" => UUID.generate()}]
                })
     end
   end
@@ -312,7 +314,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
     test "rejects nil node and edge lists" do
       contract = %GraphContract{
-        id: Ecto.UUID.generate(),
+        id: UUID.generate(),
         title: "Graph",
         nodes: nil,
         edges: nil
@@ -332,7 +334,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
     end
 
     test "rejects node and edge values that are not lists of contracts" do
-      graph_id = Ecto.UUID.generate()
+      graph_id = UUID.generate()
 
       cases = [
         {%{id: graph_id, title: "Graph", nodes: %{"id" => "segment"}, edges: []}, :nodes},
@@ -351,9 +353,9 @@ defmodule NetworkDefense.Graph.ContractsTest do
       {params, %{host: host_id}} = complete_graph()
 
       dangling = %{
-        "id" => Ecto.UUID.generate(),
+        "id" => UUID.generate(),
         "from_id" => host_id,
-        "to_id" => Ecto.UUID.generate(),
+        "to_id" => UUID.generate(),
         "type" => "Runs",
         "data" => %{}
       }
@@ -375,7 +377,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       {params, %{host: host_id, service: service_id}} = complete_graph()
 
       reversed = %{
-        "id" => Ecto.UUID.generate(),
+        "id" => UUID.generate(),
         "from_id" => service_id,
         "to_id" => host_id,
         "type" => "Runs",
@@ -395,7 +397,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
   describe "SaveGraphContract" do
     test "requires a base revision and excludes response-only fields" do
-      params = Map.put(graph_params(), "revision_id", Ecto.UUID.generate())
+      params = Map.put(graph_params(), "revision_id", UUID.generate())
 
       assert {:ok, graph} = SaveGraphContract.validate(params)
 
@@ -410,11 +412,11 @@ defmodule NetworkDefense.Graph.ContractsTest do
   end
 
   defp graph_params do
-    node_id = Ecto.UUID.generate()
-    target_id = Ecto.UUID.generate()
+    node_id = UUID.generate()
+    target_id = UUID.generate()
 
     %{
-      "id" => Ecto.UUID.generate(),
+      "id" => UUID.generate(),
       "title" => "Graph",
       "nodes" => [
         %{
@@ -426,7 +428,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       ],
       "edges" => [
         %{
-          "id" => Ecto.UUID.generate(),
+          "id" => UUID.generate(),
           "from_id" => node_id,
           "to_id" => target_id,
           "type" => "Runs",
@@ -439,9 +441,9 @@ defmodule NetworkDefense.Graph.ContractsTest do
   defp complete_graph, do: complete_graph(nil)
 
   defp complete_graph(unplaced_host) do
-    segment_id = Ecto.UUID.generate()
-    host_id = Ecto.UUID.generate()
-    service_id = Ecto.UUID.generate()
+    segment_id = UUID.generate()
+    host_id = UUID.generate()
+    service_id = UUID.generate()
 
     segment = %{
       "id" => segment_id,
@@ -468,23 +470,23 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
     nodes =
       if unplaced_host,
-        do: nodes ++ [Map.put(unplaced_host, "id", Ecto.UUID.generate())],
+        do: nodes ++ [Map.put(unplaced_host, "id", UUID.generate())],
         else: nodes
 
     params = %{
-      "id" => Ecto.UUID.generate(),
+      "id" => UUID.generate(),
       "title" => "Graph",
       "nodes" => nodes,
       "edges" => [
         %{
-          "id" => Ecto.UUID.generate(),
+          "id" => UUID.generate(),
           "from_id" => segment_id,
           "to_id" => host_id,
           "type" => "Contains",
           "data" => %{}
         },
         %{
-          "id" => Ecto.UUID.generate(),
+          "id" => UUID.generate(),
           "from_id" => host_id,
           "to_id" => service_id,
           "type" => "Runs",

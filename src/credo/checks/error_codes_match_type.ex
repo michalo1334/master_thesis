@@ -19,6 +19,7 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchType do
   end
 
   defp error_modules do
+    Mix.Task.run("compile")
     load_application(:network_defense)
 
     :network_defense

@@ -2,22 +2,22 @@ defmodule NetworkDefense.Graph.Edge do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
-  alias NetworkDefense.Graph.{Data, SemanticConnectivity}
   alias NetworkDefense.Graph.Contracts.Edge, as: EdgeContract
+  alias NetworkDefense.Graph.{Data, SemanticConnectivity}
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
+  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
   @primary_key false
   @foreign_key_type :binary_id
   schema "graph_revision_edges" do
-    field :id, :binary_id, source: :edge_id, primary_key: true
-    field :graph_revision_id, :binary_id, primary_key: true
-    field :graph_id, :binary_id
-    field :from_id, :binary_id
-    field :to_id, :binary_id
+    field(:id, :binary_id, source: :edge_id, primary_key: true)
+    field(:graph_revision_id, :binary_id, primary_key: true)
+    field(:graph_id, :binary_id)
+    field(:from_id, :binary_id)
+    field(:to_id, :binary_id)
 
-    field :type, :string
-    field :data, :map
+    field(:type, :string)
+    field(:data, :map)
   end
 
   @type t :: %__MODULE__{

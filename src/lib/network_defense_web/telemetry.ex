@@ -252,7 +252,7 @@ defmodule NetworkDefenseWeb.Telemetry do
     ]
   end
 
-  @doc false
+  @doc "Emits CPU-utilization telemetry."
   def emit_cpu do
     case :cpu_sup.util([:per_cpu]) do
       cores when is_list(cores) and cores != [] ->
@@ -270,7 +270,7 @@ defmodule NetworkDefenseWeb.Telemetry do
 
   @oban_states ~w(available scheduled retryable executing)
 
-  @doc false
+  @doc "Emits BEAM runtime telemetry."
   def emit_beam do
     emit_scheduler_utilization()
     emit_beam_counters()
@@ -346,7 +346,7 @@ defmodule NetworkDefenseWeb.Telemetry do
     end
   end
 
-  @doc false
+  @doc "Emits Oban queue-depth telemetry when the repository is available."
   def emit_oban do
     if RuntimeConfig.api?() and repo_available?() do
       try do

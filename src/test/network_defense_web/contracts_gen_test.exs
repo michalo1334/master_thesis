@@ -2,6 +2,9 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   use ExUnit.Case, async: true
 
   alias Mix.Tasks.Gen.Contracts.{Registry, TypespecParser}
+  alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
+  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   @dashboard_categories [
     :graph,
@@ -89,12 +92,12 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert NetworkDefense.Optimization.Contracts.RunOptimizationRequest in modules
     assert NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply in modules
     assert NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection.Anchor in modules
-    assert NetworkDefense.Graph.Contracts.GraphContract.contract_category() == :graph
+    assert GraphContract.contract_category() == :graph
 
-    assert NetworkDefense.Simulation.Contracts.RunSimulationRequest.contract_category() ==
+    assert RunSimulationRequest.contract_category() ==
              :simulation
 
-    assert NetworkDefense.Optimization.Contracts.RunOptimizationRequest.contract_category() ==
+    assert RunOptimizationRequest.contract_category() ==
              :optimization
 
     assert Registry.list_contract_modules(:operations) == []

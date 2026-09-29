@@ -3,9 +3,9 @@ defmodule NetworkDefense.DocumentCatalog do
 
   import Ecto.Query
 
-  alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.DocumentCatalog.Kind
   alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun}
+  alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
@@ -72,7 +72,7 @@ defmodule NetworkDefense.DocumentCatalog do
   end
 
   defp graph_items do
-    from revision in GraphRevision,
+    from(revision in GraphRevision,
       join: graph in Graph,
       on: graph.id == revision.graph_id,
       select: %{
@@ -92,10 +92,11 @@ defmodule NetworkDefense.DocumentCatalog do
         parent_revision_id: revision.parent_revision_id,
         created_at: revision.inserted_at
       }
+    )
   end
 
   defp experiment_items do
-    from experiment in Experiment,
+    from(experiment in Experiment,
       join: revision in GraphRevision,
       on: revision.id == experiment.graph_revision_id,
       join: graph in Graph,
@@ -118,10 +119,11 @@ defmodule NetworkDefense.DocumentCatalog do
         parent_revision_id: revision.parent_revision_id,
         created_at: experiment.inserted_at
       }
+    )
   end
 
   defp optimization_items do
-    from run in OptimizationRun,
+    from(run in OptimizationRun,
       join: revision in GraphRevision,
       on: revision.id == run.graph_revision_id,
       join: graph in Graph,
@@ -146,10 +148,11 @@ defmodule NetworkDefense.DocumentCatalog do
         parent_revision_id: revision.parent_revision_id,
         created_at: run.inserted_at
       }
+    )
   end
 
   defp analysis_items do
-    from run in EvaluationRun,
+    from(run in EvaluationRun,
       join: manifest in EvaluationManifest,
       on: manifest.id == run.evaluation_manifest_id,
       join: revision in GraphRevision,
@@ -174,6 +177,7 @@ defmodule NetworkDefense.DocumentCatalog do
         parent_revision_id: revision.parent_revision_id,
         created_at: run.inserted_at
       }
+    )
   end
 
   defp filter_catalog(query, filters) do
@@ -210,7 +214,7 @@ defmodule NetworkDefense.DocumentCatalog do
       query,
       [item],
       fragment(
-        "CASE ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END ILIKE ? ESCAPE '\\'",
+        ~S(CASE ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? WHEN ? THEN ? END ILIKE ? ESCAPE '\'),
         item.kind,
         @graph_kind,
         @graph_label,
@@ -232,7 +236,7 @@ defmodule NetworkDefense.DocumentCatalog do
         fragment("? ILIKE ? ESCAPE '\\'", item.strategy, ^pattern) or
         fragment("? ILIKE ? ESCAPE '\\'", item.manifest_title, ^pattern) or
         fragment(
-          "to_char(?, 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') ILIKE ? ESCAPE '\\'",
+          ~S|to_char(?, 'YYYY-MM-DD"T"HH24:MI:SS"Z"') ILIKE ? ESCAPE '\'|,
           item.created_at,
           ^pattern
         )

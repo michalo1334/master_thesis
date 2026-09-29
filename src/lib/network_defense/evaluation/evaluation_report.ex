@@ -12,8 +12,8 @@ defmodule NetworkDefense.Evaluation.EvaluationReport do
   alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
-  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Repo
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Statistics

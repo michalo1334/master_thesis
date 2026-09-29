@@ -3,6 +3,7 @@ defmodule Mix.Tasks.Evaluate.ImportFreezeTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.Evaluate.{Freeze, Import}
   alias NetworkDefense.Evaluation
   alias NetworkDefense.EvaluationFixtures
 
@@ -14,7 +15,7 @@ defmodule Mix.Tasks.Evaluate.ImportFreezeTest do
 
     result =
       capture_io(fn ->
-        Mix.Tasks.Evaluate.Import.run(["--file", path, "--title", "Imported manifest"])
+        Import.run(["--file", path, "--title", "Imported manifest"])
       end)
       |> Jason.decode!()
 
@@ -47,13 +48,13 @@ defmodule Mix.Tasks.Evaluate.ImportFreezeTest do
     Mix.Task.reenable("evaluate.import")
 
     assert_raise Mix.Error, "manifest already exists with different content", fn ->
-      Mix.Tasks.Evaluate.Import.run(["--file", path])
+      Import.run(["--file", path])
     end
 
     Mix.Task.reenable("evaluate.import")
 
     assert_raise Mix.Error, "missing required option --file", fn ->
-      Mix.Tasks.Evaluate.Import.run([])
+      Import.run([])
     end
 
     File.rm!(path)
@@ -68,7 +69,7 @@ defmodule Mix.Tasks.Evaluate.ImportFreezeTest do
 
     result =
       capture_io(fn ->
-        Mix.Tasks.Evaluate.Freeze.run([
+        Freeze.run([
           "--manifest-id",
           manifest_id,
           "--frozen-manifest-id",
@@ -90,13 +91,13 @@ defmodule Mix.Tasks.Evaluate.ImportFreezeTest do
     Mix.Task.reenable("evaluate.freeze")
 
     assert_raise Mix.Error, "missing required option --manifest-id", fn ->
-      Mix.Tasks.Evaluate.Freeze.run([])
+      Freeze.run([])
     end
 
     Mix.Task.reenable("evaluate.freeze")
 
     assert_raise Mix.Error, "missing required option --frozen-manifest-id", fn ->
-      Mix.Tasks.Evaluate.Freeze.run(["--manifest-id", "source"])
+      Freeze.run(["--manifest-id", "source"])
     end
   end
 

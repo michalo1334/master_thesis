@@ -5,7 +5,6 @@ defmodule NetworkDefense.Optimizations do
 
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.NullStrategy
@@ -20,6 +19,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
   alias NetworkDefense.Optimizations.Errors
   alias NetworkDefense.Optimizations.OptimizationWorker
+  alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.MissionImpact
 
   require Logger

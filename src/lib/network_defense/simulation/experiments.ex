@@ -9,9 +9,9 @@ defmodule NetworkDefense.Simulation.Experiments do
   import Ecto.Query
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiment.Status
+  alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Run
 
   require Status

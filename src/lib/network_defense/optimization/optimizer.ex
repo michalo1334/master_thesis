@@ -1,14 +1,14 @@
 defmodule NetworkDefense.Optimization.Optimizer do
   @moduledoc false
 
+  alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.DefenseActions.RevokeCredential
-  alias NetworkDefense.DefenseActions.PatchVulnerability
-  alias NetworkDefense.DefenseActions.BlockSegmentReachability
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Optimization.Strategy
-  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Simulation.MissionImpact
 
   require OpenTelemetry.Tracer, as: Tracer

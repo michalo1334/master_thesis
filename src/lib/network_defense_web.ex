@@ -92,8 +92,8 @@ defmodule NetworkDefenseWeb do
       import NetworkDefenseWeb.CoreComponents
 
       # Common modules used in templates
-      alias Phoenix.LiveView.JS
       alias NetworkDefenseWeb.Layouts
+      alias Phoenix.LiveView.JS
 
       # Routes generation with the ~p sigil
       unquote(verified_routes())

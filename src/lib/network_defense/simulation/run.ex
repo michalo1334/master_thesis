@@ -6,8 +6,8 @@ defmodule NetworkDefense.Simulation.Run do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Rules.Rule
-  alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.IterationStep
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -26,16 +26,16 @@ defmodule NetworkDefense.Simulation.Run do
         }
 
   schema "simulation_runs" do
-    belongs_to :graph_revision, GraphRevision
-    field :graph, :any, virtual: true
-    belongs_to :experiment, Experiment
+    belongs_to(:graph_revision, GraphRevision)
+    field(:graph, :any, virtual: true)
+    belongs_to(:experiment, Experiment)
 
-    field :seed, :integer
-    field :trial_index, :integer, default: 0
-    embeds_one :initial_attacker_state, AttackerState, on_replace: :update
-    field :rules, :any, virtual: true, default: []
+    field(:seed, :integer)
+    field(:trial_index, :integer, default: 0)
+    embeds_one(:initial_attacker_state, AttackerState, on_replace: :update)
+    field(:rules, :any, virtual: true, default: [])
 
-    has_many :iterations, IterationStep, foreign_key: :run_id
+    has_many(:iterations, IterationStep, foreign_key: :run_id)
 
     timestamps(type: :utc_datetime)
   end

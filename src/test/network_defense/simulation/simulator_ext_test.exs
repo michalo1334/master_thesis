@@ -12,9 +12,9 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.StoresCredential
-  alias NetworkDefense.Rules.RemoteServiceExploitation
-  alias NetworkDefense.Rules.LocalVulnerabilityExploitation
   alias NetworkDefense.Rules.AcquireCredentialRule
+  alias NetworkDefense.Rules.LocalVulnerabilityExploitation
+  alias NetworkDefense.Rules.RemoteServiceExploitation
   alias NetworkDefense.Rules.ReuseCredentialRule
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator

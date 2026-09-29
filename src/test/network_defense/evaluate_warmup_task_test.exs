@@ -3,6 +3,7 @@ defmodule Mix.Tasks.Evaluate.WarmupTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.Evaluate.Warmup
   alias NetworkDefense.EvaluationFixtures
 
   @manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 2)
@@ -17,7 +18,7 @@ defmodule Mix.Tasks.Evaluate.WarmupTest do
 
     output =
       capture_io(fn ->
-        Mix.Tasks.Evaluate.Warmup.run(["--manifest-id", manifest_id])
+        Warmup.run(["--manifest-id", manifest_id])
       end)
 
     assert %{
@@ -32,7 +33,7 @@ defmodule Mix.Tasks.Evaluate.WarmupTest do
 
   test "requires a manifest id" do
     assert_raise Mix.Error, "missing required option --manifest-id", fn ->
-      Mix.Tasks.Evaluate.Warmup.run([])
+      Warmup.run([])
     end
   end
 end

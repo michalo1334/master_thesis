@@ -19,13 +19,13 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Observability
   alias NetworkDefense.Optimization.{ModelVariant, OptimizationRun}
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Observability
   alias NetworkDefense.Statistics
 
   require Logger

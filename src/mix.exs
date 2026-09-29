@@ -122,7 +122,7 @@ defmodule NetworkDefense.MixProject do
         "cmd npm run format:check",
         "cmd npm run typecheck",
         "assets.build",
-        "credo",
+        "credo --strict",
         "dialyzer",
         "sobelow --config --skip",
         "deps.unlock --unused",

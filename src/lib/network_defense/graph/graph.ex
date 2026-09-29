@@ -50,7 +50,7 @@ defmodule NetworkDefense.Graph.Graph do
           edge_index: %{{Ecto.UUID.t(), module() | String.t()} => [{Ecto.UUID.t(), Edge.t()}]}
         }
 
-  @doc false
+  @doc "Builds a changeset for a graph title."
   def changeset(graph, attrs) do
     graph
     |> cast(attrs, [:title])
@@ -140,7 +140,7 @@ defmodule NetworkDefense.Graph.Graph do
     |> Map.fetch!(:incoming)
   end
 
-  @doc false
+  @doc "Returns IDs of hosts that support a capability."
   def supporting_host_ids(graph, capability_id) do
     graph
     |> incoming(capability_id)

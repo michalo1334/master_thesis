@@ -1,6 +1,8 @@
 defmodule Mix.Tasks.Gen.Contracts.TypespecParser do
   @moduledoc false
 
+  alias Mix.Tasks.Gen.Contracts.Renderer
+
   def parse(module) do
     {:ok, types} = Code.Typespec.fetch_types(module)
 
@@ -15,7 +17,7 @@ defmodule Mix.Tasks.Gen.Contracts.TypespecParser do
 
   def variants_for_field(fields, data_field) do
     {^data_field, type_ast} = List.keyfind(fields, data_field, 0)
-    Mix.Tasks.Gen.Contracts.Renderer.union_modules(type_ast)
+    Renderer.union_modules(type_ast)
   end
 
   def referenced_modules({:remote_type, _, [{:atom, _, module}, {:atom, _, :t}, _]}), do: [module]

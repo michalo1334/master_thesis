@@ -5,9 +5,9 @@ defmodule NetworkDefense.Graph.Graphs do
 
   import Ecto.Query
 
-  alias Ecto.Changeset
-  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
+  alias Ecto.{Changeset, UUID}
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
+  alias NetworkDefense.Graph.{Data, Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
   alias NetworkDefense.Graph.Errors, as: GraphErrors
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
@@ -16,10 +16,10 @@ defmodule NetworkDefense.Graph.Graphs do
   @snapshot_insert_batch_size 1_000
 
   @type graph_summary :: %{
-          graphId: Ecto.UUID.t(),
-          folderId: Ecto.UUID.t() | nil,
-          revisionId: Ecto.UUID.t(),
-          parentRevisionId: Ecto.UUID.t() | nil,
+          graphId: UUID.t(),
+          folderId: UUID.t() | nil,
+          revisionId: UUID.t(),
+          parentRevisionId: UUID.t() | nil,
           title: String.t(),
           revisionKind: String.t(),
           revisionNumber: pos_integer(),
@@ -47,7 +47,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  @spec load_revision(Ecto.UUID.t()) :: Graph.t() | {:error, GraphErrors.code()} | nil
+  @spec load_revision(UUID.t()) :: Graph.t() | {:error, GraphErrors.code()} | nil
   def load_revision(id) do
     with %GraphRevision{} = revision <- Repo.get(GraphRevision, id),
          %Graph{} = graph <- Repo.get(Graph, revision.graph_id),
@@ -56,7 +56,7 @@ defmodule NetworkDefense.Graph.Graphs do
     end
   end
 
-  @spec load_revision!(Ecto.UUID.t()) :: Graph.t()
+  @spec load_revision!(UUID.t()) :: Graph.t()
   def load_revision!(id) do
     case load_revision(id) do
       nil -> raise Ecto.NoResultsError, queryable: GraphRevision
@@ -67,14 +67,16 @@ defmodule NetworkDefense.Graph.Graphs do
   @spec list_summaries() :: [graph_summary()]
   def list_summaries do
     node_counts =
-      from node in Node,
+      from(node in Node,
         group_by: node.graph_revision_id,
         select: %{graph_revision_id: node.graph_revision_id, count: count(node.id)}
+      )
 
     edge_counts =
-      from edge in Edge,
+      from(edge in Edge,
         group_by: edge.graph_revision_id,
         select: %{graph_revision_id: edge.graph_revision_id, count: count(edge.id)}
+      )
 
     GraphRevision
     |> join(:inner, [revision], graph in Graph, on: graph.id == revision.graph_id)
@@ -105,9 +107,9 @@ defmodule NetworkDefense.Graph.Graphs do
     |> Enum.map(&Map.update!(&1, :revisionKind, fn kind -> Atom.to_string(kind) end))
   end
 
-  @spec set_favorite(Ecto.UUID.t(), boolean()) :: {:ok, boolean()} | {:error, GraphErrors.code()}
+  @spec set_favorite(UUID.t(), boolean()) :: {:ok, boolean()} | {:error, GraphErrors.code()}
   def set_favorite(id, favorite) when is_boolean(favorite) do
-    with {:ok, id} <- Ecto.UUID.cast(id),
+    with {:ok, id} <- UUID.cast(id),
          %GraphRevision{} <- Repo.get(GraphRevision, id) do
       update_favorite(id, favorite)
     else
@@ -118,9 +120,9 @@ defmodule NetworkDefense.Graph.Graphs do
 
   def set_favorite(_id, _favorite), do: {:error, :invalid_graph}
 
-  @spec replace(Ecto.UUID.t(), map()) :: result(%{graph: Graph.t()})
+  @spec replace(UUID.t(), map()) :: result(%{graph: Graph.t()})
   def replace(id, attrs) when is_binary(id) and is_map(attrs) do
-    with {:ok, id} <- Ecto.UUID.cast(id),
+    with {:ok, id} <- UUID.cast(id),
          {:ok, base_revision_id} <- base_revision_id(attrs),
          {:ok, candidate} <- candidate_graph(id, attrs) do
       transaction(fn -> replace_revision(id, base_revision_id, candidate) end)
@@ -179,7 +181,7 @@ defmodule NetworkDefense.Graph.Graphs do
 
     revision_changeset =
       %GraphRevision{
-        id: Ecto.UUID.generate(),
+        id: UUID.generate(),
         graph_id: graph.id,
         parent_revision_id: parent_revision_id
       }
@@ -329,7 +331,7 @@ defmodule NetworkDefense.Graph.Graphs do
   defp candidate_graph(_graph_id, _attrs), do: {:error, :invalid_graph}
 
   defp base_revision_id(%{"revision_id" => revision_id}) do
-    case Ecto.UUID.cast(revision_id) do
+    case UUID.cast(revision_id) do
       {:ok, revision_id} -> {:ok, revision_id}
       :error -> {:error, :invalid_base_revision}
     end
@@ -357,7 +359,7 @@ defmodule NetworkDefense.Graph.Graphs do
       from_id: edge.from_id,
       to_id: edge.to_id,
       type: if(is_atom(edge.type), do: Atom.to_string(edge.type), else: edge.type),
-      data: NetworkDefense.Graph.Data.to_params(edge.data)
+      data: Data.to_params(edge.data)
     }
   end
 
@@ -377,7 +379,7 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   defp make_node(graph_id, id, type, data, view_data) do
-    case Ecto.UUID.cast(id) do
+    case UUID.cast(id) do
       {:ok, id} ->
         %Node{id: id, graph_id: graph_id}
         |> Node.changeset(%{type: type, data: data, view_data: view_data})
@@ -407,9 +409,9 @@ defmodule NetworkDefense.Graph.Graphs do
   end
 
   defp make_edge(graph_id, id, from_id, to_id, type, data) do
-    with {:ok, id} <- Ecto.UUID.cast(id),
-         {:ok, from_id} <- Ecto.UUID.cast(from_id),
-         {:ok, to_id} <- Ecto.UUID.cast(to_id),
+    with {:ok, id} <- UUID.cast(id),
+         {:ok, from_id} <- UUID.cast(from_id),
+         {:ok, to_id} <- UUID.cast(to_id),
          :ok <- reject_operational_reachability(type) do
       %Edge{id: id, graph_id: graph_id, from_id: from_id, to_id: to_id}
       |> Edge.changeset(%{type: type, data: data})
@@ -456,11 +458,11 @@ defmodule NetworkDefense.Graph.Graphs do
 
   defp register_identities(table, graph_id, entities) do
     ids = Enum.map(entities, & &1.id)
-    database_ids = Enum.map(ids, &Ecto.UUID.dump!/1)
+    database_ids = Enum.map(ids, &UUID.dump!/1)
 
     now = DateTime.truncate(DateTime.utc_now(), :second)
 
-    database_graph_id = Ecto.UUID.dump!(graph_id)
+    database_graph_id = UUID.dump!(graph_id)
 
     Repo.insert_all(
       identity_table(table),

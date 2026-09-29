@@ -2,10 +2,10 @@ defmodule NetworkDefense.Optimization.NullStrategy do
   @moduledoc """
   Strategy that does nothing.
   """
-  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.DefenseActions.DefenseAction
-  alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Optimization.Budget
+  alias NetworkDefense.Optimization.Strategy
 
   defstruct seed: nil
 

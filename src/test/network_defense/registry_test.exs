@@ -2,8 +2,8 @@ defmodule NetworkDefense.RegistryTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.Nodes.Registry, as: NodeRegistry
-  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
   alias NetworkDefense.Registry
+  alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
 
   alias NetworkDefense.Nodes.Host
 

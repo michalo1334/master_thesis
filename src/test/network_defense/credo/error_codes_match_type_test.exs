@@ -1,8 +1,12 @@
+Code.require_file(Path.expand("../../../credo/checks/error_codes_match_type.ex", __DIR__))
+
 defmodule NetworkDefense.Credo.ErrorCodesMatchTypeTest do
   use ExUnit.Case, async: false
 
   alias Credo.SourceFile
+  alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.Credo.ErrorCodesMatchType
+  alias NetworkDefense.Repo
 
   test "loads application modules before checking a remote code union" do
     was_started? = application_started?(:network_defense)
@@ -34,7 +38,7 @@ defmodule NetworkDefense.Credo.ErrorCodesMatchTypeTest do
   defp restore_network_defense(true) do
     :ok = Application.unload(:network_defense)
     {:ok, _applications} = Application.ensure_all_started(:network_defense)
-    Ecto.Adapters.SQL.Sandbox.mode(NetworkDefense.Repo, :manual)
+    Sandbox.mode(Repo, :manual)
   end
 
   defp restore_network_defense(false), do: Application.load(:network_defense)
