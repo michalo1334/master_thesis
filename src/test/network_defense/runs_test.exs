@@ -1,8 +1,7 @@
 defmodule NetworkDefense.RunsTest do
   use NetworkDefense.DataCase, async: true
 
-  alias NetworkDefense.Evaluation.EvaluationManifest
-  alias NetworkDefense.Evaluation.EvaluationRun
+  alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun, EvaluationRuns}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Optimization.OptimizationRun
@@ -149,7 +148,7 @@ defmodule NetworkDefense.RunsTest do
       assert {:ok, %{status: "cancelled"}} = NetworkDefense.Evaluation.resume(evaluation)
 
       assert {:error, :not_running} =
-               NetworkDefense.Evaluation.EvaluationRuns.complete(
+               EvaluationRuns.complete(
                  Repo.get!(EvaluationRun, evaluation),
                  0
                )

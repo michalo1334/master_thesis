@@ -3,6 +3,7 @@ defmodule Mix.Tasks.Seed.FixedOrderFulfilmentTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.Seed.FixedOrderFulfilment
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
   alias NetworkDefense.Evaluation.OutputContract
@@ -209,7 +210,7 @@ defmodule Mix.Tasks.Seed.FixedOrderFulfilmentTest do
     assert {:ok, completed} = Evaluation.run(run.id)
     assert completed.status == "completed"
 
-    {:ok, files} = NetworkDefense.Evaluation.OutputContract.files(completed)
+    {:ok, files} = OutputContract.files(completed)
     files = Map.new(files)
 
     assert Enum.sort(Map.keys(files)) == Enum.sort(OutputContract.file_names())
@@ -240,7 +241,7 @@ defmodule Mix.Tasks.Seed.FixedOrderFulfilmentTest do
 
     output =
       capture_io(fn ->
-        Mix.Tasks.Seed.FixedOrderFulfilment.run([])
+        FixedOrderFulfilment.run([])
       end)
 
     Jason.decode!(output)

@@ -7,20 +7,20 @@ defmodule NetworkDefense.Graph.Node do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.Data
   alias NetworkDefense.Graph.Contracts.Node, as: NodeContract
+  alias NetworkDefense.Graph.Data
   alias NetworkDefense.Nodes.Registry
 
   @primary_key false
   @foreign_key_type :binary_id
   schema "graph_revision_nodes" do
-    field :id, :binary_id, source: :node_id, primary_key: true
-    field :graph_revision_id, :binary_id, primary_key: true
-    field :graph_id, :binary_id
+    field(:id, :binary_id, source: :node_id, primary_key: true)
+    field(:graph_revision_id, :binary_id, primary_key: true)
+    field(:graph_id, :binary_id)
 
-    field :type, :string
-    field :data, :map
-    field :view_data, :map
+    field(:type, :string)
+    field(:data, :map)
+    field(:view_data, :map)
   end
 
   @type t :: %__MODULE__{

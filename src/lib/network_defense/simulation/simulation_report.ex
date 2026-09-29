@@ -3,16 +3,16 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   Pure computation of simulation report statistics from loaded Experiment data.
   """
 
-  alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Actions.AttemptedAction
+  alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Telemetry
-  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Statistics
 
   @type t :: %__MODULE__{

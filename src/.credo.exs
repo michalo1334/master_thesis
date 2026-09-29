@@ -41,12 +41,12 @@
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
       #
-      requires: ["lib/network_defense/credo/error_codes_match_type.ex"],
+      requires: ["credo/checks/error_codes_match_type.ex"],
       #
       # If you want to enforce a style guide and need a more traditional linting
       # experience, you can change `strict` to `true` below:
       #
-      strict: false,
+      strict: true,
       #
       # To modify the timeout for parsing files, change this value:
       #

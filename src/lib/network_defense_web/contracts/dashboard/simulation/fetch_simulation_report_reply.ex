@@ -3,8 +3,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
-  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCharts

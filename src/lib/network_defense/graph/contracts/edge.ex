@@ -4,8 +4,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Data
   alias NetworkDefense.Graph.Contracts.Variant
+  alias NetworkDefense.Graph.Data
 
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
@@ -45,11 +45,11 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
   ]
 
   embedded_schema do
-    field :id, :string
-    field :from_id, :string
-    field :to_id, :string
-    field :type, :string
-    field :data, :map
+    field(:id, :string)
+    field(:from_id, :string)
+    field(:to_id, :string)
+    field(:type, :string)
+    field(:data, :map)
   end
 
   @type t :: %__MODULE__{

@@ -6,12 +6,14 @@ defmodule NetworkDefense.Simulation.Simulator do
 
    The entrypoint function executes multiple runs to produce blast-radius statistics.
   """
-  alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Actions.Action
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Seed, as: Seed
 
   @spec initial_attacker_state(term(), Ecto.UUID.t()) :: AttackerState.t()
@@ -28,8 +30,8 @@ defmodule NetworkDefense.Simulation.Simulator do
   @spec validate_initial_foothold(term(), Ecto.UUID.t()) ::
           :ok | {:error, :invalid_initial_foothold}
   def validate_initial_foothold(graph, foothold_id) when is_binary(foothold_id) do
-    case NetworkDefense.Graph.Graph.node(graph, foothold_id) do
-      %{type: NetworkDefense.Nodes.Host} -> :ok
+    case Graph.node(graph, foothold_id) do
+      %{type: Host} -> :ok
       _ -> {:error, :invalid_initial_foothold}
     end
   end

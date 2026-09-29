@@ -23,16 +23,16 @@ defmodule NetworkDefense.Evaluation.Evaluator do
   alias NetworkDefense.Graph.{Graph, Graphs}
 
   alias NetworkDefense.Optimization.{
-    OptimizationAction,
     ModelVariant,
+    OptimizationAction,
     OptimizationRun,
     OptimizationRuns,
     Optimizer
   }
 
+  alias NetworkDefense.Observability
   alias NetworkDefense.Simulation.{Experiment, Experiments}
   alias NetworkDefense.Simulations
-  alias NetworkDefense.Observability
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer

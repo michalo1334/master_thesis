@@ -3,6 +3,7 @@ defmodule Mix.Tasks.Evaluate.ManifestTest do
 
   import ExUnit.CaptureIO
 
+  alias Mix.Tasks.Evaluate.Manifest
   alias NetworkDefense.EvaluationFixtures
 
   @manifest EvaluationFixtures.analysis_manifest() |> put_in(["evaluation", "trials"], 2)
@@ -17,7 +18,7 @@ defmodule Mix.Tasks.Evaluate.ManifestTest do
 
     output =
       capture_io(fn ->
-        Mix.Tasks.Evaluate.Manifest.run(["--manifest-id", manifest_id])
+        Manifest.run(["--manifest-id", manifest_id])
       end)
 
     assert %{
@@ -39,7 +40,7 @@ defmodule Mix.Tasks.Evaluate.ManifestTest do
     Mix.Task.reenable("evaluate.manifest")
 
     capture_io(fn ->
-      Mix.Tasks.Evaluate.Manifest.run([
+      Manifest.run([
         "--manifest-id",
         manifest_id,
         "--output",
@@ -56,7 +57,7 @@ defmodule Mix.Tasks.Evaluate.ManifestTest do
 
   test "requires a manifest id" do
     assert_raise Mix.Error, "missing required option --manifest-id", fn ->
-      Mix.Tasks.Evaluate.Manifest.run([])
+      Manifest.run([])
     end
   end
 end

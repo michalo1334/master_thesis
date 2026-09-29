@@ -4,11 +4,11 @@ defmodule NetworkDefense.Simulation.Experiment do
   import Ecto.Changeset
 
   alias NetworkDefense.Evaluation.EvaluationRun
-  alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Graph.{Graph, GraphRevision}
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Simulation.Experiment.Status
+  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Seed
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -31,21 +31,21 @@ defmodule NetworkDefense.Simulation.Experiment do
         }
 
   schema "experiments" do
-    belongs_to :graph_revision, GraphRevision
-    belongs_to :evaluation_run, EvaluationRun
-    belongs_to :optimization_run, OptimizationRun
-    field :graph, :any, virtual: true
+    belongs_to(:graph_revision, GraphRevision)
+    belongs_to(:evaluation_run, EvaluationRun)
+    belongs_to(:optimization_run, OptimizationRun)
+    field(:graph, :any, virtual: true)
 
-    field :master_seed, :integer
-    field :iteration_count, :integer
-    field :max_attempts, :integer, default: 1
-    field :runtime_ms, :integer, default: 0
-    field :total_trials, :integer, default: 0
-    field :completed_trials, :integer, default: 0
-    field :status, Ecto.Enum, values: Status.values(), default: :completed
-    field :initial_foothold_node_id, :binary_id
+    field(:master_seed, :integer)
+    field(:iteration_count, :integer)
+    field(:max_attempts, :integer, default: 1)
+    field(:runtime_ms, :integer, default: 0)
+    field(:total_trials, :integer, default: 0)
+    field(:completed_trials, :integer, default: 0)
+    field(:status, Ecto.Enum, values: Status.values(), default: :completed)
+    field(:initial_foothold_node_id, :binary_id)
 
-    has_many :runs, Run
+    has_many(:runs, Run)
 
     timestamps(type: :utc_datetime)
   end

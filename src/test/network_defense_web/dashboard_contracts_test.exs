@@ -3,9 +3,9 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias Mix.Tasks.Gen.Contracts.Registry
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
+  alias NetworkDefense.Graph.Edge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Graph.TopologyProjection, as: DomainTopologyProjection
@@ -14,8 +14,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
-  alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
+  alias NetworkDefense.Optimization.OptimizationRun
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,
@@ -28,8 +28,8 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
 

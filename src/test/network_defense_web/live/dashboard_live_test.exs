@@ -5,16 +5,23 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
-  alias NetworkDefense.Evaluation.EvaluationWorker
+  alias NetworkDefense.Evaluation.{
+    EvaluationManifest,
+    EvaluationRun,
+    EvaluationRuns,
+    EvaluationWorker
+  }
+
   alias NetworkDefense.EvaluationFixtures
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, Folders, Graph}
+  alias NetworkDefense.Graph.{Data, Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
+  alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Relationships.Contains
@@ -22,8 +29,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiments
-  alias NetworkDefense.Simulation.SimulationReport
+  alias NetworkDefense.Simulation.{Experiment, Experiments, SimulationReport}
   alias NetworkDefense.Simulations
   alias NetworkDefenseWeb.DashboardLive
 
@@ -204,7 +210,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       assert_reply(view, %{status: "rejected", run_id: nil})
 
       assert [%{status: "failed", failure_reason: "task_unavailable"}] =
-               NetworkDefense.Evaluation.EvaluationRuns.list_by_manifest(manifest_record_id)
+               EvaluationRuns.list_by_manifest(manifest_record_id)
                |> Enum.filter(&(&1.status == "failed"))
     after
       :meck.unload(Oban)
@@ -1952,25 +1958,25 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             %{
               "id" => segment.id,
               "type" => "NetworkSegment",
-              "data" => NetworkDefense.Graph.Data.to_params(segment.data),
+              "data" => Data.to_params(segment.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             },
             %{
               "id" => other_segment.id,
               "type" => "NetworkSegment",
-              "data" => NetworkDefense.Graph.Data.to_params(other_segment.data),
+              "data" => Data.to_params(other_segment.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             },
             %{
               "id" => source.id,
               "type" => "Host",
-              "data" => NetworkDefense.Graph.Data.to_params(source.data),
+              "data" => Data.to_params(source.data),
               "view_data" => %{"x_pos" => 120, "y_pos" => 240}
             },
             %{
               "id" => target.id,
               "type" => "Service",
-              "data" => NetworkDefense.Graph.Data.to_params(target.data),
+              "data" => Data.to_params(target.data),
               "view_data" => %{"x_pos" => 360, "y_pos" => 480}
             }
           ],
@@ -2070,7 +2076,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             %{
               "id" => source.id,
               "type" => "Host",
-              "data" => NetworkDefense.Graph.Data.to_params(source.data),
+              "data" => Data.to_params(source.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             }
           ],
@@ -2292,7 +2298,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   defp insert_experiment(graph_revision_id, status, completed_trials) do
     experiment =
-      NetworkDefense.Simulation.Experiment.new(
+      Experiment.new(
         graph_revision_id: graph_revision_id,
         master_seed: 1,
         iteration_count: 1,
@@ -2307,8 +2313,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp insert_running_optimization(graph_revision_id) do
-    %NetworkDefense.Optimization.OptimizationRun{}
-    |> NetworkDefense.Optimization.OptimizationRun.changeset(%{
+    %OptimizationRun{}
+    |> OptimizationRun.changeset(%{
       graph_revision_id: graph_revision_id,
       strategy: "cvss",
       requested_budget: 1,
@@ -2320,8 +2326,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
   defp insert_running_evaluation do
     manifest =
-      %NetworkDefense.Evaluation.EvaluationManifest{}
-      |> NetworkDefense.Evaluation.EvaluationManifest.changeset(%{
+      %EvaluationManifest{}
+      |> EvaluationManifest.changeset(%{
         manifest_id: "manifest-#{System.unique_integer([:positive])}",
         title: "evaluation-title",
         content: %{}
@@ -2330,8 +2336,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
 
     graph = insert_graph("evaluation-graph")
 
-    %NetworkDefense.Evaluation.EvaluationRun{}
-    |> NetworkDefense.Evaluation.EvaluationRun.changeset(%{
+    %EvaluationRun{}
+    |> EvaluationRun.changeset(%{
       evaluation_manifest_id: manifest.id,
       source_graph_revision_id: graph.revision_id,
       resolved_manifest: %{},

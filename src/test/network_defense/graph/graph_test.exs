@@ -3,7 +3,8 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   import Ecto.Query
 
-  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphRevision, Graphs, Node}
+  alias NetworkDefense.Graph.Contracts.GraphContract
+  alias NetworkDefense.Graph.{Data, Edge, Folders, Graph, GraphRevision, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
@@ -53,7 +54,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     assert %{title: "Topology"} = Graphs.load_revision!(original.revision_id)
 
     assert {:ok, %{parent_revision_id: parent_revision_id}} =
-             NetworkDefense.Graph.Contracts.GraphContract.from_domain(saved)
+             GraphContract.from_domain(saved)
 
     assert parent_revision_id == original.revision_id
   end
@@ -200,7 +201,7 @@ defmodule NetworkDefense.Graph.GraphTest do
         uuid(first.id),
         uuid(second_host.id),
         Atom.to_string(second_host.type),
-        NetworkDefense.Graph.Data.to_params(second_host.data),
+        Data.to_params(second_host.data),
         second_host.view_data
       ]
     )
@@ -427,7 +428,8 @@ defmodule NetworkDefense.Graph.GraphTest do
   end
 
   defp operational_graph do
-    # ponytail: fake revision_id suffices because validation precedes persistence; a persisted fixture is needed only if that ordering changes
+    # ponytail: a fake revision_id suffices because validation precedes persistence.
+    # A persisted fixture is necessary only if that ordering changes.
     graph = %{Graph.new("Operational") | revision_id: Ecto.UUID.generate()}
 
     host =
@@ -459,7 +461,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     %{
       "id" => node.id,
       "type" => Atom.to_string(node.type),
-      "data" => NetworkDefense.Graph.Data.to_params(node.data),
+      "data" => Data.to_params(node.data),
       "view_data" => %{"x_pos" => node.view_data.x_pos, "y_pos" => node.view_data.y_pos}
     }
   end
@@ -479,7 +481,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       "from_id" => edge.from_id,
       "to_id" => edge.to_id,
       "type" => Atom.to_string(edge.type),
-      "data" => NetworkDefense.Graph.Data.to_params(edge.data)
+      "data" => Data.to_params(edge.data)
     }
   end
 

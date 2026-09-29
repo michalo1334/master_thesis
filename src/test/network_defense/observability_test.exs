@@ -5,6 +5,7 @@ defmodule NetworkDefense.ObservabilityTest do
   require OpenTelemetry.Tracer, as: Tracer
 
   alias NetworkDefense.Observability
+  alias NetworkDefense.Observability.LoggerFormatter
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
 
   setup do
@@ -193,7 +194,7 @@ defmodule NetworkDefense.ObservabilityTest do
 
   defp format_event(event) do
     event
-    |> NetworkDefense.Observability.LoggerFormatter.format(metadata: :all)
+    |> LoggerFormatter.format(metadata: :all)
     |> IO.iodata_to_binary()
     |> Jason.decode!()
   end

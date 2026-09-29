@@ -14,8 +14,8 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
   alias NetworkDefense.Relationships.StoresCredential
   alias NetworkDefense.Rules.AcquireCredentialRule
   alias NetworkDefense.Rules.LocalVulnerabilityExploitation
-  alias NetworkDefense.Rules.ReuseCredentialRule
   alias NetworkDefense.Rules.RemoteServiceExploitation
+  alias NetworkDefense.Rules.ReuseCredentialRule
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Run
 

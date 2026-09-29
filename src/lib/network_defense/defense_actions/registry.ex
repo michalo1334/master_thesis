@@ -4,9 +4,9 @@ defmodule NetworkDefense.DefenseActions.Registry do
 
   Provides central place to manage all current and future defense actions created in the source code
   """
-  alias NetworkDefense.DefenseActions.RevokeCredential
-  alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.BlockSegmentReachability
+  alias NetworkDefense.DefenseActions.PatchVulnerability
+  alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.Registry
 
   @types [BlockSegmentReachability, PatchVulnerability, RevokeCredential]

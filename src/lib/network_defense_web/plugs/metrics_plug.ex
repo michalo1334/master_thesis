@@ -3,6 +3,8 @@ defmodule NetworkDefenseWeb.MetricsPlug do
 
   @behaviour Plug
 
+  alias Plug.Conn
+
   @impl true
   def init(opts), do: opts
 
@@ -11,14 +13,14 @@ defmodule NetworkDefenseWeb.MetricsPlug do
     body = TelemetryMetricsPrometheus.Core.scrape()
 
     conn
-    |> Plug.Conn.put_resp_content_type("text/plain; version=0.0.4")
-    |> Plug.Conn.send_resp(200, body)
-    |> Plug.Conn.halt()
+    |> Conn.put_resp_content_type("text/plain; version=0.0.4")
+    |> Conn.send_resp(200, body)
+    |> Conn.halt()
   end
 
   def call(conn, _opts) do
     conn
-    |> Plug.Conn.send_resp(404, "not found")
-    |> Plug.Conn.halt()
+    |> Conn.send_resp(404, "not found")
+    |> Conn.halt()
   end
 end

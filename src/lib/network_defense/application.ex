@@ -6,6 +6,8 @@ defmodule NetworkDefense.Application do
   use Application
   require Logger
 
+  alias LiveSvelte.SSR.NodeJS
+
   @impl true
   def start(_type, _args) do
     OpentelemetryBandit.setup()
@@ -23,8 +25,8 @@ defmodule NetworkDefense.Application do
     end
 
     node_js_children =
-      if Application.get_env(:live_svelte, :ssr_module, nil) == LiveSvelte.SSR.NodeJS do
-        [{NodeJS.Supervisor, [path: LiveSvelte.SSR.NodeJS.server_path(), pool_size: 4]}]
+      if Application.get_env(:live_svelte, :ssr_module, nil) == NodeJS do
+        [{NodeJS.Supervisor, [path: NodeJS.server_path(), pool_size: 4]}]
       else
         []
       end

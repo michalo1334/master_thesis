@@ -1,4 +1,5 @@
 defmodule NetworkDefense.Relationships.Registry do
+  alias NetworkDefense.Registry
   alias NetworkDefense.Relationships.AuthenticatesTo
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Relationships.HasVulnerability
@@ -7,7 +8,6 @@ defmodule NetworkDefense.Relationships.Registry do
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Relationships.StoresCredential
   alias NetworkDefense.Relationships.Supports
-  alias NetworkDefense.Registry
 
   @moduledoc """
   A registry containing all relationship currently available to be supplied to the simulator.

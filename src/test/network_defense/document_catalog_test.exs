@@ -1,12 +1,12 @@
 defmodule NetworkDefense.DocumentCatalogTest do
   use NetworkDefense.DataCase
 
-  alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Evaluation.{EvaluationManifest, EvaluationRun}
+  alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.{Experiment, Experiments}
-  alias NetworkDefense.DocumentCatalog
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
 
   test "paginates catalog items after applying all filters" do

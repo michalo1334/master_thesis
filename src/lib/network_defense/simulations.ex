@@ -2,23 +2,23 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
-  alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Compute.ScatterGather
-  alias NetworkDefense.ReportProgress
+  alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Repo
+  alias NetworkDefense.ReportProgress
+  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiment.Status
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
-  alias NetworkDefense.Simulation.SimulationReport
-  alias NetworkDefense.Simulation.SimulationOperation
-  alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
   alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
-  alias NetworkDefense.Simulations.Errors
+  alias NetworkDefense.Simulation.SimulationOperation
+  alias NetworkDefense.Simulation.SimulationReport
+  alias NetworkDefense.Simulation.Simulator
+  alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
   alias NetworkDefense.Simulations.CoordinatorRegistry
+  alias NetworkDefense.Simulations.Errors
 
   import Ecto.Query
 
@@ -224,12 +224,13 @@ defmodule NetworkDefense.Simulations do
   @spec list_experiments([Ecto.UUID.t()]) :: [Experiment.t()]
   def list_experiments(graph_revision_ids) when is_list(graph_revision_ids) do
     query =
-      from experiment in Experiment,
+      from(experiment in Experiment,
         join: revision in assoc(experiment, :graph_revision),
         where: revision.id in ^graph_revision_ids,
         where: experiment.status == :completed,
         order_by: [desc: :inserted_at],
         preload: [:graph_revision]
+      )
 
     Repo.all(query)
   end

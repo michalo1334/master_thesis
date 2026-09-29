@@ -3,8 +3,8 @@ defmodule NetworkDefense.Topology.FixedOrderFulfilmentScenarioTest do
 
   alias NetworkDefense.Actions.{Action, ExploitVulnerability}
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Graph.{Graph, MaterializeReachability}
   alias NetworkDefense.Cvss
+  alias NetworkDefense.Graph.{Graph, MaterializeReachability}
 
   alias NetworkDefense.DefenseActions.{
     BlockSegmentReachability,

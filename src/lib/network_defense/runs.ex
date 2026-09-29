@@ -7,7 +7,7 @@ defmodule NetworkDefense.Runs do
   import Ecto.Query
 
   alias NetworkDefense.Evaluation.EvaluationRun
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Experiment
 
@@ -17,7 +17,7 @@ defmodule NetworkDefense.Runs do
         cancel_record(Experiment, id, &NetworkDefense.Simulations.cancel/1)
 
       "optimization" ->
-        cancel_record(OptimizationRun, id, &NetworkDefense.Optimization.OptimizationRuns.cancel/1)
+        cancel_record(OptimizationRun, id, &OptimizationRuns.cancel/1)
 
       "evaluation" ->
         NetworkDefense.Evaluation.cancel(id)

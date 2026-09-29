@@ -5,12 +5,12 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
     2. for this action select random target
     3. return
   """
-  alias NetworkDefense.Optimization.Strategy
+  alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Optimization.SimulationStrategy
+  alias NetworkDefense.Optimization.Strategy
   alias NetworkDefense.Simulation.Seed
-  alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.DefenseActions.DefenseAction
 
   defstruct seed: nil
 

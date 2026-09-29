@@ -19,8 +19,8 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
 
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
 
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection,

@@ -54,23 +54,21 @@ defmodule NetworkDefense.Compute.Telemetry do
   end
 
   defp execute_callback(kind, metadata, started_at, fun) do
-    try do
-      result = fun.()
-      outcome = outcome(result)
+    result = fun.()
+    outcome = outcome(result)
 
-      Tracer.set_status(OpenTelemetry.status(if(outcome == "success", do: :ok, else: :error)))
-      emit_duration(kind, started_at, Map.put(metadata, :outcome, outcome))
-      log_result(kind, metadata, result, started_at)
-      result
-    rescue
-      error ->
-        stacktrace = __STACKTRACE__
-        Tracer.record_exception(error, stacktrace)
-        Tracer.set_status(OpenTelemetry.status(:error))
-        emit_duration(kind, started_at, Map.put(metadata, :outcome, "error"))
-        log_exception(kind, metadata, error, stacktrace, started_at)
-        reraise error, stacktrace
-    end
+    Tracer.set_status(OpenTelemetry.status(if(outcome == "success", do: :ok, else: :error)))
+    emit_duration(kind, started_at, Map.put(metadata, :outcome, outcome))
+    log_result(kind, metadata, result, started_at)
+    result
+  rescue
+    error ->
+      stacktrace = __STACKTRACE__
+      Tracer.record_exception(error, stacktrace)
+      Tracer.set_status(OpenTelemetry.status(:error))
+      emit_duration(kind, started_at, Map.put(metadata, :outcome, "error"))
+      log_exception(kind, metadata, error, stacktrace, started_at)
+      reraise error, stacktrace
   end
 
   defp metadata(operation, %{correlation_id: correlation_id, executor: executor} = metadata) do

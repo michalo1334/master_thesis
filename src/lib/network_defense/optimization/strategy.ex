@@ -9,9 +9,9 @@ defprotocol NetworkDefense.Optimization.Strategy do
 
   @type t :: struct()
 
-  alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Optimization.Budget
 
   @spec name(t()) :: String.t()
   def name(strategy)

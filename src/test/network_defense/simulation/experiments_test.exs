@@ -5,8 +5,8 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
   alias NetworkDefense.Repo
+  alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
 
   test "persists committed batches for the pinned graph revision" do
     assert {:ok, graph} = Graphs.insert(Graph.new("Topology"))

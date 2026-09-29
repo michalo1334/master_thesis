@@ -1,8 +1,5 @@
 defmodule NetworkDefenseWeb.Layouts do
-  @moduledoc """
-  This module holds layouts and related functionality
-  used by your application.
-  """
+  @moduledoc "Embeds templates for the application layout."
   use NetworkDefenseWeb, :html
 
   # Embed all files in layouts/* within this module.

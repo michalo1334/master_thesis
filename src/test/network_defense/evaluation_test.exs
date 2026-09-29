@@ -2,6 +2,7 @@ defmodule NetworkDefense.EvaluationTest do
   use NetworkDefense.DataCase, async: true
   use Oban.Testing, repo: NetworkDefense.Repo
 
+  alias Ecto.UUID
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
   alias NetworkDefense.EvaluationFixtures
@@ -10,11 +11,15 @@ defmodule NetworkDefense.EvaluationTest do
     EvaluationManifest,
     EvaluationRun,
     EvaluationWorker,
+    Evaluator,
     SeedSchedule
   }
 
-  alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Simulation.Seed
+  alias NetworkDefense.Graph.{Graph, Graphs}
+  alias NetworkDefense.Nodes.Host
+  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
+  alias NetworkDefense.Simulation.{Experiment, Run, Seed}
+  alias NetworkDefense.Topology.EnterpriseTopology
 
   import Ecto.Query
   import ExUnit.CaptureLog
@@ -23,7 +28,6 @@ defmodule NetworkDefense.EvaluationTest do
     only: [save_manifest: 1, save_manifest: 2]
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.{Experiment, Run}
 
   @valid_manifest EvaluationFixtures.valid_manifest()
 
@@ -705,12 +709,12 @@ defmodule NetworkDefense.EvaluationTest do
 
     test "run fails a run whose source revision is missing" do
       run = %NetworkDefense.Evaluation.EvaluationRun{
-        id: Ecto.UUID.generate(),
-        source_graph_revision_id: Ecto.UUID.generate(),
+        id: UUID.generate(),
+        source_graph_revision_id: UUID.generate(),
         status: "running"
       }
 
-      assert {:ok, failed} = NetworkDefense.Evaluation.Evaluator.run(run)
+      assert {:ok, failed} = Evaluator.run(run)
       assert failed.status == "failed"
       assert failed.failure_reason != nil
     end
@@ -718,13 +722,13 @@ defmodule NetworkDefense.EvaluationTest do
 
   describe "Preflight" do
     test "resolves a graph revision source without generating a graph" do
-      graph = NetworkDefense.Topology.EnterpriseTopology.generate(hosts: 8, seed: 1)
+      graph = EnterpriseTopology.generate(hosts: 8, seed: 1)
       assert {:ok, graph} = Graphs.insert(graph)
 
       host =
         Enum.find(
-          NetworkDefense.Graph.Graph.nodes(graph),
-          &(&1.type == NetworkDefense.Nodes.Host)
+          Graph.nodes(graph),
+          &(&1.type == Host)
         )
 
       manifest = %{
@@ -781,8 +785,8 @@ defmodule NetworkDefense.EvaluationTest do
 
       host =
         Enum.find(
-          NetworkDefense.Graph.Graph.nodes(graph),
-          &(&1.type == NetworkDefense.Nodes.Host)
+          Graph.nodes(graph),
+          &(&1.type == Host)
         )
 
       revisions_before = graph_revision_count()
@@ -818,8 +822,8 @@ defmodule NetworkDefense.EvaluationTest do
 
       host =
         Enum.find(
-          NetworkDefense.Graph.Graph.nodes(graph),
-          &(&1.type == NetworkDefense.Nodes.Host)
+          Graph.nodes(graph),
+          &(&1.type == Host)
         )
 
       manifest = %{
@@ -1065,7 +1069,7 @@ defmodule NetworkDefense.EvaluationTest do
       Repo.update!(Ecto.Changeset.change(%EvaluationRun{id: run.id}, status: "running"))
 
       assert {:ok, resumed} =
-               NetworkDefense.Evaluation.Evaluator.run(Repo.get!(EvaluationRun, run.id))
+               Evaluator.run(Repo.get!(EvaluationRun, run.id))
 
       assert resumed.status == "completed"
       assert [_, _] = plans_for(run.id)
@@ -1174,12 +1178,12 @@ defmodule NetworkDefense.EvaluationTest do
       }
 
       assert {:ok, _} =
-               NetworkDefense.Optimization.OptimizationRun.new(attrs)
-               |> NetworkDefense.Optimization.OptimizationRuns.create()
+               OptimizationRun.new(attrs)
+               |> OptimizationRuns.create()
 
       assert {:error, %Ecto.Changeset{}} =
-               NetworkDefense.Optimization.OptimizationRun.new(attrs)
-               |> NetworkDefense.Optimization.OptimizationRuns.create()
+               OptimizationRun.new(attrs)
+               |> OptimizationRuns.create()
     end
 
     test "persists a plan for a new canonical model variant" do
@@ -1198,8 +1202,8 @@ defmodule NetworkDefense.EvaluationTest do
       }
 
       assert {:ok, persisted} =
-               NetworkDefense.Optimization.OptimizationRun.new(attrs)
-               |> NetworkDefense.Optimization.OptimizationRuns.create()
+               OptimizationRun.new(attrs)
+               |> OptimizationRuns.create()
 
       assert persisted.model_variant == :blast_only
 
@@ -1213,8 +1217,8 @@ defmodule NetworkDefense.EvaluationTest do
 
     test "restricts purpose to evaluation and warmup in the changeset" do
       base = %{
-        evaluation_manifest_id: Ecto.UUID.generate(),
-        source_graph_revision_id: Ecto.UUID.generate(),
+        evaluation_manifest_id: UUID.generate(),
+        source_graph_revision_id: UUID.generate(),
         resolved_manifest: %{},
         status: "running"
       }
@@ -1264,7 +1268,7 @@ defmodule NetworkDefense.EvaluationTest do
       manifest =
         @valid_manifest
         |> Map.put("attacker", %{
-          "entry_host" => %{"type" => "node_id", "value" => Ecto.UUID.generate()},
+          "entry_host" => %{"type" => "node_id", "value" => UUID.generate()},
           "max_attempts" => 1
         })
 
@@ -1277,7 +1281,7 @@ defmodule NetworkDefense.EvaluationTest do
         @valid_manifest
         |> Map.put("source", %{
           "type" => "graph_revision",
-          "graph_revision_id" => Ecto.UUID.generate()
+          "graph_revision_id" => UUID.generate()
         })
         |> Map.put("attacker", %{
           "entry_host" => %{"type" => "semantic_key", "value" => "internet"},
@@ -1435,7 +1439,7 @@ defmodule NetworkDefense.EvaluationTest do
     alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
     alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability, Supports}
 
-    graph = Graph.new(Ecto.UUID.generate())
+    graph = Graph.new(UUID.generate())
 
     source_segment = GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "Source"})
     target_segment = GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "Target"})
@@ -1488,20 +1492,20 @@ defmodule NetworkDefense.EvaluationTest do
       )
 
     edges = [
-      GraphFixtures.edge(Ecto.UUID.generate(), source_segment, source_host, Contains),
-      GraphFixtures.edge(Ecto.UUID.generate(), target_segment, target_host, Contains),
-      GraphFixtures.edge(Ecto.UUID.generate(), db_segment, db_host, Contains),
-      GraphFixtures.edge(Ecto.UUID.generate(), target_host, api, Runs),
-      GraphFixtures.edge(Ecto.UUID.generate(), db_host, db, Runs),
+      GraphFixtures.edge(UUID.generate(), source_segment, source_host, Contains),
+      GraphFixtures.edge(UUID.generate(), target_segment, target_host, Contains),
+      GraphFixtures.edge(UUID.generate(), db_segment, db_host, Contains),
+      GraphFixtures.edge(UUID.generate(), target_host, api, Runs),
+      GraphFixtures.edge(UUID.generate(), db_host, db, Runs),
       GraphFixtures.edge(
-        Ecto.UUID.generate(),
+        UUID.generate(),
         source_segment,
         target_segment,
         SegmentReachability,
         %{"protocol" => "tcp"}
       ),
-      GraphFixtures.edge(Ecto.UUID.generate(), source_host, capability, Supports),
-      GraphFixtures.edge(Ecto.UUID.generate(), target_host, capability, Supports)
+      GraphFixtures.edge(UUID.generate(), source_host, capability, Supports),
+      GraphFixtures.edge(UUID.generate(), target_host, capability, Supports)
     ]
 
     Enum.reduce(edges, graph, &Graph.add_edge(&2, &1))

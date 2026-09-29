@@ -100,18 +100,16 @@ defmodule NetworkDefense.Simulation.Telemetry do
   end
 
   defp execute(on_success, on_exception, on_error, fun) do
-    try do
-      result = fun.()
-      log_result(result, on_success, on_error)
-      result
-    rescue
-      error ->
-        stacktrace = __STACKTRACE__
-        Tracer.record_exception(error, stacktrace)
-        Tracer.set_status(OpenTelemetry.status(:error))
-        on_exception.(error, stacktrace)
-        reraise error, stacktrace
-    end
+    result = fun.()
+    log_result(result, on_success, on_error)
+    result
+  rescue
+    error ->
+      stacktrace = __STACKTRACE__
+      Tracer.record_exception(error, stacktrace)
+      Tracer.set_status(OpenTelemetry.status(:error))
+      on_exception.(error, stacktrace)
+      reraise error, stacktrace
   end
 
   defp log_result({:error, reason}, _on_success, on_error) do

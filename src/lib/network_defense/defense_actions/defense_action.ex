@@ -4,8 +4,8 @@ defprotocol NetworkDefense.DefenseActions.DefenseAction do
 
   Each action has fixed budget cost.
   """
-  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Edge
+  alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node
 
   @type target_type :: Node | Edge
