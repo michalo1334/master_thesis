@@ -21,8 +21,11 @@ from network_defense_analysis import AnalysisError, service
 from network_defense_analysis import archive as archive_module
 from network_defense_analysis.study import (
     _apply_family_correction,
+    _enforce_seed_schedule,
     _release_study,
     _stable_ids,
+    _tier_context,
+    _validate_result_tier_context,
     analyze_study,
     comparison_id,
     load_study_bundle,
@@ -258,7 +261,7 @@ class StudyBundleTest(unittest.TestCase):
             tiers.append((label, directory))
         return tiers
 
-    def build_sample(self, *, tier_order=None, alternatives=ALTERNATIVES, budgets=BUDGETS, zero_pairs=(), mutate_spec=None, tiers=None):
+    def build_sample(self, *, tier_order=None, alternatives=ALTERNATIVES, budgets=BUDGETS, zero_pairs=(), mutate_spec=None, tiers=None, mode="analyze"):
         tiers = self.sample_tiers(alternatives=alternatives, budgets=budgets, zero_pairs=zero_pairs) if tiers is None else tiers
         bundle, directory = build_bundle(
             tiers,
@@ -266,6 +269,7 @@ class StudyBundleTest(unittest.TestCase):
             budgets=list(budgets),
             tier_order=tier_order,
             mutate_spec=mutate_spec,
+            mode=mode,
         )
         self.remember(bundle.parent)
         self.remember(directory)
@@ -278,7 +282,16 @@ class StudyBundleTest(unittest.TestCase):
 
     def read_primary(self, output):
         with zipfile.ZipFile(output) as result:
-            self.assertIn("checksums.txt", result.namelist())
+            self.assertEqual(
+                set(result.namelist()),
+                {
+                    "checksums.txt",
+                    "primary_results.csv",
+                    "primary_results.json",
+                    "study_metadata.json",
+                    "tier_context.json",
+                },
+            )
             payload = result.read("primary_results.csv").decode()
             metadata = json.loads(result.read("study_metadata.json").decode())
         return list(csv.DictReader(io.StringIO(payload))), metadata
@@ -299,6 +312,23 @@ class StudyBundleTest(unittest.TestCase):
             self.assertEqual(study.tiers[index].archive_path, f"tiers/{label}.zip")
             self.assertEqual(len(study.tiers[index].archive_sha256), 64)
 
+    def test_tier_context_rejects_missing_duplicate_and_mismatched_archives(self):
+        bundle, _, _ = self.build_sample()
+        study = self.load_and_release(bundle)
+        context = _tier_context(study)
+
+        self.assertEqual(len(context), len(TIER_LABELS))
+        _validate_result_tier_context(context, study)
+
+        with self.assertRaises(AnalysisError):
+            _validate_result_tier_context([], study)
+        with self.assertRaises(AnalysisError):
+            _validate_result_tier_context([context[0], context[0]], study)
+        with self.assertRaises(AnalysisError):
+            _validate_result_tier_context(
+                [{**context[0], "archive_sha256": "0" * 64}], study
+            )
+
     def test_valid_study_analyzes_with_one_family(self):
         bundle, _, _ = self.build_sample()
         output = self.remember(Path(tempfile.mkdtemp()) / "study-analysis.zip")
@@ -309,6 +339,10 @@ class StudyBundleTest(unittest.TestCase):
         self.assertEqual(metadata["family_size"], 6)
         self.assertEqual(metadata["multiplicity_correction"], "holm")
         self.assertEqual(len(metadata["tier_context"]), 3)
+        self.assertEqual(
+            [entry["archive_sha256"] for entry in metadata["tier_context"]],
+            [tier.archive_sha256 for tier in self.load_and_release(bundle).tiers],
+        )
         ids = [row["comparison_id"] for row in rows]
         self.assertEqual(ids, sorted(ids))
         self.assertEqual(len(set(ids)), len(ids))
@@ -512,6 +546,22 @@ class StudyBundleTest(unittest.TestCase):
         output = self.remember(Path(tempfile.mkdtemp()) / "study-analysis.zip")
         with self.assertRaises(AnalysisError):
             analyze_study(bundle, output)
+
+    def test_pilot_bundle_satisfies_only_the_pilot_schedule(self):
+        bundle, _, _ = self.build_sample(mode="pilot")
+        study = self.load_and_release(bundle)
+
+        _enforce_seed_schedule(study, "pilot")
+        with self.assertRaises(AnalysisError):
+            _enforce_seed_schedule(study, "final")
+
+    def test_final_bundle_satisfies_only_the_final_schedule(self):
+        bundle, _, _ = self.build_sample(mode="analyze")
+        study = self.load_and_release(bundle)
+
+        _enforce_seed_schedule(study, "final")
+        with self.assertRaises(AnalysisError):
+            _enforce_seed_schedule(study, "pilot")
 
     def test_analyze_allows_declared_selection_superset(self):
         def mutate(spec):

@@ -6,12 +6,13 @@
 flowchart LR
     A[Study split button] --> B[Study dialog]
     B --> C[Edit or open immutable JSON specification]
-    C --> D[Map tiers with filtered run picker]
+    C --> D[Map tiers to Pilot runs with filtered picker]
     D --> E[Server preflight]
     E --> F[Study document: Pilot running]
     F --> G[Pilot result and ZIP download]
-    G -->|Valid recommendation| H[Run Final]
-    H --> I[Final result and ZIP download]
+    G -->|Valid recommendation| H[Map and preflight separate Final runs]
+    H --> I[Run Final]
+    I --> J[Final result and ZIP download]
 ```
 
 ```mermaid
@@ -21,7 +22,7 @@ mindmap
       Analysis only
       Immutable JSON specification
       Filtered tier-run picker
-      Pilot then gated Final
+      Pilot then gated Final mapping
     Workflow
       Study split button
       One setup dialog
@@ -46,7 +47,7 @@ mindmap
 
 Build this in two phases.
 
-Phase 1 adds a manifest-style **Run study analysis** dialog. The user selects an immutable study-specification version, maps each tier to one completed evaluation run, passes server preflight, and starts Pilot. A valid Pilot enables Final in the same study document. The server calls the study-analysis domain service directly. It must not shell out to the Mix task.
+Phase 1 adds a manifest-style **Run study analysis** dialog. The user selects an immutable study-specification version, maps each tier to one Pilot-compatible completed evaluation run, passes server preflight, and starts Pilot. A valid Pilot enables a separate Final tier mapping in the same study document. The server calls the study-analysis domain service directly. It must not shell out to the Mix task.
 
 Execution uses a LiveView-owned task. Results and exact run mappings remain in the browser document only. Pilot and Final ZIP downloads preserve the output before the document closes.
 
@@ -91,9 +92,9 @@ Rejected alternatives:
 
 ### How are tier runs selected?
 
-Use an open-style picker that lists evaluation-run documents. Filter it to completed runs that are compatible with the selected tier. Show enough metadata to distinguish runs without copying UUIDs.
+Use an open-style picker that lists evaluation-run documents. Filter it to completed runs that are compatible with the selected tier and the seed schedule of the selected mode. Pilot maps runs from `pilot_seed_schedule`; Final maps separate runs from `final_seed_schedule`. The schedules are disjoint, so a Pilot run never satisfies Final.
 
-The user makes every selection explicitly. The same run cannot satisfy two tiers because the study bundle requires unique run IDs.
+The user makes every selection explicitly. The same run cannot satisfy two tiers because the study bundle requires unique run IDs. A run also cannot serve both Pilot and Final.
 
 Selected rows show metadata only: title, completion time, manifest, graph, and plan/trial counts. They do not open another workspace document in the first release.
 
@@ -146,9 +147,9 @@ When no completed run qualifies, explain the missing tier evidence and provide O
 
 ### When is Final analysis available?
 
-Final analysis requires a compatible successful pilot result for the same study-specification version and exact tier-run mapping.
+Final analysis requires a compatible successful pilot result for the same study-specification version, plus a separate Final tier mapping from `final_seed_schedule`. The Final run IDs must not overlap the Pilot run IDs.
 
-Start Final from the pilot report. The pilot document retains the exact setup and enables Run final analysis only when the recommendation is valid. Keep Final disabled when the pilot is insufficient, non-informative, failed, cancelled, or stale. Explain the blocking state beside the control. Do not provide an override in the first release.
+Start Final from the pilot document. The document offers a compact Final tier mapping after a valid Pilot. It enables Run final analysis only when the recommendation is valid, the Final mapping is complete and unique, and the Final preflight passes. Starting Final locks the Final mapping; a Final retry reuses that locked mapping. Keep Final disabled when the pilot is insufficient, non-informative, failed, cancelled, or stale. Explain the blocking state beside the control. Do not provide an override in the first release.
 
 Allow the user to rerun an insufficient or non-informative pilot with identical inputs. State that deterministic inputs should reproduce the same stop condition. Keep this action distinct from retrying a transport or service error.
 
@@ -165,7 +166,7 @@ Rejected alternatives:
 
 Use one evolving study document. It moves through configured, pilot running, pilot complete, final running, and final complete states. After completion, Pilot and Final remain available as tabs in the same document.
 
-Lock the specification version and tier mapping when Pilot starts. The document never edits those inputs afterward. Different inputs require a new study document.
+Lock the specification version and Pilot tier mapping when Pilot starts. Lock the separate Final tier mapping when Final starts. The document never edits locked inputs afterward. Different inputs require a new study document.
 
 The pilot tab preserves the recommendation that unlocked Final. The final tab presents the corrected comparison family. Shared study metadata appears once in the document header.
 

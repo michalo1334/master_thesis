@@ -532,6 +532,140 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
     end
   end
 
+  describe "study specifications" do
+    @study_specification EvaluationFixtures.study_specification()
+
+    test "saves, lists, and gets a study specification", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+      study_id = "study-#{System.unique_integer([:positive])}"
+      spec = Map.put(@study_specification, "study_id", study_id)
+
+      render_hook(view, "save_study_specification", %{
+        "title" => "Topology scale",
+        "content" => spec
+      })
+
+      assert_reply(view, %{
+        status: "ok",
+        specification: %{
+          id: specification_id,
+          study_id: ^study_id,
+          specification_version: 1,
+          title: "Topology scale"
+        }
+      })
+
+      render_hook(view, "list_study_specifications", %{})
+      assert_reply(view, %{specifications: specifications})
+      assert Enum.any?(specifications, &(&1.study_id == study_id))
+
+      render_hook(view, "get_study_specification", %{"id" => specification_id})
+      assert_reply(view, %{specification: %{id: ^specification_id, content: content}})
+      assert content["study_id"] == study_id
+    end
+
+    test "treats an identical save as idempotent", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      spec =
+        Map.put(@study_specification, "study_id", "study-#{System.unique_integer([:positive])}")
+
+      render_hook(view, "save_study_specification", %{"title" => "Study", "content" => spec})
+      assert_reply(view, %{status: "ok", specification: %{id: first_id}})
+
+      render_hook(view, "save_study_specification", %{"title" => "Study", "content" => spec})
+      assert_reply(view, %{status: "ok", specification: %{id: ^first_id}})
+    end
+
+    test "rejects different content for an existing version", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      spec =
+        Map.put(@study_specification, "study_id", "study-#{System.unique_integer([:positive])}")
+
+      render_hook(view, "save_study_specification", %{"title" => "Study", "content" => spec})
+      assert_reply(view, %{status: "ok"})
+
+      changed = Map.put(spec, "tiers", ["small"])
+
+      render_hook(view, "save_study_specification", %{"title" => "Study", "content" => changed})
+      assert_reply(view, %{status: "immutable_conflict", specification: nil})
+    end
+
+    test "rejects an invalid specification with its validation errors", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_study_specification", %{
+        "title" => "Study",
+        "content" => Map.put(@study_specification, "tiers", [])
+      })
+
+      assert_reply(view, %{status: "invalid_specification", specification: nil, errors: errors})
+      assert Enum.any?(errors, &(&1.path == "tiers"))
+    end
+
+    test "rejects a save payload without title or content", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "save_study_specification", %{})
+      assert_reply(view, %{status: "invalid_request", specification: nil})
+
+      render_hook(view, "save_study_specification", %{"title" => "Study", "content" => ["bad"]})
+      assert_reply(view, %{status: "invalid_request"})
+    end
+
+    test "describes a valid specification without persisting it", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      before = length(NetworkDefense.Evaluation.list_study_specifications())
+
+      render_hook(view, "describe_study_specification", %{"content" => @study_specification})
+
+      assert_reply(view, %{
+        status: "ok",
+        description: %{
+          study_id: "topology-scale-study",
+          specification_version: 1,
+          tiers: ["small", "medium", "large"]
+        },
+        errors: []
+      })
+
+      assert length(NetworkDefense.Evaluation.list_study_specifications()) == before
+    end
+
+    test "rejects an invalid specification description", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "describe_study_specification", %{
+        "content" => Map.delete(@study_specification, "tiers")
+      })
+
+      assert_reply(view, %{status: "invalid_specification", description: nil, errors: errors})
+      assert Enum.any?(errors, &(&1.path == "tiers"))
+    end
+
+    test "rejects a describe payload without a content map", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "describe_study_specification", %{})
+      assert_reply(view, %{status: "invalid_request", description: nil})
+
+      render_hook(view, "describe_study_specification", %{"content" => ["bad"]})
+      assert_reply(view, %{status: "invalid_request"})
+    end
+
+    test "returns no specification for an unknown id", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "get_study_specification", %{"id" => Ecto.UUID.generate()})
+      assert_reply(view, %{specification: nil})
+
+      render_hook(view, "get_study_specification", %{"id" => "not-a-uuid"})
+      assert_reply(view, %{specification: nil})
+    end
+  end
+
   describe "mount" do
     test "renders the Svelte dashboard", %{conn: conn} do
       {:ok, view, _html} = live(conn, ~p"/")
@@ -2555,22 +2689,58 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp study_archive(mode) do
-    result_file = if mode == "pilot", do: "pilot_results.json", else: "primary_results.json"
+    metadata =
+      Jason.encode!(%{
+        "study_id" => "imported-study",
+        "specification_version" => 1,
+        "family_scope" => "study",
+        "family_size" => 1,
+        "command_mode" => "study-#{mode}",
+        "multiplicity_correction" => "holm",
+        "expected_family" => %{},
+        "tier_labels" => ["small"],
+        "tier_context" => [
+          %{
+            "label" => "small",
+            "archive" => "tiers/small.zip",
+            "archive_sha256" => String.duplicate("a", 64)
+          }
+        ],
+        "uncertainty_sources" => ["attack_outcome"]
+      })
 
-    zip(%{
-      "study_metadata.json" =>
-        Jason.encode!(%{
-          "study_id" => "imported-study",
-          "specification_version" => 1,
-          "family_scope" => "study",
-          "family_size" => 1,
-          "command_mode" => "study-#{mode}",
-          "expected_family" => %{},
-          "tier_labels" => ["small"],
-          "uncertainty_sources" => ["attack_outcome"]
-        }),
-      result_file => "[]"
-    })
+    files =
+      if mode == "pilot" do
+        %{
+          "study_metadata.json" => metadata,
+          "pilot_results.csv" => "",
+          "pilot_results.json" => "[]"
+        }
+      else
+        %{
+          "study_metadata.json" => metadata,
+          "primary_results.csv" => "",
+          "primary_results.json" => "[]",
+          "tier_context.json" => "[]"
+        }
+      end
+
+    files
+    |> checksummed()
+    |> zip()
+  end
+
+  defp checksummed(files) do
+    checksums =
+      files
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.map_join("\n", fn {name, content} ->
+        digest = Base.encode16(:crypto.hash(:sha256, content), case: :lower)
+        "#{name}  #{digest}"
+      end)
+      |> then(&(&1 <> "\n"))
+
+    Map.put(files, "checksums.txt", checksums)
   end
 
   defp legacy_analysis_archive do

@@ -48,6 +48,66 @@ defmodule NetworkDefense.RuntimeConfigTest do
     end
   end
 
+  test "returns the default for an unset positive integer" do
+    assert RuntimeConfig.positive_integer_env(unique_env_name(), 42) == 42
+  end
+
+  test "reads a full positive-integer override" do
+    name = unique_env_name()
+
+    with_integer_env(name, "17", fn ->
+      assert RuntimeConfig.positive_integer_env(name, 42) == 17
+    end)
+  end
+
+  test "rejects malformed positive-integer overrides" do
+    for value <- ["0", "-3", "1.5", "12abc", "", " 5", "5 ", "abc"] do
+      name = unique_env_name()
+
+      with_integer_env(name, value, fn ->
+        assert_raise ArgumentError, ~r/must be a positive integer/, fn ->
+          RuntimeConfig.positive_integer_env(name, 42)
+        end
+      end)
+    end
+  end
+
+  test "describes the offending value in the startup error" do
+    name = unique_env_name()
+
+    with_integer_env(name, "nope", fn ->
+      assert_raise ArgumentError, ~r/#{name} must be a positive integer, got "nope"/, fn ->
+        RuntimeConfig.positive_integer_env(name, 42)
+      end
+    end)
+  end
+
+  test "rejects a malformed required positive integer" do
+    name = unique_env_name()
+
+    with_integer_env(name, "0", fn ->
+      assert_raise ArgumentError, ~r/must be a positive integer/, fn ->
+        RuntimeConfig.positive_integer_env(name)
+      end
+    end)
+  end
+
+  defp unique_env_name do
+    "NETWORK_DEFENSE_RUNTIME_CONFIG_TEST_" <>
+      Integer.to_string(System.unique_integer([:positive]))
+  end
+
+  defp with_integer_env(name, value, fun) do
+    previous = System.get_env(name)
+    System.put_env(name, value)
+
+    try do
+      fun.()
+    after
+      if previous, do: System.put_env(name, previous), else: System.delete_env(name)
+    end
+  end
+
   defp with_role(role, fun) do
     previous = System.get_env("ROLE")
 

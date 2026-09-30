@@ -11,6 +11,7 @@
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./ui-kit/primitives/SplitButton.svelte";
   import ManifestDialog from "./dashboard/manifest/ManifestDialog.svelte";
+  import StudyDialog from "./dashboard/study/StudyDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import { dashboardRegistry } from "./dashboard/workspace/dashboard-registry";
   import {
@@ -188,6 +189,7 @@
     onRunSimulation={handleRunSimulation}
     onCompareGraphs={() => wm.beginGraphComparison()}
     onOpenAnalysis={() => model.manifest.openDialog()}
+    onRunStudy={() => void model.study.openDialog()}
     onOpenStudyResults={openStudyResults}
     {isImportingStudyResults}
     onOptimize={handleOptimize}
@@ -206,6 +208,7 @@
     class="study-results-input"
     type="file"
     accept=".zip,application/zip"
+    tabindex="-1"
     aria-label="Select study results ZIP"
     onchange={(event) => void importStudyResults(event)}
   />
@@ -267,6 +270,8 @@
   />
 
   <ManifestDialog model={model.manifest} />
+
+  <StudyDialog model={model.study} />
 
   <StatusBar
     documentName={wm.activeDocument?.title ?? ""}

@@ -1,5 +1,5 @@
 defmodule Mix.Tasks.Evaluate.StudyTest do
-  use ExUnit.Case, async: false
+  use NetworkDefense.DataCase, async: false
 
   import ExUnit.CaptureIO
 
@@ -7,6 +7,8 @@ defmodule Mix.Tasks.Evaluate.StudyTest do
   alias Mix.Task
   alias Mix.Tasks.Evaluate.Study
   alias NetworkDefense.Evaluation
+  alias NetworkDefense.Evaluation.AnalysisClient
+  alias NetworkDefense.EvaluationFixtures
 
   @run_id "11111111-1111-4111-8111-111111111111"
   @run_second "22222222-2222-4222-8222-222222222222"
@@ -160,6 +162,118 @@ defmodule Mix.Tasks.Evaluate.StudyTest do
     end
 
     File.rm!(broken)
+  end
+
+  test "rejects a malformed finite value before submission" do
+    spec =
+      legacy_spec()
+      |> put_in(["pilot", "ci_half_width"], "1e400")
+      |> write_spec()
+
+    Task.reenable("evaluate.study")
+
+    assert_raise Error, "study specification is invalid", fn ->
+      Study.run([
+        "--spec",
+        spec,
+        "--tier",
+        "small=#{@run_id}",
+        "--mode",
+        "pilot",
+        "--output",
+        "out.zip"
+      ])
+    end
+
+    File.rm!(spec)
+  end
+
+  test "derives tier labels from --tier when the specification omits tiers" do
+    completed = completed_run()
+    output = temp_output("study-legacy")
+    spec = write_spec(legacy_spec())
+
+    :meck.new(AnalysisClient, [:passthrough])
+
+    :meck.expect(AnalysisClient, :analyze_study, fn bundle, study_id, :pilot ->
+      assert study_id == legacy_spec()["study_id"]
+      assert Enum.map(study_tiers(bundle), & &1["label"]) == ["small"]
+      {:ok, "study-zip"}
+    end)
+
+    Task.reenable("evaluate.study")
+
+    response =
+      capture_io(fn ->
+        Study.run([
+          "--spec",
+          spec,
+          "--tier",
+          "small=#{completed.id}",
+          "--mode",
+          "pilot",
+          "--output",
+          output
+        ])
+      end)
+      |> Jason.decode!()
+
+    assert File.read!(output) == "study-zip"
+    assert response["study_id"] == legacy_spec()["study_id"]
+    assert response["mode"] == "pilot"
+    assert response["byte_size"] == 9
+
+    File.rm!(output)
+    File.rm!(spec)
+  end
+
+  test "rejects a declared tier list that conflicts with --tier values" do
+    completed = completed_run()
+    spec = legacy_spec() |> Map.put("tiers", ["small", "medium"]) |> write_spec()
+
+    Task.reenable("evaluate.study")
+
+    assert_raise Error, "study tier labels do not match --tier values", fn ->
+      Study.run([
+        "--spec",
+        spec,
+        "--tier",
+        "small=#{completed.id}",
+        "--mode",
+        "pilot",
+        "--output",
+        "out.zip"
+      ])
+    end
+
+    File.rm!(spec)
+  end
+
+  defp completed_run do
+    manifest_id = "study-task-#{System.unique_integer([:positive])}"
+
+    assert {:ok, _manifest} =
+             EvaluationFixtures.save_manifest(manifest_id, EvaluationFixtures.analysis_manifest())
+
+    assert {:ok, run} = Evaluation.start(manifest_id)
+    assert {:ok, completed} = Evaluation.run(run.id)
+    completed
+  end
+
+  defp legacy_spec, do: Map.delete(EvaluationFixtures.study_specification(), "tiers")
+
+  defp study_tiers(bundle) do
+    {:ok, entries} = :zip.extract(bundle, [:memory])
+
+    entries
+    |> Map.new(fn {name, content} -> {to_string(name), content} end)
+    |> Map.fetch!("study.json")
+    |> Jason.decode!()
+    |> Map.fetch!("tiers")
+  end
+
+  defp temp_output(name) do
+    Path.join(System.tmp_dir!(), "#{name}-#{System.unique_integer([:positive])}.zip")
   end
 
   defp assert_tier_error(spec, tier_args, message) do

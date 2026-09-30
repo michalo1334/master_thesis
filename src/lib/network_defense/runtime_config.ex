@@ -48,10 +48,32 @@ defmodule NetworkDefense.RuntimeConfig do
     end
   end
 
-  defp positive_integer_env(name) do
-    case Integer.parse(System.fetch_env!(name)) do
-      {value, ""} when value > 0 -> value
-      _result -> raise ArgumentError, "#{name} must be a positive integer"
+  @spec positive_integer_env(String.t()) :: pos_integer()
+  def positive_integer_env(name) do
+    name
+    |> System.fetch_env!()
+    |> parse_positive_integer(name)
+  end
+
+  @doc """
+  Reads a positive-integer environment override, or returns `default` when the
+  variable is unset.
+
+  The whole value must be a positive integer. Any other value raises a
+  descriptive startup error, so a typo cannot silently disable a limit.
+  """
+  @spec positive_integer_env(String.t(), pos_integer()) :: pos_integer()
+  def positive_integer_env(name, default) when is_binary(name) do
+    case System.get_env(name) do
+      nil -> default
+      value -> parse_positive_integer(value, name)
+    end
+  end
+
+  defp parse_positive_integer(value, name) do
+    case Integer.parse(value) do
+      {parsed, ""} when parsed > 0 -> parsed
+      _result -> raise ArgumentError, "#{name} must be a positive integer, got #{inspect(value)}"
     end
   end
 end

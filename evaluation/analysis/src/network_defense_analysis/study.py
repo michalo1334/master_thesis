@@ -16,6 +16,7 @@ import json
 import shutil
 import tempfile
 from dataclasses import asdict, dataclass
+from itertools import product
 from pathlib import Path
 from statistics import median
 
@@ -278,37 +279,11 @@ def analyze_study(source: str | Path | LoadedStudy, output: str | Path) -> None:
         rows: list[dict] = []
         tier_context: list[dict] = []
         for tier_index, tier in enumerate(study.tiers):
-            export = tier.loaded_export
-            _, _, _, _, _, comparisons = _primary_comparisons(
-                export.manifest,
-                export.plans,
-                export.trials,
-                stream_seed_offset=tier_index * STUDY_SEED_STRIDE,
-            )
-            comparison_ids = []
-            for item in comparisons:
-                row = dict(item.row)
-                row["tier"] = tier.label
-                row["comparison_id"] = comparison_id(tier.label, item.comparison)
-                comparison_ids.append(row["comparison_id"])
-                rows.append(row)
-            first = comparisons[0].statistics if comparisons else None
-            tier_context.append(
-                {
-                    "label": tier.label,
-                    "archive": tier.archive_path,
-                    "archive_sha256": tier.archive_sha256,
-                    "manifest_id": export.manifest.get("id"),
-                    "model_version": export.manifest.get("model_version"),
-                    "checksums_hash": export.checksum_hash,
-                    "input_hashes": export.hashes,
-                    "comparison_ids": sorted(comparison_ids),
-                    "tested_plan_count": first.tested_plan_count if first else 0,
-                    "baseline_plan_count": first.baseline_plan_count if first else 0,
-                    "attacks_per_plan": first.attacks_per_plan if first else 0,
-                }
-            )
+            tier_rows, context = _analyze_tier(tier_index, tier)
+            rows.extend(tier_rows)
+            tier_context.append(context)
 
+        _validate_result_tier_context(tier_context, study)
         family_size = study.configuration["family_size"]
         if len(rows) != family_size:
             raise _error("study family size does not match the specification")
@@ -352,6 +327,40 @@ def analyze_study(source: str | Path | LoadedStudy, output: str | Path) -> None:
         shutil.rmtree(directory, ignore_errors=True)
         if owns_study and study is not None:
             _release_study(study)
+
+
+def _analyze_tier(tier_index: int, tier: StudyTier) -> tuple[list[dict], dict]:
+    """Return one tier's primary rows and immutable analysis context."""
+
+    export = tier.loaded_export
+    _, _, _, _, _, comparisons = _primary_comparisons(
+        export.manifest,
+        export.plans,
+        export.trials,
+        stream_seed_offset=tier_index * STUDY_SEED_STRIDE,
+    )
+    rows = []
+    comparison_ids = []
+    for item in comparisons:
+        row = dict(item.row)
+        row["tier"] = tier.label
+        row["comparison_id"] = comparison_id(tier.label, item.comparison)
+        comparison_ids.append(row["comparison_id"])
+        rows.append(row)
+    first = comparisons[0].statistics if comparisons else None
+    return rows, {
+        "label": tier.label,
+        "archive": tier.archive_path,
+        "archive_sha256": tier.archive_sha256,
+        "manifest_id": export.manifest.get("id"),
+        "model_version": export.manifest.get("model_version"),
+        "checksums_hash": export.checksum_hash,
+        "input_hashes": export.hashes,
+        "comparison_ids": sorted(comparison_ids),
+        "tested_plan_count": first.tested_plan_count if first else 0,
+        "baseline_plan_count": first.baseline_plan_count if first else 0,
+        "attacks_per_plan": first.attacks_per_plan if first else 0,
+    }
 
 
 def _parse_spec(root: Path) -> dict:
@@ -544,42 +553,67 @@ def _enforce_seed_schedule(study: LoadedStudy, phase: str) -> None:
     declared_evaluation = set(schedule["evaluation"])
     observed_evaluation: set[int] = set()
     for tier in study.tiers:
-        manifest = tier.loaded_export.manifest
-        observed_evaluation.add(_tier_evaluation_seed(manifest, tier.label))
-        runs = manifest.get("strategy_runs")
-        if not isinstance(runs, list):
-            raise _error(f"tier {tier.label} strategy_runs must be a list")
-        for run in runs:
-            seeds = _run_selection_seeds(run, tier.label)
-            if not set(seeds) <= declared_selection:
-                raise _error(
-                    f"tier {tier.label} strategy run selection seeds are not "
-                    f"in the declared {phase} schedule"
-                )
-        for plan in tier.loaded_export.plans:
-            seed = _integer(plan.get("selection_seed"), "plan selection seed")
-            if seed not in declared_selection:
-                raise _error(
-                    f"plan {plan.get('id')} selection seed is not in the "
-                    f"declared {phase} schedule"
-                )
+        observed_evaluation.add(
+            _validate_tier_seed_schedule(tier, phase, declared_selection)
+        )
     if observed_evaluation != declared_evaluation:
         raise _error(
             f"tier evaluation seeds do not match the declared {phase} schedule"
         )
 
 
+def _validate_tier_seed_schedule(
+    tier: StudyTier, phase: str, declared_selection: set[int]
+) -> int:
+    """Validate one tier against its declared selection schedule."""
+
+    manifest = tier.loaded_export.manifest
+    evaluation_seed = _tier_evaluation_seed(manifest, tier.label)
+    runs = manifest.get("strategy_runs")
+    if not isinstance(runs, list):
+        raise _error(f"tier {tier.label} strategy_runs must be a list")
+    for run in runs:
+        seeds = _run_selection_seeds(run, tier.label)
+        if not set(seeds) <= declared_selection:
+            raise _error(
+                f"tier {tier.label} strategy run selection seeds are not "
+                f"in the declared {phase} schedule"
+            )
+    for plan in tier.loaded_export.plans:
+        seed = _integer(plan.get("selection_seed"), "plan selection seed")
+        if seed not in declared_selection:
+            raise _error(
+                f"plan {plan.get('id')} selection seed is not in the "
+                f"declared {phase} schedule"
+            )
+    return evaluation_seed
+
+
 def _validate_common_settings(tiers: list[StudyTier]) -> dict:
     configurations = [_configuration(tier.loaded_export.manifest) for tier in tiers]
     first = configurations[0]
     for tier, configuration in zip(tiers, configurations):
-        if configuration["multiplicity_correction"] != "holm":
-            raise _error(f"tier {tier.label} multiplicity_correction must be holm")
-        for key in ("confidence_level", "bootstrap_resamples", "permutation_resamples", "multiplicity_correction", "seed"):
-            if configuration[key] != first[key]:
-                raise _error(f"tier {tier.label} analysis setting {key} disagrees with other tiers")
+        _validate_tier_common_settings(tier, configuration, first)
     _validate_single_model_variant(tiers)
     return first
+
+
+def _validate_tier_common_settings(
+    tier: StudyTier, configuration: dict, first: dict
+) -> None:
+    """Validate one tier's shared analysis configuration."""
+
+    if configuration["multiplicity_correction"] != "holm":
+        raise _error(f"tier {tier.label} multiplicity_correction must be holm")
+    for key in (
+        "confidence_level",
+        "bootstrap_resamples",
+        "permutation_resamples",
+        "multiplicity_correction",
+        "seed",
+    ):
+        if configuration[key] != first[key]:
+            raise _error(f"tier {tier.label} analysis setting {key} disagrees with other tiers")
 
 
 def _validate_single_model_variant(tiers: list[StudyTier]) -> str:
@@ -591,23 +625,33 @@ def _validate_single_model_variant(tiers: list[StudyTier]) -> str:
 
     variants: set[str] = set()
     for tier in tiers:
-        declared = tier.loaded_export.manifest.get("model_variants")
-        if not isinstance(declared, list) or not declared:
-            raise _error(f"tier {tier.label} model_variants must be a non-empty list")
-        ids = []
-        for variant in declared:
-            if not isinstance(variant, dict) or not isinstance(variant.get("id"), str) or not variant["id"]:
-                raise _error(f"tier {tier.label} has a malformed model variant")
-            ids.append(variant["id"])
-        if len(set(ids)) != len(ids):
-            raise _error(f"tier {tier.label} declares duplicate model variants")
-        variants.update(ids)
+        variants.update(_tier_model_variant_ids(tier))
     if len(variants) != 1:
         raise _error(
             "study supports exactly one model variant across all tiers: "
             f"found {sorted(variants)}"
         )
     return next(iter(variants))
+
+
+def _tier_model_variant_ids(tier: StudyTier) -> list[str]:
+    """Return one tier's unique declared model-variant identifiers."""
+
+    declared = tier.loaded_export.manifest.get("model_variants")
+    if not isinstance(declared, list) or not declared:
+        raise _error(f"tier {tier.label} model_variants must be a non-empty list")
+    ids = []
+    for variant in declared:
+        if (
+            not isinstance(variant, dict)
+            or not isinstance(variant.get("id"), str)
+            or not variant["id"]
+        ):
+            raise _error(f"tier {tier.label} has a malformed model variant")
+        ids.append(variant["id"])
+    if len(set(ids)) != len(ids):
+        raise _error(f"tier {tier.label} declares duplicate model variants")
+    return ids
 
 
 def _comparison_pairs(configuration: dict) -> set[tuple]:
@@ -632,6 +676,36 @@ def _validate_matrix(tier: StudyTier, expected_pairs: set[tuple]) -> None:
         raise _error(f"tier {tier.label} declares duplicate primary comparisons")
     if pairs != expected_pairs:
         raise _error(f"tier {tier.label} primary comparison matrix does not match expected_family")
+
+
+def _validate_result_tier_context(context: list[dict], study: LoadedStudy) -> None:
+    """Require output tier context to identify every locked input archive exactly."""
+
+    expected = _tier_context(study)
+    actual = [
+        {
+            "label": entry.get("label"),
+            "archive": entry.get("archive"),
+            "archive_sha256": entry.get("archive_sha256"),
+        }
+        for entry in context
+        if isinstance(entry, dict)
+    ]
+    if actual != expected:
+        raise _error("result tier context does not match the loaded tier archives")
+
+
+def _tier_context(study: LoadedStudy) -> list[dict]:
+    """Return the immutable archive identity for every loaded tier."""
+
+    return [
+        {
+            "label": tier.label,
+            "archive": tier.archive_path,
+            "archive_sha256": tier.archive_sha256,
+        }
+        for tier in study.tiers
+    ]
 
 
 def _stable_ids(pairs: list[tuple[str, dict]]) -> list[str]:
@@ -685,36 +759,19 @@ def pilot_study(source: str | Path | LoadedStudy, output: str | Path) -> None:
 
         rows: list[dict] = []
         summaries: list[CandidateResult] = []
-        for plan_count in configuration.plan_count_candidates:
-            for attacks_per_plan in configuration.attacks_per_plan_candidates:
-                candidate_rows = []
-                for record in records:
-                    evaluation = _evaluate_candidate(
-                        record.crossed,
-                        plan_count=plan_count,
-                        attacks_per_plan=attacks_per_plan,
-                        configuration=configuration,
-                        stream_seed=_comparison_stream_seed(
-                            configuration.seed,
-                            record.tier_index * STUDY_SEED_STRIDE,
-                            record.comparison_index,
-                        ),
-                        analysis_configuration=analysis_configuration,
-                    )
-                    candidate_rows.append(
-                        {
-                            "comparison_id": record.comparison_id,
-                            "tier": record.tier,
-                            "informative": record.informative,
-                            "candidate_plan_count": plan_count,
-                            "candidate_attacks_per_plan": attacks_per_plan,
-                            "guarded_ci_half_width": evaluation.guarded_half_width,
-                            "target": configuration.ci_half_width,
-                            "passes": bool(record.informative and evaluation.passes),
-                        }
-                    )
-                rows.extend(candidate_rows)
-                summaries.append(_aggregate_candidate(plan_count, attacks_per_plan, candidate_rows))
+        for plan_count, attacks_per_plan in product(
+            configuration.plan_count_candidates,
+            configuration.attacks_per_plan_candidates,
+        ):
+            candidate_rows = _candidate_rows(
+                records,
+                plan_count,
+                attacks_per_plan,
+                configuration,
+                analysis_configuration,
+            )
+            rows.extend(candidate_rows)
+            summaries.append(_aggregate_candidate(plan_count, attacks_per_plan, candidate_rows))
 
         non_informative = tuple(
             sorted({record.comparison_id for record in records if not record.informative})
@@ -729,13 +786,17 @@ def pilot_study(source: str | Path | LoadedStudy, output: str | Path) -> None:
             ),
         )
 
+        tier_context = _tier_context(study)
+        _validate_result_tier_context(tier_context, study)
         metadata = {
             "study_id": study.study_id,
             "specification_version": study.specification_version,
             "family_scope": "study",
             "family_size": study.configuration["family_size"],
+            "multiplicity_correction": "holm",
             "command_mode": "study-pilot",
             "tier_labels": [tier.label for tier in study.tiers],
+            "tier_context": tier_context,
             "expected_family": study.configuration["expected_family"],
             "selection_rule": configuration.selection_rule,
             "pilot_configuration": asdict(configuration),
@@ -838,29 +899,77 @@ def _pilot_candidates(value, minimum: int, field: str) -> list[int]:
     return cleaned
 
 
+def _candidate_rows(
+    records: list[_PilotComparison],
+    plan_count: int,
+    attacks_per_plan: int,
+    configuration: PilotConfiguration,
+    analysis_configuration: dict,
+) -> list[dict]:
+    """Evaluate one candidate pair against every declared comparison."""
+
+    rows = []
+    for record in records:
+        evaluation = _evaluate_candidate(
+            record.crossed,
+            plan_count=plan_count,
+            attacks_per_plan=attacks_per_plan,
+            configuration=configuration,
+            stream_seed=_comparison_stream_seed(
+                configuration.seed,
+                record.tier_index * STUDY_SEED_STRIDE,
+                record.comparison_index,
+            ),
+            analysis_configuration=analysis_configuration,
+        )
+        rows.append(
+            {
+                "comparison_id": record.comparison_id,
+                "tier": record.tier,
+                "informative": record.informative,
+                "candidate_plan_count": plan_count,
+                "candidate_attacks_per_plan": attacks_per_plan,
+                "guarded_ci_half_width": evaluation.guarded_half_width,
+                "target": configuration.ci_half_width,
+                "passes": bool(record.informative and evaluation.passes),
+            }
+        )
+    return rows
+
+
 def _pilot_comparisons(study: LoadedStudy) -> list[_PilotComparison]:
     """Build every declared crossed comparison across all tiers."""
 
     records = []
     for tier_index, tier in enumerate(study.tiers):
-        export = tier.loaded_export
-        _, _, _, _, _, comparisons = _primary_comparisons(
-            export.manifest,
-            export.plans,
-            export.trials,
-            stream_seed_offset=tier_index * STUDY_SEED_STRIDE,
-        )
-        for comparison_index, item in enumerate(comparisons):
-            records.append(
-                _PilotComparison(
-                    tier_index=tier_index,
-                    comparison_index=comparison_index,
-                    tier=tier.label,
-                    comparison_id=comparison_id(tier.label, item.comparison),
-                    crossed=item.crossed,
-                    informative=bool(item.statistics.informative),
-                )
+        records.extend(_tier_pilot_comparisons(tier_index, tier))
+    return records
+
+
+def _tier_pilot_comparisons(
+    tier_index: int, tier: StudyTier
+) -> list[_PilotComparison]:
+    """Build one tier's crossed pilot comparisons in declared order."""
+
+    export = tier.loaded_export
+    _, _, _, _, _, comparisons = _primary_comparisons(
+        export.manifest,
+        export.plans,
+        export.trials,
+        stream_seed_offset=tier_index * STUDY_SEED_STRIDE,
+    )
+    records = []
+    for comparison_index, item in enumerate(comparisons):
+        records.append(
+            _PilotComparison(
+                tier_index=tier_index,
+                comparison_index=comparison_index,
+                tier=tier.label,
+                comparison_id=comparison_id(tier.label, item.comparison),
+                crossed=item.crossed,
+                informative=bool(item.statistics.informative),
             )
+        )
     return records
 
 
@@ -870,21 +979,29 @@ def _validate_candidate_bounds(
     """Reject a candidate that is larger than any observed comparison."""
 
     for record in records:
-        tested_plans, attack_count = record.crossed.tested.shape
-        baseline_plans = record.crossed.baseline.shape[0]
-        for plan_count in configuration.plan_count_candidates:
-            if plan_count > tested_plans or plan_count > baseline_plans:
-                raise _error(
-                    "pilot plan candidate does not fit the observed comparison: "
-                    f"{record.comparison_id} candidate={plan_count} "
-                    f"tested={tested_plans} baseline={baseline_plans}"
-                )
-        for attacks_per_plan in configuration.attacks_per_plan_candidates:
-            if attacks_per_plan > attack_count:
-                raise _error(
-                    "pilot attack candidate does not fit the observed comparison: "
-                    f"{record.comparison_id} candidate={attacks_per_plan} attacks={attack_count}"
-                )
+        _validate_record_candidate_bounds(record, configuration)
+
+
+def _validate_record_candidate_bounds(
+    record: _PilotComparison, configuration: PilotConfiguration
+) -> None:
+    """Validate every candidate count against one observed comparison."""
+
+    tested_plans, attack_count = record.crossed.tested.shape
+    baseline_plans = record.crossed.baseline.shape[0]
+    for plan_count in configuration.plan_count_candidates:
+        if plan_count > tested_plans or plan_count > baseline_plans:
+            raise _error(
+                "pilot plan candidate does not fit the observed comparison: "
+                f"{record.comparison_id} candidate={plan_count} "
+                f"tested={tested_plans} baseline={baseline_plans}"
+            )
+    for attacks_per_plan in configuration.attacks_per_plan_candidates:
+        if attacks_per_plan > attack_count:
+            raise _error(
+                "pilot attack candidate does not fit the observed comparison: "
+                f"{record.comparison_id} candidate={attacks_per_plan} attacks={attack_count}"
+            )
 
 
 def _evaluate_candidate(

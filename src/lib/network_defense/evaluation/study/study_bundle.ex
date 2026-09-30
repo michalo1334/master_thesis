@@ -10,6 +10,13 @@ defmodule NetworkDefense.Evaluation.StudyBundle do
   `archive/2` writes members in this fixed order: `study.json`, tier archives
   sorted by tier label, then `checksums.txt`. It uses one fixed ZIP timestamp
   for every member so repeated builds produce identical bytes.
+
+  A saved specification declares tiers as labels, for example `["small"]` or
+  `[%{"label" => "small"}]`. The Python loader does not accept that form: it
+  requires each tier entry to be an object with `label`, `archive`, and
+  `sha256`. The private hydration step between the two replaces the declaration
+  with one loader-ready object per resolved tier, using the archive member path
+  and the SHA-256 of the exact tier bytes.
   """
 
   alias NetworkDefense.Evaluation.AnalysisLimits
@@ -131,6 +138,13 @@ defmodule NetworkDefense.Evaluation.StudyBundle do
     end)
   end
 
+  # Hydrates a study specification for the Python analysis loader. The saved
+  # specification declares tiers as labels; the Python loader requires each tier
+  # entry to be an object with `label`, `archive`, and `sha256`, and it checks
+  # that digest against the archive bytes. This replaces the declaration with
+  # one such object per resolved tier. Other specification keys pass through
+  # unchanged.
+  @spec fill_spec(map(), String.t(), [tier_entry()]) :: {:ok, map()}
   defp fill_spec(study_spec, study_id, entries) do
     tiers =
       Enum.map(entries, fn entry ->

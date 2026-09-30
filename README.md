@@ -13,7 +13,7 @@ The system does not require a complete static attack graph or prior enumeration 
 - [Context graph and reachability](docs/concepts/graph.md) — node and relationship model.
 - [Attack simulation and mission impact](docs/concepts/attack.md) — attacker model and simulation loop.
 - [Defenses and optimization](docs/concepts/defense.md) — defense actions and strategies.
-- [Evaluation lifecycle](docs/concepts/evaluation.md) — manifest-driven evaluation runner.
+- [Evaluation and study lifecycle](docs/concepts/evaluation.md) — collection, Pilot, and Final analysis.
 - [Shared example](docs/concepts/model-example.md) — one concrete micro-scenario.
 - [Vocabulary](docs/concepts/vocabulary.md) — shared model terms.
 - [Architecture](docs/architecture.md) — system, container, and deployment views.

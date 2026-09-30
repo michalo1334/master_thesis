@@ -90,6 +90,28 @@ export interface DashboardApi {
   describeManifest(
     content: Record<string, unknown>,
   ): Promise<EvaluationContracts.DescribeManifestReply>;
+  listStudySpecifications(): Promise<EvaluationContracts.ListStudySpecificationsReply>;
+  getStudySpecification(
+    id: string,
+  ): Promise<EvaluationContracts.GetStudySpecificationReply>;
+  saveStudySpecification(
+    payload: EvaluationContracts.SaveStudySpecificationPayload,
+  ): Promise<EvaluationContracts.SaveStudySpecificationReply>;
+  describeStudySpecification(
+    content: Record<string, unknown>,
+  ): Promise<EvaluationContracts.DescribeStudySpecificationReply>;
+  listStudyTierRuns(
+    payload: EvaluationContracts.ListStudyTierRunsPayload,
+  ): Promise<EvaluationContracts.ListStudyTierRunsReply>;
+  preflightStudy(
+    payload: EvaluationContracts.PreflightStudyPayload,
+  ): Promise<EvaluationContracts.PreflightStudyReply>;
+  startStudyAnalysis(
+    payload: EvaluationContracts.StartStudyAnalysisPayload,
+  ): Promise<EvaluationContracts.StartStudyAnalysisReply>;
+  closeStudyDocument(
+    payload: EvaluationContracts.CloseStudyDocumentPayload,
+  ): Promise<EvaluationContracts.CloseStudyDocumentReply>;
   requestEvaluationReport(documentId: string, runId: string): void;
   requestEvaluationAnalysis(
     payload: EvaluationContracts.RequestEvaluationAnalysisPayload,
@@ -303,6 +325,54 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         EvaluationContracts.DescribeManifestPayload,
         EvaluationContracts.DescribeManifestReply
       >(live, "describe_manifest", { content });
+    },
+    listStudySpecifications() {
+      return requestReply<
+        EvaluationContracts.ListStudySpecificationsPayload,
+        EvaluationContracts.ListStudySpecificationsReply
+      >(live, "list_study_specifications", {});
+    },
+    getStudySpecification(id) {
+      return requestReply<
+        EvaluationContracts.GetStudySpecificationPayload,
+        EvaluationContracts.GetStudySpecificationReply
+      >(live, "get_study_specification", { id });
+    },
+    saveStudySpecification(payload) {
+      return requestReply<
+        EvaluationContracts.SaveStudySpecificationPayload,
+        EvaluationContracts.SaveStudySpecificationReply
+      >(live, "save_study_specification", payload);
+    },
+    describeStudySpecification(content) {
+      return requestReply<
+        EvaluationContracts.DescribeStudySpecificationPayload,
+        EvaluationContracts.DescribeStudySpecificationReply
+      >(live, "describe_study_specification", { content });
+    },
+    listStudyTierRuns(payload) {
+      return requestReply<
+        EvaluationContracts.ListStudyTierRunsPayload,
+        EvaluationContracts.ListStudyTierRunsReply
+      >(live, "list_study_tier_runs", payload);
+    },
+    preflightStudy(payload) {
+      return requestReply<
+        EvaluationContracts.PreflightStudyPayload,
+        EvaluationContracts.PreflightStudyReply
+      >(live, "preflight_study", payload);
+    },
+    startStudyAnalysis(payload) {
+      return requestReply<
+        EvaluationContracts.StartStudyAnalysisPayload,
+        EvaluationContracts.StartStudyAnalysisReply
+      >(live, "start_study_analysis", payload);
+    },
+    closeStudyDocument(payload) {
+      return requestReply<
+        EvaluationContracts.CloseStudyDocumentPayload,
+        EvaluationContracts.CloseStudyDocumentReply
+      >(live, "close_study_document", payload);
     },
     requestEvaluationReport(documentId, runId) {
       live.pushEvent<EvaluationContracts.FetchEvaluationReportPayload>(

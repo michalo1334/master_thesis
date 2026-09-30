@@ -70,13 +70,20 @@ defmodule NetworkDefense.Evaluation.StudyTierValidator do
     end
   end
 
-  defp safe_label?(label) when is_binary(label) do
+  @doc """
+  Reports whether a tier label is safe for archive member names.
+
+  Shared with the saved-specification contract so declared labels cannot
+  become unsafe archive paths.
+  """
+  @spec safe_label?(term()) :: boolean()
+  def safe_label?(label) when is_binary(label) do
     label != "" and
       not String.contains?(label, @forbidden_label_fragments) and
       String.match?(label, @label_pattern)
   end
 
-  defp safe_label?(_label), do: false
+  def safe_label?(_label), do: false
 
   defp uuid?(value) when is_binary(value) and value != "",
     do: match?({:ok, _}, Ecto.UUID.cast(value))

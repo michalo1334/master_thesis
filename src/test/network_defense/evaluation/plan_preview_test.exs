@@ -198,7 +198,7 @@ defmodule NetworkDefense.Evaluation.PlanPreviewTest do
                    "budget" => 1,
                    "selection_seeds" => [101]
                  },
-                 "outcome" => "blast_radius"
+                 "outcome" => "mission_impact"
                }
              ]
     end

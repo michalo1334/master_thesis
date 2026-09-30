@@ -499,4 +499,114 @@ describe("DashboardApi", () => {
       expect.any(Function),
     );
   });
+
+  it("lists, loads, saves, and describes study specifications", async () => {
+    const reply = { status: "ok" as const, specification: null, errors: [] };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+    const api = createDashboardApi(live);
+    const content = { study_id: "study-one", specification_version: 1 };
+
+    await expect(api.listStudySpecifications()).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "list_study_specifications",
+      {},
+      expect.any(Function),
+    );
+
+    await expect(api.getStudySpecification("spec-1")).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "get_study_specification",
+      { id: "spec-1" },
+      expect.any(Function),
+    );
+
+    await expect(
+      api.saveStudySpecification({ title: "Study one", content }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "save_study_specification",
+      { title: "Study one", content },
+      expect.any(Function),
+    );
+
+    await expect(api.describeStudySpecification(content)).resolves.toEqual(
+      reply,
+    );
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "describe_study_specification",
+      { content },
+      expect.any(Function),
+    );
+  });
+
+  it("lists study tier runs and sends preflight and start payloads", async () => {
+    const reply = { status: "ok" as const, errors: [] };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+    const api = createDashboardApi(live);
+    const tier_runs = [{ tier: "small", run_id: "run-1" }];
+
+    await expect(
+      api.listStudyTierRuns({
+        specification_id: "spec-1",
+        tier: "small",
+        mode: "pilot",
+      }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "list_study_tier_runs",
+      { specification_id: "spec-1", tier: "small", mode: "pilot" },
+      expect.any(Function),
+    );
+
+    await expect(
+      api.preflightStudy({
+        specification_id: "spec-1",
+        mode: "pilot",
+        tier_runs,
+      }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "preflight_study",
+      { specification_id: "spec-1", mode: "pilot", tier_runs },
+      expect.any(Function),
+    );
+
+    await expect(
+      api.startStudyAnalysis({
+        document_id: "doc-1",
+        mode: "pilot",
+        specification_id: "spec-1",
+        tier_runs,
+      }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "start_study_analysis",
+      {
+        document_id: "doc-1",
+        mode: "pilot",
+        specification_id: "spec-1",
+        tier_runs,
+      },
+      expect.any(Function),
+    );
+
+    await expect(
+      api.closeStudyDocument({ document_id: "doc-1" }),
+    ).resolves.toEqual(reply);
+    expect(live.pushEvent).toHaveBeenLastCalledWith(
+      "close_study_document",
+      { document_id: "doc-1" },
+      expect.any(Function),
+    );
+  });
 });

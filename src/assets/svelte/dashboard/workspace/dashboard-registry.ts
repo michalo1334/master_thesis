@@ -16,6 +16,7 @@ import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
 import AnalysisReport from "../analysis-report/AnalysisReport.svelte";
 import ImportedStudyResults from "../analysis-report/ImportedStudyResults.svelte";
+import Study from "../study/Study.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
 
@@ -62,6 +63,9 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
     },
     "imported-study-results": {
       view: ImportedStudyResults as unknown as DashboardDocumentRegistration["view"],
+    },
+    study: {
+      view: Study as unknown as DashboardDocumentRegistration["view"],
     },
     "document-catalog": {
       view: DocumentCatalog as unknown as DashboardDocumentRegistration["view"],

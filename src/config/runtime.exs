@@ -6,26 +6,30 @@ if config_env() != :test do
   config :network_defense, :rabbitmq, RuntimeConfig.rabbitmq()
 end
 
+analysis_service_defaults = Application.get_env(:network_defense, :analysis_service)
+
 config :network_defense, :analysis_service,
   url: System.get_env("ANALYSIS_SERVICE_URL"),
   connect_timeout_ms:
-    System.get_env(
+    RuntimeConfig.positive_integer_env(
       "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS",
-      to_string(Application.get_env(:network_defense, :analysis_service)[:connect_timeout_ms])
-    )
-    |> String.to_integer(),
+      analysis_service_defaults[:connect_timeout_ms]
+    ),
   timeout_ms:
-    System.get_env(
+    RuntimeConfig.positive_integer_env(
       "ANALYSIS_SERVICE_TIMEOUT_MS",
-      to_string(Application.get_env(:network_defense, :analysis_service)[:timeout_ms])
-    )
-    |> String.to_integer(),
+      analysis_service_defaults[:timeout_ms]
+    ),
   max_zip_bytes:
-    System.get_env(
+    RuntimeConfig.positive_integer_env(
       "ANALYSIS_SERVICE_MAX_ZIP_BYTES",
-      to_string(Application.get_env(:network_defense, :analysis_service)[:max_zip_bytes])
+      analysis_service_defaults[:max_zip_bytes]
+    ),
+  browser_result_bytes:
+    RuntimeConfig.positive_integer_env(
+      "ANALYSIS_SERVICE_BROWSER_RESULT_BYTES",
+      analysis_service_defaults[:browser_result_bytes]
     )
-    |> String.to_integer()
 
 pubsub_opts =
   case System.get_env("PUBSUB_ADAPTER") do

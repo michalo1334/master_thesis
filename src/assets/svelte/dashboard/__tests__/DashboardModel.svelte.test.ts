@@ -2,6 +2,7 @@ import type { GraphContract } from "../../contracts.generated/graph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
+import type { StudyLockedInputs } from "../study/study-types";
 function graph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "g1",
@@ -70,6 +71,14 @@ function api(): DashboardApi & {
     saveManifest: vi.fn(),
     startEvaluation: vi.fn(),
     describeManifest: vi.fn(),
+    listStudySpecifications: vi.fn().mockResolvedValue({ specifications: [] }),
+    getStudySpecification: vi.fn(),
+    saveStudySpecification: vi.fn(),
+    describeStudySpecification: vi.fn(),
+    listStudyTierRuns: vi.fn().mockResolvedValue({ runs: [] }),
+    preflightStudy: vi.fn(),
+    startStudyAnalysis: vi.fn(),
+    closeStudyDocument: vi.fn().mockResolvedValue({ status: "closed" }),
     requestEvaluationReport: vi.fn(),
     requestEvaluationAnalysis: vi.fn(),
     importStudyResults: vi.fn(),
@@ -868,5 +877,240 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("cancelled");
     expect(report.pilotAnalysis.status).toBe("idle");
     expect(report.finalAnalysis.status).toBe("idle");
+  });
+
+  describe("study documents", () => {
+    function locked(): StudyLockedInputs {
+      return {
+        title: "Study one",
+        study_id: "study-one",
+        specification_id: "spec-1",
+        specification_version: 1,
+        tiers: [{ tier: "small", run_id: "run-1" }],
+      };
+    }
+
+    function liveDocument() {
+      const { document } = model.workspace.openStudyDocument(locked());
+      document.markStarted("pilot");
+      document.attemptId = "attempt-1";
+      return document;
+    }
+
+    it("routes progress, ready, and error events to the matching document", () => {
+      const document = liveDocument();
+
+      model.onStudyProgress({
+        document_id: document.id,
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        phase: "waiting_for_service",
+      });
+      expect(document.phase).toBe("waiting_for_service");
+
+      model.onStudyReady({
+        document_id: document.id,
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        archive: "YXJjaGl2ZQ==",
+        pilot_eligible: true,
+        analysis: {} as never,
+      });
+      expect(document.pilotEligible).toBe(true);
+      document.finalMapping.selections = { small: "final-run" };
+      document.finalMapping.preflightStatus = "ok";
+      expect(document.canRunFinal).toBe(true);
+
+      document.markStarted("pilot");
+      document.attemptId = "attempt-2";
+      model.onStudyError({
+        document_id: document.id,
+        mode: "pilot",
+        attempt_id: "attempt-2",
+        phase: "waiting_for_service",
+        error: { code: "transport" },
+      });
+      expect(document.status).toBe("failed");
+    });
+
+    it("ignores a delayed event from a superseded same-mode attempt", () => {
+      const document = liveDocument();
+      document.attemptId = "attempt-2";
+
+      model.onStudyReady({
+        document_id: document.id,
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        archive: "YXJjaGl2ZQ==",
+        pilot_eligible: true,
+        analysis: {} as never,
+      });
+      model.onStudyError({
+        document_id: document.id,
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        phase: "waiting_for_service",
+        error: { code: "transport" },
+      });
+
+      expect(document.status).toBe("running");
+      expect(document.canRunFinal).toBe(false);
+    });
+
+    it("ignores study events for an unknown document id", () => {
+      const document = liveDocument();
+
+      model.onStudyProgress({
+        document_id: "other-document",
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        phase: "waiting_for_service",
+      });
+      model.onStudyReady({
+        document_id: "other-document",
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        archive: "YXJjaGl2ZQ==",
+        pilot_eligible: true,
+        analysis: {} as never,
+      });
+      model.onStudyError({
+        document_id: "other-document",
+        mode: "pilot",
+        attempt_id: "attempt-1",
+        phase: "waiting_for_service",
+        error: { code: "transport" },
+      });
+
+      expect(document.phase).toBe("building_bundle");
+      expect(document.status).toBe("running");
+    });
+
+    it("confirms, closes the server session, and removes a running document", async () => {
+      vi.stubGlobal(
+        "confirm",
+        vi.fn(() => true),
+      );
+      const document = liveDocument();
+
+      await model.closeStudyDocument(document);
+
+      expect(globalThis.confirm).toHaveBeenCalled();
+      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
+        document_id: document.id,
+      });
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(false);
+    });
+
+    it("keeps a running document when the close is not confirmed", async () => {
+      vi.stubGlobal(
+        "confirm",
+        vi.fn(() => false),
+      );
+      const document = liveDocument();
+
+      await model.closeStudyDocument(document);
+
+      expect(dashboardApi.closeStudyDocument).not.toHaveBeenCalled();
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(true);
+    });
+
+    it("removes a provisional document without a close prompt", async () => {
+      const confirmStub = vi.fn(() => true);
+      vi.stubGlobal("confirm", confirmStub);
+      const { document } = model.workspace.openStudyDocument(locked());
+
+      await model.closeStudyDocument(document);
+
+      expect(confirmStub).not.toHaveBeenCalled();
+      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
+        document_id: document.id,
+      });
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(false);
+    });
+
+    it("discards an acknowledged ambiguous-start workspace without a second cancellation", async () => {
+      const { document } = model.workspace.openStudyDocument(locked());
+      document.markStarted("pilot");
+
+      await dashboardApi.closeStudyDocument({ document_id: document.id });
+      model.study.discardStudyDocument?.(document);
+
+      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledTimes(1);
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(false);
+    });
+
+    it("retains a document and shows a retryable error on an invalid close reply", async () => {
+      vi.stubGlobal(
+        "confirm",
+        vi.fn(() => true),
+      );
+      vi.mocked(dashboardApi.closeStudyDocument).mockResolvedValue({
+        status: "invalid_request",
+      });
+      const document = liveDocument();
+
+      await model.closeStudyDocument(document);
+
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(true);
+      expect(document.closeError).not.toBe("");
+      expect(document.closing).toBe(false);
+    });
+
+    it("retains a document and shows a retryable error on a transport failure", async () => {
+      vi.stubGlobal(
+        "confirm",
+        vi.fn(() => true),
+      );
+      vi.mocked(dashboardApi.closeStudyDocument).mockRejectedValue(
+        new Error("offline"),
+      );
+      const document = liveDocument();
+
+      await model.closeStudyDocument(document);
+
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(true);
+      expect(document.closeError).not.toBe("");
+
+      vi.mocked(dashboardApi.closeStudyDocument).mockResolvedValue({
+        status: "not_found",
+      });
+      await model.closeStudyDocument(document);
+
+      expect(
+        model.workspace.documents.some((item) => item.id === document.id),
+      ).toBe(false);
+    });
+
+    it("routes the workspace close action through the study close flow", async () => {
+      vi.stubGlobal(
+        "confirm",
+        vi.fn(() => true),
+      );
+      const document = liveDocument();
+
+      model.workspace.closeDocument(document.id);
+
+      await vi.waitFor(() =>
+        expect(
+          model.workspace.documents.some((item) => item.id === document.id),
+        ).toBe(false),
+      );
+      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
+        document_id: document.id,
+      });
+    });
   });
 });

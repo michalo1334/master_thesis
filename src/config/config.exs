@@ -30,7 +30,8 @@ config :network_defense,
     url: nil,
     connect_timeout_ms: 5_000,
     timeout_ms: 120_000,
-    max_zip_bytes: 50 * 1024 * 1024
+    max_zip_bytes: 50 * 1024 * 1024,
+    browser_result_bytes: 4 * 1024 * 1024
   ]
 
 config :network_defense, NetworkDefense.Compute.ScatterGather,

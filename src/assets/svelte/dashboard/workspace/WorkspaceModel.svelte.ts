@@ -11,11 +11,16 @@ import { SimulationReportDocument } from "../simulation-report/SimulationReportD
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import { ImportedStudyResultsDocument } from "../analysis-report/ImportedStudyResultsDocument.svelte";
+import {
+  StudyDocument,
+  type StudyDocumentOpen,
+} from "../study/StudyDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { OptimizationParamsChange } from "../contract";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
+import type { StudyLockedInputs } from "../study/study-types";
 import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
 import { dashboardRegistry } from "./dashboard-registry";
 import type { DashboardRecoveryContext } from "./recovery-context";
@@ -78,6 +83,15 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     (registration) =>
       registration.createOption ? [registration.createOption] : [],
   );
+
+  /**
+   * Requests the domain close flow for one live study document.
+   *
+   * A study document that already started owns a server task, so the domain
+   * model confirms, sends the close event, and then removes the document. A
+   * provisional document that never started closes without server traffic.
+   */
+  onRequestStudyClose: ((document: StudyDocument) => void) | undefined;
 
   private readonly api?: DashboardApi;
 
@@ -298,6 +312,28 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     return document;
   }
 
+  /**
+   * Registers the live study document for one exact locked setup.
+   *
+   * Study documents are ephemeral: they never persist and they are always
+   * created on an explicit Pilot start. Registration is separate from
+   * activation, so a rejected start can discard the provisional document
+   * before it ever becomes visible. The reply names whether the document was
+   * created or already existed, so the caller never rolls back a running
+   * document for identical locked inputs.
+   */
+  openStudyDocument(locked: StudyLockedInputs): StudyDocumentOpen {
+    const existing = this.documents.find(
+      (document): document is StudyDocument =>
+        document.kind === "study" && document.matchesLocks(locked),
+    );
+    if (existing) return { document: existing, created: false };
+
+    const document = new StudyDocument(crypto.randomUUID(), locked);
+    this.documents.push(document);
+    return { document, created: true };
+  }
+
   selectDocument(id: string): void {
     super.selectDocument(id);
     this.activateDocument(this.activeDocument);
@@ -328,6 +364,20 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   closeDocument(id: string): void {
+    const document = this.documents.find((d) => d.id === id);
+    if (
+      document?.kind === "study" &&
+      document.mode !== null &&
+      this.onRequestStudyClose
+    ) {
+      this.onRequestStudyClose(document);
+      return;
+    }
+    this.closeDocumentNow(id);
+  }
+
+  /** Removes one document without the study close confirmation. */
+  closeDocumentNow(id: string): void {
     const document = this.documents.find((d) => d.id === id);
     super.closeDocument(id);
     if (document instanceof EditableGraphDocument) {

@@ -19,8 +19,8 @@ names, schemas, and deployment resources are decided when each item is built.
    non-conflicting listeners. Every runtime tooling item and every study
    command depends on it, so it comes first. Until it exists there is no supported way to run
    the study Mix commands against the deployed environment. The runner
-   commands it will wrap are the ones in
-   [evaluation lifecycle](../concepts/evaluation.md#resumability-and-runner-commands).
+   commands it will wrap are in the
+   [manual collection procedure](topology-scale-study.md#manual-replication-process).
    Its planned output is a safe path to execute an evaluation task in the
    deployed environment.
 2. **Topology diagnostic.** Checks that enterprise-generated tiers differ in
@@ -40,8 +40,8 @@ names, schemas, and deployment resources are decided when each item is built.
 4. **Automatic once-per-frozen-manifest warm-up.** A manifest setting that
    requests exactly one automatic warm-up per frozen manifest before measured
    runs. Today warm-up is manual (`mix evaluate.warmup`). Depends on the
-   one-off evaluator and builds on the frozen-manifest flow in
-   [evaluation lifecycle](../concepts/evaluation.md#resumability-and-runner-commands).
+   one-off evaluator and builds on the frozen-manifest flow in the
+   [study methodology](topology-scale-methodology.md#freeze-timeline).
    Its planned output is one automatic warm-up before the first measured run.
 5. **Crossed study analysis and pilot.** Implemented behavior. The primary
    interval includes plan-selection and attack-outcome variation. The

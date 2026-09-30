@@ -170,6 +170,20 @@
       payload as EvaluationContracts.EvaluationAnalysisErrorEvent,
     );
   });
+
+  useLiveEvent("study_analysis_progress", (payload: unknown) => {
+    model.onStudyProgress(
+      payload as EvaluationContracts.StudyAnalysisProgressEvent,
+    );
+  });
+
+  useLiveEvent("study_analysis_ready", (payload: unknown) => {
+    model.onStudyReady(payload as EvaluationContracts.StudyAnalysisReadyEvent);
+  });
+
+  useLiveEvent("study_analysis_error", (payload: unknown) => {
+    model.onStudyError(payload as EvaluationContracts.StudyAnalysisErrorEvent);
+  });
 </script>
 
 <Dashboard {model} />

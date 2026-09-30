@@ -466,9 +466,17 @@ class PilotStudyTest(PilotTestCase):
         self.assertEqual(metadata["recommended_plan_selection_seed_count"], 5)
         self.assertEqual(metadata["recommended_attacks_per_plan"], 10)
         self.assertFalse(metadata["insufficient_pilot"])
+        self.assertEqual(metadata["multiplicity_correction"], "holm")
         self.assertEqual(metadata["selection_rule"], PILOT_SELECTION_RULE)
-        self.assertIn("study_metadata.json", names)
-        self.assertIn("checksums.txt", names)
+        self.assertEqual(
+            names,
+            {
+                "checksums.txt",
+                "pilot_results.csv",
+                "pilot_results.json",
+                "study_metadata.json",
+            },
+        )
         self.assertEqual(tuple(rows[0].keys()), PILOT_HEADERS)
 
     def test_pilot_rows_cover_every_candidate_and_comparison(self):

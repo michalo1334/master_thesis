@@ -91,6 +91,56 @@ defmodule NetworkDefense.Evaluation.OutputContract do
   @spec file_names() :: [String.t()]
   def file_names, do: @file_names
 
+  @doc """
+  Reports whether `files/1` can export this run.
+
+  The study-tier picker filters on this predicate, so a run that `files/1`
+  rejects never reaches a tier mapping. The predicate mirrors the cheap
+  `files/1` guards. It does not load execution rows or the source graph.
+  """
+  @spec exportable?(EvaluationRun.t() | nil) :: boolean()
+  def exportable?(%EvaluationRun{purpose: "warmup"}), do: false
+
+  def exportable?(%EvaluationRun{status: "completed", runtime_ms: runtime_ms})
+      when is_integer(runtime_ms) and runtime_ms >= 0,
+      do: true
+
+  def exportable?(_run), do: false
+
+  @doc """
+  Returns the selection seeds of the plan rows that `plans.jsonl` exports.
+
+  Study compatibility must use these persisted optimization runs rather than
+  only the manifest's requested strategy-run seeds. A completed evaluation
+  with no persisted plan rows is not valid study evidence.
+  """
+  @spec plan_selection_seeds(EvaluationRun.t() | String.t()) ::
+          {:ok, [non_neg_integer()]} | {:error, :missing_plan_selection_seeds}
+  def plan_selection_seeds(%EvaluationRun{id: id}), do: plan_selection_seeds(id)
+
+  def plan_selection_seeds(evaluation_run_id) when is_binary(evaluation_run_id) do
+    seeds =
+      OptimizationRun
+      |> where([run], run.evaluation_run_id == ^evaluation_run_id)
+      |> order_by(
+        [run],
+        asc: run.model_variant,
+        asc: run.strategy,
+        asc: run.requested_budget,
+        asc: run.selection_seed
+      )
+      |> select([run], run.selection_seed)
+      |> Repo.all()
+
+    if seeds != [] and Enum.all?(seeds, &(is_integer(&1) and &1 >= 0)) do
+      {:ok, seeds}
+    else
+      {:error, :missing_plan_selection_seeds}
+    end
+  end
+
+  def plan_selection_seeds(_run), do: {:error, :missing_plan_selection_seeds}
+
   @spec files(EvaluationRun.t()) :: {:ok, [{String.t(), binary()}]} | {:error, term()}
   def files(%EvaluationRun{purpose: "warmup"}), do: {:error, :not_exportable}
 

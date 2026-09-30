@@ -152,7 +152,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
   test "parses a study analysis result with every new field present" do
     assert {:ok, result} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("study-analyze"),
                  "primary_results.json" => Jason.encode!([study_primary_row()])
                }),
@@ -168,7 +168,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
   test "parses a study pilot result with every new field present" do
     assert {:ok, result} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("study-pilot"),
                  "pilot_results.json" => Jason.encode!([study_pilot_row()])
                }),
@@ -197,7 +197,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
   test "rejects wrong study field types" do
     assert {:error, :malformed_row} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("study-analyze"),
                  "primary_results.json" => Jason.encode!([%{study_primary_row() | "tier" => 1}])
                }),
@@ -206,7 +206,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
 
     assert {:error, :malformed_row} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("study-pilot"),
                  "pilot_results.json" =>
                    Jason.encode!([%{study_pilot_row() | "informative" => "yes"}])
@@ -216,7 +216,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
 
     assert {:error, :malformed_field} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" =>
                    Jason.encode!(Map.put(study_metadata_map("study-pilot"), "family_size", "36")),
                  "pilot_results.json" => Jason.encode!([study_pilot_row()])
@@ -226,7 +226,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
 
     assert {:error, :malformed_field} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" =>
                    Jason.encode!(
                      Map.put(study_metadata_map("study-pilot"), "insufficient_pilot", "no")
@@ -237,10 +237,37 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
              )
   end
 
+  test "rejects study metadata with missing or duplicate tier context" do
+    missing = Map.delete(study_metadata_map("study-pilot"), "tier_context")
+
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               study_zip(%{
+                 "study_metadata.json" => Jason.encode!(missing),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+
+    duplicate =
+      Map.update!(study_metadata_map("study-pilot"), "tier_context", fn [entry | _rest] ->
+        [entry, entry]
+      end)
+
+    assert {:error, :malformed_field} =
+             AnalysisResult.parse(
+               study_zip(%{
+                 "study_metadata.json" => Jason.encode!(duplicate),
+                 "pilot_results.json" => Jason.encode!([study_pilot_row()])
+               }),
+               10_000
+             )
+  end
+
   test "rejects a study result whose command mode does not match its members" do
     assert {:error, :malformed_field} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("pilot"),
                  "primary_results.json" => Jason.encode!([study_primary_row()])
                }),
@@ -249,7 +276,7 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
 
     assert {:error, :malformed_field} =
              AnalysisResult.parse(
-               zip(%{
+               study_zip(%{
                  "study_metadata.json" => study_metadata("analyze"),
                  "pilot_results.json" => Jason.encode!([study_pilot_row()])
                }),
@@ -271,6 +298,61 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
                  "primary_results.json" => "[]",
                  "pilot_results.json" => "[]"
                }),
+               10_000
+             )
+  end
+
+  test "rejects malformed Python study result archives" do
+    payload = study_payload(:pilot)
+    valid = checksummed(payload)
+    [first_checksum | _rest] = String.split(valid["checksums.txt"], "\n", trim: true)
+
+    assert {:error, :unexpected_member} =
+             AnalysisResult.parse(zip(payload), 10_000)
+
+    assert {:error, :unexpected_member} =
+             AnalysisResult.parse(
+               zip(checksummed(Map.put(payload, "extra.json", "extra"))),
+               10_000
+             )
+
+    assert {:error, :invalid_checksum} =
+             AnalysisResult.parse(
+               zip(Map.put(valid, "checksums.txt", "not a checksum\n")),
+               10_000
+             )
+
+    assert {:error, :invalid_checksum} =
+             AnalysisResult.parse(
+               zip(Map.put(valid, "checksums.txt", first_checksum <> "\n")),
+               10_000
+             )
+
+    assert {:error, :invalid_checksum} =
+             AnalysisResult.parse(
+               zip(
+                 Map.put(valid, "checksums.txt", first_checksum <> "\n" <> first_checksum <> "\n")
+               ),
+               10_000
+             )
+
+    assert {:error, :checksum_mismatch} =
+             AnalysisResult.parse(
+               zip(
+                 Map.put(
+                   valid,
+                   "pilot_results.json",
+                   Jason.encode!([%{study_pilot_row() | "passes" => false}])
+                 )
+               ),
+               10_000
+             )
+
+    assert {:error, :member_too_large} =
+             AnalysisResult.parse(
+               zip(
+                 checksummed(Map.put(payload, "pilot_results.csv", String.duplicate("x", 10_001)))
+               ),
                10_000
              )
   end
@@ -442,6 +524,13 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
         "outcome" => "mission_impact"
       },
       "tier_labels" => ["small", "medium", "large"],
+      "tier_context" => [
+        %{
+          "label" => "small",
+          "archive" => "tiers/small.zip",
+          "archive_sha256" => String.duplicate("a", 64)
+        }
+      ],
       "uncertainty_sources" => ["plan_selection", "attack_outcome"],
       "recommended_plan_selection_seed_count" => 6,
       "recommended_attacks_per_plan" => 12,
@@ -485,6 +574,42 @@ defmodule NetworkDefense.Evaluation.AnalysisResultTest do
       "target" => 1.0,
       "passes" => true
     }
+  end
+
+  defp study_zip(files) do
+    mode = if Map.has_key?(files, "primary_results.json"), do: :analyze, else: :pilot
+    study_payload(mode) |> Map.merge(files) |> checksummed() |> zip()
+  end
+
+  defp study_payload(:analyze) do
+    %{
+      "study_metadata.json" => study_metadata("study-analyze"),
+      "primary_results.csv" => "",
+      "primary_results.json" => Jason.encode!([study_primary_row()]),
+      "tier_context.json" => "[]"
+    }
+  end
+
+  defp study_payload(:pilot) do
+    %{
+      "study_metadata.json" => study_metadata("study-pilot"),
+      "pilot_results.csv" => "",
+      "pilot_results.json" => Jason.encode!([study_pilot_row()])
+    }
+  end
+
+  defp checksummed(files) do
+    payload = Map.delete(files, "checksums.txt")
+
+    checksums =
+      payload
+      |> Enum.sort_by(&elem(&1, 0))
+      |> Enum.map_join("\n", fn {name, content} ->
+        "#{name}  #{Base.encode16(:crypto.hash(:sha256, content), case: :lower)}"
+      end)
+      |> then(&(&1 <> "\n"))
+
+    Map.put(payload, "checksums.txt", checksums)
   end
 
   defp zip(files) do

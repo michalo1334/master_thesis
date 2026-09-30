@@ -30,6 +30,22 @@ defmodule NetworkDefense.Evaluation.EvaluationRuns do
     |> Repo.all()
   end
 
+  @doc """
+  Lists completed evaluation runs that are not warm-up runs.
+
+  The study-tier listing reads this list and then filters on
+  `OutputContract.exportable?/1`, so a run without a valid runtime never
+  appears in the picker. Warm-up runs and every non-completed run are excluded
+  here. Associations are preloaded so one query feeds the picker metadata.
+  """
+  def list_eligible_study_runs do
+    EvaluationRun
+    |> where([run], run.status == "completed" and run.purpose != "warmup")
+    |> order_by([run], desc: run.updated_at)
+    |> preload([:evaluation_manifest, :source_graph_revision])
+    |> Repo.all()
+  end
+
   def complete(%EvaluationRun{} = run, runtime_ms) do
     Repo.transaction(fn ->
       run = Repo.one(from(r in EvaluationRun, where: r.id == ^run.id, lock: "FOR UPDATE"))

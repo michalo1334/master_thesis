@@ -1,211 +1,121 @@
-# Evaluation Lifecycle
+# Evaluation and Study Lifecycle
 
-The evaluation runner executes a saved manifest. It compares how defense
-strategies reduce modeled attack impact. It produces deterministic result
-artifacts for later statistical analysis.
+Does a defense reduce simulated damage, or did it merely get favorable attacks?
+Evaluation collects comparable measurements. Analysis estimates differences
+between defenses and how uncertain those differences are.
 
-This page describes the runner and its manual replication commands. See the
-[topology-scale study protocol](../inprogress/topology-scale-study.md) for the
-study procedure.
+## Evaluation, analysis, and a study
 
-## Manifest inputs
+An **evaluation run** is a batch of attack simulations on one network scenario.
+A **strategy** selects defenses; a **plan** is the actions it selects for one
+budget and selection seed. A **trial** is one simulated attacker path. The run
+records plans, outcomes, and execution times.
 
-A manifest declares everything the runner needs for one evaluation. Validation
-and schema live in
-[`Contracts.EvaluationManifest`](../../src/lib/network_defense/evaluation/contracts/evaluation_manifest.ex).
-Inputs fall into these categories:
+**Analysis** reads completed runs; it does not collect new simulations. The
+primary outcome is **mission impact**: a weighted score for disruption to the
+business functions represented in the model. A **study** combines evaluations to answer a broader
+question, such as how defenses perform as networks grow. A **tier** is one
+group in that comparison, such as one network size.
 
-- **Scenario source.** The source graph to attack. It is either a persisted
-  graph revision or a generated topology.
-- **Attacker.** The initial foothold, the host the attack starts from, and the
-  maximum attacker attempts per step.
-- **Model variants.** The objectives and pre-attack feasibility rules used by
-  optimization. Each variant fixes an objective and whether a plan must keep
-  mission capability feasible before the attack.
-- **Strategies and plans.** The defense strategies to run, each under a
-  budget. A plan is one strategy under one budget for one selection seed.
-- **Budget.** The maximum number of defense actions a plan may apply. Current
-  defensive actions have unit cost, so budget and action count are equal. This
-  equality does not represent equal money, effort, or deployment complexity.
-- **Trials and iterations.** The attack-trial count per plan and the optional
-  optimizer trials and iterations for simulation-based strategies. The Azure
-  pilot must select both the common plan-selection seed count and the common
-  attacks-per-plan count.
-- **Objectives.** The analyzed outcomes, such as blast radius and mission
-  impact, plus the comparisons declared for later analysis.
-- **Seeds.** Deterministic random inputs for the evaluation.
+For example, compare plans that restrict network connections with plans
+selected by **CVSS prioritization**, which uses vulnerability severity scores.
+Keep the network, attacker inputs, and action budget comparable. Otherwise,
+less damage might reflect an easier scenario rather than a better defense.
+Equal action counts do not imply equal deployment costs.
 
-The authoritative field set, defaults, and allowed values live in the
-`EvaluationManifest` contract. Do not read them from this page.
+The runner also simulates the network without defense. This **no-defense
+baseline** describes the undefended scenario; it is not CVSS, the reference
+strategy for the study's primary comparisons.
 
-## Scenario setup
+A **manifest** is the recipe for one evaluation. A **study specification** fixes
+the comparisons and statistical rules. Saved specifications are immutable so
+results remain tied to the rules that produced them. See the
+[shared model example](model-example.md) for the network and attack model.
 
-Two Mix tasks prepare scenario sources:
+## Why simulations repeat
 
-- `mix generate.enterprise_topology --title TITLE --hosts N --seed S`
-  generates a deterministic, deny-by-default enterprise topology and persists
-  it as a new graph revision.
-- `mix seed.fixed_order_fulfilment` idempotently seeds the fixed
-  order-fulfilment scenario graph and its local evaluation manifests, and
-  prints the persisted revision and manifest ids.
+Two sources of variation matter:
 
-A generated topology source needs `mix evaluate.freeze` before measured runs
-(see [Resumability and runner commands](#resumability-and-runner-commands)).
+- **Plan selection:** some strategies choose different actions on the same
+  network. Several plans prevent one fortunate choice from representing the
+  whole strategy.
+- **Attack outcomes:** different attacker paths produce different damage
+  against one plan. Several trials prevent one fortunate outcome from
+  determining the result.
 
-## Seeds for repeatability
+Analysis accounts for both; more attacks cannot replace missing variation
+between plans. Shared attack seeds keep comparison inputs comparable. A
+**seed** makes a random sequence reproducible. Fixed inputs reproduce modeled
+outcomes, not wall-clock execution time.
 
-A manifest declares seeds so that a run is repeatable. The same declared
-inputs produce the same plans and trials. The
-[`SeedSchedule`](../../src/lib/network_defense/evaluation/seed_schedule.ex)
-derives named child seeds for the distinct streams, so changing one stream
-does not disturb another. The entry host for the source graph comes from the
-attacker declaration.
+Runtime has separate repeats. A **warm-up** prepares the environment and is
+excluded from evidence. **Timing replicas** repeat fixed inputs to measure
+execution-time variation; they do not add new plan or attack samples. The
+[study protocol](../inprogress/topology-scale-study.md) defines their acceptance
+rules.
 
-## Lifecycle
+## Lifecycle: collection, Pilot, and Final
 
-The runner lifecycle ends when an evaluation run completes. The
-[`Evaluator`](../../src/lib/network_defense/evaluation/evaluator.ex) drives the
-execution. Export and statistical analysis are explicit follow-on steps.
+Each evaluation resolves the network, selects plans, runs no-defense trials,
+and runs trials with each plan applied. Only completed, non-warm-up runs can
+supply analysis archives. Completing an evaluation does not automatically
+produce a statistical report.
+
+**Pilot analysis** checks how much data the study needs. It reads completed
+Pilot evaluations and tests combinations of plan counts and attacks per plan.
+It recommends common counts that meet the precision target across the study's
+comparisons. The target limits how wide the range around each estimated
+difference may be. Candidates cannot exceed the available data.
+
+**Final analysis** reports comparisons from separately collected Final runs.
+Their seeds are disjoint from Pilot seeds: data used to choose sample sizes
+must not also become the Final evidence.
 
 ```mermaid
 flowchart TD
-    A[Resolve manifest] --> B[Create seed schedule]
-    B --> C[Select plans]
-    C --> D[Run baseline attack trials]
-    D --> E[Run post-defense trials for each plan]
-    E --> F[Complete evaluation run]
-    R[Dashboard retry of incomplete evaluation] -.-> A
-    F --> G[Export result archive on request]
-    G --> H[Run statistical analysis]
+    S[Declare study rules and scenarios] --> P[Collect Pilot evaluations]
+    P --> A[Analyze Pilot data]
+    A --> G{Pilot meets precision target?}
+    G -->|No| X[Stop and investigate]
+    G -->|Yes| F[Freeze Final inputs and collect separate evaluations]
+    F --> V[Validate completed Final evidence]
+    V --> R[Analyze Final data and report uncertainty]
 ```
 
-The runner resolves the manifest source into a graph revision and builds one
-seed schedule. It selects every plan before baseline trials begin. It then
-runs the baseline attack trials on the source graph, followed by post-defense
-trials on each optimized graph revision. The run completes only after every
-experiment completes. On request, the system exports a completed run as an
-evaluation archive; the
-[analysis archive-file list](../../evaluation/analysis/README.md#evaluation-archive-files) lists
-the archive files. A separate command starts statistical analysis.
+Collection uses the evaluation workflow. The Study dialog only analyzes
+existing runs: select Pilot evidence first, then separate Final evidence after
+an eligible Pilot. It does not generate networks or collect those runs.
 
-## Resumability and runner commands
+An **insufficient Pilot** finds no candidate that meets the precision target.
+A **non-informative comparison** has zero estimated difference and a zero-width
+interval; it stops the Pilot rather than proving precision. Investigate the
+inputs and model behavior instead of treating it as success. Neither unlocks
+Final. Identical reruns do not bypass these conditions. See the
+[statistical rules](../../evaluation/analysis/README.md#pilot-correction-and-conservative-coverage)
+and [freeze timeline](../inprogress/topology-scale-methodology.md#freeze-timeline).
 
-The dashboard worker can continue an incomplete run. It reuses completed plans
-and trials instead of redoing them. `mix evaluate.manifest` does not continue a
-run. It starts a new run on every invocation. You can run a saved manifest
-with:
+## Failures and saved results
 
-- `mix evaluate.manifest --manifest-id ID --output evaluation.zip`
+Incomplete evaluations cannot supply evidence. Resuming reuses finished work,
+but an interrupted timing replica needs a fresh replacement: resuming would
+change what its duration measures. Retry a failed analysis with the same
+completed inputs only after resolving its cause. Invalid evidence must be
+corrected first.
 
-Use `mix evaluate.import --file manifest.json` to save a versioned JSON
-manifest. The manifest `id` becomes the saved manifest id. The command reuses
-identical content and rejects changed content with the same id.
+Evaluation records and specifications are saved. Dashboard study results are
+temporary: closing cancels running analysis, and the session ends when its
+LiveView terminates. Download results before closing. Reopening a ZIP is
+read-only and does not restore the live Pilot gate. See the
+[dashboard workflow](../design/dashboard.md#study-analysis).
 
-For a generated topology, use `mix evaluate.freeze --manifest-id SOURCE
---frozen-manifest-id TARGET` before measured runs. The command generates and
-persists the source graph once. It saves `TARGET` with that immutable graph
-revision and the resolved entry-host ID. Use `TARGET` for warm-up and measured
-runs. The target id must be new.
+## What the results mean
 
-Use `mix evaluate.warmup --manifest-id ID` for one unmeasured run. Warm-up is
-manual today; requesting it automatically once per frozen manifest is planned
-tooling (see the
-[cloud evaluation tooling plan](../inprogress/cloud-evaluation-tooling-plan.md)).
-A warm-up run cannot be exported or analyzed.
+Results are conditional on the simulated network, attacker, and model. Their
+uncertainty covers plans and attacks, not different generated networks or
+environments. Contrasts with CVSS do not establish a universal defense ranking.
+Local runs validate the workflow and select parameters, not the planned cloud
+study's final claims. See the [research scope](scope.md).
 
-The [analysis archive-file list](../../evaluation/analysis/README.md#evaluation-archive-files)
-describes the archive contents. For analysis:
-
-- `mix evaluate.analyze --run-id RUN_ID --output analysis.zip`
-
-The [`evaluate.optimization`](../../src/lib/mix/tasks/evaluate.optimization.ex)
-task runs a single optimization synchronously and prints a JSON record. The
-[`evaluate.manifest`](../../src/lib/mix/tasks/evaluate.manifest.ex) task runs
-a whole saved manifest. The
-[`evaluate.analyze`](../../src/lib/mix/tasks/evaluate.analyze.ex) task sends a
-completed archive to the analysis service.
-
-## Comparable experiments
-
-The shared example in [model-example.md](model-example.md) describes the model
-with one client zone, one service zone, one vulnerable service, one credential,
-and one mission capability. Use it to reason about one comparable baseline and
-one equal-budget post-defense experiment.
-
-The two experiments declare the same inputs: the same scenario source, the
-same attacker entry, the same trial count, and the same evaluation seed. The
-baseline runs attack trials on the source graph with no defense action. The
-post-defense run first selects one plan under the equal action budget, applies
-its defense action to form an optimized graph, then runs attack trials on that
-graph with the same declared inputs. The two outcomes are comparable because
-only the applied plan differs.
-
-Terminology follows [vocabulary.md](vocabulary.md). Statistical analysis,
-including comparisons and uncertainty, is described in the
-[evaluation analysis README](../../evaluation/analysis/README.md).
-
-## Study analysis contract
-
-The Azure topology-scale study compares random, topology segmentation,
-simulation-informed, and simulated-annealing strategies with CVSS. It evaluates
-action-count budgets of one, two, and three on three frozen topology tiers. The
-null strategy is a descriptive control only.
-
-The primary estimand is the paired mean difference in simulated mission impact
-against CVSS. Blast radius is secondary and includes the initial foothold.
-Ordering the CVSS contrasts does not establish a universal ranking between all
-strategies.
-
-Primary intervals must include variation between selected plans and variation
-between attack outcomes. The pilot must select one common plan-selection seed
-count and attacks-per-plan count that meet a half-width target of one
-mission-impact point. A zero-difference and zero-width comparison is a
-non-informative stop condition, not an automatic precision pass. Holm
-correction applies across all 36 primary comparisons.
-
-The current analysis and pilot implement this contract. The crossed estimator
-builds one tested plan-by-attack matrix and one CVSS plan-by-attack matrix per
-comparison. It samples plan rows independently and shares the sampled attack
-columns across both sides. The two-dimensional pilot selects the common plan
-count and attacks-per-plan count. One Holm correction covers the complete
-36-comparison family. High coverage above the accepted range is conservative.
-It can select a larger sample but does not invalidate the result.
-
-The versioned study specification declares the family rules and the candidate
-grid. The `mix evaluate.study` task builds the study bundle in Elixir and calls
-the Python service. Statistics stay in Python. Study execution is Mix-only. The
-dashboard does not start study runs. See the
-[analysis guide](../../evaluation/analysis/README.md#single-archive-and-study-analysis).
-
-Current limits: each tier has one frozen graph, and the study has one recorded
-environment. The results do not cover graph-generation or environment
-variation.
-
-### Where the two sources of variation enter
-
-```mermaid
-flowchart LR
-    C[Fixed tier and action-count budget]
-    C --> AS[Alternative plan-selection seeds]
-    C --> CS[CVSS plan-selection seeds]
-    AS --> AP[Selected alternative plans]
-    CS --> CP[Selected CVSS plans]
-    AP --> AA[Paired attack seeds for each plan]
-    CP --> AA
-    AA --> D[Paired mission-impact differences]
-    D --> I[Interval over plans and attacks]
-```
-
-For example, one tier and one budget can produce several alternative plans and
-several CVSS plans. Every selected plan is evaluated with the declared attack
-seeds. Differences between plans measure plan-selection variation. Differences
-between attacks against one plan measure attack-outcome variation. The primary
-interval must include both sources.
-
-## Relationship to the topology-scale study
-
-The [topology-scale protocol](../inprogress/topology-scale-study.md) defines
-which manifests to run, when to warm up, how many timing replicas to collect,
-and how to compare them. Local runs are pilots. Final cloud-runtime,
-topology-scale, and strategy-effect evidence requires the completed Azure
-study.
+For execution commands and file formats, use the
+[collection procedure](../inprogress/topology-scale-study.md#manual-replication-process)
+and [analysis guide](../../evaluation/analysis/README.md#single-archive-and-study-analysis).

@@ -5,6 +5,13 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
   @study_metadata_file "study_metadata.json"
   @study_primary_file "primary_results.json"
   @study_pilot_file "pilot_results.json"
+  @checksums_file "checksums.txt"
+  @study_analyze_files ~w(
+    study_metadata.json primary_results.csv primary_results.json tier_context.json checksums.txt
+  )
+  @study_pilot_files ~w(
+    study_metadata.json pilot_results.csv pilot_results.json checksums.txt
+  )
 
   @comparison_fields ~w(comparison strategy model_variant baseline baseline_model_variant budget)
   @outcome_fields @comparison_fields ++ ~w(outcome)
@@ -59,9 +66,10 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
   def parse(zip, max_bytes) when is_binary(zip) and is_integer(max_bytes) and max_bytes > 0 do
     with {:ok, members} <- list_members(zip),
          {:ok, format, files} <- classify(Enum.map(members, & &1.name)),
-         :ok <- reject_declared_oversize(members, files, max_bytes),
+         :ok <- validate_members(members, files, format, max_bytes),
          {:ok, entries} <- extract_entries(zip, files),
-         :ok <- validate_entries(entries, files, max_bytes) do
+         :ok <- validate_entries(entries, files, format, max_bytes),
+         :ok <- validate_checksums(entries, format) do
       build(format, entries, max_bytes)
     end
   rescue
@@ -83,13 +91,44 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     end
   end
 
-  defp reject_declared_oversize(members, files, max_bytes) do
-    oversized? =
-      Enum.any?(members, fn member ->
-        member.name in files and member.uncompressed_size > max_bytes
+  defp validate_members(members, files, format, max_bytes) do
+    names = Enum.map(members, & &1.name)
+
+    case validate_member_set(names, files, format) do
+      :ok -> validate_declared_sizes(members, max_bytes)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp validate_member_set(names, files, format) when format in [:study_analyze, :study_pilot] do
+    if Enum.sort(names) == Enum.sort(files), do: :ok, else: {:error, :unexpected_member}
+  end
+
+  defp validate_member_set(names, files, :legacy) do
+    if Enum.all?(files, fn file -> Enum.count(names, &(&1 == file)) == 1 end),
+      do: :ok,
+      else: {:error, :missing_or_duplicate}
+  end
+
+  defp validate_declared_sizes(members, max_bytes) do
+    total =
+      Enum.reduce_while(members, {:ok, 0}, fn
+        %{uncompressed_size: size}, {:ok, total}
+        when is_integer(size) and size >= 0 and size <= max_bytes ->
+          next_total = total + size
+
+          if next_total <= max_bytes,
+            do: {:cont, {:ok, next_total}},
+            else: {:halt, {:error, :archive_too_large}}
+
+        _member, _acc ->
+          {:halt, {:error, :member_too_large}}
       end)
 
-    if oversized?, do: {:error, :member_too_large}, else: :ok
+    case total do
+      {:ok, _size} -> :ok
+      {:error, _reason} = error -> error
+    end
   end
 
   defp classify(names) do
@@ -99,14 +138,14 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     pilot? = Enum.count(names, &(&1 == @study_pilot_file))
 
     cond do
-      legacy? ->
-        {:ok, :legacy, @legacy_files}
-
       metadata? and primary? == 1 and pilot? == 0 ->
-        {:ok, :study_analyze, [@study_metadata_file, @study_primary_file]}
+        {:ok, :study_analyze, @study_analyze_files}
 
       metadata? and pilot? == 1 and primary? == 0 ->
-        {:ok, :study_pilot, [@study_metadata_file, @study_pilot_file]}
+        {:ok, :study_pilot, @study_pilot_files}
+
+      legacy? ->
+        {:ok, :legacy, @legacy_files}
 
       true ->
         {:error, :missing_or_duplicate}
@@ -167,22 +206,103 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     }
   end
 
-  defp validate_entries(entries, files, max_bytes) do
+  defp validate_entries(entries, files, format, max_bytes) do
     names = Enum.map(entries, fn {name, _content} -> to_string(name) end)
 
+    total_bytes =
+      Enum.reduce(entries, 0, fn {_name, content}, total -> total + byte_size(content) end)
+
     cond do
+      format in [:study_analyze, :study_pilot] and Enum.sort(names) != Enum.sort(files) ->
+        {:error, :unexpected_member}
+
       Enum.any?(files, fn file -> Enum.count(names, &(&1 == file)) != 1 end) ->
         {:error, :missing_or_duplicate}
 
-      Enum.any?(entries, fn {name, content} ->
-        to_string(name) in files and byte_size(content) > max_bytes
-      end) ->
+      total_bytes > max_bytes ->
+        {:error, :archive_too_large}
+
+      Enum.any?(entries, fn {_name, content} -> byte_size(content) > max_bytes end) ->
         {:error, :member_too_large}
 
       true ->
         :ok
     end
   end
+
+  defp validate_checksums(_entries, :legacy), do: :ok
+
+  defp validate_checksums(entries, format) when format in [:study_analyze, :study_pilot] do
+    payload_files = Enum.reject(study_files(format), &(&1 == @checksums_file))
+
+    with {:ok, checksums} <- checksum_entries(entries),
+         :ok <- checksum_coverage(checksums, payload_files) do
+      verify_checksums(entries, checksums)
+    end
+  end
+
+  defp study_files(:study_analyze), do: @study_analyze_files
+  defp study_files(:study_pilot), do: @study_pilot_files
+
+  defp checksum_entries(entries) do
+    case Enum.find(entries, fn {name, _content} -> to_string(name) == @checksums_file end) do
+      {_name, content} -> parse_checksum_lines(content)
+      nil -> {:error, :missing_or_duplicate}
+    end
+  end
+
+  defp parse_checksum_lines(content) do
+    with {:ok, lines} <- checksum_lines(content) do
+      collect_checksum_lines(lines)
+    end
+  end
+
+  defp checksum_lines(content) do
+    if String.contains?(content, "\n\n") do
+      {:error, :invalid_checksum}
+    else
+      {:ok, content |> String.trim_trailing("\n") |> String.split("\n")}
+    end
+  end
+
+  defp collect_checksum_lines(lines) do
+    Enum.reduce_while(lines, {:ok, %{}}, fn line, {:ok, checksums} ->
+      case Regex.run(~r/\A([^\s]+)  ([0-9a-f]{64})\z/, line) do
+        [_, name, digest] when not is_map_key(checksums, name) ->
+          {:cont, {:ok, Map.put(checksums, name, digest)}}
+
+        _invalid ->
+          {:halt, {:error, :invalid_checksum}}
+      end
+    end)
+  end
+
+  defp checksum_coverage(checksums, files) do
+    if Map.keys(checksums) |> MapSet.new() == MapSet.new(files),
+      do: :ok,
+      else: {:error, :invalid_checksum}
+  end
+
+  defp verify_checksums(entries, checksums) do
+    Enum.reduce_while(checksums, :ok, fn {name, digest}, :ok ->
+      case verify_checksum(entries, name, digest) do
+        :ok -> {:cont, :ok}
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp verify_checksum(entries, name, digest) do
+    case Enum.find(entries, fn {entry_name, _content} -> to_string(entry_name) == name end) do
+      {_entry_name, content} ->
+        if digest(content) == digest, do: :ok, else: {:error, :checksum_mismatch}
+
+      nil ->
+        {:error, :missing_or_duplicate}
+    end
+  end
+
+  defp digest(content), do: Base.encode16(:crypto.hash(:sha256, content), case: :lower)
 
   defp read_json(entries, name, max_bytes) do
     case Enum.find(entries, fn {entry_name, _content} -> to_string(entry_name) == name end) do
@@ -249,16 +369,19 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
              metadata,
              ~w(
                study_id specification_version family_scope family_size command_mode
-               expected_family
+               multiplicity_correction expected_family
              )
            ),
-         :ok <- required_list_fields(metadata, ["tier_labels", "uncertainty_sources"]),
+         :ok <-
+           required_list_fields(metadata, ["tier_labels", "uncertainty_sources", "tier_context"]),
          :ok <- validate_binary(metadata["study_id"]),
          :ok <- validate_positive_integer(metadata["specification_version"]),
          :ok <- validate_binary(metadata["family_scope"]),
          :ok <- validate_positive_integer(metadata["family_size"]),
          :ok <- validate_binary(metadata["command_mode"]),
-         :ok <- validate_map(metadata["expected_family"]) do
+         :ok <- validate_multiplicity_correction(metadata["multiplicity_correction"]),
+         :ok <- validate_map(metadata["expected_family"]),
+         :ok <- validate_tier_context(metadata["tier_context"]) do
       validate_metadata_types(metadata)
     end
   end
@@ -274,6 +397,46 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
     end
   end
 
+  defp validate_tier_context(context) when is_list(context) and context != [] do
+    case collect_tier_context(context) do
+      {:ok, entries} -> unique_tier_context(entries)
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp validate_tier_context(_context), do: {:error, :malformed_field}
+
+  defp collect_tier_context(context) do
+    Enum.reduce_while(context, {:ok, []}, fn entry, {:ok, entries} ->
+      case tier_context_entry(entry) do
+        {:ok, entry} -> {:cont, {:ok, [entry | entries]}}
+        :error -> {:halt, {:error, :malformed_field}}
+      end
+    end)
+  end
+
+  defp tier_context_entry(%{"label" => label, "archive" => archive, "archive_sha256" => digest})
+       when is_binary(label) and label != "" and is_binary(archive) and archive != "" and
+              is_binary(digest) do
+    if valid_digest?(digest), do: {:ok, {label, archive, digest}}, else: :error
+  end
+
+  defp tier_context_entry(_entry), do: :error
+
+  defp unique_tier_context(entries) do
+    labels = Enum.map(entries, &elem(&1, 0))
+    archives = Enum.map(entries, &elem(&1, 1))
+
+    if length(labels) == length(Enum.uniq(labels)) and
+         length(archives) == length(Enum.uniq(archives)) do
+      :ok
+    else
+      {:error, :malformed_field}
+    end
+  end
+
+  defp valid_digest?(digest), do: String.match?(digest, ~r/\A[0-9a-f]{64}\z/)
+
   defp validate_study_command_mode(%{"command_mode" => expected}, expected), do: :ok
   defp validate_study_command_mode(_metadata, _expected), do: {:error, :malformed_field}
 
@@ -285,6 +448,9 @@ defmodule NetworkDefense.Evaluation.AnalysisResult do
 
   defp validate_positive_integer(value) when is_integer(value) and value > 0, do: :ok
   defp validate_positive_integer(_value), do: {:error, :malformed_field}
+
+  defp validate_multiplicity_correction("holm"), do: :ok
+  defp validate_multiplicity_correction(_value), do: {:error, :malformed_field}
 
   defp required_map_fields(map, fields) do
     if Enum.all?(fields, &Map.has_key?(map, &1)), do: :ok, else: {:error, :missing_field}

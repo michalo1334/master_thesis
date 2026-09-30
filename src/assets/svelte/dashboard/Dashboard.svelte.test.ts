@@ -60,6 +60,18 @@ async function dispatchStudyFile(
   await fireEvent.change(input, { target: { files: file ? [file] : [] } });
 }
 
+async function openStudyMenu(): Promise<HTMLElement> {
+  await fireEvent.click(screen.getByRole("button", { name: "More options" }));
+  return await screen.findByRole("menuitem", {
+    name: /Open study results|Opening/,
+  });
+}
+
+async function chooseOpenStudyResults(): Promise<void> {
+  const item = await openStudyMenu();
+  await fireEvent.click(item);
+}
+
 describe("Dashboard document content", () => {
   it("loads a restored graph when its tab is selected", async () => {
     const api = {
@@ -160,15 +172,23 @@ describe("Dashboard document content", () => {
     const model = new DashboardModel(api);
     render(Dashboard, { props: { model } });
 
-    await fireEvent.click(
-      screen.getByRole("button", { name: "Open study results" }),
-    );
+    await chooseOpenStudyResults();
     await dispatchStudyFile(
       screen.getByLabelText("Select study results ZIP") as HTMLInputElement,
     );
 
     expect(api.importStudyResults).not.toHaveBeenCalled();
     expect(model.workspace.documents).toHaveLength(0);
+  });
+
+  it("keeps the hidden study ZIP input out of the keyboard tab order", () => {
+    const api = { importStudyResults: vi.fn() } as unknown as DashboardApi;
+    const model = new DashboardModel(api);
+    render(Dashboard, { props: { model } });
+
+    const input = screen.getByLabelText("Select study results ZIP");
+
+    expect(input).toHaveAttribute("tabindex", "-1");
   });
 
   it("rejects an oversized study ZIP before sending it", async () => {
@@ -210,10 +230,13 @@ describe("Dashboard document content", () => {
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Open study results" }),
-      ).toBeDisabled(),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Opening study results…",
+      ),
     );
+    const item = await openStudyMenu();
+    expect(item).toHaveAttribute("data-disabled");
+    expect(item).toHaveTextContent("Opening…");
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Opening study results…");
     expect(status).toHaveAttribute("aria-live", "polite");
@@ -222,8 +245,8 @@ describe("Dashboard document content", () => {
     resolveImport!({ status: "ok", analysis: studyAnalysis("analyze") });
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Open study results" }),
-      ).toBeEnabled(),
+        screen.getByRole("menuitem", { name: "Open study results" }),
+      ).not.toHaveAttribute("data-disabled"),
     );
   });
 
@@ -254,15 +277,33 @@ describe("Dashboard document content", () => {
 
     await dispatchStudyFile(input, firstFile);
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: "Open study results" }),
-      ).toBeDisabled(),
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Opening study results…",
+      ),
     );
     await dispatchStudyFile(input, secondFile);
 
     expect(secondFile.arrayBuffer).not.toHaveBeenCalled();
     resolveFirstRead!(new TextEncoder().encode("study").buffer);
     await waitFor(() => expect(api.importStudyResults).toHaveBeenCalledOnce());
+  });
+
+  it("opens the study dialog from the Run study split button", async () => {
+    const api = {
+      listStudySpecifications: vi
+        .fn()
+        .mockResolvedValue({ specifications: [] }),
+      listStudyTierRuns: vi.fn().mockResolvedValue({ runs: [] }),
+    } as unknown as DashboardApi;
+    const model = new DashboardModel(api);
+    render(Dashboard, { props: { model } });
+
+    await fireEvent.click(screen.getByRole("button", { name: "Run study" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Study analysis")).toBeInTheDocument(),
+    );
+    expect(model.study.open).toBe(true);
   });
 
   it("opens a study document only after a successful import", async () => {

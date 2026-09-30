@@ -10,6 +10,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Evaluation.AnalysisResult
   alias NetworkDefense.Evaluation.EvaluationRuns
   alias NetworkDefense.Evaluation.EvaluationWorker
+  alias NetworkDefense.Evaluation.StudyRunner
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node, TopologyProjection}
   alias NetworkDefense.Graph.SemanticConnectivity
@@ -19,8 +20,12 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
   alias Phoenix.PubSub
 
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.CloseStudyDocumentPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.CloseStudyDocumentReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeStudySpecificationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeStudySpecificationReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisErrorEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysisReadyEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationCompletedEvent
@@ -30,16 +35,29 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReportPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetStudySpecificationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetStudySpecificationReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListManifestsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudySpecificationsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudySpecificationsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudyTierRunsPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudyTierRunsReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.PreflightStudyPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.PreflightStudyReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.RequestEvaluationAnalysisReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveManifestReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveStudySpecificationPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveStudySpecificationReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartStudyAnalysisPayload
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartStudyAnalysisReply
+  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierRunSummary
   alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.CompareGraphsReply
@@ -96,6 +114,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportReadyEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
+  alias NetworkDefenseWeb.Dashboard.StudyCoordinator
 
   @impl true
   def render(assigns) do
@@ -132,6 +151,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       socket
       |> assign(:graph_summaries, graph_summaries())
       |> assign(:folders, folder_summaries())
+      |> assign(:study_sessions, %{})
 
     if connected?(socket) do
       PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
@@ -140,6 +160,15 @@ defmodule NetworkDefenseWeb.DashboardLive do
     end
 
     {:ok, socket}
+  end
+
+  @impl true
+  def terminate(_reason, socket) do
+    socket.assigns
+    |> Map.get(:study_sessions, %{})
+    |> StudyCoordinator.terminate()
+
+    :ok
   end
 
   @impl true
@@ -255,6 +284,107 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
       {:error, _changeset} ->
         {:reply, describe_manifest_reply("invalid_request", [], [], []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("save_study_specification", params, socket) do
+    case SaveStudySpecificationPayload.validate(params) do
+      {:ok, request} ->
+        save_study_specification(request, socket)
+
+      {:error, _changeset} ->
+        {:reply, save_study_specification_reply("invalid_request", nil, []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("list_study_specifications", params, socket) do
+    case ListStudySpecificationsPayload.validate(params) do
+      {:ok, _request} ->
+        specifications =
+          Enum.map(Evaluation.list_study_specifications(), &study_specification_summary/1)
+
+        {:reply, list_study_specifications_reply(specifications), socket}
+
+      {:error, _changeset} ->
+        {:reply, list_study_specifications_reply([]), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("get_study_specification", params, socket) do
+    case GetStudySpecificationPayload.validate(params) do
+      {:ok, request} ->
+        specification =
+          case Evaluation.get_study_specification(request.id) do
+            nil -> nil
+            specification -> study_specification_summary(specification, content: true)
+          end
+
+        {:reply, get_study_specification_reply(specification), socket}
+
+      {:error, _changeset} ->
+        {:reply, get_study_specification_reply(nil), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("describe_study_specification", params, socket) do
+    case DescribeStudySpecificationPayload.validate(params) do
+      {:ok, request} ->
+        describe_study_specification(request.content, socket)
+
+      {:error, _changeset} ->
+        {:reply, describe_study_specification_reply("invalid_request", nil, []), socket}
+    end
+  end
+
+  @impl true
+  def handle_event("list_study_tier_runs", params, socket) do
+    reply =
+      case ListStudyTierRunsPayload.validate(params) do
+        {:ok, request} ->
+          list_study_tier_runs_reply(
+            study_tier_run_summaries(request),
+            required_study_inputs(request.specification_id)
+          )
+
+        {:error, _changeset} ->
+          list_study_tier_runs_reply([])
+      end
+
+    {:reply, reply, socket}
+  end
+
+  @impl true
+  def handle_event("preflight_study", params, socket) do
+    case PreflightStudyPayload.validate(params) do
+      {:ok, request} -> {:reply, preflight_study(request), socket}
+      {:error, _changeset} -> {:reply, preflight_study_reply("invalid_request", [], nil), socket}
+    end
+  end
+
+  # Study start reuses the same mounted DashboardLive boundary as
+  # `start_evaluation`. The dashboard has no separate per-run actor policy, so
+  # the frozen design reuses the evaluation authorization boundary.
+  @impl true
+  def handle_event("start_study_analysis", params, socket) do
+    case StartStudyAnalysisPayload.validate(params) do
+      {:ok, request} ->
+        start_study_analysis(request, socket)
+
+      {:error, _changeset} ->
+        {:reply, start_study_analysis_reply("invalid_request", nil, nil, nil, :invalid_request),
+         socket}
+    end
+  end
+
+  @impl true
+  def handle_event("close_study_document", params, socket) do
+    case CloseStudyDocumentPayload.validate(params) do
+      {:ok, request} -> close_study_document(request.document_id, socket)
+      {:error, _changeset} -> {:reply, close_study_document_reply("invalid_request"), socket}
     end
   end
 
@@ -677,6 +807,23 @@ defmodule NetworkDefenseWeb.DashboardLive do
            error: dashboard_error(reason)
          })}
     end
+  end
+
+  def handle_info({:study_phase, document_id, attempt_id, phase}, socket) do
+    events = StudyCoordinator.handle_phase(study_sessions(socket), document_id, attempt_id, phase)
+    {:noreply, forward_study_events(socket, events)}
+  end
+
+  def handle_info({:study_result, document_id, attempt_id, result}, socket) do
+    events =
+      StudyCoordinator.handle_result(study_sessions(socket), document_id, attempt_id, result)
+
+    {:noreply, forward_study_events(socket, events)}
+  end
+
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, socket) do
+    events = StudyCoordinator.handle_down(study_sessions(socket), ref)
+    {:noreply, forward_study_events(socket, events)}
   end
 
   def handle_info({:report_result, document_id, experiment_id, result}, socket) do
@@ -1350,6 +1497,214 @@ defmodule NetworkDefenseWeb.DashboardLive do
       summary
     end
   end
+
+  defp save_study_specification(request, socket) do
+    case Evaluation.save_study_specification(%{title: request.title, content: request.content}) do
+      {:ok, specification} ->
+        summary = study_specification_summary(specification, content: true)
+        {:reply, save_study_specification_reply("ok", summary, []), socket}
+
+      {:error, :immutable_conflict} ->
+        {:reply, save_study_specification_reply("immutable_conflict", nil, []), socket}
+
+      {:error, errors} when is_list(errors) ->
+        {:reply, save_study_specification_reply("invalid_specification", nil, errors), socket}
+
+      {:error, _reason} ->
+        {:reply, save_study_specification_reply("invalid_request", nil, []), socket}
+    end
+  end
+
+  defp describe_study_specification(content, socket) do
+    case Evaluation.describe_study_specification(content) do
+      {:ok, description} ->
+        {:reply, describe_study_specification_reply("ok", description, []), socket}
+
+      {:error, errors} ->
+        {:reply, describe_study_specification_reply("invalid_specification", nil, errors), socket}
+    end
+  end
+
+  defp save_study_specification_reply(status, specification, errors) do
+    contract_reply(SaveStudySpecificationReply, %{
+      status: status,
+      specification: specification,
+      errors: errors
+    })
+  end
+
+  defp list_study_specifications_reply(specifications),
+    do: contract_reply(ListStudySpecificationsReply, %{specifications: specifications})
+
+  defp get_study_specification_reply(specification),
+    do: contract_reply(GetStudySpecificationReply, %{specification: specification})
+
+  defp describe_study_specification_reply(status, description, errors) do
+    contract_reply(DescribeStudySpecificationReply, %{
+      status: status,
+      description: description,
+      errors: errors
+    })
+  end
+
+  defp study_specification_summary(specification, opts \\ []) do
+    summary = %{
+      id: specification.id,
+      study_id: specification.study_id,
+      specification_version: specification.specification_version,
+      title: specification.title
+    }
+
+    if Keyword.get(opts, :content, false) do
+      Map.put(summary, :content, specification.content)
+    else
+      summary
+    end
+  end
+
+  defp study_sessions(socket), do: Map.get(socket.assigns, :study_sessions, %{})
+
+  defp list_study_tier_runs_reply(runs, required_inputs \\ nil),
+    do: contract_reply(ListStudyTierRunsReply, %{runs: runs, required_inputs: required_inputs})
+
+  defp required_study_inputs(specification_id) do
+    case Evaluation.required_study_inputs(specification_id) do
+      {:ok, summary} -> summary
+      {:error, _reason} -> nil
+    end
+  end
+
+  defp study_tier_run_summaries(%ListStudyTierRunsPayload{} = request) do
+    with {:ok, mode} <- StudyRunner.parse_mode(request.mode),
+         {:ok, runs} <-
+           Evaluation.list_study_tier_runs(request.specification_id, request.tier, mode) do
+      Enum.flat_map(runs, &study_tier_run_summary/1)
+    else
+      _error -> []
+    end
+  end
+
+  defp study_tier_run_summary(run) do
+    case StudyTierRunSummary.validate(run) do
+      {:ok, summary} -> [StudyTierRunSummary.to_wire(summary)]
+      {:error, _changeset} -> []
+    end
+  end
+
+  defp preflight_study(%PreflightStudyPayload{} = request) do
+    with {:ok, mode} <- StudyRunner.parse_mode(request.mode),
+         {:ok, preflight} <-
+           Evaluation.preflight_study(
+             request.specification_id,
+             tier_run_pairs(request.tier_runs),
+             mode
+           ) do
+      preflight_study_reply("ok", [], %{
+        study_id: preflight.study_id,
+        specification_version: preflight.specification_version,
+        tier_count: length(preflight.tier_labels),
+        required_inputs: required_study_inputs(request.specification_id)
+      })
+    else
+      {:error, reason} -> preflight_study_reply("rejected", [reason], nil)
+    end
+  end
+
+  defp preflight_study_reply(status, reasons, detail) do
+    errors = Enum.map(reasons, &study_run_error/1)
+
+    attrs =
+      if detail,
+        do: Map.merge(%{status: status, errors: errors}, detail),
+        else: %{status: status, errors: errors}
+
+    contract_reply(PreflightStudyReply, attrs)
+  end
+
+  defp start_study_analysis(%StartStudyAnalysisPayload{} = request, socket) do
+    case StudyRunner.parse_mode(request.mode) do
+      {:ok, mode} ->
+        run_study_start(mode, request, socket)
+
+      {:error, :invalid_mode} ->
+        reply =
+          start_study_analysis_reply(
+            "invalid_request",
+            request.document_id,
+            nil,
+            nil,
+            :invalid_mode
+          )
+
+        {:reply, reply, socket}
+    end
+  end
+
+  defp run_study_start(mode, request, socket) do
+    start_request = %{
+      document_id: request.document_id,
+      specification_id: request.specification_id,
+      tier_runs: tier_run_pairs(request.tier_runs)
+    }
+
+    case StudyCoordinator.start(study_sessions(socket), mode, start_request) do
+      {:ok, sessions, document_id, attempt_id} ->
+        reply =
+          start_study_analysis_reply("accepted", document_id, mode_wire(mode), attempt_id, nil)
+
+        {:reply, reply, assign(socket, :study_sessions, sessions)}
+
+      {:error, reason} ->
+        reply =
+          start_study_analysis_reply(
+            "rejected",
+            request.document_id,
+            mode_wire(mode),
+            nil,
+            reason
+          )
+
+        {:reply, reply, socket}
+    end
+  end
+
+  defp close_study_document(document_id, socket) do
+    {sessions, status} = StudyCoordinator.close(study_sessions(socket), document_id)
+
+    {:reply, close_study_document_reply(Atom.to_string(status)),
+     assign(socket, :study_sessions, sessions)}
+  end
+
+  defp forward_study_events(socket, {sessions, pushes}) do
+    socket = assign(socket, :study_sessions, sessions)
+
+    Enum.reduce(pushes, socket, fn {event, contract, payload}, socket ->
+      push_contract_event(socket, event, contract, payload)
+    end)
+  end
+
+  defp start_study_analysis_reply(status, document_id, mode, attempt_id, reason) do
+    errors = if is_nil(reason), do: [], else: [study_run_error(reason)]
+
+    contract_reply(StartStudyAnalysisReply, %{
+      status: status,
+      document_id: document_id,
+      mode: mode,
+      attempt_id: attempt_id,
+      errors: errors
+    })
+  end
+
+  defp close_study_document_reply(status),
+    do: contract_reply(CloseStudyDocumentReply, %{status: status})
+
+  defp study_run_error(reason),
+    do: %{code: Atom.to_string(StudyRunner.wire_error(reason))}
+
+  defp tier_run_pairs(selections), do: Enum.map(selections, &{&1.tier, &1.run_id})
+
+  defp mode_wire(:final), do: "final"
+  defp mode_wire(_mode), do: "pilot"
 
   defp start_evaluation_task(run_id) do
     OpentelemetryOban.insert(EvaluationWorker.new(%{"run_id" => run_id}))

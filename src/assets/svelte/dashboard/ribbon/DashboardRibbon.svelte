@@ -5,6 +5,7 @@
   import Icon from "../../ui-kit/primitives/Icon.svelte";
   import { Ribbon } from "../../ui-kit/layout";
   import Slider from "../../ui-kit/primitives/Slider.svelte";
+  import SplitButton from "../../ui-kit/primitives/SplitButton.svelte";
   import type { OptimizationParamsChange } from "../contract";
   import Checkbox from "../../ui-kit/primitives/Checkbox.svelte";
   import NumberInput from "../../ui-kit/primitives/NumberInput.svelte";
@@ -21,6 +22,7 @@
     onRunSimulation: () => void;
     onCompareGraphs: () => void;
     onOpenAnalysis: () => void;
+    onRunStudy: () => void;
     onOpenStudyResults: () => void;
     isImportingStudyResults: boolean;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
@@ -41,6 +43,7 @@
     onRunSimulation,
     onCompareGraphs,
     onOpenAnalysis,
+    onRunStudy,
     onOpenStudyResults,
     isImportingStudyResults,
     onOptimize,
@@ -61,6 +64,21 @@
         )
       : optimizationOptions,
   );
+
+  const studyOptions = $derived([
+    { id: "run", title: "Run study", icon: "play" },
+    {
+      id: "open-results",
+      title: isImportingStudyResults ? "Opening…" : "Open study results",
+      icon: "simulation-report",
+      disabled: isImportingStudyResults,
+    },
+  ]);
+
+  function handleStudySelect(id: string): void {
+    if (id === "run") onRunStudy();
+    else onOpenStudyResults();
+  }
 </script>
 
 <Ribbon>
@@ -73,14 +91,11 @@
       <RibbonButton onclick={onOpenAnalysis} aria-label="Analysis"
         ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
       >
-      <RibbonButton
-        onclick={onOpenStudyResults}
-        disabled={isImportingStudyResults}
-        aria-label="Open study results"
-        ><Icon name="download" size={22} /><span
-          >{isImportingStudyResults ? "Opening…" : "Open study results"}</span
-        ></RibbonButton
-      >
+      <SplitButton
+        options={studyOptions}
+        onSelect={handleStudySelect}
+        ariaLabel="Run study"
+      />
       <RibbonButton
         disabled={!downloadResultsHref}
         onclick={() => {

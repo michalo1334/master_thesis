@@ -123,8 +123,54 @@ and the aggregate results of the experiments. Statistical analysis is a
 follow-on step; the user triggers it.
 
 The dashboard opens completed study-analysis result ZIPs and renders them in a
-read-only report. It does not start study collection, a study pilot, or final
-study analysis. Use `mix evaluate.study` for those operations.
+read-only report. The same renderer serves live study results; imported reports
+show no run controls.
+
+### Study analysis
+
+The Study split button runs study analysis over completed evaluation runs. Its
+primary action opens Run study; its menu keeps Open study results.
+
+The Study dialog uses the evaluation-manifest pattern. It contains JSON,
+Preview, and Run tabs. The user saves a study specification, maps each declared
+tier to one completed non-warm-up run, and passes server preflight. Saved
+versions are immutable: an edit disables Save and requires Save as new version.
+A completed warm-up run never qualifies, even when it is otherwise exportable.
+
+Each tier picker lists only runs whose resolved manifest matches the
+specification's `expected_family`: the primary-comparison matrix, the single
+model variant, and the common analysis settings. The picker also filters on the
+seed schedule of the selected mode. A Pilot run must declare its evaluation
+seed inside `pilot_seed_schedule.evaluation` and its selection seeds inside
+`pilot_seed_schedule.selection`; a Final run must satisfy
+`final_seed_schedule`. The two schedules are disjoint, so a Pilot run is not
+Final-compatible and the modes cannot share evidence. The server repeats the
+same check during preflight and execution. Each tier row shows a concise
+summary of the required input shape.
+
+Pilot starts only from a saved version with one unique completed run per
+declared tier and a passing preflight. The server rebuilds and revalidates the
+same bundle before it calls the analysis service.
+
+Pilot and Final use one ephemeral document but separate tier mappings. A
+completed eligible Pilot enables a Final tier mapping in the same document.
+The Final picker offers only Final-compatible runs and excludes the locked
+Pilot run IDs. Final stays disabled until its own mapping is complete, unique,
+and preflight passes. Starting Final locks that mapping, and a Final retry
+reuses the locked mapping. An insufficient or non-informative Pilot keeps
+Final disabled and permits an identical rerun.
+
+Results and the exact tier-run mapping live in the browser document only. They
+are not persisted. Keep the document open until analysis completes. Closing a
+running document or disconnecting the LiveView cancels its task. No Cancel
+control exists. The document warns before it closes a running analysis or a
+completed result whose download has not started.
+
+Each completed result offers its own ZIP download from the exact returned
+bytes. The server encodes the validated ZIP for the browser session and
+enforces the existing output-size limit before it sends the bytes. The filename
+is `STUDY_ID-vSPECIFICATION_VERSION-MODE.zip`, so it names the exact immutable
+version that produced the result.
 
 The browser download URL serves the completed evaluation output-contract ZIP.
 The ZIP is input to statistical analysis. It is not a study-analysis result
@@ -134,8 +180,19 @@ Source references:
 
 - manifest model:
   [`ManifestModel.svelte.ts`](../../src/assets/svelte/dashboard/manifest/ManifestModel.svelte.ts);
+- study dialog and model:
+  [`StudyDialog.svelte`](../../src/assets/svelte/dashboard/study/StudyDialog.svelte),
+  [`StudyModel.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyModel.svelte.ts);
+- live study document:
+  [`StudyDocument.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyDocument.svelte.ts),
+  [`StudyFinalMapping.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyFinalMapping.svelte.ts);
+- study session and coordinator:
+  [`study_session.ex`](../../src/lib/network_defense/evaluation/study/study_session.ex),
+  [`study_coordinator.ex`](../../src/lib/network_defense_web/live/web/dashboard/study_coordinator.ex);
 - evaluation analysis report:
   [`AnalysisReport.svelte`](../../src/assets/svelte/dashboard/analysis-report/AnalysisReport.svelte);
+- shared study renderer:
+  [`StudyAnalysis.svelte`](../../src/assets/svelte/dashboard/analysis-report/StudyAnalysis.svelte);
 - imported study report:
   [`ImportedStudyResults.svelte`](../../src/assets/svelte/dashboard/analysis-report/ImportedStudyResults.svelte);
 - evaluation lifecycle: [evaluation](../concepts/evaluation.md).

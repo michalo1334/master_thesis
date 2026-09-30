@@ -41,6 +41,7 @@ function renderRibbon({
   const onOptimizationParamsChange = vi.fn();
   const onCompareGraphs = vi.fn();
   const onOpenAnalysis = vi.fn();
+  const onRunStudy = vi.fn();
   const onOpenStudyResults = vi.fn();
 
   render(DashboardRibbon, {
@@ -49,6 +50,7 @@ function renderRibbon({
       onRunSimulation: vi.fn(),
       onCompareGraphs,
       onOpenAnalysis,
+      onRunStudy,
       onOpenStudyResults,
       isImportingStudyResults,
       onOptimize,
@@ -69,6 +71,7 @@ function renderRibbon({
   return {
     onCompareGraphs,
     onOpenAnalysis,
+    onRunStudy,
     onOpenStudyResults,
     onOptimize,
     onOptimizationParamsChange,
@@ -98,26 +101,36 @@ describe("DashboardRibbon", () => {
     expect(onOpenAnalysis).toHaveBeenCalledOnce();
   });
 
-  it("opens study results from the Home tab", async () => {
-    const { onOpenStudyResults } = renderRibbon();
+  it("runs a study from the Home tab", async () => {
+    const { onRunStudy, onOpenStudyResults } = renderRibbon();
 
+    await fireEvent.click(screen.getByRole("button", { name: "Run study" }));
+
+    expect(onRunStudy).toHaveBeenCalledOnce();
+    expect(onOpenStudyResults).not.toHaveBeenCalled();
+  });
+
+  it("opens study results from the study split-button menu", async () => {
+    const { onRunStudy, onOpenStudyResults } = renderRibbon();
+
+    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
     await fireEvent.click(
-      screen.getByRole("button", { name: "Open study results" }),
+      await screen.findByRole("menuitem", { name: "Open study results" }),
     );
 
     expect(onOpenStudyResults).toHaveBeenCalledOnce();
+    expect(onRunStudy).not.toHaveBeenCalled();
   });
 
-  it("disables the visible study results control while an import is active", async () => {
+  it("disables the study results menu item while an import is active", async () => {
     const { onOpenStudyResults } = renderRibbon({
       isImportingStudyResults: true,
     });
-    const control = screen.getByRole("button", {
-      name: "Open study results",
-    });
 
-    expect(control).toBeDisabled();
-    expect(control).toHaveTextContent("Opening…");
+    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    const item = await screen.findByRole("menuitem", { name: /Opening/ });
+
+    expect(item).toHaveAttribute("data-disabled");
     expect(onOpenStudyResults).not.toHaveBeenCalled();
   });
 

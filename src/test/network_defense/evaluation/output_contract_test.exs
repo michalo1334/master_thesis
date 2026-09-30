@@ -261,6 +261,15 @@ defmodule NetworkDefense.Evaluation.OutputContractTest do
     assert trial_keys == Enum.sort(trial_keys)
   end
 
+  test "reads selection seeds from persisted plan rows" do
+    run = run_completed_evaluation()
+
+    assert {:ok, [101, 201]} = OutputContract.plan_selection_seeds(run)
+
+    assert {:error, :missing_plan_selection_seeds} =
+             OutputContract.plan_selection_seeds(Ecto.UUID.generate())
+  end
+
   test "rejects unknown and incomplete runs" do
     assert {:error, :not_found} = OutputContract.files(nil)
 

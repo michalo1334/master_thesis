@@ -372,6 +372,20 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.CloseStudyDocumentPayload (lib/network_defense_web/contracts/dashboard/evaluation/close_study_document_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface CloseStudyDocumentPayload {
+    document_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.CloseStudyDocumentReply (lib/network_defense_web/contracts/dashboard/evaluation/close_study_document_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface CloseStudyDocumentReply {
+    status: "closed" | "not_found" | "invalid_request";
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestComparisonGroup (lib/network_defense_web/contracts/dashboard/evaluation/describe_manifest_comparison_group.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface DescribeManifestComparisonGroup {
@@ -430,6 +444,23 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
     plans: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPlan[];
     status: "ok" | "invalid_manifest" | "invalid_request";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeStudySpecificationPayload (lib/network_defense_web/contracts/dashboard/evaluation/describe_study_specification_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeStudySpecificationPayload {
+    content: Record<string, unknown>;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeStudySpecificationReply (lib/network_defense_web/contracts/dashboard/evaluation/describe_study_specification_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface DescribeStudySpecificationReply {
+    description?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationDescription | null;
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
+    status: "ok" | "invalid_specification" | "invalid_request";
   }
 }
 
@@ -753,6 +784,21 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetStudySpecificationPayload (lib/network_defense_web/contracts/dashboard/evaluation/get_study_specification_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface GetStudySpecificationPayload {
+    id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.GetStudySpecificationReply (lib/network_defense_web/contracts/dashboard/evaluation/get_study_specification_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface GetStudySpecificationReply {
+    specification?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationSummary | null;
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload (lib/network_defense_web/contracts/dashboard/evaluation/import_study_results_payload.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface ImportStudyResultsPayload {
@@ -783,6 +829,35 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudySpecificationsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_study_specifications_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export type ListStudySpecificationsPayload = Record<never, never>;
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudySpecificationsReply (lib/network_defense_web/contracts/dashboard/evaluation/list_study_specifications_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ListStudySpecificationsReply {
+    specifications: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationSummary[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudyTierRunsPayload (lib/network_defense_web/contracts/dashboard/evaluation/list_study_tier_runs_payload.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ListStudyTierRunsPayload {
+    mode: "pilot" | "final";
+    specification_id: string;
+    tier: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ListStudyTierRunsReply (lib/network_defense_web/contracts/dashboard/evaluation/list_study_tier_runs_reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface ListStudyTierRunsReply {
+    required_inputs?: string | null;
+    runs: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierRunSummary[];
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError (lib/network_defense_web/contracts/dashboard/evaluation/manifest_error.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface ManifestError {
@@ -798,6 +873,27 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
     id: string;
     manifest_id: string;
     title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.PreflightStudyPayload (lib/network_defense_web/contracts/dashboard/evaluation/preflight_study_payload.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface PreflightStudyPayload {
+    mode: "pilot" | "final";
+    specification_id: string;
+    tier_runs: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierSelection[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.PreflightStudyReply (lib/network_defense_web/contracts/dashboard/evaluation/preflight_study_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface PreflightStudyReply {
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyRunError[];
+    required_inputs?: string | null;
+    specification_version?: number | null;
+    status: "ok" | "rejected" | "invalid_request";
+    study_id?: string | null;
+    tier_count?: number | null;
   }
 }
 
@@ -836,6 +932,25 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveStudySpecificationPayload (lib/network_defense_web/contracts/dashboard/evaluation/save_study_specification_payload.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface SaveStudySpecificationPayload {
+    content: Record<string, unknown>;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.SaveStudySpecificationReply (lib/network_defense_web/contracts/dashboard/evaluation/save_study_specification_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface SaveStudySpecificationReply {
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ManifestError[];
+    specification?:
+      NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationSummary | null;
+    status:
+      "ok" | "invalid_specification" | "immutable_conflict" | "invalid_request";
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartEvaluationPayload (lib/network_defense_web/contracts/dashboard/evaluation/start_evaluation_payload.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface StartEvaluationPayload {
@@ -852,6 +967,70 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartStudyAnalysisPayload (lib/network_defense_web/contracts/dashboard/evaluation/start_study_analysis_payload.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StartStudyAnalysisPayload {
+    document_id: string;
+    mode: "pilot" | "final";
+    specification_id?: string | null;
+    tier_runs: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierSelection[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StartStudyAnalysisReply (lib/network_defense_web/contracts/dashboard/evaluation/start_study_analysis_reply.ex) — enum fields: status
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StartStudyAnalysisReply {
+    attempt_id?: string | null;
+    document_id?: string | null;
+    errors: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyRunError[];
+    mode?: string | null;
+    status: "accepted" | "rejected" | "invalid_request";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyAnalysisErrorEvent (lib/network_defense_web/contracts/dashboard/evaluation/study_analysis_error_event.ex) — enum fields: mode, phase
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyAnalysisErrorEvent {
+    attempt_id: string;
+    document_id: string;
+    error: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyRunError;
+    mode: "pilot" | "final";
+    phase:
+      | "building_bundle"
+      | "submitting_analysis"
+      | "waiting_for_service"
+      | "validating_result"
+      | "complete";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyAnalysisProgressEvent (lib/network_defense_web/contracts/dashboard/evaluation/study_analysis_progress_event.ex) — enum fields: mode, phase
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyAnalysisProgressEvent {
+    attempt_id: string;
+    document_id: string;
+    mode: "pilot" | "final";
+    phase:
+      | "building_bundle"
+      | "submitting_analysis"
+      | "waiting_for_service"
+      | "validating_result"
+      | "complete";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyAnalysisReadyEvent (lib/network_defense_web/contracts/dashboard/evaluation/study_analysis_ready_event.ex) — enum fields: mode
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyAnalysisReadyEvent {
+    analysis: NetworkDefenseWeb.Contracts.Dashboard.Evaluation.EvaluationAnalysis;
+    archive: string;
+    attempt_id: string;
+    document_id: string;
+    mode: "pilot" | "final";
+    pilot_eligible?: boolean | null;
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyResultsImportError (lib/network_defense_web/contracts/dashboard/evaluation/study_results_import_error.ex) — enum fields: code
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
   export interface StudyResultsImportError {
@@ -861,6 +1040,88 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
       | "invalid_archive"
       | "unsupported_archive";
     message: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyRunError (lib/network_defense_web/contracts/dashboard/evaluation/study_run_error.ex) — enum fields: code
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyRunError {
+    code:
+      | "invalid_request"
+      | "invalid_specification"
+      | "specification_not_found"
+      | "invalid_tier_selection"
+      | "unsafe_tier_label"
+      | "duplicate_tier_label"
+      | "duplicate_run_id"
+      | "run_overlap"
+      | "invalid_run_id"
+      | "no_tiers"
+      | "run_not_found"
+      | "run_incomplete"
+      | "run_not_exportable"
+      | "run_warmup"
+      | "run_incompatible"
+      | "tier_declaration_mismatch"
+      | "tier_archive_too_large"
+      | "input_too_large"
+      | "output_too_large"
+      | "result_too_large"
+      | "invalid_mode"
+      | "final_not_available"
+      | "already_running"
+      | "document_locked"
+      | "document_not_found"
+      | "not_configured"
+      | "transport"
+      | "http_status"
+      | "content_type"
+      | "response_too_large"
+      | "invalid_body"
+      | "invalid_result"
+      | "cancelled"
+      | "internal_error";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationDescription (lib/network_defense_web/contracts/dashboard/evaluation/study_specification_description.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudySpecificationDescription {
+    specification_version: number;
+    study_id: string;
+    tiers: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudySpecificationSummary (lib/network_defense_web/contracts/dashboard/evaluation/study_specification_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudySpecificationSummary {
+    content?: Record<string, unknown> | null;
+    id: string;
+    specification_version: number;
+    study_id: string;
+    title: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierRunSummary (lib/network_defense_web/contracts/dashboard/evaluation/study_tier_run_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyTierRunSummary {
+    completed_at?: string | null;
+    graph_title?: string | null;
+    id: string;
+    manifest_id?: string | null;
+    manifest_title?: string | null;
+    plan_count: number;
+    trial_count: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Evaluation.StudyTierSelection (lib/network_defense_web/contracts/dashboard/evaluation/study_tier_selection.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation {
+  export interface StudyTierSelection {
+    run_id: string;
+    tier: string;
   }
 }
 

@@ -1,7 +1,9 @@
 defmodule NetworkDefense.Evaluation.StudyBundleTest do
   use ExUnit.Case, async: false
 
+  alias NetworkDefense.Evaluation.Contracts.StudySpecification, as: StudySpecificationContract
   alias NetworkDefense.Evaluation.StudyBundle
+  alias NetworkDefense.EvaluationFixtures
 
   @small "small-archive-bytes"
   @medium "medium-archive-bytes"
@@ -183,6 +185,53 @@ defmodule NetworkDefense.Evaluation.StudyBundleTest do
   test "accepts declared tier labels that match" do
     declared = spec(%{"tiers" => [%{"label" => "large"}, "medium", "small"]})
     assert {:ok, _bundle} = StudyBundle.archive(tiers(), declared)
+  end
+
+  test "hydrates mixed declared tier labels into loader-ready tier objects" do
+    declaration = spec(%{"tiers" => ["small", %{"label" => "medium"}, "large"]})
+
+    assert {:ok, bundle} = StudyBundle.archive(tiers(), declaration)
+    contents = unzip(bundle)
+    study = Jason.decode!(contents["study.json"])
+
+    assert Enum.map(study["tiers"], & &1["label"]) == ["large", "medium", "small"]
+
+    for entry <- study["tiers"] do
+      assert loader_tier?(entry)
+      assert entry["archive"] == "tiers/#{entry["label"]}.zip"
+      assert entry["sha256"] == sha256(contents[entry["archive"]])
+    end
+  end
+
+  test "hydrates a saved specification declaration without mutating it" do
+    declaration = EvaluationFixtures.study_specification()
+
+    assert {:ok, validated} = StudySpecificationContract.validate(declaration)
+    assert validated["tiers"] == ["small", "medium", "large"]
+
+    assert {:ok, bundle} = StudyBundle.archive(tiers(), validated)
+    study = Jason.decode!(unzip(bundle)["study.json"])
+
+    assert study["tiers"] == [
+             %{"label" => "large", "archive" => "tiers/large.zip", "sha256" => sha256(@large)},
+             %{
+               "label" => "medium",
+               "archive" => "tiers/medium.zip",
+               "sha256" => sha256(@medium)
+             },
+             %{"label" => "small", "archive" => "tiers/small.zip", "sha256" => sha256(@small)}
+           ]
+
+    assert Enum.all?(study["tiers"], &loader_tier?/1)
+  end
+
+  defp loader_tier?(entry) do
+    is_map(entry) and
+      Enum.sort(Map.keys(entry)) == ["archive", "label", "sha256"] and
+      is_binary(entry["label"]) and entry["label"] != "" and
+      is_binary(entry["archive"]) and Path.type(entry["archive"]) == :relative and
+      ".." not in Path.split(entry["archive"]) and
+      is_binary(entry["sha256"]) and String.match?(entry["sha256"], ~r/\A[0-9a-f]{64}\z/)
   end
 
   defp tiers do

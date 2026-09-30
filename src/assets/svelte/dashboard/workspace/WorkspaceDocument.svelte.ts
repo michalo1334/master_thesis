@@ -6,6 +6,7 @@ import type { OptimizationReportDocument } from "../optimization-report/Optimiza
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import type { ImportedStudyResultsDocument } from "../analysis-report/ImportedStudyResultsDocument.svelte";
+import type { StudyDocument } from "../study/StudyDocument.svelte";
 import type { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import { formatDashboardErrorCode } from "../error-code";
@@ -151,6 +152,7 @@ export type WorkspaceDocument =
   | OptimizationReportDocument
   | AnalysisReportDocument
   | ImportedStudyResultsDocument
+  | StudyDocument
   | DocumentCatalogDocument
   | RunsDocument;
 

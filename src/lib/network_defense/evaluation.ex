@@ -10,6 +10,7 @@ defmodule NetworkDefense.Evaluation do
   """
 
   alias NetworkDefense.Evaluation.Contracts.EvaluationManifest, as: ManifestContract
+  alias NetworkDefense.Evaluation.Contracts.StudySpecification, as: StudySpecificationContract
 
   alias NetworkDefense.Evaluation.{
     AnalysisClient,
@@ -24,8 +25,9 @@ defmodule NetworkDefense.Evaluation do
     OutputContract,
     PlanPreview,
     Preflight,
-    StudyBundle,
-    StudyTierValidator
+    StudyRunner,
+    StudySpecification,
+    StudySpecifications
   }
 
   alias NetworkDefense.Optimization.OptimizationRuns
@@ -88,6 +90,100 @@ defmodule NetworkDefense.Evaluation do
 
   @spec get_by_manifest_id(String.t()) :: EvaluationManifest.t() | nil
   def get_by_manifest_id(manifest_id), do: EvaluationManifests.get_by_manifest_id(manifest_id)
+
+  @spec save_study_specification(map()) ::
+          {:ok, StudySpecification.t()}
+          | {:error, [error()] | :immutable_conflict | :invalid_request}
+  def save_study_specification(attrs) do
+    with {:ok, content} <- study_specification_content(attrs),
+         {:ok, title} <- study_specification_title(attrs) do
+      store_study_specification(title, content)
+    end
+  end
+
+  @spec list_study_specifications() :: [StudySpecification.t()]
+  def list_study_specifications, do: StudySpecifications.list()
+
+  @spec list_study_specification_versions(String.t()) :: [StudySpecification.t()]
+  def list_study_specification_versions(study_id),
+    do: StudySpecifications.list_versions(study_id)
+
+  @spec get_study_specification(String.t()) :: StudySpecification.t() | nil
+  def get_study_specification(id), do: StudySpecifications.get(id)
+
+  @spec describe_study_specification(map()) ::
+          {:ok, StudySpecificationContract.description()} | {:error, [error()]}
+  def describe_study_specification(content) when is_map(content) do
+    with :ok <- StudySpecificationContract.validate_json(content) do
+      StudySpecificationContract.describe(content)
+    end
+  end
+
+  def describe_study_specification(_content),
+    do: {:error, [%{path: "content", message: "must be a JSON object"}]}
+
+  defp study_specification_content(%{content: content}) when is_map(content) do
+    with :ok <- StudySpecificationContract.validate_json(content) do
+      StudySpecificationContract.validate(content)
+    end
+  end
+
+  defp study_specification_content(%{content: content}) when is_binary(content),
+    do: StudySpecificationContract.parse(content)
+
+  defp study_specification_content(_attrs),
+    do: {:error, [%{path: "content", message: "is required"}]}
+
+  defp study_specification_title(attrs) do
+    case Map.get(attrs, :title) do
+      title when is_binary(title) and byte_size(title) in 1..255 -> {:ok, title}
+      _title -> {:error, :invalid_request}
+    end
+  end
+
+  defp store_study_specification(title, content) do
+    study_id = Map.fetch!(content, "study_id")
+    version = Map.fetch!(content, "specification_version")
+
+    case StudySpecifications.get_version(study_id, version) do
+      nil -> insert_study_specification(title, content, study_id, version)
+      existing -> match_study_specification(existing, title, content)
+    end
+  end
+
+  defp insert_study_specification(title, content, study_id, version) do
+    %{study_id: study_id, specification_version: version, title: title, content: content}
+    |> StudySpecifications.insert()
+    |> resolve_insert_result(title, content, study_id, version)
+  end
+
+  defp resolve_insert_result({:ok, specification}, _title, _content, _study_id, _version),
+    do: {:ok, specification}
+
+  defp resolve_insert_result({:error, changeset}, title, content, study_id, version) do
+    if unique_conflict?(changeset) do
+      case StudySpecifications.get_version(study_id, version) do
+        nil -> {:error, :immutable_conflict}
+        existing -> match_study_specification(existing, title, content)
+      end
+    else
+      {:error, :invalid_request}
+    end
+  end
+
+  defp unique_conflict?(changeset) do
+    Enum.any?(changeset.errors, fn {_field, {_message, options}} ->
+      options[:constraint] == :unique
+    end)
+  end
+
+  defp match_study_specification(%StudySpecification{} = existing, title, content) do
+    if existing.content == content and existing.title == title do
+      {:ok, existing}
+    else
+      {:error, :immutable_conflict}
+    end
+  end
 
   @spec validate_content(map()) :: {:ok, map()} | {:error, [error()]}
   def validate_content(%{content: content}) when is_map(content) do
@@ -358,59 +454,35 @@ defmodule NetworkDefense.Evaluation do
     end
   end
 
-  @type study_tier_run :: {String.t(), Ecto.UUID.t()}
+  @type study_tier_run ::
+          {String.t(), Ecto.UUID.t()}
+          | %{required(:tier) => String.t(), required(:run_id) => Ecto.UUID.t()}
 
+  @doc """
+  Builds and submits one study bundle from completed tier runs.
+
+  Delegates to `StudyRunner.analyze/3` so the CLI and the dashboard share the
+  same validation, export, and bundle construction.
+  """
   @spec analyze_study([study_tier_run()], :pilot | :analyze, map()) ::
           {:ok, binary()} | {:error, term()}
   def analyze_study(tier_runs, mode, study_spec) do
-    with :ok <- validate_study_tier_runs(tier_runs),
-         {:ok, tiers} <- export_study_tiers(tier_runs),
-         {:ok, bundle} <- StudyBundle.archive(tiers, study_spec),
-         {:ok, result} <- AnalysisClient.analyze_study(bundle, study_spec["study_id"], mode) do
-      {:ok, result}
-    else
-      {:error, _reason} = error -> error
-    end
+    StudyRunner.analyze(tier_runs, study_spec, mode)
   end
 
-  defp validate_study_tier_runs(tier_runs) when is_list(tier_runs) do
-    case StudyTierValidator.validate(tier_runs) do
-      {:error, :invalid_tier} -> {:error, :invalid_study_tiers}
-      other -> StudyTierValidator.normalize(other)
-    end
-  end
+  @spec list_study_tier_runs(String.t(), String.t(), StudyRunner.mode()) ::
+          {:ok, [map()]} | {:error, term()}
+  def list_study_tier_runs(specification_id, tier, mode),
+    do: StudyRunner.list_tier_runs(specification_id, tier, mode)
 
-  defp validate_study_tier_runs(_tier_runs), do: {:error, :no_tiers}
+  @spec preflight_study(String.t(), [StudyRunner.tier_run_input()], StudyRunner.mode()) ::
+          {:ok, StudyRunner.preflight()} | {:error, term()}
+  def preflight_study(specification_id, tier_runs, mode),
+    do: StudyRunner.preflight(specification_id, tier_runs, mode)
 
-  defp export_study_tiers(tier_runs) do
-    tier_runs
-    |> Enum.reduce_while({:ok, []}, fn {label, run_id}, {:ok, acc} ->
-      case export_study_tier(label, run_id) do
-        {:ok, tier} -> {:cont, {:ok, [tier | acc]}}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
-    |> case do
-      {:ok, tiers} -> {:ok, Enum.reverse(tiers)}
-      {:error, _reason} = error -> error
-    end
-  end
-
-  defp export_study_tier(label, run_id) do
-    case EvaluationRuns.get(run_id) do
-      nil ->
-        {:error, :not_found}
-
-      %EvaluationRun{status: "completed"} = run ->
-        case OutputContract.archive(run) do
-          {:ok, archive, _filename} -> {:ok, %{tier: label, run_id: run_id, archive: archive}}
-          {:error, reason} -> {:error, reason}
-        end
-
-      %EvaluationRun{} ->
-        {:error, :incomplete}
-    end
-  end
+  @spec required_study_inputs(String.t()) :: {:ok, String.t()} | {:error, term()}
+  def required_study_inputs(specification_id),
+    do: StudyRunner.required_inputs(specification_id)
 
   @spec parse_analysis(binary()) :: {:ok, map()} | {:error, term()}
   def parse_analysis(response) when is_binary(response) do

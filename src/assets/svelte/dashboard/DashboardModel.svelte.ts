@@ -17,6 +17,9 @@ import type {
 import type { SimulationParams } from "../contracts.generated/simulation";
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
 import { ManifestModel } from "./manifest/ManifestModel.svelte";
+import { StudyModel } from "./study/StudyModel.svelte";
+import type { StudyDocument } from "./study/StudyDocument.svelte";
+import { requestStudyClose } from "./study/study-close";
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
@@ -37,6 +40,7 @@ export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
   manifest: ManifestModel;
+  study: StudyModel;
   private pendingEvaluationEvents = new SvelteMap<
     string,
     | EvaluationContracts.EvaluationCompletedEvent
@@ -81,6 +85,16 @@ export class DashboardModel {
     this.api = api;
     this.workspace = new WorkspaceModel(graphSummaries, folders, api);
     this.manifest = new ManifestModel(api);
+    this.study = new StudyModel(api);
+    this.study.openStudyDocument = (locked) =>
+      this.workspace.openStudyDocument(locked);
+    this.study.activateStudyDocument = (document) =>
+      this.workspace.activateDocument(document);
+    this.study.discardStudyDocument = (document) =>
+      this.workspace.closeDocumentNow(document.id);
+    this.study.onOpenEvaluationManifest = () => this.manifest.openDialog();
+    this.workspace.onRequestStudyClose = (document) =>
+      void this.closeStudyDocument(document);
     this.manifest.onStarted = (runId, manifest) => {
       const report = this.workspace.openPendingAnalysisReport(runId, manifest);
       this.applyPendingCancellation(report);
@@ -102,6 +116,60 @@ export class DashboardModel {
       if ("error" in event) this.onEvaluationFailed(event);
       else this.onEvaluationCompleted(event);
     };
+  }
+
+  /**
+   * Routes one study phase event to the matching live document.
+   *
+   * The document accepts the event only when its id and running mode match, so
+   * a phase for a closed or replaced document cannot change any state.
+   */
+  onStudyProgress(
+    payload: EvaluationContracts.StudyAnalysisProgressEvent,
+  ): void {
+    this.findStudyDocument(payload.document_id)?.onProgress(payload);
+  }
+
+  /** Routes one study result event to the matching live document. */
+  onStudyReady(payload: EvaluationContracts.StudyAnalysisReadyEvent): void {
+    this.findStudyDocument(payload.document_id)?.onReady(payload);
+  }
+
+  /** Routes one study failure event to the matching live document. */
+  onStudyError(payload: EvaluationContracts.StudyAnalysisErrorEvent): void {
+    this.findStudyDocument(payload.document_id)?.onError(payload);
+  }
+
+  /**
+   * Closes one live study document after a server close acknowledgment.
+   *
+   * A running task or a result with no download request asks for confirmation
+   * first. The document is removed only after the server acknowledges removal
+   * (`closed` or `not_found`). An invalid reply or a transport failure keeps
+   * the document with a retryable close error, so the user never loses a
+   * handle whose server task may still run.
+   */
+  async closeStudyDocument(document: StudyDocument): Promise<void> {
+    if (document.closing) return;
+    const warning = document.closeWarning;
+    if (warning && !globalThis.confirm(warning)) return;
+
+    document.markClosing();
+    const confirmed = await requestStudyClose(this.api, document.id);
+    if (confirmed) {
+      this.workspace.closeDocumentNow(document.id);
+      return;
+    }
+    document.markCloseFailed(
+      "The server did not confirm the close. Close again to retry.",
+    );
+  }
+
+  private findStudyDocument(id: string): StudyDocument | undefined {
+    return this.workspace.documents.find(
+      (document): document is StudyDocument =>
+        document.kind === "study" && document.id === id,
+    );
   }
 
   /** Cross-model: start simulation on active graph, create pending report. */
