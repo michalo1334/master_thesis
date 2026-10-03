@@ -67,3 +67,26 @@ All final commands ran in `/tmp/master-thesis-credo-guardrails`; `MIX_DEPS_PATH`
 | Scope/dependency/fixture audit | 0 | All 30 changed/untracked paths are allowed deliverables; no dependency or lockfile changes, no ignored source deliverables, and no fixture files remain under `src/lib`. |
 
 The only ignored worktree content identified was generated `src/_build/`, `src/deps/`, and `src/node_modules/`; these were not staged. The generated `planning/credo-guardrails/logs/repro_cli.log` is ignored and is not a deliverable.
+
+## Pre-commit lifecycle fix (2026-10-03)
+
+| Command/check | Status | Result |
+| --- | ---: | --- |
+| `MIX_ENV=test mix format test/network_defense/credo/project_checks_test.exs mix.exs` | 0 | Formatted the lifecycle test and Mix alias. |
+| `mix credo.test` | 0 | 6 focused checks passed using the relocated `src/credo/test_runner.exs`. |
+| `REPO_PORT=55441 REPO_USERNAME=postgres git commit -m "Add Credo project guardrails"` | 0 | The ordinary `.githooks/pre-commit` ran the complete `mix precommit` chain. Full tests passed: 867 passed, 3 excluded. No setup_all failures or Mix test-file-filter warning. |
+| `git diff --cached --check` | 0 | No whitespace errors before commit. |
+
+Credo test setup now reuses a running `Credo.Supervisor`; otherwise, it requires `Application.ensure_all_started(:credo)` to succeed. The test module runs synchronously to prevent application-startup races. The runner now resides in `src/credo/test_runner.exs`, outside the test discovery directory.
+
+The hook used only the disposable PostgreSQL 16 container `master-thesis-static-hook-postgres-20261003`, bound to `127.0.0.1:55441`; it was removed after the successful commit. The verification run and hook output are in the ignored repository-local directory `/home/michalo/master_thesis/local-results/goal-verification/static-hook/`. Commit: `90a55a49d74c78ee932de24f2188bc51151098b3`. The follow-up also records this post-commit evidence.
+
+## Main-agent literal namespace review
+
+A compiled Elixir probe confirmed that an unqualified nested declaration is relative to its containing module, even when its name starts with the project's namespace. The previous traversal incorrectly reported this unrelated scope. A new regression test failed before the correction.
+
+`GuardrailAst.modules/1` now preserves literal parent scope and distinguishes absolute `Elixir.` declarations. All three module-scoped checks use it. Alias and macro expansion remain unsupported. Test fixtures that intended an absolute declaration now say so explicitly.
+
+After correction, `mix credo.test` passed all seven tests. All eleven real CLI positive/negative fixture checks passed. The strong profile scanned 350 production files with no findings; the heuristic profile retained the same three cleanup-catch advisories with exit status zero.
+
+Main-agent logs are under the ignored repository-local `local-results/goal-verification/` directory: `namespace-before.log`, `namespace-after.log`, `namespace-cli.log`, `namespace-strong.log`, and `namespace-heuristics.log`. The final follow-up uses the ordinary commit hook; its output is recorded in `final-commits/static-commit.log`.

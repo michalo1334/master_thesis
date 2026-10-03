@@ -36,7 +36,7 @@ Read the code before extracting a helper or changing failure behavior. Keep just
 
 ## Limits
 
-The namespace checks inspect fully qualified literal declarations, including explicit `Elixir.` qualification. They do not resolve relative nested namespace composition. Repo detection checks explicit literal references; it does not follow dynamic dispatch, inherited aliases, or transitive dependencies.
+The namespace checks resolve literal nested declarations and explicit `Elixir.` qualification. They do not expand aliases or dynamic module names. Repo detection checks explicit literal references; it does not follow dynamic dispatch, inherited aliases, or transitive dependencies.
 
 The checks skip quoted code and do not expand macros. Literal mappings and catch return shapes are local syntax, not whole-program behavior. A missing finding is not proof of correct ownership, error handling, or security.
 

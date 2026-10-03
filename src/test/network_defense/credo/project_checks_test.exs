@@ -33,11 +33,34 @@ defmodule NetworkDefense.Credo.ProjectChecksTest do
     source |> SourceFile.parse(path) |> check.run([])
   end
 
+  test "resolves literal nesting without confusing a relative name with the project namespace" do
+    assert check(
+             FlattenedProjectionContract,
+             "defmodule Unrelated do\n  defmodule #{@root}Record do\n  end\nend"
+           ) == []
+
+    assert check(
+             RetiredProjectionTypeHelper,
+             "defmodule Unrelated do\n  defmodule #{@root} do\n    defp node_type(value), do: value\n  end\nend"
+           ) == []
+
+    assert check(
+             InlineContractTypeMapping,
+             "defmodule Unrelated do\n  defmodule NetworkDefenseWeb.Contracts.Record do\n    defp label(:amber), do: \"A\"\n    defp label(:violet), do: \"V\"\n    defp label(:silver), do: \"S\"\n  end\nend"
+           ) == []
+
+    assert [%{line_no: 2}] =
+             check(
+               FlattenedProjectionContract,
+               "defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph do\n  defmodule TopologyProjectionRecord do\n  end\nend"
+             )
+  end
+
   test "walks complete module and function forms, while excluding quoted AST" do
     assert [%{line_no: 3}] =
              check(
                FlattenedProjectionContract,
-               "defmodule Container do\n  def build do\n    defmodule #{@root}Child do\n    end\n  end\nend"
+               "defmodule Container do\n  def build do\n    defmodule Elixir.#{@root}Child do\n    end\n  end\nend"
              )
 
     assert check(
@@ -50,7 +73,7 @@ defmodule NetworkDefense.Credo.ProjectChecksTest do
     assert [%{line_no: 2}] =
              check(
                FlattenedProjectionContract,
-               "defmodule Container do\n  defmodule #{@root}Child do end\nend"
+               "# Root declaration\ndefmodule #{@root}Child do end"
              )
 
     assert check(
@@ -92,7 +115,7 @@ defmodule NetworkDefense.Credo.ProjectChecksTest do
              "defmodule Container do\n  defmodule Other do\n    defp node_type(value) when is_atom(value), do: value\n  end\nend"
            ) == []
 
-    # Relative namespace composition is intentionally unsupported.
+    # Child modules do not own the root module's retired-helper policy.
     assert check(
              RetiredProjectionTypeHelper,
              "defmodule #{@root} do\n  defmodule Child do\n    defp node_type(value), do: value\n  end\nend"
@@ -164,7 +187,7 @@ defmodule NetworkDefense.Credo.ProjectChecksTest do
   test "contract mapping heuristic requires three literal atom-to-string clauses" do
     source = """
     defmodule Container do
-      defmodule NetworkDefenseWeb.Contracts.Demo do
+      defmodule Elixir.NetworkDefenseWeb.Contracts.Demo do
         defp label(:first), do: "one"
         defp label(:second), do: "two"
         defp label(:third), do: "three"

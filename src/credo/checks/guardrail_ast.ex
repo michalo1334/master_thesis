@@ -2,6 +2,38 @@ defmodule NetworkDefense.Credo.GuardrailAst do
   @moduledoc false
 
   def nodes(ast), do: nodes(ast, [])
+  def modules(ast), do: ast |> modules(nil, []) |> Enum.reverse()
+
+  defp modules({:quote, _, _}, _parent, acc), do: acc
+
+  defp modules({:defmodule, _, [name, [do: body]]} = node, parent, acc) do
+    resolved = nested_module_name(name, parent)
+    modules(body, resolved || :dynamic, [{resolved, node, body} | acc])
+  end
+
+  defp modules(tuple, parent, acc) when is_tuple(tuple) do
+    tuple |> Tuple.to_list() |> Enum.reduce(acc, &modules(&1, parent, &2))
+  end
+
+  defp modules(list, parent, acc) when is_list(list),
+    do: Enum.reduce(list, acc, &modules(&1, parent, &2))
+
+  defp modules(_literal, _parent, acc), do: acc
+
+  defp nested_module_name({:__aliases__, _, [:"Elixir" | _]} = name, _parent),
+    do: module_name(name)
+
+  defp nested_module_name(name, _parent) when is_atom(name), do: module_name(name)
+  defp nested_module_name(_name, :dynamic), do: nil
+
+  defp nested_module_name(name, parent) do
+    case module_name(name) do
+      nil -> nil
+      literal when is_nil(parent) -> literal
+      literal -> parent <> "." <> literal
+    end
+  end
+
   def body_forms({:__block__, _, forms}), do: Enum.flat_map(forms, &body_forms/1)
   def body_forms(forms) when is_list(forms), do: Enum.flat_map(forms, &body_forms/1)
   def body_forms({:quote, _, _}), do: []

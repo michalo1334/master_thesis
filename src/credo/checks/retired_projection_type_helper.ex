@@ -4,7 +4,7 @@ defmodule NetworkDefense.Credo.RetiredProjectionTypeHelper do
     category: :warning,
     explanations: [
       check:
-        "The fully qualified root projection contract must not define retired type helpers; relative namespace composition is not resolved."
+        "The root projection contract must not define retired type helpers; literal nesting is resolved without alias or macro expansion."
     ]
 
   alias NetworkDefense.Credo.GuardrailAst
@@ -15,10 +15,10 @@ defmodule NetworkDefense.Credo.RetiredProjectionTypeHelper do
   def run(%SourceFile{} = source_file, params) do
     context = Context.build(source_file, params, __MODULE__)
 
-    GuardrailAst.nodes(SourceFile.ast(source_file))
+    GuardrailAst.modules(SourceFile.ast(source_file))
     |> Enum.flat_map(fn
-      {:defmodule, _, [name, [do: body]]} ->
-        if GuardrailAst.module_name(name) == @root do
+      {name, _node, body} ->
+        if name == @root do
           GuardrailAst.body_forms(body)
           |> Enum.flat_map(fn
             {:defp, _, [head | _]} = node ->

@@ -13,19 +13,15 @@ defmodule NetworkDefense.Credo.InlineContractTypeMapping do
   def run(%SourceFile{} = source_file, params) do
     context = Context.build(source_file, params, __MODULE__)
 
-    GuardrailAst.nodes(SourceFile.ast(source_file))
+    GuardrailAst.modules(SourceFile.ast(source_file))
     |> Enum.flat_map(fn
-      {:defmodule, _, [name, [do: body]]} ->
-        if String.starts_with?(
-             GuardrailAst.module_name(name) || "",
-             "NetworkDefenseWeb.Contracts."
-           ) do
+      {name, _node, body} ->
+        if String.starts_with?(name || "", "NetworkDefenseWeb.Contracts.") do
           body
           |> GuardrailAst.body_forms()
           |> Enum.filter(&mapping_clause?/1)
           |> Enum.reject(fn {_, _, [head | _]} = clause ->
-            GuardrailAst.module_name(name) ==
-              "NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection" and
+            name == "NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection" and
               elem(function_head(head), 0) in @retired and match?({:defp, _, _}, clause)
           end)
           |> Enum.group_by(fn {_, _, [head | _]} ->
