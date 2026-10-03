@@ -145,6 +145,12 @@ To discuss with user
 - For new components use bits-ui
 - BE defined types contracts must match between frontend and backend (contracts/ directories)
 
+## Repository static analysis
+
+Read `docs/credo-guardrails.md` before changing Elixir code. Run `mix credo.test` and the normal strict Credo gate from `src/`.
+Strong project rules enforce specific boundaries. The `project_heuristics` profile requests human review and does not fail the build.
+Do not silence advisory findings without inspecting their semantics. Static patterns do not establish AI authorship.
+
 ## Post Completion Check of tasks
 
 ALWAYS, THIS IS NOT NEGOTABLIE, POST CHECK your results. Fix? test it, query the db, check logs, check if the fix didn't broke anything else and actually worked.

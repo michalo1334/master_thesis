@@ -41,7 +41,15 @@
       # If you create your own checks, you must specify the source files for
       # them here, so they can be loaded by Credo before running the analysis.
       #
-      requires: ["credo/checks/error_codes_match_type.ex"],
+      requires: [
+        "credo/checks/guardrail_ast.ex",
+        "credo/checks/error_codes_match_type.ex",
+        "credo/checks/flattened_projection_contract.ex",
+        "credo/checks/retired_projection_type_helper.ex",
+        "credo/checks/live_view_repo_dependency.ex",
+        "credo/checks/inline_contract_type_mapping.ex",
+        "credo/checks/success_shaped_exit_catch.ex"
+      ],
       #
       # If you want to enforce a style guide and need a more traditional linting
       # experience, you can change `strict` to `true` below:
@@ -73,6 +81,11 @@
             {Credo.Check.Consistency.ExceptionNames, []},
             {Credo.Check.Consistency.LineEndings, []},
             {NetworkDefense.Credo.ErrorCodesMatchType, []},
+            {NetworkDefense.Credo.FlattenedProjectionContract, []},
+            {NetworkDefense.Credo.RetiredProjectionTypeHelper, []},
+            {NetworkDefense.Credo.LiveViewRepoDependency, []},
+            {NetworkDefense.Credo.InlineContractTypeMapping, [exit_status: 0]},
+            {NetworkDefense.Credo.SuccessShapedExitCatch, [exit_status: 0]},
             {Credo.Check.Consistency.ParameterPatternMatching, []},
             {Credo.Check.Consistency.SpaceAroundOperators, []},
             {Credo.Check.Consistency.SpaceInParentheses, []},
@@ -218,6 +231,48 @@
           # Custom checks can be created using `mix credo.gen.check`.
           #
         ]
+      }
+    },
+    %{
+      name: "project_strong",
+      files: %{
+        included: ["lib/", "web/", "apps/*/lib/", "apps/*/web/"],
+        excluded: [~r"/_build/", ~r"/deps/", ~r"/node_modules/"]
+      },
+      requires: [
+        "credo/checks/guardrail_ast.ex",
+        "credo/checks/flattened_projection_contract.ex",
+        "credo/checks/retired_projection_type_helper.ex",
+        "credo/checks/live_view_repo_dependency.ex"
+      ],
+      strict: false,
+      checks: %{
+        enabled: [
+          {NetworkDefense.Credo.FlattenedProjectionContract, []},
+          {NetworkDefense.Credo.RetiredProjectionTypeHelper, []},
+          {NetworkDefense.Credo.LiveViewRepoDependency, []}
+        ],
+        disabled: []
+      }
+    },
+    %{
+      name: "project_heuristics",
+      files: %{
+        included: ["lib/", "web/", "apps/*/lib/", "apps/*/web/"],
+        excluded: [~r"/_build/", ~r"/deps/", ~r"/node_modules/"]
+      },
+      requires: [
+        "credo/checks/guardrail_ast.ex",
+        "credo/checks/inline_contract_type_mapping.ex",
+        "credo/checks/success_shaped_exit_catch.ex"
+      ],
+      strict: false,
+      checks: %{
+        enabled: [
+          {NetworkDefense.Credo.InlineContractTypeMapping, [exit_status: 0]},
+          {NetworkDefense.Credo.SuccessShapedExitCatch, [exit_status: 0]}
+        ],
+        disabled: []
       }
     }
   ]

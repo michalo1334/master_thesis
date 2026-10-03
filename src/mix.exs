@@ -33,7 +33,7 @@ defmodule NetworkDefense.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "credo.test": :test]
     ]
   end
 
@@ -107,6 +107,7 @@ defmodule NetworkDefense.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      "credo.test": ["run --no-start credo/test_runner.exs"],
       "assets.setup": ["phoenix_vite.npm assets install"],
       "assets.build": [
         "phoenix_vite.npm vite build --manifest --emptyOutDir true",
