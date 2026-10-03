@@ -56,6 +56,14 @@ The main agent repeated the journey and captured all three README images at 1600
 
 The final console recorded a favicon 404 and an ECharts zero-size warning while switching report views. Neither blocked the demonstrated operations or result tables. Other chart and browser workflows were not exhaustively tested.
 
+## Evaluation configuration capture
+
+The fourth README image shows a saved evaluation manifest in Preview. It displays the strategy matrix, budgets, selection seeds, and planned comparisons. The main agent entered and saved the example through the real UI, then reopened it for capture. The image is not evidence of completed evaluation or study results.
+
+A real evaluation attempt stayed at 106 of 706 steps. Application logs recorded `consumer_cancelled` from RabbitMQ scatter-gather, followed by an evaluation experiment failure. The main agent cancelled that run through the UI. The root cause remains unverified; no backend or infrastructure fix was included in this documentation revision.
+
+The screenshot is 1600×1050 and contains no injected results or modified DOM/CSS. Capture scripts, snapshots, and failure logs are under the gitignored `local-results/readme-revision/` directory.
+
 ## Evidence locations
 
 Raw local logs are under `/tmp/master-thesis-setup-evidence/`, including `setup.txt`, `console.log`, `final-apply.log`, `post-apply-plan.log`, and `final-verification.log`. They are scratch files, not portable project artifacts. The observations above preserve their relevant results without publishing secrets or Terraform state.

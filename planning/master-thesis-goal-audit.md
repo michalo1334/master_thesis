@@ -1,4 +1,6 @@
-# Goal requirement-to-evidence audit
+# Historical goal requirement-to-evidence audit
+
+**Superseded by a later user request:** the Credo deliverable was discarded. Its local branch and worktree are removed; Safety Net blocked remote deletion, which requires a manual command. README now uses neutral third-person prose and four screenshots, including evaluation configuration. The tables below record the original delivery, not the current scope.
 
 Objective: deliver two separate branches—an approachable, illustrated README with exercised setup and interview evidence; and researched, tested repository-specific Credo checks.
 
