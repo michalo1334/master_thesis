@@ -3,6 +3,23 @@ import { svelte } from "@sveltejs/vite-plugin-svelte";
 import liveSveltePlugin from "live_svelte/vitePlugin";
 import tailwindcss from "@tailwindcss/vite";
 
+const phxHost = process.env.PHX_HOST || "localhost";
+const publicPortValue = process.env.PHX_PUBLIC_PORT ?? "4000";
+
+if (!/^\d+$/.test(publicPortValue)) {
+  throw new Error(
+    `PHX_PUBLIC_PORT must be a valid port, got ${JSON.stringify(publicPortValue)}`,
+  );
+}
+
+const publicPort = Number(publicPortValue);
+
+if (!Number.isSafeInteger(publicPort) || publicPort < 1 || publicPort > 65535) {
+  throw new Error(
+    `PHX_PUBLIC_PORT must be between 1 and 65535, got ${JSON.stringify(publicPortValue)}`,
+  );
+}
+
 const sharedHmrToken = {
   name: "shared-hmr-token",
   configResolved(config) {
@@ -19,8 +36,8 @@ export default defineConfig(({ command }) => ({
     host: "0.0.0.0",
     port: 5173,
     strictPort: true,
-    cors: { origin: "http://localhost:4000" },
-    hmr: { clientPort: 4000 },
+    cors: { origin: `http://${phxHost}:${publicPort}` },
+    hmr: { clientPort: publicPort },
   },
   optimizeDeps: {
     include: [

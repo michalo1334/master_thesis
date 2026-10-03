@@ -2,6 +2,15 @@ import Config
 
 alias NetworkDefense.RuntimeConfig
 
+if config_env() == :dev do
+  phx_host = System.get_env("PHX_HOST", "localhost")
+  phx_public_port = RuntimeConfig.positive_integer_env("PHX_PUBLIC_PORT", 4000)
+
+  config :network_defense, NetworkDefenseWeb.Endpoint,
+    url: [host: phx_host, port: phx_public_port],
+    static_url: [host: phx_host, port: phx_public_port]
+end
+
 if config_env() != :test do
   config :network_defense, :rabbitmq, RuntimeConfig.rabbitmq()
 end

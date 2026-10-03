@@ -9,8 +9,10 @@ planes, IAM, quotas, WAN behavior, or provider failures.
 
 ## Prerequisites
 
-Local provisioning needs a working Docker engine. The helper script runs
-Terraform inside a Docker container, so a docker CLI is required on the host.
+Local provisioning needs a working Docker engine and Docker CLI. The helper
+runs Terraform in a container. The secret bootstrap helper also needs Python 3.
+The exercised platform is Linux; see the [setup verification](getting-started-verification.md)
+for the test environment and limits.
 
 ## Configuration
 
@@ -22,14 +24,19 @@ tfvars file defines local component objects for host access and the secret
 directory. The helper passes the common manifest to Terraform commands that
 evaluate configuration; Terraform loads the local auto tfvars file normally.
 
-Secrets use files with restrictive permissions, mounted into containers as
-read-only. The local secrets object declares the host directory. The environment
-enforces via a precondition that all required secret files exist before apply
-(see `main.tf` and `locals.tf`).
+After `./terraform.sh init`, run `./init-secrets.sh` from the local environment
+directory. It asks Terraform for the configured directory and required paths,
+then creates missing random secrets with owner-only permissions. It preserves
+existing values and rejects unsafe paths or permissive existing files.
 
-Redis mode requires an operator-created `redis-password` file with mode `0600`.
-RabbitMQ requires an operator-created `rabbitmq-password` file with mode
-`0600`. Terraform mounts both paths and never reads their values.
+Secrets are mounted read-only. The environment also checks that the required
+files exist before apply (see `main.tf` and `locals.tf`). Keep normal read
+permissions on the source checkout; restrict the secret directory, not the
+whole repository.
+
+Redis and RabbitMQ require their password files with mode `0600`. The bootstrap
+helper can create them, or an operator can provision them. Terraform mounts the
+paths and never reads their values.
 
 Keep the secret directory and its files restricted to the owner. Each
 `erlang-cookies/<site>/` directory must have mode `0700`, and its
@@ -63,6 +70,8 @@ Terraform with the fixed deployment manifest.
 Run Terraform through the helper script:
 
 - `terraform.sh init` prepares the providers and modules.
+- `init-secrets.sh` creates missing local secrets without rotating existing ones.
+- `terraform.sh plan` previews changes. Review it before applying.
 - `terraform.sh apply` creates or updates the stack.
 - `terraform.sh output` prints the exported values, including the published
   service URLs and per-site primary node names (see `outputs.tf` in the

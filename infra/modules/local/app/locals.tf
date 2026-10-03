@@ -55,6 +55,7 @@ locals {
         "SECRET_KEY_BASE_FILE=/run/secrets/secret-key-base",
         "LIVE_VIEW_SIGNING_SALT_FILE=/run/secrets/live-view-signing-salt",
         "PHX_HOST=${var.host}",
+        "PHX_PUBLIC_PORT=${var.host_ports.http}",
         "PHX_IP=0.0.0.0",
         "PORT=4000",
         "MIX_BUILD_PATH=/app/_build_docker",

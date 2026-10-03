@@ -229,5 +229,6 @@ flowchart TD
 
 ## Core journey capture
 
-A screen capture of the open-graph, simulate, and report journey will be added
-here after it is recorded. No capture exists yet.
+The [README](../../README.md#see-it-in-action) shows real topology, simulation,
+and defense screenshots. See [setup verification](../getting-started-verification.md)
+for the exercised journey and its limits.
