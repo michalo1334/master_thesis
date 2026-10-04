@@ -1,14 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
 
-script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-command -v python3 >/dev/null 2>&1 || {
-  echo "Python 3 is required to initialize local secrets." >&2
-  exit 1
-}
-
-cd "$script_dir"
-exec python3 - "$script_dir/terraform.sh" <<'PY'
 import json
 import os
 import secrets
@@ -17,11 +8,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-terraform = sys.argv[1]
+script_directory = Path(__file__).resolve().parent
+terraform = script_directory / "terraform.sh"
 expression = "jsonencode([local.secret_mount_path, local.required_secret_files])\n"
 try:
     result = subprocess.run(
         [terraform, "console", "-no-color"],
+        cwd=script_directory,
         input=expression,
         text=True,
         stdout=subprocess.PIPE,
@@ -89,4 +82,3 @@ except (OSError, RuntimeError) as error:
     sys.exit(1)
 
 print(f"Initialized {len(required_files)} required secret files in {root}.")
-PY

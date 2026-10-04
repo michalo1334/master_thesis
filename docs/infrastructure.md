@@ -24,7 +24,7 @@ tfvars file defines local component objects for host access and the secret
 directory. The helper passes the common manifest to Terraform commands that
 evaluate configuration; Terraform loads the local auto tfvars file normally.
 
-After `./terraform.sh init`, run `./init-secrets.sh` from the local environment
+After `./terraform.sh init`, run `./init-secrets.py` from the local environment
 directory. It asks Terraform for the configured directory and required paths,
 then creates missing random secrets with owner-only permissions. It preserves
 existing values and rejects unsafe paths or permissive existing files.
@@ -70,7 +70,7 @@ Terraform with the fixed deployment manifest.
 Run Terraform through the helper script:
 
 - `terraform.sh init` prepares the providers and modules.
-- `init-secrets.sh` creates missing local secrets without rotating existing ones.
+- `init-secrets.py` creates missing local secrets without rotating existing ones.
 - `terraform.sh plan` previews changes. Review it before applying.
 - `terraform.sh apply` creates or updates the stack.
 - `terraform.sh output` prints the exported values, including the published

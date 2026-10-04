@@ -2,7 +2,7 @@
 name: implementor
 description: Implements focused changes using the project's existing conventions and verifies them.
 thinking: high
-prompt_mode: append
+prompt_mode: replace
 skills: true
 disallowed_tools: ctx_doctor, ctx_stats, ctx_upgrade, ctx_insight, fusion
 ---

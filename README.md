@@ -38,7 +38,7 @@ The local environment requires Linux, Git, a running Docker engine, and Python 3
 git clone https://github.com/michalo1334/master_thesis.git
 cd master_thesis/infra/environments/local
 ./terraform.sh init
-./init-secrets.sh
+./init-secrets.py
 ./terraform.sh plan
 ./terraform.sh apply
 ./terraform.sh output urls

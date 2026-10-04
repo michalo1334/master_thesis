@@ -2,7 +2,7 @@
 name: visual-verifier
 description: Checks UI screenshots and browser results against the requested behavior.
 thinking: medium
-prompt_mode: append
+prompt_mode: replace
 skills: true
 disallowed_tools: ctx_doctor, ctx_stats, ctx_upgrade, ctx_insight, fusion
 ---
