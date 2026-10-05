@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Fetch and apply the latest portable Pi setup."""
+
+from __future__ import annotations
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Sequence
+
+DEFAULT_URL = "https://github.com/michalo1334/michalo-common-agent-lib.git"
+
+
+def run(command: Sequence[str], cwd: Path | None = None) -> None:
+    subprocess.run(command, cwd=cwd, check=True, text=True)
+
+
+def default_target() -> Path:
+    script_dir = Path(__file__).resolve().parent
+    if script_dir.name == "scripts":
+        return script_dir.parent
+    return script_dir
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Sync portable Pi setup")
+    parser.add_argument("target", nargs="?")
+    args = parser.parse_args(argv)
+
+    target = Path(args.target).resolve() if args.target else default_target()
+    if not target.is_dir():
+        parser.error(f"target directory does not exist: {target}")
+
+    url = os.environ.get("PI_SETUP_REPO_URL", DEFAULT_URL)
+    branch = os.environ.get("PI_SETUP_BRANCH", "main")
+    cache_home = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    cache = cache_home / "michalo-common-agent-lib"
+
+    if not (cache / ".git").exists():
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        run(["git", "clone", "--depth", "1", "--branch", branch, url, str(cache)])
+    else:
+        current_url = subprocess.check_output(
+            ["git", "remote", "get-url", "origin"], cwd=cache, text=True
+        ).strip()
+        if current_url != url:
+            run(["git", "remote", "set-url", "origin", url], cwd=cache)
+        run(["git", "pull", "--ff-only", "origin", branch], cwd=cache)
+
+    print(
+        "Warning: managed Pi setup files will be overwritten; "
+        "commit or stash local changes first."
+    )
+    run([sys.executable, str(cache / "scripts" / "install.py"), str(target)])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

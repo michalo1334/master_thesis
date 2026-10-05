@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "blender-mcp": {
+      "command": "uvx",
+      "args": ["--python", "3.11", "blender-mcp"],
+      "env": {
+        "UV_PYTHON_PREFERENCE": "only-managed",
+        "BLENDER_MCP_SAFE_MODE": "1",
+        "DISABLE_TELEMETRY": "true"
+      },
+      "requestTimeoutMs": 120000
+    },
+    "svelte": {
+      "command": "npx",
+      "args": ["-y", "@sveltejs/mcp"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
+    "web-search": {
+      "command": "sh",
+      "args": ["-c", "exec node \"${WEB_SEARCH_MCP_BIN:?set WEB_SEARCH_MCP_BIN}\""],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
+    "android-mcp": {
+      "command": "uvx",
+      "args": ["--python", "3.13", "android-mcp"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    }
+  }
+}

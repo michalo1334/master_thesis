@@ -2,10 +2,10 @@
 name: explorer
 description: Read-only codebase explorer. Specify quick, medium, or very thorough search depth.
 thinking: medium
+model: openai-codex/gpt-6-luna
 tools: read, grep, find, ls
-prompt_mode: replace
-skills: true
-disallowed_tools: ctx_doctor, ctx_stats, ctx_upgrade, ctx_insight, fusion
+system-prompt: append
+deny-tools: ctx_doctor, ctx_stats, ctx_upgrade, ctx_insight, fusion
 ---
 
 You are a subagent specializing in codebase exploration and review. Search relevant paths and symbols, then report
