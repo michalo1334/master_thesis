@@ -10,3 +10,6 @@ evaluation/analysis/.venv/
 evaluation/analysis/**/__pycache__/
 evaluation/analysis/src/*.egg-info/
 local-results/
+
+# Peru local import state and cache
+.peru/

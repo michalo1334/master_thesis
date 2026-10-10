@@ -1,0 +1,40 @@
+services:
+  formloop:
+    image: agent-lib-formloop:78520e9
+    build:
+      context: .
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    ports:
+      - "127.0.0.1:${FORMLOOP_PORT:-3847}:3847"
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: "3847"
+      FORMLOOP_HOST: 127.0.0.1
+      FORMLOOP_PORT: "3847"
+      FORMLOOP_STORE: memory
+      NEXT_TELEMETRY_DISABLED: "1"
+      PUBLIC_BRIDGE_URL: "http://127.0.0.1:${FORMLOOP_PORT:-3847}"
+    labels:
+      io.michalo.agent-lib.formloop: "1"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3847').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"

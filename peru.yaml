@@ -1,0 +1,17 @@
+imports:
+  agent-lib: ./
+git module agent-lib:
+  url: https://github.com/michalo1334/michalo-common-agent-lib.git
+  reup: main
+  pick:
+  - .pi/
+  - AGENTS.md
+  - update-agent-setup
+  drop:
+  - .pi/.gitignore
+  executable:
+  - .pi/formloop/launch
+  - .pi/skills/impeccable/scripts/impeccable
+  - .pi/skills/impeccable/scripts/bin/linux-x64/impeccable
+  - update-agent-setup
+  rev: 2d45cc00894dd8f3018a84e50dc9675ab2b045e4

@@ -1,5 +1,12 @@
 {
   "mcpServers": {
+    "formloop": {
+      "command": "bash",
+      "args": [".pi/formloop/launch", "mcp"],
+      "requestTimeoutMs": 1860000,
+      "directTools": false,
+      "description": "Create local forms for structured human input. Open returned localhost URLs in your browser. Forms and submissions are held in memory."
+    },
     "blender-mcp": {
       "command": "uvx",
       "args": ["--python", "3.11", "blender-mcp"],
@@ -25,6 +32,15 @@
     "android-mcp": {
       "command": "uvx",
       "args": ["--python", "3.13", "android-mcp"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
+    "github": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "!gh auth token"
+      },
       "requestTimeoutMs": 120000,
       "directTools": false
     }

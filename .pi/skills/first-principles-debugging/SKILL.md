@@ -9,8 +9,9 @@ description: Systematically debug the issue by applying scientific process from 
   form understanding as you go
 - _Complex systems_ - many systems are far too complex to reliable guess the actual cause. There is too many interwined
   factors at play.
-- _Multi level_ - not all causes lie in the coode right before your "eyes", some of them are at machine, external
-  integration or even organization level.
+- _Occam's Razor_ - start with the most simplest, direct and obvious hypotheses before diving deeper
+- _Multi level_ - not all causes lie in the code right before your "eyes", some of them are at machine, external
+  integration or even organizationial level.
 - _Hypothesis is not a mathematical proof_ - hypothesis is a statement that is backed by observations that weaken or
   strengthen it, never prove its correctness.
 
@@ -22,25 +23,49 @@ Derived truthful statement from observations about the system behavior or its co
 
 # Boundaries
 
-The skill has following limitations and boundaries:
+## Investigation only
 
-- does **not** cover exact workflow or tools to use, only general process. These are governed by other documents.
-- reporting mode only, do **not** apply any form of permament fix or change, unless overriden by the document or the
-  user. It's allowed to perform changes solely for experimental purposes i.e. to understand how system behaves under
-  different conditions, *_unless_ the changes are outside the scopee of the source code (e.g. VM config changes)
-- observations, facts and predictions are brief, one (max two) sentence statements with concrete findings, measurements
-  and subjects. Do not write verbose paragraphs.
-- predictions are conditional sentences, not true statements
-- **Inspection scope**: while the primary skill focuses on the
+The investigation lifecycle is to **only** discover causes, not apply fixes to them. It's allowed to make temporary
+changes in the source code, add testing etc. to solely understand the behavior and reproduce the issue under different
+conditions. User decides whether to expand the scope with applying the fix (if any).
+
+## Occam's razor
+
+Given set of facts and tested hypotheses so far, establish the **most** obvious, **most** simplest, most direct one that
+one could come up with. Do **not** start with hypothesis that claims the problem lies in architecture or in
+infrastructure unless you cleared out the "ground" ones.
+
+Hypothesis-driven debugging is a marathon, not a sprint. Slow is smooth and smooth is fast.
+
+## Stopping early
+
+A confirmed simple prediction with approved fix can finish the ticket, but does it addresses the underlying problem? The
+actual root causes can sit much higher up e.g. architecture, infrastructure or even organizational level.
+
+Perform further tests only on user's request.
+
+## Observations, facts, predictions
+
+Brief, 1-2 sentence statements with concrete findings, measurements and subjects. No fluff, no verbose paragraphs.
+
+Predictions are **conditional** sentences, not true statements.
 
 # Investigation scope
 
 # Causal path
 
+Causal path is a chain of actions contained within system components, whose execution leads to realize a functionality
+and whose behavior is disrupted by the investigated issue. The causal path can be expanded with more detailed steps as
+investigation progresses. Causal path is represented by sequence diagram, with additional activity, flowchart, state or
+other diagram types as needed to further increase level of detail.
+
+There can be more than one causal paths, if the investigation results warrants it. Examples include asynchronous systems
+or organizational level problems.
+
 # Core analysis loop
 
-A hypothesis-driven-debugging is a recursive investigation method by repeatadly establishing facts from prior evidence,
-forming new hypotheses and testing them in order to support or contradict based on the current state.
+A hypothesis-driven-debugging is a iterative-recursive investigation method by repeatadly establishing facts from prior
+evidence, forming new hypotheses and testing them in order to support or contradict based on the current state.
 
 Conceptually, the loop can be modeled as recursive function in pseudo Elixir:
 
@@ -111,15 +136,6 @@ perform further experiments.
 
 Concluctions drawn from facts established by different experiments must not be contradictory. Conclusions however can
 provide more that one, distinct actual cause (e.g. different parts of the system).
-
-# Resolving the issue
-
-# False root causes
-
-Some "root" causes, are actually symptomes of higher level ones such as bad design, architecture or incorrect assumption
-based on incomplete data or requirements - is band-aid (fix) sufficient or needs proper replacement surgery?
-
-On user request determine if found valid hypotheses are the actual roots or are only symptoms of much deeper issues.
 
 # Record file
 

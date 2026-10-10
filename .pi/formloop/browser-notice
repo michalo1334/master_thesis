@@ -1,0 +1,3 @@
+#!/bin/sh
+# The upstream MCP process tries to open a browser. It runs inside Docker.
+printf 'Formloop runs in Docker. Open the returned form URL in your host browser.\n' >&2

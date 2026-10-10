@@ -1,133 +1,61 @@
-## General workflow
+# Documentation
 
-Your agent type:
+## ASD-STE100 & writing clarity
 
-- main agent if the prompt doesn't contain any info
-- subagent if prompt specifies it
+**Always** use `asd-ste100` skill when writing documentation or outputting an explanation, text or anything else that is
+directed towards communication with the user.
 
-Whenever you invoke/delegate to subagent always in prompt specify the subagent delegated to is a subagent.
+**Always** use plain and concise English language, do not use filler or less common, exotic wordings unless they
+represent exact technical jargon and there is no alternative way to describe a definition, concept etc.
 
-General workflow is as follows:
+When being prompted to review documentation for clarity towards the intended audience, follow
+`writing-clearly-and-concisely` skill as suplemental.
 
-- use the `explorer` subagent for exploration and review
-- use the `implementor` subagent for implementation
-- when you are the main agent your responsibility is general thinking/approaching the problem and orchestrating
-  subagents. For exploration and implementation use subagents as much as possible Pass context (including those from
-  subagents) to subagents via temporary markdown files. You can do small fixes or quick pass reviews.
-- split plan (designed during planning mode) into reasonably small but logical chunks (e.g. BE chunk, FE chunk OR BE +
-  FE chunk, vertical slice style). Handoff each chunk to implementation subagent along with relevant context
+## Decoupling the intent and implementation
 
-### Model codenames
+When documentation warrants code or pseudo code, do not use concrete code fragments or values pasted directly into the
+documentation. It gets outdated quickly. Instead refer to concrete modules, files or use illustrative code or values
+(abstract enough it doesn't get confused with real one).
 
-Use these names when specifying a model. Pi uses the full `provider/model` identifier. Codex custom agents use only the
-model ID for subscription models.
+In short: document in a way that minimizes coupling between the implementation and description. Ask yourself a question:
+When source code or file contents change, how much documentation must change because of appearance rather than
+functionality?
 
-| Codename   | Pi model ID                                               | Codex model ID (subscription) |
-| ---------- | --------------------------------------------------------- | ----------------------------- |
-| MAKORA     | `makora/deepseek-ai/DeepSeek-V4.1-Flash`                  | —                             |
-| NEURALWATT | `neuralwatt/deepseek-v4.1-flash`                          | —                             |
-| SOL56      | `openai-codex/gpt-5.6-sol`                                | `gpt-5.6-sol`                 |
-| SOL6       | `openai-codex/gpt-6-sol`                                  | `gpt-6-sol`                   |
-| ASTRA6     | `openai-codex/gpt-6-astra`                                | `gpt-6-astra`                 |
-| TERRA56    | `openai-codex/gpt-5.6-terra`                              | `gpt-5.6-terra`               |
-| DEEPSEEK   | `deepseek/deepseek-flash`                                 | —                             |
-| FIREWORKS  | `fireworks/accounts/fireworks/models/deepseek-v4p1-flash` | —                             |
-| CB_OSS120  | `cerebras/gpt-oss-120b`                                   | —                             |
-| CB_QWEN38  | `cerebras/qwen-3.8-27b`                                   | —                             |
+## Example based
 
-Cerebras direct API: `https://api.cerebras.ai/v1` (`CEREBRAS_API_KEY`).
+For complex documentation use examples, either enumerating inline (`e.g. ...`) or full worked ones that led the reader
+step by step to better turn abstract description into concrete chain of action.
 
-## Plan mode / plan preparation
+## Illustrating
 
-### Plan format
+Use _visualization_ to let reader better understand the intent behind the words. One clear diagram explains more than
+detailed paragraphs in English. _Visualization_ is not just embedded monolithic blocks that break wall of text but also
+inline code (or pseudocode) examples, mathematical expressions. Think rich text like in MS Word.
 
-Plan is split into two parts:
+**Do not** add visualization just in case for every single paragraph. It introduces unnecessary noise for the reader.
 
-- the design - high and medium level overview, does not describe HOW to execute and what steps to follow, only the
-  overall idea/introduction to the problem being solved
-- the execution - step by step execution, refers back to design points. Missed detail in the design is done here.
+Judge the relevant section and rate whether it warrants a visualization aspect or plain paragraph of text is sufficient.
 
-### Design part/m
+Examples of visualizing:
 
-Visualize the change, do not write only dry bullet points of TODOs without further elaboration.
+- code & pseudocode examples - snippets, example config values, class names, public interface (API, OOP etc.) names
+- tables
+- images
+- input and output examples - interface usage with parameters, example output
+- mermaid diagrams - C4, state machine, sequential, activity, flowchart
+- LaTeX - for mathematical formalisms
 
-Use diagrams for difficult to imagine or describe with plain language - architectural, flow (functionality,
-communication), C4. Do not add diagrams if they only introduce noise or the text is clear enough. Code examples for
-usage (e.g. if it's library or reusable component) and interface declaration (function signatures, file or wire formats,
-classes and methods).
+## Relevancy
 
-Use other visualization methods that could be more suitable than the described above.
+Phrases such as `complex` or `every single` were left vague intentionally as it's difficult to exactly quantize when one
+should add visualization or example. Rate the difficulty indvidually. Consider each time perspective of: 1. domain
+expert, 2. first time reader, engineer or user that wants to better understand the context. 3. a person with basic
+domain knowledge. How much each group can construct of their own internal understanding?
 
-**Principle:** visualize the change. Think Edward Tufte, Envisioning Information and related books not as guide to
-literally use what is described there but as principle.
+**Important**: do not dumb down documentation just because it needs to be accessible for everyone. Each documentation
+can and should be addressed to different groups.
 
-#### Testing
+# Workflow
 
-Design contains one-liner test cases in EARS notation. Do not write test cases OR regression tests for things that can
-be checked more efficiently and more generically with other methods. Use other methods to keep things in check like
-logging, manual tests, IaC, static analysis (Credo) etc.
-
-**Never** use real-code values 1:1 in test cases. The values can be similar structurally.
-
-#### Other but important
-
-Prioritize minimal changes (see `pony`) but if requested, design in mind of scalability later.
-
-Security.
-
-### Execution part
-
-Split into bite-sized, logically coherent chunks worth of around 30min-1h of human effort. Delegate each chunk into
-subagents, default one is `implementor`, unless overridden by the user. Each chunk should be pre-written to file first.
-
-Each execution chunk should at the beginning have list of ALL relevant file EXACT file paths (relative to root).
-Instruction subagent to explicitly batch file reads.
-
-Chunks should contains as much context as possible from you - subagents are tabula rasa beside the repository basic
-info, the main plan and execution chunk.
-
-**IMPORTANT REGARDING SUBAGENT PROMPT PASS**: To improve token caching via prefix prompt caching, all implementor
-subagents must have the same common part, that is:
-
-1. Design plan file reference
-2. Execution chunk file reference
-3. Common, additional instructions (write this to file) file reference!. Additional instructions are design specific,
-   common for all chunks
-4. Additional, specific instructions from you
-
-The prefix **MUST** be 1:1, even one newline or word in different order will break cache.
-
-After every step perform quick code review to check if changes are coherent with the design and plan. Blockers or
-unforseen obstacles (like we assumed X but turns out is Y) **must** be reported to the user.
-
-## Documentation
-
-- For interacting with user (this includes also your output regardless of mode) and/or writing documentation (in
-  general) use `writing-clearly-and-concisely` skill.
-- For writing _technical_ documentation or acting as subagent (output) _always_ use `asd-ste100` skill.
-- Always use Mermaid for diagrams, including those embedded inside markdown blocks. See `mermaid-diagrams` for
-  reference. Do not use ASCII art or other languages like PlantUML unless expliticly specified by the user
-- Never copy paste source code or concrete values unless is for example purposes. It gets outdated very quickly. Instead
-  point to relevant file/place for current values. The point is that documentation can get out of sync with aspects that
-  change dynamically like source code
-- Do not document what can be read from the config or source code. Document why, not what.
-- Documentation files verbosity: Imagine you are lazy engineer who prefers doing useful work and hates absolutely
-  documentation. Document absolute bare minimum, do not over explain. Brief sentences. If explanation is unclear, follow
-  up with example (can be complex one) in elixir or pseudocode
-
-## Command invocation
-
-Run commands directly and summarize verbose output, retaining errors and warnings. This applies to:
-
-- Terraform
-- Any build, test, linter, format
-- Querying anything BUT SQL e.g. Loki, Tempo endpoints but not limited to them
-- playwright-cli
-- git operations (including commit, status)
-- any tools or other commands that you find out have verbose output during the workflow. Write them down to file
-  `verbose_tools.md` with bullet points and brief reason why
-
-## Post Completion Check of tasks
-
-ALWAYS, THIS IS NOT NEGOTABLIE, POST CHECK your results. Fix? test it, query the db, check logs, check if the fix didn't
-broke anything else and actually worked.
+- use `scout` with `gpt 5.6 luna` override for exploring codebase or researching internet
+- use `fusion` skill & delegation for implementation
