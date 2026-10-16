@@ -60,17 +60,3 @@ plans and no non-functional constraints. Code and tests define behavior.
   with the selected actions, the used budget, and the runtime.
 - The system shall support the strategies: null, random, CVSS, topology
   segmentation, simulation-informed, and simulated annealing.
-
-## Evaluation and result analysis
-
-- The system shall execute an evaluation from a saved manifest that declares
-  strategies, budgets, model variants, and a seed schedule.
-- The system shall derive one shared attack seed stream that the baseline and
-  every post-defense experiment use.
-- The system shall run one baseline experiment and one post-defense experiment
-  per selected plan against the shared schedule.
-- The system shall persist each plan and experiment; while a partially
-  completed run resumes, the system shall reuse its persisted plans and
-  experiments instead of duplicating them.
-- The system shall write a result archive for statistical analysis after an
-  evaluation run completes.

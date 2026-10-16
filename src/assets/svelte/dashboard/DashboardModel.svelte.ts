@@ -1,4 +1,3 @@
-import type * as EvaluationContracts from "../contracts.generated/dashboard/evaluation";
 import type { ExecutionProgressEvent } from "../contracts.generated/dashboard";
 import type {
   FolderSummary,
@@ -16,15 +15,10 @@ import type {
 } from "../contracts.generated/dashboard/simulation";
 import type { SimulationParams } from "../contracts.generated/simulation";
 import { WorkspaceModel } from "./workspace/WorkspaceModel.svelte";
-import { ManifestModel } from "./manifest/ManifestModel.svelte";
-import { StudyModel } from "./study/StudyModel.svelte";
-import type { StudyDocument } from "./study/StudyDocument.svelte";
-import { requestStudyClose } from "./study/study-close";
-import { SvelteMap, SvelteSet } from "svelte/reactivity";
+import { SvelteSet } from "svelte/reactivity";
 import type { DashboardApi } from "./dashboard-api";
 import type { SimulationReportDocument } from "./simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "./optimization-report/OptimizationReportDocument.svelte";
-import type { AnalysisReportDocument } from "./analysis-report/AnalysisReportDocument.svelte";
 import type {
   ReportErrorEventType,
   ReportKind,
@@ -39,18 +33,6 @@ import type { EditableGraphDocument } from "./graph/EditableGraphDocument.svelte
 export class DashboardModel {
   workspace: WorkspaceModel;
   api: DashboardApi;
-  manifest: ManifestModel;
-  study: StudyModel;
-  private pendingEvaluationEvents = new SvelteMap<
-    string,
-    | EvaluationContracts.EvaluationCompletedEvent
-    | EvaluationContracts.EvaluationFailedEvent
-  >();
-  // ponytail: last-only O(1) buffer — full history if UX needs scrubbing
-  private pendingEvaluationProgressEvents = new SvelteMap<
-    string,
-    ExecutionProgressEvent
-  >();
   private pendingCancellations = new SvelteSet<string>();
 
   private cancellationKey(kind: ReportKind, runId: string): string {
@@ -84,92 +66,6 @@ export class DashboardModel {
   ) {
     this.api = api;
     this.workspace = new WorkspaceModel(graphSummaries, folders, api);
-    this.manifest = new ManifestModel(api);
-    this.study = new StudyModel(api);
-    this.study.openStudyDocument = (locked) =>
-      this.workspace.openStudyDocument(locked);
-    this.study.activateStudyDocument = (document) =>
-      this.workspace.activateDocument(document);
-    this.study.discardStudyDocument = (document) =>
-      this.workspace.closeDocumentNow(document.id);
-    this.study.onOpenEvaluationManifest = () => this.manifest.openDialog();
-    this.workspace.onRequestStudyClose = (document) =>
-      void this.closeStudyDocument(document);
-    this.manifest.onStarted = (runId, manifest) => {
-      const report = this.workspace.openPendingAnalysisReport(runId, manifest);
-      this.applyPendingCancellation(report);
-      if (report.status === "cancelled") return;
-      const progress = this.pendingEvaluationProgressEvents.get(runId);
-      if (progress) {
-        this.pendingEvaluationProgressEvents.delete(runId);
-        report.setProgress(
-          progress.completed,
-          progress.total,
-          progress.detail ?? undefined,
-        );
-      }
-
-      const event = this.pendingEvaluationEvents.get(runId);
-      if (!event) return;
-
-      this.pendingEvaluationEvents.delete(runId);
-      if ("error" in event) this.onEvaluationFailed(event);
-      else this.onEvaluationCompleted(event);
-    };
-  }
-
-  /**
-   * Routes one study phase event to the matching live document.
-   *
-   * The document accepts the event only when its id and running mode match, so
-   * a phase for a closed or replaced document cannot change any state.
-   */
-  onStudyProgress(
-    payload: EvaluationContracts.StudyAnalysisProgressEvent,
-  ): void {
-    this.findStudyDocument(payload.document_id)?.onProgress(payload);
-  }
-
-  /** Routes one study result event to the matching live document. */
-  onStudyReady(payload: EvaluationContracts.StudyAnalysisReadyEvent): void {
-    this.findStudyDocument(payload.document_id)?.onReady(payload);
-  }
-
-  /** Routes one study failure event to the matching live document. */
-  onStudyError(payload: EvaluationContracts.StudyAnalysisErrorEvent): void {
-    this.findStudyDocument(payload.document_id)?.onError(payload);
-  }
-
-  /**
-   * Closes one live study document after a server close acknowledgment.
-   *
-   * A running task or a result with no download request asks for confirmation
-   * first. The document is removed only after the server acknowledges removal
-   * (`closed` or `not_found`). An invalid reply or a transport failure keeps
-   * the document with a retryable close error, so the user never loses a
-   * handle whose server task may still run.
-   */
-  async closeStudyDocument(document: StudyDocument): Promise<void> {
-    if (document.closing) return;
-    const warning = document.closeWarning;
-    if (warning && !globalThis.confirm(warning)) return;
-
-    document.markClosing();
-    const confirmed = await requestStudyClose(this.api, document.id);
-    if (confirmed) {
-      this.workspace.closeDocumentNow(document.id);
-      return;
-    }
-    document.markCloseFailed(
-      "The server did not confirm the close. Close again to retry.",
-    );
-  }
-
-  private findStudyDocument(id: string): StudyDocument | undefined {
-    return this.workspace.documents.find(
-      (document): document is StudyDocument =>
-        document.kind === "study" && document.id === id,
-    );
   }
 
   /** Cross-model: start simulation on active graph, create pending report. */
@@ -369,12 +265,11 @@ export class DashboardModel {
   }
 
   onProgress(
-    kind: "simulation" | "optimization" | "evaluation",
+    kind: "simulation" | "optimization",
     payload: ExecutionProgressEvent,
   ): void {
     if (kind === "simulation") this.onSimulationProgress(payload);
-    else if (kind === "optimization") this.onOptimizationProgress(payload);
-    else this.onEvaluationProgress(payload);
+    else this.onOptimizationProgress(payload);
   }
 
   onSimulationProgress(payload: ExecutionProgressEvent): void {
@@ -401,23 +296,8 @@ export class DashboardModel {
     );
   }
 
-  onEvaluationProgress(payload: ExecutionProgressEvent): void {
-    const report = this.findAnalysisReport(payload.correlation_id);
-    if (!report) {
-      this.pendingEvaluationProgressEvents.set(payload.correlation_id, payload);
-      return;
-    }
-
-    this.pendingEvaluationProgressEvents.delete(payload.correlation_id);
-    report.setProgress(
-      payload.completed,
-      payload.total,
-      payload.detail ?? undefined,
-    );
-  }
-
   onReportProgress(
-    kind: "simulation" | "optimization" | "evaluation",
+    kind: "simulation" | "optimization",
     payload: ExecutionProgressEvent,
   ): void {
     const report = this.workspace.documents.find(
@@ -509,16 +389,6 @@ export class DashboardModel {
     this.workspace.markReportReadState(document);
   }
 
-  onEvaluationCompleted(
-    payload: EvaluationContracts.EvaluationCompletedEvent,
-  ): void {
-    this.announceEvaluationReport(payload);
-  }
-
-  onEvaluationFailed(payload: EvaluationContracts.EvaluationFailedEvent): void {
-    this.announceEvaluationReport(payload);
-  }
-
   onRunCancelled(payload: RunCancelledEvent): void {
     const kind = payload.kind as ReportKind;
     const report = this.workspace.documents.find(
@@ -558,45 +428,6 @@ export class DashboardModel {
     return false;
   }
 
-  onEvaluationAnalysisReady(
-    payload: EvaluationContracts.EvaluationAnalysisReadyEvent,
-  ): void {
-    const report = this.findReport(payload.document_id, "evaluation") as
-      AnalysisReportDocument | undefined;
-    if (report?.status === "cancelled") return;
-    report?.setAnalysisReady(payload);
-  }
-
-  onEvaluationAnalysisError(
-    payload: EvaluationContracts.EvaluationAnalysisErrorEvent,
-  ): void {
-    const report = this.findReport(payload.document_id, "evaluation") as
-      AnalysisReportDocument | undefined;
-    if (report?.status === "cancelled") return;
-    report?.setAnalysisError(payload);
-  }
-
-  private announceEvaluationReport(
-    payload:
-      | EvaluationContracts.EvaluationCompletedEvent
-      | EvaluationContracts.EvaluationFailedEvent,
-  ): void {
-    const report = this.findAnalysisReport(payload.run_id);
-    if (!report) {
-      this.pendingEvaluationEvents.set(payload.run_id, payload);
-      return;
-    }
-    if (report.status === "cancelled") return;
-    // Already loaded: the server re-announces terminal runs; don't refetch.
-    if (report.status === "loaded") {
-      this.workspace.markReportReadState(report);
-      return;
-    }
-    report.markReady();
-    report.load(this.api, report.id, payload.run_id);
-    this.workspace.markReportReadState(report);
-  }
-
   private findSimulationReport(
     correlationId: string,
     graphRevisionId: string,
@@ -607,14 +438,6 @@ export class DashboardModel {
         d.correlationId === correlationId &&
         d.graphRevisionId === graphRevisionId,
     ) as SimulationReportDocument | undefined;
-  }
-
-  private findAnalysisReport(
-    runId: string,
-  ): AnalysisReportDocument | undefined {
-    return this.workspace.documents.find(
-      (d) => d.kind === "analysis-report" && d.runId === runId,
-    ) as AnalysisReportDocument | undefined;
   }
 
   /** Delegate saving to the workspace. */

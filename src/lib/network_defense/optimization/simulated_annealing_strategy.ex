@@ -55,7 +55,7 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
         {initial_plan, random_state} = random_plan(candidates, plan_size, random_state)
         baseline_score = score(graph, [], strategy)
         initial_score = score(graph, initial_plan, strategy)
-        # ponytail: cap candidate evaluations so interactive optimization remains bounded.
+        # ponytail: cap candidate scores so interactive optimization remains bounded.
         steps = min(@max_steps, max(20, length(candidates) * 2))
 
         {best_plan, best_score, _random_state, _accepted_count} =

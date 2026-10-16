@@ -171,9 +171,7 @@ defmodule NetworkDefense.Simulation.Experiments do
       :total_trials,
       :completed_trials,
       :status,
-      :initial_foothold_node_id,
-      :evaluation_run_id,
-      :optimization_run_id
+      :initial_foothold_node_id
     ])
   end
 

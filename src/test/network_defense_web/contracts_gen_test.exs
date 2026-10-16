@@ -10,9 +10,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     :graph,
     :simulation,
     :optimization,
-    :workflow,
     :workspace,
-    :evaluation,
     :runs
   ]
 
@@ -22,7 +20,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export declare namespace NetworkDefense.Graph.Contracts"
     assert output =~ "export declare namespace NetworkDefense.Graph.Contracts.Data"
     assert output =~ "export declare namespace NetworkDefenseWeb.Contracts.Dashboard"
-    assert output =~ "export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Evaluation"
     refute output =~ "NetworkDefenseWeb.Web.Contracts"
 
     assert output =~ "  export type Node ="
@@ -65,9 +62,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "export interface RunOptimizationRequest"
     assert output =~ "export interface OptimizationCompletedEvent"
 
-    assert output =~
-             "export interface EvaluationAnalysisErrorEvent {\n    document_id: string;\n    error: NetworkDefenseWeb.Contracts.Dashboard.DashboardError;\n    mode: \"pilot\" | \"analyze\";"
-
     assert output =~ "export interface SimulationReportCapabilityStatus"
     assert output =~ "required_flow_count: number;"
     assert output =~ "missing_flow_count: number;"
@@ -78,8 +72,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
              "capability_statuses: NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus[];"
 
     assert output =~ "feasible: boolean;"
-    assert output =~ "content?: Record<string, unknown> | null;"
-    assert output =~ "content: Record<string, unknown>;"
 
     refute output =~ ~r/^export (interface|type) /m
   end
@@ -194,7 +186,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
           "optimization.ts",
           "simulation.ts",
           "dashboard.ts",
-          "dashboard/evaluation.ts",
           "dashboard/graph.ts",
           "dashboard/graph/topology_projection.ts",
           "dashboard/optimization.ts",
@@ -204,12 +195,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
         ] do
       assert Map.has_key?(modules, rel_path), "missing import module #{rel_path}"
     end
-
-    evaluation = modules["dashboard/evaluation.ts"]
-    assert evaluation =~ ~s(import type * as __Contracts from "../../contracts.generated";)
-
-    assert evaluation =~
-             ~s(export type DescribeManifestPayload = __Contracts.NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestPayload;)
 
     graph_data = modules["graph/data.ts"]
     assert graph_data =~ ~s(import type * as __Contracts from "../../contracts.generated";)
@@ -247,7 +232,6 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
     assert Map.keys(modules) |> Enum.sort() == [
              "dashboard.ts",
-             "dashboard/evaluation.ts",
              "dashboard/graph.ts",
              "dashboard/graph/topology_projection.ts",
              "dashboard/optimization.ts",

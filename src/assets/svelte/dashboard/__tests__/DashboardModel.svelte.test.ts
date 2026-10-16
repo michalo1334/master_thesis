@@ -2,7 +2,6 @@ import type { GraphContract } from "../../contracts.generated/graph";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DashboardModel } from "../DashboardModel.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { StudyLockedInputs } from "../study/study-types";
 function graph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
     id: "g1",
@@ -66,22 +65,6 @@ function api(): DashboardApi & {
     createFolder: vi.fn(),
     deleteFolder: vi.fn(),
     moveGraphToFolder: vi.fn(),
-    listManifests: vi.fn().mockResolvedValue({ manifests: [] }),
-    getManifest: vi.fn(),
-    saveManifest: vi.fn(),
-    startEvaluation: vi.fn(),
-    describeManifest: vi.fn(),
-    listStudySpecifications: vi.fn().mockResolvedValue({ specifications: [] }),
-    getStudySpecification: vi.fn(),
-    saveStudySpecification: vi.fn(),
-    describeStudySpecification: vi.fn(),
-    listStudyTierRuns: vi.fn().mockResolvedValue({ runs: [] }),
-    preflightStudy: vi.fn(),
-    startStudyAnalysis: vi.fn(),
-    closeStudyDocument: vi.fn().mockResolvedValue({ status: "closed" }),
-    requestEvaluationReport: vi.fn(),
-    requestEvaluationAnalysis: vi.fn(),
-    importStudyResults: vi.fn(),
     cancelRun: vi.fn(),
   } as DashboardApi & {
     requestSimulationReport: ReturnType<typeof vi.fn>;
@@ -246,122 +229,6 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("loading");
   });
 
-  it("handles an evaluation event that arrives before its start reply", () => {
-    model.onEvaluationCompleted({
-      run_id: "evaluation-1",
-      manifest_id: "manifest-1",
-      manifest_title: "Evaluation manifest",
-      source_graph_revision_id: "r1",
-    });
-
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
-    expect(report).toMatchObject({
-      runId: "evaluation-1",
-      status: "loading",
-    });
-    expect(dashboardApi.requestEvaluationReport).toHaveBeenCalledWith(
-      report?.id,
-      "evaluation-1",
-    );
-  });
-
-  it("fetches the failed evaluation report so the failure reason is shown", () => {
-    model.onEvaluationFailed({
-      run_id: "evaluation-1",
-      manifest_id: "manifest-1",
-      manifest_title: "Evaluation manifest",
-      error: { code: "internal_error" },
-    });
-
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
-    expect(report).toMatchObject({
-      runId: "evaluation-1",
-      status: "loading",
-    });
-    expect(dashboardApi.requestEvaluationReport).toHaveBeenCalledWith(
-      report?.id,
-      "evaluation-1",
-    );
-  });
-
-  it("routes evaluation progress to the pending report by run ID", () => {
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-
-    model.onProgress("evaluation", {
-      correlation_id: "evaluation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      completed: 4,
-      total: 13,
-      detail: "Baseline attack trials: 3 of 5",
-    });
-
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
-    expect(report).toMatchObject({
-      runId: "evaluation-1",
-      progress: {
-        completed: 4,
-        total: 13,
-        detail: "Baseline attack trials: 3 of 5",
-      },
-    });
-  });
-
-  it("routes report assembly progress to the loading report by run ID", () => {
-    model.onEvaluationCompleted({
-      run_id: "evaluation-1",
-      manifest_id: "manifest-1",
-      manifest_title: "Evaluation manifest",
-      source_graph_revision_id: "r1",
-    });
-
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-
-    model.onReportProgress("evaluation", {
-      correlation_id: "evaluation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      completed: 2,
-      total: 4,
-      detail: "Summarizing plans",
-    });
-
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
-    expect(report).toMatchObject({
-      runId: "evaluation-1",
-      status: "loading",
-      loadProgress: { completed: 2, total: 4, detail: "Summarizing plans" },
-    });
-  });
-
   it("routes simulation report assembly progress to the loading report by experiment ID", () => {
     const simulation = createSimulationReport(model);
     model.onSimulationCompleted({
@@ -431,43 +298,6 @@ describe("DashboardModel", () => {
         completed: 2,
         total: 2,
         detail: "Building action summaries",
-      },
-    });
-  });
-
-  it("buffers the latest evaluation progress until the report is created", () => {
-    model.onProgress("evaluation", {
-      correlation_id: "evaluation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      completed: 1,
-      total: 13,
-      detail: "Selecting plans",
-    });
-    model.onProgress("evaluation", {
-      correlation_id: "evaluation-1",
-      graph_id: "g1",
-      graph_revision_id: "r1",
-      completed: 4,
-      total: 13,
-      detail: "Baseline attack trials: 3 of 5",
-    });
-
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
-    expect(report).toMatchObject({
-      runId: "evaluation-1",
-      progress: {
-        completed: 4,
-        total: 13,
-        detail: "Baseline attack trials: 3 of 5",
       },
     });
   });
@@ -619,75 +449,7 @@ describe("DashboardModel", () => {
     expect(report.status).toBe("loaded");
   });
 
-  it("does not re-request an evaluation report that is already loaded", () => {
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    )!;
-
-    model.onReportReadyEvent({
-      reportKind: "evaluation",
-      payload: {
-        document_id: report.id,
-        report: {
-          run_id: "evaluation-1",
-          status: "completed",
-          failure_reason: null,
-          manifest_id: "manifest-1",
-          manifest_title: "Evaluation manifest",
-          graph_id: "g1",
-          source_graph_revision_id: "r1",
-          source_graph_title: "Topology",
-          plans: [],
-          experiments: [],
-        },
-      },
-    });
-    expect(report.status).toBe("loaded");
-
-    const before = vi.mocked(dashboardApi.requestEvaluationReport).mock.calls
-      .length;
-    model.onEvaluationCompleted({
-      run_id: "evaluation-1",
-      manifest_id: "manifest-1",
-      manifest_title: "Evaluation manifest",
-      source_graph_revision_id: "r1",
-    });
-
-    expect(
-      vi.mocked(dashboardApi.requestEvaluationReport).mock.calls.length,
-    ).toBe(before);
-    expect(report.status).toBe("loaded");
-  });
-
-  it("surfaces a not_found evaluation report error without treating it as an internal crash", () => {
-    model.manifest.onStarted?.("evaluation-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    )!;
-
-    model.onReportErrorEvent({
-      reportKind: "evaluation",
-      payload: {
-        document_id: report.id,
-        run_id: "evaluation-1",
-        error: { code: "not_found" },
-      },
-    });
-
-    expect(report.status).toBe("error");
-    expect(report.errorReason).toBe("The requested item was not found.");
-  });
-
-  it("cancels each report kind through its shared run ID", async () => {
+  it("cancels both report kinds through their shared run IDs", async () => {
     const simulation = createSimulationReport(model);
     simulation.setRunId("simulation-run-1");
 
@@ -705,15 +467,6 @@ describe("DashboardModel", () => {
       (document) => document.kind === "optimization-report",
     )!;
 
-    model.manifest.onStarted?.("evaluation-run-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-    const evaluation = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    )!;
-
     vi.stubGlobal("confirm", () => true);
     vi.mocked(dashboardApi.cancelRun).mockResolvedValue({
       status: "cancelled",
@@ -721,11 +474,9 @@ describe("DashboardModel", () => {
 
     await expect(model.cancelReport(simulation)).resolves.toBe(true);
     await expect(model.cancelReport(optimization)).resolves.toBe(true);
-    await expect(model.cancelReport(evaluation)).resolves.toBe(true);
 
     expect(simulation.status).toBe("cancelled");
     expect(optimization.status).toBe("cancelled");
-    expect(evaluation.status).toBe("cancelled");
     expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(1, {
       kind: "simulation",
       run_id: "simulation-run-1",
@@ -733,10 +484,6 @@ describe("DashboardModel", () => {
     expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(2, {
       kind: "optimization",
       run_id: "optimization-run-1",
-    });
-    expect(dashboardApi.cancelRun).toHaveBeenNthCalledWith(3, {
-      kind: "evaluation",
-      run_id: "evaluation-run-1",
     });
   });
 
@@ -805,12 +552,6 @@ describe("DashboardModel", () => {
     await model.runActiveSimulation();
     model.workspace.selectDocument(model.workspace.documents[0]!.id);
     await model.runActiveOptimization();
-    model.onRunCancelled({ kind: "evaluation", run_id: "evaluation-run-1" });
-    model.manifest.onStarted?.("evaluation-run-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
 
     const simulation = model.workspace.documents.find(
       (document) => document.kind === "simulation-report",
@@ -818,12 +559,8 @@ describe("DashboardModel", () => {
     const optimization = model.workspace.documents.find(
       (document) => document.kind === "optimization-report",
     );
-    const evaluation = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    );
     expect(simulation?.status).toBe("cancelled");
     expect(optimization?.status).toBe("cancelled");
-    expect(evaluation?.status).toBe("cancelled");
   });
 
   it("keeps cancelled reports cancelled when late ready or error events arrive", () => {
@@ -848,269 +585,5 @@ describe("DashboardModel", () => {
     });
 
     expect(report.status).toBe("cancelled");
-  });
-
-  it("ignores late evaluation analysis events after cancellation", () => {
-    model.manifest.onStarted?.("evaluation-run-1", {
-      id: "manifest-1",
-      manifest_id: "manifest-1",
-      title: "Evaluation manifest",
-    });
-    const report = model.workspace.documents.find(
-      (document) => document.kind === "analysis-report",
-    )!;
-    model.onRunCancelled({ kind: "evaluation", run_id: "evaluation-run-1" });
-
-    model.onEvaluationAnalysisReady({
-      document_id: report.id,
-      run_id: "evaluation-run-1",
-      mode: "pilot",
-      analysis: {} as never,
-    });
-    model.onEvaluationAnalysisError({
-      document_id: report.id,
-      run_id: "evaluation-run-1",
-      mode: "analyze",
-      error: { code: "internal_error" },
-    });
-
-    expect(report.status).toBe("cancelled");
-    expect(report.pilotAnalysis.status).toBe("idle");
-    expect(report.finalAnalysis.status).toBe("idle");
-  });
-
-  describe("study documents", () => {
-    function locked(): StudyLockedInputs {
-      return {
-        title: "Study one",
-        study_id: "study-one",
-        specification_id: "spec-1",
-        specification_version: 1,
-        tiers: [{ tier: "small", run_id: "run-1" }],
-      };
-    }
-
-    function liveDocument() {
-      const { document } = model.workspace.openStudyDocument(locked());
-      document.markStarted("pilot");
-      document.attemptId = "attempt-1";
-      return document;
-    }
-
-    it("routes progress, ready, and error events to the matching document", () => {
-      const document = liveDocument();
-
-      model.onStudyProgress({
-        document_id: document.id,
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        phase: "waiting_for_service",
-      });
-      expect(document.phase).toBe("waiting_for_service");
-
-      model.onStudyReady({
-        document_id: document.id,
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        archive: "YXJjaGl2ZQ==",
-        pilot_eligible: true,
-        analysis: {} as never,
-      });
-      expect(document.pilotEligible).toBe(true);
-      document.finalMapping.selections = { small: "final-run" };
-      document.finalMapping.preflightStatus = "ok";
-      expect(document.canRunFinal).toBe(true);
-
-      document.markStarted("pilot");
-      document.attemptId = "attempt-2";
-      model.onStudyError({
-        document_id: document.id,
-        mode: "pilot",
-        attempt_id: "attempt-2",
-        phase: "waiting_for_service",
-        error: { code: "transport" },
-      });
-      expect(document.status).toBe("failed");
-    });
-
-    it("ignores a delayed event from a superseded same-mode attempt", () => {
-      const document = liveDocument();
-      document.attemptId = "attempt-2";
-
-      model.onStudyReady({
-        document_id: document.id,
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        archive: "YXJjaGl2ZQ==",
-        pilot_eligible: true,
-        analysis: {} as never,
-      });
-      model.onStudyError({
-        document_id: document.id,
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        phase: "waiting_for_service",
-        error: { code: "transport" },
-      });
-
-      expect(document.status).toBe("running");
-      expect(document.canRunFinal).toBe(false);
-    });
-
-    it("ignores study events for an unknown document id", () => {
-      const document = liveDocument();
-
-      model.onStudyProgress({
-        document_id: "other-document",
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        phase: "waiting_for_service",
-      });
-      model.onStudyReady({
-        document_id: "other-document",
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        archive: "YXJjaGl2ZQ==",
-        pilot_eligible: true,
-        analysis: {} as never,
-      });
-      model.onStudyError({
-        document_id: "other-document",
-        mode: "pilot",
-        attempt_id: "attempt-1",
-        phase: "waiting_for_service",
-        error: { code: "transport" },
-      });
-
-      expect(document.phase).toBe("building_bundle");
-      expect(document.status).toBe("running");
-    });
-
-    it("confirms, closes the server session, and removes a running document", async () => {
-      vi.stubGlobal(
-        "confirm",
-        vi.fn(() => true),
-      );
-      const document = liveDocument();
-
-      await model.closeStudyDocument(document);
-
-      expect(globalThis.confirm).toHaveBeenCalled();
-      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
-        document_id: document.id,
-      });
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(false);
-    });
-
-    it("keeps a running document when the close is not confirmed", async () => {
-      vi.stubGlobal(
-        "confirm",
-        vi.fn(() => false),
-      );
-      const document = liveDocument();
-
-      await model.closeStudyDocument(document);
-
-      expect(dashboardApi.closeStudyDocument).not.toHaveBeenCalled();
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(true);
-    });
-
-    it("removes a provisional document without a close prompt", async () => {
-      const confirmStub = vi.fn(() => true);
-      vi.stubGlobal("confirm", confirmStub);
-      const { document } = model.workspace.openStudyDocument(locked());
-
-      await model.closeStudyDocument(document);
-
-      expect(confirmStub).not.toHaveBeenCalled();
-      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
-        document_id: document.id,
-      });
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(false);
-    });
-
-    it("discards an acknowledged ambiguous-start workspace without a second cancellation", async () => {
-      const { document } = model.workspace.openStudyDocument(locked());
-      document.markStarted("pilot");
-
-      await dashboardApi.closeStudyDocument({ document_id: document.id });
-      model.study.discardStudyDocument?.(document);
-
-      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledTimes(1);
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(false);
-    });
-
-    it("retains a document and shows a retryable error on an invalid close reply", async () => {
-      vi.stubGlobal(
-        "confirm",
-        vi.fn(() => true),
-      );
-      vi.mocked(dashboardApi.closeStudyDocument).mockResolvedValue({
-        status: "invalid_request",
-      });
-      const document = liveDocument();
-
-      await model.closeStudyDocument(document);
-
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(true);
-      expect(document.closeError).not.toBe("");
-      expect(document.closing).toBe(false);
-    });
-
-    it("retains a document and shows a retryable error on a transport failure", async () => {
-      vi.stubGlobal(
-        "confirm",
-        vi.fn(() => true),
-      );
-      vi.mocked(dashboardApi.closeStudyDocument).mockRejectedValue(
-        new Error("offline"),
-      );
-      const document = liveDocument();
-
-      await model.closeStudyDocument(document);
-
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(true);
-      expect(document.closeError).not.toBe("");
-
-      vi.mocked(dashboardApi.closeStudyDocument).mockResolvedValue({
-        status: "not_found",
-      });
-      await model.closeStudyDocument(document);
-
-      expect(
-        model.workspace.documents.some((item) => item.id === document.id),
-      ).toBe(false);
-    });
-
-    it("routes the workspace close action through the study close flow", async () => {
-      vi.stubGlobal(
-        "confirm",
-        vi.fn(() => true),
-      );
-      const document = liveDocument();
-
-      model.workspace.closeDocument(document.id);
-
-      await vi.waitFor(() =>
-        expect(
-          model.workspace.documents.some((item) => item.id === document.id),
-        ).toBe(false),
-      );
-      expect(dashboardApi.closeStudyDocument).toHaveBeenCalledWith({
-        document_id: document.id,
-      });
-    });
   });
 });

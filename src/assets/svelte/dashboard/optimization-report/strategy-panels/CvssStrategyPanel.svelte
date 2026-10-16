@@ -1,21 +1,21 @@
 <script lang="ts">
-  import type { OptimizationAnalysis } from "../to-analysis";
+  import type { OptimizationPresentation } from "../optimization-presentation";
   import StatisticalChart from "../../simulation-report/StatisticalChart.svelte";
   import { cvssOptions } from "../chart-options";
   import StrategyPanel from "./StrategyPanel.svelte";
   interface Props {
-    analysis: OptimizationAnalysis;
+    presentation: OptimizationPresentation;
   }
-  let { analysis }: Props = $props();
+  let { presentation }: Props = $props();
   let hasCvssScores = $derived(
-    analysis.actions.some((action) => action.cvss_score != null),
+    presentation.actions.some((action) => action.cvss_score != null),
   );
 </script>
 
 <StrategyPanel
   title="CVSS prioritization"
   description="Prioritizes patches by vulnerability severity."
-  actions={analysis.actions}
+  actions={presentation.actions}
 />
 
 {#if hasCvssScores}
@@ -25,7 +25,7 @@
       title="Selected vulnerability severity"
       takeaway="Shows CVSS scores for the selected defenses."
       ariaLabel="CVSS score by selected defense"
-      option={cvssOptions(analysis.actions)}
+      option={cvssOptions(presentation.actions)}
     />
   </div>
 {/if}

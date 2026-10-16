@@ -38,23 +38,6 @@ states its precise semantics.
 - **Budget**: The maximum number of defense actions an optimization run may
   apply. Equal budgets compare action counts, not money, effort, deployment
   complexity, or operational risk.
-- **Null strategy**: A descriptive no-defense control. It is not part of the
-  topology-scale study's primary comparison family.
+- **Null strategy**: A descriptive no-defense control.
 - **Pre-attack feasibility**: The condition where each mission capability is
   operational before attacker footholds are applied.
-
-## Evaluation runner
-
-- **Frozen manifest**: A manifest saved with an immutable graph revision. All
-  warm-up and measured runs of a tier use it.
-- **Warm-up run**: One unmeasured run that prepares the environment for a
-  frozen manifest. It cannot be exported or analyzed.
-- **Measured run**: One timed, exported run of a frozen manifest.
-- **Replica**: One measured run among the repeats of the same frozen manifest.
-  The topology-scale study uses five accepted replicas after one warm-up.
-- **Primary comparison family**: The 36 mission-impact comparisons formed by
-  four alternatives, three action-count budgets, and three topology tiers.
-  Holm correction applies once to this complete family.
-
-Timing names: use simulation, plan-selection, and total-evaluation duration.
-The study reports the median and observed range across five accepted replicas.

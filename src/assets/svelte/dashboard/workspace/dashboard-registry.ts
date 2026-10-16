@@ -7,16 +7,12 @@ import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import EditableCanvas from "../graph/canvas/EditableCanvas.svelte";
 import GraphDiff from "../graph/GraphDiff.svelte";
 import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
-import AnalysisReport from "../analysis-report/AnalysisReport.svelte";
-import ImportedStudyResults from "../analysis-report/ImportedStudyResults.svelte";
-import Study from "../study/Study.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
 
@@ -56,16 +52,6 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
     "optimization-report": {
       view: OptimizationReport as unknown as DashboardDocumentRegistration["view"],
       fromPersisted: OptimizationReportDocument.fromPersisted,
-    },
-    "analysis-report": {
-      view: AnalysisReport as unknown as DashboardDocumentRegistration["view"],
-      fromPersisted: AnalysisReportDocument.fromPersisted,
-    },
-    "imported-study-results": {
-      view: ImportedStudyResults as unknown as DashboardDocumentRegistration["view"],
-    },
-    study: {
-      view: Study as unknown as DashboardDocumentRegistration["view"],
     },
     "document-catalog": {
       view: DocumentCatalog as unknown as DashboardDocumentRegistration["view"],

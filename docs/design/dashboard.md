@@ -1,18 +1,17 @@
 # Dashboard
 
 The dashboard is the browser UI of the system. It presents a graph workspace
-and report views. It drives attack simulation, defense optimization, and
-evaluation. This page describes the current behavior.
+and report views. It drives attack simulation and defense optimization. This
+page describes the current behavior.
 
 The model rules behind the workflows live in the concepts pages
-([graph](../concepts/graph.md), [defense](../concepts/defense.md),
-[evaluation](../concepts/evaluation.md),
+([graph](../concepts/graph.md), [defense](../concepts/defense.md), and
 [model-example](../concepts/model-example.md)).
 
 ## Workflows
 
-The dashboard supports four primary workflows. Each workflow starts with a
-stable graph. The next section explains why a stable graph matters.
+Each run workflow starts with a stable graph. The next section explains why a
+stable graph matters.
 
 ### Graph and revision management
 
@@ -112,91 +111,6 @@ Source references:
 - optimization runs and reports:
   [`optimizations.ex`](../../src/lib/network_defense/optimizations.ex).
 
-### Evaluation and analysis
-
-The dashboard edits and saves an evaluation manifest. A manifest declares the
-scenario, attacker, strategies, plans, budgets, trials, objectives, and seeds
-for one evaluation. The user starts the evaluation from the manifest.
-
-On completion, the system opens an analysis report. The report lists the plans
-and the aggregate results of the experiments. Statistical analysis is a
-follow-on step; the user triggers it.
-
-The dashboard opens completed study-analysis result ZIPs and renders them in a
-read-only report. The same renderer serves live study results; imported reports
-show no run controls.
-
-### Study analysis
-
-The Study split button runs study analysis over completed evaluation runs. Its
-primary action opens Run study; its menu keeps Open study results.
-
-The Study dialog uses the evaluation-manifest pattern. It contains JSON,
-Preview, and Run tabs. The user saves a study specification, maps each declared
-tier to one completed non-warm-up run, and passes server preflight. Saved
-versions are immutable: an edit disables Save and requires Save as new version.
-A completed warm-up run never qualifies, even when it is otherwise exportable.
-
-Each tier picker lists only runs whose resolved manifest matches the
-specification's `expected_family`: the primary-comparison matrix, the single
-model variant, and the common analysis settings. The picker also filters on the
-seed schedule of the selected mode. A Pilot run must declare its evaluation
-seed inside `pilot_seed_schedule.evaluation` and its selection seeds inside
-`pilot_seed_schedule.selection`; a Final run must satisfy
-`final_seed_schedule`. The two schedules are disjoint, so a Pilot run is not
-Final-compatible and the modes cannot share evidence. The server repeats the
-same check during preflight and execution. Each tier row shows a concise
-summary of the required input shape.
-
-Pilot starts only from a saved version with one unique completed run per
-declared tier and a passing preflight. The server rebuilds and revalidates the
-same bundle before it calls the analysis service.
-
-Pilot and Final use one ephemeral document but separate tier mappings. A
-completed eligible Pilot enables a Final tier mapping in the same document.
-The Final picker offers only Final-compatible runs and excludes the locked
-Pilot run IDs. Final stays disabled until its own mapping is complete, unique,
-and preflight passes. Starting Final locks that mapping, and a Final retry
-reuses the locked mapping. An insufficient or non-informative Pilot keeps
-Final disabled and permits an identical rerun.
-
-Results and the exact tier-run mapping live in the browser document only. They
-are not persisted. Keep the document open until analysis completes. Closing a
-running document or disconnecting the LiveView cancels its task. No Cancel
-control exists. The document warns before it closes a running analysis or a
-completed result whose download has not started.
-
-Each completed result offers its own ZIP download from the exact returned
-bytes. The server encodes the validated ZIP for the browser session and
-enforces the existing output-size limit before it sends the bytes. The filename
-is `STUDY_ID-vSPECIFICATION_VERSION-MODE.zip`, so it names the exact immutable
-version that produced the result.
-
-The browser download URL serves the completed evaluation output-contract ZIP.
-The ZIP is input to statistical analysis. It is not a study-analysis result
-ZIP. Imported study reports do not offer a download.
-
-Source references:
-
-- manifest model:
-  [`ManifestModel.svelte.ts`](../../src/assets/svelte/dashboard/manifest/ManifestModel.svelte.ts);
-- study dialog and model:
-  [`StudyDialog.svelte`](../../src/assets/svelte/dashboard/study/StudyDialog.svelte),
-  [`StudyModel.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyModel.svelte.ts);
-- live study document:
-  [`StudyDocument.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyDocument.svelte.ts),
-  [`StudyFinalMapping.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyFinalMapping.svelte.ts);
-- study session and coordinator:
-  [`study_session.ex`](../../src/lib/network_defense/evaluation/study/study_session.ex),
-  [`study_coordinator.ex`](../../src/lib/network_defense_web/live/web/dashboard/study_coordinator.ex);
-- evaluation analysis report:
-  [`AnalysisReport.svelte`](../../src/assets/svelte/dashboard/analysis-report/AnalysisReport.svelte);
-- shared study renderer:
-  [`StudyAnalysis.svelte`](../../src/assets/svelte/dashboard/analysis-report/StudyAnalysis.svelte);
-- imported study report:
-  [`ImportedStudyResults.svelte`](../../src/assets/svelte/dashboard/analysis-report/ImportedStudyResults.svelte);
-- evaluation lifecycle: [evaluation](../concepts/evaluation.md).
-
 ## Why save before run
 
 Simulation and optimization run against a graph revision. When the active
@@ -213,8 +127,8 @@ the graph the user intended to run.
 
 ## User flow
 
-The diagram shows the path from the graph workspace to the three result kinds:
-a simulation report, an optimized graph with its diff, or an analysis report.
+The diagram shows the path from the graph workspace to a simulation report or
+an optimized graph with its diff.
 
 ```mermaid
 flowchart TD
@@ -223,13 +137,10 @@ flowchart TD
     REV -->|Choose strategy and run| OPT[Optimization report]
     OPT -->|Open result| OR[Optimized graph revision]
     OPT -->|Compare graphs| DIFF[Graph diff: base vs optimized]
-    MF[Manifest editor] -->|Save and start evaluation| EV[Evaluation run]
-    EV -->|On completion and analysis| AN[Analysis report]
 ```
 
 ## Core journey capture
 
 The [README](../../README.md#core-workflows) shows real topology, simulation,
-defense, and evaluation-configuration screenshots. The fourth image shows a
-saved manifest, not completed evaluation results. [Setup verification](../getting-started-verification.md)
+and defense screenshots. [Setup verification](../getting-started-verification.md)
 records the exercised journeys and their limits.

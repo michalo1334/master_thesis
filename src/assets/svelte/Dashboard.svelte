@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { GraphSummary } from "./contracts.generated/dashboard/graph";
   import type { OptimizationParams } from "./contracts.generated/optimization";
-  import { tick } from "svelte";
-
   import type { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { AppBar, StatusBar } from "./ui-kit/layout";
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
@@ -10,14 +8,8 @@
   import Workspace from "./dashboard/workspace/Workspace.svelte";
   import GraphTreePickerDialog from "./dashboard/workspace/GraphTreePickerDialog.svelte";
   import type { SplitButtonOption } from "./ui-kit/primitives/SplitButton.svelte";
-  import ManifestDialog from "./dashboard/manifest/ManifestDialog.svelte";
-  import StudyDialog from "./dashboard/study/StudyDialog.svelte";
   import type { WorkspaceDocument } from "./dashboard/workspace/WorkspaceModel.svelte";
   import { dashboardRegistry } from "./dashboard/workspace/dashboard-registry";
-  import {
-    readStudyResultsArchive,
-    MAX_STUDY_RESULTS_ARCHIVE_BYTES,
-  } from "./dashboard/analysis-report/study-results-import";
 
   interface Props {
     model: DashboardModel;
@@ -27,18 +19,6 @@
 
   const wm = $derived(model.workspace);
   const api = $derived(model.api);
-  let studyResultsInput = $state<HTMLInputElement>();
-  let studyResultsStatus = $state<HTMLElement>();
-  let isImportingStudyResults = $state(false);
-  let activeStudyResultsImport = 0;
-
-  const downloadResultsHref = $derived.by(() => {
-    const doc = wm.activeDocument;
-    if (doc?.kind !== "analysis-report") return undefined;
-    if (doc.reportData?.status !== "completed") return undefined;
-    return `/evaluations/${doc.runId}/download`;
-  });
-
   type OptimizationOption = SplitButtonOption & {
     id: OptimizationParams["strategy"];
   };
@@ -106,74 +86,6 @@
   ): Promise<boolean> {
     return wm.moveGraphToFolder(api, graphId, folderId);
   }
-
-  function openStudyResults(): void {
-    if (!isImportingStudyResults) studyResultsInput?.click();
-  }
-
-  async function focusStudyResultsStatus(): Promise<void> {
-    await tick();
-    studyResultsStatus?.focus();
-  }
-
-  async function importStudyResults(event: Event): Promise<void> {
-    const input = event.currentTarget as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = "";
-
-    if (isImportingStudyResults) return;
-    if (!file) {
-      wm.statusMessage = "Select a non-empty study result ZIP.";
-      await focusStudyResultsStatus();
-      return;
-    }
-
-    const importId = ++activeStudyResultsImport;
-    isImportingStudyResults = true;
-    wm.statusMessage = "Opening study results…";
-    await focusStudyResultsStatus();
-
-    try {
-      const archive = await readStudyResultsArchive(file);
-      if (importId !== activeStudyResultsImport) return;
-
-      if (archive.status !== "ok") {
-        wm.statusMessage =
-          archive.status === "empty"
-            ? "Select a non-empty study result ZIP."
-            : `Study result ZIP must not exceed ${MAX_STUDY_RESULTS_ARCHIVE_BYTES / 1024 / 1024} MB.`;
-        await focusStudyResultsStatus();
-        return;
-      }
-
-      const reply = await api.importStudyResults({ archive: archive.archive });
-      if (importId !== activeStudyResultsImport) return;
-
-      if (reply.status !== "ok" || !reply.analysis) {
-        wm.statusMessage = `${reply.error?.message ?? "Could not open study results."} Select a valid mix evaluate.study result ZIP.`;
-        await focusStudyResultsStatus();
-        return;
-      }
-
-      const studyDocument = wm.openImportedStudyResults(reply.analysis);
-      wm.statusMessage = "";
-      await tick();
-      globalThis.document
-        .querySelector<HTMLElement>(
-          `[data-imported-study-results="${studyDocument.id}"]`,
-        )
-        ?.focus();
-    } catch {
-      if (importId !== activeStudyResultsImport) return;
-      wm.statusMessage =
-        "Could not open study results. Select a valid mix evaluate.study result ZIP.";
-      await focusStudyResultsStatus();
-    } finally {
-      if (importId === activeStudyResultsImport) {
-        isImportingStudyResults = false;
-      }
-    }
-  }
 </script>
 
 <div class="dashboard-app" data-dashboard-theme="topology">
@@ -188,10 +100,6 @@
     hasActiveGraph={wm.hasActiveGraph}
     onRunSimulation={handleRunSimulation}
     onCompareGraphs={() => wm.beginGraphComparison()}
-    onOpenAnalysis={() => model.manifest.openDialog()}
-    onRunStudy={() => void model.study.openDialog()}
-    onOpenStudyResults={openStudyResults}
-    {isImportingStudyResults}
     onOptimize={handleOptimize}
     {optimizationOptions}
     activeOptimizationId={wm.optimizationParams.strategy}
@@ -201,16 +109,6 @@
     onSimulationParamsChange={(change) => wm.onSimulationParamsChange(change)}
     simulationParams={wm.simulationParams}
     footholdHosts={wm.activeFootholdHosts}
-    {downloadResultsHref}
-  />
-  <input
-    bind:this={studyResultsInput}
-    class="study-results-input"
-    type="file"
-    accept=".zip,application/zip"
-    tabindex="-1"
-    aria-label="Select study results ZIP"
-    onchange={(event) => void importStudyResults(event)}
   />
 
   {#snippet inspector()}
@@ -269,14 +167,9 @@
     onFavoriteChange={handleFavoriteChange}
   />
 
-  <ManifestDialog model={model.manifest} />
-
-  <StudyDialog model={model.study} />
-
   <StatusBar
     documentName={wm.activeDocument?.title ?? ""}
     statusMessage={wm.statusMessage}
-    bind:statusElement={studyResultsStatus}
   />
 </div>
 
@@ -316,14 +209,6 @@
     cursor: pointer;
   }
 
-  .study-results-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
   .dashboard-workspace-layout {
     grid-area: workspace;
     display: grid;

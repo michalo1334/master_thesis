@@ -15,31 +15,6 @@ if config_env() != :test do
   config :network_defense, :rabbitmq, RuntimeConfig.rabbitmq()
 end
 
-analysis_service_defaults = Application.get_env(:network_defense, :analysis_service)
-
-config :network_defense, :analysis_service,
-  url: System.get_env("ANALYSIS_SERVICE_URL"),
-  connect_timeout_ms:
-    RuntimeConfig.positive_integer_env(
-      "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS",
-      analysis_service_defaults[:connect_timeout_ms]
-    ),
-  timeout_ms:
-    RuntimeConfig.positive_integer_env(
-      "ANALYSIS_SERVICE_TIMEOUT_MS",
-      analysis_service_defaults[:timeout_ms]
-    ),
-  max_zip_bytes:
-    RuntimeConfig.positive_integer_env(
-      "ANALYSIS_SERVICE_MAX_ZIP_BYTES",
-      analysis_service_defaults[:max_zip_bytes]
-    ),
-  browser_result_bytes:
-    RuntimeConfig.positive_integer_env(
-      "ANALYSIS_SERVICE_BROWSER_RESULT_BYTES",
-      analysis_service_defaults[:browser_result_bytes]
-    )
-
 pubsub_opts =
   case System.get_env("PUBSUB_ADAPTER") do
     "redis" ->

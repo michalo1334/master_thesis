@@ -1,8 +1,8 @@
 # Network Defense
 
-Network Defense is a master's thesis project for modeling computer networks, simulating attack propagation, and comparing defenses under a fixed action budget. It evaluates vulnerability patches, segmentation changes, and credential revocation through their effects on mission capabilities and host compromise.
+Network Defense is a master's thesis project for modeling computer networks, simulating attack propagation, and comparing defenses under a fixed action budget. It compares vulnerability patches, segmentation changes, and credential revocation through their effects on mission capabilities and host compromise.
 
-Evaluation manifests and study specifications organize repeated experiments and statistical comparisons across network sizes. The system is a research simulator, not a penetration-testing tool. Success probabilities are scenario inputs, not estimates of real-world exploit likelihood. Attack paths emerge during simulation rather than being enumerated in advance.
+The system is a research simulator, not a penetration-testing tool. Success probabilities are scenario inputs, not estimates of real-world exploit likelihood. Attack paths emerge during simulation rather than being enumerated in advance.
 
 ## Core workflows
 
@@ -23,12 +23,6 @@ Repeated simulations estimate blast radius, mission impact, and host compromise 
 Defense strategies select actions within a fixed budget. Reports list the selected defenses and the resulting graph changes.
 
 ![Completed defense optimization with selected actions](docs/images/defenses.png)
-
-### Evaluation and studies
-
-Evaluation manifests define repeated comparisons across strategies, budgets, model variants, and seeds. Study analysis combines completed evaluations across network-size tiers, with separate pilot and final stages.
-
-![Saved evaluation configuration showing strategy runs and planned comparisons](docs/images/evaluation.png)
 
 ## Local setup
 
@@ -52,24 +46,16 @@ The `application` entry in the URL output identifies the dashboard. A small exam
 2. The **Simulation** example uses foothold `workstation-4`, 100 trials, 100 iterations, and seed 0. **Simulate** starts the run.
 3. **Optimization** operates on the graph tab. The example uses **CVSS** and a budget of 3; **Optimize** starts defense selection.
 
-These are example inputs, not recommended research settings. **Analysis** manages evaluation manifests; **Run study** manages study specifications and their evaluation-run mappings.
+These are example inputs, not recommended research settings.
 
 The [setup verification](docs/getting-started-verification.md) records the exercised environment and its limits. The [infrastructure guide](docs/infrastructure.md) covers configuration, port conflicts, and lifecycle details. This development stack is intended for local use; it is not a hardened public deployment.
 
 Running `./terraform.sh destroy` from the same directory removes the stack. **This deletes its database and other managed data volumes.** Host secret files remain.
 
-## Roadmap
-
-- Completion of the cloud evaluation tooling: a one-off runner, topology diagnostics, environment records, and automatic warm-up.
-- Execution of the frozen topology-scale study on Azure and publication of measured strategy comparisons.
-- External vulnerability ingestion remains deferred; current evaluations use scenario data.
-
-The [tooling plan](docs/inprogress/cloud-evaluation-tooling-plan.md) separates implemented work from blockers. Local pilot results are not final cloud-study evidence.
-
 ## Repository guide
 
 - **Model:** [scope and limits](docs/concepts/scope.md), [requirements](docs/concepts/requirements.md), [graph and reachability](docs/concepts/graph.md), [attack simulation](docs/concepts/attack.md), [defenses](docs/concepts/defense.md).
-- **Research workflow:** [evaluation and studies](docs/concepts/evaluation.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md), [analysis guide](evaluation/analysis/README.md).
+- **Research workflow:** [preserved methodology](docs/concepts/evaluation-methodology.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md).
 - **Engineering:** [architecture](docs/architecture.md), [dashboard](docs/design/dashboard.md), [RabbitMQ executor](docs/design/rabbitmq-distributed-executor.md), [interview evidence and tradeoffs](docs/interview-evidence.md).
 
-The Elixir/Phoenix application and Svelte UI live in [`src/`](src/); analysis and scenarios in [`evaluation/`](evaluation/); provisioning in [`infra/`](infra/). [`docs/`](docs/) holds project documentation and [`planning/`](planning/) holds working plans. The thesis text is maintained separately.
+The Elixir/Phoenix application and Svelte UI live in [`src/`](src/); provisioning lives in [`infra/`](infra/). [`docs/`](docs/) holds project documentation and [`planning/`](planning/) holds working plans. The thesis text is maintained separately.

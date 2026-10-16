@@ -28,9 +28,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.DescribeManifestReply
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsPayload
-  alias NetworkDefenseWeb.Contracts.Dashboard.Evaluation.ImportStudyResultsReply
   alias NetworkDefenseWeb.Contracts.Dashboard.ExecutionProgressEvent
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationReportCapabilityStatus
@@ -85,53 +82,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   @projection_reachability_edge_id "00000000-0000-0000-0000-000000000113"
   @projection_self_policy_edge_id "00000000-0000-0000-0000-000000000114"
   @projection_vulnerability_edge_id "00000000-0000-0000-0000-000000000115"
-  test "validates study result import contracts" do
-    assert {:ok, %ImportStudyResultsPayload{archive: "YXJjaGl2ZQ=="}} =
-             ImportStudyResultsPayload.validate(%{"archive" => "YXJjaGl2ZQ=="})
-
-    assert {:error, payload_changeset} = ImportStudyResultsPayload.validate(%{})
-    assert %{archive: ["can't be blank"]} = errors_on(payload_changeset)
-
-    assert {:ok, reply} =
-             ImportStudyResultsReply.validate(%{
-               "status" => "error",
-               "error" => %{
-                 "code" => "invalid_archive",
-                 "message" => "Select a valid study result ZIP."
-               }
-             })
-
-    assert %{status: "error", error: %{code: "invalid_archive"}} =
-             ImportStudyResultsReply.to_wire(reply)
-
-    assert {:error, reply_changeset} = ImportStudyResultsReply.validate(%{"status" => "error"})
-    assert %{error: ["can't be blank"]} = errors_on(reply_changeset)
-
-    assert {:error, reply_changeset} =
-             ImportStudyResultsReply.validate(%{
-               "status" => "ok",
-               "analysis" => study_results_analysis(),
-               "error" => %{
-                 "code" => "invalid_archive",
-                 "message" => "Select a valid study result ZIP."
-               }
-             })
-
-    assert %{error: ["must be absent"]} = errors_on(reply_changeset)
-
-    assert {:error, reply_changeset} =
-             ImportStudyResultsReply.validate(%{
-               "status" => "error",
-               "analysis" => study_results_analysis(),
-               "error" => %{
-                 "code" => "invalid_archive",
-                 "message" => "Select a valid study result ZIP."
-               }
-             })
-
-    assert %{analysis: ["must be absent"]} = errors_on(reply_changeset)
-  end
-
   test "all dashboard contracts are embedded schemas with changesets" do
     Registry.list_contract_modules(:all)
     |> Enum.each(fn contract ->
@@ -211,32 +161,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert %{simulation_params: %{monte_carlo_trials: ["must be greater than 0"]}} =
              errors_on(changeset)
-  end
-
-  test "validates optional document catalog manifest identity" do
-    attrs = %{
-      "id" => @graph_id,
-      "kind" => "analysis_report",
-      "graph_id" => @graph_id,
-      "graph_revision_id" => @parent_graph_id,
-      "graph_title" => "Source graph",
-      "revision_kind" => "initial",
-      "revision_number" => 1,
-      "created_at" => "2026-01-01T00:00:00Z",
-      "manifest_id" => "manifest-1",
-      "manifest_title" => "Analysis"
-    }
-
-    assert {:ok, %DocumentCatalogItem{manifest_id: "manifest-1", manifest_title: "Analysis"}} =
-             DocumentCatalogItem.validate(attrs)
-
-    assert {:error, changeset} =
-             DocumentCatalogItem.validate(%{
-               attrs
-               | "manifest_title" => String.duplicate("x", 256)
-             })
-
-    assert %{manifest_title: ["should be at most 255 character(s)"]} = errors_on(changeset)
   end
 
   test "rejects oversized asynchronous operation correlation IDs" do
@@ -627,72 +551,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              ]
            } =
              errors_on(changeset)
-  end
-
-  test "round trips a describe manifest reply with plans and comparison groups" do
-    attrs = %{
-      "status" => "ok",
-      "plans" => [
-        %{
-          "model_variant" => "full",
-          "strategy" => "cvss",
-          "budget" => 1,
-          "selection_seed" => 101
-        }
-      ],
-      "comparison_groups" => [
-        %{
-          "index" => 0,
-          "tested" => %{
-            "model_variant" => "full",
-            "strategy" => "cvss",
-            "budget" => 1,
-            "selection_seeds" => [101]
-          },
-          "baseline" => %{
-            "model_variant" => "full",
-            "strategy" => "null",
-            "budget" => 1,
-            "selection_seeds" => [102]
-          },
-          "outcome" => "blast_radius"
-        }
-      ],
-      "errors" => []
-    }
-
-    assert {:ok, reply} = DescribeManifestReply.validate(attrs)
-
-    assert %{
-             status: "ok",
-             plans: [%{model_variant: "full", strategy: "cvss", selection_seed: 101}],
-             comparison_groups: [
-               %{
-                 index: 0,
-                 tested: %{strategy: "cvss", selection_seeds: [101]},
-                 baseline: %{strategy: "null", selection_seeds: [102]},
-                 outcome: "blast_radius"
-               }
-             ]
-           } = DescribeManifestReply.to_wire(reply)
-  end
-
-  test "rejects a describe manifest plan with an unknown model variant" do
-    assert {:error, changeset} =
-             DescribeManifestReply.validate(%{
-               "status" => "ok",
-               "plans" => [
-                 %{
-                   "model_variant" => "bogus",
-                   "strategy" => "cvss",
-                   "budget" => 1,
-                   "selection_seed" => 101
-                 }
-               ],
-               "errors" => []
-             })
-
-    assert %{plans: [%{model_variant: ["is invalid"]}]} = errors_on(changeset)
   end
 
   test "maps a persisted optimization run report to the web contract" do
@@ -1143,18 +1001,6 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     ]
 
     graph(nodes, edges, graph_id)
-  end
-
-  defp study_results_analysis do
-    %{
-      "metadata" => %{
-        "study_id" => "imported-study",
-        "specification_version" => 1,
-        "family_scope" => "study",
-        "family_size" => 1,
-        "command_mode" => "pilot"
-      }
-    }
   end
 
   defp errors_on(changeset) do

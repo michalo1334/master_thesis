@@ -1,7 +1,6 @@
 defmodule NetworkDefense.Errors do
   @moduledoc false
 
-  alias NetworkDefense.Analysis.Errors, as: AnalysisErrors
   alias NetworkDefense.Graph.Errors, as: GraphErrors
   alias NetworkDefense.Optimizations.Errors, as: OptimizationErrors
   alias NetworkDefense.Simulations.Errors, as: SimulationErrors
@@ -9,15 +8,13 @@ defmodule NetworkDefense.Errors do
   @codes Enum.uniq(
            GraphErrors.codes() ++
              SimulationErrors.codes() ++
-             OptimizationErrors.codes() ++
-             AnalysisErrors.codes() ++ [:invalid_request]
+             OptimizationErrors.codes() ++ [:invalid_request]
          )
 
   @type code ::
           GraphErrors.code()
           | SimulationErrors.code()
           | OptimizationErrors.code()
-          | AnalysisErrors.code()
           | :invalid_request
 
   @spec codes() :: [code()]

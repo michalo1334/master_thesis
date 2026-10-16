@@ -3,24 +3,16 @@ import type { TopologyProjection } from "../../contracts.generated/dashboard/gra
 import type { GraphContract } from "../../contracts.generated/graph";
 import type { OptimizationParams } from "../../contracts.generated/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
-import type { EvaluationAnalysis } from "../../contracts.generated/dashboard/evaluation";
 import type { DocumentCatalogItem } from "../../contracts.generated/dashboard/workspace";
 import { EditableGraphDocument } from "../graph/EditableGraphDocument.svelte";
 import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
-import { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
-import { ImportedStudyResultsDocument } from "../analysis-report/ImportedStudyResultsDocument.svelte";
-import {
-  StudyDocument,
-  type StudyDocumentOpen,
-} from "../study/StudyDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type { OptimizationParamsChange } from "../contract";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
-import type { StudyLockedInputs } from "../study/study-types";
 import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
 import { dashboardRegistry } from "./dashboard-registry";
 import type { DashboardRecoveryContext } from "./recovery-context";
@@ -83,15 +75,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     (registration) =>
       registration.createOption ? [registration.createOption] : [],
   );
-
-  /**
-   * Requests the domain close flow for one live study document.
-   *
-   * A study document that already started owns a server task, so the domain
-   * model confirms, sends the close event, and then removes the document. A
-   * provisional document that never started closes without server traffic.
-   */
-  onRequestStudyClose: ((document: StudyDocument) => void) | undefined;
 
   private readonly api?: DashboardApi;
 
@@ -312,28 +295,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     return document;
   }
 
-  /**
-   * Registers the live study document for one exact locked setup.
-   *
-   * Study documents are ephemeral: they never persist and they are always
-   * created on an explicit Pilot start. Registration is separate from
-   * activation, so a rejected start can discard the provisional document
-   * before it ever becomes visible. The reply names whether the document was
-   * created or already existed, so the caller never rolls back a running
-   * document for identical locked inputs.
-   */
-  openStudyDocument(locked: StudyLockedInputs): StudyDocumentOpen {
-    const existing = this.documents.find(
-      (document): document is StudyDocument =>
-        document.kind === "study" && document.matchesLocks(locked),
-    );
-    if (existing) return { document: existing, created: false };
-
-    const document = new StudyDocument(crypto.randomUUID(), locked);
-    this.documents.push(document);
-    return { document, created: true };
-  }
-
   selectDocument(id: string): void {
     super.selectDocument(id);
     this.activateDocument(this.activeDocument);
@@ -364,19 +325,9 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   closeDocument(id: string): void {
-    const document = this.documents.find((d) => d.id === id);
-    if (
-      document?.kind === "study" &&
-      document.mode !== null &&
-      this.onRequestStudyClose
-    ) {
-      this.onRequestStudyClose(document);
-      return;
-    }
     this.closeDocumentNow(id);
   }
 
-  /** Removes one document without the study close confirmation. */
   closeDocumentNow(id: string): void {
     const document = this.documents.find((d) => d.id === id);
     super.closeDocument(id);
@@ -590,8 +541,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       this.openHistoricalSimulationReport(api, item),
     optimization_report: (api, item) =>
       this.openHistoricalOptimizationReport(api, item),
-    analysis_report: (api, item) =>
-      this.openHistoricalAnalysisReport(api, item),
   };
 
   async openCatalogItem(
@@ -664,95 +613,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       );
     }
     report.load(api, report.id, item.id);
-    return true;
-  }
-
-  openHistoricalAnalysisReport(
-    api: DashboardApi,
-    item: DocumentCatalogItem,
-  ): boolean {
-    if (!item.manifest_id || !item.manifest_title) return false;
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "analysis-report" && document.runId === item.id,
-    ) as AnalysisReportDocument | undefined;
-    if (existing) {
-      this.bindAnalysisReportNavigation(existing, api);
-      this.activateDocument(existing);
-      return true;
-    }
-
-    const report = this.openPendingAnalysisReport(item.id, {
-      manifest_id: item.manifest_id,
-      title: item.manifest_title,
-    });
-    this.bindAnalysisReportNavigation(report, api);
-    report.graphId = item.graph_id;
-    report.graphRevisionId = item.graph_revision_id;
-    report.load(api, report.id, item.id);
-    return true;
-  }
-
-  openAnalysisExperimentReport(
-    api: DashboardApi,
-    experiment: {
-      id: string;
-      graph_id?: string | null;
-      graph_revision_id?: string | null;
-      graph_title?: string | null;
-    },
-  ): boolean {
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "simulation-report" &&
-        document.experimentId === experiment.id,
-    ) as SimulationReportDocument | undefined;
-    if (existing) {
-      this.activateDocument(existing);
-      return true;
-    }
-
-    const report = new SimulationReportDocument(
-      experiment.graph_title ?? "Graph",
-      experiment.graph_id ?? "",
-      experiment.graph_revision_id ?? "",
-    );
-    this.documents.push(report);
-    this.activateDocument(report);
-    report.load(api, report.id, experiment.id);
-    return true;
-  }
-
-  openAnalysisOptimizationReport(
-    api: DashboardApi,
-    plan: { id: string; strategy?: string; requested_budget?: number },
-    graphInfo: {
-      graph_id: string;
-      graph_revision_id: string;
-      graph_title: string;
-    },
-  ): boolean {
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "optimization-report" &&
-        document.optimizationId === plan.id,
-    ) as OptimizationReportDocument | undefined;
-    if (existing) {
-      this.activateDocument(existing);
-      return true;
-    }
-
-    const report = new OptimizationReportDocument({
-      graphId: graphInfo.graph_id,
-      graphRevisionId: graphInfo.graph_revision_id,
-      graphTitle: graphInfo.graph_title,
-      strategy: catalogOptimizationStrategy(plan.strategy),
-      budget: plan.requested_budget ?? 0,
-    });
-    this.documents.push(report);
-    this.activateDocument(report);
-    report.markReady(plan.id, "", async () => false);
-    report.load(api, report.id, plan.id);
     return true;
   }
 
@@ -854,68 +714,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     this.documents.push(report);
     this.activateDocument(report);
     return report;
-  }
-
-  openImportedStudyResults(
-    analysis: EvaluationAnalysis,
-  ): ImportedStudyResultsDocument {
-    const document = new ImportedStudyResultsDocument(analysis);
-    this.documents.push(document);
-    this.activateDocument(document);
-    return document;
-  }
-
-  openPendingAnalysisReport(
-    runId: string,
-    manifest: { manifest_id: string; title: string },
-  ): AnalysisReportDocument {
-    const existing = this.documents.find(
-      (document) =>
-        document.kind === "analysis-report" && document.runId === runId,
-    ) as AnalysisReportDocument | undefined;
-    if (existing) {
-      this.bindAnalysisReportNavigation(existing, this.api);
-      this.activateDocument(existing);
-      return existing;
-    }
-
-    const report = new AnalysisReportDocument(runId, manifest);
-    this.bindAnalysisReportNavigation(report, this.api);
-    this.documents.push(report);
-    this.activateDocument(report);
-    return report;
-  }
-
-  bindAnalysisReportNavigation(
-    report: AnalysisReportDocument,
-    api: DashboardApi | undefined,
-  ): void {
-    if (!api) return;
-    report.openExperiment = (experiment) =>
-      this.openAnalysisExperimentReport(api, experiment);
-    report.openOptimization = (plan) => {
-      const data = report.reportData;
-      if (!data) return false;
-      return this.openAnalysisOptimizationReport(api, plan, {
-        graph_id: data.graph_id,
-        graph_revision_id: data.source_graph_revision_id,
-        graph_title: data.source_graph_title,
-      });
-    };
-    report.openSourceGraph = async (nodeId?: string) => {
-      const revisionId =
-        report.reportData?.source_graph_revision_id ?? report.graphRevisionId;
-      if (!revisionId) return false;
-      if (!(await this.openGraphRevision(api, revisionId))) return false;
-      if (!nodeId) return true;
-
-      const graph = this.findOpenGraph(revisionId);
-      if (!graph || !graph.graph.nodes.some((node) => node.id === nodeId)) {
-        return false;
-      }
-      graph.selectNode(nodeId);
-      return true;
-    };
   }
 
   findOptimizationReport(

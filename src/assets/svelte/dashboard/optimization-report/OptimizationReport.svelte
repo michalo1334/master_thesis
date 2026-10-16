@@ -16,7 +16,7 @@
   }
 
   let { document, onCancel = undefined }: Props = $props();
-  let analysis = $derived(document.analysis);
+  let presentation = $derived(document.presentation);
   let activeTab = $state("overview");
   let graphDiffLoadPending = $state(false);
   let isGraphDiffLoading = $derived(
@@ -88,7 +88,7 @@
       <p>Optimization cancelled.</p>
     </section>
   {:else}
-    {#if document.reportData && analysis}
+    {#if document.reportData && presentation}
       <Tabs.Root
         class="optimization-report-tabs"
         orientation="vertical"
@@ -173,14 +173,14 @@
           class="optimization-report-tab-panel"
           value="strategy-analysis"
         >
-          {#if analysis.strategy === "cvss"}
-            <CvssStrategyPanel {analysis} />
-          {:else if analysis.strategy === "simulation_informed"}
-            <SimulationInformedStrategyPanel {analysis} />
-          {:else if analysis.strategy === "topology_segmentation"}
-            <TopologySegmentationStrategyPanel {analysis} />
-          {:else if analysis.strategy === "simulated_annealing"}
-            <SimulatedAnnealingStrategyPanel {analysis} />
+          {#if presentation.strategy === "cvss"}
+            <CvssStrategyPanel {presentation} />
+          {:else if presentation.strategy === "simulation_informed"}
+            <SimulationInformedStrategyPanel {presentation} />
+          {:else if presentation.strategy === "topology_segmentation"}
+            <TopologySegmentationStrategyPanel {presentation} />
+          {:else if presentation.strategy === "simulated_annealing"}
+            <SimulatedAnnealingStrategyPanel {presentation} />
           {:else}
             <section
               class="optimization-report-section"

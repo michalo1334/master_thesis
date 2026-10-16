@@ -22,10 +22,8 @@
 
   function isCancellableRunKind(
     kind: string,
-  ): kind is "simulation" | "optimization" | "evaluation" {
-    return (
-      kind === "simulation" || kind === "optimization" || kind === "evaluation"
-    );
+  ): kind is "simulation" | "optimization" {
+    return kind === "simulation" || kind === "optimization";
   }
 
   async function cancelSelected(): Promise<void> {

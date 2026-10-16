@@ -3,11 +3,6 @@ variable "adapter" {
   type        = string
 }
 
-variable "analysis_max_zip_bytes" {
-  description = "Maximum analysis response size accepted by the application."
-  type        = number
-}
-
 variable "app_source_path" {
   description = "Absolute host path to the application source directory."
   type        = string

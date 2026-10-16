@@ -1,14 +1,14 @@
 <script lang="ts">
-  import type { OptimizationAnalysis } from "../to-analysis";
+  import type { OptimizationPresentation } from "../optimization-presentation";
   import StrategyPanel from "./StrategyPanel.svelte";
   interface Props {
-    analysis: OptimizationAnalysis;
+    presentation: OptimizationPresentation;
   }
-  let { analysis }: Props = $props();
+  let { presentation }: Props = $props();
 </script>
 
 <StrategyPanel
   title="Simulation-informed prioritization"
   description="Ranks defenses by simulated blast-radius reduction."
-  actions={analysis.actions}
+  actions={presentation.actions}
 />

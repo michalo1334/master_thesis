@@ -13,15 +13,12 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
     run
     |> OptimizationRun.changeset(%{
       graph_revision_id: run.graph_revision_id,
-      evaluation_run_id: run.evaluation_run_id,
-      model_variant: run.model_variant,
       strategy: run.strategy,
       requested_budget: run.requested_budget,
       used_budget: run.used_budget,
       runtime_ms: run.runtime_ms,
       status: run.status,
       seed: run.seed,
-      selection_seed: run.selection_seed,
       simulation_config: run.simulation_config
     })
     |> Repo.insert()
@@ -76,12 +73,6 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
       {1, _} -> {:ok, :cancelled}
       _ -> {:error, :not_running}
     end
-  end
-
-  def cancel_by_evaluation(evaluation_run_id) do
-    OptimizationRun
-    |> where([r], r.evaluation_run_id == ^evaluation_run_id and r.status == "running")
-    |> Repo.update_all(set: [status: "cancelled", updated_at: DateTime.utc_now()])
   end
 
   def resume_or_load(run_id) do

@@ -14,7 +14,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload do
     schema
     |> cast(attrs, [:kind, :run_id])
     |> validate_required([:kind, :run_id])
-    |> validate_inclusion(:kind, ["simulation", "optimization", "evaluation"])
+    |> validate_inclusion(:kind, ["simulation", "optimization"])
     |> Contracts.validate_uuid(:run_id)
   end
 end

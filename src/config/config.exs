@@ -10,7 +10,7 @@ import Config
 config :network_defense, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
-  queues: [optimizations: 1, evaluations: 1],
+  queues: [optimizations: 1],
   repo: NetworkDefense.Repo
 
 config :live_svelte, ssr: true
@@ -25,14 +25,7 @@ config :phoenix_vite, PhoenixVite.Npm,
 
 config :network_defense,
   ecto_repos: [NetworkDefense.Repo],
-  generators: [timestamp_type: :utc_datetime, binary_id: true],
-  analysis_service: [
-    url: nil,
-    connect_timeout_ms: 5_000,
-    timeout_ms: 120_000,
-    max_zip_bytes: 50 * 1024 * 1024,
-    browser_result_bytes: 4 * 1024 * 1024
-  ]
+  generators: [timestamp_type: :utc_datetime, binary_id: true]
 
 config :network_defense, NetworkDefense.Compute.ScatterGather,
   executor: NetworkDefense.Compute.RabbitMQExecutor

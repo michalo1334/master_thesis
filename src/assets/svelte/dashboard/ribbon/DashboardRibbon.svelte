@@ -21,10 +21,6 @@
     hasActiveGraph: boolean;
     onRunSimulation: () => void;
     onCompareGraphs: () => void;
-    onOpenAnalysis: () => void;
-    onRunStudy: () => void;
-    onOpenStudyResults: () => void;
-    isImportingStudyResults: boolean;
     onOptimize: (strategyId: OptimizationParams["strategy"]) => void;
     optimizationOptions: readonly OptimizationOption[];
     activeOptimizationId: OptimizationParams["strategy"];
@@ -35,17 +31,12 @@
     onSimulationParamsChange: (change: Partial<SimulationParams>) => void;
     simulationParams: SimulationParams;
     footholdHosts: readonly { id: string; name: string }[];
-    downloadResultsHref?: string;
   }
 
   let {
     hasActiveGraph,
     onRunSimulation,
     onCompareGraphs,
-    onOpenAnalysis,
-    onRunStudy,
-    onOpenStudyResults,
-    isImportingStudyResults,
     onOptimize,
     optimizationOptions,
     activeOptimizationId,
@@ -54,7 +45,6 @@
     onSimulationParamsChange,
     simulationParams,
     footholdHosts,
-    downloadResultsHref = undefined,
   }: Props = $props();
 
   let availableOptimizationOptions = $derived(
@@ -64,21 +54,6 @@
         )
       : optimizationOptions,
   );
-
-  const studyOptions = $derived([
-    { id: "run", title: "Run study", icon: "play" },
-    {
-      id: "open-results",
-      title: isImportingStudyResults ? "Opening…" : "Open study results",
-      icon: "simulation-report",
-      disabled: isImportingStudyResults,
-    },
-  ]);
-
-  function handleStudySelect(id: string): void {
-    if (id === "run") onRunStudy();
-    else onOpenStudyResults();
-  }
 </script>
 
 <Ribbon>
@@ -86,29 +61,6 @@
     <Ribbon.Section title="Tools">
       <RibbonButton onclick={onCompareGraphs} aria-label="Compare graphs"
         ><Icon name="graph" size={22} /><span>Compare graphs</span
-        ></RibbonButton
-      >
-      <RibbonButton onclick={onOpenAnalysis} aria-label="Analysis"
-        ><Icon name="graph" size={22} /><span>Analysis</span></RibbonButton
-      >
-      <SplitButton
-        options={studyOptions}
-        onSelect={handleStudySelect}
-        ariaLabel="Run study"
-      />
-      <RibbonButton
-        disabled={!downloadResultsHref}
-        onclick={() => {
-          if (!downloadResultsHref) return;
-          const anchor = document.createElement("a");
-          anchor.href = downloadResultsHref;
-          anchor.download = "";
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-        }}
-        aria-label="Download results"
-        ><Icon name="download" size={22} /><span>Download results</span
         ></RibbonButton
       >
     </Ribbon.Section>

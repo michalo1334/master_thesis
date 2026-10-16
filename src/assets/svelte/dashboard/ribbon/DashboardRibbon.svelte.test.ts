@@ -30,29 +30,20 @@ function renderRibbon({
   activeOptimizationId = "simulation_informed",
   footholdHosts = [{ id: "host-1", name: "Host 1" }],
   hasActiveGraph = true,
-  isImportingStudyResults = false,
 }: {
   activeOptimizationId?: OptimizationParams["strategy"];
   footholdHosts?: readonly { id: string; name: string }[];
   hasActiveGraph?: boolean;
-  isImportingStudyResults?: boolean;
 } = {}) {
   const onOptimize = vi.fn();
   const onOptimizationParamsChange = vi.fn();
   const onCompareGraphs = vi.fn();
-  const onOpenAnalysis = vi.fn();
-  const onRunStudy = vi.fn();
-  const onOpenStudyResults = vi.fn();
 
   render(DashboardRibbon, {
     props: {
       hasActiveGraph,
       onRunSimulation: vi.fn(),
       onCompareGraphs,
-      onOpenAnalysis,
-      onRunStudy,
-      onOpenStudyResults,
-      isImportingStudyResults,
       onOptimize,
       optimizationOptions,
       activeOptimizationId,
@@ -70,9 +61,6 @@ function renderRibbon({
 
   return {
     onCompareGraphs,
-    onOpenAnalysis,
-    onRunStudy,
-    onOpenStudyResults,
     onOptimize,
     onOptimizationParamsChange,
   };
@@ -91,47 +79,6 @@ describe("DashboardRibbon", () => {
     );
 
     expect(onCompareGraphs).toHaveBeenCalledOnce();
-  });
-
-  it("opens analysis from the Home tab", async () => {
-    const { onOpenAnalysis } = renderRibbon();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Analysis" }));
-
-    expect(onOpenAnalysis).toHaveBeenCalledOnce();
-  });
-
-  it("runs a study from the Home tab", async () => {
-    const { onRunStudy, onOpenStudyResults } = renderRibbon();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Run study" }));
-
-    expect(onRunStudy).toHaveBeenCalledOnce();
-    expect(onOpenStudyResults).not.toHaveBeenCalled();
-  });
-
-  it("opens study results from the study split-button menu", async () => {
-    const { onRunStudy, onOpenStudyResults } = renderRibbon();
-
-    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
-    await fireEvent.click(
-      await screen.findByRole("menuitem", { name: "Open study results" }),
-    );
-
-    expect(onOpenStudyResults).toHaveBeenCalledOnce();
-    expect(onRunStudy).not.toHaveBeenCalled();
-  });
-
-  it("disables the study results menu item while an import is active", async () => {
-    const { onOpenStudyResults } = renderRibbon({
-      isImportingStudyResults: true,
-    });
-
-    await fireEvent.click(screen.getByRole("button", { name: "More options" }));
-    const item = await screen.findByRole("menuitem", { name: /Opening/ });
-
-    expect(item).toHaveAttribute("data-disabled");
-    expect(onOpenStudyResults).not.toHaveBeenCalled();
   });
 
   it("leaves topology layout actions to the canvas toolbar", async () => {

@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { ExecutionProgressEvent } from "./contracts.generated/dashboard";
-  import type * as EvaluationContracts from "./contracts.generated/dashboard/evaluation";
   import type * as OptimizationContracts from "./contracts.generated/dashboard/optimization";
   import type * as SimulationContracts from "./contracts.generated/dashboard/simulation";
   import type {
@@ -121,68 +120,8 @@
     });
   });
 
-  useLiveEvent("evaluation_completed", (payload: unknown) => {
-    model.onEvaluationCompleted(
-      payload as EvaluationContracts.EvaluationCompletedEvent,
-    );
-  });
-
-  useLiveEvent("evaluation_failed", (payload: unknown) => {
-    model.onEvaluationFailed(
-      payload as EvaluationContracts.EvaluationFailedEvent,
-    );
-  });
-
   useLiveEvent("run_cancelled", (payload: unknown) => {
     model.onRunCancelled(payload as RunCancelledEvent);
-  });
-
-  useLiveEvent("evaluation_progress", (payload: unknown) => {
-    model.onProgress("evaluation", payload as ExecutionProgressEvent);
-  });
-
-  useLiveEvent("evaluation_report_ready", (payload: unknown) => {
-    model.onReportReadyEvent({
-      reportKind: "evaluation",
-      payload: payload as EvaluationContracts.EvaluationReportReadyEvent,
-    });
-  });
-
-  useLiveEvent("evaluation_report_progress", (payload: unknown) => {
-    model.onReportProgress("evaluation", payload as ExecutionProgressEvent);
-  });
-
-  useLiveEvent("evaluation_report_error", (payload: unknown) => {
-    model.onReportErrorEvent({
-      reportKind: "evaluation",
-      payload: payload as EvaluationContracts.EvaluationReportErrorEvent,
-    });
-  });
-
-  useLiveEvent("evaluation_analysis_ready", (payload: unknown) => {
-    model.onEvaluationAnalysisReady(
-      payload as EvaluationContracts.EvaluationAnalysisReadyEvent,
-    );
-  });
-
-  useLiveEvent("evaluation_analysis_error", (payload: unknown) => {
-    model.onEvaluationAnalysisError(
-      payload as EvaluationContracts.EvaluationAnalysisErrorEvent,
-    );
-  });
-
-  useLiveEvent("study_analysis_progress", (payload: unknown) => {
-    model.onStudyProgress(
-      payload as EvaluationContracts.StudyAnalysisProgressEvent,
-    );
-  });
-
-  useLiveEvent("study_analysis_ready", (payload: unknown) => {
-    model.onStudyReady(payload as EvaluationContracts.StudyAnalysisReadyEvent);
-  });
-
-  useLiveEvent("study_analysis_error", (payload: unknown) => {
-    model.onStudyError(payload as EvaluationContracts.StudyAnalysisErrorEvent);
   });
 </script>
 

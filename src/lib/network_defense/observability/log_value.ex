@@ -1,10 +1,8 @@
 defmodule NetworkDefense.Observability.LogValue do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.EvaluationRun
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
-  alias NetworkDefense.Optimization.ModelVariant
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Simulation.Experiment
 
@@ -25,36 +23,19 @@ defmodule NetworkDefense.Observability.LogValue do
   def normalize(%Time{} = value), do: Time.to_iso8601(value)
   def normalize(%Decimal{} = value), do: Decimal.to_string(value)
 
-  def normalize(%EvaluationRun{} = value) do
-    value
-    |> Map.take([
-      :id,
-      :evaluation_manifest_id,
-      :source_graph_revision_id,
-      :status,
-      :failure_reason
-    ])
-    |> compact()
-    |> normalize()
-  end
-
   def normalize(%OptimizationRun{} = value) do
     value
     |> Map.take([
       :id,
       :graph_revision_id,
       :output_graph_revision_id,
-      :evaluation_run_id,
-      :model_variant,
       :strategy,
       :requested_budget,
       :used_budget,
       :runtime_ms,
       :status,
-      :seed,
-      :selection_seed
+      :seed
     ])
-    |> Map.update!(:model_variant, &model_variant_wire/1)
     |> compact()
     |> normalize()
   end
@@ -64,8 +45,6 @@ defmodule NetworkDefense.Observability.LogValue do
     |> Map.take([
       :id,
       :graph_revision_id,
-      :evaluation_run_id,
-      :optimization_run_id,
       :master_seed,
       :iteration_count,
       :max_attempts,
@@ -169,9 +148,6 @@ defmodule NetworkDefense.Observability.LogValue do
     |> Map.put(:simulation_params, simulation_params)
     |> compact()
   end
-
-  defp model_variant_wire(nil), do: nil
-  defp model_variant_wire(value), do: ModelVariant.to_wire(value)
 
   defp compact(map), do: Map.reject(map, fn {_key, value} -> is_nil(value) end)
 

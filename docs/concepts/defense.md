@@ -39,10 +39,6 @@ purpose and a decision basis.
 | Simulation-informed | Select actions that reduce expected simulated damage. | Expected simulation result of each candidate; greedy. |
 | Simulated annealing | Search for a low-damage plan within the budget. | Stochastic search over plans scored by simulation. |
 
-The approved topology-scale study compares four alternatives with CVSS. The
-null strategy is a descriptive no-defense control and is not part of the
-primary comparison family.
-
 ## Objectives and feasibility
 
 An optimization run targets one objective:

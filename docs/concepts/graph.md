@@ -123,9 +123,8 @@ The revision history lives in `src/lib/network_defense/graph/graphs.ex` and
 
 The current baseline uses one fixed, synthetic topology. It lets a reviewer
 compare equal-action-count defenses under one controlled policy and attacker
-model. It does not measure real enterprise effectiveness. The approved
-topology-scale study requires frozen controlled variants, but they are not
-implemented. See [scope.md](scope.md) for that research boundary.
+model. It does not measure real enterprise effectiveness. See
+[scope.md](scope.md) for that research boundary.
 
 Segment policies represent logical enforcement. Gateway and bastion systems are
 hosts. The attack rules act on their services. Router and firewall node types
@@ -135,6 +134,6 @@ The scenario follows: external network compromise, then lateral movement
 through remote services. These concepts follow NIST SP 800-207 and the MITRE
 ATT&CK techniques T1190 and T1021.
 
-Each attacker context has its own evaluation manifest. The manifests share the
-graph. Do not compare results across footholds. Each estimate is valid only for
-its own start point.
+Treat each attacker starting point as a separate simulation input. Do not
+compare results across starting points. Each estimate is valid only for its own
+starting point.

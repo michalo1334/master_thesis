@@ -11,7 +11,6 @@ import {
 import {
   folderIdForDocument,
   graphIdForDocument,
-  hasAnalysisMetadata,
   parentDocument,
 } from "./document-outline";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
@@ -38,21 +37,6 @@ export function buildDashboardNodes(
       graphsByRevisionId.set(d.loadedRevisionId, d);
 
   const documentNodes = documents.map((d) => {
-    if (hasAnalysisMetadata(d)) {
-      return {
-        id: d.id,
-        label: d.title,
-        icon: d.icon,
-        kind: d.kind,
-        groupId: "analyses",
-        section: {
-          key: d.analysisId ?? d.analysisTitle ?? "Analysis",
-          title: d.analysisTitle ?? d.analysisId ?? "Analysis",
-        },
-        ariaLabel: `${d.documentLabel} ${d.title}`,
-      };
-    }
-
     const parent = parentDocument(d, graphsByRevisionId);
     const folderId = folderIdForDocument(d, graphSummaries);
     const groupId = folderId && folderIds.has(folderId) ? folderId : "root";

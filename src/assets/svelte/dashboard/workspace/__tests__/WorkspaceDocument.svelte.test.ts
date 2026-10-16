@@ -3,7 +3,6 @@ import { EditableGraphDocument } from "../../graph/EditableGraphDocument.svelte"
 import { GraphDiffDocument } from "../../graph/GraphDiffDocument.svelte";
 import { OptimizationReportDocument } from "../../optimization-report/OptimizationReportDocument.svelte";
 import { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
-import { AnalysisReportDocument } from "../../analysis-report/AnalysisReportDocument.svelte";
 import { isReport } from "../WorkspaceDocument.svelte";
 
 describe("WorkspaceDocument", () => {
@@ -42,21 +41,15 @@ describe("WorkspaceDocument", () => {
       strategy: "cvss",
       budget: 1,
     });
-    const analysis = new AnalysisReportDocument("run-1", {
-      manifest_id: "m1",
-      title: "Test",
-    });
-
-    expect(
-      [graph, diff, simulation, optimization, analysis].filter(isReport),
-    ).toEqual([simulation, optimization, analysis]);
+    expect([graph, diff, simulation, optimization].filter(isReport)).toEqual([
+      simulation,
+      optimization,
+    ]);
     expect(graph.isAsyncReportDocument()).toBe(false);
     expect(diff.isAsyncReportDocument()).toBe(false);
     expect(simulation.isAsyncReportDocument()).toBe(true);
     expect(optimization.isAsyncReportDocument()).toBe(true);
-    expect(analysis.isAsyncReportDocument()).toBe(true);
     expect(simulation.reportKind).toBe("simulation");
     expect(optimization.reportKind).toBe("optimization");
-    expect(analysis.reportKind).toBe("evaluation");
   });
 });

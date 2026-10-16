@@ -4,9 +4,6 @@ import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
-import type { AnalysisReportDocument } from "../analysis-report/AnalysisReportDocument.svelte";
-import type { ImportedStudyResultsDocument } from "../analysis-report/ImportedStudyResultsDocument.svelte";
-import type { StudyDocument } from "../study/StudyDocument.svelte";
 import type { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import { formatDashboardErrorCode } from "../error-code";
@@ -54,8 +51,6 @@ export abstract class AsyncReportDocument<
   title = $state<string>("");
   hasUnread = $state(false);
   errorReason = $state<string>("");
-  analysisId = $state<string>();
-  analysisTitle = $state<string>();
   private cancelInProgressState = $state(false);
 
   get cancelInProgress(): boolean {
@@ -64,8 +59,7 @@ export abstract class AsyncReportDocument<
 
   abstract get reportId(): string | null;
 
-  abstract get reportApiKind():
-    "simulation_report" | "optimization_report" | "evaluation_report";
+  abstract get reportApiKind(): "simulation_report" | "optimization_report";
 
   abstract setReportData(data: ReportDataMap[Kind]): void;
 
@@ -138,11 +132,6 @@ export abstract class AsyncReportDocument<
     if (this.status !== guardStatus) return;
     this[field] = { completed, total, ...(detail ? { detail } : {}) };
   }
-
-  setAnalysis(analysis: { id: string; title: string } | null): void {
-    this.analysisId = analysis?.id;
-    this.analysisTitle = analysis?.title;
-  }
 }
 
 export type WorkspaceDocument =
@@ -150,18 +139,12 @@ export type WorkspaceDocument =
   | GraphDiffDocument
   | SimulationReportDocument
   | OptimizationReportDocument
-  | AnalysisReportDocument
-  | ImportedStudyResultsDocument
-  | StudyDocument
   | DocumentCatalogDocument
   | RunsDocument;
 
 export function isReport(
   document: WorkspaceDocument,
-): document is
-  | SimulationReportDocument
-  | OptimizationReportDocument
-  | AnalysisReportDocument {
+): document is SimulationReportDocument | OptimizationReportDocument {
   return document.isReportDocument();
 }
 

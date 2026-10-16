@@ -11,7 +11,7 @@ C4Context
   title System Context: NetworkDefense
 
   Person(securityAnalyst, "Security Analyst", "Models topology, runs simulations, and evaluates defenses")
-  System(networkDefense, "NetworkDefense", "Graph-based attack-propagation simulation and defense evaluation")
+  System(networkDefense, "NetworkDefense", "Graph-based attack-propagation simulation and defense optimization")
 
   Rel(securityAnalyst, networkDefense, "Uses the dashboard", "HTTP")
 ```
@@ -48,7 +48,6 @@ C4Container
 
     Boundary(siteNetwork, "Site Networks (one per site)") {
       Container(appNodes, "Application Nodes", "Elixir, Phoenix, Oban, Vite", "API role serves traffic; every node consumes RabbitMQ work")
-      Container(analysisSvc, "Analysis Service", "Python, Starlette", "Processes local analysis requests")
     }
 
     ContainerDb(postgres, "PostgreSQL", "PostgreSQL", "Durable domain state and Oban jobs")
@@ -61,7 +60,6 @@ C4Container
   Rel(appNodes, postgres, "Uses", "Ecto")
   Rel(appNodes, redis, "PubSub", "Redis")
   Rel(appNodes, rabbitmq, "Publish and consume partitions", "AMQP 0-9-1")
-  Rel(appNodes, analysisSvc, "API role analyzes", "HTTP")
 ```
 
 ### Backend-to-frontend contract generation
@@ -144,13 +142,11 @@ C4Deployment
     Deployment_Node(siteWest, "site-west network", "Docker network") {
       Container(westApi, "API Application Node", "Elixir, Phoenix LiveView, Vite", "API role")
       Container(westWorker, "Worker Application Node", "Elixir, Phoenix, Oban", "Worker role")
-      Container(westAnalysis, "Analysis Service", "Python, Starlette", "Site-local analysis")
       Container(westCollector, "Site OTel Collector", "otel-collector-contrib", "Site and observability networks")
     }
     Deployment_Node(siteEast, "site-east network", "Docker network") {
       Container(eastApi, "API Application Node", "Elixir, Phoenix LiveView, Vite", "API role")
       Container(eastWorker, "Worker Application Node", "Elixir, Phoenix, Oban", "Worker role")
-      Container(eastAnalysis, "Analysis Service", "Python, Starlette", "Site-local analysis")
       Container(eastCollector, "Site OTel Collector", "otel-collector-contrib", "Site and observability networks")
     }
     Deployment_Node(shared, "Shared Containers", "Docker containers") {
@@ -179,8 +175,6 @@ C4Deployment
   Rel(eastWorker, postgres, "Uses")
   Rel(westWorker, redis, "PubSub")
   Rel(eastWorker, redis, "PubSub")
-  Rel(westApi, westAnalysis, "Analyzes")
-  Rel(eastApi, eastAnalysis, "Analyzes")
   Rel(westApi, jsonlLogs, "Writes")
   Rel(westWorker, jsonlLogs, "Writes")
   Rel(eastApi, jsonlLogs, "Writes")
@@ -235,7 +229,6 @@ redelivery.
 |---|---|
 | One API node fails | HAProxy removes it after its readiness check fails. New connections use another ready API. Existing LiveViews reconnect. |
 | One worker node fails | Remaining workers can claim new available jobs. The result of an interrupted job is not guaranteed. |
-| One analysis service fails | Requests that reach its local API fail. The API stays ready. |
 | Redis fails | APIs stay ready. Transient progress broadcasts can be lost and are not replayed. |
 | PostgreSQL fails | APIs become unready. Durable state and Oban stop. |
 | HAProxy fails | Browser traffic stops. The local stack has no edge redundancy. |
@@ -250,8 +243,6 @@ automatic interrupted-job recovery policy.
   boundary.
 - **Site-local BEAM meshes.** Separate site networks and cookies contain Erlang
   distribution. Redis provides only cross-site Phoenix PubSub.
-- **Separate analysis service.** Statistical analysis uses a separate Python
-  toolchain and fails independently from the API readiness check.
 - **Logs by file tail.** Alloy reads the shared structured-log volume. This
   keeps framework output out of Loki and keeps the application log-write path
   simple.

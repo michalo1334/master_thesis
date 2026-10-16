@@ -1,2 +1,2 @@
-ExUnit.start(exclude: [rabbitmq: true, rehearsal: true])
+ExUnit.start(exclude: [rabbitmq: true])
 Ecto.Adapters.SQL.Sandbox.mode(NetworkDefense.Repo, :manual)

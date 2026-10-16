@@ -77,7 +77,7 @@ describe("OptimizationReportDocument", () => {
 
     expect(document.status).toBe("loaded");
     expect(document.reportData?.actions).toHaveLength(1);
-    expect(document.analysis?.strategy).toBe("simulation_informed");
+    expect(document.presentation?.strategy).toBe("simulation_informed");
     expect(openOptimizedGraph).not.toHaveBeenCalled();
   });
 

@@ -62,7 +62,7 @@ defmodule NetworkDefense.Graph.Graph do
   Returns `graph` with lookup indexes attached, building them only when missing.
 
   Indexes are built once per materialized graph and reused by every query
-  evaluation; building them per query call dominates when a rule runs nested
+  execution; building them per query call dominates when a rule runs nested
   matches (e.g. credential reuse) for each row.
   """
   @spec indexed(t()) :: t()

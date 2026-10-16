@@ -22,8 +22,6 @@ const messages: Record<ErrorCode, string> = {
   internal_error: "The operation could not be completed.",
   unknown_strategy: "The selected optimization strategy is not supported.",
   reachability_required: "The graph requires reachability information.",
-  invalid_analysis: "The selected analysis is invalid.",
-  invalid_analyses: "The selected analyses are invalid.",
   invalid_request: "The request is invalid.",
 };
 

@@ -1,5 +1,4 @@
 import type * as DashboardGraphContracts from "../contracts.generated/dashboard/graph";
-import type * as EvaluationContracts from "../contracts.generated/dashboard/evaluation";
 import type * as OptimizationContracts from "../contracts.generated/dashboard/optimization";
 import type * as RunsContracts from "../contracts.generated/dashboard/runs";
 import type * as SimulationContracts from "../contracts.generated/dashboard/simulation";
@@ -79,46 +78,6 @@ export interface DashboardApi {
     graphId: string,
     folderId: string | null,
   ): Promise<DashboardGraphContracts.MoveGraphToFolderReply>;
-  listManifests(): Promise<EvaluationContracts.ListManifestsReply>;
-  getManifest(id: string): Promise<EvaluationContracts.GetManifestReply>;
-  saveManifest(
-    payload: EvaluationContracts.SaveManifestPayload,
-  ): Promise<EvaluationContracts.SaveManifestReply>;
-  startEvaluation(
-    manifestId: string,
-  ): Promise<EvaluationContracts.StartEvaluationReply>;
-  describeManifest(
-    content: Record<string, unknown>,
-  ): Promise<EvaluationContracts.DescribeManifestReply>;
-  listStudySpecifications(): Promise<EvaluationContracts.ListStudySpecificationsReply>;
-  getStudySpecification(
-    id: string,
-  ): Promise<EvaluationContracts.GetStudySpecificationReply>;
-  saveStudySpecification(
-    payload: EvaluationContracts.SaveStudySpecificationPayload,
-  ): Promise<EvaluationContracts.SaveStudySpecificationReply>;
-  describeStudySpecification(
-    content: Record<string, unknown>,
-  ): Promise<EvaluationContracts.DescribeStudySpecificationReply>;
-  listStudyTierRuns(
-    payload: EvaluationContracts.ListStudyTierRunsPayload,
-  ): Promise<EvaluationContracts.ListStudyTierRunsReply>;
-  preflightStudy(
-    payload: EvaluationContracts.PreflightStudyPayload,
-  ): Promise<EvaluationContracts.PreflightStudyReply>;
-  startStudyAnalysis(
-    payload: EvaluationContracts.StartStudyAnalysisPayload,
-  ): Promise<EvaluationContracts.StartStudyAnalysisReply>;
-  closeStudyDocument(
-    payload: EvaluationContracts.CloseStudyDocumentPayload,
-  ): Promise<EvaluationContracts.CloseStudyDocumentReply>;
-  requestEvaluationReport(documentId: string, runId: string): void;
-  requestEvaluationAnalysis(
-    payload: EvaluationContracts.RequestEvaluationAnalysisPayload,
-  ): Promise<EvaluationContracts.RequestEvaluationAnalysisReply>;
-  importStudyResults(
-    payload: EvaluationContracts.ImportStudyResultsPayload,
-  ): Promise<EvaluationContracts.ImportStudyResultsReply>;
   cancelRun(
     payload: RunsContracts.CancelRunPayload,
   ): Promise<RunsContracts.CancelRunReply>;
@@ -295,105 +254,6 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
         graph_id: graphId,
         folder_id: folderId,
       });
-    },
-    listManifests() {
-      return requestReply<
-        EvaluationContracts.ListManifestsPayload,
-        EvaluationContracts.ListManifestsReply
-      >(live, "list_manifests", {});
-    },
-    getManifest(id) {
-      return requestReply<
-        EvaluationContracts.GetManifestPayload,
-        EvaluationContracts.GetManifestReply
-      >(live, "get_manifest", { id });
-    },
-    saveManifest(payload) {
-      return requestReply<
-        EvaluationContracts.SaveManifestPayload,
-        EvaluationContracts.SaveManifestReply
-      >(live, "save_manifest", payload);
-    },
-    startEvaluation(manifestId) {
-      return requestReply<
-        EvaluationContracts.StartEvaluationPayload,
-        EvaluationContracts.StartEvaluationReply
-      >(live, "start_evaluation", { manifest_id: manifestId });
-    },
-    describeManifest(content) {
-      return requestReply<
-        EvaluationContracts.DescribeManifestPayload,
-        EvaluationContracts.DescribeManifestReply
-      >(live, "describe_manifest", { content });
-    },
-    listStudySpecifications() {
-      return requestReply<
-        EvaluationContracts.ListStudySpecificationsPayload,
-        EvaluationContracts.ListStudySpecificationsReply
-      >(live, "list_study_specifications", {});
-    },
-    getStudySpecification(id) {
-      return requestReply<
-        EvaluationContracts.GetStudySpecificationPayload,
-        EvaluationContracts.GetStudySpecificationReply
-      >(live, "get_study_specification", { id });
-    },
-    saveStudySpecification(payload) {
-      return requestReply<
-        EvaluationContracts.SaveStudySpecificationPayload,
-        EvaluationContracts.SaveStudySpecificationReply
-      >(live, "save_study_specification", payload);
-    },
-    describeStudySpecification(content) {
-      return requestReply<
-        EvaluationContracts.DescribeStudySpecificationPayload,
-        EvaluationContracts.DescribeStudySpecificationReply
-      >(live, "describe_study_specification", { content });
-    },
-    listStudyTierRuns(payload) {
-      return requestReply<
-        EvaluationContracts.ListStudyTierRunsPayload,
-        EvaluationContracts.ListStudyTierRunsReply
-      >(live, "list_study_tier_runs", payload);
-    },
-    preflightStudy(payload) {
-      return requestReply<
-        EvaluationContracts.PreflightStudyPayload,
-        EvaluationContracts.PreflightStudyReply
-      >(live, "preflight_study", payload);
-    },
-    startStudyAnalysis(payload) {
-      return requestReply<
-        EvaluationContracts.StartStudyAnalysisPayload,
-        EvaluationContracts.StartStudyAnalysisReply
-      >(live, "start_study_analysis", payload);
-    },
-    closeStudyDocument(payload) {
-      return requestReply<
-        EvaluationContracts.CloseStudyDocumentPayload,
-        EvaluationContracts.CloseStudyDocumentReply
-      >(live, "close_study_document", payload);
-    },
-    requestEvaluationReport(documentId, runId) {
-      live.pushEvent<EvaluationContracts.FetchEvaluationReportPayload>(
-        "fetch_evaluation_report",
-        {
-          document_id: documentId,
-          run_id: runId,
-        },
-      );
-    },
-    requestEvaluationAnalysis(payload) {
-      return requestReply<
-        EvaluationContracts.RequestEvaluationAnalysisPayload,
-        EvaluationContracts.RequestEvaluationAnalysisReply
-      >(live, "request_evaluation_analysis", payload);
-    },
-    importStudyResults(payload) {
-      return requestReply<
-        EvaluationContracts.ImportStudyResultsPayload,
-        EvaluationContracts.ImportStudyResultsReply
-      >(live, "import_study_results", payload);
     },
     cancelRun(payload) {
       return requestReply<

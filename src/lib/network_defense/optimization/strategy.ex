@@ -1,10 +1,10 @@
 defprotocol NetworkDefense.Optimization.Strategy do
   @moduledoc """
-  Protocol for defense optimization strategies. Optimization strategy is an algorithm whose intent is to reduce potential attack vectors by applying security actions such as patching vulnerabilities or segment network.
+  Protocol for defense optimization strategies. A strategy reduces potential attack vectors. It can patch vulnerabilities or segment a network.
 
-  Each strategy works according to fixed cost budget. After exhausting budget, resulting graph can be further evaluated for comparision with respect to baseline one.
+  Each strategy uses a fixed-cost budget. After the strategy exhausts the budget, callers can compare the resulting graph with the baseline graph.
 
-  Strategies return only ranked candidate defense actions, which are then picked up by the optimizer to evaluate. This keeps budget tracking exlusive to the optimizer
+  Strategies return ranked candidate defense actions. The optimizer scores these actions and tracks the budget.
   """
 
   @type t :: struct()

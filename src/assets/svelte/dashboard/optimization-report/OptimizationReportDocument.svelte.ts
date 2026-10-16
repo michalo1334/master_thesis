@@ -9,9 +9,9 @@ import {
   type PersistedWorkspaceDocument,
 } from "../../ui-kit/workspace/workspace-persistence";
 import {
-  toOptimizationAnalysis,
-  type OptimizationAnalysis,
-} from "./to-analysis";
+  toOptimizationPresentation,
+  type OptimizationPresentation,
+} from "./optimization-presentation";
 
 export class OptimizationReportDocument extends AsyncReportDocument<"optimization"> {
   readonly kind = "optimization-report" as const;
@@ -39,7 +39,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   reportData = $state.raw<
     OptimizationContracts.OptimizationReport | undefined
   >();
-  analysis = $state.raw<OptimizationAnalysis | undefined>();
+  presentation = $state.raw<OptimizationPresentation | undefined>();
   openOptimizedGraph = $state<(() => Promise<boolean>) | undefined>();
   graphDiff = $state.raw<GraphDiffDocument | undefined>();
   graphDiffStatus = $state<"" | "loading" | "error">("");
@@ -52,8 +52,6 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     graphRevisionId,
     graphTitle,
     correlationId = null,
-    analysisId,
-    analysisTitle,
     strategy,
     budget,
   }: {
@@ -61,8 +59,6 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     graphRevisionId: string;
     graphTitle: string;
     correlationId?: string | null;
-    analysisId?: string;
-    analysisTitle?: string;
     strategy: OptimizationParams["strategy"];
     budget: number;
   }) {
@@ -70,8 +66,6 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.graphId = graphId;
     this.graphRevisionId = graphRevisionId;
     this.correlationId = correlationId;
-    this.analysisId = analysisId;
-    this.analysisTitle = analysisTitle;
     this.strategy = strategy;
     this.budget = budget;
     this.title = `Optimization report for ${graphTitle}`;
@@ -174,7 +168,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
     this.createGraphDiff = createGraphDiff;
     this.status = "ready";
     this.reportData = undefined;
-    this.analysis = undefined;
+    this.presentation = undefined;
     this.errorReason = "";
     this.progress = null;
   }
@@ -184,7 +178,7 @@ export class OptimizationReportDocument extends AsyncReportDocument<"optimizatio
   ): void {
     if (data.optimization_id !== this.optimizationId) return;
     this.reportData = data.report;
-    this.analysis = toOptimizationAnalysis(data.report);
+    this.presentation = toOptimizationPresentation(data.report);
     this.graphId = data.graph_id;
     this.graphRevisionId = data.graph_revision_id;
     this.title = `Optimization report for ${data.graph_title}`;

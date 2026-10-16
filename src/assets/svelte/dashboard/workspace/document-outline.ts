@@ -13,19 +13,6 @@ export function folderIdForGraphId(
     ?.folder_id;
 }
 
-export function hasAnalysisMetadata(
-  document: WorkspaceDocument,
-): document is Extract<
-  WorkspaceDocument,
-  { kind: "simulation-report" | "optimization-report" | "comparison-report" }
-> {
-  return (
-    isReport(document) &&
-    document.kind !== "analysis-report" &&
-    !!(document.analysisId || document.analysisTitle)
-  );
-}
-
 export function folderIdForDocument(
   document: WorkspaceDocument,
   graphSummaries: readonly GraphSummary[],

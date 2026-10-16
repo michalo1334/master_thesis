@@ -59,11 +59,9 @@ flowchart TD
 
   ci --> source[Source and frontend quality]
   ci --> app[Application quality]
-  ci --> python[Python analysis quality]
   ci --> terraform[Terraform quality]
   source --> images[Production image build validation]
   app --> images
-  python --> images
   terraform --> images
 
   tested[Tested source revision] -.->|manual release TODO| release[release.yml]
@@ -87,19 +85,15 @@ flowchart TD
   source[Source revision]
   source --> frontend[Source and frontend quality]
   source --> app[Application quality]
-  source --> python[Python analysis quality]
   source --> terraform[Terraform quality]
 
   frontend --> gate{All quality jobs passed?}
   app --> gate
-  python --> gate
   terraform --> gate
 
   gate -->|yes| appImage[Build application image]
-  gate -->|yes| analysisImage[Build analysis image]
   gate -->|no| stop[Stop]
   appImage --> result[CI success]
-  analysisImage --> result
 ```
 
 #### Source and Frontend Quality
@@ -140,18 +134,6 @@ flowchart LR
 The normal Mix incremental build behavior reuses unchanged compiled files.
 The test job does not upload `_build`, and no other job downloads it.
 
-#### Python Analysis Quality
-
-```mermaid
-flowchart LR
-  checkout[Checkout] --> uv[Set up Python and uv]
-  uv --> sync[uv sync --frozen]
-  sync --> tests[unittest discovery]
-```
-
-The job installs the local package in its own environment. It caches package
-downloads, not `.venv`.
-
 #### Terraform Quality
 
 ```mermaid
@@ -169,32 +151,28 @@ local secret files.
 
 ```mermaid
 flowchart LR
-  gate[Quality gate] --> matrix{Image matrix}
-  matrix --> app[Build src/Dockerfile]
-  matrix --> analysis[Build evaluation/analysis/Dockerfile]
+  gate[Quality gate] --> app[Build src/Dockerfile]
   app --> done[Build only]
-  analysis --> done
   done --> noPush[No login, push, or deployment]
 ```
 
-CI validates both production build paths. It does not claim that these local
-images are release artifacts.
+CI validates the production build path. It does not claim that the local image
+is a release artifact.
 
 ### Build Sharing Rules
 
 | Build material | Sharing rule | Reason |
 |---|---|---|
-| Elixir `_build/test` | Reuse only in the application-quality job and its compatibility-scoped cache | Tests and analysis use the same source, runtime, and Mix environment |
+| Elixir `_build/test` | Reuse only in the application-quality job and its compatibility-scoped cache | Tests and static checks use the same source, runtime, and Mix environment |
 | Mix dependency downloads | Cache with runtime, environment, job, and lockfile scope | Dependencies are expensive but reproducible from the lockfile |
 | npm downloads | Cache through the Node setup action | `npm ci` must still recreate `node_modules` |
 | `node_modules` | Do not share | Installation is cheap compared with artifact handling and path risks |
-| Python `.venv` | Do not share | The CI runner and production image are different environments |
 | Test and production Mix builds | Never share | `MIX_ENV=test` and `MIX_ENV=prod` have different contracts |
-| CI-built images | Do not deploy | CI only verifies that both Dockerfiles build |
-| Released OCI images | Share by digest across every target | Every target must run the same immutable release |
+| CI-built images | Do not deploy | CI only verifies that the Dockerfile builds |
+| Released OCI image | Share by digest across every target | Every target must run the same immutable release |
 
-CI can rebuild an image for validation. The release workflow builds each
-distribution image once. Azure and the VPS must not rebuild those images.
+CI can rebuild an image for validation. The release workflow builds the
+distribution image once. Azure and the VPS must not rebuild it.
 
 ### Zoom 3: OCI Release
 
@@ -208,13 +186,9 @@ flowchart TD
   checkout --> config[Load non-secret OCI configuration]
   config --> auth[Registry adapter creates<br/>restrictive Docker config.json]
   auth --> appBuild[Build application image once]
-  auth --> analysisBuild[Build analysis image once]
   appBuild --> appPush[Push immutable application image]
-  analysisBuild --> analysisPush[Push immutable analysis image]
   appPush --> appDigest[Resolve application digest]
-  analysisPush --> analysisDigest[Resolve analysis digest]
-  appDigest --> checks[Check exact pushed images]
-  analysisDigest --> checks
+  appDigest --> checks[Check exact pushed image]
   checks --> manifest[Write release-manifest.json]
   manifest --> cleanup[Delete temporary Docker configuration]
 ```
@@ -234,8 +208,7 @@ The release manifest is non-secret and provider-neutral.
   "schema_version": "<version>",
   "source_revision": "<tested-revision>",
   "images": {
-    "application": "<registry>/<repository>@sha256:<digest>",
-    "analysis": "<registry>/<repository>@sha256:<digest>"
+    "application": "<registry>/<repository>@sha256:<digest>"
   }
 }
 ```
@@ -261,8 +234,7 @@ flowchart TD
 
   azureAuth --> migrate[Run migration with application digest]
   vpsAuth --> migrate
-  migrate -->|success| analysis[Activate analysis digest]
-  analysis --> app[Activate application digest]
+  migrate -->|success| app[Activate application digest]
   app --> health[Check health and readiness]
   migrate -->|failure| stop[Stop deployment]
 ```
@@ -279,7 +251,6 @@ select the previous image digest. Database rollback is not automatic.
 | Source revision | GitHub event | No | Pull request, main push, or manual ref |
 | Elixir and OTP versions | Existing repository version contract | No | Keep aligned with the production Dockerfile |
 | Node version | Existing repository version contract | No | Keep aligned with the production Dockerfile |
-| Python and uv versions | Analysis project and Dockerfile | No | Do not duplicate changing values in documentation |
 | Terraform version | Terraform root and helper | No | The root remains authoritative |
 | PostgreSQL version | Local infrastructure | No | CI must test the supported local major version |
 | Mix and npm lockfiles | Repository | No | Cache and installation inputs |
@@ -297,7 +268,7 @@ Mix lockfile. No parallel job uses that key.
 |---|---|---:|---|
 | `SOURCE_REVISION` | Required manual-dispatch input | No | Full revision that passed CI |
 | `OCI_REGISTRY` | Repository or Environment variable | No | Canonical registry endpoint |
-| `OCI_REPOSITORY_PREFIX` | Repository or Environment variable | No | Namespace for both image repositories |
+| `OCI_REPOSITORY_PREFIX` | Repository or Environment variable | No | Namespace for the image repository |
 | `DOCKER_CONFIG` | Temporary directory path | Path only | Directory consumed by Docker Buildx |
 | `DOCKER_CONFIG/config.json` | Restrictive temporary file | Yes | Registry authentication created by the adapter |
 | `release-manifest.json` | Workflow artifact and output | No | Immutable image references for deployments |
@@ -361,20 +332,9 @@ behavior remains in `src/config/runtime.exs` and
 | `LIVE_VIEW_SIGNING_SALT_FILE` | Mounted secret-file path | LiveView signing salt |
 | `PHX_HOST` | Environment variable | External application host |
 | `PORT` | Environment variable | Container HTTP port |
-| `ANALYSIS_SERVICE_URL` | Environment variable | Private analysis service URL |
 
 Target-specific TLS, clustering, logging, and telemetry inputs remain in the
 target configuration. Do not put their values in the release manifest.
-
-#### Azure Analysis Topology
-
-The planned Azure target runs the analysis image as an internal-only service
-in the same Container Apps environment as the application. It exposes its
-health endpoint to platform probes and its analysis endpoint only inside the
-environment. The application receives the internal service URL through
-`ANALYSIS_SERVICE_URL`. Exact sizing and scaling remain target configuration.
-Azure deployment cannot start until the Azure infrastructure plan includes
-this service and verifies private application-to-analysis requests.
 
 ### Existing VPS Inputs
 
@@ -398,10 +358,6 @@ The workflow must not copy application secret values into the release
 manifest. The VPS adapter must use the same application `*_FILE` contract as
 local and Azure deployments.
 
-The VPS target runs the analysis image on the private application network. It
-does not publish the analysis endpoint publicly. The application uses the
-network service name through `ANALYSIS_SERVICE_URL`.
-
 ## Existing Commands And Scripts
 
 The workflow must use repository commands instead of duplicating their
@@ -412,8 +368,6 @@ implementation.
 | Elixir aliases and quality commands | `src/mix.exs` |
 | Frontend format, type, lint, and test commands | `src/package.json` |
 | Application production build | `src/Dockerfile` |
-| Analysis production build | `evaluation/analysis/Dockerfile` |
-| Python dependencies | `evaluation/analysis/pyproject.toml` and its lockfile |
 | Terraform version and providers | `infra/environments/local/versions.tf` |
 | Local Terraform wrapper | `infra/environments/local/terraform.sh` |
 | Release migration entry point | `src/rel/overlays/bin/migrate` |
@@ -466,15 +420,6 @@ No adapter path or implementation is reserved before that code is needed.
 13. Run `mix deps.unlock --unused`.
 14. Fail if the unused-dependency check changes `mix.lock`.
 
-### CI: Python Analysis Quality
-
-1. Check out the requested source revision.
-2. Use `evaluation/analysis` as the working directory.
-3. Set up the versions declared by the analysis project and image.
-4. Restore the uv download cache.
-5. Run `uv sync --frozen`.
-6. Run `uv run python -m unittest discover -s tests`.
-
 ### CI: Terraform Quality
 
 1. Check out the requested source revision.
@@ -487,10 +432,9 @@ No adapter path or implementation is reserved before that code is needed.
 
 1. Wait for every quality job.
 2. Check out the same source revision.
-3. Run `docker build -f src/Dockerfile src` in the application matrix entry.
-4. Run `docker build -f evaluation/analysis/Dockerfile evaluation/analysis` in the analysis matrix entry.
-5. Do not log in to a registry.
-6. Do not push or upload either image.
+3. Run `docker build -f src/Dockerfile src`.
+4. Do not log in to a registry.
+5. Do not push or upload the image.
 
 ### TODO: OCI Release
 
@@ -502,13 +446,12 @@ No adapter path or implementation is reserved before that code is needed.
 6. Require the adapter to create a temporary Docker `config.json` with restrictive permissions.
 7. Set `DOCKER_CONFIG` to the temporary configuration directory.
 8. Build the application image once for distribution with Docker Buildx.
-9. Build the analysis image once for distribution with Docker Buildx.
-10. Push immutable references for both images.
-11. Resolve both registry digests.
-12. Check the exact pushed digest references.
-13. Write and validate `release-manifest.json`.
-14. Publish the manifest as the deployment handoff.
-15. Delete the temporary Docker configuration in an `always` step.
+9. Push its immutable reference.
+10. Resolve the registry digest.
+11. Check the exact pushed digest reference.
+12. Write and validate `release-manifest.json`.
+13. Publish the manifest as the deployment handoff.
+14. Delete the temporary Docker configuration in an `always` step.
 
 ### TODO: Azure Deployment
 
@@ -522,11 +465,10 @@ No adapter path or implementation is reserved before that code is needed.
 8. Plan and apply target-specific infrastructure or release changes.
 9. Run the migration job with the application digest.
 10. Stop if migration fails.
-11. Activate the analysis digest as an internal-only service.
-12. Activate the application digest.
-13. Wait for the active revision.
-14. Check health, readiness, and platform authentication.
-15. Record the deployed manifest and digest references.
+11. Activate the application digest.
+12. Wait for the active revision.
+13. Check health, readiness, and platform authentication.
+14. Record the deployed manifest and digest reference.
 
 ### TODO: Existing VPS Deployment
 
@@ -535,10 +477,10 @@ No adapter path or implementation is reserved before that code is needed.
 3. Materialize SSH and registry credentials as restrictive temporary files.
 4. Connect with a restricted deployment account and pinned host identity.
 5. Copy the release manifest to a staging location.
-6. Pull both exact digest references with read-only registry access.
+6. Pull the exact digest reference with read-only registry access.
 7. Run the migration command from the application digest.
 8. Stop if migration fails.
-9. Activate the analysis and application digests through the selected VPS orchestrator.
+9. Activate the application digest through the selected VPS orchestrator.
 10. Check health and readiness through the public target address.
 11. Record the deployed manifest on the host.
 12. Delete temporary runner credential files in an `always` step.
@@ -563,16 +505,14 @@ mounted files. Non-secret runtime inputs use environment variables.
 - When a pull request targets the protected branch, CI must run all independent quality jobs in parallel.
 - When application quality runs, tests and static analysis must reuse one test build on the same runner.
 - When one quality job fails, CI must not start production image validation.
-- When image validation runs, CI must build both images without registry authentication or publishing.
+- When image validation runs, CI must build the application image without registry authentication or publishing.
 - When image validation builds the application, Docker must use `src` as its build context.
-- When image validation builds the analysis service, Docker must use `evaluation/analysis` as its build context.
 - When CI runs manually, it must not request Azure, VPS, registry, or runtime credentials.
 - When a release is created, the workflow must verify CI for the exact selected revision.
-- When a release is published, its manifest must contain both immutable OCI digest references and no secret values.
+- When a release is published, its manifest must contain the immutable OCI digest reference and no secret values.
 - When a target deploys a release, it must not rebuild either image.
 - When a migration fails, the target workflow must not activate the new application image.
 - When Azure development authenticates, it must not receive production or VPS credentials.
-- When Azure activates the analysis service, the application must reach its private endpoint and the public network must not.
 - When Azure production is enabled, its GitHub Environment must enforce the approved production policy.
 - When Azure production is enabled, deployment must enforce the selected image provenance and signing policy.
 - When the VPS authenticates, it must use a restricted account, pinned host identity, and read-only registry access.
@@ -587,9 +527,9 @@ Estimated effort: 30 to 60 minutes.
 
 1. Replace the serial quality chain with the four parallel quality jobs in this design.
 2. Keep the application compile, tests, and static checks in one sequential job.
-3. Add missing frontend and Python checks.
+3. Add missing frontend checks.
 4. Add Terraform initialization and validation.
-5. Add the final two-image build matrix without publishing.
+5. Add the final application-image build without publishing.
 6. Add read-only workflow permissions and safe cache scopes.
 7. Add concise TODO comments that point to this plan.
 8. Review permissions, job dependencies, working directories, and cache keys.
@@ -601,10 +541,9 @@ Estimated effort: 30 to 60 minutes, excluding image download time.
 1. Validate workflow syntax with `actionlint`.
 2. Run the frontend format, type, lint, test, and asset commands.
 3. Run the application-quality command sequence against a test database, then run the repository precommit gate.
-4. Run `uv sync --frozen` and `uv run python -m unittest discover -s tests` from `evaluation/analysis`.
-5. Run Terraform format, read-only initialization, and validation.
-6. Build both production images with their explicit Docker contexts.
-7. Review the final workflow diff and confirm that it references no deployment secrets.
+4. Run Terraform format, read-only initialization, and validation.
+5. Build the production image with its explicit Docker context.
+6. Review the final workflow diff and confirm that it references no deployment secrets.
 
 ### Chunk 3: Activate OCI Release
 
@@ -615,8 +554,8 @@ Estimated effort: 30 to 60 minutes per implementation slice.
 1. Add manual dispatch with a required full source revision and define its validation.
 2. Define and test release-manifest validation.
 3. Add the registry adapter with temporary Docker configuration cleanup.
-4. Build and push both images from an exact tested revision.
-5. Check the pushed digests and publish the manifest.
+4. Build and push the application image from an exact tested revision.
+5. Check the pushed digest and publish the manifest.
 6. Review registry permissions and prove that the job has no target credentials.
 
 ### Chunk 4: Activate Azure Deployment
@@ -649,7 +588,6 @@ Estimated effort: 30 to 60 minutes per implementation slice.
 | Canonical OCI registry | Publishing the first release |
 | Registry authentication adapter | Granting registry write access |
 | Image scan, SBOM, provenance, and signing policy | Enabling production deployment; development initially uses digest and CI verification |
-| Azure analysis-service sizing and scaling | Deploying the internal analysis service |
 | Azure production approval policy | Creating `azure-prod` |
 | VPS orchestrator | Creating `deploy-vps.yml` |
 | VPS host account and network access | Enabling VPS deployment |

@@ -53,7 +53,6 @@ infra/environments/local/   Terraform root for the local environment
 infra/deployments/          Provider-neutral deployment manifests
 infra/modules/common/       Provider-free deployment configuration validation
 infra/modules/local/
-  analysis/       Local Python analysis service
   app/            Phoenix application
   database/       Postgres and pgAdmin
   haproxy/        Local browser edge
@@ -86,13 +85,6 @@ pgAdmin, and Prometheus. The application URL reaches HAProxy over local HTTP.
 Application nodes do not publish browser, Vite, or metrics ports. Only the
 primary site's API node retains the debugger publication. Use `urls` as the
 source of truth for published service URLs.
-
-## Analysis service
-
-The `analysis` module runs one local Python statistical analysis service per
-declared site. The service is internal to its site network. An API node reaches
-it through the `analysis` alias. It has no host port. See
-`evaluation/analysis/README.md` for its behavior, HTTP interface, and CLI.
 
 ## Observability services
 
@@ -133,14 +125,12 @@ tails those files and writes them to Loki.
 ## Health and readiness
 
 The app exposes health and readiness endpoints. HAProxy checks API readiness
-before it routes browser traffic. The readiness check depends on PostgreSQL,
-not Redis or the analysis service. See the app and HAProxy module source for
-the health check paths.
+before it routes browser traffic. The readiness check depends on PostgreSQL, not Redis. See the app and HAProxy
+module source for the health check paths.
 
 Terraform waits for configured container health checks and for the setup
 container to exit successfully. These checks show local readiness only. They do
-not prove end-to-end telemetry delivery, cross-site behavior, or analysis
-execution. A site collector validates its rendered configuration; that does not
+not prove end-to-end telemetry delivery or cross-site behavior. A site collector validates its rendered configuration; that does not
 prove it can scrape every target or export every signal.
 
 ## Teardown

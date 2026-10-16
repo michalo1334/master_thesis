@@ -39,15 +39,6 @@ resource "docker_volume" "application_logs" {
   name = "${local.name_prefix}-logs"
 }
 
-module "analysis" {
-  source = "../../modules/local/analysis"
-
-  analysis_source_path = abspath("${path.module}/../../../evaluation/analysis")
-  name_prefix          = local.name_prefix
-  site_networks        = { for site, network in docker_network.site : site => network.name }
-  sites                = module.deployment_config.sites
-}
-
 module "redis" {
   count  = local.pubsub_adapter == "redis" ? 1 : 0
   source = "../../modules/local/redis"
@@ -74,26 +65,25 @@ module "rabbitmq" {
 module "app" {
   source = "../../modules/local/app"
 
-  adapter                = local.pubsub_adapter
-  analysis_max_zip_bytes = module.analysis.max_response_size
-  app_source_path        = abspath("${path.module}/../../../src")
-  application            = local.application
-  database               = local.database
-  database_host          = module.database.postgres_host
-  database_port          = module.database.postgres_port
-  host                   = var.application.host
-  host_ports             = var.application.host_ports
-  log_level              = var.application.log_level
-  log_volume_name        = docker_volume.application_logs.name
-  name_prefix            = local.name_prefix
-  nodes                  = local.nodes
-  rabbitmq               = local.rabbitmq
-  secret_mount_path      = local.secret_mount_path
-  service_name           = local.application.service_name
-  site_networks          = { for site, network in docker_network.site : site => network.name }
-  sites                  = local.sites
+  adapter           = local.pubsub_adapter
+  app_source_path   = abspath("${path.module}/../../../src")
+  application       = local.application
+  database          = local.database
+  database_host     = module.database.postgres_host
+  database_port     = module.database.postgres_port
+  host              = var.application.host
+  host_ports        = var.application.host_ports
+  log_level         = var.application.log_level
+  log_volume_name   = docker_volume.application_logs.name
+  name_prefix       = local.name_prefix
+  nodes             = local.nodes
+  rabbitmq          = local.rabbitmq
+  secret_mount_path = local.secret_mount_path
+  service_name      = local.application.service_name
+  site_networks     = { for site, network in docker_network.site : site => network.name }
+  sites             = local.sites
 
-  depends_on = [module.analysis, module.database, module.rabbitmq, module.redis]
+  depends_on = [module.database, module.rabbitmq, module.redis]
 }
 
 module "haproxy" {

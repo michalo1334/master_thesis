@@ -64,10 +64,6 @@ locals {
         "ROLE=${node.role}",
         "PUBSUB_ADAPTER=${var.adapter}",
         "DNS_CLUSTER_QUERY=app",
-        "ANALYSIS_SERVICE_URL=http://analysis:8080",
-        "ANALYSIS_SERVICE_CONNECT_TIMEOUT_MS=5000",
-        "ANALYSIS_SERVICE_TIMEOUT_MS=120000",
-        "ANALYSIS_SERVICE_MAX_ZIP_BYTES=${var.analysis_max_zip_bytes}",
         "OTEL_SERVICE_NAME=${var.service_name}",
         "OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318",
         "OTEL_RESOURCE_ATTRIBUTES=provider=${node.provider},region=${node.region},instance=${node.instance},site=${node.site},replica=app-${node.site}-${node.index},role=${node.role},service.instance.id=app-${node.site}-${node.index}"

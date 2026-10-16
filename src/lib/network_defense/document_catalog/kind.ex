@@ -4,8 +4,7 @@ defmodule NetworkDefense.DocumentCatalog.Kind do
   @labels %{
     graph: "Graph",
     simulation_report: "Simulation report",
-    optimization_report: "Optimization report",
-    analysis_report: "Analysis report"
+    optimization_report: "Optimization report"
   }
 
   @spec values() :: [atom()]
