@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "insufficient_attack_count",
+      "path": [
+        "evidence",
+        "attack_seeds"
+      ],
+      "details": {}
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "unsupported_alternative_strategy",
+      "path": [
+        "evidence",
+        "alternative",
+        "strategy"
+      ],
+      "details": {}
+    }
+  ]
+}

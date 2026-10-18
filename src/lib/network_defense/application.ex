@@ -43,8 +43,6 @@ defmodule NetworkDefense.Application do
            plug: NetworkDefenseWeb.MetricsPlug,
            ip: {0, 0, 0, 0}},
           NetworkDefense.Repo,
-          {DNSCluster,
-           query: Application.get_env(:network_defense, :dns_cluster_query) || :ignore},
           {Phoenix.PubSub,
            [name: NetworkDefense.PubSub] ++ Application.get_env(:network_defense, :pubsub, [])},
           {Oban, Application.fetch_env!(:network_defense, Oban)},

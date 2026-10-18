@@ -1,0 +1,10 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "workflow_failed",
+      "path": ["evidence", "alternative", "plans", 0, "mission_impacts"],
+      "details": {}
+    }
+  ]
+}

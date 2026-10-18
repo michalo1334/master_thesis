@@ -1,0 +1,10 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "invalid_identifier",
+      "path": ["evidence", "alternative", "plans", 0, "id"],
+      "details": {}
+    }
+  ]
+}

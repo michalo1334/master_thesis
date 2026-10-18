@@ -25,6 +25,43 @@ locals {
     { container_path = "/app/deps", volume_name = docker_volume.dependencies.name }
   ]
 
+  host_source_mount_paths = [
+    for mount in local.dev_mounts : trimprefix(mount.container_path, "/app/")
+    if try(mount.host_path, null) != null
+  ]
+
+  dependency_build_inputs = [
+    ".dockerignore",
+    ".formatter.exs",
+    "Dockerfile.dev",
+    "mix.exs",
+    "mix.lock",
+    "package.json",
+    "package-lock.json",
+    "prettier.config.mjs",
+    "config/config.exs",
+    "config/dev.exs",
+    "lib/network_defense/runtime_config.ex"
+  ]
+
+  copied_asset_inputs = [
+    for filename in fileset(var.app_source_path, "assets/**/*") : filename
+    if !startswith(filename, "assets/node_modules/")
+  ]
+
+  unmounted_asset_inputs = [
+    for filename in local.copied_asset_inputs : filename
+    if !anytrue([
+      for mount_path in local.host_source_mount_paths :
+      filename == mount_path || startswith(filename, "${mount_path}/")
+    ])
+  ]
+
+  image_build_inputs = sort(distinct(concat(
+    local.dependency_build_inputs,
+    local.unmounted_asset_inputs
+  )))
+
   runtime_environment = [
     "REPO_HOSTNAME=${var.database_host}",
     "REPO_PORT=${var.database_port}",
@@ -62,6 +99,8 @@ locals {
         "LOG_FILE_LEVEL=${var.log_level}",
         "LOG_FILE_PATH=/var/log/${var.service_name}/app.${node.site}.${node.index}.jsonl",
         "ROLE=${node.role}",
+        "GUST_ROLE=core",
+        "EVALUATION_COMPUTE_URL=${var.evaluation_compute_urls[node.site]}",
         "PUBSUB_ADAPTER=${var.adapter}",
         "DNS_CLUSTER_QUERY=app",
         "OTEL_SERVICE_NAME=${var.service_name}",

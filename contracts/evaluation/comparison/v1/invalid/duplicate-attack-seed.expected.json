@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "duplicate_attack_seed",
+      "path": [
+        "evidence",
+        "attack_seeds"
+      ],
+      "details": {}
+    }
+  ]
+}

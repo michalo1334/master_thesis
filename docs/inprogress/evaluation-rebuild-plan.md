@@ -2,69 +2,133 @@
 
 ## Status
 
-**Stage 1 is accepted.** The legacy evaluation implementation is removed; the independent graph, simulation, and optimization application remains. The scientific methodology is preserved in reviewed documentation.
+**The Stage 2 design is approved and the bounded prototype is implemented.** Focused tests, the full repository precommit suite, Docker build, and Terraform validation pass. Independent scientific, Elixir/Gust, and infrastructure reviews report no blockers.
 
-The lead reviewed the [final handoff](evaluation-stage-1-handoff.md), actual worktree, diff hygiene, removed subsystem paths, targeted runtime-reference scan, retained optimization-helper rename, and test exclusions. The handoff records successful fresh-test-database migration and full test/build/static checks. The remaining RabbitMQ exclusion is pre-existing; the obsolete rehearsal exclusion is removed.
+Stage 1 removed the legacy evaluation subsystem. Its cleanup and verification remain recorded in [the Stage 1 handoff](evaluation-stage-1-handoff.md). Do not restore that subsystem.
 
-No commit was created. No later stage is selected or started. Stop here until the user directs further work.
+The current gate is the Terraform plan review. Do not apply or destroy infrastructure until the user reviews the plan and gives separate explicit approval. Do not define later stages or create a speculative backlog.
 
-## Focus
-
-Work on Stage 1 only. Do not predefine later implementation stages or keep a speculative backlog.
-
-The lead owns intent, scope, methodology documentation, and acceptance. The interactive `openai/gpt-5.6-sol` agent owns cleanup and verification. The user can direct it in its pane.
-
-## Shared workspace
+## Shared workspace and ownership
 
 - Worktree: `/home/michalo/master_thesis-evaluation-rebuild`
 - Branch: `evaluation/rebuild`
-- Historical reference: `d94ba40352e469dc1c2da403ad3fa28397e5e350`
+- Implementation baseline: `9a359c5ee7fc48be9642e52d1364508bc4455717`
+- Lead: intent, scientific interpretation, scope, and acceptance.
+- Interactive Sol agent: implementation, tests, and checks. The user can direct it in its pane.
 
-Use this same worktree for all work. Do not edit the original `/home/michalo/master_thesis` worktree or create another worktree.
+Use this existing worktree. Do not create another worktree or edit the original `/home/michalo/master_thesis` source worktree. Skills can be read from the original worktree if needed.
 
-## Latest scope — full evaluation clean slate
+## Approved implementation goal
 
-The user deleted the evaluation directory and expanded cleanup to the entire evaluation subsystem. This supersedes the earlier analysis-only boundary and the instructions to retain evaluation collection/reporting/specification behavior.
+Stage 2 implements this execution path:
 
-Do not restore the deleted directory. Remove remaining evaluation-owned code and dependencies so the retained non-evaluation application compiles and works. Do not create replacement evaluation behavior, compatibility shims, placeholder modules, or new analysis contracts.
+```text
+Synthetic crossed evidence → native Gust task → Python HTTP computation
+    → completed typed JSON → Gust result persistence → read-back
+```
 
-### Remove
+Gust owns scheduling and persisted task results. Python owns computation only. Use synthetic evidence, not live evaluation collection or archived data.
 
-- Remaining evaluation modules/facades and all callers of deleted evaluation code.
-- Evaluation and study execution, persistence, specification-management, reporting, and dashboard behavior that belongs to this subsystem.
-- Evaluation/study API and event contracts, generated contract entries, UI state, navigation, and routes.
-- Evaluation tests/fixtures, Mix tasks, scripts, infrastructure/configuration, and obsolete dependencies/setup instructions.
-- Evaluation-specific schema/migration history and associations/columns that no current independent feature needs.
-- Archive/export/import behavior and its tests. No ZIP exception.
+## Scientific scope
 
-Inspect mixed modules and test suites. Remove evaluation-owned portions; retain only genuinely current non-evaluation behavior. Do not keep unused evaluation helpers because a rewrite might reuse them.
+Implement one primary alternative-versus-CVSS comparison using [the preserved methodology](../concepts/evaluation-methodology.md). That reviewed reference is authoritative for this stage. Historical source paths in that reference refer to Git history, not files to restore.
 
-### Destructive migration policy
+The calculation returns:
 
-There is no existing-schema, existing-data, or upgrade-compatibility preservation requirement. Rewrite migrations and recreate project databases as needed. Verify the configured target before destructive commands; unrelated databases and infrastructure are outside scope.
+- mean mission-impact difference: alternative minus CVSS;
+- the corrected crossed-bootstrap percentile interval;
+- the two-sided centered-bootstrap raw p-value; and
+- the applicable non-informative or degeneracy status.
 
-The current required graph/simulation/optimization application schema must still work from a fresh database. Do not preserve an obsolete migration chain merely to keep old records.
+Preserve independent plan-row resampling on the two sides and shared attack-column resampling. Do not pair plan rows or flatten trials into independent observations. Express attack-column alignment in the input contract. Reject missing, duplicate, unequal, or incompatible coverage rather than accepting silent misalignment.
 
-### Preserve methodology, not implementation
+Use the documented finite-sample correction, calibrated sample-count lower bounds, and separate interval/null random streams. The historical primary test is a centered bootstrap, not a permutation test. Do not introduce a separate unused permutation-resample setting.
 
-The scientific methodology remains the reference for the rewrite. Recover it from the historical Git baseline and retain it as current documentation. Do not preserve old executable code, obsolete tests, archives, setup commands, or APIs to serve that purpose.
+Identical inputs, seeds, and ordering must produce identical statistics. Do not derive scientific randomness from task IDs, retries, workers, or completion order. Any departure from the preserved statistical method requires lead review before implementation.
 
-The methodology is preserved in [the methodology reference](../concepts/evaluation-methodology.md), recovered from the historical baseline. It records the scientific protocol, estimand, resampling/correction rules, and known source inconsistencies. The lead maintains that file; the cleanup agent must not delete or concurrently author it. Its historical source references are Git references, not a reason to retain old executable code.
+This prototype does not represent a complete study family. Do not calculate a family-adjusted p-value or present its output as Final study evidence.
 
-Documentation status: recovery and factual review are complete, with no remaining factual review blockers. This confirms fidelity to the baseline sources, not verification of new evaluation code or a new statistical validation study.
+## Runtime and contract scope
 
-Remove obsolete active implementation/setup instructions. Keep the current-stage brief and relevant accepted design/decision records, clearly distinguished from the deleted implementation. Do not invent replacement design or a future delivery plan.
+Use small typed JSON request and response models for this operation. Keep checked-in JSON Schema files as the authoritative wire contracts. Use pinned ExJsonSchema in Elixir, Ecto embedded schemas for typed materialization, and strict Pydantic models in Python. Shared conformance examples must verify both runtime boundaries. Do not generate source from the schemas or build study-wide configuration models, a binding language, or a schema compiler.
 
-### Pristine-code rule
+The Python request completes synchronously and returns JSON. Python has no database, durable job registry, result lookup service, artifact store, or file-result protocol. A retried request may recompute with the same scientific inputs and seeds.
 
-Delete obsolete behavior and its tests. No skipped legacy suites, disabled implementations, compatibility shims, legacy folders, inactive backups, commented-out code, or speculative scaffolding. Git history is recovery.
+Use a native Gust DAG/task and native result persistence. Do not replace Gust scheduling or persistence with a parallel mechanism. A client-only test or direct task-body call does not prove the required scheduler/persistence path.
 
-Preserve unrelated user working changes and genuinely independent current functionality. That is a scope boundary, not an obligation to retain evaluation data or code.
+Add only the dependencies, configuration, and migrations needed for this path. Pin the selected Gust dependency and record its actual version or revision. The earlier Gust review is useful research, not proof that another version has the same APIs. Do not fork Gust or add a paid Oban Pro dependency.
 
-## Verification and handoff
+Keep graph, simulation, and optimization behavior intact. Those features must not require the Python prototype service to be available.
 
-Verify the retained application without evaluation code: compilation, current contracts, relevant frontend/backend tests, formatting/static checks, and fresh-schema migration checks as appropriate. Do not make old tests pass by recreating deleted evaluation functionality.
+## Excluded scope
 
-Update `docs/inprogress/evaluation-stage-1-handoff.md` with actual removals, current behavior, fresh-migration evidence, checks/results, and unresolved blockers. State explicitly that evaluation implementation is removed and methodology is preserved in documentation. Describe the resulting state; do not prescribe future stages.
+- Live evaluation collection, graph/model preparation, or optimizer/topology pilots.
+- Study/specification management, precision Pilot, Final collection, or manual-gate workflows.
+- Complete-family correction, secondary reports, or dashboard/UI work.
+- Archive, ZIP, CSV, result-import, or binary download compatibility.
+- A general configuration framework, generic operation service, or Python orchestration.
+- Production rollout, deployment-version management, or speculative extensibility.
+- Restoration of deleted legacy modules, tests, fixtures, commands, or transport contracts.
 
-Do not commit, run live evaluation collections, stop unrelated user services, apply/destroy infrastructure, or edit the original worktree. A failed check or partial cleanup is not a completed stage.
+## Verification and acceptance
+
+The implementation must demonstrate all of the following:
+
+1. A native Gust run executes the task through a real HTTP request to the Python service.
+2. The task returns validated JSON and Gust saves the completed result. Read it back and show that it contains the expected scientific output.
+3. Repeating the computation with identical inputs, seeds, and ordering gives identical statistics. A saved-result lookup alone is not a recomputation test.
+4. Invalid matrix alignment fails explicitly. Invalid evidence must not become a successful stored result.
+5. Tests cover the crossed sampling axes, correction/contrast calculation, repeatability, and non-informative/degenerate behavior.
+6. Current application tests, compilation, contracts, and relevant formatting/static/build checks pass.
+
+Actually run the real HTTP/Gust demonstration. Do not substitute mocks or a claim that integration should work. Keep a reproducible command or test harness for it. Tests may manage their own temporary service process, but must not stop unrelated services.
+
+Do not add skipped placeholder tests or disabled legacy tests. A separate integration command is acceptable if it is documented and actually passes. Distinguish its results from unit tests.
+
+Project schema/data preservation is not required. Verify the configured database target before any destructive command. Prefer a clearly identified project test/prototype target. Unrelated databases and infrastructure remain outside scope. Do not apply or destroy infrastructure.
+
+## Reviewed Terraform plan
+
+A read-only plan against a temporary copy of the existing local state succeeded. It reported 26 additions, no in-place changes, and two deletions:
+
+- create the evaluation-compute image and one container for each of the two sites;
+- replace the local application development image;
+- create the application, database, messaging, proxy, and observability containers that are currently absent;
+- delete the removed legacy analysis image; and
+- delete no Docker volumes.
+
+The original state checksum did not change. The temporary state and plan files were deleted after review. The active local state still resides in the original worktree. Before an approved apply, choose an explicit state-location procedure and regenerate the plan against that state. Do not apply a copied or stale state.
+
+This plan contains destructive actions for the application image and the legacy analysis image. It is not approved for apply by its creation or review.
+
+## Approved design
+
+The approved design is recorded in [the Stage 2 design](evaluation-stage-2-design.md). It records:
+
+- the user-visible or developer-visible entry point;
+- the Gust DAG and task boundaries;
+- the canonical request, result, and error schemas;
+- library-owned validation, native typed-model, and public error-mapping boundaries;
+- evidence identity, ordering, and cross-field validation rules;
+- Python service endpoints and lifecycle expectations;
+- Gust result-persistence and read-back behavior;
+- configuration and secret ownership;
+- the minimum demonstration and acceptance evidence.
+
+The implementation follows these choices. Any contract or methodology change still requires lead and user review.
+
+## Future implementation handoff and stop condition
+
+Write `docs/inprogress/evaluation-stage-2-handoff.md` with:
+
+- the implemented request/result path and current source locations;
+- the exact Gust version/revision and relevant runtime assumptions;
+- the commands and actual results for the real demonstration and checks;
+- evidence of persisted-result read-back, deterministic recomputation, and invalid-input rejection;
+- any limitation or unresolved blocker.
+
+Describe the result, not a later-stage plan. If a library limitation or scientific ambiguity blocks the path, report the evidence and ask the lead. Do not silently fork a dependency, change the method, or expand scope.
+
+The lead retains ownership of the methodology reference and this current-stage brief. The implementation agent must not concurrently rewrite them. Report any required change to the lead.
+
+**Do not commit.** Stop after this prototype and its verification for lead/user review.

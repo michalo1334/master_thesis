@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "unknown_field",
+      "path": [
+        "interval",
+        "method"
+      ],
+      "details": {}
+    }
+  ]
+}

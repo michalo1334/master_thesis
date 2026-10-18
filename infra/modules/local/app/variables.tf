@@ -31,11 +31,29 @@ variable "database_host" {
 variable "database_port" {
   description = "PostgreSQL port available on site networks."
   type        = number
+
+  validation {
+    condition = (
+      var.database_port == floor(var.database_port) &&
+      var.database_port >= 1 && var.database_port <= 65535
+    )
+    error_message = "database_port must be an integer between 1 and 65535."
+  }
+}
+
+variable "evaluation_compute_urls" {
+  description = "Site-local evaluation-compute URL per site."
+  type        = map(string)
 }
 
 variable "host" {
   description = "Phoenix host name."
   type        = string
+
+  validation {
+    condition     = trimspace(var.host) != ""
+    error_message = "host must not be empty."
+  }
 }
 
 variable "host_ports" {
@@ -44,11 +62,27 @@ variable "host_ports" {
     http     = number
     debugger = number
   })
+
+  validation {
+    condition = (
+      alltrue([
+        for port in values(var.host_ports) :
+        port == floor(port) && port >= 1 && port <= 65535
+      ]) &&
+      length(values(var.host_ports)) == length(distinct(values(var.host_ports)))
+    )
+    error_message = "Application host ports must be distinct integers between 1 and 65535."
+  }
 }
 
 variable "log_level" {
   description = "Application file log level."
   type        = string
+
+  validation {
+    condition     = contains(["debug", "info", "warning", "error"], lower(var.log_level))
+    error_message = "log_level must be debug, info, warning, or error."
+  }
 }
 
 variable "log_volume_name" {
@@ -67,6 +101,14 @@ variable "nodes" {
     site  = string
     index = number
   }))
+
+  validation {
+    condition = (
+      length(var.nodes) > 0 &&
+      alltrue([for node in values(var.nodes) : node.index == floor(node.index) && node.index >= 0])
+    )
+    error_message = "nodes must not be empty, and every node index must be a non-negative integer."
+  }
 }
 
 variable "rabbitmq" {
@@ -79,6 +121,20 @@ variable "rabbitmq" {
     username                     = string
     virtual_host                 = string
   })
+
+  validation {
+    condition = (
+      trimspace(var.rabbitmq.host) != "" &&
+      trimspace(var.rabbitmq.username) != "" &&
+      var.rabbitmq.port == floor(var.rabbitmq.port) &&
+      var.rabbitmq.port >= 1 && var.rabbitmq.port <= 65535 &&
+      var.rabbitmq.max_message_bytes == floor(var.rabbitmq.max_message_bytes) &&
+      var.rabbitmq.max_message_bytes > 0 &&
+      var.rabbitmq.result_inactivity_timeout_ms == floor(var.rabbitmq.result_inactivity_timeout_ms) &&
+      var.rabbitmq.result_inactivity_timeout_ms > 0
+    )
+    error_message = "RabbitMQ settings require names, an integer port, and positive integer byte and timeout limits."
+  }
 }
 
 variable "secret_mount_path" {
@@ -103,4 +159,15 @@ variable "sites" {
     region   = string
     instance = string
   }))
+
+  validation {
+    condition = (
+      length(var.sites) > 0 &&
+      toset(keys(var.sites)) == toset(keys(var.site_networks)) &&
+      toset(keys(var.sites)) == toset(keys(var.evaluation_compute_urls)) &&
+      contains(keys(var.sites), var.application.primary_site) &&
+      alltrue([for node in values(var.nodes) : contains(keys(var.sites), node.site)])
+    )
+    error_message = "Site networks, compute URLs, the primary site, and every application node must match declared site keys."
+  }
 }

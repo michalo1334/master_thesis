@@ -77,7 +77,10 @@ defmodule NetworkDefense.MixProject do
       {:logger_json, "~> 7.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
-      {:dns_cluster, "~> 0.2.0"},
+      {:dns_cluster, "~> 0.3.0"},
+      {:ex_json_schema, "0.11.5"},
+      {:gust, "0.1.40"},
+      {:req, "~> 0.6.3"},
       {:bandit, "~> 1.5"},
 
       # OpenTelemetry
@@ -103,9 +106,19 @@ defmodule NetworkDefense.MixProject do
   defp aliases do
     [
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
-      "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
+      "ecto.setup": [
+        "ecto.create",
+        "ecto.migrate",
+        "ecto.migrate -r Gust.Repo --migrations-path deps/gust/priv/repo/migrations",
+        "run priv/repo/seeds.exs"
+      ],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
+      test: [
+        "ecto.create --quiet",
+        "ecto.migrate --quiet",
+        "ecto.migrate --quiet -r Gust.Repo --migrations-path deps/gust/priv/repo/migrations",
+        "test"
+      ],
       "assets.setup": ["phoenix_vite.npm assets install"],
       "assets.build": [
         "phoenix_vite.npm vite build --manifest --emptyOutDir true",

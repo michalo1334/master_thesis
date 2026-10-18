@@ -24,7 +24,7 @@ repo_password =
     nil -> System.get_env("REPO_PASSWORD") || System.get_env("POSTGRES_PASSWORD") || "postgres"
   end
 
-config :network_defense, NetworkDefense.Repo,
+database_config = [
   username: System.get_env("REPO_USERNAME") || System.get_env("POSTGRES_USER") || "postgres",
   password: repo_password,
   hostname: System.get_env("REPO_HOSTNAME") || "localhost",
@@ -32,6 +32,15 @@ config :network_defense, NetworkDefense.Repo,
   database: "network_defense_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
+]
+
+config :network_defense, NetworkDefense.Repo, database_config
+
+config :gust,
+       Gust.Repo,
+       database_config
+       |> Keyword.put(:migration_source, "gust_schema_migrations")
+       |> Keyword.put(:pool_size, 5)
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.

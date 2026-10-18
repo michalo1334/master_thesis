@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "ComparisonStatistics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "method", "estimate", "interval", "test", "assessment"],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "method": {"type": "string", "enum": ["corrected_crossed_bootstrap_v1"]},
+    "estimate": {"$ref": "#/definitions/estimate"},
+    "interval": {"$ref": "#/definitions/interval"},
+    "test": {"$ref": "#/definitions/test"},
+    "assessment": {"$ref": "#/definitions/assessment"}
+  },
+  "definitions": {
+    "estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contrast", "value"],
+      "properties": {
+        "contrast": {"type": "string", "enum": ["alternative_minus_reference"]},
+        "value": {"type": "number"}
+      }
+    },
+    "interval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["confidence_level", "lower", "upper"],
+      "properties": {
+        "confidence_level": {"type": "number", "exclusiveMinimum": true, "minimum": 0, "exclusiveMaximum": true, "maximum": 1},
+        "lower": {"type": "number"},
+        "upper": {"type": "number"}
+      }
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "alternative", "raw_p_value"],
+      "properties": {
+        "method": {"type": "string", "enum": ["centered_crossed_bootstrap"]},
+        "alternative": {"type": "string", "enum": ["two_sided"]},
+        "raw_p_value": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "warnings"],
+      "properties": {
+        "status": {"type": "string", "enum": ["informative", "non_informative"]},
+        "warnings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "enum": ["zero_width_interval"]}
+        }
+      }
+    }
+  }
+}

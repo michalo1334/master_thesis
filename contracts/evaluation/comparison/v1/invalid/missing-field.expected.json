@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "required_field_missing",
+      "path": [
+        "evidence",
+        "outcome"
+      ],
+      "details": {}
+    }
+  ]
+}

@@ -1,11 +1,12 @@
 output "urls" {
   description = "Local service URLs."
   value = {
-    application = "http://${var.application.host}:${module.haproxy.host_port}"
-    database    = "postgresql://127.0.0.1:${var.database.host_port}"
-    grafana     = "http://127.0.0.1:${var.grafana.host_port}"
-    pgadmin     = "http://127.0.0.1:${var.pgadmin.host_port}"
-    prometheus  = "http://127.0.0.1:${var.prometheus.host_port}"
+    application        = "http://${var.application.host}:${module.haproxy.host_port}"
+    database           = "postgresql://127.0.0.1:${var.database.host_port}"
+    evaluation_compute = module.evaluation_compute.loopback_service_urls
+    grafana            = "http://127.0.0.1:${var.grafana.host_port}"
+    pgadmin            = "http://127.0.0.1:${var.pgadmin.host_port}"
+    prometheus         = "http://127.0.0.1:${var.prometheus.host_port}"
   }
 }
 

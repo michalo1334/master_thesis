@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "unsupported_test_alternative",
+      "path": [
+        "test",
+        "alternative"
+      ],
+      "details": {}
+    }
+  ]
+}

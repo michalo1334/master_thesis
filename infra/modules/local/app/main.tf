@@ -8,24 +8,11 @@ resource "docker_image" "dev" {
 
   triggers = {
     build_inputs = sha1(join("", [
-      for filename in [
-        ".dockerignore",
-        ".formatter.exs",
-        "Dockerfile.dev",
-        "mix.exs",
-        "mix.lock",
-        "package.json",
-        "package-lock.json",
-        "prettier.config.mjs",
-        "config/config.exs",
-        "config/dev.exs",
-        "config/runtime.exs",
-        "assets/vite.config.mjs",
-        "lib/network_defense/runtime_config.ex",
-        "lib/network_defense_web/telemetry.ex"
-      ] : filesha1("${var.app_source_path}/${filename}")
+      for filename in local.image_build_inputs :
+      format("%s:%s", filename, filesha1("${var.app_source_path}/${filename}"))
     ]))
   }
+
 }
 
 resource "docker_volume" "build" {
@@ -38,7 +25,7 @@ resource "docker_volume" "dependencies" {
 
 resource "docker_container" "setup" {
   attach   = true
-  command  = ["sh", "-c", "mix deps.get && mix ecto.migrate && mix run priv/repo/seeds.exs"]
+  command  = ["sh", "-c", "mix deps.get && mix ecto.migrate && mix ecto.migrate -r Gust.Repo --migrations-path deps/gust/priv/repo/migrations && mix run priv/repo/seeds.exs"]
   env      = local.setup_environment
   image    = docker_image.dev.image_id
   must_run = false

@@ -3,9 +3,14 @@ defmodule NetworkDefense.Contracts do
 
   defmacro __using__(options) do
     category = Keyword.get(options, :category)
+    export? = Keyword.get(options, :export, true)
 
     unless is_nil(category) or is_atom(category) do
       raise ArgumentError, "contract category must be an atom"
+    end
+
+    unless is_boolean(export?) do
+      raise ArgumentError, "contract export option must be a boolean"
     end
 
     quote do
@@ -15,7 +20,7 @@ defmodule NetworkDefense.Contracts do
 
       @primary_key false
 
-      def __contract__, do: true
+      def __contract__, do: unquote(export?)
       def contract_category, do: unquote(category)
       def contract_meta, do: %{}
       defoverridable contract_meta: 0

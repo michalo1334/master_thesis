@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "error": {
+    "code": "validation_failed",
+    "schema_errors": [
+      {
+        "message": "Expected all schemas to match.",
+        "path": "#/evidence/alternative",
+        "causes": [
+          {
+            "message": "The value has an invalid type.",
+            "path": ["evidence", "alternative", "strategy"],
+            "causes": []
+          }
+        ]
+      }
+    ]
+  }
+}

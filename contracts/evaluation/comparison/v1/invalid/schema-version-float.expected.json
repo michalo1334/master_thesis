@@ -1,0 +1,10 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "invalid_type",
+      "path": ["schema_version"],
+      "details": {}
+    }
+  ]
+}

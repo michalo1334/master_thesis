@@ -1,0 +1,13 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "invalid_analysis_setting",
+      "path": [
+        "interval",
+        "confidence_level"
+      ],
+      "details": {}
+    }
+  ]
+}

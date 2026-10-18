@@ -1,0 +1,19 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "attack_column_count_mismatch",
+      "path": [
+        "evidence",
+        "alternative",
+        "plans",
+        0,
+        "mission_impacts"
+      ],
+      "details": {
+        "expected": 10,
+        "actual": 9
+      }
+    }
+  ]
+}

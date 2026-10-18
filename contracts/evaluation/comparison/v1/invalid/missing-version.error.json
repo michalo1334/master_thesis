@@ -1,0 +1,22 @@
+{
+  "error": {
+    "code": "validation_failed",
+    "issues": [
+      {
+        "code": "attack_column_count_mismatch",
+        "path": [
+          "evidence",
+          "alternative",
+          "plans",
+          0,
+          "mission_impacts"
+        ],
+        "message": "Expected 10 mission-impact values but received 9.",
+        "details": {
+          "expected": 10,
+          "actual": 9
+        }
+      }
+    ]
+  }
+}

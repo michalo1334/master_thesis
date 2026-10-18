@@ -1,0 +1,14 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "insufficient_plan_count",
+      "path": [
+        "evidence",
+        "alternative",
+        "plans"
+      ],
+      "details": {}
+    }
+  ]
+}

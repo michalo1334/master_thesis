@@ -1,0 +1,558 @@
+{
+  "schemaVersion": 2,
+  "branchName": "evaluation/rebuild",
+  "annotations": [
+    {
+      "fileName": "infra/environments/local/local.auto.tfvars",
+      "line": 19,
+      "positionStart": {
+        "line": 19,
+        "character": 24
+      },
+      "positionEnd": {
+        "line": 19,
+        "character": 64
+      },
+      "text": "shouldnt this be variable + dev/prod?",
+      "codeSnippet": "\"network-defense-evaluation-compute:dev\"",
+      "anchor": {
+        "selectedText": "\"network-defense-evaluation-compute:dev\"",
+        "prefixContext": "east = 8082\n  }\n  image_name          = ",
+        "suffixContext": "\n  log_level           = \"info\"\n  proces"
+      },
+      "attachments": [],
+      "id": 1,
+      "status": "active",
+      "createdAt": "2026-10-18T13:01:50.763Z"
+    },
+    {
+      "fileName": "infra/environments/local/local.auto.tfvars",
+      "line": 20,
+      "positionStart": {
+        "line": 20,
+        "character": 24
+      },
+      "positionEnd": {
+        "line": 20,
+        "character": 30
+      },
+      "text": "same",
+      "codeSnippet": "\"info\"",
+      "anchor": {
+        "selectedText": "\"info\"",
+        "prefixContext": "on-compute:dev\"\n  log_level           = ",
+        "suffixContext": "\n  process_count       = 1\n  request_lim"
+      },
+      "attachments": [],
+      "id": 2,
+      "status": "active",
+      "createdAt": "2026-10-18T13:02:00.741Z"
+    },
+    {
+      "fileName": "infra/modules/local/app/locals.tf",
+      "line": 64,
+      "positionStart": {
+        "line": 64,
+        "character": 19
+      },
+      "positionEnd": {
+        "line": 64,
+        "character": 23
+      },
+      "text": "shouldnt this be variable like with \"ROLE=\"?",
+      "codeSnippet": "core",
+      "anchor": {
+        "selectedText": "core",
+        "prefixContext": "\"ROLE=${node.role}\",\n        \"GUST_ROLE=",
+        "suffixContext": "\",\n        \"EVALUATION_COMPUTE_URL=${var"
+      },
+      "attachments": [],
+      "id": 3,
+      "status": "active",
+      "createdAt": "2026-10-18T13:03:58.806Z"
+    },
+    {
+      "fileName": "infra/modules/local/app/main.tf",
+      "line": 8,
+      "positionStart": {
+        "line": 8,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 32,
+        "character": 7
+      },
+      "text": "Is there better way (as in: established best practice) for handling build trigger for dev?",
+      "codeSnippet": "  triggers = {\n    build_inputs = sha1(join(\"\", concat(\n      [\n        for filename in [\n          \".dockerignore\",\n          \".formatter.exs\",\n          \"Dockerfile.dev\",\n          \"mix.exs\",\n          \"mix.lock\",\n          \"package.json\",\n          \"package-lock.json\",\n          \"prettier.config.mjs\",\n          \"config/config.exs\",\n          \"config/dev.exs\",\n          \"config/runtime.exs\",\n          \"assets/vite.config.mjs\",\n          \"lib/network_defense/runtime_config.ex\",\n          \"lib/network_defense_web/telemetry.ex\"\n        ] : filesha1(\"${var.app_source_path}/${filename}\")\n      ],\n      [\n        for filename in sort(fileset(var.app_source_path, \"priv/**/*\")) :\n        filesha1(\"${var.app_source_path}/${filename}\")\n      ]\n    )))",
+      "anchor": {
+        "selectedText": "  triggers = {\n    build_inputs = sha1(join(\"\", concat(\n      [\n        for filename in [\n          \".dockerignore\",\n          \".formatter.exs\",\n          \"Dockerfile.dev\",\n          \"mix.exs\",\n          \"mix.lock\",\n          \"package.json\",\n          \"package-lock.json\",\n          \"prettier.config.mjs\",\n          \"config/config.exs\",\n          \"config/dev.exs\",\n          \"config/runtime.exs\",\n          \"assets/vite.config.mjs\",\n          \"lib/network_defense/runtime_config.ex\",\n          \"lib/network_defense_web/telemetry.ex\"\n        ] : filesha1(\"${var.app_source_path}/${filename}\")\n      ],\n      [\n        for filename in sort(fileset(var.app_source_path, \"priv/**/*\")) :\n        filesha1(\"${var.app_source_path}/${filename}\")\n      ]\n    )))",
+        "prefixContext": "\n    dockerfile = \"Dockerfile.dev\"\n  }\n\n",
+        "suffixContext": "\n  }\n}\n\nresource \"docker_volume\" \"build\""
+      },
+      "attachments": [],
+      "id": 4,
+      "status": "active",
+      "createdAt": "2026-10-18T13:04:57.824Z"
+    },
+    {
+      "fileName": "infra/modules/local/evaluation_compute/main.tf",
+      "line": 8,
+      "positionStart": {
+        "line": 8,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 21,
+        "character": 1
+      },
+      "text": "I assume its the best practices to make sure site inputs match?? Or is there better terraform established practices? )",
+      "codeSnippet": "check \"site_inputs_match\" {\n  assert {\n    condition = (\n      toset(keys(var.sites)) == toset(keys(var.site_networks)) &&\n      toset(keys(var.sites)) == toset(keys(var.host_ports))\n    )\n    error_message = \"Sites, site networks, and evaluation-compute host ports must have identical keys.\"\n  }\n\n  assert {\n    condition     = length(values(var.host_ports)) == length(distinct(values(var.host_ports)))\n    error_message = \"Evaluation-compute host ports must be unique.\"\n  }\n}",
+      "anchor": {
+        "selectedText": "check \"site_inputs_match\" {\n  assert {\n    condition = (\n      toset(keys(var.sites)) == toset(keys(var.site_networks)) &&\n      toset(keys(var.sites)) == toset(keys(var.host_ports))\n    )\n    error_message = \"Sites, site networks, and evaluation-compute host ports must have identical keys.\"\n  }\n\n  assert {\n    condition     = length(values(var.host_ports)) == length(distinct(values(var.host_ports)))\n    error_message = \"Evaluation-compute host ports must be unique.\"\n  }\n}",
+        "prefixContext": "set(var.source_path, \"src/**\"))\n  ))\n}\n\n",
+        "suffixContext": "\n\nresource \"docker_image\" \"evaluation_co"
+      },
+      "attachments": [],
+      "id": 5,
+      "status": "active",
+      "createdAt": "2026-10-18T13:05:52.305Z"
+    },
+    {
+      "fileName": "infra/modules/local/evaluation_compute/main.tf",
+      "line": 41,
+      "positionStart": {
+        "line": 41,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 48,
+        "character": 3
+      },
+      "text": "Initially I thought its inline env variables but I see its mapping TF vars to ENV vars, I assume its correct?",
+      "codeSnippet": "  env = [\n    \"EVALUATION_BIND_HOST=0.0.0.0\",\n    \"EVALUATION_PORT=${var.container_port}\",\n    \"EVALUATION_REQUEST_LIMIT_BYTES=${var.request_limit_bytes}\",\n    \"EVALUATION_WORKERS=${var.process_count}\",\n    \"EVALUATION_LOG_LEVEL=${var.log_level}\",\n    \"EVALUATION_SHUTDOWN_TIMEOUT_SECONDS=10\"\n  ]",
+      "anchor": {
+        "selectedText": "  env = [\n    \"EVALUATION_BIND_HOST=0.0.0.0\",\n    \"EVALUATION_PORT=${var.container_port}\",\n    \"EVALUATION_REQUEST_LIMIT_BYTES=${var.request_limit_bytes}\",\n    \"EVALUATION_WORKERS=${var.process_count}\",\n    \"EVALUATION_LOG_LEVEL=${var.log_level}\",\n    \"EVALUATION_SHUTDOWN_TIMEOUT_SECONDS=10\"\n  ]",
+        "prefixContext": "tion_compute\" {\n  for_each = var.sites\n\n",
+        "suffixContext": "\n  image = docker_image.evaluation_compu"
+      },
+      "attachments": [],
+      "id": 6,
+      "status": "active",
+      "createdAt": "2026-10-18T13:06:27.431Z"
+    },
+    {
+      "fileName": "infra/modules/local/evaluation_compute/main.tf",
+      "line": 67,
+      "positionStart": {
+        "line": 67,
+        "character": 5
+      },
+      "positionEnd": {
+        "line": 67,
+        "character": 150
+      },
+      "text": "Do we have to use python? Is it simplest way to achieve it? Maybe curl? Also 127.0.0.1 is kinda hardcoded",
+      "codeSnippet": "est         = [\"CMD\", \"python\", \"-c\", \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:${var.container_port}/ready', timeout=2)\"]",
+      "anchor": {
+        "selectedText": "est         = [\"CMD\", \"python\", \"-c\", \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:${var.container_port}/ready', timeout=2)\"]",
+        "prefixContext": "      = 12\n    start_period = \"5s\"\n    t",
+        "suffixContext": "\n    timeout      = \"3s\"\n  }\n\n  restart "
+      },
+      "attachments": [],
+      "id": 7,
+      "status": "active",
+      "createdAt": "2026-10-18T13:07:00.356Z"
+    },
+    {
+      "fileName": "infra/modules/local/evaluation_compute/outputs.tf",
+      "line": 12,
+      "positionStart": {
+        "line": 12,
+        "character": 63
+      },
+      "positionEnd": {
+        "line": 12,
+        "character": 78
+      },
+      "text": "hardcoded - is that ok?",
+      "codeSnippet": "ttp://127.0.0.1",
+      "anchor": {
+        "selectedText": "ttp://127.0.0.1",
+        "prefixContext": "ite, port in var.host_ports : site => \"h",
+        "suffixContext": ":${port}\" }\n}\n\noutput \"image_id\" {\n  des"
+      },
+      "attachments": [],
+      "id": 8,
+      "status": "active",
+      "createdAt": "2026-10-18T13:07:17.949Z"
+    },
+    {
+      "fileName": "services/evaluation_compute/src/evaluation_compute/run.py",
+      "line": 8,
+      "positionStart": {
+        "line": 8,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 14,
+        "character": 58
+      },
+      "text": "hardcoded ENV values -> We risk if they change in TF they become invalid. Also default values - >remvoe. Fail fast",
+      "codeSnippet": "    log_level = os.getenv(\"EVALUATION_LOG_LEVEL\", \"info\")\n    configure_logging(log_level)\n    uvicorn.run(\n        \"evaluation_compute.api:app\",\n        host=os.getenv(\"EVALUATION_BIND_HOST\", \"0.0.0.0\"),\n        port=int(os.getenv(\"EVALUATION_PORT\", \"8080\")),\n        workers=int(os.getenv(\"EVALUATION_WORKERS\", \"1\")),",
+      "anchor": {
+        "selectedText": "    log_level = os.getenv(\"EVALUATION_LOG_LEVEL\", \"info\")\n    configure_logging(log_level)\n    uvicorn.run(\n        \"evaluation_compute.api:app\",\n        host=os.getenv(\"EVALUATION_BIND_HOST\", \"0.0.0.0\"),\n        port=int(os.getenv(\"EVALUATION_PORT\", \"8080\")),\n        workers=int(os.getenv(\"EVALUATION_WORKERS\", \"1\")),",
+        "prefixContext": "configure_logging\n\n\ndef main() -> None:\n",
+        "suffixContext": "\n        log_level=log_level,\n        lo"
+      },
+      "attachments": [],
+      "id": 9,
+      "status": "active",
+      "createdAt": "2026-10-18T13:09:00.571Z"
+    },
+    {
+      "fileName": "src/config/config.exs",
+      "line": 32,
+      "positionStart": {
+        "line": 32,
+        "character": 2
+      },
+      "positionEnd": {
+        "line": 37,
+        "character": 87
+      },
+      "text": "Two isusesL 1. hardocded DEV key but config is used also for prod??? 2. base_url -> is hardocidng 127.0.0.1 and port correct?",
+      "codeSnippet": "nfig :network_defense, NetworkDefense.Evaluation.Comparison.Client,\n  base_url: \"http://127.0.0.1:8080\"\n\nconfig :gust,\n  b64_secrets_cloak_key:\n    \"development-only-gust-key\" |> then(&:crypto.hash(:sha256, &1)) |> Base.encode64(),",
+      "anchor": {
+        "selectedText": "nfig :network_defense, NetworkDefense.Evaluation.Comparison.Client,\n  base_url: \"http://127.0.0.1:8080\"\n\nconfig :gust,\n  b64_secrets_cloak_key:\n    \"development-only-gust-key\" |> then(&:crypto.hash(:sha256, &1)) |> Base.encode64(),",
+        "prefixContext": "workDefense.Compute.RabbitMQExecutor\n\nco",
+        "suffixContext": "\n  dag_adapter: [\n    comparison: %{\n   "
+      },
+      "attachments": [],
+      "id": 10,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:11:04.052Z"
+    },
+    {
+      "fileName": "src/config/runtime.exs",
+      "line": 187,
+      "positionStart": {
+        "line": 187,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 197,
+        "character": 56
+      },
+      "text": "sameh here",
+      "codeSnippet": "config :network_defense, NetworkDefense.Evaluation.Comparison.Client,\n  base_url: System.get_env(\"EVALUATION_COMPUTE_URL\", \"http://127.0.0.1:8080\")\n\ngust_key_source =\n  RuntimeConfig.read_secret(\"GUST_CLOAK_KEY\") ||\n    RuntimeConfig.read_secret(\"SECRET_KEY_BASE\", \"development-only-gust-key\")\n\nconfig :gust,\n  b64_secrets_cloak_key: gust_key_source |> then(&:crypto.hash(:sha256, &1)) |> Base.encode64(),\n  dags_folder: Application.app_dir(:network_defense, \"priv/gust/dags\"),\n  dns_cluster_query: System.get_env(\"DNS_CLUSTER_QUERY\")",
+      "anchor": {
+        "selectedText": "config :network_defense, NetworkDefense.Evaluation.Comparison.Client,\n  base_url: System.get_env(\"EVALUATION_COMPUTE_URL\", \"http://127.0.0.1:8080\")\n\ngust_key_source =\n  RuntimeConfig.read_secret(\"GUST_CLOAK_KEY\") ||\n    RuntimeConfig.read_secret(\"SECRET_KEY_BASE\", \"development-only-gust-key\")\n\nconfig :gust,\n  b64_secrets_cloak_key: gust_key_source |> then(&:crypto.hash(:sha256, &1)) |> Base.encode64(),\n  dags_folder: Application.app_dir(:network_defense, \"priv/gust/dags\"),\n  dns_cluster_query: System.get_env(\"DNS_CLUSTER_QUERY\")",
+        "prefixContext": "_rotate: true\n       }\n     }}\n  ]\nend\n\n",
+        "suffixContext": "\n\nif config_env() == :prod do\n  maybe_ip"
+      },
+      "attachments": [],
+      "id": 11,
+      "status": "active",
+      "createdAt": "2026-10-18T13:11:20.527Z"
+    },
+    {
+      "fileName": "/home/michalo/master_thesis-evaluation-rebuild/src/lib/network_defense/application.ex",
+      "line": 45,
+      "positionStart": {
+        "line": 45,
+        "character": 10
+      },
+      "positionEnd": {
+        "line": 46,
+        "character": 88
+      },
+      "text": "is moving the DNS cluster query correct?",
+      "codeSnippet": "{DNSCluster,\n           query: Application.get_env(:network_defense, :dns_cluster_query) || :ignore},",
+      "anchor": {
+        "selectedText": "{DNSCluster,\n           query: Application.get_env(:network_defense, :dns_cluster_query) || :ignore},",
+        "prefixContext": "         NetworkDefense.Repo,\n          ",
+        "suffixContext": "\n          {Phoenix.PubSub,\n           ["
+      },
+      "attachments": [],
+      "id": 12,
+      "status": "active",
+      "createdAt": "2026-10-18T13:12:15.112Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluations.ex",
+      "line": 8,
+      "positionStart": {
+        "line": 8,
+        "character": 2
+      },
+      "positionEnd": {
+        "line": 51,
+        "character": 47
+      },
+      "text": "hmm, this smells like better would be to use Ecto changesets somehow??",
+      "codeSnippet": "def submit_comparison(attrs) when is_map(attrs) do\n    with :ok <- string_keys_only(attrs),\n         {:ok, encoded} <- encode(attrs),\n         :ok <- within_limit(encoded),\n         {:ok, request} <- ComparisonRequest.parse(attrs),\n         canonical = Wire.request(request),\n         {:ok, canonical_encoded} <- encode(canonical),\n         :ok <- within_limit(canonical_encoded) do\n      Workflow.submit(canonical)\n    end\n  end\n\n  def submit_comparison(_attrs), do: {:error, invalid_input_error([], \"invalid_type\")}\n\n  def await_comparison(run_id, timeout_ms), do: Workflow.await(run_id, timeout_ms)\n  def get_comparison_result(run_id), do: Workflow.result(run_id)\n\n  defp string_keys_only(value), do: string_keys_only(value, [])\n\n  defp string_keys_only(map, path) when is_map(map) do\n    Enum.reduce_while(map, :ok, fn\n      {key, value}, :ok when is_binary(key) ->\n        case string_keys_only(value, path ++ [key]) do\n          :ok -> {:cont, :ok}\n          error -> {:halt, error}\n        end\n\n      {_key, _value}, :ok ->\n        {:halt, {:error, invalid_input_error(path, \"invalid_type\")}}\n    end)\n  end\n\n  defp string_keys_only(list, path) when is_list(list) do\n    list\n    |> Enum.with_index()\n    |> Enum.reduce_while(:ok, fn {value, index}, :ok ->\n      case string_keys_only(value, path ++ [index]) do\n        :ok -> {:cont, :ok}\n        error -> {:halt, error}\n      end\n    end)\n  end\n\n  defp string_keys_only(_value, _path), do: :ok",
+      "anchor": {
+        "selectedText": "def submit_comparison(attrs) when is_map(attrs) do\n    with :ok <- string_keys_only(attrs),\n         {:ok, encoded} <- encode(attrs),\n         :ok <- within_limit(encoded),\n         {:ok, request} <- ComparisonRequest.parse(attrs),\n         canonical = Wire.request(request),\n         {:ok, canonical_encoded} <- encode(canonical),\n         :ok <- within_limit(canonical_encoded) do\n      Workflow.submit(canonical)\n    end\n  end\n\n  def submit_comparison(_attrs), do: {:error, invalid_input_error([], \"invalid_type\")}\n\n  def await_comparison(run_id, timeout_ms), do: Workflow.await(run_id, timeout_ms)\n  def get_comparison_result(run_id), do: Workflow.result(run_id)\n\n  defp string_keys_only(value), do: string_keys_only(value, [])\n\n  defp string_keys_only(map, path) when is_map(map) do\n    Enum.reduce_while(map, :ok, fn\n      {key, value}, :ok when is_binary(key) ->\n        case string_keys_only(value, path ++ [key]) do\n          :ok -> {:cont, :ok}\n          error -> {:halt, error}\n        end\n\n      {_key, _value}, :ok ->\n        {:halt, {:error, invalid_input_error(path, \"invalid_type\")}}\n    end)\n  end\n\n  defp string_keys_only(list, path) when is_list(list) do\n    list\n    |> Enum.with_index()\n    |> Enum.reduce_while(:ok, fn {value, index}, :ok ->\n      case string_keys_only(value, path ++ [index]) do\n        :ok -> {:cont, :ok}\n        error -> {:halt, error}\n      end\n    end)\n  end\n\n  defp string_keys_only(_value, _path), do: :ok",
+        "prefixContext": "orkflow}\n\n  @request_limit 1_048_576\n\n  ",
+        "suffixContext": "\n\n  defp encode(value) do\n    case Jason"
+      },
+      "attachments": [],
+      "id": 13,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:13:35.579Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluations.ex",
+      "line": 67,
+      "positionStart": {
+        "line": 67,
+        "character": 7
+      },
+      "positionEnd": {
+        "line": 83,
+        "character": 5
+      },
+      "text": "error keys but they are 1. hardcoded strings inline, not defined in common module 2. not atoms",
+      "codeSnippet": "ComparisonError.new(\n         \"request_too_large\",\n         \"request_too_large\",\n         [],\n         \"The request exceeds the byte limit.\",\n         %{\"limit_bytes\" => @request_limit}\n       )}\n    end\n  end\n\n  defp invalid_input_error(path, code) do\n    ComparisonError.new(\n      \"validation_failed\",\n      code,\n      path,\n      \"The request contains a value that is not valid JSON.\"\n    )",
+      "anchor": {
+        "selectedText": "ComparisonError.new(\n         \"request_too_large\",\n         \"request_too_large\",\n         [],\n         \"The request exceeds the byte limit.\",\n         %{\"limit_bytes\" => @request_limit}\n       )}\n    end\n  end\n\n  defp invalid_input_error(path, code) do\n    ComparisonError.new(\n      \"validation_failed\",\n      code,\n      path,\n      \"The request contains a value that is not valid JSON.\"\n    )",
+        "prefixContext": "     :ok\n    else\n      {:error,\n       ",
+        "suffixContext": "\n  end\nend\n"
+      },
+      "attachments": [],
+      "id": 14,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:14:11.690Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/client.ex",
+      "line": 19,
+      "positionStart": {
+        "line": 19,
+        "character": 19
+      },
+      "positionEnd": {
+        "line": 19,
+        "character": 65
+      },
+      "text": "hardcoded string",
+      "codeSnippet": "\"/v1/comparisons/corrected-crossed-bootstrap\")",
+      "anchor": {
+        "selectedText": "\"/v1/comparisons/corrected-crossed-bootstrap\")",
+        "prefixContext": "rd.fetch!(:base_url)\n      |> URI.merge(",
+        "suffixContext": "\n      |> URI.to_string()\n\n    options ="
+      },
+      "attachments": [],
+      "id": 15,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:14:36.421Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/client.ex",
+      "line": 25,
+      "positionStart": {
+        "line": 25,
+        "character": 54
+      },
+      "positionEnd": {
+        "line": 26,
+        "character": 69
+      },
+      "text": "hardcoded values",
+      "codeSnippet": "connect_timeout, 2_000)],\n      receive_timeout: Keyword.get(config, :receive_timeout, 60_000),",
+      "anchor": {
+        "selectedText": "connect_timeout, 2_000)],\n      receive_timeout: Keyword.get(config, :receive_timeout, 60_000),",
+        "prefixContext": "options: [timeout: Keyword.get(config, :",
+        "suffixContext": "\n      decode_body: false\n    ]\n\n    cas"
+      },
+      "attachments": [],
+      "id": 16,
+      "status": "active",
+      "createdAt": "2026-10-18T13:14:53.371Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/client.ex",
+      "line": 85,
+      "positionStart": {
+        "line": 85,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 99,
+        "character": 43
+      },
+      "text": "same - strings for errors",
+      "codeSnippet": "  defp invalid_response_error do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid response contract.\"\n    )\n  end\n\n  defp unavailable_error do\n    ComparisonError.new(\n      \"compute_unavailable\",\n      \"compute_unavailable\",\n      [],\n      \"The compute service is unavailable.\"",
+      "anchor": {
+        "selectedText": "  defp invalid_response_error do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid response contract.\"\n    )\n  end\n\n  defp unavailable_error do\n    ComparisonError.new(\n      \"compute_unavailable\",\n      \"compute_unavailable\",\n      [],\n      \"The compute service is unavailable.\"",
+        "prefixContext": "ror, :invalid_relations}\n    end\n  end\n\n",
+        "suffixContext": "\n    )\n  end\nend\n"
+      },
+      "attachments": [],
+      "id": 17,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:15:28.273Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/client.ex",
+      "line": 50,
+      "positionStart": {
+        "line": 50,
+        "character": 4
+      },
+      "positionEnd": {
+        "line": 82,
+        "character": 7
+      },
+      "text": "two issues: 1. validation utside changes set - schemavalidator - makes sense? 2. ComparisonError.materialize_envelope -> sounds weird 3. validate_relations -> validation for specific fields a) should it be here or either fail further or use ecto changesets?",
+      "codeSnippet": "fp parse_failure(status, body) do\n    classification = if status in [500, 503], do: :temporary, else: :permanent\n\n    if status in [400, 413, 415, 422, 500, 503] do\n      with {:ok, decoded} <- decode_body(body),\n           :ok <- SchemaValidator.validate(:error, decoded),\n           {:ok, error} <- ComparisonError.materialize_envelope(decoded) do\n        {:error, classification, error}\n      else\n        _error -> {:error, :permanent, invalid_response_error()}\n      end\n    else\n      {:error, :permanent, invalid_response_error()}\n    end\n  end\n\n  defp decode_body(body) when is_binary(body) and byte_size(body) <= @response_limit do\n    Jason.decode(body)\n  end\n\n  defp decode_body(_body), do: {:error, :invalid_body}\n\n  defp validate_relations(statistics, request) do\n    interval = statistics.interval\n    test = statistics.test\n\n    if interval[\"lower\"] <= interval[\"upper\"] and\n         interval[\"confidence_level\"] == request.interval.confidence_level and\n         test[\"alternative\"] == request.test.alternative do\n      :ok\n    else\n      {:error, :invalid_relations}\n    end",
+      "anchor": {
+        "selectedText": "fp parse_failure(status, body) do\n    classification = if status in [500, 503], do: :temporary, else: :permanent\n\n    if status in [400, 413, 415, 422, 500, 503] do\n      with {:ok, decoded} <- decode_body(body),\n           :ok <- SchemaValidator.validate(:error, decoded),\n           {:ok, error} <- ComparisonError.materialize_envelope(decoded) do\n        {:error, classification, error}\n      else\n        _error -> {:error, :permanent, invalid_response_error()}\n      end\n    else\n      {:error, :permanent, invalid_response_error()}\n    end\n  end\n\n  defp decode_body(body) when is_binary(body) and byte_size(body) <= @response_limit do\n    Jason.decode(body)\n  end\n\n  defp decode_body(_body), do: {:error, :invalid_body}\n\n  defp validate_relations(statistics, request) do\n    interval = statistics.interval\n    test = statistics.test\n\n    if interval[\"lower\"] <= interval[\"upper\"] and\n         interval[\"confidence_level\"] == request.interval.confidence_level and\n         test[\"alternative\"] == request.test.alternative do\n      :ok\n    else\n      {:error, :invalid_relations}\n    end",
+        "prefixContext": "id_response_error()}\n    end\n  end\n\n  de",
+        "suffixContext": "\n  end\n\n  defp invalid_response_error do"
+      },
+      "attachments": [],
+      "id": 18,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:16:55.907Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/dag_parser.ex",
+      "line": 0,
+      "positionStart": {
+        "line": 0,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 12,
+        "character": 5
+      },
+      "text": "is it necessary?",
+      "codeSnippet": "defmodule NetworkDefense.Evaluation.Comparison.DAGParser do\n  @moduledoc false\n  @behaviour Gust.DAG.Parser.Adapter\n\n  alias Gust.DAG.Parser.Adapters.Elixir, as: ElixirParser\n\n  @impl true\n  def extension, do: \".exs\"\n\n  @impl true\n  def parse_file(file_path) do\n    ElixirParser.parse_file(file_path)\n  end",
+      "anchor": {
+        "selectedText": "defmodule NetworkDefense.Evaluation.Comparison.DAGParser do\n  @moduledoc false\n  @behaviour Gust.DAG.Parser.Adapter\n\n  alias Gust.DAG.Parser.Adapters.Elixir, as: ElixirParser\n\n  @impl true\n  def extension, do: \".exs\"\n\n  @impl true\n  def parse_file(file_path) do\n    ElixirParser.parse_file(file_path)\n  end",
+        "prefixContext": "",
+        "suffixContext": "\nend\n"
+      },
+      "attachments": [],
+      "id": 19,
+      "status": "active",
+      "createdAt": "2026-10-18T13:17:18.755Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/schema_validator.ex",
+      "line": 0,
+      "positionStart": {
+        "line": 0,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 204,
+        "character": 0
+      },
+      "text": "Given we use ExjSOnSchema - a dedicated schema validator - do we need so much code here? What is going on even here?",
+      "codeSnippet": "defmodule NetworkDefense.Evaluation.Comparison.SchemaValidator do\n  @moduledoc false\n\n  alias ExJsonSchema.Schema\n  alias ExJsonSchema.Validator\n  alias ExJsonSchema.Validator.Error\n  alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonError\n\n  @schema_dir Application.app_dir(:network_defense, \"priv/evaluation/contracts/v1/schemas\")\n  @request_path Path.join(@schema_dir, \"request.schema.json\")\n  @statistics_path Path.join(@schema_dir, \"statistics.schema.json\")\n  @error_path Path.join(@schema_dir, \"error.schema.json\")\n  @external_resource @request_path\n  @external_resource @statistics_path\n  @external_resource @error_path\n\n  @request_schema @request_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n  @statistics_schema @statistics_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n  @error_schema @error_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n\n  @spec validate(:request | :statistics | :error, map()) ::\n          :ok | {:error, ComparisonError.t()}\n  def validate(kind, value) when is_map(value) do\n    case Validator.validate(schema(kind), value, error_formatter: false) do\n      :ok ->\n        :ok\n\n      {:error, errors} when is_list(errors) ->\n        {:error, comparison_error(kind, errors)}\n\n      {:error, _reason} ->\n        {:error, internal_error(kind)}\n    end\n  rescue\n    _exception -> {:error, internal_error(kind)}\n  end\n\n  def normalize_path(\"#\"), do: []\n\n  def normalize_path(\"#/\" <> pointer) do\n    pointer\n    |> String.split(\"/\", trim: false)\n    |> Enum.map(fn part ->\n      decoded = part |> String.replace(\"~1\", \"/\") |> String.replace(\"~0\", \"~\")\n\n      case Integer.parse(decoded) do\n        {integer, \"\"} -> integer\n        _other -> decoded\n      end\n    end)\n  end\n\n  defp schema(:request), do: @request_schema\n  defp schema(:statistics), do: @statistics_schema\n  defp schema(:error), do: @error_schema\n\n  defp comparison_error(kind, errors) do\n    issues =\n      errors\n      |> Enum.flat_map(&issues_for(kind, &1))\n      |> Enum.uniq_by(&{&1[\"path\"], &1[\"code\"]})\n      |> Enum.sort_by(fn issue -> {path_sort_key(issue[\"path\"]), issue[\"code\"]} end)\n      |> Enum.take(50)\n\n    %ComparisonError{schema_version: 1, code: \"validation_failed\", issues: issues}\n  end\n\n  defp issues_for(_kind, %Error{error: %Error.Required{missing: missing}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    Enum.map(missing, fn field ->\n      issue(\"required_field_missing\", path ++ [field], \"This field is required.\")\n    end)\n  end\n\n  defp issues_for(_kind, %Error{error: %Error.AdditionalProperties{}, path: pointer}) do\n    [issue(\"unknown_field\", normalize_path(pointer), \"Unknown field.\")]\n  end\n\n  defp issues_for(kind, %Error{error: %Error.Type{}, path: pointer}) do\n    [\n      issue(\n        type_code(kind, normalize_path(pointer)),\n        normalize_path(pointer),\n        \"Invalid JSON type.\"\n      )\n    ]\n  end\n\n  defp issues_for(kind, %Error{error: %Error.Enum{}, path: pointer}) do\n    path = normalize_path(pointer)\n    [issue(enum_code(kind, path), path, \"Unsupported value.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.AllOf{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    if path == [\"evidence\", \"alternative\", \"strategy\"] do\n      [\n        issue(\n          \"unsupported_alternative_strategy\",\n          path,\n          \"The alternative strategy is not supported.\"\n        )\n      ]\n    else\n      [issue(\"workflow_failed\", [], \"Request validation failed safely.\")]\n    end\n  end\n\n  defp issues_for(kind, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Pattern) or is_struct(error, Error.MinLength) or\n              is_struct(error, Error.MaxLength) do\n    path = normalize_path(pointer)\n\n    [\n      issue(\n        if(kind == :request, do: \"invalid_identifier\", else: fallback_code(kind)),\n        path,\n        \"Invalid string value.\"\n      )\n    ]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.MinItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      case last_segment(path) do\n        \"attack_seeds\" -> \"insufficient_attack_count\"\n        \"plans\" -> \"insufficient_plan_count\"\n        _other -> \"workflow_failed\"\n      end\n\n    [issue(code, path, \"The array does not contain enough values.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.UniqueItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      if last_segment(path) == \"attack_seeds\",\n        do: \"duplicate_attack_seed\",\n        else: \"workflow_failed\"\n\n    [issue(code, path, \"Array values must be unique.\")]\n  end\n\n  defp issues_for(:request, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Minimum) or is_struct(error, Error.Maximum) do\n    [issue(\"invalid_analysis_setting\", normalize_path(pointer), \"Invalid analysis setting.\")]\n  end\n\n  defp issues_for(kind, _error) do\n    [issue(fallback_code(kind), [], \"Contract validation failed safely.\")]\n  end\n\n  defp type_code(:request, path) do\n    if \"mission_impacts\" in path, do: \"invalid_type\", else: \"invalid_type\"\n  end\n\n  defp type_code(kind, _path), do: fallback_code(kind)\n\n  defp enum_code(:request, [\"schema_version\"]), do: \"unsupported_schema_version\"\n  defp enum_code(:request, [\"evidence\", \"outcome\"]), do: \"unsupported_outcome\"\n  defp enum_code(:request, [\"evidence\", \"reference\", \"strategy\"]), do: \"unsupported_reference\"\n  defp enum_code(:request, [\"test\", \"alternative\"]), do: \"unsupported_test_alternative\"\n  defp enum_code(kind, _path), do: fallback_code(kind)\n\n  defp last_segment([segment]), do: segment\n  defp last_segment([_segment | rest]), do: last_segment(rest)\n\n  defp fallback_code(:request), do: \"workflow_failed\"\n  defp fallback_code(_kind), do: \"invalid_response_contract\"\n\n  defp internal_error(:request) do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"Request validation failed safely.\"\n    )\n  end\n\n  defp internal_error(_kind) do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid contract.\"\n    )\n  end\n\n  defp issue(code, path, message, details \\\\ %{}) do\n    %{\"code\" => code, \"path\" => path, \"message\" => message, \"details\" => details}\n  end\n\n  defp path_sort_key(path) do\n    Enum.map(path, fn\n      value when is_binary(value) -> {0, value}\n      value when is_integer(value) -> {1, value}\n    end)\n  end\nend\n",
+      "anchor": {
+        "selectedText": "defmodule NetworkDefense.Evaluation.Comparison.SchemaValidator do\n  @moduledoc false\n\n  alias ExJsonSchema.Schema\n  alias ExJsonSchema.Validator\n  alias ExJsonSchema.Validator.Error\n  alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonError\n\n  @schema_dir Application.app_dir(:network_defense, \"priv/evaluation/contracts/v1/schemas\")\n  @request_path Path.join(@schema_dir, \"request.schema.json\")\n  @statistics_path Path.join(@schema_dir, \"statistics.schema.json\")\n  @error_path Path.join(@schema_dir, \"error.schema.json\")\n  @external_resource @request_path\n  @external_resource @statistics_path\n  @external_resource @error_path\n\n  @request_schema @request_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n  @statistics_schema @statistics_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n  @error_schema @error_path |> File.read!() |> Jason.decode!() |> Schema.resolve()\n\n  @spec validate(:request | :statistics | :error, map()) ::\n          :ok | {:error, ComparisonError.t()}\n  def validate(kind, value) when is_map(value) do\n    case Validator.validate(schema(kind), value, error_formatter: false) do\n      :ok ->\n        :ok\n\n      {:error, errors} when is_list(errors) ->\n        {:error, comparison_error(kind, errors)}\n\n      {:error, _reason} ->\n        {:error, internal_error(kind)}\n    end\n  rescue\n    _exception -> {:error, internal_error(kind)}\n  end\n\n  def normalize_path(\"#\"), do: []\n\n  def normalize_path(\"#/\" <> pointer) do\n    pointer\n    |> String.split(\"/\", trim: false)\n    |> Enum.map(fn part ->\n      decoded = part |> String.replace(\"~1\", \"/\") |> String.replace(\"~0\", \"~\")\n\n      case Integer.parse(decoded) do\n        {integer, \"\"} -> integer\n        _other -> decoded\n      end\n    end)\n  end\n\n  defp schema(:request), do: @request_schema\n  defp schema(:statistics), do: @statistics_schema\n  defp schema(:error), do: @error_schema\n\n  defp comparison_error(kind, errors) do\n    issues =\n      errors\n      |> Enum.flat_map(&issues_for(kind, &1))\n      |> Enum.uniq_by(&{&1[\"path\"], &1[\"code\"]})\n      |> Enum.sort_by(fn issue -> {path_sort_key(issue[\"path\"]), issue[\"code\"]} end)\n      |> Enum.take(50)\n\n    %ComparisonError{schema_version: 1, code: \"validation_failed\", issues: issues}\n  end\n\n  defp issues_for(_kind, %Error{error: %Error.Required{missing: missing}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    Enum.map(missing, fn field ->\n      issue(\"required_field_missing\", path ++ [field], \"This field is required.\")\n    end)\n  end\n\n  defp issues_for(_kind, %Error{error: %Error.AdditionalProperties{}, path: pointer}) do\n    [issue(\"unknown_field\", normalize_path(pointer), \"Unknown field.\")]\n  end\n\n  defp issues_for(kind, %Error{error: %Error.Type{}, path: pointer}) do\n    [\n      issue(\n        type_code(kind, normalize_path(pointer)),\n        normalize_path(pointer),\n        \"Invalid JSON type.\"\n      )\n    ]\n  end\n\n  defp issues_for(kind, %Error{error: %Error.Enum{}, path: pointer}) do\n    path = normalize_path(pointer)\n    [issue(enum_code(kind, path), path, \"Unsupported value.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.AllOf{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    if path == [\"evidence\", \"alternative\", \"strategy\"] do\n      [\n        issue(\n          \"unsupported_alternative_strategy\",\n          path,\n          \"The alternative strategy is not supported.\"\n        )\n      ]\n    else\n      [issue(\"workflow_failed\", [], \"Request validation failed safely.\")]\n    end\n  end\n\n  defp issues_for(kind, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Pattern) or is_struct(error, Error.MinLength) or\n              is_struct(error, Error.MaxLength) do\n    path = normalize_path(pointer)\n\n    [\n      issue(\n        if(kind == :request, do: \"invalid_identifier\", else: fallback_code(kind)),\n        path,\n        \"Invalid string value.\"\n      )\n    ]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.MinItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      case last_segment(path) do\n        \"attack_seeds\" -> \"insufficient_attack_count\"\n        \"plans\" -> \"insufficient_plan_count\"\n        _other -> \"workflow_failed\"\n      end\n\n    [issue(code, path, \"The array does not contain enough values.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.UniqueItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      if last_segment(path) == \"attack_seeds\",\n        do: \"duplicate_attack_seed\",\n        else: \"workflow_failed\"\n\n    [issue(code, path, \"Array values must be unique.\")]\n  end\n\n  defp issues_for(:request, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Minimum) or is_struct(error, Error.Maximum) do\n    [issue(\"invalid_analysis_setting\", normalize_path(pointer), \"Invalid analysis setting.\")]\n  end\n\n  defp issues_for(kind, _error) do\n    [issue(fallback_code(kind), [], \"Contract validation failed safely.\")]\n  end\n\n  defp type_code(:request, path) do\n    if \"mission_impacts\" in path, do: \"invalid_type\", else: \"invalid_type\"\n  end\n\n  defp type_code(kind, _path), do: fallback_code(kind)\n\n  defp enum_code(:request, [\"schema_version\"]), do: \"unsupported_schema_version\"\n  defp enum_code(:request, [\"evidence\", \"outcome\"]), do: \"unsupported_outcome\"\n  defp enum_code(:request, [\"evidence\", \"reference\", \"strategy\"]), do: \"unsupported_reference\"\n  defp enum_code(:request, [\"test\", \"alternative\"]), do: \"unsupported_test_alternative\"\n  defp enum_code(kind, _path), do: fallback_code(kind)\n\n  defp last_segment([segment]), do: segment\n  defp last_segment([_segment | rest]), do: last_segment(rest)\n\n  defp fallback_code(:request), do: \"workflow_failed\"\n  defp fallback_code(_kind), do: \"invalid_response_contract\"\n\n  defp internal_error(:request) do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"Request validation failed safely.\"\n    )\n  end\n\n  defp internal_error(_kind) do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid contract.\"\n    )\n  end\n\n  defp issue(code, path, message, details \\\\ %{}) do\n    %{\"code\" => code, \"path\" => path, \"message\" => message, \"details\" => details}\n  end\n\n  defp path_sort_key(path) do\n    Enum.map(path, fn\n      value when is_binary(value) -> {0, value}\n      value when is_integer(value) -> {1, value}\n    end)\n  end\nend\n",
+        "prefixContext": "",
+        "suffixContext": ""
+      },
+      "attachments": [],
+      "id": 20,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:18:41.108Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/schema_validator.ex",
+      "line": 89,
+      "positionStart": {
+        "line": 89,
+        "character": 2
+      },
+      "positionEnd": {
+        "line": 189,
+        "character": 57
+      },
+      "text": "1. string errors 2. do we need mapping as function? 3. do we need such stuff as last_segment(path) == ... -> for me looks like duplicated vaidation AND it should be in ecto changeset",
+      "codeSnippet": "defp issues_for(kind, %Error{error: %Error.Enum{}, path: pointer}) do\n    path = normalize_path(pointer)\n    [issue(enum_code(kind, path), path, \"Unsupported value.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.AllOf{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    if path == [\"evidence\", \"alternative\", \"strategy\"] do\n      [\n        issue(\n          \"unsupported_alternative_strategy\",\n          path,\n          \"The alternative strategy is not supported.\"\n        )\n      ]\n    else\n      [issue(\"workflow_failed\", [], \"Request validation failed safely.\")]\n    end\n  end\n\n  defp issues_for(kind, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Pattern) or is_struct(error, Error.MinLength) or\n              is_struct(error, Error.MaxLength) do\n    path = normalize_path(pointer)\n\n    [\n      issue(\n        if(kind == :request, do: \"invalid_identifier\", else: fallback_code(kind)),\n        path,\n        \"Invalid string value.\"\n      )\n    ]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.MinItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      case last_segment(path) do\n        \"attack_seeds\" -> \"insufficient_attack_count\"\n        \"plans\" -> \"insufficient_plan_count\"\n        _other -> \"workflow_failed\"\n      end\n\n    [issue(code, path, \"The array does not contain enough values.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.UniqueItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      if last_segment(path) == \"attack_seeds\",\n        do: \"duplicate_attack_seed\",\n        else: \"workflow_failed\"\n\n    [issue(code, path, \"Array values must be unique.\")]\n  end\n\n  defp issues_for(:request, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Minimum) or is_struct(error, Error.Maximum) do\n    [issue(\"invalid_analysis_setting\", normalize_path(pointer), \"Invalid analysis setting.\")]\n  end\n\n  defp issues_for(kind, _error) do\n    [issue(fallback_code(kind), [], \"Contract validation failed safely.\")]\n  end\n\n  defp type_code(:request, path) do\n    if \"mission_impacts\" in path, do: \"invalid_type\", else: \"invalid_type\"\n  end\n\n  defp type_code(kind, _path), do: fallback_code(kind)\n\n  defp enum_code(:request, [\"schema_version\"]), do: \"unsupported_schema_version\"\n  defp enum_code(:request, [\"evidence\", \"outcome\"]), do: \"unsupported_outcome\"\n  defp enum_code(:request, [\"evidence\", \"reference\", \"strategy\"]), do: \"unsupported_reference\"\n  defp enum_code(:request, [\"test\", \"alternative\"]), do: \"unsupported_test_alternative\"\n  defp enum_code(kind, _path), do: fallback_code(kind)\n\n  defp last_segment([segment]), do: segment\n  defp last_segment([_segment | rest]), do: last_segment(rest)\n\n  defp fallback_code(:request), do: \"workflow_failed\"\n  defp fallback_code(_kind), do: \"invalid_response_contract\"\n\n  defp internal_error(:request) do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"Request validation failed safely.\"\n    )\n  end\n\n  defp internal_error(_kind) do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid contract.\"",
+      "anchor": {
+        "selectedText": "defp issues_for(kind, %Error{error: %Error.Enum{}, path: pointer}) do\n    path = normalize_path(pointer)\n    [issue(enum_code(kind, path), path, \"Unsupported value.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.AllOf{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    if path == [\"evidence\", \"alternative\", \"strategy\"] do\n      [\n        issue(\n          \"unsupported_alternative_strategy\",\n          path,\n          \"The alternative strategy is not supported.\"\n        )\n      ]\n    else\n      [issue(\"workflow_failed\", [], \"Request validation failed safely.\")]\n    end\n  end\n\n  defp issues_for(kind, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Pattern) or is_struct(error, Error.MinLength) or\n              is_struct(error, Error.MaxLength) do\n    path = normalize_path(pointer)\n\n    [\n      issue(\n        if(kind == :request, do: \"invalid_identifier\", else: fallback_code(kind)),\n        path,\n        \"Invalid string value.\"\n      )\n    ]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.MinItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      case last_segment(path) do\n        \"attack_seeds\" -> \"insufficient_attack_count\"\n        \"plans\" -> \"insufficient_plan_count\"\n        _other -> \"workflow_failed\"\n      end\n\n    [issue(code, path, \"The array does not contain enough values.\")]\n  end\n\n  defp issues_for(:request, %Error{error: %Error.UniqueItems{}, path: pointer}) do\n    path = normalize_path(pointer)\n\n    code =\n      if last_segment(path) == \"attack_seeds\",\n        do: \"duplicate_attack_seed\",\n        else: \"workflow_failed\"\n\n    [issue(code, path, \"Array values must be unique.\")]\n  end\n\n  defp issues_for(:request, %Error{error: error, path: pointer})\n       when is_struct(error, Error.Minimum) or is_struct(error, Error.Maximum) do\n    [issue(\"invalid_analysis_setting\", normalize_path(pointer), \"Invalid analysis setting.\")]\n  end\n\n  defp issues_for(kind, _error) do\n    [issue(fallback_code(kind), [], \"Contract validation failed safely.\")]\n  end\n\n  defp type_code(:request, path) do\n    if \"mission_impacts\" in path, do: \"invalid_type\", else: \"invalid_type\"\n  end\n\n  defp type_code(kind, _path), do: fallback_code(kind)\n\n  defp enum_code(:request, [\"schema_version\"]), do: \"unsupported_schema_version\"\n  defp enum_code(:request, [\"evidence\", \"outcome\"]), do: \"unsupported_outcome\"\n  defp enum_code(:request, [\"evidence\", \"reference\", \"strategy\"]), do: \"unsupported_reference\"\n  defp enum_code(:request, [\"test\", \"alternative\"]), do: \"unsupported_test_alternative\"\n  defp enum_code(kind, _path), do: fallback_code(kind)\n\n  defp last_segment([segment]), do: segment\n  defp last_segment([_segment | rest]), do: last_segment(rest)\n\n  defp fallback_code(:request), do: \"workflow_failed\"\n  defp fallback_code(_kind), do: \"invalid_response_contract\"\n\n  defp internal_error(:request) do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"Request validation failed safely.\"\n    )\n  end\n\n  defp internal_error(_kind) do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The compute service returned an invalid contract.\"",
+        "prefixContext": "alid JSON type.\"\n      )\n    ]\n  end\n\n  ",
+        "suffixContext": "\n    )\n  end\n\n  defp issue(code, path, m"
+      },
+      "attachments": [],
+      "id": 21,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:19:44.763Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/task_failure.ex",
+      "line": 47,
+      "positionStart": {
+        "line": 47,
+        "character": 11
+      },
+      "positionEnd": {
+        "line": 52,
+        "character": 25
+      },
+      "text": "same here - string error",
+      "codeSnippet": "\n      ComparisonError.new(\n        \"workflow_failed\",\n        \"workflow_failed\",\n        [],\n        \"The comparison w",
+      "anchor": {
+        "selectedText": "\n      ComparisonError.new(\n        \"workflow_failed\",\n        \"workflow_failed\",\n        [],\n        \"The comparison w",
+        "prefixContext": "\n\n  defp fallback_message do\n    error =",
+        "suffixContext": "orkflow failed safely.\"\n      )\n\n    Jas"
+      },
+      "attachments": [],
+      "id": 22,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:20:02.222Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/wire.ex",
+      "line": 0,
+      "positionStart": {
+        "line": 0,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 55,
+        "character": 0
+      },
+      "text": "dont we have mechanism for automatic encoding instead of manually mapping fields??????",
+      "codeSnippet": "defmodule NetworkDefense.Evaluation.Comparison.Wire do\n  @moduledoc false\n\n  alias NetworkDefense.Evaluation.Comparison.Contracts.{\n    ComparisonError,\n    ComparisonRequest,\n    ComparisonStatistics\n  }\n\n  def request(%ComparisonRequest{} = request) do\n    %{\n      \"schema_version\" => request.schema_version,\n      \"evidence\" => %{\n        \"outcome\" => request.evidence.outcome,\n        \"attack_seeds\" => request.evidence.attack_seeds,\n        \"alternative\" => side(request.evidence.alternative),\n        \"reference\" => side(request.evidence.reference)\n      },\n      \"resampling\" => %{\n        \"seed\" => request.resampling.seed,\n        \"replicates\" => request.resampling.replicates\n      },\n      \"interval\" => %{\"confidence_level\" => request.interval.confidence_level},\n      \"test\" => %{\"alternative\" => request.test.alternative}\n    }\n  end\n\n  def statistics(%ComparisonStatistics{} = statistics) do\n    %{\n      \"schema_version\" => statistics.schema_version,\n      \"method\" => statistics.method,\n      \"estimate\" => statistics.estimate,\n      \"interval\" => statistics.interval,\n      \"test\" => statistics.test,\n      \"assessment\" => statistics.assessment\n    }\n  end\n\n  def error(%ComparisonError{} = error) do\n    %{\n      \"schema_version\" => error.schema_version,\n      \"error\" => %{\"code\" => error.code, \"issues\" => error.issues}\n    }\n  end\n\n  defp side(side) do\n    %{\n      \"strategy\" => side.strategy,\n      \"plans\" =>\n        Enum.map(side.plans, fn plan ->\n          %{\"id\" => plan.id, \"mission_impacts\" => plan.mission_impacts}\n        end)\n    }\n  end\nend\n",
+      "anchor": {
+        "selectedText": "defmodule NetworkDefense.Evaluation.Comparison.Wire do\n  @moduledoc false\n\n  alias NetworkDefense.Evaluation.Comparison.Contracts.{\n    ComparisonError,\n    ComparisonRequest,\n    ComparisonStatistics\n  }\n\n  def request(%ComparisonRequest{} = request) do\n    %{\n      \"schema_version\" => request.schema_version,\n      \"evidence\" => %{\n        \"outcome\" => request.evidence.outcome,\n        \"attack_seeds\" => request.evidence.attack_seeds,\n        \"alternative\" => side(request.evidence.alternative),\n        \"reference\" => side(request.evidence.reference)\n      },\n      \"resampling\" => %{\n        \"seed\" => request.resampling.seed,\n        \"replicates\" => request.resampling.replicates\n      },\n      \"interval\" => %{\"confidence_level\" => request.interval.confidence_level},\n      \"test\" => %{\"alternative\" => request.test.alternative}\n    }\n  end\n\n  def statistics(%ComparisonStatistics{} = statistics) do\n    %{\n      \"schema_version\" => statistics.schema_version,\n      \"method\" => statistics.method,\n      \"estimate\" => statistics.estimate,\n      \"interval\" => statistics.interval,\n      \"test\" => statistics.test,\n      \"assessment\" => statistics.assessment\n    }\n  end\n\n  def error(%ComparisonError{} = error) do\n    %{\n      \"schema_version\" => error.schema_version,\n      \"error\" => %{\"code\" => error.code, \"issues\" => error.issues}\n    }\n  end\n\n  defp side(side) do\n    %{\n      \"strategy\" => side.strategy,\n      \"plans\" =>\n        Enum.map(side.plans, fn plan ->\n          %{\"id\" => plan.id, \"mission_impacts\" => plan.mission_impacts}\n        end)\n    }\n  end\nend\n",
+        "prefixContext": "",
+        "suffixContext": ""
+      },
+      "attachments": [],
+      "id": 23,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:20:38.970Z"
+    },
+    {
+      "fileName": "src/lib/network_defense/evaluation/comparison/workflow.ex",
+      "line": 103,
+      "positionStart": {
+        "line": 103,
+        "character": 0
+      },
+      "positionEnd": {
+        "line": 131,
+        "character": 5
+      },
+      "text": "same here",
+      "codeSnippet": "\n  defp validate_result_relations(statistics, request) do\n    interval = statistics.interval\n\n    if interval[\"lower\"] <= interval[\"upper\"] and\n         interval[\"confidence_level\"] == request.interval.confidence_level and\n         statistics.test[\"alternative\"] == request.test.alternative do\n      :ok\n    else\n      {:error, :invalid_relations}\n    end\n  end\n\n  defp invalid_result_error do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The stored comparison result is invalid.\"\n    )\n  end\n\n  defp workflow_error do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"The comparison workflow failed safely.\"\n    )",
+      "anchor": {
+        "selectedText": "\n  defp validate_result_relations(statistics, request) do\n    interval = statistics.interval\n\n    if interval[\"lower\"] <= interval[\"upper\"] and\n         interval[\"confidence_level\"] == request.interval.confidence_level and\n         statistics.test[\"alternative\"] == request.test.alternative do\n      :ok\n    else\n      {:error, :invalid_relations}\n    end\n  end\n\n  defp invalid_result_error do\n    ComparisonError.new(\n      \"invalid_response_contract\",\n      \"invalid_response_contract\",\n      [],\n      \"The stored comparison result is invalid.\"\n    )\n  end\n\n  defp workflow_error do\n    ComparisonError.new(\n      \"workflow_failed\",\n      \"workflow_failed\",\n      [],\n      \"The comparison workflow failed safely.\"\n    )",
+        "prefixContext": "error -> workflow_error()\n    end\n  end\n",
+        "suffixContext": "\n  end\nend\n"
+      },
+      "attachments": [],
+      "id": 24,
+      "status": "broken",
+      "createdAt": "2026-10-18T13:21:20.180Z"
+    }
+  ]
+}

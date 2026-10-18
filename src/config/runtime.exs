@@ -80,6 +80,7 @@ if config_env() != :test and
     end
 
   config :network_defense, NetworkDefense.Repo, repo_config
+  config :gust, Gust.Repo, Keyword.put(repo_config, :migration_source, "gust_schema_migrations")
 
   if config_env() == :dev do
     config :network_defense, NetworkDefense.Repo,
@@ -184,7 +185,17 @@ if enable_file_log do
   ]
 end
 
-config :network_defense, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
+config :network_defense, NetworkDefense.Evaluation.Comparison.Client,
+  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
+
+gust_key_source =
+  RuntimeConfig.read_secret("GUST_CLOAK_KEY") ||
+    RuntimeConfig.read_secret("SECRET_KEY_BASE", "development-only-gust-key")
+
+config :gust,
+  b64_secrets_cloak_key: gust_key_source |> then(&:crypto.hash(:sha256, &1)) |> Base.encode64(),
+  dags_folder: Application.app_dir(:network_defense, "priv/gust/dags"),
+  dns_cluster_query: System.get_env("DNS_CLUSTER_QUERY")
 
 if config_env() == :prod do
   maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []

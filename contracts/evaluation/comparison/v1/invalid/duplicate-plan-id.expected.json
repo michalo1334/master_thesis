@@ -1,0 +1,18 @@
+{
+  "http_status": 422,
+  "issues": [
+    {
+      "code": "duplicate_plan_id",
+      "path": [
+        "evidence",
+        "alternative",
+        "plans",
+        1,
+        "id"
+      ],
+      "details": {
+        "first_index": 0
+      }
+    }
+  ]
+}

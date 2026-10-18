@@ -30,6 +30,24 @@ config :network_defense,
 config :network_defense, NetworkDefense.Compute.ScatterGather,
   executor: NetworkDefense.Compute.RabbitMQExecutor
 
+config :gust,
+  dag_adapter: [
+    comparison: %{
+      parser: NetworkDefense.Evaluation.Comparison.DAGParser,
+      runtime: Gust.DAG.Runtime.Adapters.Elixir,
+      task_worker: Gust.DAG.TaskWorker.Adapters.Elixir
+    }
+  ],
+  dag_loader: Gust.DAG.Loader.Worker,
+  dag_logger: Gust.DAG.Logger.Database,
+  dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor,
+  dag_task_runner_supervisor: Gust.DAG.TaskRunnerSupervisor.DynamicSupervisor,
+  dags_folder: Path.expand("../priv/gust/dags", __DIR__),
+  ecto_repos: [Gust.Repo],
+  file_reload_delay: 250
+
+config :gust, Gust.Repo, migration_source: "gust_schema_migrations"
+
 # Configures the endpoint
 live_view_signing_salt =
   if config_env() == :prod do
