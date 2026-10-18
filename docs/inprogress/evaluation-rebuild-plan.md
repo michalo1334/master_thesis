@@ -2,11 +2,11 @@
 
 ## Status
 
-**The Stage 2 design is approved and the bounded prototype is implemented.** Focused tests, the full repository precommit suite, Docker build, and Terraform validation pass. Independent scientific, Elixir/Gust, and infrastructure reviews report no blockers.
+**Stage 2 is implemented, deployed locally, and accepted.** The [Stage 2 handoff](evaluation-stage-2-handoff.md) records the applied infrastructure changes, real Gust/HTTP proof, deterministic read-back, invalid-input rejection, automated checks, and current source locations. No blocker remains for the bounded prototype.
 
 Stage 1 removed the legacy evaluation subsystem. Its cleanup and verification remain recorded in [the Stage 1 handoff](evaluation-stage-1-handoff.md). Do not restore that subsystem.
 
-The current gate is the Terraform plan review. Do not apply or destroy infrastructure until the user reviews the plan and gives separate explicit approval. Do not define later stages or create a speculative backlog.
+The user separately approved the recorded local infrastructure apply. Do not perform another apply or any destroy without new explicit approval. Do not define later stages or create a speculative backlog.
 
 ## Shared workspace and ownership
 
@@ -85,21 +85,21 @@ Actually run the real HTTP/Gust demonstration. Do not substitute mocks or a clai
 
 Do not add skipped placeholder tests or disabled legacy tests. A separate integration command is acceptable if it is documented and actually passes. Distinguish its results from unit tests.
 
-Project schema/data preservation is not required. Verify the configured database target before any destructive command. Prefer a clearly identified project test/prototype target. Unrelated databases and infrastructure remain outside scope. Do not apply or destroy infrastructure.
+Project schema/data preservation is not required. Verify the configured database target before any destructive command. Prefer a clearly identified project test/prototype target. Unrelated databases and infrastructure remain outside scope. Do not perform another apply or any destroy without new explicit approval.
 
-## Reviewed Terraform plan
+## Applied Terraform plan
 
-A read-only plan against a temporary copy of the existing local state succeeded. It reported 26 additions, no in-place changes, and two deletions:
+The active local state is in this shared worktree and matched all 24 managed Docker containers before apply. The regenerated plan contained exactly nine replacements and 45 no-op resources. The user reviewed that summary and explicitly approved the apply.
 
-- create the evaluation-compute image and one container for each of the two sites;
-- replace the local application development image;
-- create the application, database, messaging, proxy, and observability containers that are currently absent;
-- delete the removed legacy analysis image; and
-- delete no Docker volumes.
+Terraform replaced:
 
-The original state checksum did not change. The temporary state and plan files were deleted after review. The active local state still resides in the original worktree. Before an approved apply, choose an explicit state-location procedure and regenerate the plan against that state. Do not apply a copied or stale state.
+- the application development image;
+- the application setup container;
+- four application containers;
+- the evaluation-compute image; and
+- two evaluation-compute containers.
 
-This plan contains destructive actions for the application image and the legacy analysis image. It is not approved for apply by its creation or review.
+Terraform reported `9 added, 0 changed, 9 destroyed`. It changed no database, volume, network, messaging, proxy, or observability resource. All managed services became healthy or completed successfully. A plan after apply reported no changes. Temporary plan, state-copy, checksum, and log artifacts were removed.
 
 ## Approved design
 
@@ -117,18 +117,10 @@ The approved design is recorded in [the Stage 2 design](evaluation-stage-2-desig
 
 The implementation follows these choices. Any contract or methodology change still requires lead and user review.
 
-## Future implementation handoff and stop condition
+## Handoff and stop condition
 
-Write `docs/inprogress/evaluation-stage-2-handoff.md` with:
+The completed outcome is in [the Stage 2 handoff](evaluation-stage-2-handoff.md). It records the implemented request/result path, Gust version, runtime assumptions, deployed demonstration, deterministic persisted results, invalid-input rejection, checks, and exclusions.
 
-- the implemented request/result path and current source locations;
-- the exact Gust version/revision and relevant runtime assumptions;
-- the commands and actual results for the real demonstration and checks;
-- evidence of persisted-result read-back, deterministic recomputation, and invalid-input rejection;
-- any limitation or unresolved blocker.
+The lead retains ownership of the methodology reference and this current-stage brief. Any contract or methodology change still requires lead and user review.
 
-Describe the result, not a later-stage plan. If a library limitation or scientific ambiguity blocks the path, report the evidence and ask the lead. Do not silently fork a dependency, change the method, or expand scope.
-
-The lead retains ownership of the methodology reference and this current-stage brief. The implementation agent must not concurrently rewrite them. Report any required change to the lead.
-
-**Do not commit.** Stop after this prototype and its verification for lead/user review.
+**Do not commit or start another increment without user direction.**

@@ -1,19 +1,18 @@
 defmodule Mix.Tasks.Evaluation.Compare do
-  @moduledoc "Runs a versioned evaluation comparison through the Gust workflow."
+  @moduledoc """
+  Runs a versioned evaluation comparison through the Gust workflow.
+
+  Starts only Gust in console role, using one database connection.
+  """
 
   use Mix.Task
 
   @shortdoc "Runs the synthetic crossed-comparison prototype"
   @requirements ["app.config"]
 
-  alias NetworkDefense.Evaluation.Comparison.ResultFormatter
+  alias NetworkDefense.Evaluation.Comparison.{Console, ResultFormatter}
   alias NetworkDefense.Evaluations
 
-  @fixture_dir Path.expand("../../../../contracts/evaluation/comparison/v1", __DIR__)
-  @fixtures %{
-    "crossed-small" => "valid/crossed-small.request.json",
-    "attack-column-count-mismatch" => "invalid/attack-column-count-mismatch.request.json"
-  }
   @wait_timeout 240_000
 
   @impl Mix.Task
@@ -25,15 +24,8 @@ defmodule Mix.Tasks.Evaluation.Compare do
     end
 
     fixture_name = Keyword.get(options, :fixture, "crossed-small")
-    fixture_path = Map.get(@fixtures, fixture_name)
-
-    unless fixture_path do
-      Mix.raise("Unknown fixture #{inspect(fixture_name)}.")
-    end
-
-    System.put_env("GUST_ROLE", "console")
-    {:ok, _applications} = Application.ensure_all_started(:network_defense)
-
+    fixture_path = Console.fixture_path!(fixture_name)
+    :ok = Console.start!()
     request = load_fixture!(fixture_path)
 
     case Evaluations.submit_comparison(request) do
@@ -58,9 +50,7 @@ defmodule Mix.Tasks.Evaluation.Compare do
     end
   end
 
-  defp load_fixture!(relative_path) do
-    path = Path.join(@fixture_dir, relative_path)
-
+  defp load_fixture!(path) do
     case File.stat(path) do
       {:ok, %{size: size}} when size <= 1_048_576 -> path |> File.read!() |> Jason.decode!()
       {:ok, _stat} -> Mix.raise("Fixture exceeds the 1-MiB request limit.")

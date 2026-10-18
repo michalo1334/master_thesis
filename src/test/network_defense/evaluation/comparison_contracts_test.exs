@@ -195,17 +195,24 @@ defmodule NetworkDefense.Evaluation.ComparisonContractsTest do
     end
   end
 
-  test "CONTRACT-10: the logical contract path links to the packaged schema source" do
-    authoritative = Path.join(@contracts_root, "schemas")
-    packaged = Application.app_dir(:network_defense, "priv/evaluation/contracts/v1/schemas")
+  test "CONTRACT-10: shared contract paths link to the packaged canonical sources" do
+    for directory <- ["schemas", "valid", "invalid"] do
+      shared = Path.join(@contracts_root, directory)
 
-    assert {:ok, %File.Stat{type: :symlink}} = File.lstat(authoritative)
+      packaged =
+        Application.app_dir(:network_defense, "priv/evaluation/contracts/v1/#{directory}")
 
-    assert File.read_link!(authoritative) ==
-             "../../../../src/priv/evaluation/contracts/v1/schemas"
+      assert {:ok, %File.Stat{type: :symlink}} = File.lstat(shared)
 
-    for name <- ["request.schema.json", "statistics.schema.json", "error.schema.json"] do
-      assert File.read!(Path.join(packaged, name)) == File.read!(Path.join(authoritative, name))
+      assert File.read_link!(shared) ==
+               "../../../../src/priv/evaluation/contracts/v1/#{directory}"
+
+      assert [_ | _] = names = File.ls!(packaged)
+      assert Enum.sort(names) == Enum.sort(File.ls!(shared))
+
+      for name <- names do
+        assert File.read!(Path.join(packaged, name)) == File.read!(Path.join(shared, name))
+      end
     end
   end
 

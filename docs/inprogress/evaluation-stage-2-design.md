@@ -2,7 +2,7 @@
 
 ## Status
 
-The user approved this design as the Stage 2 implementation contract. The bounded prototype is implemented and has passed focused and full repository checks. A Terraform-managed demonstration remains gated by plan review and separate approval to apply.
+The user approved this design as the Stage 2 implementation contract. The bounded prototype is implemented and accepted. The user separately approved the local Terraform apply. The documented Mix command then passed the real Gust-to-Python demonstration, deterministic persisted-result comparison, and invalid-input rejection. See the [Stage 2 handoff](evaluation-stage-2-handoff.md).
 
 Stage 1 removed the legacy evaluation subsystem. This design does not restore that implementation. It defines one new, bounded path.
 
@@ -1084,4 +1084,4 @@ The real Gust/HTTP demonstration occurs only after the reviewed plan is applied.
 
 ## Current approval point
 
-The user approved the design, and implementation review reports no blockers. A Terraform plan has been reviewed and now awaits the user's separate apply decision. Before any approved apply, the local state location must be selected explicitly and the plan must be regenerated against that state.
+Stage 2 is accepted. The reviewed plan was regenerated against the active state and applied after separate user approval. A plan after apply reported no changes. No later implementation increment is selected or started.
