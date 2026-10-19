@@ -1,12 +1,12 @@
 # Evaluation Stage 3: complete-family Holm pipeline
 
-**Status:** Proposed design. No Stage 3 code exists.
+**Status:** Implemented design, accepted. The implementation exists in this repository and follows the design below. The local deployment passed the Stage 3 Holm check. The [implemented evaluation pipeline](evaluation-pipeline.md) is the current software map.
 
 ## Purpose
 
-Stage 2 calculates and stores one crossed comparison. Stage 3 will compose that operation across one declared primary family. It will then apply one Holm correction to all raw p-values in that family.
+Stage 2 calculates and stores one crossed comparison. Stage 3 composes that operation across one declared primary family. It then applies one Holm correction to all raw p-values in that family.
 
-This stage is a bounded synthetic prototype. It will prove the family boundary and the runtime path. It will not collect evidence or produce thesis results.
+This stage is a bounded synthetic prototype. It proves the family boundary and the runtime path. It does not collect evidence or produce thesis results. Read the design below as the approved design, not as a pending proposal.
 
 ## Design summary
 
@@ -878,12 +878,11 @@ It does not select the Final family, collect evidence, run a Pilot, start Final 
 
 ## Review gate and later overviews
 
-This document is a proposed design. It does not authorize Stage 3 implementation or deployment.
+The design was approved and implemented. The [Stage 4 Precision Pilot overview](evaluation-stage-4-overview.md) is now implemented as well.
 
-The later-stage documents are candidate overviews only:
+The later-stage documents are candidate or current overviews only:
 
-- [Stage 4 Precision Pilot overview](evaluation-stage-4-overview.md);
-- [Stage 5 Final freeze and input-preflight overview](evaluation-stage-5-overview.md); and
-- [full study pipeline overview](evaluation-study-pipeline-overview.md).
+- [Stage 4 Precision Pilot overview](evaluation-stage-4-overview.md); and
+- [Stage integration proposal](evaluation-stage-integration.md).
 
-Stage 3 does not depend on either candidate stage. Stage 4 and Stage 5 must receive separate detailed designs and approval before implementation.
+None of these documents describes deployed study software. Stage 5 has no design or overview in this repository yet. Stage 3 does not depend on either candidate stage. Stage 5 must receive a separate detailed design and approval before implementation.

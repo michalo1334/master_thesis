@@ -2,6 +2,8 @@
 
 ## Status
 
+**Historical Stage 2 record.** This page describes Stage 2 as accepted in the `/home/michalo/master_thesis-evaluation-rebuild` worktree. Read [the implemented evaluation pipeline](evaluation-pipeline.md) for the current software map, which also covers Stage 3 and Stage 4.
+
 Stage 2 is implemented and verified in the shared worktree.
 
 - Worktree: `/home/michalo/master_thesis-evaluation-rebuild`

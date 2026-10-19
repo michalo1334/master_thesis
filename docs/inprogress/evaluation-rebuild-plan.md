@@ -2,21 +2,30 @@
 
 ## Status
 
-**Stage 2 is implemented, deployed locally, and accepted.** The [Stage 2 handoff](evaluation-stage-2-handoff.md) records the applied infrastructure changes, real Gust/HTTP proof, deterministic read-back, invalid-input rejection, automated checks, and current source locations. No blocker remains for the bounded prototype.
+| Stage | State |
+| --- | --- |
+| Stage 1 — remove the legacy subsystem | Done. See [the Stage 1 handoff](evaluation-stage-1-handoff.md). Do not restore the subsystem. |
+| Stage 2 — one crossed comparison | Implemented, deployed locally, accepted. See [the Stage 2 handoff](evaluation-stage-2-handoff.md). |
+| Stage 3 — complete-family Holm correction | Implemented, accepted. See [the Stage 3 design](evaluation-stage-3-design.md). |
+| Stage 4 — Precision Pilot | Implemented and committed. The approved local deployment passed a synthetic Pilot check. See [the Stage 4 overview](evaluation-stage-4-overview.md). |
+| Stage 5 — Final freeze and approval | No implementation and no approved detailed contract in this branch. Early design material exists outside it. |
 
-Stage 1 removed the legacy evaluation subsystem. Its cleanup and verification remain recorded in [the Stage 1 handoff](evaluation-stage-1-handoff.md). Do not restore that subsystem.
+The [implemented evaluation pipeline](evaluation-pipeline.md) is the current map of the evaluation software. The tests and deployed checks use synthetic evidence. Scientific settings for a real study remain unapproved, and no study evidence exists.
 
-The user separately approved the recorded local infrastructure apply. Do not perform another apply or any destroy without new explicit approval. Do not define later stages or create a speculative backlog.
+Do not perform another Terraform apply or any destroy without new explicit approval. Do not define later stages or create a speculative backlog.
 
-## Shared workspace and ownership
+**The sections below are the historical Stage 2 brief.** They record the Stage 2 workspace, scope, acceptance criteria, and Terraform apply. Stage 3 ran in the `/home/michalo/master_thesis-stage3` worktree and is merged into `evaluation/rebuild`. Stage 4 ran in the `/home/michalo/master_thesis-stage4` worktree and is committed only on `evaluation/stage-4-implementation`; it is not merged. Do not read the Stage 2 scope as a statement about Stage 3 or Stage 4.
+
+## Shared workspace and ownership (historical Stage 2)
 
 - Worktree: `/home/michalo/master_thesis-evaluation-rebuild`
 - Branch: `evaluation/rebuild`
 - Implementation baseline: `9a359c5ee7fc48be9642e52d1364508bc4455717`
+- Later worktrees: `/home/michalo/master_thesis-stage3` (merged) and `/home/michalo/master_thesis-stage4` (branch `evaluation/stage-4-implementation`, not merged)
 - Lead: intent, scientific interpretation, scope, and acceptance.
 - Interactive Sol agent: implementation, tests, and checks. The user can direct it in its pane.
 
-Use this existing worktree. Do not create another worktree or edit the original `/home/michalo/master_thesis` source worktree. Skills can be read from the original worktree if needed.
+Use the worktree for the stage that you are implementing. Do not edit the original `/home/michalo/master_thesis` source worktree. Skills can be read from the original worktree if needed.
 
 ## Approved implementation goal
 
@@ -60,10 +69,10 @@ Add only the dependencies, configuration, and migrations needed for this path. P
 
 Keep graph, simulation, and optimization behavior intact. Those features must not require the Python prototype service to be available.
 
-## Excluded scope
+## Excluded scope for Stage 2 (historical)
 
 - Live evaluation collection, graph/model preparation, or optimizer/topology pilots.
-- Study/specification management, precision Pilot, Final collection, or manual-gate workflows.
+- Study/specification management, precision Pilot, Final collection, or manual-gate workflows. Stage 4 later implemented the Pilot. Stage 5 has no implementation in this branch.
 - Complete-family correction, secondary reports, or dashboard/UI work.
 - Archive, ZIP, CSV, result-import, or binary download compatibility.
 - A general configuration framework, generic operation service, or Python orchestration.
@@ -87,9 +96,9 @@ Do not add skipped placeholder tests or disabled legacy tests. A separate integr
 
 Project schema/data preservation is not required. Verify the configured database target before any destructive command. Prefer a clearly identified project test/prototype target. Unrelated databases and infrastructure remain outside scope. Do not perform another apply or any destroy without new explicit approval.
 
-## Applied Terraform plan
+## Applied Terraform plan for Stage 2 (historical)
 
-The active local state is in this shared worktree and matched all 24 managed Docker containers before apply. The regenerated plan contained exactly nine replacements and 45 no-op resources. The user reviewed that summary and explicitly approved the apply.
+The active local state of the Stage 2 worktree matched all 24 managed Docker containers before apply. The regenerated plan contained exactly nine replacements and 45 no-op resources. The user reviewed that summary and explicitly approved the apply.
 
 Terraform replaced:
 
@@ -119,8 +128,8 @@ The implementation follows these choices. Any contract or methodology change sti
 
 ## Handoff and stop condition
 
-The completed outcome is in [the Stage 2 handoff](evaluation-stage-2-handoff.md). It records the implemented request/result path, Gust version, runtime assumptions, deployed demonstration, deterministic persisted results, invalid-input rejection, checks, and exclusions.
+The completed Stage 2 outcome is in [the Stage 2 handoff](evaluation-stage-2-handoff.md). It records the implemented request/result path, Gust version, runtime assumptions, deployed demonstration, deterministic persisted results, invalid-input rejection, checks, and exclusions.
 
-The lead retains ownership of the methodology reference and this current-stage brief. Any contract or methodology change still requires lead and user review.
+The lead retains ownership of the methodology reference and the current-stage brief. Any contract or methodology change still requires lead and user review.
 
 **Do not commit or start another increment without user direction.**

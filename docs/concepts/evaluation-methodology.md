@@ -2,9 +2,11 @@
 
 ## Status and purpose
 
-The evaluation implementation is intentionally removed for a clean rewrite. **The scientific methodology is preserved in this document.** Old code, database records, schema history, transport formats, and executable setup do not need preservation.
+**The scientific methodology is preserved in this document.** Stage 1 removed the legacy evaluation subsystem during a clean rewrite. Git history holds the removed source code, schema definitions, transport formats, and executable setup. It does not hold old database rows.
 
-This reference recovers the scientific baseline from Git commit `d94ba40352e469dc1c2da403ad3fa28397e5e350`. It separates the study protocol, the implemented statistical method, and known historical inconsistencies. It is not a software implementation plan.
+This reference recovers the scientific baseline from Git commit `d94ba40352e469dc1c2da403ad3fa28397e5e350`. It separates the study protocol, the historical statistical method, and known historical inconsistencies.
+
+The rewrite now has implemented, tested prototypes for one crossed comparison, a complete-family Holm correction, and a Precision Pilot. [The implemented evaluation pipeline](../inprogress/evaluation-pipeline.md) maps that software. The tests and deployed checks use synthetic evidence. They do not collect study data or produce study results. This document stays the scientific reference and is not an implementation plan.
 
 A rewrite can change configuration or method, but it must identify that change explicitly. It must not silently change the estimand, sampling units, reference strategy, or correction family while claiming equivalent results.
 
@@ -245,7 +247,7 @@ Distinguish plan-selection seeds, evaluation roots, derived attack seeds, analys
 
 Historically, comparison stream roots combined the relevant base seed with a tier offset and a comparison-index offset. Separate child streams served intervals and null draws. Pilot subsampling also used candidate counts and spawned child streams. Comparison identities were validated, but streams were not derived directly from those identities. Canonical ordering therefore matters for historical reproduction.
 
-**Rewrite requirement, not a claim about the deleted executor:** fixed scientific inputs, seeds, and ordering must produce equivalent results across retries and execution schedules. Worker count, completion order, and task IDs must not introduce new scientific randomness. Preserve the historical derivation or identify any replacement derivation explicitly; this document does not require a new identity-based seed scheme.
+**Requirement on implemented software, not a claim about the removed legacy executor:** fixed scientific inputs, seeds, and ordering must produce equivalent results across retries and execution schedules. Worker count, completion order, and task IDs must not introduce new scientific randomness. Preserve the historical derivation or identify any replacement derivation explicitly; this document does not require a new identity-based seed scheme.
 
 The exact historical offsets, stream derivation, and numerical-tolerance behavior remain recoverable from the baseline source. Bitwise reproduction also depends on random-generator and numerical-library versions.
 

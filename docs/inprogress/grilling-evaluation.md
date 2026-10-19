@@ -678,7 +678,5 @@ Pending. Choose changes after the scope and compatibility decisions. This review
 
 ## Related documents
 
-- [Evaluation concepts](../concepts/evaluation.md)
-- [Analysis package](../../evaluation/analysis/README.md)
-- [Cloud tooling plan](cloud-evaluation-tooling-plan.md)
-- [Topology-scale study](topology-scale-study.md)
+- [Preserved evaluation methodology](../concepts/evaluation-methodology.md)
+- [Implemented evaluation pipeline](evaluation-pipeline.md)

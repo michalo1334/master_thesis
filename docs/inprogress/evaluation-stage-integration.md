@@ -1,12 +1,14 @@
-# Evaluation stage integration — current prototype design
+# Evaluation stage integration — earlier prototype proposal
 
-Status: current design for the staged rebuild. See the implementation plan and stage handoffs for runtime status. This design replaces data-binding compilation, a durable Python operation server, and archive-based interchange. No Gust fork is authorized.
+> **Current status:** This page is an earlier integration proposal. It is not a description of deployed software. It proposed one shared study DAG with Pilot and Final sections in one run, plus a stage catalog. That lifecycle DAG, stage catalog, and shared study run were not implemented. The implemented software uses three separate fixed DAGs (`evaluation_comparison`, `evaluation_family`, `evaluation_pilot`) that a caller starts independently. Some contract and ownership principles below informed the later accepted stage designs. The later stage records are authoritative: the [implemented evaluation pipeline](evaluation-pipeline.md) for the software and the [Stage 4 overview](evaluation-stage-4-overview.md) for the Pilot contract.
+
+Status of the integration shape below: a proposal for the staged rebuild. The shared lifecycle DAG and stage catalog remain proposals. The proposal replaces data-binding compilation, a durable Python operation server, and archive-based interchange. No Gust fork is authorized.
 
 Related records:
 
 - [Staged implementation plan and ownership](evaluation-rebuild-plan.md)
 - [Interview and decisions](grilling-evaluation.md)
-- [Current pipeline](evaluation-pipeline.md)
+- [Implemented evaluation pipeline](evaluation-pipeline.md)
 - [Gust source assessment](gust-evaluation-review.md)
 
 ## 1. Accepted decisions

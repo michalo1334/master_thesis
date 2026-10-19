@@ -2,7 +2,7 @@
 
 ## Status
 
-The user approved this design as the Stage 2 implementation contract. The bounded prototype is implemented and accepted. The user separately approved the local Terraform apply. The documented Mix command then passed the real Gust-to-Python demonstration, deterministic persisted-result comparison, and invalid-input rejection. See the [Stage 2 handoff](evaluation-stage-2-handoff.md).
+The user approved this design as the Stage 2 implementation contract. The bounded prototype is implemented and accepted. The user separately approved the local Terraform apply. The documented Mix command then passed the real Gust-to-Python demonstration, deterministic persisted-result comparison, and invalid-input rejection. See the [Stage 2 handoff](evaluation-stage-2-handoff.md) and the [implemented evaluation pipeline](evaluation-pipeline.md).
 
 Stage 1 removed the legacy evaluation subsystem. This design does not restore that implementation. It defines one new, bounded path.
 

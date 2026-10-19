@@ -1,6 +1,8 @@
 # Evaluation Stage 4 overview: choose Pilot sample sizes
 
-**Status:** Approved evidence-storage boundary. The Stage 4 implementation exists on the `evaluation/stage-4-implementation` branch and its automated checks pass. No deployment, Pilot collection, or Final work is authorized.
+**Status:** Approved evidence-storage boundary, implemented. The Stage 4 implementation is committed at `fefe324` (`Add Stage 4 Precision Pilot evaluation`) and its automated checks pass. The approved local deployment holds the implementation and passed a synthetic Pilot check. No Pilot collection, Final work, or real study is authorized. The [implemented evaluation pipeline](evaluation-pipeline.md) is the current software map. The [vocabulary](../concepts/vocabulary.md#precision-pilot) defines the Pilot terms.
+
+This overview records the accepted Stage 4 contract and the reasons for it. It does not replace the source files, the checked-in JSON Schemas, or the tests.
 
 ## Status and selected decisions
 
@@ -18,11 +20,20 @@ Four decisions close the implementation questions. The scientific setting values
 
 **Pilot random streams.** The implementation preserves the historical formula. Each tier gets the rank of its first appearance in `expected_comparisons`. `comparison_index` counts comparisons inside that tier. The comparison seed is the base seed plus `tier_rank * 1_000_000` plus `comparison_index * 2`. `SeedSequence([stream_seed, plan_count, attacks_per_plan])` creates the candidate-specific root sequence. It spawns one child for each outer sample. Each outer child spawns one sampling stream and one bootstrap stream. The bootstrap stream produces `inner_seed`. The accepted crossed bootstrap creates `SeedSequence(inner_seed)` and spawns separate interval and null streams. Retry, worker count, completion order, and tier interleaving do not change these streams. Tests cover grouped tiers, interleaved tiers, retries, completion order, and fixed historical stream values.
 
-**Limits.** Every Pilot limit is required application configuration under `NetworkDefense.Evaluation.Pilot.Limits`. The ten values arrive as environment variables and the set is all-or-none. No value is set: the application, Stage 2, and Stage 3 start normally, and each Pilot call returns one bounded `configuration_invalid` issue. A partial or malformed set is reported on standard error at startup and stays unconfigured, so the same bounded error appears and no other path changes. A malformed value never crashes startup. The snapshot limits run before the insert and again on every read. They cover the canonical payload bytes, the comparison count, the plan rows on each side, and the attack columns of every comparison. The accepted 1 MiB HTTP boundary is reused only where it already exists.
+**Limits.** Every Pilot limit is required application configuration under `NetworkDefense.Evaluation.Pilot.Limits`. The ten values arrive as environment variables and the set is all-or-none. No value is set: the application, Stage 2, and Stage 3 start normally. The snapshot and Pilot paths that need these values return one bounded `configuration_invalid` issue instead of creating a snapshot or a Gust run. A partial or malformed set is reported on standard error at startup and stays unconfigured, so the same bounded error appears and no other path changes. A malformed value never crashes startup. The snapshot limits run before the insert and again on every read. They cover the canonical payload bytes, the comparison count, the plan rows on each side, and the attack columns of every comparison. The accepted 1 MiB HTTP boundary is reused only where it already exists.
 
 The compute service reads its own three caps from the environment. They bound the outer subsample count, the bootstrap replicate count, and their product. A request above a cap fails with `422` and `invalid_analysis_setting` before any stream or array allocation. Each diagnostic holds constant text, the field path, and the configured cap. It never repeats a request value and never builds the product of two request values. A missing or malformed set fails only the Pilot route with one bounded `configuration_invalid` issue. The comparison and Holm routes never read these values.
 
 The local deployment passes explicit development caps in `environments/local/local.auto.tfvars`. They are resource caps for a laptop, not scientific settings. The real-study values remain unapproved.
+
+**Verified implementation behavior.** The local synthetic check exercised the deployed software on 2026-10-19. Repeated Pilot runs over the same request and seed produced the same guarded widths. A run over zero-impact evidence returned explicit insufficiency with `no_passing_candidate` and kept the non-informative positions. The stored Gust records held no matrix.
+
+The check separated two resource boundaries:
+
+- **Elixir submission.** A grid above the deployed Elixir cap created no Gust run. `submit_pilot/1` returned `validation_failed` with issue code `invalid_analysis_setting`.
+- **Python service.** A direct HTTP request above a deployed Python cap reached the service and returned HTTP `422` with `error.code = validation_failed` and issue code `invalid_analysis_setting`. The check ran before any allocation.
+
+Stage 2 comparison values and the Stage 3 Holm family path were unchanged. The check used synthetic evidence and development caps, so it proves software paths only.
 
 **Insufficiency.** Version 1 reports one insufficient reason: `no_passing_candidate`. Each candidate summary keeps `non_informative_comparison_positions`.
 
@@ -734,8 +745,8 @@ The first candidate fails because `0.74` is greater than `0.50`. The other three
 
 ## Exclusions and stop point
 
-Stage 4 does not include graph generation, optimizer or topology/runtime pilots, live simulation collection, Final family or evidence selection, Pilot-to-Final approval, configuration freeze, Final analysis, Holm correction of Final results, secondary reports, dashboard work, or infrastructure deployment.
+Stage 4 does not include graph generation, optimizer or topology/runtime pilots, live simulation collection, Final family or evidence selection, Pilot-to-Final approval, configuration freeze, Final analysis, Holm correction of Final results, secondary reports, dashboard work, or further infrastructure deployment beyond the approved local synthetic check.
 
 Stage 4 stops after one checked recommendation is saved and read back from Gust. It does not authorize Final work. Stage 5 is separate.
 
-The [full study pipeline overview](evaluation-study-pipeline-overview.md) shows the possible connection between these boundaries.
+The [implemented evaluation pipeline](evaluation-pipeline.md) shows how this workflow relates to Stage 2, Stage 3, and the application boundary. The [Stage integration proposal](evaluation-stage-integration.md) records an earlier proposal for one lifecycle DAG; the implemented software does not use it.
