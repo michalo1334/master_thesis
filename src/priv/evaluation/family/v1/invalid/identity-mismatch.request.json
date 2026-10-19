@@ -1,0 +1,827 @@
+{
+  "schema_version": 1,
+  "evidence_role": "synthetic_prototype",
+  "family_id": "primary-comparisons-small",
+  "method": "holm",
+  "alpha": 0.05,
+  "expected_comparisons": [
+    {
+      "tier": "core",
+      "budget": 4,
+      "alternative": "simulation_informed",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "core",
+      "budget": 6,
+      "alternative": "simulation_informed",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "edge",
+      "budget": 4,
+      "alternative": "heuristic",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "edge",
+      "budget": 6,
+      "alternative": "heuristic",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    }
+  ],
+  "comparisons": [
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 4,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "request": {
+        "schema_version": 1,
+        "evidence": {
+          "outcome": "mission_impact",
+          "attack_seeds": [
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110
+          ],
+          "alternative": {
+            "strategy": "heuristic",
+            "plans": [
+              {
+                "id": "alt-01",
+                "mission_impacts": [
+                  4.1,
+                  3.8,
+                  4.0,
+                  4.2,
+                  3.9,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.2,
+                  3.8
+                ]
+              },
+              {
+                "id": "alt-02",
+                "mission_impacts": [
+                  4.0,
+                  3.7,
+                  4.2,
+                  4.1,
+                  3.8,
+                  4.0,
+                  3.9,
+                  3.8,
+                  4.1,
+                  3.9
+                ]
+              },
+              {
+                "id": "alt-03",
+                "mission_impacts": [
+                  3.9,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.2,
+                  4.0,
+                  3.9,
+                  3.8,
+                  4.1
+                ]
+              },
+              {
+                "id": "alt-04",
+                "mission_impacts": [
+                  4.2,
+                  3.9,
+                  4.0,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.1,
+                  3.9,
+                  3.8
+                ]
+              },
+              {
+                "id": "alt-05",
+                "mission_impacts": [
+                  4.0,
+                  4.1,
+                  3.8,
+                  3.9,
+                  4.2,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.9,
+                  3.7
+                ]
+              }
+            ]
+          },
+          "reference": {
+            "strategy": "cvss",
+            "plans": [
+              {
+                "id": "cvss-01",
+                "mission_impacts": [
+                  5.6,
+                  5.2,
+                  5.4,
+                  5.5,
+                  5.3,
+                  5.6,
+                  5.4,
+                  5.2,
+                  5.5,
+                  5.3
+                ]
+              },
+              {
+                "id": "cvss-02",
+                "mission_impacts": [
+                  5.5,
+                  5.4,
+                  5.3,
+                  5.6,
+                  5.2,
+                  5.5,
+                  5.3,
+                  5.4,
+                  5.6,
+                  5.2
+                ]
+              },
+              {
+                "id": "cvss-03",
+                "mission_impacts": [
+                  5.4,
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.6,
+                  5.4,
+                  5.5,
+                  5.3,
+                  5.2,
+                  5.6
+                ]
+              },
+              {
+                "id": "cvss-04",
+                "mission_impacts": [
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.4,
+                  5.6,
+                  5.3,
+                  5.4,
+                  5.6,
+                  5.2,
+                  5.5
+                ]
+              },
+              {
+                "id": "cvss-05",
+                "mission_impacts": [
+                  5.2,
+                  5.6,
+                  5.4,
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.6,
+                  5.3,
+                  5.4,
+                  5.5
+                ]
+              }
+            ]
+          }
+        },
+        "resampling": {
+          "seed": 700001,
+          "replicates": 10000
+        },
+        "interval": {
+          "confidence_level": 0.95
+        },
+        "test": {
+          "alternative": "two_sided"
+        }
+      }
+    },
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 6,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "request": {
+        "schema_version": 1,
+        "evidence": {
+          "outcome": "mission_impact",
+          "attack_seeds": [
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110
+          ],
+          "alternative": {
+            "strategy": "simulation_informed",
+            "plans": [
+              {
+                "id": "alt-01",
+                "mission_impacts": [
+                  4.1,
+                  3.8,
+                  4.0,
+                  4.2,
+                  3.9,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.2,
+                  3.8
+                ]
+              },
+              {
+                "id": "alt-02",
+                "mission_impacts": [
+                  4.0,
+                  3.7,
+                  4.2,
+                  4.1,
+                  3.8,
+                  4.0,
+                  3.9,
+                  3.8,
+                  4.1,
+                  3.9
+                ]
+              },
+              {
+                "id": "alt-03",
+                "mission_impacts": [
+                  3.9,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.2,
+                  4.0,
+                  3.9,
+                  3.8,
+                  4.1
+                ]
+              },
+              {
+                "id": "alt-04",
+                "mission_impacts": [
+                  4.2,
+                  3.9,
+                  4.0,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.7,
+                  4.1,
+                  3.9,
+                  3.8
+                ]
+              },
+              {
+                "id": "alt-05",
+                "mission_impacts": [
+                  4.0,
+                  4.1,
+                  3.8,
+                  3.9,
+                  4.2,
+                  3.8,
+                  4.1,
+                  4.0,
+                  3.9,
+                  3.7
+                ]
+              }
+            ]
+          },
+          "reference": {
+            "strategy": "cvss",
+            "plans": [
+              {
+                "id": "cvss-01",
+                "mission_impacts": [
+                  5.6,
+                  5.2,
+                  5.4,
+                  5.5,
+                  5.3,
+                  5.6,
+                  5.4,
+                  5.2,
+                  5.5,
+                  5.3
+                ]
+              },
+              {
+                "id": "cvss-02",
+                "mission_impacts": [
+                  5.5,
+                  5.4,
+                  5.3,
+                  5.6,
+                  5.2,
+                  5.5,
+                  5.3,
+                  5.4,
+                  5.6,
+                  5.2
+                ]
+              },
+              {
+                "id": "cvss-03",
+                "mission_impacts": [
+                  5.4,
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.6,
+                  5.4,
+                  5.5,
+                  5.3,
+                  5.2,
+                  5.6
+                ]
+              },
+              {
+                "id": "cvss-04",
+                "mission_impacts": [
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.4,
+                  5.6,
+                  5.3,
+                  5.4,
+                  5.6,
+                  5.2,
+                  5.5
+                ]
+              },
+              {
+                "id": "cvss-05",
+                "mission_impacts": [
+                  5.2,
+                  5.6,
+                  5.4,
+                  5.3,
+                  5.5,
+                  5.2,
+                  5.6,
+                  5.3,
+                  5.4,
+                  5.5
+                ]
+              }
+            ]
+          }
+        },
+        "resampling": {
+          "seed": 700002,
+          "replicates": 10000
+        },
+        "interval": {
+          "confidence_level": 0.95
+        },
+        "test": {
+          "alternative": "two_sided"
+        }
+      }
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 4,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "request": {
+        "schema_version": 1,
+        "evidence": {
+          "outcome": "mission_impact",
+          "attack_seeds": [
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110
+          ],
+          "alternative": {
+            "strategy": "heuristic",
+            "plans": [
+              {
+                "id": "alt-01",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "alt-02",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "alt-03",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "alt-04",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "alt-05",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              }
+            ]
+          },
+          "reference": {
+            "strategy": "cvss",
+            "plans": [
+              {
+                "id": "cvss-01",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "cvss-02",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "cvss-03",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "cvss-04",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              },
+              {
+                "id": "cvss-05",
+                "mission_impacts": [
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0,
+                  4.0
+                ]
+              }
+            ]
+          }
+        },
+        "resampling": {
+          "seed": 700003,
+          "replicates": 10000
+        },
+        "interval": {
+          "confidence_level": 0.95
+        },
+        "test": {
+          "alternative": "two_sided"
+        }
+      }
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 6,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "request": {
+        "schema_version": 1,
+        "evidence": {
+          "outcome": "mission_impact",
+          "attack_seeds": [
+            101,
+            102,
+            103,
+            104,
+            105,
+            106,
+            107,
+            108,
+            109,
+            110
+          ],
+          "alternative": {
+            "strategy": "heuristic",
+            "plans": [
+              {
+                "id": "alt-01",
+                "mission_impacts": [
+                  5.0,
+                  4.3,
+                  5.7,
+                  3.3,
+                  6.0,
+                  3.2,
+                  4.0,
+                  4.0,
+                  5.5,
+                  5.4
+                ]
+              },
+              {
+                "id": "alt-02",
+                "mission_impacts": [
+                  6.0,
+                  4.3,
+                  4.1,
+                  5.3,
+                  4.3,
+                  4.4,
+                  5.0,
+                  4.9,
+                  3.8,
+                  3.3
+                ]
+              },
+              {
+                "id": "alt-03",
+                "mission_impacts": [
+                  5.0,
+                  4.7,
+                  4.6,
+                  3.6,
+                  3.6,
+                  4.9,
+                  4.6,
+                  3.5,
+                  5.3,
+                  3.2
+                ]
+              },
+              {
+                "id": "alt-04",
+                "mission_impacts": [
+                  4.7,
+                  4.1,
+                  3.0,
+                  4.2,
+                  5.2,
+                  4.3,
+                  5.9,
+                  3.0,
+                  3.6,
+                  5.2
+                ]
+              },
+              {
+                "id": "alt-05",
+                "mission_impacts": [
+                  5.5,
+                  3.5,
+                  5.2,
+                  5.6,
+                  4.5,
+                  5.8,
+                  4.9,
+                  3.5,
+                  3.5,
+                  3.8
+                ]
+              }
+            ]
+          },
+          "reference": {
+            "strategy": "cvss",
+            "plans": [
+              {
+                "id": "cvss-01",
+                "mission_impacts": [
+                  5.5,
+                  4.8,
+                  6.2,
+                  3.8,
+                  6.5,
+                  3.7,
+                  4.5,
+                  4.5,
+                  6.0,
+                  5.9
+                ]
+              },
+              {
+                "id": "cvss-02",
+                "mission_impacts": [
+                  6.5,
+                  4.8,
+                  4.6,
+                  5.8,
+                  4.8,
+                  4.9,
+                  5.5,
+                  5.4,
+                  4.3,
+                  3.8
+                ]
+              },
+              {
+                "id": "cvss-03",
+                "mission_impacts": [
+                  5.5,
+                  5.2,
+                  5.1,
+                  4.1,
+                  4.1,
+                  5.4,
+                  5.1,
+                  4.0,
+                  5.8,
+                  3.7
+                ]
+              },
+              {
+                "id": "cvss-04",
+                "mission_impacts": [
+                  5.2,
+                  4.6,
+                  3.5,
+                  4.7,
+                  5.7,
+                  4.8,
+                  6.4,
+                  3.5,
+                  4.1,
+                  5.7
+                ]
+              },
+              {
+                "id": "cvss-05",
+                "mission_impacts": [
+                  6.0,
+                  4.0,
+                  5.7,
+                  6.1,
+                  5.0,
+                  6.3,
+                  5.4,
+                  4.0,
+                  4.0,
+                  4.3
+                ]
+              }
+            ]
+          }
+        },
+        "resampling": {
+          "seed": 700010,
+          "replicates": 10000
+        },
+        "interval": {
+          "confidence_level": 0.95
+        },
+        "test": {
+          "alternative": "two_sided"
+        }
+      }
+    }
+  ]
+}

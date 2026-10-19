@@ -188,6 +188,9 @@ end
 config :network_defense, NetworkDefense.Evaluation.Comparison.Client,
   base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
 
+config :network_defense, NetworkDefense.Evaluation.Family.Client,
+  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
+
 gust_key_source =
   RuntimeConfig.read_secret("GUST_CLOAK_KEY") ||
     RuntimeConfig.read_secret("SECRET_KEY_BASE", "development-only-gust-key")

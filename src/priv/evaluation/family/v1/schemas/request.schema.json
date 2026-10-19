@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "FamilyRequest",
+  "description": "Root request for one declared primary comparison family.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_role",
+    "family_id",
+    "method",
+    "alpha",
+    "expected_comparisons",
+    "comparisons"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "evidence_role": {"type": "string", "enum": ["synthetic_prototype"]},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "method": {"type": "string", "enum": ["holm"]},
+    "alpha": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMinimum": true,
+      "maximum": 1,
+      "exclusiveMaximum": true
+    },
+    "expected_comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/identity"}
+    },
+    "comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/comparison_input"}
+    }
+  },
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"$ref": "#/definitions/identifier"},
+        "outcome": {"$ref": "#/definitions/identifier"}
+      }
+    },
+    "comparison_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "request"],
+      "properties": {
+        "identity": {"$ref": "#/definitions/identity"},
+        "request": {
+          "description": "One ComparisonRequest. The nested comparison contract owns this shape.",
+          "type": "object"
+        }
+      }
+    }
+  }
+}

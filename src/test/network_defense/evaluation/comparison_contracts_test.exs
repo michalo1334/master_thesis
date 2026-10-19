@@ -216,6 +216,23 @@ defmodule NetworkDefense.Evaluation.ComparisonContractsTest do
     end
   end
 
+  test "CONTRACT-12: envelope materialization restores the typed error struct" do
+    payload = valid_fixture("validation.error.json")
+
+    assert {:ok, %ComparisonError{} = error} = ComparisonError.materialize_envelope(payload)
+    assert error.code == payload["error"]["code"]
+    assert error.issues == payload["error"]["issues"]
+    assert error.schema_version == 1
+
+    # Materialization keeps the struct, so callers can use field access.
+    assert is_struct(error, ComparisonError)
+
+    assert {:ok, %ComparisonError{code: code, issues: issues}} =
+             ComparisonError.parse_envelope(payload)
+
+    assert {error.code, error.issues} == {code, issues}
+  end
+
   test "CONTRACT-11: an error message can contain at most 256 UTF-8 bytes" do
     valid = valid_fixture("validation.error.json")
 

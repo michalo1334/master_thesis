@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "evidence_role": "synthetic_prototype",
+  "family_id": "primary-comparisons-small",
+  "method": "holm",
+  "alpha": 0.05,
+  "family_size": 4,
+  "comparisons": [
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 4,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "statistics": {
+        "schema_version": 1,
+        "method": "corrected_crossed_bootstrap_v1",
+        "estimate": {
+          "contrast": "alternative_minus_reference",
+          "value": -1.4440000000000008
+        },
+        "interval": {
+          "confidence_level": 0.95,
+          "lower": -1.5312098363463427,
+          "upper": -1.3544331410497041
+        },
+        "test": {
+          "method": "centered_crossed_bootstrap",
+          "alternative": "two_sided",
+          "raw_p_value": 9.999000099990002e-05
+        },
+        "assessment": {
+          "status": "informative",
+          "warnings": []
+        }
+      },
+      "adjustment": {
+        "adjusted_p_value": 0.00039996000399960006,
+        "reject_null": true
+      }
+    },
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 6,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "statistics": {
+        "schema_version": 1,
+        "method": "corrected_crossed_bootstrap_v1",
+        "estimate": {
+          "contrast": "alternative_minus_reference",
+          "value": -1.4440000000000008
+        },
+        "interval": {
+          "confidence_level": 0.95,
+          "lower": -1.5289117393074858,
+          "upper": -1.356731238088559
+        },
+        "test": {
+          "method": "centered_crossed_bootstrap",
+          "alternative": "two_sided",
+          "raw_p_value": 9.999000099990002e-05
+        },
+        "assessment": {
+          "status": "informative",
+          "warnings": []
+        }
+      },
+      "adjustment": {
+        "adjusted_p_value": 0.00039996000399960006,
+        "reject_null": true
+      }
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 4,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "statistics": {
+        "schema_version": 1,
+        "method": "corrected_crossed_bootstrap_v1",
+        "estimate": {
+          "contrast": "alternative_minus_reference",
+          "value": 0.0
+        },
+        "interval": {
+          "confidence_level": 0.95,
+          "lower": 0.0,
+          "upper": 0.0
+        },
+        "test": {
+          "method": "centered_crossed_bootstrap",
+          "alternative": "two_sided",
+          "raw_p_value": 1.0
+        },
+        "assessment": {
+          "status": "non_informative",
+          "warnings": []
+        }
+      },
+      "adjustment": {
+        "adjusted_p_value": 1.0,
+        "reject_null": false
+      }
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 6,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "statistics": {
+        "schema_version": 1,
+        "method": "corrected_crossed_bootstrap_v1",
+        "estimate": {
+          "contrast": "alternative_minus_reference",
+          "value": -0.5
+        },
+        "interval": {
+          "confidence_level": 0.95,
+          "lower": -0.9266210913158839,
+          "upper": -0.05923677306038577
+        },
+        "test": {
+          "method": "centered_crossed_bootstrap",
+          "alternative": "two_sided",
+          "raw_p_value": 0.029397060293970604
+        },
+        "assessment": {
+          "status": "informative",
+          "warnings": []
+        }
+      },
+      "adjustment": {
+        "adjusted_p_value": 0.05879412058794121,
+        "reject_null": false
+      }
+    }
+  ]
+}

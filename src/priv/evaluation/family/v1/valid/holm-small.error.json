@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "error": {
+    "code": "validation_failed",
+    "issues": [
+      {
+        "code": "changed_family_member",
+        "path": ["comparisons", 1, "request", "resampling", "seed"],
+        "message": "A persisted family member changed.",
+        "details": {
+          "member_index": 1
+        }
+      }
+    ]
+  }
+}

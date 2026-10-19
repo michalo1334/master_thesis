@@ -5,6 +5,8 @@ defmodule NetworkDefense.Evaluation.Comparison.Contracts.ComparisonStatistics do
   alias NetworkDefense.Evaluation.Comparison.Contracts.{ComparisonError, ComparisonRequest}
   alias NetworkDefense.Evaluation.Comparison.SchemaValidator
 
+  @type t :: %__MODULE__{}
+
   embedded_schema do
     field :schema_version, :integer
     field :method, :string

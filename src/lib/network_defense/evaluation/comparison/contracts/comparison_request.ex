@@ -11,8 +11,11 @@ defmodule NetworkDefense.Evaluation.Comparison.Contracts.ComparisonRequest do
   }
 
   alias NetworkDefense.Evaluation.Comparison.SchemaValidator
+  alias NetworkDefense.Evaluation.JsonBoundary
 
   @request_limit 1_048_576
+
+  @type t :: %__MODULE__{}
 
   embedded_schema do
     field :schema_version, :integer
@@ -30,7 +33,7 @@ defmodule NetworkDefense.Evaluation.Comparison.Contracts.ComparisonRequest do
   end
 
   def parse(attrs) do
-    with :ok <- string_keys_only(attrs, []),
+    with :ok <- string_keys_only(attrs),
          {:ok, encoded} <- encode(attrs),
          :ok <- within_limit(encoded),
          {:ok, request} <- materialize(attrs),
@@ -71,53 +74,13 @@ defmodule NetworkDefense.Evaluation.Comparison.Contracts.ComparisonRequest do
 
   defp materialize(_attrs), do: {:error, ComparisonError.invalid_json_value([])}
 
-  defp string_keys_only(map, path) when is_map(map) do
-    Enum.reduce_while(map, :ok, fn
-      {key, value}, :ok when is_binary(key) ->
-        case string_keys_only(value, path ++ [key]) do
-          :ok -> {:cont, :ok}
-          error -> {:halt, error}
-        end
+  defp string_keys_only(attrs),
+    do: JsonBoundary.string_keys_only(attrs, [], &ComparisonError.invalid_json_value/1)
 
-      {_key, _value}, :ok ->
-        {:halt, {:error, ComparisonError.invalid_json_value(path)}}
-    end)
-  end
+  defp encode(value), do: JsonBoundary.encode(value, &ComparisonError.invalid_json_value/1)
 
-  defp string_keys_only(list, path) when is_list(list) do
-    list
-    |> Enum.with_index()
-    |> Enum.reduce_while(:ok, fn {value, index}, :ok ->
-      case string_keys_only(value, path ++ [index]) do
-        :ok -> {:cont, :ok}
-        error -> {:halt, error}
-      end
-    end)
-  end
-
-  defp string_keys_only(value, _path)
-       when is_binary(value) or is_boolean(value) or is_number(value) or is_nil(value),
-       do: :ok
-
-  defp string_keys_only(_value, path),
-    do: {:error, ComparisonError.invalid_json_value(path)}
-
-  defp encode(value) do
-    case Jason.encode_to_iodata(value) do
-      {:ok, encoded} -> {:ok, encoded}
-      {:error, _reason} -> {:error, ComparisonError.invalid_json_value([])}
-    end
-  rescue
-    _exception -> {:error, ComparisonError.invalid_json_value([])}
-  end
-
-  defp within_limit(encoded) do
-    if IO.iodata_length(encoded) <= @request_limit do
-      :ok
-    else
-      {:error, ComparisonError.request_too_large(@request_limit)}
-    end
-  end
+  defp within_limit(encoded),
+    do: JsonBoundary.within_limit(encoded, @request_limit, &ComparisonError.request_too_large/1)
 
   defp validate_crossed_evidence(request) do
     expected = length(request.evidence.attack_seeds)

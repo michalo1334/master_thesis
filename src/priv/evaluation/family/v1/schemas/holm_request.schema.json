@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "HolmRequest",
+  "description": "One deterministic Holm correction over a complete declared family.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "family_id",
+    "method",
+    "alpha",
+    "expected_comparisons",
+    "raw_results"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "method": {"type": "string", "enum": ["holm"]},
+    "alpha": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMinimum": true,
+      "maximum": 1,
+      "exclusiveMaximum": true
+    },
+    "expected_comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/identity"}
+    },
+    "raw_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/raw_result"}
+    }
+  },
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"$ref": "#/definitions/identifier"},
+        "outcome": {"$ref": "#/definitions/identifier"}
+      }
+    },
+    "raw_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "raw_p_value"],
+      "properties": {
+        "identity": {"$ref": "#/definitions/identity"},
+        "raw_p_value": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "family_id": "primary-comparisons-small",
+  "method": "holm",
+  "alpha": 0.05,
+  "expected_comparisons": [
+    {
+      "tier": "core",
+      "budget": 4,
+      "alternative": "simulation_informed",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "core",
+      "budget": 6,
+      "alternative": "simulation_informed",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "edge",
+      "budget": 4,
+      "alternative": "heuristic",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "edge",
+      "budget": 6,
+      "alternative": "heuristic",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    }
+  ],
+  "raw_results": [
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 4,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 9.999000099990002e-05
+    },
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 6,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 9.999000099990002e-05
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 4,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 1.5
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 6,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 0.029397060293970604
+    }
+  ]
+}
