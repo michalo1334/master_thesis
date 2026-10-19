@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 from .contracts.errors import ComparisonIssue
+from .contracts.evidence import Evidence
 from .contracts.request import ComparisonRequest
 from .contracts.result import (
     Assessment,
@@ -15,7 +16,12 @@ from .statistics import corrected_crossed_bootstrap
 
 
 def evidence_issues(request: ComparisonRequest) -> list[ComparisonIssue]:
-    evidence = request.evidence
+    return evidence_issues_for(request.evidence)
+
+
+def evidence_issues_for(evidence: Evidence) -> list[ComparisonIssue]:
+    """Return the accepted Stage 2 evidence issues for one evidence matrix."""
+
     issues: list[ComparisonIssue] = []
 
     if evidence.alternative.strategy == "cvss":

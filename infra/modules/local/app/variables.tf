@@ -171,3 +171,26 @@ variable "sites" {
     error_message = "Site networks, compute URLs, the primary site, and every application node must match declared site keys."
   }
 }
+
+variable "pilot_limits" {
+  description = "Stage 4 Pilot resource caps for the application and setup containers."
+  type = object({
+    snapshot_payload_bytes  = number
+    snapshot_comparisons    = number
+    comparison_count        = number
+    candidate_count         = number
+    plans_per_side          = number
+    attack_columns          = number
+    work_items              = number
+    outer_subsamples        = number
+    bootstrap_replicates    = number
+    candidate_request_bytes = number
+  })
+
+  validation {
+    condition = alltrue([
+      for value in values(var.pilot_limits) : value == floor(value) && value > 0
+    ])
+    error_message = "Every Pilot limit must be a positive integer."
+  }
+}

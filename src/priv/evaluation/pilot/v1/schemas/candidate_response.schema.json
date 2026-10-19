@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "CandidateComparisonResponse",
+  "description": "Compact result for one Pilot candidate and one comparison. It repeats every immutable and scientific input and adds the guarded interval half-width and decisions.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "method",
+    "pilot_id",
+    "study_revision_id",
+    "family_id",
+    "snapshot_id",
+    "candidate_position",
+    "comparison_position",
+    "identity",
+    "candidate",
+    "outer_subsamples",
+    "stream_seed",
+    "guard_quantile",
+    "target_half_width",
+    "confidence_level",
+    "bootstrap_replicates",
+    "guarded_half_width",
+    "informative",
+    "passes"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "method": {"type": "string", "enum": ["precision_pilot_candidate_v1"]},
+    "pilot_id": {"$ref": "#/definitions/identifier"},
+    "study_revision_id": {"$ref": "#/definitions/uuid"},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "snapshot_id": {"$ref": "#/definitions/uuid"},
+    "candidate_position": {"type": "integer", "minimum": 0},
+    "comparison_position": {"type": "integer", "minimum": 0},
+    "identity": {"$ref": "#/definitions/identity"},
+    "candidate": {"$ref": "#/definitions/candidate"},
+    "outer_subsamples": {"type": "integer", "minimum": 1},
+    "stream_seed": {"type": "integer", "minimum": 0},
+    "guard_quantile": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMinimum": true,
+      "maximum": 1,
+      "exclusiveMaximum": true
+    },
+    "target_half_width": {"type": "number", "minimum": 0, "exclusiveMinimum": true},
+    "confidence_level": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMinimum": true,
+      "maximum": 1,
+      "exclusiveMaximum": true
+    },
+    "bootstrap_replicates": {"type": "integer", "minimum": 1},
+    "guarded_half_width": {"type": "number", "minimum": 0},
+    "informative": {"type": "boolean"},
+    "passes": {"type": "boolean"}
+  },
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"type": "string", "enum": ["cvss"]},
+        "outcome": {"type": "string", "enum": ["mission_impact"]}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_count", "attacks_per_plan"],
+      "properties": {
+        "plan_count": {"type": "integer", "minimum": 5},
+        "attacks_per_plan": {"type": "integer", "minimum": 10}
+      }
+    }
+  }
+}

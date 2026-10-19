@@ -1,6 +1,7 @@
 from pydantic import ValidationError
 
 from .contracts.errors import ComparisonError, ComparisonIssue, ErrorBody, SchemaDiagnostic
+from .contracts.pilot import PilotError, PilotErrorBody, PilotIssue
 
 
 def error_response(code: str, issue: ComparisonIssue) -> ComparisonError:
@@ -8,12 +9,9 @@ def error_response(code: str, issue: ComparisonIssue) -> ComparisonError:
 
 
 def pydantic_error(error: ValidationError) -> ComparisonError:
-    mapped = [_diagnostic(item) for item in error.errors(include_url=False, include_context=False)]
-    unique = {(repr(diagnostic.path), diagnostic.message): diagnostic for diagnostic in mapped}
-    diagnostics = sorted(unique.values(), key=lambda item: (repr(item.path), item.message))[:50]
     return ComparisonError(
         schema_version=1,
-        error=ErrorBody(code="validation_failed", schema_errors=diagnostics),
+        error=ErrorBody(code="validation_failed", schema_errors=_diagnostics(error)),
     )
 
 
@@ -21,6 +19,29 @@ def validation_error(issues: list[ComparisonIssue]) -> ComparisonError:
     return ComparisonError(
         schema_version=1, error=ErrorBody(code="validation_failed", issues=issues[:50])
     )
+
+
+def pilot_error_response(code: str, issue: PilotIssue) -> PilotError:
+    return PilotError(schema_version=1, error=PilotErrorBody(code=code, issues=[issue]))
+
+
+def pilot_pydantic_error(error: ValidationError) -> PilotError:
+    return PilotError(
+        schema_version=1,
+        error=PilotErrorBody(code="validation_failed", schema_errors=_diagnostics(error)),
+    )
+
+
+def pilot_validation_error(issues: list[PilotIssue]) -> PilotError:
+    return PilotError(
+        schema_version=1, error=PilotErrorBody(code="validation_failed", issues=issues[:50])
+    )
+
+
+def _diagnostics(error: ValidationError) -> list[SchemaDiagnostic]:
+    mapped = [_diagnostic(item) for item in error.errors(include_url=False, include_context=False)]
+    unique = {(repr(diagnostic.path), diagnostic.message): diagnostic for diagnostic in mapped}
+    return sorted(unique.values(), key=lambda item: (repr(item.path), item.message))[:50]
 
 
 def _diagnostic(item: dict) -> SchemaDiagnostic:

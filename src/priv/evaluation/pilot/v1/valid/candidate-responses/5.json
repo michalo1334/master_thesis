@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "method": "precision_pilot_candidate_v1",
+  "pilot_id": "pilot-example",
+  "study_revision_id": "4f4a33c6-cc8e-4ac1-b145-18647a928e49",
+  "family_id": "family-example",
+  "snapshot_id": "af69d2ca-ff80-43aa-9800-67f6895be64d",
+  "candidate_position": 2,
+  "comparison_position": 1,
+  "identity": {
+    "tier": "edge",
+    "budget": 6,
+    "alternative": "heuristic",
+    "reference": "cvss",
+    "outcome": "mission_impact"
+  },
+  "candidate": {
+    "plan_count": 6,
+    "attacks_per_plan": 10
+  },
+  "outer_subsamples": 20,
+  "stream_seed": 1700001,
+  "guard_quantile": 0.9,
+  "target_half_width": 0.2,
+  "confidence_level": 0.95,
+  "bootstrap_replicates": 200,
+  "guarded_half_width": 0.18505254884327116,
+  "informative": true,
+  "passes": true
+}

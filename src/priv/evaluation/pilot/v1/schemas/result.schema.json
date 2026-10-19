@@ -1,0 +1,214 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "PilotResult",
+  "description": "Persisted compact Precision Pilot result. It repeats immutable IDs and every candidate and comparison row. It never repeats an evidence matrix.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_role",
+    "method",
+    "pilot_id",
+    "study_revision_id",
+    "family_id",
+    "snapshot_id",
+    "outcome",
+    "expected_comparisons",
+    "candidate_grid",
+    "pilot_sampling",
+    "precision",
+    "selection",
+    "candidate_results",
+    "candidate_summaries",
+    "recommendation",
+    "insufficient_reason"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "evidence_role": {"type": "string", "enum": ["pilot"]},
+    "method": {"type": "string", "enum": ["precision_pilot_v1"]},
+    "pilot_id": {"$ref": "#/definitions/identifier"},
+    "study_revision_id": {"$ref": "#/definitions/uuid"},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "snapshot_id": {"$ref": "#/definitions/uuid"},
+    "outcome": {"type": "string", "enum": ["recommended", "insufficient"]},
+    "expected_comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/identity"}
+    },
+    "candidate_grid": {"$ref": "#/definitions/candidate_grid"},
+    "pilot_sampling": {"$ref": "#/definitions/pilot_sampling"},
+    "precision": {"$ref": "#/definitions/precision"},
+    "selection": {"$ref": "#/definitions/selection"},
+    "candidate_results": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/candidate_result"}
+    },
+    "candidate_summaries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/candidate_summary"}
+    },
+    "recommendation": {
+      "anyOf": [
+        {"$ref": "#/definitions/recommendation"},
+        {"type": "null"}
+      ]
+    },
+    "insufficient_reason": {
+      "anyOf": [
+        {"type": "string", "enum": ["no_passing_candidate"]},
+        {"type": "null"}
+      ]
+    }
+  },
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"type": "string", "enum": ["cvss"]},
+        "outcome": {"type": "string", "enum": ["mission_impact"]}
+      }
+    },
+    "candidate_grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_count_candidates", "attacks_per_plan_candidates"],
+      "properties": {
+        "plan_count_candidates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 5}
+        },
+        "attacks_per_plan_candidates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 10}
+        }
+      }
+    },
+    "pilot_sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outer_subsamples", "seed"],
+      "properties": {
+        "outer_subsamples": {"type": "integer", "minimum": 1},
+        "seed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "precision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_half_width",
+        "guard_quantile",
+        "confidence_level",
+        "bootstrap_replicates"
+      ],
+      "properties": {
+        "target_half_width": {"type": "number", "minimum": 0, "exclusiveMinimum": true},
+        "guard_quantile": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 1,
+          "exclusiveMaximum": true
+        },
+        "confidence_level": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 1,
+          "exclusiveMaximum": true
+        },
+        "bootstrap_replicates": {"type": "integer", "minimum": 1}
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule"],
+      "properties": {
+        "rule": {"type": "string", "enum": ["lowest_predicted_runtime"]}
+      }
+    },
+    "candidate_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_position",
+        "comparison_position",
+        "plan_count",
+        "attacks_per_plan",
+        "guarded_half_width",
+        "informative",
+        "passes"
+      ],
+      "properties": {
+        "candidate_position": {"type": "integer", "minimum": 0},
+        "comparison_position": {"type": "integer", "minimum": 0},
+        "plan_count": {"type": "integer", "minimum": 5},
+        "attacks_per_plan": {"type": "integer", "minimum": 10},
+        "guarded_half_width": {"type": "number", "minimum": 0},
+        "informative": {"type": "boolean"},
+        "passes": {"type": "boolean"}
+      }
+    },
+    "candidate_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidate_position",
+        "plan_count",
+        "attacks_per_plan",
+        "worst_guarded_half_width",
+        "all_comparisons_informative",
+        "non_informative_comparison_positions",
+        "all_comparisons_passed",
+        "predicted_runtime_ms"
+      ],
+      "properties": {
+        "candidate_position": {"type": "integer", "minimum": 0},
+        "plan_count": {"type": "integer", "minimum": 5},
+        "attacks_per_plan": {"type": "integer", "minimum": 10},
+        "worst_guarded_half_width": {"type": "number", "minimum": 0},
+        "all_comparisons_informative": {"type": "boolean"},
+        "non_informative_comparison_positions": {
+          "type": "array",
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "all_comparisons_passed": {"type": "boolean"},
+        "predicted_runtime_ms": {"type": "number", "minimum": 0}
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_position", "plan_count", "attacks_per_plan"],
+      "properties": {
+        "candidate_position": {"type": "integer", "minimum": 0},
+        "plan_count": {"type": "integer", "minimum": 5},
+        "attacks_per_plan": {"type": "integer", "minimum": 10}
+      }
+    }
+  }
+}

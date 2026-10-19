@@ -51,6 +51,20 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
 
 config :network_defense, :metrics_port, 0
 
+# Test-only Pilot limits. The application and Stage 2 and Stage 3 paths start
+# without them. Manual checks supply their own explicit values.
+config :network_defense, NetworkDefense.Evaluation.Pilot.Limits,
+  snapshot_payload_bytes: 2_097_152,
+  snapshot_comparisons: 16,
+  comparison_count: 16,
+  candidate_count: 16,
+  plans_per_side: 256,
+  attack_columns: 512,
+  work_items: 1024,
+  outer_subsamples: 128,
+  bootstrap_replicates: 1024,
+  candidate_request_bytes: 1_048_576
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

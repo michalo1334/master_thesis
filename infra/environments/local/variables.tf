@@ -68,13 +68,41 @@ variable "database" {
   }
 }
 
+variable "pilot_limits" {
+  description = "Stage 4 Pilot resource caps for the application. Deployment caps, not scientific settings."
+  type = object({
+    snapshot_payload_bytes  = number
+    snapshot_comparisons    = number
+    comparison_count        = number
+    candidate_count         = number
+    plans_per_side          = number
+    attack_columns          = number
+    work_items              = number
+    outer_subsamples        = number
+    bootstrap_replicates    = number
+    candidate_request_bytes = number
+  })
+
+  validation {
+    condition = alltrue([
+      for value in values(var.pilot_limits) : value == floor(value) && value > 0
+    ])
+    error_message = "Every Pilot limit must be a positive integer."
+  }
+}
+
 variable "evaluation_compute" {
   description = "Local evaluation-compute configuration."
   type = object({
-    container_port      = number
-    host_ports          = map(number)
-    image_name          = string
-    log_level           = string
+    container_port = number
+    host_ports     = map(number)
+    image_name     = string
+    log_level      = string
+    pilot_limits = object({
+      max_outer_subsamples        = number
+      max_bootstrap_replicates    = number
+      max_combined_bootstrap_work = number
+    })
     process_count       = number
     request_limit_bytes = number
   })
@@ -95,9 +123,13 @@ variable "evaluation_compute" {
       var.evaluation_compute.process_count == floor(var.evaluation_compute.process_count) &&
       var.evaluation_compute.process_count > 0 &&
       var.evaluation_compute.request_limit_bytes == floor(var.evaluation_compute.request_limit_bytes) &&
-      var.evaluation_compute.request_limit_bytes > 0
+      var.evaluation_compute.request_limit_bytes > 0 &&
+      alltrue([
+        for value in values(var.evaluation_compute.pilot_limits) :
+        value == floor(value) && value > 0
+      ])
     )
-    error_message = "Evaluation-compute settings require a named image, a supported log level, distinct integer ports, and positive integer process and request limits."
+    error_message = "Evaluation-compute settings require a named image, a supported log level, distinct integer ports, positive integer process and request limits, and positive integer Pilot caps."
   }
 }
 

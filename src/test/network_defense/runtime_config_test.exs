@@ -92,6 +92,83 @@ defmodule NetworkDefense.RuntimeConfigTest do
     end)
   end
 
+  @pilot_variables [
+    "EVALUATION_PILOT_MAX_SNAPSHOT_PAYLOAD_BYTES",
+    "EVALUATION_PILOT_MAX_SNAPSHOT_COMPARISONS",
+    "EVALUATION_PILOT_MAX_COMPARISONS",
+    "EVALUATION_PILOT_MAX_CANDIDATES",
+    "EVALUATION_PILOT_MAX_PLANS_PER_SIDE",
+    "EVALUATION_PILOT_MAX_ATTACK_COLUMNS",
+    "EVALUATION_PILOT_MAX_WORK_ITEMS",
+    "EVALUATION_PILOT_MAX_OUTER_SUBSAMPLES",
+    "EVALUATION_PILOT_MAX_BOOTSTRAP_REPLICATES",
+    "EVALUATION_PILOT_MAX_CANDIDATE_REQUEST_BYTES"
+  ]
+
+  @pilot_keys [
+    :snapshot_payload_bytes,
+    :snapshot_comparisons,
+    :comparison_count,
+    :candidate_count,
+    :plans_per_side,
+    :attack_columns,
+    :work_items,
+    :outer_subsamples,
+    :bootstrap_replicates,
+    :candidate_request_bytes
+  ]
+
+  describe "Stage 4 Pilot limits" do
+    setup do
+      previous = Map.new(@pilot_variables, &{&1, System.get_env(&1)})
+      Enum.each(@pilot_variables, &System.delete_env/1)
+
+      on_exit(fn ->
+        Enum.each(previous, fn {name, value} ->
+          if value, do: System.put_env(name, value), else: System.delete_env(name)
+        end)
+      end)
+    end
+
+    test "an unset set stays unconfigured" do
+      assert RuntimeConfig.pilot_limits() == :unconfigured
+    end
+
+    test "a full set parses every limit" do
+      @pilot_variables
+      |> Enum.with_index(1)
+      |> Enum.each(fn {name, value} ->
+        System.put_env(name, Integer.to_string(value * 1_000))
+      end)
+
+      assert {:ok, limits} = RuntimeConfig.pilot_limits()
+      assert Keyword.keys(limits) == @pilot_keys
+      assert limits[:snapshot_payload_bytes] == 1_000
+      assert limits[:candidate_request_bytes] == 10_000
+    end
+
+    test "a partial set is rejected" do
+      System.put_env("EVALUATION_PILOT_MAX_WORK_ITEMS", "1024")
+
+      assert {:error, message} = RuntimeConfig.pilot_limits()
+      assert message =~ "set all of them or none"
+    end
+
+    test "a malformed value is rejected" do
+      for {name, value} <- [
+            {"EVALUATION_PILOT_MAX_COMPARISONS", "0"},
+            {"EVALUATION_PILOT_MAX_WORK_ITEMS", "1.5"}
+          ] do
+        Enum.each(@pilot_variables, &System.put_env(&1, "16"))
+        System.put_env(name, value)
+
+        assert {:error, message} = RuntimeConfig.pilot_limits()
+        assert message =~ name
+        assert message =~ "must be a positive integer"
+      end
+    end
+  end
+
   defp unique_env_name do
     "NETWORK_DEFENSE_RUNTIME_CONFIG_TEST_" <>
       Integer.to_string(System.unique_integer([:positive]))

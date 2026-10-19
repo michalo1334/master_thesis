@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "PilotError",
+  "description": "Bounded typed error envelope for the Pilot pipeline and the candidate comparison endpoint.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "error"],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "error": {"$ref": "#/definitions/error_body"}
+  },
+  "definitions": {
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "validation_failed",
+        "invalid_json",
+        "request_too_large",
+        "unsupported_media_type",
+        "invalid_response_contract",
+        "compute_unavailable",
+        "compute_failed",
+        "workflow_failed"
+      ]
+    },
+    "issue_code": {
+      "type": "string",
+      "enum": [
+        "invalid_json",
+        "request_too_large",
+        "unsupported_media_type",
+        "required_field_missing",
+        "unknown_field",
+        "invalid_type",
+        "unsupported_schema_version",
+        "unsupported_outcome",
+        "unsupported_alternative_strategy",
+        "unsupported_reference",
+        "unsupported_test_alternative",
+        "invalid_identifier",
+        "invalid_analysis_setting",
+        "insufficient_plan_count",
+        "insufficient_attack_count",
+        "duplicate_plan_id",
+        "duplicate_attack_seed",
+        "attack_column_count_mismatch",
+        "non_finite_mission_impact",
+        "duplicate_expected_identity",
+        "duplicate_comparison_identity",
+        "missing_comparison",
+        "unexpected_comparison",
+        "identity_mismatch",
+        "incomplete_family",
+        "invalid_comparison_request",
+        "changed_family_member",
+        "invalid_correction",
+        "family_result_invalid",
+        "invalid_response_contract",
+        "compute_unavailable",
+        "compute_failed",
+        "workflow_failed",
+        "missing_identity",
+        "duplicate_comparison",
+        "non_consecutive_position",
+        "snapshot_not_found",
+        "snapshot_phase_mismatch",
+        "changed_snapshot",
+        "invalid_candidate_grid",
+        "candidate_exceeds_plan_rows",
+        "candidate_exceeds_attack_columns",
+        "incomplete_pilot",
+        "duplicate_candidate_result",
+        "unexpected_candidate_result",
+        "changed_candidate_result",
+        "invalid_candidate_result",
+        "configuration_invalid",
+        "no_passing_candidate"
+      ]
+    },
+    "path_item": {"type": ["string", "integer"]},
+    "safe_scalar": {"type": ["string", "number", "integer", "boolean", "null"]},
+    "detail_value": {
+      "anyOf": [
+        {"$ref": "#/definitions/safe_scalar"},
+        {"type": "array", "maxItems": 20, "items": {"$ref": "#/definitions/safe_scalar"}}
+      ]
+    },
+    "issue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "path", "message", "details"],
+      "properties": {
+        "code": {"$ref": "#/definitions/issue_code"},
+        "path": {"type": "array", "items": {"$ref": "#/definitions/path_item"}},
+        "message": {"type": "string", "maxLength": 256},
+        "details": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": {"$ref": "#/definitions/detail_value"}
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message", "path", "causes"],
+      "properties": {
+        "message": {"type": "string", "maxLength": 256},
+        "path": {
+          "anyOf": [
+            {"type": "string", "maxLength": 256},
+            {"type": "array", "maxItems": 32, "items": {"$ref": "#/definitions/path_item"}}
+          ]
+        },
+        "causes": {"type": "array", "maxItems": 50, "items": {"$ref": "#/definitions/diagnostic"}}
+      }
+    },
+    "error_body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {"$ref": "#/definitions/error_code"},
+        "issues": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {"$ref": "#/definitions/issue"}
+        },
+        "schema_errors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {"$ref": "#/definitions/diagnostic"}
+        }
+      },
+      "anyOf": [
+        {"required": ["issues"], "not": {"required": ["schema_errors"]}},
+        {"required": ["schema_errors"], "not": {"required": ["issues"]}}
+      ]
+    }
+  }
+}

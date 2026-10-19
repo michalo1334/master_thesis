@@ -37,7 +37,10 @@ resource "docker_container" "evaluation_compute" {
     "EVALUATION_REQUEST_LIMIT_BYTES=${var.request_limit_bytes}",
     "EVALUATION_WORKERS=${var.process_count}",
     "EVALUATION_LOG_LEVEL=${var.log_level}",
-    "EVALUATION_SHUTDOWN_TIMEOUT_SECONDS=10"
+    "EVALUATION_SHUTDOWN_TIMEOUT_SECONDS=10",
+    "EVALUATION_PILOT_MAX_OUTER_SUBSAMPLES=${var.pilot_limits.max_outer_subsamples}",
+    "EVALUATION_PILOT_MAX_BOOTSTRAP_REPLICATES=${var.pilot_limits.max_bootstrap_replicates}",
+    "EVALUATION_PILOT_MAX_COMBINED_BOOTSTRAP_WORK=${var.pilot_limits.max_combined_bootstrap_work}"
   ]
   image = docker_image.evaluation_compute.image_id
   name  = "${var.name_prefix}-evaluation-compute-${each.key}"

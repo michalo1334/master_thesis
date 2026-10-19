@@ -117,3 +117,24 @@ variable "log_level" {
     error_message = "log_level must be debug, info, warning, error, or critical."
   }
 }
+
+variable "pilot_limits" {
+  description = "Stage 4 Pilot compute resource caps. Deployment caps, not scientific settings."
+  type = object({
+    max_outer_subsamples        = number
+    max_bootstrap_replicates    = number
+    max_combined_bootstrap_work = number
+  })
+
+  validation {
+    condition = (
+      var.pilot_limits.max_outer_subsamples == floor(var.pilot_limits.max_outer_subsamples) &&
+      var.pilot_limits.max_outer_subsamples > 0 &&
+      var.pilot_limits.max_bootstrap_replicates == floor(var.pilot_limits.max_bootstrap_replicates) &&
+      var.pilot_limits.max_bootstrap_replicates > 0 &&
+      var.pilot_limits.max_combined_bootstrap_work == floor(var.pilot_limits.max_combined_bootstrap_work) &&
+      var.pilot_limits.max_combined_bootstrap_work > 0
+    )
+    error_message = "Pilot compute caps must be positive integers."
+  }
+}

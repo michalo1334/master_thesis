@@ -191,6 +191,24 @@ config :network_defense, NetworkDefense.Evaluation.Comparison.Client,
 config :network_defense, NetworkDefense.Evaluation.Family.Client,
   base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
 
+config :network_defense, NetworkDefense.Evaluation.Pilot.Client,
+  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
+
+# Stage 4 Pilot limits are deployment resource caps, not scientific settings.
+# They are all-or-none. Without them the application, Stage 2, and Stage 3 run
+# normally and every Pilot call fails with a bounded configuration_invalid
+# error. A partial or malformed set is reported here and stays unconfigured.
+case RuntimeConfig.pilot_limits() do
+  {:ok, limits} ->
+    config :network_defense, NetworkDefense.Evaluation.Pilot.Limits, limits
+
+  :unconfigured ->
+    :ok
+
+  {:error, message} ->
+    IO.puts(:stderr, "Stage 4 Pilot limits are invalid and stay unconfigured: #{message}")
+end
+
 gust_key_source =
   RuntimeConfig.read_secret("GUST_CLOAK_KEY") ||
     RuntimeConfig.read_secret("SECRET_KEY_BASE", "development-only-gust-key")

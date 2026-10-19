@@ -59,6 +59,7 @@ module "evaluation_compute" {
   image_name          = var.evaluation_compute.image_name
   log_level           = var.evaluation_compute.log_level
   name_prefix         = local.name_prefix
+  pilot_limits        = var.evaluation_compute.pilot_limits
   process_count       = var.evaluation_compute.process_count
   request_limit_bytes = var.evaluation_compute.request_limit_bytes
   site_networks       = { for site, network in docker_network.site : site => network.name }
@@ -82,6 +83,7 @@ module "app" {
   log_volume_name         = docker_volume.application_logs.name
   name_prefix             = local.name_prefix
   nodes                   = local.nodes
+  pilot_limits            = var.pilot_limits
   rabbitmq                = local.rabbitmq
   secret_mount_path       = local.secret_mount_path
   service_name            = local.application.service_name

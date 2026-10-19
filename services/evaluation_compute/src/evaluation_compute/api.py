@@ -8,17 +8,36 @@ from pydantic import ValidationError
 
 from .contracts.errors import ComparisonIssue
 from .contracts.family import HolmRequest, HolmResponse
+from .contracts.pilot import (
+    CandidateComparisonRequest,
+    CandidateComparisonResponse,
+    PilotIssue,
+)
 from .contracts.request import ComparisonRequest
 from .contracts.result import ComparisonStatistics
-from .error_mapping import error_response, pydantic_error, validation_error
+from .error_mapping import (
+    error_response,
+    pilot_error_response,
+    pilot_pydantic_error,
+    pilot_validation_error,
+    pydantic_error,
+    validation_error,
+)
 from .holm import adjust_holm, holm_issues
 from .logging_config import configure_logging
+from .pilot import evaluate_candidate_comparison, pilot_issues
+from .pilot_limits import (
+    PilotLimitsUnavailable,
+    load_pilot_limits,
+    resource_issues,
+)
 from .service import compare, evidence_issues
 
 configure_logging(os.environ["EVALUATION_LOG_LEVEL"])
 LOGGER = logging.getLogger("evaluation_compute")
 METHOD = "corrected_crossed_bootstrap_v1"
 HOLM_METHOD = "holm"
+PILOT_METHOD = "precision_pilot_candidate_v1"
 REQUEST_LIMIT = int(os.environ["EVALUATION_REQUEST_LIMIT_BYTES"])
 if REQUEST_LIMIT <= 0:
     raise ValueError("EVALUATION_REQUEST_LIMIT_BYTES must be positive")
@@ -101,6 +120,56 @@ async def holm(request: Request) -> HolmResponse | JSONResponse:
         extra={
             "method": result.method,
             "family_size": result.family_size,
+            "duration_ms": _duration_ms(started),
+            "response_status": 200,
+        },
+    )
+    return result
+
+
+@app.post(
+    "/v1/pilots/candidate-comparisons",
+    response_model=CandidateComparisonResponse,
+)
+async def candidate_comparison(request: Request) -> CandidateComparisonResponse | JSONResponse:
+    started = _begin(request, PILOT_METHOD)
+
+    body = await _read_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+
+    try:
+        parsed = CandidateComparisonRequest.model_validate_json(body, strict=True)
+    except ValidationError as exc:
+        if any(item["type"] == "json_invalid" for item in exc.errors()):
+            return _invalid_json(request)
+        return _error(request, 422, pilot_pydantic_error(exc))
+
+    try:
+        limits = load_pilot_limits()
+    except PilotLimitsUnavailable as exc:
+        LOGGER.error(
+            "pilot limits unavailable",
+            extra=_log_fields(request, 500, "configuration_invalid"),
+            exc_info=exc,
+        )
+        return _error(request, 500, pilot_configuration_error())
+
+    issues = resource_issues(parsed, limits)
+    if issues:
+        return _error(request, 422, pilot_validation_error(issues))
+
+    issues = pilot_issues(parsed)
+    if issues:
+        return _error(request, 422, pilot_validation_error(issues))
+
+    result = evaluate_candidate_comparison(parsed, limits)
+    LOGGER.info(
+        "pilot candidate comparison completed",
+        extra={
+            "method": result.method,
+            "candidate_position": result.candidate_position,
+            "comparison_position": result.comparison_position,
             "duration_ms": _duration_ms(started),
             "response_status": 200,
         },
@@ -191,6 +260,18 @@ async def _read_body(request: Request) -> bytes | JSONResponse:
         body.extend(chunk)
 
     return bytes(body)
+
+
+def pilot_configuration_error() -> object:
+    return pilot_error_response(
+        "compute_failed",
+        PilotIssue(
+            code="configuration_invalid",
+            path=[],
+            message="The Pilot compute limits are not configured for this deployment.",
+            details={},
+        ),
+    )
 
 
 def _invalid_json(request: Request) -> JSONResponse:

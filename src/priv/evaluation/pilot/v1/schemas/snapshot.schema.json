@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "EvidenceSnapshotInput",
+  "description": "Create document for one immutable Pilot evidence snapshot. The payload property is the stored JSONB document. Database columns own the study revision, phase, schema version, and family ID.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["study_revision_id", "phase", "schema_version", "family_id", "payload"],
+  "properties": {
+    "study_revision_id": {"$ref": "#/definitions/uuid"},
+    "phase": {"type": "string", "enum": ["pilot"]},
+    "schema_version": {"type": "integer", "enum": [1]},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "payload": {"$ref": "#/definitions/payload"}
+  },
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"type": "string", "enum": ["cvss"]},
+        "outcome": {"type": "string", "enum": ["mission_impact"]}
+      }
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "evidence_role", "comparisons", "runtime_evidence"],
+      "properties": {
+        "schema_version": {"type": "integer", "enum": [1]},
+        "evidence_role": {"type": "string", "enum": ["pilot"]},
+        "comparisons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/comparison"}
+        },
+        "runtime_evidence": {"$ref": "#/definitions/runtime_evidence"}
+      }
+    },
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "identity", "evidence", "provenance"],
+      "properties": {
+        "position": {"type": "integer", "minimum": 0},
+        "identity": {"$ref": "#/definitions/identity"},
+        "evidence": {"$ref": "#/definitions/evidence"},
+        "provenance": {"$ref": "#/definitions/provenance"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "attack_seeds", "alternative", "reference"],
+      "properties": {
+        "outcome": {"type": "string", "enum": ["mission_impact"]},
+        "attack_seeds": {
+          "type": "array",
+          "minItems": 10,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "alternative": {"$ref": "#/definitions/alternative_side"},
+        "reference": {"$ref": "#/definitions/reference_side"}
+      }
+    },
+    "alternative_side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "plans"],
+      "properties": {
+        "strategy": {"$ref": "#/definitions/identifier"},
+        "plans": {
+          "type": "array",
+          "minItems": 5,
+          "items": {"$ref": "#/definitions/plan"}
+        }
+      }
+    },
+    "reference_side": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "plans"],
+      "properties": {
+        "strategy": {"type": "string", "enum": ["cvss"]},
+        "plans": {
+          "type": "array",
+          "minItems": 5,
+          "items": {"$ref": "#/definitions/plan"}
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mission_impacts"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "mission_impacts": {
+          "type": "array",
+          "minItems": 10,
+          "items": {"type": "number"}
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "graph_revision_ids",
+        "model_revision",
+        "collection_seed",
+        "source_run_ids",
+        "environment"
+      ],
+      "properties": {
+        "graph_revision_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/identifier"}
+        },
+        "model_revision": {"$ref": "#/definitions/identifier"},
+        "collection_seed": {"type": "integer", "minimum": 0},
+        "source_run_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/identifier"}
+        },
+        "environment": {"$ref": "#/definitions/identifier"}
+      }
+    },
+    "runtime_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plan_selection_ms", "attack_trial_ms", "tier_count", "strategy_group_count"],
+      "properties": {
+        "plan_selection_ms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "number", "minimum": 0}
+        },
+        "attack_trial_ms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "number", "minimum": 0}
+        },
+        "tier_count": {"type": "integer", "minimum": 1},
+        "strategy_group_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

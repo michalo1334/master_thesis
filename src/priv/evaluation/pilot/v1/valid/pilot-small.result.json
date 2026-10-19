@@ -1,0 +1,171 @@
+{
+  "candidate_grid": {
+    "attacks_per_plan_candidates": [
+      10,
+      12
+    ],
+    "plan_count_candidates": [
+      5,
+      6
+    ]
+  },
+  "candidate_results": [
+    {
+      "attacks_per_plan": 10,
+      "candidate_position": 0,
+      "comparison_position": 0,
+      "guarded_half_width": 0.21929885621111542,
+      "informative": true,
+      "passes": false,
+      "plan_count": 5
+    },
+    {
+      "attacks_per_plan": 10,
+      "candidate_position": 0,
+      "comparison_position": 1,
+      "guarded_half_width": 0.21770374116388885,
+      "informative": true,
+      "passes": false,
+      "plan_count": 5
+    },
+    {
+      "attacks_per_plan": 12,
+      "candidate_position": 1,
+      "comparison_position": 0,
+      "guarded_half_width": 0.21845507528300487,
+      "informative": true,
+      "passes": false,
+      "plan_count": 5
+    },
+    {
+      "attacks_per_plan": 12,
+      "candidate_position": 1,
+      "comparison_position": 1,
+      "guarded_half_width": 0.21370379891441962,
+      "informative": true,
+      "passes": false,
+      "plan_count": 5
+    },
+    {
+      "attacks_per_plan": 10,
+      "candidate_position": 2,
+      "comparison_position": 0,
+      "guarded_half_width": 0.18893980009320233,
+      "informative": true,
+      "passes": true,
+      "plan_count": 6
+    },
+    {
+      "attacks_per_plan": 10,
+      "candidate_position": 2,
+      "comparison_position": 1,
+      "guarded_half_width": 0.18505254884327116,
+      "informative": true,
+      "passes": true,
+      "plan_count": 6
+    },
+    {
+      "attacks_per_plan": 12,
+      "candidate_position": 3,
+      "comparison_position": 0,
+      "guarded_half_width": 0.1859961186829653,
+      "informative": true,
+      "passes": true,
+      "plan_count": 6
+    },
+    {
+      "attacks_per_plan": 12,
+      "candidate_position": 3,
+      "comparison_position": 1,
+      "guarded_half_width": 0.18414401760335605,
+      "informative": true,
+      "passes": true,
+      "plan_count": 6
+    }
+  ],
+  "candidate_summaries": [
+    {
+      "all_comparisons_informative": true,
+      "all_comparisons_passed": false,
+      "attacks_per_plan": 10,
+      "candidate_position": 0,
+      "non_informative_comparison_positions": [],
+      "plan_count": 5,
+      "predicted_runtime_ms": 480.0,
+      "worst_guarded_half_width": 0.21929885621111542
+    },
+    {
+      "all_comparisons_informative": true,
+      "all_comparisons_passed": false,
+      "attacks_per_plan": 12,
+      "candidate_position": 1,
+      "non_informative_comparison_positions": [],
+      "plan_count": 5,
+      "predicted_runtime_ms": 560.0,
+      "worst_guarded_half_width": 0.21845507528300487
+    },
+    {
+      "all_comparisons_informative": true,
+      "all_comparisons_passed": true,
+      "attacks_per_plan": 10,
+      "candidate_position": 2,
+      "non_informative_comparison_positions": [],
+      "plan_count": 6,
+      "predicted_runtime_ms": 576.0,
+      "worst_guarded_half_width": 0.18893980009320233
+    },
+    {
+      "all_comparisons_informative": true,
+      "all_comparisons_passed": true,
+      "attacks_per_plan": 12,
+      "candidate_position": 3,
+      "non_informative_comparison_positions": [],
+      "plan_count": 6,
+      "predicted_runtime_ms": 672.0,
+      "worst_guarded_half_width": 0.1859961186829653
+    }
+  ],
+  "evidence_role": "pilot",
+  "expected_comparisons": [
+    {
+      "alternative": "simulation_informed",
+      "budget": 4,
+      "outcome": "mission_impact",
+      "reference": "cvss",
+      "tier": "core"
+    },
+    {
+      "alternative": "heuristic",
+      "budget": 6,
+      "outcome": "mission_impact",
+      "reference": "cvss",
+      "tier": "edge"
+    }
+  ],
+  "family_id": "family-example",
+  "insufficient_reason": null,
+  "method": "precision_pilot_v1",
+  "outcome": "recommended",
+  "pilot_id": "pilot-example",
+  "pilot_sampling": {
+    "outer_subsamples": 20,
+    "seed": 700001
+  },
+  "precision": {
+    "bootstrap_replicates": 200,
+    "confidence_level": 0.95,
+    "guard_quantile": 0.9,
+    "target_half_width": 0.2
+  },
+  "recommendation": {
+    "attacks_per_plan": 10,
+    "candidate_position": 2,
+    "plan_count": 6
+  },
+  "schema_version": 1,
+  "selection": {
+    "rule": "lowest_predicted_runtime"
+  },
+  "snapshot_id": "af69d2ca-ff80-43aa-9800-67f6895be64d",
+  "study_revision_id": "4f4a33c6-cc8e-4ac1-b145-18647a928e49"
+}

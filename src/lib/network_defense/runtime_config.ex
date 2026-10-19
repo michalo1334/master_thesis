@@ -48,6 +48,65 @@ defmodule NetworkDefense.RuntimeConfig do
     end
   end
 
+  @pilot_limit_variables %{
+    snapshot_payload_bytes: "EVALUATION_PILOT_MAX_SNAPSHOT_PAYLOAD_BYTES",
+    snapshot_comparisons: "EVALUATION_PILOT_MAX_SNAPSHOT_COMPARISONS",
+    comparison_count: "EVALUATION_PILOT_MAX_COMPARISONS",
+    candidate_count: "EVALUATION_PILOT_MAX_CANDIDATES",
+    plans_per_side: "EVALUATION_PILOT_MAX_PLANS_PER_SIDE",
+    attack_columns: "EVALUATION_PILOT_MAX_ATTACK_COLUMNS",
+    work_items: "EVALUATION_PILOT_MAX_WORK_ITEMS",
+    outer_subsamples: "EVALUATION_PILOT_MAX_OUTER_SUBSAMPLES",
+    bootstrap_replicates: "EVALUATION_PILOT_MAX_BOOTSTRAP_REPLICATES",
+    candidate_request_bytes: "EVALUATION_PILOT_MAX_CANDIDATE_REQUEST_BYTES"
+  }
+
+  @doc """
+  Reads the complete Stage 4 Pilot limit set from the environment.
+
+  The set is all-or-none. `:unconfigured` means no variable is set, so the
+  application starts and the Pilot paths fail with a bounded typed error.
+  `{:error, message}` means the set is partial or malformed. Nothing here
+  raises, so a Pilot configuration defect never blocks the application, the
+  Stage 2 paths, or the Stage 3 paths.
+  """
+  @spec pilot_limits() :: {:ok, keyword()} | :unconfigured | {:error, String.t()}
+  def pilot_limits do
+    values =
+      Enum.map(@pilot_limit_variables, fn {key, variable} ->
+        {key, variable, System.get_env(variable)}
+      end)
+
+    configured = Enum.reject(values, fn {_key, _variable, value} -> value in [nil, ""] end)
+
+    cond do
+      configured == [] ->
+        :unconfigured
+
+      Enum.count(configured) < Enum.count(values) ->
+        {:error, "only some Stage 4 Pilot limit variables are set; set all of them or none"}
+
+      true ->
+        parse_pilot_limits(configured)
+    end
+  end
+
+  defp parse_pilot_limits(values) do
+    Enum.reduce_while(values, {:ok, []}, fn {key, variable, value}, {:ok, acc} ->
+      case Integer.parse(value) do
+        {parsed, ""} when parsed > 0 ->
+          {:cont, {:ok, [{key, parsed} | acc]}}
+
+        _other ->
+          {:halt, {:error, "#{variable} must be a positive integer, got #{inspect(value)}"}}
+      end
+    end)
+    |> case do
+      {:ok, limits} -> {:ok, Enum.reverse(limits)}
+      error -> error
+    end
+  end
+
   @spec positive_integer_env(String.t()) :: pos_integer()
   def positive_integer_env(name) do
     name
