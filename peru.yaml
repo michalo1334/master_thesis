@@ -14,4 +14,4 @@ git module agent-lib:
   - .pi/skills/impeccable/scripts/impeccable
   - .pi/skills/impeccable/scripts/bin/linux-x64/impeccable
   - update-agent-setup
-  rev: 2d45cc00894dd8f3018a84e50dc9675ab2b045e4
+  rev: c18f6c8195f72cc2d5a4bd1ab7db2b5c9aa9917c

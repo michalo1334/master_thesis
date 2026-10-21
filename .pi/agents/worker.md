@@ -1,7 +1,7 @@
 ---
 name: worker
 description: Implements tasks from todos - writes code, runs tests, commits with polished messages
-tools: read, bash, write, edit
+tools: read, bash, write, edit, ask_user_question, todo, ctx_execute, ctx_execute_file, ctx_index, ctx_search, ctx_fetch_and_index, ctx_batch_execute, ctx_stats, ctx_doctor, ctx_upgrade, ctx_purge, ctx_insight, context_tree_query, context_prune, mcp, mcpScript
 deny-tools: claude
 model: openai/gpt-5.6-luna
 thinking: high
