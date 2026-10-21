@@ -3,7 +3,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
   use NetworkDefense.Contracts, export: false
 
   alias NetworkDefense.Evaluation.JsonBoundary
-  alias NetworkDefense.Evaluation.Pilot.CanonicalJson
   alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, SnapshotPayload}
   alias NetworkDefense.Evaluation.Pilot.{Limits, SchemaValidator, SnapshotLimits}
 
@@ -14,15 +13,12 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
   # `final` for a separately approved contract, but no Stage 4 path creates or
   # analyzes Final evidence.
   #
-  # `payload_bytes` is computed here and is never supplied by the caller.
-
   @type t :: %__MODULE__{
           study_revision_id: String.t(),
           phase: String.t(),
           schema_version: integer(),
           family_id: String.t(),
-          payload: SnapshotPayload.t(),
-          payload_bytes: pos_integer() | nil
+          payload: SnapshotPayload.t()
         }
 
   embedded_schema do
@@ -30,7 +26,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
     field :phase, :string
     field :schema_version, :integer
     field :family_id, :string
-    field :payload_bytes, :integer
     embeds_one :payload, SnapshotPayload, on_replace: :update
   end
 
@@ -42,9 +37,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
          {:ok, input} <- normalize_uuid(input),
          {:ok, limits} <- Limits.fetch(),
          {:ok, payload} <- SnapshotPayload.build(input.payload),
-         {:ok, payload_bytes} <- payload_bytes(payload),
          :ok <- SnapshotLimits.validate(payload, limits) do
-      {:ok, %{input | payload: payload, payload_bytes: payload_bytes}}
+      {:ok, %{input | payload: payload}}
     end
   end
 
@@ -88,13 +82,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
     case Ecto.UUID.cast(input.study_revision_id) do
       {:ok, uuid} -> {:ok, %{input | study_revision_id: uuid}}
       :error -> {:error, PilotError.invalid_identifier(["study_revision_id"])}
-    end
-  end
-
-  defp payload_bytes(%SnapshotPayload{} = payload) do
-    case CanonicalJson.byte_size(SnapshotPayload.to_params(payload)) do
-      {:ok, bytes} -> {:ok, bytes}
-      :error -> {:error, PilotError.invalid_json_value(["payload"])}
     end
   end
 end

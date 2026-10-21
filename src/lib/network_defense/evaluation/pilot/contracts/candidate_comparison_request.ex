@@ -5,7 +5,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonRequest d
   alias NetworkDefense.Evaluation.Comparison.Contracts.Evidence
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.JsonBoundary
-  alias NetworkDefense.Evaluation.Pilot.CanonicalJson
   alias NetworkDefense.Evaluation.Pilot.Contracts.{Candidate, PilotError}
   alias NetworkDefense.Evaluation.Pilot.{Limits, SchemaValidator}
 
@@ -134,9 +133,9 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonRequest d
   end
 
   defp encoded_size(%__MODULE__{} = request) do
-    case CanonicalJson.byte_size(to_params(request)) do
-      {:ok, bytes} -> {:ok, bytes}
-      :error -> {:error, PilotError.invalid_json_value([])}
+    with {:ok, encoded} <-
+           JsonBoundary.encode(to_params(request), &PilotError.invalid_json_value/1) do
+      {:ok, IO.iodata_length(encoded)}
     end
   end
 

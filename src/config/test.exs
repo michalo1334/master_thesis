@@ -65,6 +65,13 @@ config :network_defense, NetworkDefense.Evaluation.Pilot.Limits,
   bootstrap_replicates: 1024,
   candidate_request_bytes: 1_048_576
 
+# Synthetic test-only Final resource limits. They guard the comparison endpoint
+# used by Final, which the Pilot caps do not cover. They are not scientific
+# settings and not deployment values: Stage 5 real-study caps stay unapproved.
+config :network_defense, NetworkDefense.Evaluation.Final.Limits,
+  max_bootstrap_replicates: 1_000,
+  max_total_work: 1_000_000
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

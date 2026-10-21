@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "FinalRequest",
+  "description": "Strict versioned Final analysis request. It binds one Final evidence snapshot to one recommended Pilot result and carries explicit settings, one explicit Final seed per declared comparison, and caller assertions. It carries no evidence matrix.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_role",
+    "method",
+    "family_id",
+    "study_revision_id",
+    "snapshot_id",
+    "source_pilot_run_id",
+    "plan_count",
+    "attacks_per_plan",
+    "expected_comparisons",
+    "comparison_seeds",
+    "analysis",
+    "assertions"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "evidence_role": {"type": "string", "enum": ["final"]},
+    "method": {"type": "string", "enum": ["holm"]},
+    "family_id": {"$ref": "#/definitions/identifier"},
+    "study_revision_id": {"$ref": "#/definitions/uuid"},
+    "snapshot_id": {"$ref": "#/definitions/uuid"},
+    "source_pilot_run_id": {"type": "integer", "minimum": 1},
+    "plan_count": {"type": "integer", "minimum": 1},
+    "attacks_per_plan": {"type": "integer", "minimum": 1},
+    "expected_comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/definitions/identity"}
+    },
+    "comparison_seeds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "analysis": {"$ref": "#/definitions/analysis"},
+    "assertions": {"$ref": "#/definitions/assertions"}
+  },
+  "definitions": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "properties": {
+        "tier": {"$ref": "#/definitions/identifier"},
+        "budget": {"type": "integer", "minimum": 1},
+        "alternative": {"$ref": "#/definitions/identifier"},
+        "reference": {"type": "string", "enum": ["cvss"]},
+        "outcome": {"type": "string", "enum": ["mission_impact"]}
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["alpha", "confidence_level", "test_alternative", "bootstrap_replicates"],
+      "properties": {
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 1,
+          "exclusiveMaximum": true
+        },
+        "confidence_level": {
+          "type": "number",
+          "minimum": 0,
+          "exclusiveMinimum": true,
+          "maximum": 1,
+          "exclusiveMaximum": true
+        },
+        "test_alternative": {"type": "string", "enum": ["two_sided"]},
+        "bootstrap_replicates": {"type": "integer", "minimum": 1}
+      }
+    },
+    "assertions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "final_evidence_collected_after_pilot",
+        "pilot_observations_excluded",
+        "collection_completed_at"
+      ],
+      "properties": {
+        "final_evidence_collected_after_pilot": {"type": "boolean", "enum": [true]},
+        "pilot_observations_excluded": {"type": "boolean", "enum": [true]},
+        "collection_completed_at": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 40,
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+        }
+      }
+    }
+  }
+}

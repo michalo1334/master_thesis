@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "evidence_role": "final",
+  "method": "holm",
+  "family_id": "family-example",
+  "study_revision_id": "4f4a33c6-cc8e-4ac1-b145-18647a928e49",
+  "snapshot_id": "0f9e8d7c-6b5a-4c3d-9e2f-1a2b3c4d5e6f",
+  "source_pilot_run_id": 1,
+  "plan_count": 6,
+  "attacks_per_plan": 10,
+  "expected_comparisons": [
+    {
+      "tier": "core",
+      "budget": 4,
+      "alternative": "simulation_informed",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    },
+    {
+      "tier": "edge",
+      "budget": 6,
+      "alternative": "heuristic",
+      "reference": "cvss",
+      "outcome": "mission_impact"
+    }
+  ],
+  "comparison_seeds": [
+    5101,
+    5102
+  ],
+  "analysis": {
+    "alpha": 0.05,
+    "confidence_level": 0.95,
+    "test_alternative": "two_sided",
+    "bootstrap_replicates": 500
+  },
+  "assertions": {
+    "final_evidence_collected_after_pilot": true,
+    "pilot_observations_excluded": true,
+    "collection_completed_at": "2026-02-14T09:30:00Z"
+  }
+}

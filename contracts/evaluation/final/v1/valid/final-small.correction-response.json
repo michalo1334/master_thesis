@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "family_id": "family-example",
+  "method": "holm",
+  "alpha": 0.05,
+  "family_size": 2,
+  "results": [
+    {
+      "identity": {
+        "tier": "core",
+        "budget": 4,
+        "alternative": "simulation_informed",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 0.001996007984031936,
+      "adjusted_p_value": 0.003992015968063872,
+      "reject_null": true
+    },
+    {
+      "identity": {
+        "tier": "edge",
+        "budget": 6,
+        "alternative": "heuristic",
+        "reference": "cvss",
+        "outcome": "mission_impact"
+      },
+      "raw_p_value": 0.001996007984031936,
+      "adjusted_p_value": 0.003992015968063872,
+      "reject_null": true
+    }
+  ]
+}

@@ -16,6 +16,15 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelope do
           schema_errors: [map()]
         }
 
+  @spec body(term(), [map()], [map()], map()) :: map()
+  def body(code, issues, schema_errors, fallback_body) do
+    cond do
+      issues != [] -> %{"code" => code, "issues" => issues}
+      schema_errors != [] -> %{"code" => code, "schema_errors" => schema_errors}
+      true -> fallback_body
+    end
+  end
+
   @spec parse(term(), (term() -> :ok | {:error, term()})) ::
           {:ok, attrs()} | {:error, term()}
   def parse(value, validate) do

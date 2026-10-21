@@ -1,8 +1,6 @@
 defmodule NetworkDefense.Evaluation.Pilot.SnapshotLimits do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Pilot.CanonicalJson
-
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
     ComparisonEvidence,
     PilotError,
@@ -11,13 +9,12 @@ defmodule NetworkDefense.Evaluation.Pilot.SnapshotLimits do
 
   alias NetworkDefense.Evaluation.Pilot.Limits
 
-  # One limit check for stored evidence.
+  # Dimension checks for stored evidence.
   #
   # Creation and every read call this module with the required application
-  # limits, so one document cannot pass one path and fail the other. The check
-  # covers the canonical payload bytes, the comparison count, and the stored
-  # matrix shape: plan rows on each side and attack columns for every
-  # comparison. The check never changes or truncates the payload.
+  # limits. The check covers the comparison count and the stored matrix shape:
+  # plan rows on each side and attack columns for every comparison. The check
+  # never changes or truncates the payload.
 
   @max_issues 50
 
@@ -28,25 +25,8 @@ defmodule NetworkDefense.Evaluation.Pilot.SnapshotLimits do
 
   @spec validate(SnapshotPayload.t(), Limits.t()) :: :ok | {:error, PilotError.t()}
   def validate(%SnapshotPayload{} = payload, %Limits{} = limits) do
-    with {:ok, bytes} <- canonical_bytes(payload),
-         :ok <- within_payload_bytes(bytes, limits),
-         :ok <- within_comparison_count(payload.comparisons, limits) do
+    with :ok <- within_comparison_count(payload.comparisons, limits) do
       within_matrix_dims(payload.comparisons, limits)
-    end
-  end
-
-  defp canonical_bytes(%SnapshotPayload{} = payload) do
-    case CanonicalJson.byte_size(SnapshotPayload.to_params(payload)) do
-      {:ok, bytes} -> {:ok, bytes}
-      :error -> {:error, PilotError.changed_snapshot("The stored snapshot byte count changed.")}
-    end
-  end
-
-  defp within_payload_bytes(bytes, %Limits{} = limits) do
-    if bytes <= limits.snapshot_payload_bytes do
-      :ok
-    else
-      {:error, PilotError.request_too_large(limits.snapshot_payload_bytes, bytes)}
     end
   end
 

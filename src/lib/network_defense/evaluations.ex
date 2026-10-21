@@ -6,6 +6,8 @@ defmodule NetworkDefense.Evaluations do
   alias NetworkDefense.Evaluation.EvidenceSnapshots
   alias NetworkDefense.Evaluation.Family
   alias NetworkDefense.Evaluation.Family.Contracts.FamilyRequest
+  alias NetworkDefense.Evaluation.Final
+  alias NetworkDefense.Evaluation.Final.Contracts.{Request, SnapshotInput}
   alias NetworkDefense.Evaluation.Pilot
   alias NetworkDefense.Evaluation.Pilot.Contracts.{EvidenceSnapshotInput, PilotRequest}
 
@@ -50,4 +52,25 @@ defmodule NetworkDefense.Evaluations do
 
   def await_pilot(run_id, timeout_ms), do: Pilot.Workflow.await(run_id, timeout_ms)
   def get_pilot_result(run_id), do: Pilot.Workflow.result(run_id)
+
+  def create_final_evidence_snapshot(attrs) do
+    with {:ok, input} <- SnapshotInput.parse(attrs),
+         do: EvidenceSnapshots.create_final(input)
+  end
+
+  def get_final_evidence_snapshot(snapshot_id), do: EvidenceSnapshots.get_final(snapshot_id)
+
+  def submit_final(attrs) do
+    with {:ok, request} <- Request.parse(attrs),
+         :ok <- Final.Limits.validate(request),
+         {:ok, payload} <- Final.Binding.verify(request, limits: false),
+         :ok <- Final.Member.preflight(request, payload) do
+      request
+      |> Final.Wire.request()
+      |> Final.Workflow.submit()
+    end
+  end
+
+  def await_final(run_id, timeout_ms), do: Final.Workflow.await(run_id, timeout_ms)
+  def get_final_result(run_id), do: Final.Workflow.result(run_id)
 end

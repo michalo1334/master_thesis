@@ -1,6 +1,8 @@
 # Evaluation pipeline — implemented map
 
-**Status:** Implemented software map for Stage 2, Stage 3, and Stage 4 at commit `fefe324`. The three workflows passed a synthetic check in the local deployment on 2026-10-19. That check used synthetic evidence and development resource caps. It produced no study result. Scientific settings for a real study remain unapproved.
+**Status:** Implemented software map for Stage 2, Stage 3, and Stage 4, merged into `evaluation/rebuild` at `79b152c`. The three workflows passed a synthetic check in the local deployment on 2026-10-19. That check used synthetic evidence and development resource caps. It produced no study result. Scientific settings for a real study remain unapproved.
+
+**Runtime note:** The check is historical. The application, compute, messaging, and observability services are now stopped after an authorised cleanup. PostgreSQL, pgAdmin, their volumes, and the local networks remain. This page does not claim current deployment readiness.
 
 **Authority:** The source files and the checked-in JSON Schemas define the behavior. This page explains how to read them. Read the [preserved methodology](../concepts/evaluation-methodology.md) for the scientific rules. Read the [Stage 4 overview](evaluation-stage-4-overview.md) for the full Pilot contract.
 
@@ -334,8 +336,8 @@ Stage 4 is the only workflow with evidence outside Gust. Do not apply that desig
 Stage 4 stores evidence in the application database as one JSONB row. The implemented table is `evaluation_evidence_snapshots`.
 
 - The application exposes create and read operations only. There is no update or patch operation. Changed evidence requires a new snapshot ID.
-- Creation validates the document before the insert. Every read validates the stored payload again.
-- `payload_bytes` is the canonical byte count of the normalized payload. A read recomputes it and compares the two counts. The comparison detects a byte-count change only. It is not a content hash, and two different payloads with the same canonical size are not distinguishable.
+- Creation validates the document and enforces the configured storage-size cap immediately before the insert.
+- Reads trust the persisted PostgreSQL JSONB value. They validate its schema, metadata, relationships, and non-byte resource limits. They do not encode the payload again or infer content integrity from its encoded length.
 - Version 1 adds no database immutability trigger, hashing, chunking, paging, or JSONB index. Create and read access are an application rule, not a database enforcement rule.
 - `study_revision_id` is a required UUID. No durable study-revision table, foreign-key constraint, or migration order exists yet.
 
@@ -426,12 +428,15 @@ The following work does not exist in the software:
 - a durable study-revision entity and its foreign key;
 - a declarative pipeline definition language;
 - one full study lifecycle DAG;
-- Stage 5 approval, freeze, and fresh Final evidence checks;
-- an automatic Pilot-to-Final transition;
-- Final family analysis over collected evidence;
+- automatic Pilot-completion-to-collection orchestration;
+- automatic integration of evidence collection with Final family analysis;
 - secondary reports, dashboards, and exports.
 
+Stage 5 thin Pilot-to-Final wiring through a Final snapshot and the existing comparison/Holm engines is the exception: it is implemented in this worktree but uncommitted. It is not merged, not deployed, and not approved for real-study use. It analyzes evidence that a caller supplies, so it performs no collection and grants no study approval. See the [Stage 5 overview](evaluation-stage-5-overview.md).
+
 Existing simulation and optimization features are not the evaluation collector described here. Stage 3 corrects a synthetic family. It is not Final evidence approval. The [methodology](../concepts/evaluation-methodology.md) states which scientific steps a future stage must still add.
+
+The full study lifecycle stays a design draft with no implementation, and no detailed contract is approved. Collection, lifecycle approval, a study language, deployment, and the real-study authorization, settings, seeds, and caps remain unimplemented or unapproved.
 
 ## See also
 
@@ -441,3 +446,5 @@ Existing simulation and optimization features are not the evaluation collector d
 - [Stage 3 design](evaluation-stage-3-design.md)
 - [Stage 4 overview](evaluation-stage-4-overview.md)
 - [Stage integration proposal](evaluation-stage-integration.md)
+- [Stage 5 overview](evaluation-stage-5-overview.md) (thin adapter implemented in this worktree, uncommitted)
+- [Full study pipeline overview](evaluation-study-pipeline-overview.md) (design draft, unimplemented)

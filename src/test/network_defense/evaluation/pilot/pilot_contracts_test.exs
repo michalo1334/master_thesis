@@ -1,8 +1,6 @@
 defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
   use ExUnit.Case, async: false
 
-  alias NetworkDefense.Evaluation.Pilot.CanonicalJson
-
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
     CandidateComparisonRequest,
     CandidateComparisonResult,
@@ -28,7 +26,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
   end
 
   describe "PILOT-01: valid snapshot document" do
-    test "parses every comparison and computes the canonical byte count" do
+    test "parses every comparison without adding persistence fields" do
       input = PilotConformance.snapshot_input!()
 
       assert input.phase == "pilot"
@@ -37,11 +35,11 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
       assert Enum.count(input.payload.comparisons) == 2
       assert input.payload.evidence_role == "pilot"
 
-      assert {:ok, bytes} =
-               CanonicalJson.byte_size(SnapshotPayload.to_params(input.payload))
-
-      assert input.payload_bytes == bytes
-      assert bytes > 0
+      assert input
+             |> Map.from_struct()
+             |> Map.keys()
+             |> Enum.sort() ==
+               Enum.sort([:study_revision_id, :phase, :schema_version, :family_id, :payload])
     end
 
     test "the stored result parses against the same request and payload" do
@@ -88,8 +86,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
         phase: :pilot,
         schema_version: 1,
         family_id: request.family_id,
-        payload: SnapshotPayload.to_params(input.payload),
-        payload_bytes: input.payload_bytes
+        payload: SnapshotPayload.to_params(input.payload)
       }
 
       assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
@@ -230,11 +227,10 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
       assert issue["code"] == "configuration_invalid"
     end
 
-    test "the snapshot payload limit rejects an oversize document without truncation" do
+    test "the storage byte limit is not part of snapshot parsing" do
       put_limits(snapshot_payload_bytes: 10)
 
-      assert {:error, %PilotError{code: "request_too_large"}} =
-               PilotConformance.snapshot_input()
+      assert {:ok, %EvidenceSnapshotInput{}} = PilotConformance.snapshot_input()
     end
 
     test "the snapshot comparison limit rejects an oversize document" do

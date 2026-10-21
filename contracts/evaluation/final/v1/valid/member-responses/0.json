@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "method": "corrected_crossed_bootstrap_v1",
+  "estimate": {
+    "contrast": "alternative_minus_reference",
+    "value": -2.021333333333333
+  },
+  "interval": {
+    "confidence_level": 0.95,
+    "lower": -2.2100527780737935,
+    "upper": -1.8090204698424375
+  },
+  "test": {
+    "method": "centered_crossed_bootstrap",
+    "alternative": "two_sided",
+    "raw_p_value": 0.001996007984031936
+  },
+  "assessment": {
+    "status": "informative",
+    "warnings": []
+  }
+}

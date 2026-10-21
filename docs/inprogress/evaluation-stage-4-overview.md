@@ -1,6 +1,8 @@
 # Evaluation Stage 4 overview: choose Pilot sample sizes
 
-**Status:** Approved evidence-storage boundary, implemented. The Stage 4 implementation is committed at `fefe324` (`Add Stage 4 Precision Pilot evaluation`) and its automated checks pass. The approved local deployment holds the implementation and passed a synthetic Pilot check. No Pilot collection, Final work, or real study is authorized. The [implemented evaluation pipeline](evaluation-pipeline.md) is the current software map. The [vocabulary](../concepts/vocabulary.md#precision-pilot) defines the Pilot terms.
+**Status:** Approved evidence-storage boundary, implemented and merged. The Stage 4 implementation is merged into `evaluation/rebuild`; its source commit is `fefe324` (`Add Stage 4 Precision Pilot evaluation`). Its automated checks pass. The approved local deployment held the implementation and passed a synthetic Pilot check. No Pilot collection, Final work, or real study is authorized. The [implemented evaluation pipeline](evaluation-pipeline.md) is the current software map. The [vocabulary](../concepts/vocabulary.md#precision-pilot) defines the Pilot terms.
+
+**Runtime note:** The deployment check is historical. The application, compute, messaging, and observability services are now stopped after an authorised cleanup. PostgreSQL, pgAdmin, their volumes, and the local networks remain. This page does not claim current deployment readiness.
 
 This overview records the accepted Stage 4 contract and the reasons for it. It does not replace the source files, the checked-in JSON Schemas, or the tests.
 
@@ -37,7 +39,7 @@ Stage 2 comparison values and the Stage 3 Holm family path were unchanged. The c
 
 **Insufficiency.** Version 1 reports one insufficient reason: `no_passing_candidate`. Each candidate summary keeps `non_informative_comparison_positions`.
 
-**Snapshot scope.** Version 1 creates and analyzes Pilot evidence only. The database enum reserves `final`. No public Stage 4 path creates or analyzes Final evidence. The snapshot input and payload carry `phase` and `evidence_role`. Both must be `pilot`. A read rejects any other pair, including a database row that reserves `final` while it holds a Pilot payload.
+**Snapshot scope.** Version 1 creates and analyzes Pilot evidence only. The existing snapshot phase constraint reserves `final`. No public Stage 4 path creates or analyzes Final evidence. The snapshot input and payload carry `phase` and `evidence_role`. Both must be `pilot`. A read rejects any other pair, including a database row that reserves `final` while it holds a Pilot payload.
 
 ## Scientific method
 
@@ -111,72 +113,17 @@ The conceptual table is:
 | `schema_version` | Snapshot contract version |
 | `family_id` | Required family identifier |
 | `payload` | Validated JSONB snapshot |
-| `payload_bytes` | Size of normalized JSON payload |
 | `inserted_at` | Creation time |
 
-`payload_bytes` is calculated from the canonical encoding. There is no `updated_at`. The application owns the row and has create/read operations only. The column is implemented as a UUID without a foreign key. The foreign key and its migration order are unapproved. A real Pilot cannot proceed without a durable revision reference.
+There is no `updated_at`. The application owns the row and has create/read operations only. The revision identifier is a UUID without a foreign key. The foreign key and its migration order are unapproved. A real Pilot cannot proceed without a durable revision reference.
 
 ### Ecto persistence interface
 
-The implemented interface has this shape. The excerpt is illustrative; the modules are authoritative.
+The snapshot schema and persistence module define the interface. Creation parses the full contract, encodes the normalized payload with Jason, and enforces the storage-size cap immediately before `Repo.insert/2`. An encoding failure becomes the role-specific validation error. The insert writes one complete row.
 
-```elixir
-defmodule NetworkDefense.Evaluation.EvidenceSnapshot do
-  use Ecto.Schema
+A read trusts the JSONB value that PostgreSQL returns. It parses the stored contract and validates the phase, evidence role, schema version, identifiers, relationships, ordering, dimensions, and other non-byte resource caps. It does not encode the payload again. Encoded length is not an integrity signal or a change detector.
 
-  @primary_key {:id, :binary_id, autogenerate: true}
-  schema "evaluation_evidence_snapshots" do
-    field :study_revision_id, :binary_id
-    field :phase, Ecto.Enum, values: [:pilot, :final]
-    field :schema_version, :integer
-    field :family_id, :string
-    field :payload, :map
-    field :payload_bytes, :integer
-    timestamps(updated_at: false, type: :utc_datetime_usec)
-  end
-
-  def create_changeset(snapshot, attrs) do
-    snapshot
-    |> Ecto.Changeset.cast(attrs, [
-      :study_revision_id,
-      :phase,
-      :schema_version,
-      :family_id,
-      :payload,
-      :payload_bytes
-    ])
-    |> Ecto.Changeset.validate_required([
-      :study_revision_id,
-      :phase,
-      :schema_version,
-      :family_id,
-      :payload,
-      :payload_bytes
-    ])
-    |> validate_snapshot_payload()
-  end
-end
-
-defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
-  alias NetworkDefense.Evaluation.EvidenceSnapshot
-  alias NetworkDefense.Repo
-
-  def create(attrs) do
-    %EvidenceSnapshot{}
-    |> EvidenceSnapshot.create_changeset(with_normalized_size(attrs))
-    |> Repo.insert()
-  end
-
-  def get(id) do
-    case Repo.get(EvidenceSnapshot, id) do
-      nil -> {:error, EvidenceSnapshotError.not_found()}
-      snapshot -> validate_read_payload(snapshot)
-    end
-  end
-end
-```
-
-The application calculates `payload_bytes`; a caller cannot supply a different value. The canonical encoding is implemented and versioned with schema version 1. It encodes UTF-8 JSON without insignificant whitespace, sorts object keys recursively, and preserves array order. Integers use plain decimal text. Floats use the shortest round-trip form. A string key or value uses standard JSON string escaping. The same encoder runs on insert and on every read, because PostgreSQL JSONB does not preserve source key order. Real-study limit values and study declarations remain unapproved. There is no update changeset, update function, or JSONB patch function.
+Real-study limit values and study declarations remain unapproved. There is no update changeset, update function, JSONB patch function, content hash, or database update-prevention trigger.
 
 ## Snapshot payload
 
@@ -659,15 +606,16 @@ Errors use the current versioned, bounded envelope. Issues have stable codes, pa
 
 Elixir owns public parsing, snapshot persistence, snapshot read-back validation, bounded request construction, response validation, result assembly, and Gust orchestration. Gust owns scheduling, retries, run state, task state, errors, and compact persisted task results. Python owns only the synchronous numerical calculation. The local deployment forwards the caps as container environment variables. No Terraform interface describes a scientific setting.
 
-On snapshot insert and read, the application validates:
+Before a snapshot insert, the application validates:
 
 - schema version and evidence role;
-- normalized `payload_bytes`;
 - consecutive comparison positions and unique identities;
 - exact Stage 2 evidence shapes and matrix dimensions;
 - identity-to-evidence equality;
 - finite values and bounded provenance; and
-- the declared maximum payload size.
+- the configured storage-size cap.
+
+On a snapshot read, the application repeats the contract, metadata, relationship, ordering, and non-byte dimension checks. It does not recompute the encoded size.
 
 For a Pilot submission, the application also requires `phase = pilot`. It checks the root request's `study_revision_id`, `family_id`, `snapshot_id`, and ordered `expected_comparisons` against the stored row and payload. The payload does not duplicate the database IDs.
 
@@ -745,8 +693,8 @@ The first candidate fails because `0.74` is greater than `0.50`. The other three
 
 ## Exclusions and stop point
 
-Stage 4 does not include graph generation, optimizer or topology/runtime pilots, live simulation collection, Final family or evidence selection, Pilot-to-Final approval, configuration freeze, Final analysis, Holm correction of Final results, secondary reports, dashboard work, or further infrastructure deployment beyond the approved local synthetic check.
+Stage 4 does not include graph generation, optimizer or topology/runtime pilots, live simulation collection, Final evidence collection, Final family wiring, Final analysis, Holm correction of Final results, secondary reports, dashboard work, or further infrastructure deployment beyond the historical local synthetic check. See the [Stage 5 overview](evaluation-stage-5-overview.md) for the separate Pilot-to-Final wiring boundary, which is implemented but uncommitted in this worktree.
 
-Stage 4 stops after one checked recommendation is saved and read back from Gust. It does not authorize Final work. Stage 5 is separate.
+Stage 4 stops after one checked recommendation is saved and read back from Gust. It does not authorize Final work. Stage 5 is separate: its thin adapter is implemented but uncommitted in this worktree. The [full study pipeline overview](evaluation-study-pipeline-overview.md) remains an unimplemented design draft.
 
 The [implemented evaluation pipeline](evaluation-pipeline.md) shows how this workflow relates to Stage 2, Stage 3, and the application boundary. The [Stage integration proposal](evaluation-stage-integration.md) records an earlier proposal for one lifecycle DAG; the implemented software does not use it.

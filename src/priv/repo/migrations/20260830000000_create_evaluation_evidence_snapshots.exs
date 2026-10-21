@@ -9,7 +9,6 @@ defmodule NetworkDefense.Repo.Migrations.CreateEvaluationEvidenceSnapshots do
       add :schema_version, :integer, null: false
       add :family_id, :string, null: false
       add :payload, :map, null: false
-      add :payload_bytes, :integer, null: false
 
       timestamps(updated_at: false, type: :utc_datetime_usec)
     end
@@ -22,12 +21,6 @@ defmodule NetworkDefense.Repo.Migrations.CreateEvaluationEvidenceSnapshots do
              :evaluation_evidence_snapshots,
              :evaluation_evidence_snapshots_schema_version_valid,
              check: "schema_version = 1"
-           )
-
-    create constraint(
-             :evaluation_evidence_snapshots,
-             :evaluation_evidence_snapshots_payload_bytes_positive,
-             check: "payload_bytes > 0"
            )
 
     create index(:evaluation_evidence_snapshots, [:study_revision_id, :family_id, :phase])

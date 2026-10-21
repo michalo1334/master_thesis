@@ -7,21 +7,23 @@
 | Stage 1 — remove the legacy subsystem | Done. See [the Stage 1 handoff](evaluation-stage-1-handoff.md). Do not restore the subsystem. |
 | Stage 2 — one crossed comparison | Implemented, deployed locally, accepted. See [the Stage 2 handoff](evaluation-stage-2-handoff.md). |
 | Stage 3 — complete-family Holm correction | Implemented, accepted. See [the Stage 3 design](evaluation-stage-3-design.md). |
-| Stage 4 — Precision Pilot | Implemented and committed. The approved local deployment passed a synthetic Pilot check. See [the Stage 4 overview](evaluation-stage-4-overview.md). |
-| Stage 5 — Final freeze and approval | No implementation and no approved detailed contract in this branch. Early design material exists outside it. |
+| Stage 4 — Precision Pilot | Implemented, accepted, and merged into `evaluation/rebuild`. The approved local deployment passed a synthetic Pilot check. See [the Stage 4 overview](evaluation-stage-4-overview.md). |
+| Stage 5 — Pilot-to-Final wiring | Implemented as an uncommitted worktree change. The [Stage 5 overview](evaluation-stage-5-overview.md) describes Final snapshot loading, request adaptation, and reuse of the existing comparison/Holm engines. It is not committed, not merged, and not an approved detailed contract for a real study. |
 
-The [implemented evaluation pipeline](evaluation-pipeline.md) is the current map of the evaluation software. The tests and deployed checks use synthetic evidence. Scientific settings for a real study remain unapproved, and no study evidence exists.
+The [implemented evaluation pipeline](evaluation-pipeline.md) is the current map of the evaluation software. The Stage 2, Stage 3, and Stage 4 statistical primitives exist. The full Final study lifecycle and the evidence collector do not. The tests and deployed checks use synthetic evidence. Scientific settings for a real study remain unapproved, and no study evidence exists.
+
+The deployment check is historical. The application, compute, messaging, and observability services are now stopped after an authorised cleanup. PostgreSQL, pgAdmin, their volumes, and the local networks remain. Do not read the historical deployment records as a current runtime claim.
 
 Do not perform another Terraform apply or any destroy without new explicit approval. Do not define later stages or create a speculative backlog.
 
-**The sections below are the historical Stage 2 brief.** They record the Stage 2 workspace, scope, acceptance criteria, and Terraform apply. Stage 3 ran in the `/home/michalo/master_thesis-stage3` worktree and is merged into `evaluation/rebuild`. Stage 4 ran in the `/home/michalo/master_thesis-stage4` worktree and is committed only on `evaluation/stage-4-implementation`; it is not merged. Do not read the Stage 2 scope as a statement about Stage 3 or Stage 4.
+**The sections below are the historical Stage 2 brief.** They record the Stage 2 workspace, scope, acceptance criteria, and Terraform apply. Stage 3 ran in the `/home/michalo/master_thesis-stage3` worktree and is merged into `evaluation/rebuild`. Stage 4 ran in the `/home/michalo/master_thesis-stage4` worktree and is merged into `evaluation/rebuild`. Do not read the Stage 2 scope as a statement about Stage 3 or Stage 4.
 
 ## Shared workspace and ownership (historical Stage 2)
 
 - Worktree: `/home/michalo/master_thesis-evaluation-rebuild`
 - Branch: `evaluation/rebuild`
 - Implementation baseline: `9a359c5ee7fc48be9642e52d1364508bc4455717`
-- Later worktrees: `/home/michalo/master_thesis-stage3` (merged) and `/home/michalo/master_thesis-stage4` (branch `evaluation/stage-4-implementation`, not merged)
+- Later worktrees: `/home/michalo/master_thesis-stage3` and `/home/michalo/master_thesis-stage4` (both merged into `evaluation/rebuild`)
 - Lead: intent, scientific interpretation, scope, and acceptance.
 - Interactive Sol agent: implementation, tests, and checks. The user can direct it in its pane.
 
@@ -72,7 +74,7 @@ Keep graph, simulation, and optimization behavior intact. Those features must no
 ## Excluded scope for Stage 2 (historical)
 
 - Live evaluation collection, graph/model preparation, or optimizer/topology pilots.
-- Study/specification management, precision Pilot, Final collection, or manual-gate workflows. Stage 4 later implemented the Pilot. Stage 5 has no implementation in this branch.
+- Study/specification management, precision Pilot, Final collection, or manual-gate workflows. Stage 4 later implemented the Pilot. Stage 5 later gained a thin wiring, which is implemented but uncommitted in this worktree.
 - Complete-family correction, secondary reports, or dashboard/UI work.
 - Archive, ZIP, CSV, result-import, or binary download compatibility.
 - A general configuration framework, generic operation service, or Python orchestration.

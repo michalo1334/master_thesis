@@ -7,8 +7,14 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
 
   alias NetworkDefense.Evaluation.EvidenceSnapshot
   alias NetworkDefense.Evaluation.EvidenceSnapshots
-  alias NetworkDefense.Evaluation.Pilot.CanonicalJson
-  alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, PilotRequest, SnapshotPayload}
+
+  alias NetworkDefense.Evaluation.Pilot.Contracts.{
+    EvidenceSnapshotInput,
+    PilotError,
+    PilotRequest,
+    SnapshotPayload
+  }
+
   alias NetworkDefense.Evaluation.Pilot.Limits
   alias NetworkDefense.Evaluation.PilotConformance
   alias NetworkDefense.Evaluations
@@ -19,31 +25,21 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     assert snapshot.phase == :pilot
     assert snapshot.schema_version == 1
     assert snapshot.family_id == "family-example"
-    assert snapshot.payload_bytes > 0
 
     assert {:ok, loaded} = Evaluations.get_evidence_snapshot(snapshot.id)
     assert loaded.id == snapshot.id
 
     assert {:ok, ^loaded, payload} = EvidenceSnapshots.load(snapshot.id)
     assert Enum.count(payload.comparisons) == 2
-
-    assert {:ok, bytes} = CanonicalJson.byte_size(SnapshotPayload.to_params(payload))
-    assert bytes == loaded.payload_bytes
   end
 
-  test "PERSIST-02: a stored payload with a changed byte count is rejected" do
+  test "PERSIST-02: reads do not apply the create-time storage byte limit" do
     {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    with_limit(:snapshot_payload_bytes, 1)
 
-    tampered =
-      snapshot.payload
-      |> put_in(["runtime_evidence", "plan_selection_ms"], [40.0, 40.0, 40.0])
-
-    Repo.update_all(from(s in EvidenceSnapshot, where: s.id == ^snapshot.id),
-      set: [payload: tampered]
-    )
-
-    assert {:error, %PilotError{issues: [issue]}} = EvidenceSnapshots.load(snapshot.id)
-    assert issue["code"] == "changed_snapshot"
+    assert {:ok, loaded} = Evaluations.get_evidence_snapshot(snapshot.id)
+    assert loaded.id == snapshot.id
+    assert {:ok, ^loaded, %SnapshotPayload{}} = EvidenceSnapshots.load(snapshot.id)
   end
 
   test "PERSIST-03: an unknown snapshot is reported as missing" do
@@ -56,7 +52,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     assert issue["code"] == "snapshot_not_found"
   end
 
-  test "PERSIST-04: the database may reserve a final row but no read path accepts it" do
+  test "PERSIST-04: the Pilot read path rejects a Final row" do
     {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
 
     attrs = %{
@@ -64,8 +60,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
       phase: :final,
       schema_version: 1,
       family_id: snapshot.family_id,
-      payload: snapshot.payload,
-      payload_bytes: snapshot.payload_bytes
+      payload: snapshot.payload
     }
 
     {:ok, final_snapshot} =
@@ -88,15 +83,13 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
   test "PERSIST-04b: a Pilot row with a final evidence role is rejected on read" do
     {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
     final_payload = Map.put(snapshot.payload, "evidence_role", "final")
-    {:ok, payload_bytes} = CanonicalJson.byte_size(final_payload)
 
     attrs = %{
       study_revision_id: snapshot.study_revision_id,
       phase: :pilot,
       schema_version: 1,
       family_id: snapshot.family_id,
-      payload: final_payload,
-      payload_bytes: payload_bytes
+      payload: final_payload
     }
 
     {:ok, final_role_snapshot} =
@@ -114,22 +107,43 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     assert Repo.aggregate(EvidenceSnapshot, :count) == count
   end
 
-  test "PERSIST-06: a snapshot that exceeds the configured payload limit is rejected whole" do
-    original = Application.get_env(:network_defense, Limits)
-
-    Application.put_env(
-      :network_defense,
-      Limits,
-      Keyword.put(original, :snapshot_payload_bytes, 10)
-    )
-
-    on_exit(fn -> Application.put_env(:network_defense, Limits, original) end)
-
+  test "PERSIST-06: create accepts below and at the storage byte limit and rejects above it" do
+    attrs = PilotConformance.snapshot()
+    bytes = stored_payload_size(attrs)
     count = Repo.aggregate(EvidenceSnapshot, :count)
 
-    assert {:error, %PilotError{code: "request_too_large"}} =
-             Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    with_limit(:snapshot_payload_bytes, bytes + 1)
+    assert {:ok, _snapshot} = Evaluations.create_evidence_snapshot(attrs)
+    assert Repo.aggregate(EvidenceSnapshot, :count) == count + 1
 
+    with_limit(:snapshot_payload_bytes, bytes)
+    assert {:ok, _snapshot} = Evaluations.create_evidence_snapshot(attrs)
+    assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
+
+    with_limit(:snapshot_payload_bytes, bytes - 1)
+    assert {:ok, %EvidenceSnapshotInput{}} = EvidenceSnapshotInput.parse(attrs)
+
+    assert {:error, %PilotError{code: "request_too_large", issues: [issue]}} =
+             Evaluations.create_evidence_snapshot(attrs)
+
+    assert issue["details"] == %{"limit_bytes" => bytes - 1, "actual_bytes" => bytes}
+    assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
+  end
+
+  test "PERSIST-06b: a non-JSON snapshot value is rejected before insert" do
+    count = Repo.aggregate(EvidenceSnapshot, :count)
+
+    attrs =
+      put_in(
+        PilotConformance.snapshot(),
+        ["payload", "runtime_evidence", "plan_selection_ms"],
+        [:not_json]
+      )
+
+    assert {:error, %PilotError{code: "validation_failed", issues: [issue]}} =
+             Evaluations.create_evidence_snapshot(attrs)
+
+    assert issue["code"] == "invalid_type"
     assert Repo.aggregate(EvidenceSnapshot, :count) == count
   end
 
@@ -146,7 +160,6 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
       |> put_in(["candidate_grid", "attacks_per_plan_candidates"], [10])
 
     cases = [
-      {:snapshot_payload_bytes, 1, "request_too_large", request},
       {:snapshot_comparisons, 1, "validation_failed", request},
       {:plans_per_side, 5, "validation_failed", narrow},
       {:attack_columns, 10, "validation_failed", narrow}
@@ -252,6 +265,12 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     original = Application.get_env(:network_defense, Limits)
     Application.put_env(:network_defense, Limits, Keyword.put(original, limit, value))
     on_exit(fn -> Application.put_env(:network_defense, Limits, original) end)
+  end
+
+  defp stored_payload_size(attrs) do
+    assert {:ok, input} = EvidenceSnapshotInput.parse(attrs)
+    assert {:ok, encoded} = Jason.encode_to_iodata(SnapshotPayload.to_params(input.payload))
+    IO.iodata_length(encoded)
   end
 
   defp snapshot_with_plan_rows(alternative_rows, reference_rows) do
