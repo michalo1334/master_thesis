@@ -1,12 +1,5 @@
 {
   "mcpServers": {
-    "formloop": {
-      "command": "bash",
-      "args": [".pi/formloop/launch", "mcp"],
-      "requestTimeoutMs": 1860000,
-      "directTools": false,
-      "description": "Create local forms for structured human input. Open returned localhost URLs in your browser. Forms and submissions are held in memory."
-    },
     "blender-mcp": {
       "command": "uvx",
       "args": ["--python", "3.11", "blender-mcp"],
@@ -43,6 +36,22 @@
       },
       "requestTimeoutMs": 120000,
       "directTools": false
+    },
+    "ssh-mcp": {
+      "command": "npx",
+      "args": ["ssh-mcp", "--config=.pi/ssh-mcp/config.toml"],
+      "requestTimeoutMs": 120000,
+      "directTools": false,
+      "description": "Controlled SSH access to remote hosts (security-first, approval-gated)"
+    },
+    "docs-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@arabold/docs-mcp-server@latest"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
     }
+  },
+  "settings": {
+    "scriptMode": true
   }
 }
