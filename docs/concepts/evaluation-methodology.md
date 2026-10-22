@@ -14,6 +14,18 @@ The method has four main parts:
 A change to the estimand, sampling units, reference strategy, or correction
 family is a method change and needs an explicit justification.
 
+## Running example
+
+The callouts follow one fictional comparison from a 36-comparison family:
+
+- medium tier;
+- budget of three actions;
+- topology-driven policy segmentation;
+- CVSS reference; and
+- mission-impact outcome.
+
+The numbers illustrate how data moves through the method.
+
 ## 1. Research scope and model
 
 The study examines how controlled topology growth affects:
@@ -47,6 +59,10 @@ Mission impact is the weighted sum of disrupted mission capabilities. The
 model's support thresholds and required flows determine capability status. The
 evaluation uses these weights and rules unchanged.
 
+> **Worked example — model.** Freeze the medium graph, attacker entry, mission
+> weights, reachability policy, and budget definition. Change the defense
+> strategy for the comparison.
+
 ## 2. Treatments, reference, and controls
 
 The primary family compares four alternatives with CVSS prioritization.
@@ -66,6 +82,10 @@ outcome. Mission impact is the primary outcome. Direct comparisons between two
 alternative strategies belong to exploratory analysis.
 
 Here, budget means the number of defense actions in a plan.
+
+> **Worked example — treatment.** The comparison identity is medium tier,
+> budget three, topology-driven policy segmentation, CVSS reference, and
+> mission-impact outcome. Each strategy uses a budget of three defense actions.
 
 ## 3. Replication units and evidence alignment
 
@@ -95,6 +115,22 @@ and preserve the matrix structure.
 Before inference, validate the strategy and budget matrix, sample counts,
 selection seeds, and attack-column alignment. A strategy can use an allowed
 subset of the declared selection seeds.
+
+**Worked example — aligned matrices.** Each Final matrix has eight plan rows and
+twelve shared attack columns. This table abbreviates the middle rows and
+columns:
+
+| Side         | Plan | Seed 101 | Seed 102 | …   | Seed 112 |
+| ------------ | ---- | -------- | -------- | --- | -------- |
+| Segmentation | A1   | 2        | 3        | …   | 1        |
+| Segmentation | A2   | 3        | 2        | …   | 2        |
+| Segmentation | A8   | 2        | 2        | …   | 1        |
+| CVSS         | C1   | 4        | 5        | …   | 3        |
+| CVSS         | C2   | 5        | 4        | …   | 4        |
+| CVSS         | C8   | 3        | 5        | …   | 4        |
+
+Seed 101 names the same attack column on both sides. The plan rows remain
+independent.
 
 ## 4. Primary estimand and interval
 
@@ -164,6 +200,12 @@ A comparison is non-informative when the effect and both interval limits are
 numerically zero. Assign a raw p-value of one. A zero-width interval with a
 nonzero effect receives a degeneracy warning.
 
+> **Worked example — effect.** Suppose the full segmentation matrix has mean
+> `2.4` and the CVSS matrix has mean `4.1`. Then
+> $\widehat{\Delta}=2.4-4.1=-1.7$, so segmentation has lower mission impact. A
+> corrected interval could be `[-2.3, -1.0]`. With 999 centered draws and 11 at
+> least as extreme as the estimate, $p_{\mathrm{raw}}=(1+11)/(999+1)=0.012$.
+
 ## 5. Complete-family multiplicity correction
 
 Holm correction limits the chance of at least one false rejection across the
@@ -187,6 +229,10 @@ require a separate method.
 
 Controls, secondary outcomes, and exploratory comparisons enter the primary
 family when the study definition declares them as members.
+
+> **Worked example — family.** The comparison joins the other 35 declared rows.
+> Holm correction starts after all 36 raw p-values are available and adjusts the
+> example's `0.012` in relation to that complete set.
 
 ## 6. Precision Pilot
 
@@ -268,6 +314,11 @@ The override carries these risks:
 Evidence separation, matrix alignment, family membership, and Holm correction
 remain in force.
 
+> **Worked example — Pilot.** Candidate `c1 = (5 plans, 10 attacks)` has a worst
+> guarded half-width of `1.3`, above the `1.0` target. Candidate
+> `c2 = (8 plans, 12 attacks)` has `0.8`, and every comparison is informative.
+> The Pilot recommends `c2`.
+
 ## 7. Pilot/Final separation and scientific freeze
 
 Pilot selects sample counts. Final uses fresh evidence collected after that
@@ -305,6 +356,10 @@ A change to a frozen scientific input creates a new study revision and preserves
 the measured evidence. The pause makes the sample-size decision explicit and
 keeps Pilot and Final evidence separate.
 
+> **Worked example — phase separation.** After the pause, collect new Final
+> matrices with eight plan rows, twelve attack columns, and Final seed sets. The
+> matrices above represent these newly collected outcomes.
+
 ## 8. Warm-up and timing replicas
 
 For each tier, use one excluded warm-up and five accepted measured replicas.
@@ -321,6 +376,10 @@ Accept a replica when its scientific configuration, graph, and selected plans
 match. Also require matching attack outcomes, capability outcomes, pre-attack
 flow status, host compromises, and non-timing summaries. Run identifiers and
 timing values can differ.
+
+> **Worked example — timing.** Exclude one warm-up. Five measured replicas take
+> `39`, `41`, `42`, `44`, and `47` seconds. Report a median of `42` seconds and a
+> range of `39–47` seconds.
 
 ## 9. Secondary and descriptive results
 
@@ -339,6 +398,10 @@ differences. Adding its p-values to the primary Holm family requires a declared
 method change.
 
 A feasibility-policy comparison keeps all other model settings matched.
+
+> **Worked example — secondary results.** Report blast radius, host compromise,
+> and runtime beside the mission-impact result. Their scientific roles stay
+> separate from the primary effect.
 
 ## 10. Reproducibility and limits
 
@@ -380,3 +443,8 @@ environment.
 The study definition supplies every optimizer setting, topology setting,
 numerical tolerance, and random-generator dependency that can change a result.
 Treat a missing value as a validation error.
+
+> **Worked example — reproducibility.** Record the comparison identity, graph
+> revision, candidate `c2`, Pilot and Final seed schedules, selected plans,
+> outcomes, resampling settings, software versions, and measured environment.
+> These values reconstruct the example run.
