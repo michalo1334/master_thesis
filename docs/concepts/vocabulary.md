@@ -1,159 +1,216 @@
 # Vocabulary
 
-Terms shared across the documentation. Use them consistently in the documentation and the thesis. Definitions are
-concise. Each term's model page states its precise semantics.
-
-For the scientific rules, read the [evaluation methodology](evaluation-methodology.md). For the implemented software, read
-the [evaluation pipeline](../inprogress/evaluation-pipeline.md).
+This page defines the main terms for the network model, simulation, evaluation,
+and study workflow. Use one term for one meaning. The
+[evaluation methodology](evaluation-methodology.md) gives the statistical rules
+and formulas.
 
 ## Graph
 
-- **Graph**: A network context model of nodes and edges. It has an immutable
-  revision history.
-- **Graph revision**: One immutable snapshot of a graph.
-- **Optimized graph revision**: The new graph revision an optimization run
-  creates after it applies its selected defense actions.
+- **Graph:** A network context model made of typed nodes and directed
+  relationships.
+- **Graph revision:** One immutable version of a graph.
+- **Optimized graph revision:** A graph revision that contains the defense
+  actions selected by an optimization run.
 
 ## Simulation
 
-- **Simulation**: A Monte Carlo experiment on one graph revision.
-- **Experiment**: The persisted record of one simulation and its trials.
-- **Trial**: One independent attacker trajectory in a simulation.
-- **Iteration**: One attacker action step within a trial.
-- **Simulation seed**: The deterministic random input for a simulation. Each trial derives its own seed from the
-  simulation seed. This term covers simulation only. Evaluation workflows use the seed terms below.
-- **Baseline simulation**: The simulation on the source graph revision before
-  defense.
-- **Blast radius**: The number of foothold hosts at the end of a trial,
-  including the initial foothold.
-- **Mission impact**: The weighted impact of mission capabilities disrupted at
-  the end of a trial.
-- **Modeled pre-attack mission disruption**: Required-flow or mission-support
-  loss caused by a defense plan before attacker footholds are applied.
+- **Simulation:** A Monte Carlo experiment on one graph revision.
+- **Experiment:** The saved record of one simulation and its trials.
+- **Trial:** One attacker trajectory in a simulation.
+- **Iteration:** One attacker action step in a trial.
+- **Simulation seed:** The deterministic random input for one simulation. Each
+  trial derives its own seed from this value.
+- **Baseline simulation:** A simulation on the source graph before defense
+  actions are applied.
+- **Blast radius:** The number of foothold hosts at the end of a trial. It
+  includes the initial foothold.
+- **Mission impact:** The sum of the impact weights of mission capabilities that
+  are disrupted at the end of a trial.
+- **Modeled pre-attack mission disruption:** Loss of required flow or mission
+  support caused by a defense plan before attacker footholds are applied.
 
 ## Optimization
 
-- **Defense action**: One change selected to reduce modeled attack impact.
-- **Strategy**: The method that selects defense actions under a budget.
-- **Plan**: The actions selected by one strategy for one budget and selection
-  seed.
-- **Budget**: The maximum number of defense actions an optimization run may
-  apply. Equal budgets compare action counts, not money, effort, deployment
-  complexity, or operational risk.
-- **Null strategy**: A descriptive no-defense control.
-- **Pre-attack feasibility**: The condition where each mission capability is
-  operational before attacker footholds are applied.
+- **Defense action:** One graph change that is selected to reduce modeled attack
+  impact.
+- **Strategy:** A method that selects defense actions under a budget.
+- **Plan:** The actions selected for one strategy, budget, and selection seed.
+- **Budget:** The largest number of defense actions that an optimization run can
+  apply. It sets plan cardinality.
+- **Null strategy:** A no-defense control that selects no actions.
+- **Pre-attack feasibility:** The condition in which every mission capability is
+  operational before an attack begins.
 
 ## Evaluation and study
 
-- **Evaluation**: A statistical comparison of alternative and reference strategy outcomes. One evaluation is one
-  comparison or one declared family of comparisons.
-- **Comparison**: One alternative strategy measured against one reference strategy, for one tier, one budget, and one
-  outcome. Stage 2 and Stage 3 report an estimate, an interval, and a raw p-value for it. The Pilot evaluates a candidate
-  against it and reports precision only.
-- **Reference strategy**: The strategy that a comparison measures against. The study design uses CVSS prioritization as
-  the reference. The no-defense control is not this reference.
-- **CVSS prioritization**: The reference strategy for the study comparisons. CVSS is the Common Vulnerability Scoring
-  System. This strategy orders defense actions by CVSS severity. It is not the no-defense control.
-- **Family**: A declared set of comparisons. Stage 3 applies one Holm correction across the family. The Pilot uses the
-  family for precision checks and applies no correction.
-- **Primary family**: The declared family that supports the primary claim. It excludes controls, secondary outcomes, and
-  exploratory comparisons unless the study declares them as members.
-- **Identity**: The five fields `(tier, budget, alternative, reference, outcome)` that name one comparison.
-- **Estimand**: The quantity that the method estimates. For one comparison it is the difference between the mean
-  alternative and reference mission impacts.
-- **Declared order**: The array order in a request or snapshot. Declared order defines tier rank and occurrence order.
-  JSON object key order never does.
-- **Interval**: The corrected crossed-bootstrap percentile interval for the mean effect, at the declared confidence
-  level.
-- **Half-width**: Half the interval width, `(upper - lower) / 2`. The Pilot uses the half-width as its precision
-  measure.
+- **Evaluation:** A statistical analysis of one comparison or one declared
+  family of comparisons.
+- **Comparison:** One alternative strategy compared with one reference strategy
+  for one tier, budget, and outcome.
+- **Reference strategy:** The strategy against which an alternative is measured.
+  The primary study uses CVSS prioritization.
+- **CVSS prioritization:** A strategy that orders vulnerability defenses by
+  CVSS severity. It is the primary reference. The null strategy is the
+  descriptive control.
+- **Family:** A set of comparisons declared before Final analysis.
+- **Complete family:** Every declared comparison exactly once. Validation
+  rejects missing, duplicate, and unexpected identities.
+- **Primary family:** The family that supports the primary claim. The study can
+  declare controls, secondary outcomes, or exploratory comparisons as members.
+- **Identity:** The five values `(tier, budget, alternative, reference, outcome)`
+  that name one comparison.
+- **Estimand:** The quantity that a method estimates. Here it is the difference
+  between the mean alternative and reference mission impacts.
+- **Declared order:** The order of items in a declared array. It sets tier rank
+  and occurrence order. JSON object key order is irrelevant.
+- **Interval:** The corrected crossed-bootstrap percentile interval for an
+  effect estimate at the declared confidence level.
+- **Half-width:** Half of an interval's width: `(upper - lower) / 2`.
 
 ## Evidence and sampling
 
-- **Evidence matrix**: One side of a comparison. Rows are selected plans and columns are shared attack columns.
-- **Plan-selection replicate**: One selected plan for a strategy, budget, and selection seed. Each plan provides one
-  matrix row.
-- **Attack column**: One attack seed shared by every plan in a crossed comparison. Both sides use the same ordered
-  columns.
-- **Column alignment**: The rule that all plans in one comparison cover the same ordered attack columns. Unequal
-  coverage is an error, not a gap to fill.
-- **Outer subsample**: One selection of plan rows and attack columns without replacement from Pilot evidence.
-- **Inner bootstrap**: The resampling inside the crossed bootstrap. It draws rows and columns with replacement. Outer
-  subsampling never uses replacement.
-- **Non-informative comparison**: A comparison whose estimate and interval limits are numerically zero. Stage 2 and
-  Stage 3 report `assessment.status = non_informative` and a raw p-value of one. A Pilot candidate response reports
-  `informative = false`. In a Pilot, one non-informative outer subsample makes the comparison non-informative.
-- **Zero-width interval**: An informative result with numerically equal interval limits. Stage 2 and Stage 3 report it
-  through the `assessment.warnings` entry `zero_width_interval`. It is not proof of equivalence.
+- **Evidence matrix:** One side of a comparison. Rows are selected plans and
+  columns are shared attack seeds.
+- **Plan-selection replicate:** One plan selected for a strategy, budget, and
+  selection seed. It supplies one matrix row.
+- **Attack column:** One attack seed used across every plan in a crossed
+  comparison. The alternative and reference sides use the same ordered columns.
+- **Column alignment:** The requirement that all plans in one comparison use the
+  same ordered attack columns.
+- **Outer subsample:** A Pilot selection of plan rows and attack columns without
+  replacement.
+- **Inner bootstrap:** The resampling step inside the crossed bootstrap. It draws
+  rows and columns with replacement.
+- **Non-informative comparison:** A comparison whose estimate and both interval
+  limits are numerically zero. Its raw p-value is one. Equivalence needs a
+  separate test.
+- **Zero-width interval:** An informative interval whose limits are numerically
+  equal. This numerical degeneracy receives a warning.
 
 ## Seeds and randomness
 
-Evaluation uses two kinds of randomness. **Collection randomness** decides which plans and attack trials produced an
-observed value. **Analysis randomness** drives the rows, columns, and resamples inside a calculation. The Pilot outer
-subsampling is analysis randomness. Keep the two kinds separate, because they answer different questions.
+**Collection randomness** decides which plans and attack trials produce the
+observations. **Analysis randomness** controls subsampling and bootstrap
+resampling. Keeping them separate prevents the analysis process from changing
+the evidence-generation process.
 
-- **Plan-selection seed**: The seed that selects one plan for a strategy, budget, and replicate. It belongs to
-  collection randomness.
-- **Attack seed**: The seed that drives one attack trial on a selected plan. It belongs to collection randomness.
-- **Resampling seed**: The seed that a Stage 2 comparison request, or one Stage 3 member request, declares for the
-  analysis calculation. It belongs to analysis randomness.
-- **Pilot base seed**: The declared seed in the Pilot sampling settings. Stage 4 derives every comparison stream seed
-  from it.
-- **Comparison stream seed**: The Stage 4 seed for one declared comparison. It is the base seed plus a tier-rank offset
-  plus an occurrence offset. The [pipeline](../inprogress/evaluation-pipeline.md#seeds) states the derivation and
-  [Stage 4 overview](../inprogress/evaluation-stage-4-overview.md#scientific-method) states the fixed child-stream
-  contract.
+- **Plan-selection seed:** A collection seed that selects one defense plan.
+- **Attack seed:** A collection seed that controls one attack trial.
+- **Resampling seed:** An analysis seed for one comparison calculation.
+- **Pilot base seed:** The declared root seed for Pilot subsampling.
+- **Comparison stream seed:** The analysis seed for one declared Pilot
+  comparison. It is derived from the Pilot base seed, tier rank, and comparison
+  occurrence.
+- **Evaluation root:** The value that initializes one tier's attack-related
+  collection streams.
+- **Phase seed separation:** The rule that Pilot and Final use disjoint
+  plan-selection seeds and disjoint evaluation roots.
 
 ## Statistics
 
-- **Corrected crossed bootstrap**: The accepted interval method. It resamples rows and shared columns with replacement
-  and applies the historical finite-sample correction.
-- **Centered crossed bootstrap**: The accepted null method. It centers each side by its own mean, then applies the same
-  corrected procedure. The raw p-value is the count of null draws at least as extreme as the estimate, with the accepted
-  add-one correction in the numerator and denominator. The [methodology section on the raw
-  p-value](evaluation-methodology.md#raw-p-value-centered-crossed-bootstrap) states the formula.
-- **Raw p-value**: The per-comparison p-value before family correction.
-- **Adjusted p-value**: The p-value after the declared family correction.
-- **Holm correction**: The family correction that orders raw p-values and enforces monotonicity. It changes p-values
-  only. Estimates and intervals stay per-comparison values.
-- **Degeneracy warning**: The methodology term for a zero-width but informative result. The wire contract reports it as
-  the `zero_width_interval` warning.
+- **Corrected crossed bootstrap:** The interval method that resamples plan rows
+  and shared attack columns with replacement and applies a finite-sample
+  correction.
+- **Centered crossed bootstrap:** The null method that centers each side by its
+  own mean and then applies the corrected crossed bootstrap.
+- **Add-one correction:** The addition of one to both the extreme-draw count and
+  the total-draw count when calculating a bootstrap p-value. This prevents a
+  reported p-value of zero.
+- **Raw p-value:** The p-value for one comparison before family correction.
+- **Adjusted p-value:** The p-value after family correction.
+- **Holm correction:** A step-down family correction that orders and adjusts raw
+  p-values while preserving monotonicity. Estimates and intervals remain
+  unchanged per-comparison values.
+- **Degeneracy warning:** The warning for a zero-width interval with a nonzero
+  effect.
+
+The [raw p-value method](evaluation-methodology.md#raw-p-value-centered-crossed-bootstrap)
+states the centered-bootstrap formula.
 
 ## Precision Pilot
 
-- **Precision Pilot**: The workflow that chooses a common plan count and attacks-per-plan count for Final evidence.
-- **Candidate**: One pair of a plan count and an attacks-per-plan count from the declared grid.
-- **Candidate grid**: The Cartesian product of the declared plan candidates and attack candidates.
-- **Candidate comparison**: One candidate evaluated against one declared family comparison.
-- **Outer subsample count**: The number of repeated subsamples for one candidate comparison.
-- **Guard quantile**: The quantile of the outer half-widths that sets the guarded width. A high quantile protects
-  against a narrow, lucky subsample.
-- **Guarded half-width**: The half-width at the guard quantile for one candidate comparison.
-- **Worst guarded half-width**: The maximum guarded half-width across the family for one candidate.
-- **Recommendation**: The candidate that passes every comparison and wins the declared selection rule.
-- **Insufficient Pilot**: The result when no candidate passes. The only implemented reason is `no_passing_candidate`.
+- **Precision Pilot:** The workflow that selects a common plan count and attack
+  count for Final evidence.
+- **Pilot sample-size candidate:** One ordered item with a stable ID, a plan
+  count per side, and an attack count per plan.
+- **Candidate comparison:** The evaluation of one candidate against one family
+  comparison.
+- **Outer subsample count:** The number of repeated outer subsamples for one
+  candidate comparison.
+- **Guard quantile:** The quantile of the outer half-widths used to guard against
+  one unusually narrow subsample.
+- **Guarded half-width:** The interval half-width at the guard quantile for one
+  candidate comparison.
+- **Worst guarded half-width:** The largest guarded half-width across all family
+  comparisons for one candidate.
+- **Recommendation:** The candidate that passes every comparison and ranks first
+  under the declared selection rule.
+- **Insufficient Pilot:** A valid Pilot outcome in which every candidate fails
+  at least one comparison.
+- **Pilot-to-Final gate:** The required pause after Pilot analysis and before
+  Final collection.
+- **Confirmatory override:** Manual selection of one declared candidate after an
+  insufficient Pilot. The Pilot outcome and precision target remain
+  insufficient.
+- **Pilot override marker:** The `pilot_override` boolean in the compact study
+  result. It records that the insufficient-Pilot exception was used.
+
+The [override method](evaluation-methodology.md#insufficient-pilot-confirmatory-override)
+states the rules and risks.
 
 ## Workflow and deployment
 
-- **Gust**: The Elixir workflow engine that loads DAG files, schedules tasks, retries temporary failures, and persists
-  run and task state.
-- **DAG**: A fixed directed acyclic graph of named tasks. The repository has one DAG per workflow.
-- **Mapped task**: A task that Gust expands once for each item in an upstream task result.
-- **Fan-in**: The task that runs after every mapped task succeeds. The Stage 3 fan-in verifies the complete family and
-  sends the Holm request. The Stage 4 fan-in verifies the complete grid and selects locally.
-- **Preflight**: The pre-run check that builds every Pilot work item and candidate request in memory. A failure in a
-  checked condition prevents the Gust run. Preflight does not contact Python.
-- **Wire contract**: The checked-in JSON Schema that defines request and response shapes for both runtimes.
-- **Read-back**: The typed verification of a persisted task result against its request and declared relations.
-  Stage 4 also re-derives the candidate summaries and the recommendation. A succeeded run alone is not sufficient.
-- **Resource cap**: A deployment limit on work size. It is configuration, not a scientific setting.
-- **Evidence snapshot**: An application-owned JSONB record that holds Pilot evidence. The API creates or reads a
-  snapshot. Changed evidence needs a new snapshot ID. No database trigger enforces this rule.
-- **Study revision ID**: A UUID that labels the study revision. No durable revision record or foreign key exists yet.
-- **Evidence role**: The declared role of evidence. Stage 4 snapshot and Pilot inputs accept `pilot` and reserve
-  `final`. Stage 3 prototype requests declare `synthetic_prototype`. Stage 2 comparison requests carry no evidence
-  role.
-- **Pilot evidence**: Evidence and seeds used to choose sample sizes. Pilot evidence is not Final evidence.
-- **Final evidence**: Evidence collected after the Pilot decision with fresh seeds and frozen settings. No public
-  workflow produces it yet.
+- **Gust:** The Elixir workflow engine that schedules DAG tasks, retries
+  temporary failures, and saves run and task state.
+- **DAG:** A directed acyclic graph of named tasks and dependencies.
+- **ScatterGather:** The simulation executor that divides trials into batches
+  and runs them locally or through RabbitMQ.
+- **Mapped task:** A task that Gust expands once for each item from an upstream
+  task.
+- **Fan-in:** A task that runs after all mapped tasks succeed. It combines and
+  validates their results.
+- **Preflight:** Local validation that builds all planned analysis requests
+  before a workflow run contacts the compute service.
+- **Wire contract:** A JSON Schema that defines data exchanged between Elixir
+  and Python.
+- **Read-back:** Validation of a saved task result against its request and
+  declared relationships.
+- **Resource cap:** A deployment limit on work size, configured independently
+  from scientific settings.
+- **Evidence snapshot:** An immutable application record that contains Pilot or
+  Final evidence matrices.
+- **Study revision ID:** The identifier of one immutable normalized study
+  definition.
+- **Evidence role:** The declared purpose of evidence, such as Pilot or Final.
+- **Pilot evidence:** Evidence used to choose sample sizes.
+- **Final evidence:** Separate evidence collected after the Pilot decision and
+  used for the confirmatory family analysis.
+- **Source Pilot:** The Pilot result that supplies the selected counts for Final
+  collection and analysis.
+- **Caller assertion:** Metadata whose form a boundary validates. Independent
+  evidence is needed to establish provenance.
+
+## Study lifecycle
+
+- **Study definition:** Versioned YAML that declares domain revisions,
+  scientific settings, ordered candidates, comparison family, seeds, and the
+  Pilot-to-Final pause.
+- **Normalized study revision:** The immutable JSON-compatible form of a valid
+  study definition. It excludes source YAML text and secrets.
+- **Study execution:** One attempt to run a study revision through its lifecycle.
+- **Lifecycle state:** One explicit state such as validation, Pilot collection,
+  Pilot analysis, the Final gate, Final collection, Final analysis, success,
+  failure, or cancellation.
+- **Phase attempt:** One Gust run for a collection or analysis phase.
+- **Accepted phase result:** The attempt selected after Gust completion and
+  typed read-back validation.
+- **Controlled collection:** Evidence collection through role-specific domain
+  APIs, phase runs, job IDs, and declared seed schedules.
+- **Compact study result:** An immutable terminal record with accepted phase
+  references, selected counts, the Pilot outcome, the override marker, and the
+  compact Final family result. Evidence matrices remain in their snapshots.
+- **At-least-once execution:** A phase can run again after interruption or
+  failure. Every attempt remains recorded.
+- **Replay:** A new execution of a saved study revision under an explicit replay
+  policy.

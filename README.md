@@ -55,7 +55,9 @@ Running `./terraform.sh destroy` from the same directory removes the stack. **Th
 ## Repository guide
 
 - **Model:** [scope and limits](docs/concepts/scope.md), [requirements](docs/concepts/requirements.md), [graph and reachability](docs/concepts/graph.md), [attack simulation](docs/concepts/attack.md), [defenses](docs/concepts/defense.md).
-- **Research workflow:** [preserved methodology](docs/concepts/evaluation-methodology.md), [implemented evaluation pipeline](docs/inprogress/evaluation-pipeline.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md).
+- **Research workflow:** [methodology](docs/concepts/evaluation-methodology.md), [current evaluation runtime](docs/architecture/evaluation-architecture.md), [target study pipeline](docs/design/evaluation-study-pipeline.md), [decision history](docs/history/evaluation-decisions.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md).
 - **Engineering:** [architecture](docs/architecture.md), [dashboard](docs/design/dashboard.md), [RabbitMQ executor](docs/design/rabbitmq-distributed-executor.md), [interview evidence and tradeoffs](docs/interview-evidence.md).
+
+The comparison, family, Precision Pilot, and Final analysis components are implemented. Verification uses synthetic evidence. The YAML lifecycle and Pilot/Final collectors remain unimplemented. Real-study settings and deployment remain unapproved.
 
 The Elixir/Phoenix application and Svelte UI live in [`src/`](src/); provisioning lives in [`infra/`](infra/). [`docs/`](docs/) holds project documentation and [`planning/`](planning/) holds working plans. The thesis text is maintained separately.

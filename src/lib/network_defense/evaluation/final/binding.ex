@@ -13,17 +13,13 @@ defmodule NetworkDefense.Evaluation.Final.Binding do
 
   # Cross-record binding guard for persisted Final requests.
   #
-  # Submission checks the snapshot metadata, the snapshot byte count, the
-  # declared order, the resource caps, and the actual source Pilot. A Final run
-  # outlives those checks: preparation, every mapped member, the fan-in, and the
-  # public result read each load the persisted request again. Each of those
-  # boundaries therefore repeats the same binding, so a metadata-only snapshot
-  # change or a Pilot that stopped being recommended cannot pass a later
-  # boundary.
+  # Snapshot create paths enforce the JSON encoded-size cap before insert.
+  # Binding and read paths trust persisted PostgreSQL JSONB for size.
+  # They do not re-encode payloads or compare byte counts.
   #
-  # The guard compares contracts and relations only. A relation-preserving
-  # content change inside one payload stays invisible, because the snapshot
-  # stores a byte count and no hash.
+  # Preparation, each mapped member, fan-in, and public result read-back are
+  # distinct trust boundaries. Binding repeats the contract, metadata, source,
+  # family, order, and count checks at each boundary.
 
   @type option :: {:limits, boolean()}
 

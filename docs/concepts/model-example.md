@@ -1,81 +1,102 @@
-# Model Example (Shared Synthetic Micro-Scenario)
+# Model Example: A Synthetic Micro-Scenario
 
-This page is a stable, fictional reference example. It helps a reader apply the
-model rules to one concrete set of nodes, relationships, and an attack path. It
-is not an evaluated scenario, a code sample, or a deployment recipe.
+This fictional example applies the graph, attack, and defense rules to one small
+scenario.
 
-The example uses two zones and two hosts. The client zone holds one client host.
-The service zone holds one application host. The application host runs two
-services, stores one credential, and supports one mission capability.
-
-Use the canonical terms in [vocabulary.md](vocabulary.md). The model pages
-define the semantics that make the path in this example valid.
+The example has two network segments and two hosts. The application host runs
+two services, stores one credential, and supports one mission capability.
 
 ## Nodes
 
-The model uses six node types. This example uses all six.
+The example uses all six node types.
 
-| Node | Type | Value |
-| --- | --- | --- |
-| `client-zone` | `network_segment` | client zone |
-| `service-zone` | `network_segment` | service zone |
-| `client-01` | `host` | in `client-zone` |
-| `app-01` | `host` | in `service-zone` |
-| `orders` | `service` | TCP port `8080`, on `app-01` |
-| `admin` | `service` | TCP port `8443`, administration, on `app-01` |
-| `orders-rce` | `vulnerability` | on `orders`, grants user privilege |
-| `deploy-cred` | `credential` | deployment credential |
-| `order-processing` | `mission_capability` | supported by `app-01` |
+| Node               | Type                 | Meaning                                                        |
+| ------------------ | -------------------- | -------------------------------------------------------------- |
+| `client-zone`      | `network_segment`    | The client segment.                                            |
+| `service-zone`     | `network_segment`    | The service segment.                                           |
+| `client-01`        | `host`               | A host in `client-zone`.                                       |
+| `app-01`           | `host`               | A host in `service-zone`.                                      |
+| `orders`           | `service`            | An order service on TCP port `8080`, run by `app-01`.          |
+| `admin`            | `service`            | An administration service on TCP port `8443`, run by `app-01`. |
+| `orders-rce`       | `vulnerability`      | A vulnerability on `orders` that grants user privilege.        |
+| `deploy-cred`      | `credential`         | A deployment credential stored on `app-01`.                    |
+| `order-processing` | `mission_capability` | A capability supported by `app-01`.                            |
 
 ## Relationships
 
-The model uses seven authored relationship types. This example uses all seven.
-Reachability is deny by default. The self-policy is explicit; same-zone
-movement is not implicit.
+The example uses all seven authored relationship types. Reachability is deny by
+default, so it includes an explicit same-segment policy for the administration
+service.
 
-| Relationship | From | To | Carries |
-| --- | --- | --- | --- |
-| `contains` | `client-zone` | `client-01` | - |
-| `contains` | `service-zone` | `app-01` | - |
-| `runs` | `app-01` | `orders` | - |
-| `runs` | `app-01` | `admin` | - |
-| `segment_reachability` | `client-zone` | `service-zone` | TCP `8080` |
-| `segment_reachability` | `service-zone` | `service-zone` | TCP `8443` (self-policy) |
-| `has_vulnerability` | `orders` | `orders-rce` | grants user |
-| `stores_credential` | `app-01` | `deploy-cred` | required user |
-| `authenticates_to` | `deploy-cred` | `admin` | grants administrator |
-| `supports` | `app-01` | `order-processing` | - |
+| Relationship           | From           | To                 | Additional data                 |
+| ---------------------- | -------------- | ------------------ | ------------------------------- |
+| `contains`             | `client-zone`  | `client-01`        | -                               |
+| `contains`             | `service-zone` | `app-01`           | -                               |
+| `runs`                 | `app-01`       | `orders`           | -                               |
+| `runs`                 | `app-01`       | `admin`            | -                               |
+| `segment_reachability` | `client-zone`  | `service-zone`     | TCP `8080`                      |
+| `segment_reachability` | `service-zone` | `service-zone`     | TCP `8443`                      |
+| `has_vulnerability`    | `orders`       | `orders-rce`       | Grants user privilege.          |
+| `stores_credential`    | `app-01`       | `deploy-cred`      | Requires user privilege.        |
+| `authenticates_to`     | `deploy-cred`  | `admin`            | Grants administrator privilege. |
+| `supports`             | `app-01`       | `order-processing` | -                               |
 
-The `segment_reachability` edges authorize the `orders` and `admin` services.
-They are policy, not measured flow. The `service-zone` self-policy exists
-because same-zone access is not implicit. Without it, `admin` is not reachable.
+The two segment policies authorize access to `orders` and `admin`. The graph
+derives host-to-service flows from these policies. The explicit self-policy
+authorizes same-segment access to `admin`.
 
 ## Attack path
 
-The path has three steps. Each step is valid only when the previous step holds.
+The attack path has three ordered steps. Each step depends on the result of the
+previous step.
 
-| Step | Action | Requires | Grants |
-| --- | --- | --- | --- |
-| 1 | Remote exploit of `orders` | foothold on `client-01`; reach `client-zone` to `orders`; exploit `orders-rce` | foothold on `app-01`; user privilege |
-| 2 | Credential acquisition | user privilege meets required user for `deploy-cred` | ownership of `deploy-cred` |
-| 3 | Credential reuse against `admin` | `deploy-cred`; reach `service-zone` self-policy to `admin` | administrator privilege |
+| Step | Action                          | Required state                                                                                      | Result                                      |
+| ---- | ------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 1    | Exploit `orders` remotely.      | A foothold on `client-01`, reachability to `orders`, and the applicable `orders-rce` vulnerability. | A foothold on `app-01` with user privilege. |
+| 2    | Acquire `deploy-cred`.          | User privilege on `app-01`.                                                                         | Ownership of `deploy-cred`.                 |
+| 3    | Reuse `deploy-cred` on `admin`. | Ownership of the credential and same-segment reachability to `admin`.                               | Administrator privilege on `app-01`.        |
 
-The path is internally valid under the documented rules. Step 1 meets the
-remote-exploitation rule: a foothold, directed reachability, a host running the
-service, an applicable vulnerability, and an available attempt. Step 2 holds
-because the attacker's user privilege meets the required user of
-`deploy-cred`. Step 3 relies on the explicit `service-zone` self-policy; the
-reused credential grants administrator privilege on `admin`.
+Step 1 is probabilistic because it exploits a vulnerability. Steps 2 and 3 are
+deterministic after their conditions are true.
+
+```mermaid
+flowchart LR
+    A[User foothold on client-01] --> B[Exploit orders]
+    B -->|success| C[User foothold on app-01]
+    C --> D[Acquire deploy-cred]
+    D --> E[Reuse credential on admin]
+    E --> F[Administrator privilege on app-01]
+```
 
 ## Mission capability
 
-`order-processing` is supported by `app-01`. Its required flow is from
-`client-zone` to the `orders` service. The capability is operational when that
-flow exists, `app-01` is not compromised, and enough supporting hosts remain
-uncompromised.
+`order-processing` depends on `app-01` and on the required flow from
+`client-zone` to `orders`.
 
-## Limits
+The capability is operational when:
 
-Local exploitation is not shown. The path uses only remote service
-exploitation and credential reuse. Vertical escalation through a local
-vulnerability is out of scope for this example.
+- the required flow exists;
+- `app-01` remains uncompromised; and
+- enough support hosts remain uncompromised.
+
+After the attack reaches `app-01`, the capability can be disrupted because its
+supporting host is compromised.
+
+## Defense comparison
+
+Two one-action plans illustrate the feasibility rule:
+
+- Patching `orders-rce` removes the first attack step and keeps the required
+  flow. The capability remains operational before the attack.
+- Blocking the policy from `client-zone` to `service-zone` removes both the
+  attack path and the required flow. The capability is disrupted before the
+  attack.
+
+The first action is feasible. The pre-attack feasibility constraint rejects the
+second action.
+
+## Example coverage
+
+The path focuses on remote exploitation and credential reuse. It uses one
+support host and one required flow. Larger graphs can have several support
+hosts, capabilities, and attack paths.

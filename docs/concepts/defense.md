@@ -1,104 +1,96 @@
 # Defenses and Optimization
 
-This page states the current defense optimization model. It uses the canonical
-terms in [vocabulary.md](vocabulary.md). It illustrates the rules on the
-[shared micro-scenario](model-example.md).
+Defense optimization selects changes to the context graph. Its goal is to
+reduce modeled attack damage without exceeding an action budget. The
+[model example](model-example.md) shows why a useful defense can still be
+unacceptable when it disrupts the mission before an attack.
 
 ## Defense actions
 
-A defense action changes one element of the graph to reduce modeled attack
-impact. An optimization run applies its selected actions to produce an
-optimized graph revision.
+A defense action removes graph relationships that enable an attack path. The
+optimization appends a graph revision and preserves its source revision.
 
-Each current action removes the relationship or relationships that produce its
-modeled effect. Removing them takes that effect away from the attacker.
+| Action               | Target                                   | Change                                                           | Modeled effect                                                                       |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Patch vulnerability  | One `has_vulnerability` relationship.    | Remove the relationship.                                         | Exploit rules exclude the patched host or service weakness.                          |
+| Block segment policy | One `segment_reachability` relationship. | Remove the relationship.                                         | Matching host-to-service flows disappear, including attack paths and required flows. |
+| Revoke credential    | One `credential` node.                   | Remove all `authenticates_to` relationships from the credential. | Services reject authentication through the revoked credential.                       |
 
-| Action | Target | Relationship removed | Modeled effect |
-| --- | --- | --- | --- |
-| Patch vulnerability | a `has_vulnerability` edge | `has_vulnerability` | The host or service no longer exposes the vulnerability. The exploit rules no longer produce an exploit option for it. |
-| Block segment policy | a `segment_reachability` edge | `segment_reachability` | Reachability is deny by default, so the derived flows for that segment pair no longer materialize. Attack reachability over that policy is removed. It can also remove a required flow. |
-| Revoke credential | a `credential` node | every `authenticates_to` edge from the credential | The credential no longer authenticates. The credential-reuse rule no longer produces a reuse option against those services. |
+The [graph rules](graph.md) determine the effect of each action.
 
 ## Unit action-count budget
 
-Each current defense action has unit cost. A budget is the maximum number of
-actions an optimization run may apply. Equal-action-count budgets therefore
-compare plan cardinality, not money or deployment effort.
+Each defense action has unit cost. A budget sets the largest number of actions
+that an optimization run can apply.
+
+An equal budget standardizes plan cardinality.
 
 ## Strategies
 
-A strategy selects defense actions under a budget. Each strategy has a stated
-purpose and a decision basis.
+A strategy decides which actions to select under the budget.
 
-| Strategy | Purpose | Decision basis |
-| --- | --- | --- |
-| Null baseline | Apply no defense. Serve as a control reference. | None. It returns no actions. |
-| CVSS | Mitigate the most severe vulnerabilities first. | Descending CVSS base score of each vulnerability. |
-| Random | Select actions without prioritization. | Uniform random choice of action and target. |
-| Topology segmentation | Shrink the set of hosts reachable from the declared foothold. | The reduction in reachable hosts from blocking each segment policy. |
-| Simulation-informed | Select actions that reduce expected simulated damage. | Expected simulation result of each candidate; greedy. |
-| Simulated annealing | Search for a low-damage plan within the budget. | Stochastic search over plans scored by simulation. |
+| Strategy              | Purpose                                              | Decision basis                                        |
+| --------------------- | ---------------------------------------------------- | ----------------------------------------------------- |
+| Null baseline         | Provide a no-defense control.                        | Select no actions.                                    |
+| CVSS                  | Address the most severe vulnerabilities first.       | Descending CVSS base score.                           |
+| Random                | Provide a randomized benchmark.                      | Uniform random selection of an action and target.     |
+| Topology segmentation | Reduce reachability from the initial foothold.       | Reduction in reachable hosts after each policy block. |
+| Simulation-informed   | Reduce expected simulated damage.                    | Greedy comparison of simulated candidate outcomes.    |
+| Simulated annealing   | Search beyond a greedy choice for a low-damage plan. | Stochastic search over plans scored by simulation.    |
+
+Each strategy uses a different decision basis. The evaluation compares their
+outcomes under the same action-count budget.
 
 ## Objectives and feasibility
 
-An optimization run targets one objective:
+An optimization run uses one objective:
 
-- **Blast radius**: minimize the expected number of foothold hosts, including
+- **Blast radius:** minimize the expected number of foothold hosts, including
   the initial foothold.
-- **Mission impact**: minimize the expected weighted impact of disrupted
+- **Mission impact:** minimize the expected weighted impact of disrupted
   mission capabilities.
-- **Lexicographic mission then blast radius**: minimize mission impact first,
-  then use blast radius as the secondary tie-breaker.
+- **Mission impact, then blast radius:** minimize mission impact first. Use
+  blast radius only to break a tie.
 
-Pre-attack feasibility decides whether a candidate action may be applied. When
-enabled, an action is applied only if the resulting graph is feasible before
-the attack, meaning every mission capability is operational with no attacker
-foothold. An action that breaks a required flow, or drops support below a
-capability's minimum, makes the graph infeasible. The run rejects such an
-action and moves on. This prevents plans that break operational required flows
-or mission support.
+A feasibility constraint protects the mission before the simulated attack. When
+the constraint is active, the optimizer applies an action when every mission
+capability remains operational before attacker footholds are applied.
+
+An action is infeasible when it removes a required flow or reduces support
+below a capability's minimum. The optimizer rejects that action and continues
+the search. This rule prevents a defense plan from improving attack metrics by
+breaking the mission itself.
 
 ### Paired constrained and unconstrained comparison
 
-To isolate the effect of feasibility, the system compares two plans produced by
-the same strategy, objective, budget, and seeds. The constrained plan enables
-pre-attack feasibility. The unconstrained plan disables it.
+A paired comparison isolates the effect of the feasibility constraint. It runs
+the same strategy with the same objective, budget, and seeds twice:
 
-The comparison reports pre-attack measures directly, before any simulated
-attack:
+1. The constrained run rejects actions that cause pre-attack disruption.
+2. The unconstrained run allows those actions.
 
-- feasibility result (feasible or not);
-- unavailable (missing) required flows;
-- affected mission capability statuses (operational or disrupted).
+The comparison records these pre-attack results:
+
+- whether the graph is feasible;
+- which required flows are unavailable; and
+- which mission capabilities are disrupted.
 
 ## One-action comparison
 
-The shared scenario contrasts two single-action defenses against the same
-attack path:
+The shared example compares two one-action plans against the same attack path.
 
-- **Patch `orders-rce`**: This removes the `has_vulnerability` edge. The remote
-  exploit of `orders` no longer has an attack option. The required flow from
-  `client-zone` to `orders` remains, so the capability stays operational. The
-  action is feasible and is applied.
-- **Block the `client-zone` to `service-zone` policy**: This removes the
-  `segment_reachability` edge. It removes attack reachability to `orders`, but
-  it also removes the required flow for the `order-processing` capability. The
-  capability is disrupted before the attack, so the action is infeasible. When
-  feasibility applies, the run rejects it.
+### Patch `orders-rce`
 
-The comparison shows why patching is selected and undifferentiated policy
-blocking is not under the feasibility constraint.
+Patching removes the `has_vulnerability` relationship and excludes the remote
+exploit of `orders`. The required flow from `client-zone` to `orders` remains
+available, so the `order-processing` capability stays operational. The action
+is feasible.
 
-## Source references
+### Block `client-zone` to `service-zone`
 
-Behavior is established in the optimization and defense implementation:
+Blocking removes the `segment_reachability` relationship, attack reachability
+to `orders`, and the required flow for `order-processing`. The capability is
+disrupted before an attack. The feasibility constraint therefore rejects the
+action.
 
-- defense actions: `src/lib/network_defense/defense_actions/`;
-- optimizer and default action set:
-  `src/lib/network_defense/optimization/optimizer.ex`;
-- strategy interface: `src/lib/network_defense/optimization/strategy.ex`;
-- strategy registration:
-  `src/lib/network_defense/optimizations.ex`;
-- objectives: `src/lib/network_defense/optimization/simulation_objective.ex`;
-- pre-attack feasibility:
-  `src/lib/network_defense/simulation/mission_impact.ex`.
+A feasible defense reduces attack exposure while preserving the mission.

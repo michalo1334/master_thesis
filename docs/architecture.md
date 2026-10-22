@@ -225,16 +225,26 @@ redelivery.
 
 ## Availability Limits
 
-| Condition | Effect |
-|---|---|
-| One API node fails | HAProxy removes it after its readiness check fails. New connections use another ready API. Existing LiveViews reconnect. |
-| One worker node fails | Remaining workers can claim new available jobs. The result of an interrupted job is not guaranteed. |
-| Redis fails | APIs stay ready. Transient progress broadcasts can be lost and are not replayed. |
-| PostgreSQL fails | APIs become unready. Durable state and Oban stop. |
-| HAProxy fails | Browser traffic stops. The local stack has no edge redundancy. |
+| Condition             | Effect                                                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| One API node fails    | HAProxy removes it after its readiness check fails. New connections use another ready API. Existing LiveViews reconnect. |
+| One worker node fails | Remaining workers can claim new available jobs. The result of an interrupted job is not guaranteed.                      |
+| Redis fails           | APIs stay ready. Transient progress broadcasts can be lost and are not replayed.                                         |
+| PostgreSQL fails      | APIs become unready. Durable state and Oban stop.                                                                        |
+| HAProxy fails         | Browser traffic stops. The local stack has no edge redundancy.                                                           |
 
-HAProxy uses no affinity and does not retry a backend request. The stack has no
-automatic interrupted-job recovery policy.
+HAProxy uses no affinity and does not retry a backend request. Simulation and
+optimization have no automatic interrupted-job recovery policy.
+
+## Evaluation analysis
+
+The [evaluation architecture](architecture/evaluation-architecture.md) maps the implemented comparison, family, Precision
+Pilot, and Final analysis components. Gust owns fixed analysis DAG execution and saved task results. The application owns
+Pilot/Final snapshots in PostgreSQL. Python supplies synchronous statistical computation.
+
+The [target study pipeline](design/evaluation-study-pipeline.md) adds a future lifecycle state machine and role-specific
+collection DAGs. Collection tasks will call existing simulation APIs, which retain ScatterGather trial execution. These
+collection and lifecycle features do not exist yet. Synthetic checks do not authorize a real study or deployment.
 
 ## Engineering Rationale
 

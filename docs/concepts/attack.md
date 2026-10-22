@@ -1,159 +1,133 @@
 # Attack Simulation and Mission Impact
 
-This page states the current model of attack propagation and mission impact. It
-uses the canonical terms in [vocabulary.md](vocabulary.md). See
-[model-example.md](model-example.md) for a concrete path under these rules.
+The attack simulation models how an attacker can move through one context graph.
+It also measures the effect of the attack on mission capabilities. The
+[model example](model-example.md) shows one complete attack path.
 
 ## Configured initial foothold
 
-An experiment declares one initial foothold node. The simulation starts with an
-attacker state that holds that node as a foothold with user privilege. The
-attacker model is identical for every trial; only the random seed differs per
-trial. The declared foothold is validated at run time; an unknown node is
-rejected.
+Each experiment declares one host as the initial foothold. Every trial starts
+with user privilege on that host. The attack rules stay fixed across trials.
+Each trial uses a different derived random seed.
 
-The parameter contract and the configured default live in the simulation
-parameter schema.
+The declared foothold must identify a host in the graph. Validation rejects an
+invalid value before the trial starts.
 
 ## Attacker state
 
-The attacker state tracks four sets during one trial:
+The attacker state contains four sets during one trial:
 
-| Field | Meaning |
-| --- | --- |
-| Footholds | Hosts the attacker controls. |
-| Credentials | Credentials the attacker owns. |
-| Privileges | The privilege the attacker holds on each foothold. |
-| Attempted actions | Past action attempts and their attempt counts. |
+| Field             | Meaning                                                 |
+| ----------------- | ------------------------------------------------------- |
+| Footholds         | Hosts that the attacker controls.                       |
+| Credentials       | Credentials that the attacker owns.                     |
+| Privileges        | The privilege that the attacker holds on each foothold. |
+| Attempted actions | Past action attempts and their attempt counts.          |
 
-The state changes only through action execution:
+An action can change the state in these ways:
 
-- Exploitation success adds a foothold.
+- A successful exploit adds a foothold or increases a privilege.
 - Credential acquisition adds a credential.
-- Credential reuse adds or upgrades a privilege on a foothold.
-- Every selection records an attempted action, whether it succeeded or not.
+- Credential reuse adds a foothold or increases a privilege.
+- Every selected action increases its attempt count, even when it fails.
 
 ### Privilege transitions
 
-A privilege is one of `none`, `user`, or `administrator`. Privilege upgrades are
-monotonic: a privilege never decreases. Adding a lower or equal privilege does
-not change the current one.
+A privilege is `none`, `user`, or `administrator`. These levels form an
+increasing order. An action replaces the current privilege when it grants a
+higher level. All other grants leave the state unchanged.
 
-| From | To | Allowed |
-| --- | --- | --- |
-| `none` | `user` | yes |
-| `none` | `administrator` | yes |
-| `user` | `administrator` | yes |
-| `user` | `user` | no change |
-| `administrator` | `user` | no, monotonic |
-| `administrator` | `none` | no, monotonic |
-
-The attacker state module stores the privilege on each foothold and exposes the
-privilege checks rules use.
+| From            | To              | Result                               |
+| --------------- | --------------- | ------------------------------------ |
+| `none`          | `user`          | Set user privilege.                  |
+| `none`          | `administrator` | Set administrator privilege.         |
+| `user`          | `administrator` | Increase to administrator privilege. |
+| `user`          | `user`          | Keep user privilege.                 |
+| `administrator` | `user`          | Keep administrator privilege.        |
+| `administrator` | `none`          | Keep administrator privilege.        |
 
 ## Rules and actions
 
-Four rules generate candidate actions. They collapse into three action types.
+Four rules find actions that the attacker can take. These rules produce three
+action types.
 
-| Rule | Action produced | Conditions | Effect |
-| --- | --- | --- | --- |
-| Remote service exploitation | `ExploitVulnerability` | Foothold on source host; directed reachability to a service the target host runs; the service has an applicable vulnerability; the attacker holds the required privilege. | Exploit success adds the target host as a foothold with the granted privilege. |
-| Local vulnerability exploitation | `ExploitVulnerability` | Foothold on a host; the host itself carries an applicable vulnerability; the attacker holds the required privilege. | Exploit success upgrades the privilege on the same host. |
-| Credential acquisition | `AcquireCredential` | Foothold on a host; the host stores a credential; the attacker holds the required privilege. | Adds the credential to the attacker's credentials. |
-| Credential reuse | `ReuseCredential` | Foothold on a source host; directed reachability to a service; the attacker owns a credential that authenticates to that service. | Adds the target host as a foothold with the granted privilege. |
+| Rule                             | Action                 | Required conditions                                                                                                                                                                               | Effect after success                                          |
+| -------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Remote service exploitation      | `ExploitVulnerability` | The attacker controls a source host; the source can reach a service; the target host runs that service; the service has an applicable vulnerability; and the attacker has the required privilege. | Add the target host as a foothold with the granted privilege. |
+| Local vulnerability exploitation | `ExploitVulnerability` | The attacker controls a host; the host has an applicable vulnerability; and the attacker has the required privilege.                                                                              | Increase privilege on the same host.                          |
+| Credential acquisition           | `AcquireCredential`    | The attacker controls a host that stores a credential and has the required privilege.                                                                                                             | Add the credential to the attacker state.                     |
+| Credential reuse                 | `ReuseCredential`      | The attacker controls a source host; the source can reach a service; and an owned credential authenticates to that service.                                                                       | Add the target host as a foothold with the granted privilege. |
 
-Remote and local exploitation share the `ExploitVulnerability` action. Remote
-exploitation targets a reachable service; local exploitation targets a
-vulnerability present on the foothold host itself.
+Remote and local exploitation use the same action type. Remote exploitation
+acts through a reachable service. Local exploitation acts on the controlled
+host itself.
 
-| Action | Produced by | Outcome probability | Effect |
-| --- | --- | --- | --- |
-| `ExploitVulnerability` | Remote and local exploitation | The vulnerability's scenario exploit probability | Add a foothold or upgrade a privilege. |
-| `AcquireCredential` | Credential acquisition | Deterministic (probability `1`) | Add a credential. |
-| `ReuseCredential` | Credential reuse | Deterministic (probability `1`) | Add or upgrade a privilege. |
+| Action                 | Probability                                       | Effect                                  |
+| ---------------------- | ------------------------------------------------- | --------------------------------------- |
+| `ExploitVulnerability` | The vulnerability's scenario exploit probability. | Add a foothold or increase a privilege. |
+| `AcquireCredential`    | `1`                                               | Add a credential.                       |
+| `ReuseCredential`      | `1`                                               | Add a foothold or increase a privilege. |
 
-Credential acquisition and reuse are deterministic. Only exploitation samples
-its outcome. The sampling uses the vulnerability's success probability,
-which is a scenario parameter, not a measured exploit rate.
-
-The protocol definitions for rules and actions decide conditions and effects.
+Credential acquisition and reuse are deterministic. Exploitation is
+probabilistic and uses the vulnerability's scenario probability.
 
 ## Simulation loop
 
-Each trial runs this loop:
+Each trial follows these steps:
 
-1. Build the eligible candidate actions by evaluating all four rules against the
-   current attacker state.
-2. If no candidate remains, stop the trial.
-3. Choose one candidate uniformly at random.
-4. Sample the chosen action's outcome against its probability.
-5. If the sample exceeds the probability, the action fails and changes nothing.
-6. If the sample is below or equal, apply the action's effect to the attacker
-   state.
-7. Record the attempted action whatever the outcome, then move to the next
-   iteration.
+1. Evaluate all four rules against the attacker state.
+2. Collect the eligible actions.
+3. Stop when the eligible action set is empty.
+4. Select one eligible action uniformly at random.
+5. Sample the selected action's outcome.
+6. Apply the effect when the action succeeds.
+7. Record the attempt, whether it succeeds or fails.
+8. Continue until the next iteration would exceed the iteration limit.
 
-The simulator does not estimate real-world exploit likelihood. It selects
-uniformly from eligible actions and then samples the selected action's outcome.
+This two-part process is important. Uniform selection decides which eligible
+action the attacker attempts. The action probability decides whether that
+action succeeds.
 
 ### Stopping rules
 
 An experiment declares an iteration limit and a maximum attempt count. The
-default maximum attempt count is `1`. In each trial, the count applies per
-distinct action. It is not rule-specific and no action has its own retry count.
+maximum attempt count defaults to `1`. It applies to each distinct action and
+prevents one failed action from remaining eligible without limit.
 
-A trial stops when either condition holds:
+A trial stops when one of these conditions is true:
 
-- the current iteration exceeds the iteration limit, or
-- no eligible action remains for the current attacker state.
-
-The maximum attempt count is stored with the experiment.
+- the next iteration would exceed the iteration limit; or
+- the eligible action set is empty.
 
 ## Mission impact
 
-At the end of a trial, each mission capability is either operational or
-disrupted. A capability is disrupted when any of these conditions holds:
+At the end of a trial, each mission capability is operational or disrupted. A
+capability is disrupted when at least one of these conditions is true:
 
-- a required flow is unavailable, so it no longer materializes;
-- a required target host is compromised;
-- the remaining uncompromised support hosts fall below the capability's
-  minimum operational support.
+- a required flow is unavailable;
+- a required target host is compromised; or
+- too few support hosts remain uncompromised.
 
-Mission impact is the sum of the impact weights of the disrupted capabilities.
+Mission impact is the sum of the impact weights of all disrupted capabilities.
 Blast radius is the number of foothold hosts at the end of the trial, including
-the initial foothold. It is a separate outcome.
+the initial foothold.
 
-The mission impact module computes the final status and impact from the graph
-and the trial's footholds.
+The two outcomes answer different questions. Mission impact measures damage to
+modeled operations. Blast radius measures how far the attacker spread.
 
 ## Example progression
 
-The shared example does not use local exploitation. It progresses through remote
-exploitation and credential reuse only.
+The shared example follows remote exploitation and credential reuse.
 
 ```mermaid
 flowchart LR
-    Start[Configured client foothold] --> Remote[Remote exploit of orders service]
-    Remote -->|success| AppUser[User foothold on app host]
+    Start[Initial foothold on client host] --> Remote[Exploit the orders service]
+    Remote -->|success| AppUser[User foothold on application host]
     AppUser --> Acq[Acquire deployment credential]
-    Acq --> Reuse[Reuse credential against admin service]
-    Reuse -->|deterministic| Admin[Administrator foothold on app host]
-    Admin --> Impact[Order-processing mission impact]
+    Acq --> Reuse[Reuse credential on administration service]
+    Reuse --> Admin[Administrator privilege on application host]
+    Admin --> Impact[Calculate order-processing mission impact]
 ```
 
-The state progression matches [model-example.md](model-example.md).
-
-## Source references
-
-Behavior at the attacker state, simulation loop, default rule set, and mission
-impact is established in the simulation implementation:
-
-- attacker state: `src/lib/network_defense/attacker_state/attacker_state.ex`;
-- simulation loop and stopping rules:
-  `src/lib/network_defense/simulation/simulator.ex`;
-- configured initial foothold and default attempt count:
-  `src/lib/network_defense/simulation/contracts/simulation_params.ex` and
-  `src/lib/network_defense/simulation/experiment.ex`;
-- default rule set and rule modules: `src/lib/network_defense/simulations.ex` and
-  `src/lib/network_defense/rules/`;
-- mission impact: `src/lib/network_defense/simulation/mission_impact.ex`.
+The [model example](model-example.md) lists the nodes, relationships, and
+conditions for this path.

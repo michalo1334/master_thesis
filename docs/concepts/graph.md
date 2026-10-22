@@ -1,139 +1,125 @@
 # Context Graph and Reachability
 
-The context graph stores the network model. It uses typed nodes and directed
-edges. It describes hosts, services, vulnerabilities, network segments,
-credentials, and mission capabilities.
+The context graph is the network model. Typed nodes describe resources and
+mission capabilities. Directed relationships describe containment, software,
+weaknesses, credentials, policy, and mission support.
 
-Use the canonical terms in [vocabulary.md](vocabulary.md).
-
-## Endpoints catalog
+## Nodes and relationships
 
 The graph has six node types.
 
-| Node type | Meaning |
-| --- | --- |
-| `host` | A compute resource. |
-| `service` | An application that listens on a protocol and port. A port is a service attribute, not a node. |
-| `network_segment` | A container for hosts. |
-| `vulnerability` | A weakness of a host or service. It carries CVSS characteristics and a scenario exploit probability. |
-| `credential` | A secret that authenticates to a service. |
-| `mission_capability` | An outcome that one or more hosts support. |
+| Node type            | Meaning                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| `host`               | A compute resource.                                                                         |
+| `service`            | An application that carries its listening protocol and port as attributes.                  |
+| `network_segment`    | A container for hosts.                                                                      |
+| `vulnerability`      | A weakness of a host or service. It has CVSS properties and a scenario exploit probability. |
+| `credential`         | A secret that can authenticate to a service.                                                |
+| `mission_capability` | A mission outcome that one or more hosts support.                                           |
 
-The graph has seven persisted relationship types. Each row lists valid
-endpoints as `from -> to`.
+The graph has seven stored relationship types. The arrow in the last column
+shows the permitted direction.
 
-| Relationship | Meaning | Valid endpoints |
-| --- | --- | --- |
-| `contains` | A segment contains a host. Each host belongs to exactly one segment. | `network_segment -> host` |
-| `runs` | A host runs a service. Each service has exactly one host. | `host -> service` |
-| `segment_reachability` | The source segment may reach matching services in the target segment. It carries protocol and port range. This is the only authored network-policy edge. | `network_segment -> network_segment` |
-| `has_vulnerability` | A host or service exposes a vulnerability. It carries required and granted privilege. | `host -> vulnerability`, `service -> vulnerability` |
-| `stores_credential` | A host stores a credential. It carries required privilege. | `host -> credential` |
-| `authenticates_to` | A credential authenticates to a service. It carries granted privilege. | `credential -> service` |
-| `supports` | A host supports a mission capability. | `host -> mission_capability` |
+| Relationship           | Meaning                                                                                                                            | Valid endpoints                                     |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `contains`             | A segment contains a host. Each host belongs to one segment.                                                                       | `network_segment -> host`                           |
+| `runs`                 | A host runs a service. Each service belongs to one host.                                                                           | `host -> service`                                   |
+| `segment_reachability` | A source segment can reach matching services in a target segment. The relationship contains a protocol and an optional port range. | `network_segment -> network_segment`                |
+| `has_vulnerability`    | A host or service exposes a vulnerability. The relationship states the required and granted privilege.                             | `host -> vulnerability`, `service -> vulnerability` |
+| `stores_credential`    | A host stores a credential. The relationship states the required privilege.                                                        | `host -> credential`                                |
+| `authenticates_to`     | A credential authenticates to a service. The relationship states the granted privilege.                                            | `credential -> service`                             |
+| `supports`             | A host supports a mission capability.                                                                                              | `host -> mission_capability`                        |
 
-One relationship is operational, not authored. `network_reachability` is an
-empty marker edge from a host to a service. The context graph never persists
-it. The save path rejects it. Because saved revisions never contain it, the
-comparison path sees policy only, never derived flows.
-
-The node types live in `src/lib/network_defense/nodes/registry.ex`. The
-relationship types live in `src/lib/network_defense/relationships/registry.ex`.
-Valid endpoints live in `src/lib/network_defense/graph/semantic_connectivity.ex`.
+A host-to-service `network_reachability` relationship is a flow derived in
+memory from segment policy. Graph revisions store authored policy. A save
+rejects a derived flow, which keeps one stored source of reachability.
 
 ## Authored policy and derived reachability
 
-Reachability is policy, not a measured flow. The system authorizes traffic at
-the segment boundary. It derives host-to-service flows in memory.
+A `segment_reachability` relationship authorizes traffic from one segment to
+another. It contains these values:
 
-`segment_reachability` is the only persisted reachability edge. It links a
-source segment to a target segment. It has `protocol`, `port_start`, and
-`port_end`. A rule matches a service when its protocol equals the service
-protocol or is `any`, and its range is absent or contains the service port.
+- protocol;
+- start port; and
+- end port.
 
-Reachability is deny by default. A flow exists only when a matching policy
-links the source host segment to the target host segment. There is no implicit
-self-access. Same-segment movement requires an explicit policy from the segment
-to itself.
+A policy matches a service when the protocols match, or when the policy uses
+`any`. When the policy has a port range, the service port must be inside that
+range.
 
-The materializer turns every matching policy rule into one effective
-`network_reachability` edge for each `{source host, target service}` pair. It
-merges all matching rules into one edge. It deduplicates and sorts the result.
-Its output is deterministic.
+Reachability is deny by default. A matching policy must connect the host's
+segment to the service host's segment. Same-segment access requires an explicit
+policy from the segment to itself.
+
+For each matching policy, the system derives a host-to-service
+`network_reachability` relationship. When several policies authorize the same
+host and service pair, the system returns one relationship. It sorts the result,
+so the same graph revision always produces the same flow set.
 
 ```mermaid
 flowchart LR
-    ClientZone[Client segment] -->|segment_reachability policy| ServiceZone[Service segment]
+    ClientZone[Client segment] -->|segment policy| ServiceZone[Service segment]
     ClientZone -->|contains| ClientHost[Client host]
-    ServiceZone -->|contains| AppHost[App host]
+    ServiceZone -->|contains| AppHost[Application host]
     AppHost -->|runs| OrderService[Order service]
-    ClientHost -.->|materialized network_reachability| OrderService
+    ClientHost -.->|derived reachability| OrderService
 ```
 
-The projection exists only in memory. The canonical graph stores no
-`network_reachability` edge. Re-running materialization from the same revision
-reproduces the same flows. The projection logic lives in
-`src/lib/network_defense/graph/materialize_reachability.ex`. The policy data
-schema lives in `src/lib/network_defense/relationships/segment_reachability.ex`.
+One policy edit updates every affected derived flow. Attack and mission rules
+then receive the concrete host-to-service flows that they need.
 
 ## Topology projection
 
-Reachability projection (above) derives flows. Topology projection derives
-placement. For both, meaning belongs to Elixir and geometry belongs to the
-browser.
+The topology view separates graph meaning from screen geometry.
 
-The graph-domain projector derives graph meaning. It decides segment and host
-membership, context anchors, grouped segment policy, grouped operational flows,
-summary counts, result order, and placement issues. It is a pure function of a
-graph. Dashboard handlers only validate transport data and serialize its
-result.
+The domain projection decides:
 
-The browser derives geometry and interaction. It reads names, fields, and saved
-positions from the editable graph contract, then computes rectangles, edge
-paths, viewport scale, zoom detail, focus lenses, and pins. It never infers
-membership, ownership, anchors, or groups from raw edges.
+- which segment contains each host;
+- which host owns each service;
+- how policies and derived flows are grouped;
+- which entities need context anchors;
+- result order and summary counts; and
+- placement problems.
 
-This split keeps each rule in one place. The rule that a host belongs to one
-segment is a graph rule, so Elixir states it once. Whether a card fits its
-label is a rendering rule, so the browser owns it. The browser joins projection
-IDs to graph entities and consumes the projection roles; it does not repeat
-the graph rules. The projector is
-`src/lib/network_defense/graph/topology_projection.ex`. The browser projection
-model is
-`src/assets/svelte/dashboard/graph/topology-projection-model.svelte.ts`, and the
-browser scene join is `src/assets/svelte/dashboard/graph/topology-scene.ts`.
+The browser decides:
+
+- rectangles and coordinates;
+- edge paths;
+- zoom and viewport scale;
+- focus views; and
+- user-controlled pins.
+
+This split prevents the browser from inventing graph rules. For example, host
+membership is a graph rule, so the domain projection supplies it. Card size is
+a display rule, so the browser calculates it. A position change can therefore
+move an item on the screen without changing its segment membership.
 
 ## Graph revisions
 
-A graph has an immutable, linear revision history. Each graph starts with one
-`initial` revision. An edit appends an `edit` revision. An optimization appends
-an `optimization` revision. A new revision points to one parent revision. No
-revision changes after the system saves it.
+A graph is a linear sequence of immutable revisions.
 
-A save names the base revision that the editor edited. The system accepts the
-save only when that base revision belongs to the same graph. If the base
-revision is unknown or belongs to another graph, the system rejects the save
-with an `invalid_base_revision` error.
+1. An `initial` revision creates the graph.
+2. An `edit` revision records a user change.
+3. An `optimization` revision records selected defense actions.
 
-This page states behavior only. It does not describe persistence internals.
-The revision history lives in `src/lib/network_defense/graph/graphs.ex` and
-`src/lib/network_defense/graph/graph_revision.ex`.
+Each new revision points to one immutable parent.
+
+An edit names the base revision from which it started. A valid base belongs to
+the same graph. The system rejects unknown and cross-graph bases before it
+creates the revision.
 
 ## Baseline topology and scenario provenance
 
-The current baseline uses one fixed, synthetic topology. It lets a reviewer
-compare equal-action-count defenses under one controlled policy and attacker
-model. It does not measure real enterprise effectiveness. See
-[scope.md](scope.md) for that research boundary.
+The baseline scenario uses a fixed synthetic topology for controlled
+comparisons under one policy and attacker model.
 
 Segment policies represent logical enforcement. Gateway and bastion systems are
-hosts. The attack rules act on their services. Router and firewall node types
-are out of scope.
+hosts, and attack rules act on their services. The model omits router and
+firewall node types.
 
-The scenario follows: external network compromise, then lateral movement
-through remote services. These concepts follow NIST SP 800-207 and the MITRE
-ATT&CK techniques T1190 and T1021.
+The scenario starts with an external foothold and permits lateral movement
+through remote services. Its concepts follow NIST SP 800-207 and MITRE ATT&CK
+techniques T1190 and T1021.
 
-Treat each attacker starting point as a separate simulation input. Do not
-compare results across starting points. Each estimate is valid only for its own
-starting point.
+Treat each attacker starting point as a separate experiment and report its
+estimate separately.

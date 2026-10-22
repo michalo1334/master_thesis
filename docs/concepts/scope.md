@@ -1,61 +1,102 @@
 # Scope, Assumptions, and Limits
 
-This document states the boundaries of the master's thesis project. The thesis
-holds the full research narrative. This page does not repeat it.
+This page defines the study's model, evidence, and interpretation boundaries.
 
 ## Research questions
 
-Main research question:
+The main research question is:
 
-> Within controlled network topologies, how do equal-action-count
-> defense strategies differ from CVSS prioritization in reducing simulated
+> In controlled network topologies, how do equal-action-count defense
+> strategies differ from CVSS prioritization in their effect on simulated
 > mission impact?
 
-Sub-questions:
+The study also asks:
 
 1. How does a pre-attack feasibility constraint change selected defense plans
-   and modeled pre-attack mission disruption?
-2. How does controlled growth in topology size affect simulation and
-   plan-selection runtime, and the mission-impact contrasts between
-   equal-action-count strategies and CVSS prioritization?
+   and modeled mission disruption before an attack?
+2. How does controlled topology growth affect simulation runtime,
+   plan-selection runtime, and mission-impact differences between each defense
+   strategy and CVSS prioritization?
 
 Simulated mission impact is the primary outcome. Blast radius is a secondary
 safety outcome.
 
-## Model bounds and assumptions
+## Model assumptions
 
-The model is a discrete, stochastic, state-transition simulation of attack
-propagation over a graph of hosts, services, vulnerabilities, network segments,
-and mission capabilities.
+The model is a discrete stochastic state-transition simulation. It represents
+hosts, services, vulnerabilities, network segments, credentials, reachability
+policy, and mission capabilities in one context graph.
 
-Current bounds:
+Each experiment uses:
 
-- one fixed topology, policy, and attacker model per experiment;
-- equal-action-count budgets only;
-- a finite horizon of attacker action steps per trial;
-- attacks start from a declared entry host.
+- one fixed graph revision;
+- one policy and attacker model;
+- one declared initial foothold;
+- a finite action-step limit; and
+- an action-count budget.
 
-Each current defense action has unit cost. Equal action counts compare plan
-cardinality. They do not represent equal money, effort, deployment complexity,
-or operational risk.
+Each defense action has unit cost. Equal budgets compare plan cardinality.
 
-The simulator selects uniformly from eligible actions and then samples the
-selected action's outcome. It does not estimate real-world exploit likelihood.
+At each attack step, the simulator selects uniformly from eligible actions. It
+then samples the selected action's outcome from the vulnerability's scenario
+probability.
 
-The model cannot substantiate claims about real lateral movement, deployable
-cost-aware segmentation, real-world exploit likelihood, or general scalability
-beyond measured scenarios.
+## Evidence sources
 
-## Evidence boundary and data-source status
+Evidence comes from the built-in synthetic vulnerability catalog or a reviewed
+static subset of NVD data. The study records the selected source.
 
-The built-in catalog contains synthetic vulnerability entries. The baseline
-scenario can also use a reviewed static NVD subset. Each vulnerability has a
-scenario success probability. This probability is a scenario parameter, not a
-measured exploit rate.
+The baseline uses fixed synthetic topologies to isolate strategy, budget,
+feasibility, and topology-size effects. Estimates remain conditional on those
+topologies.
 
-NVD ingestion is deferred and is **not implemented**. No runtime process
-fetches NVD or another external vulnerability source.
+Pilot observations select sample sizes. Final analysis uses freshly collected
+observations for confirmation.
 
-The current baseline topology is a fixed, hand-authored scripted scenario. The
-[preserved methodology](evaluation-methodology.md) records the research method
-for a later clean implementation.
+## Evaluation scope
+
+The evaluation covers:
+
+- one alternative-versus-CVSS comparison for each declared tier, budget,
+  strategy, and outcome;
+- a corrected crossed bootstrap for each comparison;
+- one Holm correction across the complete primary family;
+- a Precision Pilot that selects common plan and attack counts;
+- separate Pilot and Final evidence collection;
+- a required pause before Final collection; and
+- one compact immutable study result.
+
+The study definition uses strict versioned YAML. It references immutable domain
+revisions and declares the scientific settings, ordered Pilot candidates,
+comparison family, seeds, and pause policy. After parsing, the system stores the
+normalized definition and discards the input text.
+
+The default lifecycle begins after optimizer calibration, topology construction,
+and other pilot work have accepted scientific contracts.
+
+## Pilot-to-Final boundary
+
+A valid Pilot always leads to a pause.
+
+- When the Pilot recommends a candidate, Final uses that candidate.
+- When the Pilot is insufficient, a user can select one candidate that the
+  study definition already declared. The result records
+  `pilot_override: true`.
+- An invalid or failed Pilot enters the terminal failed state.
+
+After an override, the Pilot outcome remains insufficient. Precision can remain
+poor, intervals can remain wide, raw p-values can remain unstable, and manual
+selection can introduce bias. Holm correction controls familywise error while
+evidence strength continues to depend on sampling precision.
+
+## Open research questions
+
+The results are conditional on the declared graphs, policies, attacker model,
+budgets, seeds, and measured environment. The study leaves these topics open:
+
+- observed attacker behavior and exploit likelihood;
+- effectiveness in enterprise networks;
+- cost comparison between equal-action-count plans;
+- deployable cost-aware segmentation;
+- population-level behavior across graph designs; and
+- performance in other environments.

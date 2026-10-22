@@ -1,102 +1,130 @@
-# Preserved evaluation methodology
+# Evaluation Methodology
 
-## Status and purpose
+The study compares each defense strategy with CVSS prioritization. It uses the
+same attack columns on both sides of a comparison and represents two sources of
+variation: selected defense plans and attack outcomes.
 
-**The scientific methodology is preserved in this document.** Stage 1 removed the legacy evaluation subsystem during a clean rewrite. Git history holds the removed source code, schema definitions, transport formats, and executable setup. It does not hold old database rows.
+The method has four main parts:
 
-This reference recovers the scientific baseline from Git commit `d94ba40352e469dc1c2da403ad3fa28397e5e350`. It separates the study protocol, the historical statistical method, and known historical inconsistencies.
+1. Build aligned outcome matrices for each comparison.
+2. Estimate the effect and its uncertainty with a crossed bootstrap.
+3. Use the Precision Pilot to choose Final sample counts.
+4. Apply Holm correction to the complete Final comparison family.
 
-The rewrite now has implemented, tested prototypes for one crossed comparison, a complete-family Holm correction, and a Precision Pilot. [The implemented evaluation pipeline](../inprogress/evaluation-pipeline.md) maps that software. The tests and deployed checks use synthetic evidence. They do not collect study data or produce study results. This document stays the scientific reference and is not an implementation plan.
-
-A rewrite can change configuration or method, but it must identify that change explicitly. It must not silently change the estimand, sampling units, reference strategy, or correction family while claiming equivalent results.
+A change to the estimand, sampling units, reference strategy, or correction
+family is a method change and needs an explicit justification.
 
 ## 1. Research scope and model
 
-The reference study examined controlled topology growth and its relationship to:
+The study examines how controlled topology growth affects:
 
 - simulation runtime;
 - defense-plan selection runtime;
 - total evaluation runtime; and
-- mission-impact differences between alternative defense strategies and CVSS prioritization.
+- mission-impact differences between defense strategies and CVSS
+  prioritization.
 
-The reference design used small, medium, and large tiers, with one frozen graph per tier. Host count controlled size. Edge count resulted from generation; it was not an independent treatment. A runtime pilot selected feasible sizes.
+Use small, medium, and large tiers, with one frozen graph per tier. Host count
+sets topology size. Edge count is a recorded graph property.
 
-Across tiers, preserve the node roles, relationship types, exposure template, reachability-policy pattern, attacker entry context, and action-count budget interpretation. Record attack-relevant topology diagnostics. An unchanged diagnostic is a result, not an automatic failure.
+Keep the model comparable across tiers. This includes node roles, relationship
+types, exposure patterns, reachability policy, attacker entry context, and the
+meaning of an action budget. Record attack-relevant topology diagnostics for
+each tier, including values that stay unchanged.
 
-Results are conditional on the frozen graphs. They do not estimate variation between independently generated graphs.
+The results describe these frozen graphs.
 
 ### Model assumptions
 
-CVSS scores, exploit probabilities, capability-impact weights, minimum operational support, required flows, reachability policies, and defense-action semantics are controlled model inputs. Exploit probability is not an empirically measured real-world exploit rate.
+CVSS scores, exploit probabilities, capability weights, support thresholds,
+required flows, reachability policy, and defense actions are model inputs.
 
-The historical simulator selected an eligible attacker action uniformly, then sampled that action's outcome. The initial foothold contributed to blast radius. The attack horizon bounded action steps.
+At each step, the simulator selects one eligible attacker action uniformly and
+then samples its outcome. The initial foothold contributes to blast radius. The
+attack horizon limits the number of action steps.
 
-Mission impact is the model's weighted score for disrupted capabilities. Support thresholds and required flows determine operational status. Evaluation consumes that model-defined outcome; it must not silently redefine its weighting or scaling. The recovered study documents do not fully specify the simulator's aggregation formula.
+Mission impact is the weighted sum of disrupted mission capabilities. The
+model's support thresholds and required flows determine capability status. The
+evaluation uses these weights and rules unchanged.
 
 ## 2. Treatments, reference, and controls
 
-The reference primary family compared these alternatives with CVSS prioritization:
+The primary family compares four alternatives with CVSS prioritization.
 
-| Alternative | Scientific role |
-| --- | --- |
-| Random defense selection | Randomized strategy benchmark |
-| Topology-driven policy segmentation | Structural defense selection |
-| Simulation-informed selection | Defense selection informed by simulated outcomes |
-| Simulated-annealing search | Search over defense plans |
+| Alternative                         | Role                                   |
+| ----------------------------------- | -------------------------------------- |
+| Random defense selection            | Randomized benchmark.                  |
+| Topology-driven policy segmentation | Selection based on graph structure.    |
+| Simulation-informed selection       | Selection based on simulated outcomes. |
+| Simulated-annealing search          | Stochastic search over defense plans.  |
 
-The **CVSS strategy is the primary comparison reference**. A **no-defense experiment is a separate descriptive control**. They are not interchangeable.
+CVSS is the primary reference. A no-defense experiment provides descriptive
+context.
 
-A primary comparison identifies a tier, budget, alternative, reference, and outcome. The historical primary outcome was mission impact. Direct alternative-versus-alternative claims were outside that primary family.
+One primary comparison identifies a tier, budget, alternative, reference, and
+outcome. Mission impact is the primary outcome. Direct comparisons between two
+alternative strategies belong to exploratory analysis.
 
-Action-count budgets control cardinality. Equal action counts do not imply equal monetary cost, deployment effort, operational risk, or implementation complexity.
+Here, budget means the number of defense actions in a plan.
 
 ## 3. Replication units and evidence alignment
 
-| Unit | Meaning | What it estimates |
-| --- | --- | --- |
-| Plan-selection replicate | A plan selected for a strategy, budget, and selection seed | Selection variation |
-| Attack replicate | A stochastic attacker execution against a plan | Attack/outcome variation |
-| Timing replica | Repeated execution of fixed scientific inputs | Runtime variation only |
-| Graph | One frozen topology in a size tier | A conditional scenario, not sampled graph variation |
+| Unit                     | Meaning                                            | Variation represented     |
+| ------------------------ | -------------------------------------------------- | ------------------------- |
+| Plan-selection replicate | One selected plan.                                 | Plan-selection variation. |
+| Attack replicate         | One attacker execution against a plan.             | Attack variation.         |
+| Timing replica           | One repeated execution of fixed scientific inputs. | Runtime variation.        |
+| Graph                    | One frozen topology in a size tier.                | One conditional scenario. |
 
-Attack repeats cannot replace missing plan-selection replicates. Timing replicas do not add independent plans or attacks.
+These units answer different questions. Meet each required count independently.
 
-For each primary comparison, construct two matrices:
+Each comparison uses two matrices. A row is one selected plan. A column is one
+shared attack seed.
 
-- alternative outcomes: plan rows × attack columns;
-- CVSS outcomes: plan rows × the same attack columns.
+- The first matrix contains alternative outcomes.
+- The second matrix contains CVSS outcomes with the same ordered columns.
 
-All plans in a crossed comparison must share the same ordered attack columns. Reject unequal column coverage. The same attack seed identifies a shared column on both sides; defenses may still change the trajectory and outcome. Phase-level evaluation roots are a separate check, defined in Section 7.
+Every plan must cover the same attack columns in the same order. The same
+attack seed identifies the same column on both sides. A defense can still
+change the resulting attack path and outcome.
 
-**Pair attack columns, not plan rows.** Sample the alternative's plan rows independently of CVSS plan rows. Use stable plan and comparison identities for deterministic processing. Do not flatten all trials into independent observations.
+During resampling, use the same sampled columns on both sides. Draw alternative
+and CVSS plan rows independently. Keep stable plan and comparison identities,
+and preserve the matrix structure.
 
-Each tier must use compatible model variants and analysis settings. Verify the strategy/budget matrix, permitted selection seeds, required sample counts, and attack alignment before inference. Do not require all declared selection seeds when the protocol permits a selected subset.
+Before inference, validate the strategy and budget matrix, sample counts,
+selection seeds, and attack-column alignment. A strategy can use an allowed
+subset of the declared selection seeds.
 
 ## 4. Primary estimand and interval
 
-Let $A$ contain alternative outcomes with $n_A$ plan rows and $m$ attack columns. Let $C$ contain CVSS outcomes with $n_C$ rows and the same $m$ columns.
+Let $A$ be the alternative matrix with $n_A$ plan rows and $m$ attack columns.
+Let $C$ be the CVSS matrix with $n_C$ rows and the same $m$ columns.
 
-The estimand is the difference between their mean mission impacts:
+The effect estimate is the difference between their mean mission impacts:
 
 $$
 \widehat{\Delta}=\overline{A}-\overline{C}.
 $$
 
-- Negative: the alternative produced lower simulated mission impact than CVSS.
-- Positive: the alternative produced higher simulated mission impact.
+- A negative value favors the alternative because it has lower mission impact.
+- A positive value favors CVSS.
 
-The uncertainty target covers plan-selection and attack-outcome variation. It does not include graph-generation or deployment-environment variation.
+The interval covers plan-selection and attack-outcome variation.
 
 ### Corrected crossed bootstrap
+
+The crossed bootstrap resamples both sources of variation while keeping attack
+columns paired.
 
 For each bootstrap draw:
 
 1. Sample $m$ attack-column indices with replacement.
 2. Sample $n_A$ alternative plan-row indices with replacement.
-3. Independently sample $n_C$ CVSS plan-row indices with replacement.
-4. Apply the same sampled columns to both matrices.
-5. Calculate the raw sampled mean contrast $\Delta_b$.
-6. Apply the historical finite-sample correction:
+3. Sample $n_C$ CVSS plan-row indices independently with replacement.
+4. Apply the sampled columns to both matrices.
+5. Calculate the sampled mean difference $\Delta_b$.
+6. Apply the finite-sample correction:
 
 $$
 \gamma=\sqrt{
@@ -107,65 +135,96 @@ $$
 \Delta_b^*=\widehat{\Delta}+\gamma(\Delta_b-\widehat{\Delta}).
 $$
 
-For confidence level $1-\alpha$, use the $\alpha/2$ and $1-\alpha/2$ percentiles of the corrected draws. The interval half-width is half the difference between those limits.
+The correction expands variation around the observed effect for small row and
+column counts. For confidence level $1-\alpha$, use the $\alpha/2$ and
+$1-\alpha/2$ percentiles of the corrected draws. Half the distance between the
+limits is the interval half-width.
 
-The historically calibrated lower bounds were **five plan rows per side and ten shared attack columns**. These are method constraints in the reference implementation, not arbitrary transport limits. They are not a universal guarantee of interval coverage.
+Require at least five plan rows per side and ten shared attack columns. These are
+eligibility bounds. Actual coverage depends on the model and evidence.
 
 ### Raw p-value: centered crossed bootstrap
 
-The implemented primary test was **not a permutation test**.
+The primary test uses a centered crossed bootstrap. Center each matrix by
+subtracting its observed mean. Then run the corrected crossed bootstrap with a
+separate deterministic random stream.
 
-Center each matrix by its own observed mean. Apply the same corrected crossed-bootstrap procedure to those centered matrices, using a separate deterministic random stream. For $B$ null draws:
+For $B$ centered draws, calculate the two-sided raw p-value:
 
 $$
 p_{\mathrm{raw}}=
 \frac{1+\#\{b:|\Delta_{0,b}^*|\geq|\widehat{\Delta}|\}}{B+1}.
 $$
 
-The historical code used the configured bootstrap resample count for both the interval and this null distribution.
+The added one in the numerator and denominator prevents a reported value of
+zero. Use the declared bootstrap count for both the interval and the centered
+draws.
 
-A comparison was non-informative when its estimated effect and both interval limits were numerically zero. The code set its raw p-value to one. A zero-width interval with a nonzero effect produced a degeneracy warning. Preserve these distinctions; do not interpret a zero-width result as proof of equivalence or certain precision.
+A comparison is non-informative when the effect and both interval limits are
+numerically zero. Assign a raw p-value of one. A zero-width interval with a
+nonzero effect receives a degeneracy warning.
 
 ## 5. Complete-family multiplicity correction
 
-Declare the primary family before inspecting Final results. The historical example had four alternatives, three budgets, and three tiers: **36 primary comparisons**. That count is an example, not a universal constant.
+Holm correction limits the chance of at least one false rejection across the
+primary family. It orders the raw p-values, adjusts them by the number of
+remaining tests, and keeps the adjusted values in order.
 
-Collect all expected primary rows, verify the complete key set, and apply **one Holm correction across the entire declared family**. Do not correct separately by tier, budget, or strategy. Do not silently omit inconvenient or non-informative rows to reduce family size.
+Declare the family before inspecting Final results. Its size follows the study
+design. For example, four alternatives, three budgets, and three tiers produce
+36 comparisons.
 
-Restore results to stable comparison identities after correction. The historical correction changed p-values only. Its displayed bootstrap intervals remained per-comparison intervals, not simultaneous familywise intervals.
+Before correction:
 
-No-defense, secondary outcomes, and exploratory comparisons do not enter this primary family unless the study explicitly declares a different family.
+1. Collect every expected comparison.
+2. Verify that each declared identity occurs exactly once.
+3. Reject missing, duplicate, or unexpected identities.
+4. Apply Holm once to the complete family, including non-informative results.
+
+After correction, restore the declared comparison order. Holm adjusts p-values.
+Estimates and intervals remain per-comparison quantities. Simultaneous intervals
+require a separate method.
+
+Controls, secondary outcomes, and exploratory comparisons enter the primary
+family when the study definition declares them as members.
 
 ## 6. Precision Pilot
 
-The precision Pilot selects common values for two dimensions:
+The Precision Pilot chooses two common Final sample counts:
 
-- number of plan-selection replicates per comparison side, $n$;
+- plan-selection replicates per comparison side, $n$; and
 - attacks per plan, $m$.
 
-Declare a two-dimensional candidate grid, a target interval half-width, an upper guard quantile, an outer subsample count, and a Pilot random seed. Values are study configuration, not universal engine defaults.
+The study declares an ordered list of candidate count pairs. Each candidate has
+a stable ID. The study also supplies the target half-width, guard quantile,
+outer subsample count, confidence level, bootstrap count, and Pilot base seed.
 
-Candidates must meet the calibrated lower bounds and fit every observed comparison on both sides. Reject an oversized candidate; do not truncate it silently.
+Each candidate must meet the minimum bounds and fit every comparison on both
+sides. Reject an oversized candidate.
 
 ### Candidate evaluation
 
-For each candidate and required comparison:
+For each candidate and family comparison:
 
-1. Repeatedly select alternative rows, CVSS rows, and shared attack columns **without replacement** from Pilot evidence.
-2. Run the corrected crossed bootstrap on each selected subsample.
-3. Calculate its interval half-width.
-4. Take the configured guard quantile of those half-widths.
-5. Require the guarded value to meet the target and the evaluated evidence to be informative.
+1. Select alternative rows, CVSS rows, and shared attack columns without
+   replacement.
+2. Run the corrected crossed bootstrap on this subsample.
+3. Record the interval half-width.
+4. Repeat for the declared number of outer subsamples.
+5. Take the declared guard quantile of the half-widths.
+6. Compare the guarded half-width with the target.
+7. Require every outer subsample to be informative.
 
-The outer subsampling is without replacement. The inner bootstrap is with replacement. These are different operations.
+The outer step tests the candidate across many observed subsets and samples
+without replacement. Inside each subset, the bootstrap resamples rows and
+columns with replacement to estimate uncertainty.
 
-A candidate passes only if all required comparisons pass. Its reported guarded half-width is the maximum across comparison rows. Required non-informative comparisons block eligibility; a small numerical width alone is insufficient.
-
-Candidate summaries are derived results. They are not observations from which to construct the crossed matrices.
+A candidate passes when every family comparison passes. Its worst guarded
+half-width is the largest value across the family.
 
 ### Runtime selection heuristic
 
-Choose the passing candidate with the lowest predicted runtime. The historical heuristic was:
+Among passing candidates, select the one with the lowest predicted runtime:
 
 $$
 T(n,m)=L\,G\,n\left(t_{\mathrm{select}}+m\,t_{\mathrm{trial}}\right),
@@ -173,107 +232,151 @@ $$
 
 where:
 
-- $L$ is tier count;
-- $G$ is the maximum declared strategy-group count across tiers;
-- $t_{\mathrm{select}}$ is median measured plan-selection duration;
-- $t_{\mathrm{trial}}$ is median per-trial duration derived from experiment durations and trial counts.
+- $L$ is the tier count;
+- $G$ is the largest strategy-group count in any tier;
+- $t_{\mathrm{select}}$ is the median plan-selection duration; and
+- $t_{\mathrm{trial}}$ is the median duration per attack trial.
 
-The deterministic tie-break order is lower predicted runtime, then larger plan count, then smaller attack count. The heuristic does not establish a runtime confidence interval or a performance guarantee.
+Break a tie in this order:
 
-If no candidate passes, report an insufficient Pilot. Do not substitute a convenient failing candidate or proceed to Final claims.
+1. lower predicted runtime;
+2. larger plan count;
+3. smaller attack count; and
+4. earlier candidate position.
+
+If every candidate fails, return an insufficient Pilot and pause.
+
+### Insufficient-Pilot confirmatory override
+
+The study pauses after every valid Pilot. After an insufficient Pilot, resume
+requires one candidate already declared in the study. Invalid, failed, partial,
+and exhausted Pilot outcomes enter the terminal failed state.
+
+The study policy still labels the resumed Final analysis as confirmatory. The
+Pilot outcome stays insufficient. Record `pilot_override: true` and store the
+selected candidate ID and counts as normal result data. The boolean is the
+complete override-specific record.
+
+The override carries these risks:
+
+- the precision target remains unmet;
+- confidence intervals can remain wide;
+- raw p-values can remain unstable;
+- Holm controls multiplicity while evidence strength remains limited; and
+- manual candidate selection can introduce selection bias.
+
+Evidence separation, matrix alignment, family membership, and Holm correction
+remain in force.
 
 ## 7. Pilot/Final separation and scientific freeze
 
-Each phase declares selection seeds and evaluation seeds. An **evaluation seed** is one tier's root for attack-related random streams. It is not a separate additional attack schedule. Pilot and Final use disjoint selection sets and disjoint evaluation-root sets.
+Pilot selects sample counts. Final uses fresh evidence collected after that
+decision.
 
-The historical validation is asymmetric:
+Apply these seed rules:
 
-- Each tier declares one evaluation root. The set of observed roots across tiers must equal the phase's declared evaluation set.
-- Each strategy run uses a non-empty subset of the phase's declared selection set. Every observed plan selection seed must belong to that set.
-- Not every declared selection seed must appear in every tier or strategy. Final evidence may use a subset of its own declared selection set, sized according to the Pilot recommendation. It does not reuse Pilot seed values.
+- Each tier declares one evaluation root, which starts its attack-related
+  random streams.
+- Observed evaluation roots must match the declared phase set.
+- Each strategy uses a non-empty subset of the phase's selection seeds.
+- Every observed selection seed belongs to that declared set.
+- Final uses the selected plan count from its own selection-seed set.
+- Pilot and Final use disjoint selection seeds and evaluation roots.
 
-Do not reject a valid selection subset as incomplete. Do not accept missing declared evaluation roots.
+After the pause, collect Final evidence with the selected counts and Final
+seeds.
 
-The recommendation supplies Final configuration, not Final observations. Collect fresh Final evidence with the frozen common counts and fresh seeds.
-
-The scientific sequence is:
-
-```text
-Freeze model/method → optimizer and topology/runtime pilots
-    → precision Pilot → freeze common counts
-    → freeze Final configuration, graphs, and environment
-    → collect separate Final evidence → complete-family analysis
+```mermaid
+flowchart TD
+    Freeze[Freeze model and method] --> Calibrate[Complete accepted calibration work]
+    Calibrate --> CollectPilot[Collect Pilot evidence]
+    CollectPilot --> AnalyzePilot[Run the Precision Pilot]
+    AnalyzePilot --> Pause[Pause and select one declared candidate]
+    Pause --> FreezeFinal[Freeze Final graphs, settings, seeds, and environment]
+    FreezeFinal --> CollectFinal[Collect separate Final evidence]
+    CollectFinal --> AnalyzeFinal[Run complete-family Final analysis]
 ```
 
-Optimizer/topology pilots choose feasible experimental settings. The precision Pilot selects outcome-sampling counts. They are not interchangeable.
+Calibration chooses feasible experimental settings. The Precision Pilot chooses
+outcome sample counts. Begin the study lifecycle after calibration has an
+accepted method.
 
-A post-freeze change to scientific inputs creates a newly identifiable configuration or study revision. Do not patch measured evidence in place. This is a reproducibility rule, not a requirement to retain old executable deployments.
-
-The Pilot-to-Final handoff remains an explicit approval/freeze boundary. Software orchestration must not silently turn Pilot evidence into Final data.
+A change to a frozen scientific input creates a new study revision and preserves
+the measured evidence. The pause makes the sample-size decision explicit and
+keeps Pilot and Final evidence separate.
 
 ## 8. Warm-up and timing replicas
 
-The reference runtime protocol used **one excluded warm-up and five accepted measured replicas per tier**.
+For each tier, use one excluded warm-up and five accepted measured replicas.
 
-The warm-up prepares the environment. It contributes neither timing evidence nor outcome evidence. Measured replicas repeat fixed scientific inputs and estimate runtime variation; they do not multiply the outcome sample size.
+The warm-up prepares the environment. Exclude it from timing and outcome
+evidence. Measured replicas repeat fixed scientific inputs and estimate runtime
+variation while outcome sample counts stay fixed.
 
-The historical report used median and observed range for simulation, plan-selection, and total-evaluation duration across accepted replicas. A changed environment record blocked measured collection.
+Report the median and observed range for simulation, plan selection, and total
+evaluation duration. Stop measured collection when the recorded environment
+changes.
 
-Replica acceptance ignored expected run identifiers and timing values, but required matching scientific configuration, graphs, selected plans, attack and capability outcomes, pre-attack flow status, host compromises, and non-timing summaries.
-
-Do not pool identical outcome replicas as independent plan or attack samples.
+Accept a replica when its scientific configuration, graph, and selected plans
+match. Also require matching attack outcomes, capability outcomes, pre-attack
+flow status, host compromises, and non-timing summaries. Run identifiers and
+timing values can differ.
 
 ## 9. Secondary and descriptive results
 
-Keep the scientific role of each result explicit:
+Secondary results can include:
 
 - no-defense outcome context;
 - blast radius, including the initial foothold;
 - capability disruption and host compromise probabilities;
 - pre-attack feasibility and required-flow disruption;
 - variation between selected plans;
-- empirical blast-radius distributions;
+- empirical blast-radius distributions; and
 - plan-selection, simulation, and total runtime.
 
-The historical secondary contrast used a simpler bootstrap over attack-level differences. It was not the crossed primary estimator. Do not substitute that calculation for primary inference or treat its outputs as corrected members of the primary family without a declared method change.
+A secondary attack-level contrast can use a simpler bootstrap over paired attack
+differences. Adding its p-values to the primary Holm family requires a declared
+method change.
 
-A feasibility-policy comparison must keep other model settings matched. Its scientific role must remain distinct from the declared primary strategy family.
+A feasibility-policy comparison keeps all other model settings matched.
 
 ## 10. Reproducibility and limits
 
-Record enough information to reconstruct the scientific experiment: graph/model identity, attacker context, defense semantics, selected plans, outcome definition, strategy/budget family, phase schedules, sampling counts, confidence/resampling settings, random-stream policy, source/dependency versions, and measured environment.
+Record enough information to reconstruct the experiment:
 
-Distinguish plan-selection seeds, evaluation roots, derived attack seeds, analysis seeds, and Pilot seeds.
+- graph, model, attacker, and defense identities;
+- selected plans, outcomes, strategies, and budgets;
+- phase seeds and sample counts;
+- candidate order and resampling settings;
+- software and dependency versions; and
+- the measured environment.
 
-Historically, comparison stream roots combined the relevant base seed with a tier offset and a comparison-index offset. Separate child streams served intervals and null draws. Pilot subsampling also used candidate counts and spawned child streams. Comparison identities were validated, but streams were not derived directly from those identities. Canonical ordering therefore matters for historical reproduction.
+Keep plan-selection seeds, evaluation roots, attack seeds, resampling seeds, and
+Pilot seeds distinct.
 
-**Requirement on implemented software, not a claim about the removed legacy executor:** fixed scientific inputs, seeds, and ordering must produce equivalent results across retries and execution schedules. Worker count, completion order, and task IDs must not introduce new scientific randomness. Preserve the historical derivation or identify any replacement derivation explicitly; this document does not require a new identity-based seed scheme.
+For Pilot analysis, derive the comparison stream seed as:
 
-The exact historical offsets, stream derivation, and numerical-tolerance behavior remain recoverable from the baseline source. Bitwise reproduction also depends on random-generator and numerical-library versions.
+```text
+comparison stream seed
+    = Pilot base seed
+    + zero-based tier rank × 1,000,000
+    + zero-based comparison occurrence within that tier × 2
+```
 
-Interpretation remains conditional on modeled exploit behavior, capability weights, frozen graphs, chosen budgets, and the measured environment. Equal budgets are not equal real-world cost. The topology design does not support population claims about arbitrary generated networks. Timing summaries do not establish performance on an unmeasured deployment.
+Tier rank follows first appearance in the comparison list. Comparison occurrence
+follows within-tier order and stays stable when tiers are interleaved. Combine
+the stream seed with the candidate plan and attack counts. Use separate child
+streams for interval and centered-null calculations.
 
-The recovered documents do not fully establish universal optimizer settings or topology-construction defaults. Do not invent them as methodological constants.
+Canonical order is part of reproducibility. Scientific randomness depends on
+the declared inputs, seeds, and order and stays stable across retries and
+execution schedules.
 
-## 11. Historical inconsistencies to keep explicit
+Interpret results as conditional on the declared exploit model, capability
+weights, frozen graphs, budgets, seeds, and measured environment. Report budget
+claims as action counts, graph inference by tier, and timing for the measured
+environment.
 
-1. **Permutation terminology:** Historical configuration/documentation included a permutation-resample parameter. The implemented primary p-value used the centered crossed bootstrap and bootstrap resample count. This document records that implementation; it does not silently choose a new permutation method. Any change needs an explicit statistical decision and validation. This statement concerns the primary test, not every secondary helper.
-2. **Small illustrative example:** One old worked example used four plan-selection replicates, below the implemented/calibrated minimum of five. Do not treat that illustration as a valid primary-inference configuration.
-3. **Model details:** Mission-impact aggregation/scaling and exact optimizer/topology defaults require the model definition or historical source where the study narrative is incomplete.
-
-## 12. Historical sources
-
-All paths below refer to **Git commit `d94ba40352e469dc1c2da403ad3fa28397e5e350`**, not current executable files. Recover them with Git; do not restore them into the working tree merely as references.
-
-| Concern | Baseline source |
-| --- | --- |
-| Reference experiment, tiers, controls, timing protocol | `docs/inprogress/topology-scale-study.md` |
-| Model assumptions, freeze rules, calibrated bounds, outcomes | `docs/inprogress/topology-scale-methodology.md` |
-| Units, Pilot eligibility, phase separation | `docs/concepts/evaluation.md` |
-| Historical configurable study example | `evaluation/studies/topology-scale.json` |
-| Matrix alignment and primary statistics | `evaluation/analysis/src/network_defense_analysis/statistics.py`, especially the crossed-comparison builder and `_crossed_statistics` |
-| Pilot subsampling, guard, recommendation, runtime heuristic | `evaluation/analysis/src/network_defense_analysis/study.py`, especially `_evaluate_candidate`, `_aggregate_candidate`, and `_candidate_order` |
-| Full-family correction | The same historical `study.py`, `_apply_family_correction` |
-| Descriptive and secondary analysis | `evaluation/analysis/src/network_defense_analysis/report.py` |
-
-The methodology is the preserved reference. Archive members, CSV layouts, JSON field names, CLI commands, service routes, and deleted code structure are not preservation requirements.
+The study definition supplies every optimizer setting, topology setting,
+numerical tolerance, and random-generator dependency that can change a result.
+Treat a missing value as a validation error.
