@@ -58,4 +58,4 @@ can and should be addressed to different groups.
 # Workflow
 
 - use `scout` with `gpt 5.6 luna` override for exploring codebase or researching internet
-- use `fusion` skill & delegation for implementation
+- use `worker` subagent delegation for implementation

@@ -10,8 +10,7 @@ git module agent-lib:
   drop:
   - .pi/.gitignore
   executable:
-  - .pi/formloop/launch
   - .pi/skills/impeccable/scripts/impeccable
   - .pi/skills/impeccable/scripts/bin/linux-x64/impeccable
   - update-agent-setup
-  rev: c18f6c8195f72cc2d5a4bd1ab7db2b5c9aa9917c
+  rev: 79f18b81481d26c353c497a0655f720a09612efe

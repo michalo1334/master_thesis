@@ -13,8 +13,8 @@ Main research question:
 
 Sub-questions:
 
-1. How does a pre-attack feasibility constraint change selected defense plans
-   and modeled pre-attack mission disruption?
+1. How does requiring defense plans to preserve mission operations before an
+   attack affect plan selection and mission disruption?
 2. How does controlled growth in topology size affect simulation,
    plan-selection, and total-evaluation runtime, and the mission-impact
    contrasts between equal-action-count strategies and CVSS prioritization?
@@ -46,10 +46,10 @@ The model cannot substantiate claims about real lateral movement, deployable
 cost-aware segmentation, real-world exploit likelihood, or general scalability
 beyond measured scenarios.
 
-## Approved topology-scale study
+## Topology-scale study
 
 The crossed-study workflow is implemented. The Azure study has not run. It
-uses three controlled size tiers and one frozen graph per tier. A runtime pilot
+uses three controlled size tiers and one fixed graph per tier. A runtime pilot
 selects the exact tier sizes before the full study. The tier designs preserve
 the declared role schema, exposure template, reachability policy pattern,
 attacker context, and equal-action-count budgets. A diagnostic records how
@@ -100,7 +100,7 @@ variation. The precision target is a confidence-interval half-width of one
 mission-impact point. Holm correction applies once across the 36 primary
 comparisons: four alternatives, three budgets, and three tiers.
 
-Each tier has one excluded warm-up and five accepted measured Azure replicas.
+Each tier has one warm-up run followed by five measured Azure runs.
 The study reports the median and observed range of simulation, plan-selection,
 and total-evaluation durations from one recorded environment. Automatic
 environment recording remains planned tooling (see the
