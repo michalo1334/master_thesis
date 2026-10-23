@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "plan": {
+    "recipes": [
+      "elixir-index",
+      "elixir-quality"
+    ],
+    "dependencies": {
+      "ex_ast": {
+        "version": "0.12.9",
+        "runtime": true,
+        "only": [
+          "dev",
+          "test"
+        ]
+      },
+      "ex_dna": {
+        "version": "1.5.4",
+        "runtime": true,
+        "only": [
+          "dev",
+          "test"
+        ]
+      },
+      "exograph": {
+        "version": "0.9.12",
+        "runtime": true,
+        "only": [
+          "dev",
+          "test"
+        ]
+      },
+      "ex_slop": {
+        "version": "0.4.5",
+        "runtime": false,
+        "only": [
+          "dev",
+          "test"
+        ]
+      }
+    },
+    "minimum_elixir": "1.19",
+    "credo_plugins": [
+      "ExDNA.Credo",
+      "ExSlop"
+    ],
+    "approval_required": true,
+    "recording": "not selected",
+    "app_dir": "src"
+  }
+}

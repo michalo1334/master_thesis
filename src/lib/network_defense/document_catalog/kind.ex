@@ -1,15 +1,16 @@
 defmodule NetworkDefense.DocumentCatalog.Kind do
   @moduledoc false
 
-  @labels %{
+  @kinds [
     graph: "Graph",
     simulation_report: "Simulation report",
     optimization_report: "Optimization report",
     analysis_report: "Analysis report"
-  }
+  ]
+  @labels Map.new(@kinds)
 
   @spec values() :: [atom()]
-  def values, do: Map.keys(@labels)
+  def values, do: Keyword.keys(@kinds)
 
   @spec strings() :: [String.t()]
   def strings, do: Enum.map(values(), &value/1)

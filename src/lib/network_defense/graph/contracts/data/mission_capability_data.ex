@@ -4,6 +4,7 @@ defmodule NetworkDefense.Graph.Contracts.Data.MissionCapabilityData do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Graph.Contracts.Data.RequiredServiceFlowData
+  alias NetworkDefense.Graph.Data
 
   embedded_schema do
     field :name, :string
@@ -21,12 +22,5 @@ defmodule NetworkDefense.Graph.Contracts.Data.MissionCapabilityData do
           required_flows: [RequiredServiceFlowData.t()]
         }
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:name, :description, :impact_weight, :min_operational_support])
-    |> cast_embed(:required_flows)
-    |> validate_required([:name, :impact_weight, :min_operational_support])
-    |> validate_number(:impact_weight, greater_than: 0)
-    |> validate_number(:min_operational_support, greater_than: 0)
-  end
+  def changeset(schema, attrs), do: Data.mission_capability_changeset(schema, attrs)
 end

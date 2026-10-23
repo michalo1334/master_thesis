@@ -22,6 +22,7 @@ defmodule Mix.Tasks.Evaluate.Study do
   @requirements ["app.start"]
   @switches [spec: :string, tier: :keep, mode: :string, output: :string]
 
+  alias Mix.Tasks.Evaluate.Options
   alias NetworkDefense.Evaluation
   alias NetworkDefense.Evaluation.StudyTierValidator
 
@@ -29,7 +30,7 @@ defmodule Mix.Tasks.Evaluate.Study do
   def run(args) do
     {options, positional, invalid} = OptionParser.parse(args, strict: @switches)
 
-    with :ok <- validate_options(options, positional, invalid),
+    with :ok <- Options.validate(options, positional, invalid, [:spec, :mode, :output]),
          {:ok, study_spec} <- load_spec(options[:spec]),
          {:ok, mode} <- parse_mode(options[:mode]),
          {:ok, tier_runs} <- parse_tiers(Keyword.get_values(options, :tier)),
@@ -48,20 +49,6 @@ defmodule Mix.Tasks.Evaluate.Study do
     else
       {:error, reason} -> Mix.raise(error_message(reason))
     end
-  end
-
-  defp validate_options(options, [], []) do
-    Enum.find_value([:spec, :mode, :output], :ok, fn option ->
-      if is_nil(options[option]) do
-        flag = option |> Atom.to_string() |> String.replace("_", "-")
-        {:error, "missing required option --#{flag}"}
-      end
-    end)
-  end
-
-  defp validate_options(_options, positional, invalid) do
-    names = Enum.map(invalid, fn {name, _value} -> to_string(name) end)
-    {:error, "invalid options: #{Enum.join(positional ++ names, ", ")}"}
   end
 
   defp load_spec(path) do

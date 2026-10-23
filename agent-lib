@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+root="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+script="$root/.agent-lib/bin/agent_lib.py"
+[[ -f "$script" ]] || script="$root/scripts/agent_lib.py"
+exec "${AGENT_LIB_PYTHON:-python3}" "$script" "$@"

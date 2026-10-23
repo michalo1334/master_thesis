@@ -1,180 +1,101 @@
 #!/usr/bin/env bash
-# Update the consuming project's library and its installed agent tools.
+# Update bundles. Machine-wide tool upgrades require --tools.
 set -euo pipefail
-
 DRY_RUN=0
+TOOLS=0
 PERU_MANAGER=auto
 PROJECT_ROOT=""
 PERU_EXECUTABLE=""
 
+fail() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 usage() {
-  printf '%s\n' \
-    'Usage: ./update-agent-setup [--dry-run] [--peru-manager uv|pipx|brew]' \
-    '' \
-    'Update the library with Peru, upgrade Peru, update Pi, and update Pi packages.' \
-    'The project is the directory that contains this script, not the current directory.' \
-    'Peru conflicts stop the update. Configured Pi package pins remain unchanged.' \
-    'The package step approves project Pi configuration for that command only.' \
-    '' \
-    '  --dry-run             Print update commands without running them.' \
-    '  --peru-manager NAME   Select the existing Peru installation owner.' \
-    '  -h, --help            Show this help.'
+  printf '%s\n' 'Usage: ./update-agent-setup [--dry-run] [--tools] [--peru-manager uv|pipx|brew]' \
+    'Update the selected bundles in the directory that contains this script.' \
+    'Default: library files and project configuration only. No global tool upgrades.' \
+    '--dry-run previews the bundle update without changing the project.' \
+    '--tools also upgrades Peru, Pi, and installed Pi packages after the library update.' \
+    'Legacy Peru consumers must migrate explicitly before this helper can update them.'
 }
-
-fail() {
-  printf 'Error: %s\n' "$*" >&2
-  exit 1
-}
-
 parse_args() {
   while (($#)); do
     case "$1" in
       --dry-run) DRY_RUN=1; shift ;;
+      --tools) TOOLS=1; shift ;;
       --peru-manager)
         (($# >= 2)) || fail '--peru-manager requires uv, pipx, or brew.'
-        case "$2" in
-          uv|pipx|brew) PERU_MANAGER="$2" ;;
-          *) fail 'Supported Peru managers: uv, pipx, brew.' ;;
-        esac
-        shift 2
-        ;;
+        case "$2" in uv|pipx|brew) PERU_MANAGER="$2" ;; *) fail 'Unsupported Peru manager.' ;; esac
+        shift 2 ;;
       -h|--help) usage; exit 0 ;;
       *) fail "Unknown option: $1. Use --help." ;;
     esac
   done
+  [[ "$PERU_MANAGER" == auto || "$TOOLS" == 1 ]] || fail '--peru-manager requires --tools.'
 }
-
-require_commands() {
-  local name
-  for name in peru pi readlink; do
-    command -v "$name" >/dev/null 2>&1 || fail "Required command not found: $name."
-  done
-}
-
-validate_project() {
-  [[ -f "$PROJECT_ROOT/peru.yaml" ]] || fail 'The project needs its own peru.yaml.'
-  local modules name
-  modules="$(peru module list)"
-  while IFS= read -r name; do
-    [[ "$name" != agent-lib ]] || return 0
-  done <<< "$modules"
-  fail 'peru.yaml does not define the agent-lib module.'
-}
-
 resolve_path() {
   local path="$1" target count=0
   while [[ -L "$path" ]]; do
-    count=$((count + 1))
-    ((count <= 40)) || fail 'Too many symlinks while resolving an executable.'
+    count=$((count + 1)); ((count <= 40)) || fail 'Too many executable symlinks.'
     target="$(readlink "$path")"
-    case "$target" in
-      /*) path="$target" ;;
-      *) path="$(dirname "$path")/$target" ;;
-    esac
+    case "$target" in /*) path="$target" ;; *) path="$(dirname "$path")/$target" ;; esac
   done
   printf '%s/%s\n' "$(cd -- "$(dirname "$path")" && pwd -P)" "$(basename "$path")"
 }
-
 manager_owns_peru() {
   local manager="$1" root expected
   command -v "$manager" >/dev/null 2>&1 || return 1
   case "$manager" in
-    uv)
-      root="$(uv tool dir)" || return 1
-      expected="$root/peru/bin/peru"
-      ;;
-    pipx)
-      root="$(pipx environment --value PIPX_LOCAL_VENVS)" || return 1
-      expected="$root/peru/bin/peru"
-      ;;
+    uv) root="$(uv tool dir)" || return 1; expected="$root/peru/bin/peru" ;;
+    pipx) root="$(pipx environment --value PIPX_LOCAL_VENVS)" || return 1; expected="$root/peru/bin/peru" ;;
     brew)
       root="$(brew --prefix peru 2>/dev/null)" || return 1
       [[ -d "$root" ]] || return 1
       root="$(cd -- "$root" && pwd -P)" || return 1
-      [[ "$PERU_EXECUTABLE" == "$root/"* ]]
-      return
-      ;;
+      [[ "$PERU_EXECUTABLE" == "$root/"* ]]; return ;;
   esac
   [[ -f "$expected" ]] || return 1
   [[ "$PERU_EXECUTABLE" == "$(resolve_path "$expected")" ]]
 }
-
-select_peru_manager() {
-  local candidate
+select_manager() {
+  local name candidate
+  for name in peru pi readlink; do command -v "$name" >/dev/null 2>&1 || fail "Required command not found: $name."; done
   PERU_EXECUTABLE="$(resolve_path "$(command -v peru)")"
   if [[ "$PERU_MANAGER" != auto ]]; then
     manager_owns_peru "$PERU_MANAGER" || fail "Peru on PATH is not owned by $PERU_MANAGER. No updates ran."
     return
   fi
   for candidate in uv pipx brew; do
-    if manager_owns_peru "$candidate"; then
-      PERU_MANAGER="$candidate"
-      return
-    fi
+    if manager_owns_peru "$candidate"; then PERU_MANAGER="$candidate"; return; fi
   done
-  fail 'Peru on PATH is not owned by uv, pipx, or Homebrew. Upgrade it manually or use a supported installation. No updates ran.'
+  fail 'Peru on PATH has no supported installation owner. No updates ran.'
 }
-
 run_command() {
-  printf '  + '
-  printf '%q ' "$@"
-  printf '\n'
-  if ((DRY_RUN == 0)); then
-    "$@"
-  fi
+  printf '  + '; printf '%q ' "$@"; printf '\n'
+  if ((DRY_RUN == 0)); then "$@"; fi
 }
-
-update_library() {
-  printf '\nUpdate the agent library.\n'
-  # Check the existing pin first, before any tool upgrades or pin changes.
-  run_command peru sync
-  run_command peru reup --no-sync agent-lib
-  run_command peru sync
-}
-
-update_peru() {
-  printf '\nUpgrade Peru with %s.\n' "$PERU_MANAGER"
-  case "$PERU_MANAGER" in
-    uv) run_command uv tool upgrade peru ;;
-    pipx) run_command pipx upgrade peru ;;
-    brew) run_command brew upgrade peru ;;
-  esac
-  # Package managers can replace executable paths during an upgrade.
-  hash -r
-}
-
-update_pi() {
-  printf '\nUpdate the Pi CLI through its supported updater.\n'
-  run_command pi update
-  hash -r
-}
-
-update_pi_packages() {
-  printf '\nUpdate Pi packages, including extensions, with configured pins.\n'
-  printf 'This step trusts project Pi configuration for this command only.\n'
-  run_command pi update --extensions --approve
-}
-
 main() {
   parse_args "$@"
   PROJECT_ROOT="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-  if [[ -f "$PROJECT_ROOT/examples/peru.yaml" && -f "$PROJECT_ROOT/tests/test_peru.py" ]]; then
-    fail 'Run the imported script in a consumer, not in the source library.'
-  fi
+  [[ ! -d "$PROJECT_ROOT/bundles" || ! -f "$PROJECT_ROOT/scripts/agent_lib.py" ]] || fail 'Run this helper in a consumer, not the source library.'
   cd -- "$PROJECT_ROOT"
-  require_commands
-  validate_project
-  select_peru_manager
-  printf 'Project: %s\n' "$PROJECT_ROOT"
-  if ((DRY_RUN)); then
-    printf 'Dry run: read-only checks only; update commands will not run.\n'
+  [[ -f agent-lib.yaml ]] || fail 'Missing agent-lib.yaml. Migrate a legacy Peru import explicitly, then initialize bundle selection.'
+  [[ -x ./agent-lib ]] || fail 'Missing executable agent-lib command. Bootstrap the consumer first.'
+  if ((TOOLS)); then select_manager; fi
+  local args=(update --project "$PROJECT_ROOT")
+  if ((DRY_RUN)); then args+=(--dry-run); fi
+  ./agent-lib "${args[@]}"
+  if ((TOOLS)); then
+    case "$PERU_MANAGER" in
+      uv) run_command uv tool upgrade peru ;;
+      pipx) run_command pipx upgrade peru ;;
+      brew) run_command brew upgrade peru ;;
+    esac
+    hash -r
+    run_command pi update
+    hash -r
+    printf 'The next step trusts project Pi configuration for this invocation.\n'
+    run_command pi update --extensions --approve
   fi
-  update_library
-  update_peru
-  update_pi
-  update_pi_packages
-  printf '\nDone. Review the Peru pin and imported files. Restart Pi after a real update.\n'
+  printf 'Review the changes. Restart Pi after a real update.\n'
 }
-
-# Parse this whole command before sync can replace the running script.
+# Load all functions before the updater can replace this script.
 main "$@"; exit

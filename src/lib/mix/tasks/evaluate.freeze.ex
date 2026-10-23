@@ -17,13 +17,20 @@ defmodule Mix.Tasks.Evaluate.Freeze do
   @requirements ["app.start"]
   @switches [manifest_id: :string, frozen_manifest_id: :string, title: :string]
 
+  alias Mix.Tasks.Evaluate.Options
   alias NetworkDefense.Evaluation
 
   @impl Mix.Task
   def run(args) do
     {options, positional, invalid} = OptionParser.parse(args, strict: @switches)
 
-    with :ok <- validate_options(positional, invalid, options),
+    with :ok <-
+           Options.validate(
+             options,
+             positional,
+             invalid,
+             [:manifest_id, :frozen_manifest_id]
+           ),
          {:ok, result} <-
            Evaluation.freeze(
              options[:manifest_id],
@@ -53,24 +60,6 @@ defmodule Mix.Tasks.Evaluate.Freeze do
       {:error, reason} when is_binary(reason) ->
         Mix.raise(reason)
     end
-  end
-
-  defp validate_options([], [], options) do
-    cond do
-      not is_binary(options[:manifest_id]) ->
-        {:error, "missing required option --manifest-id"}
-
-      not is_binary(options[:frozen_manifest_id]) ->
-        {:error, "missing required option --frozen-manifest-id"}
-
-      true ->
-        :ok
-    end
-  end
-
-  defp validate_options(positional, invalid, _options) do
-    invalid_options = Enum.map(invalid, fn {option, _value} -> option end)
-    {:error, "invalid options: #{Enum.join(positional ++ invalid_options, ", ")}"}
   end
 
   defp format_errors(errors) do

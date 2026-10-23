@@ -12,7 +12,7 @@ defmodule NetworkDefense.Graph.MaterializeReachability do
   """
 
   alias NetworkDefense.Graph.{Edge, Graph}
-  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs, SegmentReachability}
+  alias NetworkDefense.Relationships.{NetworkReachability, Runs, SegmentReachability}
 
   @doc """
   Returns `graph` with the effective `NetworkReachability` marker edges added.
@@ -64,7 +64,7 @@ defmodule NetworkDefense.Graph.MaterializeReachability do
   end
 
   defp flow_pairs(graph) do
-    hosts_by_segment = hosts_by_segment(graph)
+    hosts_by_segment = Graph.hosts_by_segment(graph)
     services_by_host = services_by_host(graph)
 
     for {source_segment, target_segment, policy} <- policies(graph),
@@ -85,16 +85,6 @@ defmodule NetworkDefense.Graph.MaterializeReachability do
       _ ->
         []
     end)
-  end
-
-  defp hosts_by_segment(graph) do
-    graph
-    |> Graph.edges()
-    |> Enum.flat_map(fn
-      %{type: Contains, from_id: segment_id, to_id: host_id} -> [{segment_id, host_id}]
-      _ -> []
-    end)
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
   end
 
   defp services_by_host(graph) do

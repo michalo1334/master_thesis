@@ -5,9 +5,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationReply do
 
   alias NetworkDefenseWeb.Contracts.Dashboard.DashboardError
 
-  @enum_values status: [:accepted, :rejected]
-
-  def contract_meta, do: %{enum_values: @enum_values}
+  def contract_meta, do: Contracts.run_reply_meta()
 
   embedded_schema do
     field :status, :string
@@ -25,20 +23,5 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.RunSimulationReply do
           error: DashboardError.t() | nil
         }
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:status, :graph_revision_id, :correlation_id, :run_id], empty_values: [])
-    |> cast_embed(:error)
-    |> validate_required([:status])
-    |> validate_inclusion(:status, ["accepted", "rejected"])
-    |> validate_rejected_error()
-  end
-
-  defp validate_rejected_error(changeset) do
-    if get_field(changeset, :status) == "rejected" do
-      validate_required(changeset, :error)
-    else
-      changeset
-    end
-  end
+  def changeset(schema, attrs), do: Contracts.run_reply_changeset(schema, attrs)
 end

@@ -19,10 +19,5 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.SimulationFailedEvent
           error: DashboardError.t()
         }
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:correlation_id, :graph_id, :graph_revision_id])
-    |> cast_embed(:error, required: true)
-    |> validate_required([:correlation_id, :graph_id, :graph_revision_id])
-  end
+  def changeset(schema, attrs), do: Contracts.run_failure_changeset(schema, attrs)
 end

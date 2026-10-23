@@ -3,7 +3,7 @@ defmodule NetworkDefense.Compute.LocalExecutor do
 
   @behaviour NetworkDefense.Compute.ScatterGather.Executor
 
-  alias NetworkDefense.Compute.Telemetry
+  alias NetworkDefense.Compute.{Progress, Telemetry}
 
   @impl true
   @spec run(module(), term(), keyword()) :: {:ok, term()} | {:error, term()}
@@ -47,7 +47,7 @@ defmodule NetworkDefense.Compute.LocalExecutor do
       {:ok, {key, work_units, {:ok, result}}}, {:ok, results, completed} ->
         completed = completed + work_units
 
-        case report_progress(on_progress, %{completed: completed, total: total}) do
+        case Progress.report(on_progress, %{completed: completed, total: total}) do
           :ok -> {:cont, {:ok, [{key, result} | results], completed}}
           {:error, _reason} = error -> {:halt, error}
         end
@@ -66,16 +66,5 @@ defmodule NetworkDefense.Compute.LocalExecutor do
 
   defp execute_partition(operation, key, partition, metadata) do
     Telemetry.partition(operation, key, metadata, fn -> operation.execute(fn -> partition end) end)
-  end
-
-  defp report_progress(on_progress, progress) do
-    case on_progress.(progress) do
-      {:error, _reason} = error -> error
-      _result -> :ok
-    end
-  rescue
-    error -> {:error, error}
-  catch
-    kind, reason -> {:error, {kind, reason}}
   end
 end

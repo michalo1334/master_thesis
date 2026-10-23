@@ -46,6 +46,11 @@ defmodule NetworkDefense.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:exograph, "== 0.9.12", only: [:dev, :test], runtime: true},
+      {:ex_dna, "== 1.5.4", only: [:dev, :test], runtime: true},
+      {:ex_ast, "== 0.12.9", only: [:dev, :test], runtime: true},
+      {:agent_lib_elixir,
+       [only: [:dev, :test], path: "../.agent-lib/elixir/installer", override: true]},
       {:live_debugger, "~> 1.0", only: [:dev]},
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -122,12 +127,46 @@ defmodule NetworkDefense.MixProject do
         "cmd npm run format:check",
         "cmd npm run typecheck",
         "assets.build",
-        "credo --strict",
+        &__MODULE__.credo/1,
         "dialyzer",
         "sobelow --config --skip",
         "deps.unlock --unused",
         "test"
       ]
     ]
+  end
+
+  # Runs Credo in a separate OS process. An in-process run leaves a supervisor behind
+  # that blocks later application startup through runtime tooling dependencies.
+  #
+  # Mix keeps the active environment and target in its own state instead of the OS
+  # environment, so the child process receives both values explicitly. Every other
+  # variable, for example MIX_TEST_PARTITION, is inherited from this process.
+  def credo(_args) do
+    {executable, args} = credo_command()
+    run_isolated(executable, args)
+  end
+
+  def credo_command, do: {"mix", ["credo", "--strict"]}
+
+  # Runs one child process, keeps its output visible and fails this process when the
+  # child fails. The forwarding reads Mix state at execution time, not at alias build time.
+  def run_isolated(executable, args) do
+    {_, status} =
+      System.cmd(executable, args,
+        env: active_environment(),
+        into: IO.stream(:stdio, :line),
+        stderr_to_stdout: true
+      )
+
+    if status == 0 do
+      :ok
+    else
+      Mix.raise("#{executable} #{Enum.join(args, " ")} failed with exit status #{status}")
+    end
+  end
+
+  defp active_environment do
+    [{"MIX_ENV", to_string(Mix.env())}, {"MIX_TARGET", to_string(Mix.target())}]
   end
 end

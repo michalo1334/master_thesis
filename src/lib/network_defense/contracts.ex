@@ -1,6 +1,18 @@
 defmodule NetworkDefense.Contracts do
   @moduledoc false
 
+  import Ecto.Changeset,
+    only: [
+      cast: 3,
+      cast: 4,
+      cast_embed: 2,
+      cast_embed: 3,
+      get_field: 2,
+      validate_change: 3,
+      validate_inclusion: 3,
+      validate_required: 2
+    ]
+
   defmacro __using__(options) do
     category = Keyword.get(options, :category)
 
@@ -53,11 +65,64 @@ defmodule NetworkDefense.Contracts do
   def to_params(value), do: value
 
   def validate_uuid(changeset, field) do
-    Ecto.Changeset.validate_change(changeset, field, fn ^field, value ->
+    validate_change(changeset, field, fn ^field, value ->
       case Ecto.UUID.cast(value) do
         {:ok, _uuid} -> []
         :error -> [{field, "is invalid"}]
       end
     end)
+  end
+
+  def run_reply_meta, do: %{enum_values: [status: [:accepted, :rejected]]}
+
+  def run_reply_changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:status, :graph_revision_id, :correlation_id, :run_id], empty_values: [])
+    |> cast_embed(:error)
+    |> validate_required([:status])
+    |> validate_inclusion(:status, ["accepted", "rejected"])
+    |> validate_rejected_error()
+  end
+
+  def graph_revision_ids_changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:graph_revision_ids])
+    |> validate_change(:graph_revision_ids, fn :graph_revision_ids, revision_ids ->
+      if Enum.all?(revision_ids, &match?({:ok, _}, Ecto.UUID.cast(&1))) do
+        []
+      else
+        [graph_revision_ids: "contains an invalid UUID"]
+      end
+    end)
+  end
+
+  def report_request_changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:status])
+    |> validate_required([:status])
+    |> validate_inclusion(:status, ["processing", "unavailable", "invalid_params"])
+  end
+
+  def run_reference_changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:kind, :run_id])
+    |> validate_required([:kind, :run_id])
+    |> validate_inclusion(:kind, ["simulation", "optimization", "evaluation"])
+    |> validate_uuid(:run_id)
+  end
+
+  def run_failure_changeset(schema, attrs) do
+    schema
+    |> cast(attrs, [:correlation_id, :graph_id, :graph_revision_id])
+    |> cast_embed(:error, required: true)
+    |> validate_required([:correlation_id, :graph_id, :graph_revision_id])
+  end
+
+  defp validate_rejected_error(changeset) do
+    if get_field(changeset, :status) == "rejected" do
+      validate_required(changeset, :error)
+    else
+      changeset
+    end
   end
 end

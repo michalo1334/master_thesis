@@ -13,10 +13,5 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Evaluation.FetchEvaluationReport
 
   @type t :: %__MODULE__{status: String.t()}
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:status])
-    |> validate_required([:status])
-    |> validate_inclusion(:status, ["processing", "unavailable", "invalid_params"])
-  end
+  def changeset(schema, attrs), do: Contracts.report_request_changeset(schema, attrs)
 end

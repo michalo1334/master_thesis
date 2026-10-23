@@ -10,11 +10,5 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.CancelRunPayload do
 
   @type t :: %__MODULE__{kind: String.t(), run_id: String.t()}
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:kind, :run_id])
-    |> validate_required([:kind, :run_id])
-    |> validate_inclusion(:kind, ["simulation", "optimization", "evaluation"])
-    |> Contracts.validate_uuid(:run_id)
-  end
+  def changeset(schema, attrs), do: Contracts.run_reference_changeset(schema, attrs)
 end

@@ -16,13 +16,14 @@ defmodule Mix.Tasks.Evaluate.Import do
   @requirements ["app.start"]
   @switches [file: :string, title: :string]
 
+  alias Mix.Tasks.Evaluate.Options
   alias NetworkDefense.Evaluation
 
   @impl Mix.Task
   def run(args) do
     {options, positional, invalid} = OptionParser.parse(args, strict: @switches)
 
-    with :ok <- validate_options(positional, invalid, options[:file]),
+    with :ok <- Options.validate(options, positional, invalid, [:file]),
          {:ok, result} <- import_from_file(options[:file], options[:title]) do
       IO.puts(Jason.encode!(result))
     else
@@ -38,16 +39,6 @@ defmodule Mix.Tasks.Evaluate.Import do
       {:ok, json} -> Evaluation.import_manifest(json, title)
       {:error, _reason} -> {:error, :missing_file}
     end
-  end
-
-  defp validate_options([], [], file) when is_binary(file), do: :ok
-
-  defp validate_options([], [], _file),
-    do: {:error, "missing required option --file"}
-
-  defp validate_options(positional, invalid, _file) do
-    invalid_options = Enum.map(invalid, fn {option, _value} -> option end)
-    {:error, "invalid options: #{Enum.join(positional ++ invalid_options, ", ")}"}
   end
 
   defp format_errors(errors) do

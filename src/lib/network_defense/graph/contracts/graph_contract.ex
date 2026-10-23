@@ -4,7 +4,7 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Errors
-  alias NetworkDefense.Graph.Contracts.{Edge, Node}
+  alias NetworkDefense.Graph.Contracts.{Edge, Mapper, Node}
   alias NetworkDefense.Graph.Edge, as: DomainEdge
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.Node, as: DomainNode
@@ -51,8 +51,8 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
   end
 
   def from_domain(graph) do
-    with {:ok, nodes} <- graph |> Graph.nodes() |> map_contracts(&Node.from_domain/1),
-         {:ok, edges} <- graph |> Graph.edges() |> map_contracts(&Edge.from_domain/1),
+    with {:ok, nodes} <- graph |> Graph.nodes() |> Mapper.map(&Node.from_domain/1),
+         {:ok, edges} <- graph |> Graph.edges() |> Mapper.map(&Edge.from_domain/1),
          # Revalidate the assembled graph to keep outbound data within the contract.
          {:ok, contract} <-
            validate(%{
@@ -154,7 +154,7 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
     do: add_error(changeset, field, "is invalid")
 
   defp domain_nodes(contract) do
-    with {:ok, attrs} <- map_contracts(contract.nodes, &Node.to_attrs/1),
+    with {:ok, attrs} <- Mapper.map(contract.nodes, &Node.to_attrs/1),
          nodes = Enum.map(attrs, &node_struct(&1, contract.id)),
          :ok <- unique_ids(nodes) do
       {:ok, nodes}
@@ -165,7 +165,7 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
   end
 
   defp domain_edges(contract) do
-    with {:ok, attrs} <- map_contracts(contract.edges, &Edge.to_attrs/1),
+    with {:ok, attrs} <- Mapper.map(contract.edges, &Edge.to_attrs/1),
          edges = Enum.map(attrs, &edge_struct(&1, contract.id)),
          :ok <- unique_ids(edges) do
       {:ok, edges}
@@ -237,19 +237,5 @@ defmodule NetworkDefense.Graph.Contracts.GraphContract do
       type: attrs["type"],
       data: attrs["data"]
     }
-  end
-
-  defp map_contracts(values, mapper) do
-    Enum.reduce_while(values, {:ok, []}, fn value, {:ok, mapped} ->
-      case mapper.(value) do
-        {:ok, contract} -> {:cont, {:ok, [contract | mapped]}}
-        :error -> {:halt, :error}
-        {:error, _reason} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, mapped} -> {:ok, Enum.reverse(mapped)}
-      error -> error
-    end
   end
 end

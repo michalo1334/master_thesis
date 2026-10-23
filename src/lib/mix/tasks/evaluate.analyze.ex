@@ -12,13 +12,14 @@ defmodule Mix.Tasks.Evaluate.Analyze do
   @requirements ["app.start"]
   @switches [run_id: :string, output: :string]
 
+  alias Mix.Tasks.Evaluate.Options
   alias NetworkDefense.Evaluation
 
   @impl Mix.Task
   def run(args) do
     {options, positional, invalid} = OptionParser.parse(args, strict: @switches)
 
-    with :ok <- validate_options(options, positional, invalid),
+    with :ok <- Options.validate(options, positional, invalid, [:run_id, :output]),
          {:ok, result} <- Evaluation.analyze(options[:run_id]),
          :ok <- File.mkdir_p(Path.dirname(options[:output])),
          :ok <- File.write(options[:output], result) do
@@ -33,20 +34,6 @@ defmodule Mix.Tasks.Evaluate.Analyze do
     else
       {:error, reason} -> Mix.raise(error_message(reason))
     end
-  end
-
-  defp validate_options(options, [], []) do
-    Enum.find_value([:run_id, :output], :ok, fn option ->
-      if is_nil(options[option]) do
-        flag = option |> Atom.to_string() |> String.replace("_", "-")
-        {:error, "missing required option --#{flag}"}
-      end
-    end)
-  end
-
-  defp validate_options(_options, positional, invalid) do
-    names = Enum.map(invalid, fn {name, _value} -> to_string(name) end)
-    {:error, "invalid options: #{Enum.join(positional ++ names, ", ")}"}
   end
 
   defp error_message(:not_found), do: "evaluation run not found"

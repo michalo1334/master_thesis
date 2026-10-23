@@ -4,7 +4,7 @@ defmodule NetworkDefense.Simulation.MissionImpact do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Nodes.MissionCapability
-  alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
+  alias NetworkDefense.Relationships.{NetworkReachability, Runs}
 
   @spec final(Graph.t(), [String.t()]) :: float()
   def final(graph, foothold_ids) do
@@ -22,7 +22,7 @@ defmodule NetworkDefense.Simulation.MissionImpact do
   def required_flow_statuses(graph) do
     materialized = MaterializeReachability.materialize(graph)
     flows = operational_flows(materialized)
-    hosts_by_segment = hosts_by_segment(graph)
+    hosts_by_segment = Graph.hosts_by_segment(graph)
 
     graph
     |> Graph.nodes()
@@ -64,7 +64,7 @@ defmodule NetworkDefense.Simulation.MissionImpact do
   defp statuses(capabilities, graph, compromised) do
     materialized = MaterializeReachability.materialize(graph)
     flows = operational_flows(materialized)
-    hosts_by_segment = hosts_by_segment(graph)
+    hosts_by_segment = Graph.hosts_by_segment(graph)
     host_by_service = host_by_service(graph)
 
     Enum.map(capabilities, fn capability ->
@@ -120,16 +120,6 @@ defmodule NetworkDefense.Simulation.MissionImpact do
     |> Graph.edges()
     |> Enum.filter(&(&1.type == NetworkReachability))
     |> Enum.map(&{&1.from_id, &1.to_id})
-  end
-
-  defp hosts_by_segment(graph) do
-    graph
-    |> Graph.edges()
-    |> Enum.flat_map(fn
-      %{type: Contains, from_id: segment_id, to_id: host_id} -> [{segment_id, host_id}]
-      _ -> []
-    end)
-    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
   end
 
   defp host_by_service(graph) do

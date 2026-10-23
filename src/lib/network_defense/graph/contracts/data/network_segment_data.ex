@@ -2,7 +2,8 @@ defmodule NetworkDefense.Graph.Contracts.Data.NetworkSegmentData do
   @moduledoc false
 
   use NetworkDefense.Contracts, category: :graph
-  alias NetworkDefense.NetworkCidr
+
+  alias NetworkDefense.Graph.Data
 
   embedded_schema do
     field :name, :string
@@ -14,12 +15,5 @@ defmodule NetworkDefense.Graph.Contracts.Data.NetworkSegmentData do
           cidr: String.t() | nil
         }
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:name, :cidr])
-    |> validate_required([:name])
-    |> validate_change(:cidr, fn :cidr, cidr ->
-      if is_nil(cidr) or NetworkCidr.valid?(cidr), do: [], else: [cidr: "must be a valid CIDR"]
-    end)
-  end
+  def changeset(schema, attrs), do: Data.network_segment_changeset(schema, attrs)
 end
