@@ -79,6 +79,7 @@ defmodule NetworkDefense.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.3.0"},
       {:ex_json_schema, "0.11.5"},
+      {:yaml_elixir, "~> 2.12"},
       {:gust, "0.1.40"},
       {:req, "~> 0.6.3"},
       {:bandit, "~> 1.5"},

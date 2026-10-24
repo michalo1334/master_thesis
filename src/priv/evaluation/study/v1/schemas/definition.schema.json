@@ -1,0 +1,425 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "StudyDefinition",
+  "description": "One complete, normalized study definition. Every setting that a phase executes is present here. No field is optional, no unknown field survives, and no value is filled from a runtime default. Fixed algorithm constants stay in code, so this document declares controls only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "study",
+    "graphs",
+    "simulation",
+    "family",
+    "pilot",
+    "pilot_to_final",
+    "final"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "enum": [1]},
+    "study": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "revision", "revisions"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "revision": {"type": "integer", "minimum": 1},
+        "revisions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "model",
+            "attacker",
+            "defense",
+            "rule",
+            "strategy",
+            "software",
+            "application",
+            "compute",
+            "dependency",
+            "environment"
+          ],
+          "properties": {
+            "model": {"$ref": "#/definitions/revision_string"},
+            "attacker": {"$ref": "#/definitions/revision_string"},
+            "defense": {"$ref": "#/definitions/revision_string"},
+            "rule": {"$ref": "#/definitions/revision_string"},
+            "strategy": {"$ref": "#/definitions/revision_string"},
+            "software": {"$ref": "#/definitions/revision_string"},
+            "application": {"$ref": "#/definitions/revision_string"},
+            "compute": {"$ref": "#/definitions/revision_string"},
+            "dependency": {"$ref": "#/definitions/revision_string"},
+            "environment": {"$ref": "#/definitions/revision_string"}
+          }
+        }
+      }
+    },
+    "graphs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tier", "graph_revision_id", "initial_foothold_node_id", "strategies"],
+        "properties": {
+          "tier": {"$ref": "#/definitions/identifier"},
+          "graph_revision_id": {"$ref": "#/definitions/uuid"},
+          "initial_foothold_node_id": {"$ref": "#/definitions/uuid"},
+          "strategies": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "key",
+                    "budget",
+                    "candidate_action_types",
+                    "require_pre_attack_feasibility",
+                    "scoring"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "enum": ["simulation_informed", "simulated_annealing"]
+                    },
+                    "budget": {"type": "integer", "minimum": 1},
+                    "candidate_action_types": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "PatchVulnerability",
+                          "RevokeCredential",
+                          "BlockSegmentReachability"
+                        ]
+                      }
+                    },
+                    "require_pre_attack_feasibility": {"type": "boolean"},
+                    "scoring": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "objective",
+                        "monte_carlo_trials",
+                        "iterations_per_run",
+                        "max_attempts",
+                        "rules"
+                      ],
+                      "properties": {
+                        "objective": {
+                          "type": "string",
+                          "enum": [
+                            "blast_radius_only",
+                            "mission_impact_only",
+                            "mission_then_blast_radius"
+                          ]
+                        },
+                        "monte_carlo_trials": {"type": "integer", "minimum": 1},
+                        "iterations_per_run": {"type": "integer", "minimum": 1},
+                        "max_attempts": {"type": "integer", "minimum": 1},
+                        "rules": {
+                          "type": "array",
+                          "minItems": 1,
+                          "uniqueItems": true,
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "NetworkDefense.Rules.RemoteServiceExploitation",
+                              "NetworkDefense.Rules.LocalVulnerabilityExploitation",
+                              "NetworkDefense.Rules.AcquireCredentialRule",
+                              "NetworkDefense.Rules.ReuseCredentialRule"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "key",
+                    "budget",
+                    "candidate_action_types",
+                    "require_pre_attack_feasibility"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "enum": ["null", "random", "cvss", "topology_segmentation"]
+                    },
+                    "budget": {"type": "integer", "minimum": 1},
+                    "candidate_action_types": {
+                      "type": "array",
+                      "minItems": 1,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "PatchVulnerability",
+                          "RevokeCredential",
+                          "BlockSegmentReachability"
+                        ]
+                      }
+                    },
+                    "require_pre_attack_feasibility": {"type": "boolean"}
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "simulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "iterations_per_run",
+        "max_attempts",
+        "rules",
+        "require_pre_attack_feasibility"
+      ],
+      "properties": {
+        "iterations_per_run": {"type": "integer", "minimum": 1},
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "NetworkDefense.Rules.RemoteServiceExploitation",
+              "NetworkDefense.Rules.LocalVulnerabilityExploitation",
+              "NetworkDefense.Rules.AcquireCredentialRule",
+              "NetworkDefense.Rules.ReuseCredentialRule"
+            ]
+          }
+        },
+        "require_pre_attack_feasibility": {"type": "boolean"}
+      }
+    },
+    "family": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "method", "alpha", "comparisons"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "method": {"type": "string", "enum": ["holm"]},
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "exclusiveMinimum": true,
+          "exclusiveMaximum": true
+        },
+        "comparisons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tier", "budget", "alternative", "reference", "outcome"],
+            "properties": {
+              "tier": {"$ref": "#/definitions/identifier"},
+              "budget": {"type": "integer", "minimum": 1},
+              "alternative": {"$ref": "#/definitions/identifier"},
+              "reference": {"$ref": "#/definitions/identifier"},
+              "outcome": {"type": "string", "enum": ["mission_impact"]}
+            }
+          }
+        }
+      }
+    },
+    "pilot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidates", "collection", "analysis"],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "plan_count_per_side", "attacks_per_plan"],
+            "properties": {
+              "id": {"$ref": "#/definitions/identifier"},
+              "plan_count_per_side": {"type": "integer", "minimum": 5},
+              "attacks_per_plan": {"type": "integer", "minimum": 10}
+            }
+          }
+        },
+        "collection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan_count_per_side",
+            "attacks_per_plan",
+            "selection_seeds",
+            "roots"
+          ],
+          "properties": {
+            "plan_count_per_side": {"type": "integer", "minimum": 5},
+            "attacks_per_plan": {"type": "integer", "minimum": 10},
+            "selection_seeds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/definitions/seed"}
+            },
+            "roots": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tier", "value"],
+                "properties": {
+                  "tier": {"$ref": "#/definitions/identifier"},
+                  "value": {"$ref": "#/definitions/seed"}
+                }
+              }
+            }
+          }
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "base_seed",
+            "outer_subsamples",
+            "target_half_width",
+            "guard_quantile",
+            "confidence_level",
+            "bootstrap_replicates",
+            "selection_rule"
+          ],
+          "properties": {
+            "base_seed": {"$ref": "#/definitions/seed"},
+            "outer_subsamples": {"type": "integer", "minimum": 1},
+            "target_half_width": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "guard_quantile": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            },
+            "confidence_level": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            },
+            "bootstrap_replicates": {"type": "integer", "minimum": 1},
+            "selection_rule": {"type": "string", "enum": ["lowest_predicted_runtime"]}
+          }
+        }
+      }
+    },
+    "pilot_to_final": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": {"type": "string", "enum": ["pause"]}
+      }
+    },
+    "final": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["collection", "analysis"],
+      "properties": {
+        "collection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["selection_seeds", "roots"],
+          "properties": {
+            "selection_seeds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/definitions/seed"}
+            },
+            "roots": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tier", "value"],
+                "properties": {
+                  "tier": {"$ref": "#/definitions/identifier"},
+                  "value": {"$ref": "#/definitions/seed"}
+                }
+              }
+            }
+          }
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "comparison_seeds",
+            "alpha",
+            "confidence_level",
+            "test_alternative",
+            "bootstrap_replicates"
+          ],
+          "properties": {
+            "comparison_seeds": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/definitions/seed"}
+            },
+            "alpha": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            },
+            "confidence_level": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            },
+            "test_alternative": {"type": "string", "enum": ["two_sided"]},
+            "bootstrap_replicates": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "revision_string": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9]([A-Za-z0-9._:+/@ -]{0,126}[A-Za-z0-9._:+/@])?$"
+    },
+    "seed": {"type": "integer", "minimum": 0}
+  }
+}
