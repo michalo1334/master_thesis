@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. I3+I4 source implementation is complete. The next scheduled slice is I5+I6.
+This file is an operational handoff. The canonical implementation plan remains the work authority. I5+I6 source implementation is complete. The next scheduled slice is F1.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                |
 | ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I4 are complete.        |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 are complete.        |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration. |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -28,14 +28,16 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **I1 is complete:** bounded `YamlElixir` wrapper, safe JSON normalization, bounded errors, and 25 focused YAML cases.
 - **I2 is complete:** strict JSON Schema validation before Ecto materialization, normalized round-trip data, and scientific cross-field checks.
 - **I3+I4 are complete:** `create_study_revision/1` parses and validates YAML, resolves graph revisions, stores one normalized immutable revision, and returns bounded reference, conflict, or storage errors.
-- **I5 onward is not implemented.**
+- **I5+I6 are complete:** the pure lifecycle defines accepted transitions and idempotent terminal handling. Study executions and fixed phases have persisted closed sets and phase uniqueness.
+- **F1 onward is not implemented.**
 
 Recorded checks:
 
 - I1+I2 focused suite: 69 passed;
 - I3+I4 focused persistence suite: 2 passed;
-- complete study test directory after I3+I4: 71 passed;
-- normal commit hook after I3+I4: 822 passed with two existing exclusions;
+- I5+I6 focused suite: 3 passed;
+- complete study test directory after I5+I6: 74 passed;
+- full suite after I5+I6: 825 passed with two existing exclusions;
 - formatting and normal static, frontend, and security checks passed.
 
 ## Approved prototype scope
@@ -118,9 +120,11 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 When the user authorizes implementation:
 
 1. Recheck repository instructions and dirty state.
-2. Implement merged I5+I6 only.
-3. Add one table-driven valid-transition test, representative invalid-transition cases, and one duplicate-phase repository case.
-4. Run focused tests and the nearest regressions in a disposable database.
-5. Stop when the chunk is green.
+2. Implement F1 only.
+3. Require one concrete seed in every typed optimization request, persist it for every strategy, and include it in resume identity checks.
+4. Preserve dashboard seed entry and random generation before typed request parsing.
+5. Add only the three approved contract and integration behaviors from the implementation plan.
+6. Run focused tests and the nearest regressions in a disposable database.
+7. Stop when the chunk is green.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

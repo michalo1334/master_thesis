@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I4. Recorded I3+I4 checks include 2 focused persistence tests, 71 study tests, and 822 normal-hook tests with two existing exclusions.
+The current `evaluation/rebuild` branch contains I1 through I6. Recorded I5+I6 checks include 3 focused tests, 74 study tests, and 825 full-suite tests with two existing exclusions.
 
-The remaining work starts with merged I5+I6. Candidate code on another branch can supply implementation details, but it does not define scope.
+The remaining work starts with F1. Candidate code on another branch can supply implementation details, but it does not define scope.
 
 ## Prototype boundaries
 
@@ -143,7 +143,7 @@ The existing definition suite is sufficient. Add no cases.
 
 > WHEN any referenced graph revision does not exist, THE application SHALL return a bounded error and store no revision.
 
-### I5 + I6 — lifecycle model and persistence
+### I5 + I6 — lifecycle model and persistence — complete
 
 **Internal interface:**
 
