@@ -44,6 +44,7 @@ defmodule NetworkDefense.SimulationsTest do
         graph: graph,
         experiment_id: experiment.id,
         seed: 1,
+        runtime_us: 0,
         initial_attacker_state: AttackerState.new(host.id)
       )
       |> Run.changeset(%{})
@@ -335,6 +336,7 @@ defmodule NetworkDefense.SimulationsTest do
         experiment_id: experiment.id,
         seed: trial_index,
         trial_index: trial_index,
+        runtime_us: 0,
         initial_attacker_state: AttackerState.new(foothold.id)
       )
       |> Run.changeset(%{})

@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F9. F8+F9 add ordered Pilot collection work, bounded collection controls, and one compact mapped action over the F4 reservation boundary.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F13. F10–F13 add measured trial runtimes, persisted Pilot runtime assembly, authoritative replica-zero fan-in, and one idempotent phase-linked Pilot snapshot.
 
-The remaining implementation starts with F10+F11. The deferred [study runtime contract](evaluation-study-runtime-contract-future-work.md) remains a completion gate before the real Pilot coordinator or public lifecycle can accept collection evidence.
+The remaining implementation starts with the deferred [study runtime contract](evaluation-study-runtime-contract-future-work.md) and F14+F15 preparation. The runtime contract remains a completion gate before the real Pilot coordinator or public lifecycle can accept collection evidence.
 
 ## Prototype boundaries
 

@@ -111,7 +111,16 @@ defmodule NetworkDefense.Simulation.Simulator do
         experiment_id: experiment.id
       )
 
-    do_run_iteration(experiment, run, Seed.integer_to_state(seed), 1)
+    {runtime_us, completed_run} =
+      measure_trial(fn -> do_run_iteration(experiment, run, Seed.integer_to_state(seed), 1) end)
+
+    %{completed_run | runtime_us: runtime_us}
+  end
+
+  defp measure_trial(trial) do
+    started_at = System.monotonic_time(:microsecond)
+    completed_run = trial.()
+    {System.monotonic_time(:microsecond) - started_at, completed_run}
   end
 
   defp do_run_iteration(%Experiment{iteration_count: max_index}, run_state, _random_state, index)

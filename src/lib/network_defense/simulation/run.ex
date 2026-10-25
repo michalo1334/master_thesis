@@ -18,6 +18,7 @@ defmodule NetworkDefense.Simulation.Run do
           graph: %Graph{} | Ecto.Association.NotLoaded.t() | nil,
           seed: integer(),
           trial_index: non_neg_integer(),
+          runtime_us: non_neg_integer() | nil,
           initial_attacker_state: AttackerState.t(),
           rules: list(Rule.t()),
           iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t(),
@@ -32,6 +33,7 @@ defmodule NetworkDefense.Simulation.Run do
 
     field(:seed, :integer)
     field(:trial_index, :integer, default: 0)
+    field(:runtime_us, :integer)
     embeds_one(:initial_attacker_state, AttackerState, on_replace: :update)
     field(:rules, :any, virtual: true, default: [])
 
@@ -43,7 +45,7 @@ defmodule NetworkDefense.Simulation.Run do
   def changeset(state, attrs) do
     changeset =
       state
-      |> cast(attrs, [:seed, :trial_index, :experiment_id])
+      |> cast(attrs, [:seed, :trial_index, :runtime_us, :experiment_id])
 
     changeset =
       case Map.get(attrs, :initial_attacker_state) do
@@ -55,9 +57,16 @@ defmodule NetworkDefense.Simulation.Run do
       end
 
     changeset
-    |> validate_required([:graph_revision_id, :seed, :trial_index, :initial_attacker_state])
+    |> validate_required([
+      :graph_revision_id,
+      :seed,
+      :trial_index,
+      :runtime_us,
+      :initial_attacker_state
+    ])
     |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> validate_number(:trial_index, greater_than_or_equal_to: 0)
+    |> validate_number(:runtime_us, greater_than_or_equal_to: 0)
     |> foreign_key_constraint(:graph_revision_id)
     |> foreign_key_constraint(:experiment_id, name: :simulation_runs_experiment_revision_fkey)
     |> unique_constraint([:experiment_id, :trial_index])
@@ -73,6 +82,7 @@ defmodule NetworkDefense.Simulation.Run do
       graph: Map.get(attrs, :graph),
       seed: Map.get(attrs, :seed, 0),
       trial_index: Map.get(attrs, :trial_index, 0),
+      runtime_us: Map.get(attrs, :runtime_us),
       initial_attacker_state: Map.fetch!(attrs, :initial_attacker_state),
       rules: Map.get(attrs, :rules, []),
       iterations: Map.get(attrs, :iterations, []),

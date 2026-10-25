@@ -86,6 +86,28 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
     assert run_snapshot(first_run) == run_snapshot(second_run)
   end
 
+  test "measures the elapsed duration of each trial" do
+    {graph, source_host, _target_host, _service, _vuln} = full_exploit_graph()
+    attacker_state = AttackerState.new(source_host.id, :administrator)
+
+    {_experiment, runs} =
+      Simulator.run_experiment(
+        graph,
+        attacker_state,
+        rules: [%RemoteServiceExploitation{}],
+        iteration_count: 40,
+        seed: 42,
+        run_count: 2
+      )
+
+    assert Enum.count(runs) == 2
+
+    for run <- runs do
+      assert is_integer(run.runtime_us)
+      assert run.runtime_us > 0
+    end
+  end
+
   test "stops selecting an action after its attempt cap" do
     host = node("host", Host, %{"name" => "web-01"})
 

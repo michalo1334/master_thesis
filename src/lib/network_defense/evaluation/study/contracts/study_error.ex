@@ -248,6 +248,24 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The collection item did not produce one complete runtime result."
       )
 
+  def incomplete_pilot_evidence(path) when is_list(path),
+    do:
+      new(
+        "validation_failed",
+        "incomplete_pilot_evidence",
+        path,
+        "The Pilot collection evidence is missing, incomplete, or inconsistent."
+      )
+
+  def pilot_snapshot_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        [],
+        "The Pilot evidence snapshot could not be stored safely."
+      )
+
   def runtime_execution_failed(field, reason)
       when field in [:optimization_run_id, :experiment_id],
       do:

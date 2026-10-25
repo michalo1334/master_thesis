@@ -104,6 +104,27 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
     assert 2 == run_count(experiment)
   end
 
+  test "persists the runtime of each bulk-inserted run" do
+    assert {:ok, graph} = Graphs.insert(Graph.new("Bulk runtime graph"))
+    experiment = create_experiment(graph)
+
+    runs = [
+      run(graph, experiment, 1) |> Map.put(:runtime_us, 250),
+      run(graph, experiment, 2) |> Map.put(:runtime_us, 0)
+    ]
+
+    assert {:ok, %{status: :completed}} = Experiments.complete_with_runs(experiment, runs, 3)
+
+    assert [250, 0] ==
+             Repo.all(
+               from(run in Run,
+                 where: run.experiment_id == ^experiment.id,
+                 order_by: run.trial_index,
+                 select: run.runtime_us
+               )
+             )
+  end
+
   test "rejects a mismatched run count" do
     assert {:ok, graph} = Graphs.insert(Graph.new("Count graph"))
     experiment = create_experiment(graph)
@@ -149,6 +170,7 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
       experiment_id: experiment.id,
       trial_index: trial_index,
       seed: trial_index,
+      runtime_us: 0,
       initial_attacker_state: AttackerState.new("host")
     )
   end
