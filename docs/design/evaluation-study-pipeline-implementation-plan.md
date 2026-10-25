@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1. Recorded F1 checks include 29 focused tests, 152 optimization and dashboard regression tests, and 127 touched frontend tests.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F4. F2 adds stable positional collection items. F3 adds synchronous simulation preparation. F4 adds validated, transactional runtime reservation.
 
-The remaining work starts with F2. Candidate code on another branch can supply implementation details, but it does not define scope.
+The remaining work starts with F5+F6+F7. Candidate code on another branch can supply implementation details, but it does not define scope.
 
 ## Prototype boundaries
 
@@ -222,7 +222,7 @@ The typed `OptimizationParams` adds one required concrete seed for every strateg
 
 Use shared fixtures for the common request and persisted-run setup. Cover each changed resume-identity field without testing every combination.
 
-### F2 — stable positional collection item
+### F2 — stable positional collection item — complete
 
 **Internal interface:**
 
@@ -239,7 +239,7 @@ Enforce one row for each `(study_phase_id, replica_position, item_position)` tup
 
 > WHEN the same phase, replica, and item position is requested again, THE application SHALL return the same collection item, while another phase receives a different item.
 
-### F3 — synchronous simulation preparation
+### F3 — synchronous simulation preparation — complete
 
 **Public interface:**
 
@@ -258,7 +258,7 @@ The function validates the graph, foothold, and feasibility. It inserts one runn
 
 Existing simulation tests cover invalid graph and model inputs. Do not repeat them.
 
-### F4 — two-stage runtime reservation
+### F4 — two-stage runtime reservation — complete
 
 **Internal interfaces:**
 

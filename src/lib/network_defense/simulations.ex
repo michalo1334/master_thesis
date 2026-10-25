@@ -6,13 +6,13 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Repo
   alias NetworkDefense.ReportProgress
-  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
+  alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiment.Status
+  alias NetworkDefense.Simulation.ExperimentIdentity
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
   alias NetworkDefense.Simulation.Run
-  alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.SimulationOperation
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Simulator
@@ -32,10 +32,36 @@ defmodule NetworkDefense.Simulations do
   @spec simulation_events_topic() :: String.t()
   def simulation_events_topic, do: @simulation_events_topic
 
+  @doc """
+  Validates a simulation request and stores one `running` experiment.
+
+  The function checks the graph revision, the initial foothold, and the mission
+  feasibility before it writes. The stored experiment holds zero completed
+  trials. The function starts no simulation work, so the caller owns the
+  execution step. Each valid call inserts a new experiment. Pass the returned
+  identifier to `run/2` to execute the experiment.
+  """
+  @spec prepare(RunSimulationRequest.t()) :: {:ok, Experiment.t()} | {:error, Errors.error()}
+  def prepare(%RunSimulationRequest{} = request) do
+    with {:ok, experiment} <- prepare_candidate(request),
+         {:ok, experiment} <- Experiments.create(experiment) do
+      {:ok, experiment}
+    else
+      {:error, %Ecto.Changeset{}} -> {:error, :persistence_failed}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc false
+  @spec prepare_candidate(RunSimulationRequest.t()) ::
+          {:ok, Experiment.t()} | {:error, Errors.error()}
+  def prepare_candidate(%RunSimulationRequest{} = request) do
+    prepare_experiment(request.graph_revision_id, request.simulation_params)
+  end
+
   @spec run_async(RunSimulationRequest.t()) :: async_result()
   def run_async(%RunSimulationRequest{} = request) do
-    with {:ok, {_graph, experiment}} <-
-           prepare_experiment(request.graph_revision_id, request.simulation_params) do
+    with {:ok, experiment} <- prepare(request) do
       start_simulation(request.correlation_id, experiment)
     end
   end
@@ -67,21 +93,16 @@ defmodule NetworkDefense.Simulations do
 
   defp prepare_experiment(graph_revision_id, simulation_params)
        when is_binary(graph_revision_id) do
-    with {:ok, graph} <- load_graph(graph_revision_id),
-         {:ok, experiment} <- prepare_experiment(graph, simulation_params) do
-      {:ok, {graph, experiment}}
+    with {:ok, graph} <- load_graph(graph_revision_id) do
+      prepare_experiment(graph, simulation_params)
     end
   end
 
   defp prepare_experiment(%Graph{} = graph, simulation_params) do
     with :ok <-
            Simulator.validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
-         :ok <- validate_mission_feasibility(graph),
-         {:ok, experiment} <- create_experiment(graph, simulation_params) do
-      {:ok, experiment}
-    else
-      {:error, %Ecto.Changeset{}} -> {:error, :persistence_failed}
-      {:error, reason} -> {:error, reason}
+         :ok <- validate_mission_feasibility(graph) do
+      {:ok, build_experiment(graph, simulation_params)}
     end
   end
 
@@ -207,18 +228,16 @@ defmodule NetworkDefense.Simulations do
     broadcast_simulation_progress(graph, correlation_id, completed, total)
   end
 
-  defp create_experiment(graph, simulation_params) do
-    seed = if simulation_params.generate_seed, do: Seed.random(), else: simulation_params.seed
-
-    Experiment.new(
-      graph_revision_id: graph.revision_id,
-      master_seed: seed,
-      iteration_count: simulation_params.iterations_per_run,
-      max_attempts: simulation_params.max_attempts,
-      total_trials: simulation_params.monte_carlo_trials,
-      initial_foothold_node_id: simulation_params.initial_foothold_node_id
-    )
-    |> Experiments.create()
+  defp build_experiment(
+         %Graph{revision_id: revision_id},
+         %SimulationParams{} = simulation_params
+       )
+       when is_binary(revision_id) do
+    ExperimentIdentity.new(%RunSimulationRequest{
+      graph_revision_id: revision_id,
+      correlation_id: "internal-builder",
+      simulation_params: simulation_params
+    })
   end
 
   @spec list_experiments([Ecto.UUID.t()]) :: [Experiment.t()]

@@ -1,13 +1,13 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 is complete. The next slice is F2.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F4 are complete. The next slice is F5+F6+F7.
 
 ## Worktree and branch
 
-| Worktree                                         | Branch / current commit                             | Meaning                                                |
-| ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 are complete. |
-| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration. |
+| Worktree                                         | Branch / current commit                             | Meaning                                                           |
+| ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------- |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F4 are complete. |
+| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.            |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
 
@@ -30,7 +30,10 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **I3+I4 are complete:** `create_study_revision/1` parses and validates YAML, resolves graph revisions, stores one normalized immutable revision, and returns bounded reference, conflict, or storage errors.
 - **I5+I6 are complete:** the pure lifecycle defines accepted transitions and idempotent terminal handling. Study executions and fixed phases have persisted closed sets and phase uniqueness.
 - **F1 is complete:** every typed optimization request carries one concrete top-level seed. Every strategy receives and persists it. Resume identity includes the graph revision, strategy, budget, seed, and simulation configuration. The dashboard exposes seed entry and random generation for every strategy.
-- **F2 onward is not implemented.**
+- **F2 is complete:** each fixed study phase has stable collection items keyed by replica and item position.
+- **F3 is complete:** `Simulations.prepare/1` validates and stores one running experiment without starting simulation work.
+- **F4 is complete:** short locked transactions create or reuse linked optimization runs and experiments. Shared preparation validates requests before locking. Mismatched links remain unchanged.
+- **F5 onward is not implemented.**
 
 Recorded checks:
 
@@ -42,6 +45,12 @@ Recorded checks:
 - F1 focused suite: 29 passed;
 - F1 optimization and dashboard regression suite: 152 passed;
 - touched F1 frontend suite: 127 passed;
+- F2 collection-item persistence suite: 4 passed;
+- F3 simulation suite: 17 passed;
+- F4 reservation and collection-item suite: 12 passed;
+- optimization regression suite after F4: 62 passed;
+- complete study test directory after F4: 86 passed;
+- full suite after F4: 842 passed with two existing exclusions;
 - formatting, compilation, Credo, Dialyzer, and frontend type checks passed.
 
 ## Approved prototype scope
@@ -124,11 +133,13 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 When the user authorizes implementation:
 
 1. Recheck repository instructions and dirty state.
-2. Implement F2 only.
-3. Persist one collection item for each phase, replica position, and item position.
-4. Return the same item for the same positional identity. Return a different item for another phase.
-5. Cover the repository behavior with reasonable fixture-backed integration tests.
-6. Run focused tests and the nearest regressions in a disposable database.
-7. Stop when the chunk is green.
+2. Implement F5+F6+F7 only.
+3. Replace the Pilot Cartesian candidate grid with the ordered declared candidate list.
+4. Carry each stable candidate ID through work and results.
+5. Return the candidate ID and selected counts in recommendations. Do not expose declared position.
+6. Reject the removed grid field before Gust submission.
+7. Cover the cutover with reasonable contract, analysis, and integration tests.
+8. Run focused tests and the nearest regressions in a disposable database.
+9. Stop when the chunk is green.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

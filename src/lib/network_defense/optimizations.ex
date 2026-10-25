@@ -14,6 +14,7 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Optimizer
   alias NetworkDefense.Optimization.RandomStrategy
+  alias NetworkDefense.Optimization.RunIdentity
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimization.TopologySegmentationStrategy
@@ -43,7 +44,10 @@ defmodule NetworkDefense.Optimizations do
 
   @spec run_async(RunOptimizationRequest.t()) :: async_result()
   def run_async(%RunOptimizationRequest{} = request) do
-    with {:ok, graph} <- load_graph(request), do: run_async(graph, request)
+    with {:ok, graph, candidate} <- prepare_candidate(request),
+         {:ok, run} <- persist_run(graph, candidate, request) do
+      enqueue_optimization(request, run)
+    end
   end
 
   @doc """
@@ -57,9 +61,18 @@ defmodule NetworkDefense.Optimizations do
 
   @spec prepare(RunOptimizationRequest.t()) :: result()
   def prepare(%RunOptimizationRequest{} = request) do
+    with {:ok, graph, candidate} <- prepare_candidate(request) do
+      persist_run(graph, candidate, request)
+    end
+  end
+
+  @doc false
+  @spec prepare_candidate(RunOptimizationRequest.t()) ::
+          {:ok, Graph.t(), OptimizationRun.t()} | {:error, Errors.error()}
+  def prepare_candidate(%RunOptimizationRequest{} = request) do
     with {:ok, graph} <- load_graph(request),
          {:ok, _strategy} <- strategy_for(graph, request) do
-      persist_run(graph, request)
+      {:ok, graph, RunIdentity.new(request)}
     end
   end
 
@@ -126,44 +139,10 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp ensure_run_identity(run, request) do
-    expected = %{
-      graph_revision_id: request.graph_revision_id,
-      strategy: request.optimization_params.strategy,
-      budget: request.optimization_params.budget,
-      seed: request.optimization_params.seed,
-      simulation_config: simulation_config(request)
-    }
+  defp ensure_run_identity(run, request), do: RunIdentity.check(run, request)
 
-    stored = %{
-      graph_revision_id: run.graph_revision_id,
-      strategy: run.strategy,
-      budget: run.requested_budget,
-      seed: run.seed,
-      simulation_config: run.simulation_config
-    }
-
-    if expected == stored, do: :ok, else: {:error, :request_mismatch}
-  end
-
-  defp run_async(graph, request) do
-    with {:ok, _strategy} <- strategy_for(graph, request),
-         {:ok, run} <- persist_run(graph, request) do
-      enqueue_optimization(request, run)
-    end
-  end
-
-  defp persist_run(graph, request) do
-    run =
-      OptimizationRun.new(
-        graph_revision_id: graph.revision_id,
-        strategy: request.optimization_params.strategy,
-        requested_budget: request.optimization_params.budget,
-        seed: request.optimization_params.seed,
-        simulation_config: simulation_config(request)
-      )
-
-    case OptimizationRuns.create(run) do
+  defp persist_run(graph, candidate, request) do
+    case OptimizationRuns.create(candidate) do
       {:ok, run} ->
         {:ok, run}
 
@@ -177,18 +156,6 @@ defmodule NetworkDefense.Optimizations do
 
         {:error, :persistence_failed}
     end
-  end
-
-  defp simulation_config(%RunOptimizationRequest{optimization_params: %{simulation_params: nil}}),
-    do: nil
-
-  defp simulation_config(%RunOptimizationRequest{optimization_params: params}) do
-    %{
-      "monte_carlo_trials" => params.simulation_params.monte_carlo_trials,
-      "iterations_per_run" => params.simulation_params.iterations_per_run,
-      "initial_foothold_node_id" => params.simulation_params.initial_foothold_node_id,
-      "max_attempts" => params.simulation_params.max_attempts
-    }
   end
 
   defp enqueue_optimization(request, run) do

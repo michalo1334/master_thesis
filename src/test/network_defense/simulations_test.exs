@@ -136,6 +136,64 @@ defmodule NetworkDefense.SimulationsTest do
            end)
   end
 
+  test "prepare stores one running experiment with zero completed trials" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Prepare Only"))
+    foothold = Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+    running_tasks = task_supervisor_children()
+
+    Phoenix.PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
+
+    assert {:ok, experiment} =
+             Simulations.prepare(canonical_request(graph, foothold, "prepare-only"))
+
+    assert %Experiment{
+             status: :running,
+             completed_trials: 0,
+             total_trials: 5,
+             master_seed: 42,
+             graph_revision_id: graph_revision_id,
+             initial_foothold_node_id: foothold_node_id
+           } = experiment
+
+    assert graph_revision_id == graph.revision_id
+    assert foothold_node_id == foothold.id
+
+    assert %{status: :running, completed_trials: 0, total_trials: 5} =
+             Experiments.get(experiment.id)
+
+    assert 1 == experiment_count(graph.revision_id)
+    assert [] == Repo.all(from run in Run, where: run.experiment_id == ^experiment.id)
+    assert [] == all_enqueued()
+    assert [] == Registry.lookup(CoordinatorRegistry, experiment.id)
+    assert MapSet.subset?(task_supervisor_children(), running_tasks)
+
+    refute_receive {:simulation_progress, _progress}, 200
+    refute_receive {:simulation_completed, _completion}, 50
+  end
+
+  test "prepare inserts a new experiment on every valid call" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Prepare Twice"))
+    foothold = Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+    request = canonical_request(graph, foothold, "prepare-twice")
+
+    assert {:ok, first} = Simulations.prepare(request)
+    assert {:ok, second} = Simulations.prepare(request)
+
+    refute first.id == second.id
+    assert 2 == experiment_count(graph.revision_id)
+  end
+
+  test "a prepared experiment completes through the existing run path" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Prepare Then Run"))
+    foothold = Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+    request = canonical_request(graph, foothold, "prepare-then-run")
+
+    assert {:ok, experiment} = Simulations.prepare(request)
+
+    assert {:ok, %Experiment{status: :completed, completed_trials: 5, total_trials: 5}} =
+             Simulations.run(experiment.id, correlation_id: request.correlation_id)
+  end
+
   test "rejects an invalid initial foothold with an error tuple, not task-start success" do
     assert {:ok, graph} = Graphs.insert(canonical_graph("Invalid Foothold"))
 
@@ -398,6 +456,34 @@ defmodule NetworkDefense.SimulationsTest do
 
     assert graph_id == graph.id
     assert graph_revision_id == graph.revision_id
+  end
+
+  defp canonical_request(graph, foothold, correlation_id) do
+    %RunSimulationRequest{
+      graph_revision_id: graph.revision_id,
+      correlation_id: correlation_id,
+      simulation_params: %SimulationParams{
+        monte_carlo_trials: 5,
+        iterations_per_run: 1,
+        initial_foothold_node_id: foothold.id,
+        generate_seed: false,
+        seed: 42,
+        max_attempts: 1
+      }
+    }
+  end
+
+  defp experiment_count(graph_revision_id) do
+    Repo.aggregate(
+      from(experiment in Experiment, where: experiment.graph_revision_id == ^graph_revision_id),
+      :count
+    )
+  end
+
+  defp task_supervisor_children do
+    NetworkDefense.TaskSupervisor
+    |> Task.Supervisor.children()
+    |> MapSet.new()
   end
 
   defp graph(title) do

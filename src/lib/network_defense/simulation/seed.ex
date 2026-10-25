@@ -15,6 +15,10 @@ defmodule NetworkDefense.Simulation.Seed do
   @doc "Default seed used when none is specified."
   def default, do: 0
 
+  @doc false
+  @spec equal?(seed(), integer()) :: boolean()
+  def equal?(stored_seed, requested_seed), do: stored_seed == requested_seed
+
   @doc """
   Generates a cryptographically random seed integer.
 

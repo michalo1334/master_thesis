@@ -115,6 +115,73 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The study revision could not be stored safely."
       )
 
+  def collection_item_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        [],
+        "The study collection item could not be stored safely."
+      )
+
+  def invalid_study_phase,
+    do:
+      new(
+        "validation_failed",
+        "invalid_study_phase",
+        [],
+        "The study phase identifier does not name a stored study phase."
+      )
+
+  def invalid_collection_position(field) when field in [:replica_position, :item_position],
+    do:
+      new(
+        "validation_failed",
+        "invalid_collection_position",
+        [Atom.to_string(field)],
+        "A collection position is not a non-negative integer."
+      )
+
+  def collection_item_not_found,
+    do:
+      new(
+        "validation_failed",
+        "collection_item_not_found",
+        ["id"],
+        "The study collection item does not exist."
+      )
+
+  def runtime_record_mismatch(field) when field in [:optimization_run_id, :experiment_id],
+    do:
+      new(
+        "conflict",
+        "runtime_record_mismatch",
+        [Atom.to_string(field)],
+        "The linked runtime record does not match the declared request."
+      )
+
+  def runtime_request_invalid(field, reason)
+      when field in [:optimization_run_id, :experiment_id] and is_atom(reason),
+      do:
+        new(
+          "validation_failed",
+          "runtime_request_invalid",
+          [Atom.to_string(field)],
+          "The runtime request is not valid for the collection item.",
+          %{"reason" => Atom.to_string(reason)}
+        )
+
+  def runtime_record_unavailable(field, reason)
+      when field in [:optimization_run_id, :experiment_id] and is_atom(reason),
+      do:
+        new(
+          "unavailable",
+          "runtime_record_unavailable",
+          [Atom.to_string(field)],
+          "The runtime record is not available for the collection item.",
+          %{"reason" => Atom.to_string(reason)}
+        )
+
   def new(code, issue_code, path, message, details \\ %{}) do
     %__MODULE__{
       code: code,
