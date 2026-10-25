@@ -26,18 +26,52 @@
     "passes"
   ],
   "properties": {
-    "schema_version": {"type": "integer", "enum": [1]},
-    "method": {"type": "string", "enum": ["precision_pilot_candidate_v1"]},
-    "pilot_id": {"$ref": "#/definitions/identifier"},
-    "study_revision_id": {"$ref": "#/definitions/uuid"},
-    "family_id": {"$ref": "#/definitions/identifier"},
-    "snapshot_id": {"$ref": "#/definitions/uuid"},
-    "candidate_position": {"type": "integer", "minimum": 0},
-    "comparison_position": {"type": "integer", "minimum": 0},
-    "identity": {"$ref": "#/definitions/identity"},
-    "candidate": {"$ref": "#/definitions/candidate"},
-    "outer_subsamples": {"type": "integer", "minimum": 1},
-    "stream_seed": {"type": "integer", "minimum": 0},
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "precision_pilot_candidate_v1"
+      ]
+    },
+    "pilot_id": {
+      "$ref": "#/definitions/identifier"
+    },
+    "study_revision_id": {
+      "$ref": "#/definitions/uuid"
+    },
+    "family_id": {
+      "$ref": "#/definitions/identifier"
+    },
+    "snapshot_id": {
+      "$ref": "#/definitions/uuid"
+    },
+    "candidate_position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "comparison_position": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "identity": {
+      "$ref": "#/definitions/identity"
+    },
+    "candidate": {
+      "$ref": "#/definitions/candidate"
+    },
+    "outer_subsamples": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "stream_seed": {
+      "type": "integer",
+      "minimum": 0
+    },
     "guard_quantile": {
       "type": "number",
       "minimum": 0,
@@ -45,7 +79,11 @@
       "maximum": 1,
       "exclusiveMaximum": true
     },
-    "target_half_width": {"type": "number", "minimum": 0, "exclusiveMinimum": true},
+    "target_half_width": {
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMinimum": true
+    },
     "confidence_level": {
       "type": "number",
       "minimum": 0,
@@ -53,10 +91,20 @@
       "maximum": 1,
       "exclusiveMaximum": true
     },
-    "bootstrap_replicates": {"type": "integer", "minimum": 1},
-    "guarded_half_width": {"type": "number", "minimum": 0},
-    "informative": {"type": "boolean"},
-    "passes": {"type": "boolean"}
+    "bootstrap_replicates": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "guarded_half_width": {
+      "type": "number",
+      "minimum": 0
+    },
+    "informative": {
+      "type": "boolean"
+    },
+    "passes": {
+      "type": "boolean"
+    }
   },
   "definitions": {
     "uuid": {
@@ -72,22 +120,58 @@
     "identity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["tier", "budget", "alternative", "reference", "outcome"],
+      "required": [
+        "tier",
+        "budget",
+        "alternative",
+        "reference",
+        "outcome"
+      ],
       "properties": {
-        "tier": {"$ref": "#/definitions/identifier"},
-        "budget": {"type": "integer", "minimum": 1},
-        "alternative": {"$ref": "#/definitions/identifier"},
-        "reference": {"type": "string", "enum": ["cvss"]},
-        "outcome": {"type": "string", "enum": ["mission_impact"]}
+        "tier": {
+          "$ref": "#/definitions/identifier"
+        },
+        "budget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "alternative": {
+          "$ref": "#/definitions/identifier"
+        },
+        "reference": {
+          "type": "string",
+          "enum": [
+            "cvss"
+          ]
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "mission_impact"
+          ]
+        }
       }
     },
     "candidate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plan_count", "attacks_per_plan"],
+      "required": [
+        "id",
+        "plan_count",
+        "attacks_per_plan"
+      ],
       "properties": {
-        "plan_count": {"type": "integer", "minimum": 5},
-        "attacks_per_plan": {"type": "integer", "minimum": 10}
+        "plan_count": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "attacks_per_plan": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "id": {
+          "$ref": "#/definitions/identifier"
+        }
       }
     }
   }

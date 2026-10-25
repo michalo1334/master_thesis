@@ -5,6 +5,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
+    Candidate,
     CandidateComparisonRequest,
     CandidateComparisonResult,
     PilotError,
@@ -14,8 +15,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
 
   # Canonical mapped work for one validated pilot.
   #
-  # Candidate positions follow the declared grid in plan-major order with the
-  # attack candidates inner. Comparison positions follow the declared order.
+  # Candidate positions follow the declared ordered candidates. Comparison
+  # positions follow the declared order.
   #
   # The historical comparison stream is preserved exactly:
   #
@@ -33,8 +34,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
   @spec canonical_items(PilotRequest.t(), SnapshotPayload.t()) ::
           {:ok, [item()]} | {:error, PilotError.t()}
   def canonical_items(%PilotRequest{} = request, %SnapshotPayload{} = payload) do
-    plans = request.candidate_grid.plan_count_candidates
-    attacks = request.candidate_grid.attacks_per_plan_candidates
+    candidates = request.candidates
     comparisons = request.expected_comparisons
     ranks = tier_ranks(comparisons)
     indices = comparison_indices(comparisons)
@@ -45,17 +45,15 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
       comparisons_with_indices = Enum.zip(comparisons, indices)
 
       items =
-        for {plan_count, plan_index} <- Enum.with_index(plans),
-            {attacks_per_plan, attack_index} <- Enum.with_index(attacks),
+        for {candidate, candidate_position} <- Enum.with_index(candidates),
             {{identity, occurrence_index}, comparison_index} <-
               Enum.with_index(comparisons_with_indices) do
           item(
             request,
             identity,
-            plan_index * length(attacks) + attack_index,
+            candidate,
+            candidate_position,
             comparison_index,
-            plan_count,
-            attacks_per_plan,
             Map.fetch!(ranks, identity.tier),
             occurrence_index
           )
@@ -81,9 +79,11 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
 
   @spec candidate_request(PilotRequest.t(), SnapshotPayload.t(), item()) ::
           {:ok, CandidateComparisonRequest.t()} | {:error, PilotError.t()}
-  def candidate_request(%PilotRequest{} = _request, %SnapshotPayload{} = payload, item)
+  def candidate_request(%PilotRequest{} = request, %SnapshotPayload{} = payload, item)
       when is_map(item) do
-    with {:ok, comparison} <- comparison_at(payload, item["comparison_position"]),
+    with {:ok, candidate} <- candidate_at(request, item["candidate_position"]),
+         :ok <- candidate_agrees(item, candidate),
+         {:ok, comparison} <- comparison_at(payload, item["comparison_position"]),
          :ok <- identity_agrees(item["identity"], comparison.identity) do
       %{
         "schema_version" => 1,
@@ -96,8 +96,9 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
         "comparison_position" => item["comparison_position"],
         "identity" => Identity.to_params(comparison.identity),
         "candidate" => %{
-          "plan_count" => item["plan_count"],
-          "attacks_per_plan" => item["attacks_per_plan"]
+          "id" => candidate.id,
+          "plan_count" => candidate.plan_count,
+          "attacks_per_plan" => candidate.attacks_per_plan
         },
         "evidence" => Evidence.to_params(comparison.evidence),
         "outer_subsamples" => item["outer_subsamples"],
@@ -114,10 +115,32 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
   def candidate_request(_request, _payload, _item),
     do: {:error, PilotError.incomplete_pilot("A persisted pilot work item is malformed.")}
 
+  defp candidate_at(%PilotRequest{} = request, position)
+       when is_integer(position) and position >= 0 do
+    case Enum.at(request.candidates, position) do
+      %Candidate{} = candidate -> {:ok, candidate}
+      nil -> {:error, PilotError.incomplete_pilot("A work item compares a missing candidate.")}
+    end
+  end
+
+  defp candidate_at(_request, _position),
+    do: {:error, PilotError.incomplete_pilot("A work item has no candidate position.")}
+
+  defp candidate_agrees(item, %Candidate{} = candidate) do
+    if item["candidate_id"] == candidate.id and
+         item["plan_count"] == candidate.plan_count and
+         item["attacks_per_plan"] == candidate.attacks_per_plan do
+      :ok
+    else
+      {:error, PilotError.changed_candidate_result("A work item candidate changed.")}
+    end
+  end
+
   @spec result_params(CandidateComparisonResult.t()) :: map()
   def result_params(%CandidateComparisonResult{} = result) do
     %{
       "candidate_position" => result.candidate_position,
+      "candidate_id" => result.candidate.id,
       "comparison_position" => result.comparison_position,
       "plan_count" => result.candidate.plan_count,
       "attacks_per_plan" => result.candidate.attacks_per_plan,
@@ -136,10 +159,9 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
   defp item(
          request,
          identity,
+         %Candidate{id: candidate_id, plan_count: plan_count, attacks_per_plan: attacks_per_plan},
          candidate_position,
          comparison_position,
-         plan_count,
-         attacks_per_plan,
          tier_rank,
          occurrence_index
        ) do
@@ -149,6 +171,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Work do
       "family_id" => request.family_id,
       "snapshot_id" => request.snapshot_id,
       "candidate_position" => candidate_position,
+      "candidate_id" => candidate_id,
       "comparison_position" => comparison_position,
       "plan_count" => plan_count,
       "attacks_per_plan" => attacks_per_plan,

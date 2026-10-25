@@ -1,8 +1,6 @@
 defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
   use NetworkDefense.DataCase, async: false
 
-  import Ecto.Query
-
   alias Ecto.Adapters.SQL.Sandbox
 
   alias NetworkDefense.Evaluation.EvidenceSnapshot
@@ -155,9 +153,9 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     request = PilotConformance.request_params(snapshot.id)
 
     narrow =
-      request
-      |> put_in(["candidate_grid", "plan_count_candidates"], [5])
-      |> put_in(["candidate_grid", "attacks_per_plan_candidates"], [10])
+      Map.put(request, "candidates", [
+        %{"id" => "small", "plan_count" => 5, "attacks_per_plan" => 10}
+      ])
 
     cases = [
       {:snapshot_comparisons, 1, "validation_failed", request},

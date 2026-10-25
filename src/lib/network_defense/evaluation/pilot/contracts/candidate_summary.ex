@@ -6,7 +6,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateSummary do
   # even when the candidate is not recommended.
 
   @type t :: %__MODULE__{
-          candidate_position: non_neg_integer(),
+          candidate_id: String.t(),
           plan_count: pos_integer(),
           attacks_per_plan: pos_integer(),
           worst_guarded_half_width: float(),
@@ -17,7 +17,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateSummary do
         }
 
   embedded_schema do
-    field :candidate_position, :integer
+    field :candidate_id, :string
     field :plan_count, :integer
     field :attacks_per_plan, :integer
     field :worst_guarded_half_width, :float
@@ -29,7 +29,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateSummary do
 
   def changeset(summary, attrs) do
     cast(summary, attrs, [
-      :candidate_position,
+      :candidate_id,
       :plan_count,
       :attacks_per_plan,
       :worst_guarded_half_width,

@@ -7,7 +7,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
   alias NetworkDefense.Evaluation.JsonBoundary
 
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
-    CandidateGrid,
+    Candidate,
     PilotError,
     PilotSampling,
     Precision,
@@ -34,7 +34,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
           family_id: String.t(),
           snapshot_id: String.t(),
           expected_comparisons: [Identity.t()],
-          candidate_grid: CandidateGrid.t(),
+          candidates: [Candidate.t()],
           pilot_sampling: PilotSampling.t(),
           precision: Precision.t(),
           selection: Selection.t()
@@ -49,7 +49,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
     field :family_id, :string
     field :snapshot_id, :string
     embeds_many :expected_comparisons, Identity, on_replace: :delete
-    embeds_one :candidate_grid, CandidateGrid, on_replace: :update
+    embeds_many :candidates, Candidate, on_replace: :delete
     embeds_one :pilot_sampling, PilotSampling, on_replace: :update
     embeds_one :precision, Precision, on_replace: :update
     embeds_one :selection, Selection, on_replace: :update
@@ -106,7 +106,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
       :snapshot_id
     ])
     |> cast_embed(:expected_comparisons, required: true)
-    |> cast_embed(:candidate_grid, required: true)
+    |> cast_embed(:candidates, required: true)
     |> cast_embed(:pilot_sampling, required: true)
     |> cast_embed(:precision, required: true)
     |> cast_embed(:selection, required: true)
@@ -155,7 +155,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
   defp validate_request(%__MODULE__{} = request, %Limits{} = limits) do
     issues =
       (duplicate_identity_issues(request.expected_comparisons) ++
-         duplicate_candidate_issues(request.candidate_grid) ++
+         duplicate_candidate_issues(request.candidates) ++
          limit_issues(request, limits))
       |> Enum.sort_by(fn issue -> {path_sort_key(issue["path"]), issue["code"]} end)
       |> Enum.take(@max_issues)
@@ -192,32 +192,34 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
     Enum.reverse(issues)
   end
 
-  defp duplicate_candidate_issues(%CandidateGrid{} = grid) do
-    plan_issues =
-      grid.plan_count_candidates
+  defp duplicate_candidate_issues(candidates) do
+    id_issues =
+      candidates
+      |> Enum.map(& &1.id)
       |> duplicates()
-      |> Enum.map(fn value ->
+      |> Enum.map(fn id ->
         issue(
-          "invalid_candidate_grid",
-          ["candidate_grid", "plan_count_candidates"],
-          "Candidate plan counts must be unique.",
-          %{"value" => value}
+          "duplicate_candidate_id",
+          ["candidates"],
+          "Candidate IDs must be unique.",
+          %{"id" => id}
         )
       end)
 
-    attack_issues =
-      grid.attacks_per_plan_candidates
+    pair_issues =
+      candidates
+      |> Enum.map(&{&1.plan_count, &1.attacks_per_plan})
       |> duplicates()
-      |> Enum.map(fn value ->
+      |> Enum.map(fn {plan_count, attacks_per_plan} ->
         issue(
-          "invalid_candidate_grid",
-          ["candidate_grid", "attacks_per_plan_candidates"],
-          "Candidate attack counts must be unique.",
-          %{"value" => value}
+          "duplicate_candidate_size",
+          ["candidates"],
+          "Candidate plan and attack counts must be unique.",
+          %{"plan_count" => plan_count, "attacks_per_plan" => attacks_per_plan}
         )
       end)
 
-    plan_issues ++ attack_issues
+    id_issues ++ pair_issues
   end
 
   defp duplicates(values) do
@@ -234,11 +236,11 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
   end
 
   defp limit_issues(%__MODULE__{} = request, %Limits{} = limits) do
-    grid = request.candidate_grid
-    plan_counts = grid.plan_count_candidates
-    attack_counts = grid.attacks_per_plan_candidates
+    candidates = request.candidates
     comparison_count = length(request.expected_comparisons)
-    work_items = length(plan_counts) * length(attack_counts) * comparison_count
+    work_items = length(candidates) * comparison_count
+    plan_counts = Enum.map(candidates, & &1.plan_count)
+    attack_counts = Enum.map(candidates, & &1.attacks_per_plan)
 
     count_issue(
       comparison_count > limits.comparison_count,
@@ -248,34 +250,27 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
       comparison_count
     ) ++
       count_issue(
-        length(plan_counts) > limits.candidate_count,
-        ["candidate_grid", "plan_count_candidates"],
-        "The declared plan candidate count exceeds the configured limit.",
+        length(candidates) > limits.candidate_count,
+        ["candidates"],
+        "The declared candidate count exceeds the configured limit.",
         limits.candidate_count,
-        length(plan_counts)
-      ) ++
-      count_issue(
-        length(attack_counts) > limits.candidate_count,
-        ["candidate_grid", "attacks_per_plan_candidates"],
-        "The declared attack candidate count exceeds the configured limit.",
-        limits.candidate_count,
-        length(attack_counts)
+        length(candidates)
       ) ++
       value_limit_issues(
         plan_counts,
-        ["candidate_grid", "plan_count_candidates"],
+        "plan_count",
         limits.plans_per_side,
-        "A plan candidate exceeds the configured plan-row limit."
+        "A candidate exceeds the configured plan-row limit."
       ) ++
       value_limit_issues(
         attack_counts,
-        ["candidate_grid", "attacks_per_plan_candidates"],
+        "attacks_per_plan",
         limits.attack_columns,
-        "An attack candidate exceeds the configured attack-column limit."
+        "A candidate exceeds the configured attack-column limit."
       ) ++
       count_issue(
         work_items > limits.work_items,
-        ["candidate_grid"],
+        ["candidates"],
         "The declared candidate work count exceeds the configured limit.",
         limits.work_items,
         work_items
@@ -296,12 +291,12 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
       )
   end
 
-  defp value_limit_issues(values, path, limit, message) do
+  defp value_limit_issues(values, field, limit, message) do
     values
     |> Enum.with_index()
     |> Enum.reject(fn {value, _index} -> value <= limit end)
     |> Enum.map(fn {value, index} ->
-      issue("invalid_analysis_setting", path ++ [index], message, %{
+      issue("invalid_analysis_setting", ["candidates", index, field], message, %{
         "limit" => limit,
         "actual" => value
       })
@@ -469,8 +464,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest do
   end
 
   defp bounds_issues(%__MODULE__{} = request, %SnapshotPayload{} = payload) do
-    max_plans = Enum.max(request.candidate_grid.plan_count_candidates)
-    max_attacks = Enum.max(request.candidate_grid.attacks_per_plan_candidates)
+    max_plans = request.candidates |> Enum.map(& &1.plan_count) |> Enum.max()
+    max_attacks = request.candidates |> Enum.map(& &1.attacks_per_plan) |> Enum.max()
 
     payload.comparisons
     |> Enum.with_index()

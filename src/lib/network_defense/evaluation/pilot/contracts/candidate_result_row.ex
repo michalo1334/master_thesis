@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateResultRow do
   # One compact candidate and comparison row. It contains no evidence.
 
   @type t :: %__MODULE__{
-          candidate_position: non_neg_integer(),
+          candidate_id: String.t(),
           comparison_position: non_neg_integer(),
           plan_count: pos_integer(),
           attacks_per_plan: pos_integer(),
@@ -15,7 +15,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateResultRow do
         }
 
   embedded_schema do
-    field :candidate_position, :integer
+    field :candidate_id, :string
     field :comparison_position, :integer
     field :plan_count, :integer
     field :attacks_per_plan, :integer
@@ -26,7 +26,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateResultRow do
 
   def changeset(row, attrs) do
     cast(row, attrs, [
-      :candidate_position,
+      :candidate_id,
       :comparison_position,
       :plan_count,
       :attacks_per_plan,

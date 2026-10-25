@@ -16,7 +16,8 @@
   },
   "candidate": {
     "plan_count": 5,
-    "attacks_per_plan": 10
+    "attacks_per_plan": 10,
+    "id": "small"
   },
   "outer_subsamples": 20,
   "stream_seed": 700001,

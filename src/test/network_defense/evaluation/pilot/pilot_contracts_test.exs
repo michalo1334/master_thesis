@@ -143,29 +143,59 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
   end
 
   describe "PILOT-03: request rejection" do
-    test "duplicate candidate values are rejected" do
-      attrs = PilotConformance.request()
-      attrs = put_in(attrs, ["candidate_grid", "plan_count_candidates"], [5, 5])
+    test "ordered candidates preserve stable IDs and exact counts" do
+      request = PilotConformance.parsed_request()
 
-      assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-               PilotRequest.parse(attrs)
-
-      assert Enum.any?(issues, &(&1["code"] == "invalid_candidate_grid"))
+      assert Enum.map(request.candidates, &{&1.id, &1.plan_count, &1.attacks_per_plan}) ==
+               [{"small", 5, 10}, {"small-wide", 5, 12}, {"large", 6, 10}, {"large-wide", 6, 12}]
     end
 
-    test "candidate positions keep the declared plan-major order" do
+    test "duplicate candidate IDs and count pairs are rejected" do
+      attrs = PilotConformance.request()
+
+      duplicate_id =
+        put_in(attrs, ["candidates", Access.at(1), "id"], "small")
+
+      assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
+               PilotRequest.parse(duplicate_id)
+
+      assert Enum.any?(issues, &(&1["code"] == "duplicate_candidate_id"))
+
+      duplicate_size =
+        attrs
+        |> put_in(["candidates", Access.at(1), "plan_count"], 5)
+        |> put_in(["candidates", Access.at(1), "attacks_per_plan"], 10)
+
+      assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
+               PilotRequest.parse(duplicate_size)
+
+      assert Enum.any?(issues, &(&1["code"] == "duplicate_candidate_size"))
+    end
+
+    test "candidate positions keep the declared order and exact counts" do
       request = PilotConformance.parsed_request()
       payload = PilotConformance.parsed_payload!()
 
       {:ok, items} =
         Work.canonical_items(request, payload)
 
-      assert Enum.take(items, 4) |> Enum.map(& &1["candidate_position"]) == [0, 0, 1, 1]
+      assert Enum.map(items, & &1["candidate_id"]) ==
+               [
+                 "small",
+                 "small",
+                 "small-wide",
+                 "small-wide",
+                 "large",
+                 "large",
+                 "large-wide",
+                 "large-wide"
+               ]
 
-      assert Enum.take(items, 4) |> Enum.map(& &1["comparison_position"]) == [0, 1, 0, 1]
+      assert Enum.map(items, & &1["candidate_position"]) == [0, 0, 1, 1, 2, 2, 3, 3]
+      assert Enum.map(items, & &1["comparison_position"]) == [0, 1, 0, 1, 0, 1, 0, 1]
 
-      assert Enum.map(items, & &1["plan_count"]) == [5, 5, 5, 5, 6, 6, 6, 6]
-      assert Enum.map(items, & &1["attacks_per_plan"]) == [10, 10, 12, 12, 10, 10, 12, 12]
+      assert Enum.map(items, &{&1["plan_count"], &1["attacks_per_plan"]}) ==
+               [{5, 10}, {5, 10}, {5, 12}, {5, 12}, {6, 10}, {6, 10}, {6, 12}, {6, 12}]
     end
 
     test "unknown fields, wrong types, and unsupported versions are rejected" do
@@ -248,12 +278,10 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
 
       for {limit, overrides, path} <- [
             {:comparison_count, [comparison_count: 1], ["expected_comparisons"]},
-            {:candidate_count, [candidate_count: 1], ["candidate_grid", "plan_count_candidates"]},
-            {:plans_per_side, [plans_per_side: 4],
-             ["candidate_grid", "plan_count_candidates", 0]},
-            {:attack_columns, [attack_columns: 4],
-             ["candidate_grid", "attacks_per_plan_candidates", 0]},
-            {:work_items, [work_items: 4], ["candidate_grid"]},
+            {:candidate_count, [candidate_count: 1], ["candidates"]},
+            {:plans_per_side, [plans_per_side: 4], ["candidates", 0, "plan_count"]},
+            {:attack_columns, [attack_columns: 4], ["candidates", 0, "attacks_per_plan"]},
+            {:work_items, [work_items: 4], ["candidates"]},
             {:outer_subsamples, [outer_subsamples: 10], ["pilot_sampling", "outer_subsamples"]},
             {:bootstrap_replicates, [bootstrap_replicates: 100],
              ["precision", "bootstrap_replicates"]}
@@ -290,35 +318,37 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
   describe "PILOT-07: fixed selection and tie order" do
     test "the shared key keeps runtime, plans, attacks, and position in that order" do
       summaries = [
-        summary(0, 5, 10, 100.0),
-        summary(1, 6, 12, 90.0),
-        summary(2, 6, 10, 100.0),
-        summary(3, 6, 12, 100.0)
+        summary("candidate-0", 5, 10, 100.0),
+        summary("candidate-1", 6, 12, 90.0),
+        summary("candidate-2", 6, 10, 100.0),
+        summary("candidate-3", 6, 12, 100.0)
       ]
 
       assert Enum.map(
-               Enum.sort_by(summaries, &PilotResult.selection_key/1),
-               & &1.candidate_position
-             ) ==
-               [1, 2, 3, 0]
+               Enum.sort_by(Enum.with_index(summaries), fn {summary, position} ->
+                 PilotResult.selection_key(summary, position)
+               end),
+               fn {summary, _position} -> summary.candidate_id end
+             ) == ["candidate-1", "candidate-2", "candidate-3", "candidate-0"]
 
-      assert %Recommendation{candidate_position: 1, plan_count: 6, attacks_per_plan: 12} =
+      assert %Recommendation{candidate_id: "candidate-1", plan_count: 6, attacks_per_plan: 12} =
                Assembler.recommendation(summaries)
     end
 
     test "the fixed order prefers more plans, then fewer attacks, then the lower position" do
       summaries = [
-        summary(0, 6, 12, 100.0),
-        summary(1, 5, 10, 100.0),
-        summary(2, 6, 10, 100.0),
-        summary(3, 6, 10, 100.0)
+        summary("candidate-0", 6, 12, 100.0),
+        summary("candidate-1", 5, 10, 100.0),
+        summary("candidate-2", 6, 10, 100.0),
+        summary("candidate-3", 6, 10, 100.0)
       ]
 
       assert Enum.map(
-               Enum.sort_by(summaries, &PilotResult.selection_key/1),
-               & &1.candidate_position
-             ) ==
-               [2, 3, 0, 1]
+               Enum.sort_by(Enum.with_index(summaries), fn {summary, position} ->
+                 PilotResult.selection_key(summary, position)
+               end),
+               fn {summary, _position} -> summary.candidate_id end
+             ) == ["candidate-2", "candidate-3", "candidate-0", "candidate-1"]
     end
 
     test "the predicted runtime keeps the fixed historical formula" do
@@ -333,7 +363,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
     end
 
     test "no passing candidate yields no recommendation" do
-      summaries = [summary(0, 5, 10, 100.0), summary(1, 6, 10, 90.0)]
+      summaries = [summary("candidate-0", 5, 10, 100.0), summary("candidate-1", 6, 10, 90.0)]
 
       assert Assembler.recommendation(Enum.map(summaries, &%{&1 | all_comparisons_passed: false})) ==
                nil
@@ -412,9 +442,9 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
     end
   end
 
-  defp summary(position, plan_count, attacks_per_plan, runtime) do
+  defp summary(candidate_id, plan_count, attacks_per_plan, runtime) do
     %CandidateSummary{
-      candidate_position: position,
+      candidate_id: candidate_id,
       plan_count: plan_count,
       attacks_per_plan: attacks_per_plan,
       worst_guarded_half_width: 0.1,
@@ -462,8 +492,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotContractsTest do
     request_attrs =
       PilotConformance.request()
       |> Map.put("expected_comparisons", Enum.map(comparisons, & &1["identity"]))
-      |> put_in(["candidate_grid", "plan_count_candidates"], [5])
-      |> put_in(["candidate_grid", "attacks_per_plan_candidates"], [10])
+      |> Map.put("candidates", [%{"id" => "single", "plan_count" => 5, "attacks_per_plan" => 10}])
       |> put_in(["pilot_sampling", "seed"], base_seed)
 
     request = assert_ok(PilotRequest.parse(request_attrs))

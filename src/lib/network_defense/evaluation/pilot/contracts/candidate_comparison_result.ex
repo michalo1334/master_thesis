@@ -118,7 +118,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonResult do
 
   # A stored mapped row is a strict projection of one response. The request
   # supplies the echoed metadata, so the same relation checks run at fan-in.
-  @row_keys ~w(candidate_position comparison_position plan_count attacks_per_plan
+  @row_keys ~w(candidate_position candidate_id comparison_position plan_count attacks_per_plan
                guarded_half_width informative passes)
 
   @spec parse_row(term(), CandidateComparisonRequest.t()) ::
@@ -148,6 +148,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonResult do
       "comparison_position" => attrs["comparison_position"],
       "identity" => Identity.to_params(request.identity),
       "candidate" => %{
+        "id" => attrs["candidate_id"],
         "plan_count" => attrs["plan_count"],
         "attacks_per_plan" => attrs["attacks_per_plan"]
       },
@@ -201,7 +202,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonResult do
       end
 
     candidate_issues =
-      if result.candidate.plan_count == request.candidate.plan_count and
+      if result.candidate.id == request.candidate.id and
+           result.candidate.plan_count == request.candidate.plan_count and
            result.candidate.attacks_per_plan == request.candidate.attacks_per_plan do
         []
       else

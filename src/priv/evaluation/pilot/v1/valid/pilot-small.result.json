@@ -1,86 +1,76 @@
 {
-  "candidate_grid": {
-    "attacks_per_plan_candidates": [
-      10,
-      12
-    ],
-    "plan_count_candidates": [
-      5,
-      6
-    ]
-  },
   "candidate_results": [
     {
       "attacks_per_plan": 10,
-      "candidate_position": 0,
       "comparison_position": 0,
       "guarded_half_width": 0.21929885621111542,
       "informative": true,
       "passes": false,
-      "plan_count": 5
+      "plan_count": 5,
+      "candidate_id": "small"
     },
     {
       "attacks_per_plan": 10,
-      "candidate_position": 0,
       "comparison_position": 1,
       "guarded_half_width": 0.21770374116388885,
       "informative": true,
       "passes": false,
-      "plan_count": 5
+      "plan_count": 5,
+      "candidate_id": "small"
     },
     {
       "attacks_per_plan": 12,
-      "candidate_position": 1,
       "comparison_position": 0,
       "guarded_half_width": 0.21845507528300487,
       "informative": true,
       "passes": false,
-      "plan_count": 5
+      "plan_count": 5,
+      "candidate_id": "small-wide"
     },
     {
       "attacks_per_plan": 12,
-      "candidate_position": 1,
       "comparison_position": 1,
       "guarded_half_width": 0.21370379891441962,
       "informative": true,
       "passes": false,
-      "plan_count": 5
+      "plan_count": 5,
+      "candidate_id": "small-wide"
     },
     {
       "attacks_per_plan": 10,
-      "candidate_position": 2,
       "comparison_position": 0,
       "guarded_half_width": 0.18893980009320233,
       "informative": true,
       "passes": true,
-      "plan_count": 6
+      "plan_count": 6,
+      "candidate_id": "large"
     },
     {
       "attacks_per_plan": 10,
-      "candidate_position": 2,
       "comparison_position": 1,
       "guarded_half_width": 0.18505254884327116,
       "informative": true,
       "passes": true,
-      "plan_count": 6
+      "plan_count": 6,
+      "candidate_id": "large"
     },
     {
       "attacks_per_plan": 12,
-      "candidate_position": 3,
       "comparison_position": 0,
       "guarded_half_width": 0.1859961186829653,
       "informative": true,
       "passes": true,
-      "plan_count": 6
+      "plan_count": 6,
+      "candidate_id": "large-wide"
     },
     {
       "attacks_per_plan": 12,
-      "candidate_position": 3,
       "comparison_position": 1,
       "guarded_half_width": 0.18414401760335605,
       "informative": true,
       "passes": true,
-      "plan_count": 6
+      "plan_count": 6,
+      "candidate_id": "large-wide"
     }
   ],
   "candidate_summaries": [
@@ -88,41 +78,41 @@
       "all_comparisons_informative": true,
       "all_comparisons_passed": false,
       "attacks_per_plan": 10,
-      "candidate_position": 0,
       "non_informative_comparison_positions": [],
       "plan_count": 5,
       "predicted_runtime_ms": 480.0,
-      "worst_guarded_half_width": 0.21929885621111542
+      "worst_guarded_half_width": 0.21929885621111542,
+      "candidate_id": "small"
     },
     {
       "all_comparisons_informative": true,
       "all_comparisons_passed": false,
       "attacks_per_plan": 12,
-      "candidate_position": 1,
       "non_informative_comparison_positions": [],
       "plan_count": 5,
       "predicted_runtime_ms": 560.0,
-      "worst_guarded_half_width": 0.21845507528300487
+      "worst_guarded_half_width": 0.21845507528300487,
+      "candidate_id": "small-wide"
     },
     {
       "all_comparisons_informative": true,
       "all_comparisons_passed": true,
       "attacks_per_plan": 10,
-      "candidate_position": 2,
       "non_informative_comparison_positions": [],
       "plan_count": 6,
       "predicted_runtime_ms": 576.0,
-      "worst_guarded_half_width": 0.18893980009320233
+      "worst_guarded_half_width": 0.18893980009320233,
+      "candidate_id": "large"
     },
     {
       "all_comparisons_informative": true,
       "all_comparisons_passed": true,
       "attacks_per_plan": 12,
-      "candidate_position": 3,
       "non_informative_comparison_positions": [],
       "plan_count": 6,
       "predicted_runtime_ms": 672.0,
-      "worst_guarded_half_width": 0.1859961186829653
+      "worst_guarded_half_width": 0.1859961186829653,
+      "candidate_id": "large-wide"
     }
   ],
   "evidence_role": "pilot",
@@ -142,6 +132,28 @@
       "tier": "edge"
     }
   ],
+  "candidates": [
+    {
+      "id": "small",
+      "plan_count": 5,
+      "attacks_per_plan": 10
+    },
+    {
+      "id": "small-wide",
+      "plan_count": 5,
+      "attacks_per_plan": 12
+    },
+    {
+      "id": "large",
+      "plan_count": 6,
+      "attacks_per_plan": 10
+    },
+    {
+      "id": "large-wide",
+      "plan_count": 6,
+      "attacks_per_plan": 12
+    }
+  ],
   "family_id": "family-example",
   "insufficient_reason": null,
   "method": "precision_pilot_v1",
@@ -159,8 +171,8 @@
   },
   "recommendation": {
     "attacks_per_plan": 10,
-    "candidate_position": 2,
-    "plan_count": 6
+    "plan_count": 6,
+    "candidate_id": "large"
   },
   "schema_version": 1,
   "selection": {

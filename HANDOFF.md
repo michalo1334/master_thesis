@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F4 are complete. The next slice is F5+F6+F7.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F7 are complete. The next slice is F8+F9.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                           |
 | ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F4 are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F7 are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.            |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -33,7 +33,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F2 is complete:** each fixed study phase has stable collection items keyed by replica and item position.
 - **F3 is complete:** `Simulations.prepare/1` validates and stores one running experiment without starting simulation work.
 - **F4 is complete:** short locked transactions create or reuse linked optimization runs and experiments. Shared preparation validates requests before locking. Mismatched links remain unchanged.
-- **F5 onward is not implemented.**
+- **F5+F6+F7 are complete:** Pilot uses one ordered candidate list. Stable candidate IDs and exact counts pass through mapped work, Python computation, stored rows, summaries, recommendations, and public read-back. Declared position remains internal as the final tie-break. The removed grid shape is rejected before Gust run creation.
+- **F8 onward is not implemented.**
 
 Recorded checks:
 
@@ -50,8 +51,10 @@ Recorded checks:
 - F4 reservation and collection-item suite: 12 passed;
 - optimization regression suite after F4: 62 passed;
 - complete study test directory after F4: 86 passed;
-- full suite after F4: 842 passed with two existing exclusions;
-- formatting, compilation, Credo, Dialyzer, and frontend type checks passed.
+- F5+F6+F7 affected Elixir Pilot suite: 84 passed;
+- full suite after F5+F6+F7: 845 passed with two existing exclusions;
+- full Python evaluation-compute suite after F5+F6+F7: 135 passed;
+- formatting, compilation, Credo, Dialyzer, Ruff, schema drift, and frontend type checks passed.
 
 ## Approved prototype scope
 
@@ -133,13 +136,15 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 When the user authorizes implementation:
 
 1. Recheck repository instructions and dirty state.
-2. Implement F5+F6+F7 only.
-3. Replace the Pilot Cartesian candidate grid with the ordered declared candidate list.
-4. Carry each stable candidate ID through work and results.
-5. Return the candidate ID and selected counts in recommendations. Do not expose declared position.
-6. Reject the removed grid field before Gust submission.
-7. Cover the cutover with reasonable contract, analysis, and integration tests.
-8. Run focused tests and the nearest regressions in a disposable database.
-9. Stop when the chunk is green.
+2. Implement F8+F9 only.
+3. Build one ordered typed work-item list for a fixed phase and replica.
+4. Preserve declared comparison, side, graph, strategy, budget, plan, seed, and candidate order.
+5. Use the first required selection seeds and create no candidate Cartesian product.
+6. Reject duplicate work identities and phase work above the configured cap before Gust submission.
+7. Run each mapped item through the F4 optimization and experiment reservations. Keep computation outside locked transactions.
+8. Return compact runtime IDs and completion counts only.
+9. Cover the builder and mapped action with reasonable unit and integration tests.
+10. Run focused tests and the nearest regressions in a disposable database.
+11. Stop when the chunk is green.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

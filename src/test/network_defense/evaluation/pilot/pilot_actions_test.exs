@@ -68,7 +68,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotActionsTest do
       invalid =
         request
         |> PilotRequest.to_params()
-        |> put_in(["candidate_grid", "plan_count_candidates"], [5, 5])
+        |> Map.put("candidate_grid", %{"plan_count_candidates" => [5, 5]})
 
       run_id = run!(dag, invalid)
 
@@ -192,7 +192,8 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotActionsTest do
       assert result.recommendation.attacks_per_plan == 10
       assert Enum.count(result.candidate_results) == 8
 
-      assert Enum.map(result.candidate_summaries, & &1.candidate_position) == [0, 1, 2, 3]
+      assert Enum.map(result.candidate_summaries, & &1.candidate_id) ==
+               ["small", "small-wide", "large", "large-wide"]
 
       assert Enum.map(result.candidate_summaries, & &1.all_comparisons_passed) ==
                [false, false, true, true]
@@ -205,7 +206,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotActionsTest do
       assert {:ok, %PilotResult{} = result} =
                PilotResult.parse(stored, request, PilotConformance.parsed_payload!())
 
-      assert result.recommendation.candidate_position == 2
+      assert result.recommendation.candidate_id == "large"
       assert Enum.map(result.candidate_results, & &1.comparison_position) |> Enum.uniq() == [0, 1]
     end
 

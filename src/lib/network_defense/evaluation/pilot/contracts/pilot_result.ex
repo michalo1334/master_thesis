@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
-    CandidateGrid,
+    Candidate,
     CandidateResultRow,
     CandidateSummary,
     PilotError,
@@ -22,8 +22,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
   # Persisted compact Precision Pilot result.
   #
   # It repeats immutable IDs and every candidate and comparison row. It never
-  # repeats an evidence matrix. Read-back recomputes every aggregate from the
-  # stored rows and the declared runtime evidence.
+  # repeats an evidence matrix or the internal declared candidate position.
+  # Read-back recomputes every aggregate from stored rows and runtime evidence.
 
   @max_issues 50
 
@@ -37,7 +37,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
           snapshot_id: String.t(),
           outcome: String.t(),
           expected_comparisons: [Identity.t()],
-          candidate_grid: CandidateGrid.t(),
+          candidates: [Candidate.t()],
           pilot_sampling: PilotSampling.t(),
           precision: Precision.t(),
           selection: Selection.t(),
@@ -58,7 +58,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
     field :outcome, :string
     field :insufficient_reason, :string
     embeds_many :expected_comparisons, Identity, on_replace: :delete
-    embeds_one :candidate_grid, CandidateGrid, on_replace: :update
+    embeds_many :candidates, Candidate, on_replace: :delete
     embeds_one :pilot_sampling, PilotSampling, on_replace: :update
     embeds_one :precision, Precision, on_replace: :update
     embeds_one :selection, Selection, on_replace: :update
@@ -108,7 +108,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
       :insufficient_reason
     ])
     |> cast_embed(:expected_comparisons, required: true)
-    |> cast_embed(:candidate_grid, required: true)
+    |> cast_embed(:candidates, required: true)
     |> cast_embed(:pilot_sampling, required: true)
     |> cast_embed(:precision, required: true)
     |> cast_embed(:selection, required: true)
@@ -120,8 +120,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
   defp validate_relations(%__MODULE__{} = result, request, payload) do
     issues =
       (echo_issues(result, request) ++
-         row_issues(result) ++
-         summary_issues(result, payload) ++
+         row_issues(result, request) ++
+         summary_issues(result, request, payload) ++
          outcome_issues(result))
       |> Enum.sort_by(fn issue -> {path_sort_key(issue["path"]), issue["code"]} end)
       |> Enum.take(@max_issues)
@@ -179,52 +179,42 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
         ]
       end
 
-    grid_issues =
-      if result.candidate_grid.plan_count_candidates ==
-           request.candidate_grid.plan_count_candidates and
-           result.candidate_grid.attacks_per_plan_candidates ==
-             request.candidate_grid.attacks_per_plan_candidates do
+    candidate_issues =
+      if Enum.map(result.candidates, &Candidate.to_params/1) ==
+           Enum.map(request.candidates, &Candidate.to_params/1) do
         []
       else
         [
           issue(
             "changed_candidate_result",
-            ["candidate_grid"],
-            "The stored candidate grid changed."
+            ["candidates"],
+            "The stored candidate declaration changed."
           )
         ]
       end
 
-    scalar_issues ++ identity_issues ++ grid_issues
+    scalar_issues ++ identity_issues ++ candidate_issues
   end
 
-  defp row_issues(%__MODULE__{} = result) do
-    plans = result.candidate_grid.plan_count_candidates
-    attacks = result.candidate_grid.attacks_per_plan_candidates
+  defp row_issues(%__MODULE__{} = result, %PilotRequest{} = request) do
     comparison_count = length(result.expected_comparisons)
-    expected = expected_positions(plans, attacks, comparison_count)
-    actual = Enum.map(result.candidate_results, &{&1.candidate_position, &1.comparison_position})
+    expected = expected_positions(request.candidates, comparison_count)
+    actual = Enum.map(result.candidate_results, &{&1.candidate_id, &1.comparison_position})
 
-    coverage_issues =
-      coverage_issues(expected, actual) ++
-        duplicate_issues(actual) ++
-        order_issues(expected, actual)
-
-    content_issues =
-      result.candidate_results
-      |> Enum.with_index()
-      |> Enum.flat_map(fn {row, index} ->
-        row_content_issues(row, index, plans, attacks, result.precision.target_half_width)
-      end)
-
-    coverage_issues ++ content_issues
+    coverage_issues(expected, actual) ++
+      duplicate_issues(actual) ++
+      order_issues(expected, actual) ++
+      content_issues(
+        result.candidate_results,
+        request.candidates,
+        result.precision.target_half_width
+      )
   end
 
-  defp expected_positions(plans, attacks, comparison_count) do
-    for {_plan, plan_index} <- Enum.with_index(plans),
-        {_attack, attack_index} <- Enum.with_index(attacks),
-        comparison_index <- 0..(comparison_count - 1) do
-      {plan_index * length(attacks) + attack_index, comparison_index}
+  defp expected_positions(candidates, comparison_count) do
+    for %Candidate{id: candidate_id} <- candidates,
+        comparison_position <- 0..(comparison_count - 1) do
+      {candidate_id, comparison_position}
     end
   end
 
@@ -232,26 +222,20 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
     missing = expected -- actual
     unexpected = actual -- expected
 
-    Enum.map(missing, fn {candidate_position, comparison_position} ->
+    Enum.map(missing, fn {candidate_id, comparison_position} ->
       issue(
         "incomplete_pilot",
         ["candidate_results"],
         "A declared candidate comparison row is missing.",
-        %{
-          "candidate_position" => candidate_position,
-          "comparison_position" => comparison_position
-        }
+        %{"candidate_id" => candidate_id, "comparison_position" => comparison_position}
       )
     end) ++
-      Enum.map(unexpected, fn {candidate_position, comparison_position} ->
+      Enum.map(unexpected, fn {candidate_id, comparison_position} ->
         issue(
           "unexpected_candidate_result",
           ["candidate_results"],
           "A candidate comparison row was not declared.",
-          %{
-            "candidate_position" => candidate_position,
-            "comparison_position" => comparison_position
-          }
+          %{"candidate_id" => candidate_id, "comparison_position" => comparison_position}
         )
       end)
   end
@@ -274,13 +258,13 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
     positions
     |> Enum.frequencies()
     |> Enum.filter(fn {_position, count} -> count > 1 end)
-    |> Enum.map(fn {{candidate_position, comparison_position}, count} ->
+    |> Enum.map(fn {{candidate_id, comparison_position}, count} ->
       issue(
         "duplicate_candidate_result",
         ["candidate_results"],
         "A candidate comparison row appears more than once.",
         %{
-          "candidate_position" => candidate_position,
+          "candidate_id" => candidate_id,
           "comparison_position" => comparison_position,
           "count" => count
         }
@@ -288,49 +272,70 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
     end)
   end
 
-  defp row_content_issues(%CandidateResultRow{} = row, index, plans, attacks, target) do
-    {expected_plan, expected_attacks} = candidate_size(plans, attacks, row.candidate_position)
-    path = ["candidate_results", index]
+  defp content_issues(rows, candidates, target) do
+    candidate_map = Map.new(candidates, &{&1.id, &1})
 
-    grid_issues =
-      if row.plan_count == expected_plan and row.attacks_per_plan == expected_attacks do
-        []
-      else
-        [
-          issue(
-            "changed_candidate_result",
-            path,
-            "A candidate row does not repeat its declared candidate size.",
-            %{
-              "expected_plan_count" => expected_plan,
-              "expected_attacks_per_plan" => expected_attacks
-            }
-          )
-        ]
-      end
-
-    decision_issues =
-      if row.passes == (row.informative and row.guarded_half_width <= target) do
-        []
-      else
-        [
-          issue(
-            "invalid_candidate_result",
-            path ++ ["passes"],
-            "A candidate row pass flag does not follow the declared decision rule."
-          )
-        ]
-      end
-
-    grid_issues ++ decision_issues
+    rows
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {%CandidateResultRow{} = row, index} ->
+      content_issue(row, index, candidate_map, target)
+    end)
   end
 
-  defp summary_issues(%__MODULE__{} = result, %SnapshotPayload{} = payload) do
-    plans = result.candidate_grid.plan_count_candidates
-    attacks = result.candidate_grid.attacks_per_plan_candidates
+  defp content_issue(%CandidateResultRow{} = row, index, candidate_map, target) do
+    path = ["candidate_results", index]
+
+    case Map.get(candidate_map, row.candidate_id) do
+      nil ->
+        [issue("unexpected_candidate_result", path, "The candidate ID is not declared.")]
+
+      candidate ->
+        candidate_size_issue(row, candidate, path) ++ candidate_decision_issue(row, target, path)
+    end
+  end
+
+  defp candidate_size_issue(%CandidateResultRow{} = row, %Candidate{} = candidate, path) do
+    if row.plan_count == candidate.plan_count and
+         row.attacks_per_plan == candidate.attacks_per_plan do
+      []
+    else
+      [
+        issue(
+          "changed_candidate_result",
+          path,
+          "A candidate row does not repeat its declared candidate size.",
+          %{
+            "expected_plan_count" => candidate.plan_count,
+            "expected_attacks_per_plan" => candidate.attacks_per_plan
+          }
+        )
+      ]
+    end
+  end
+
+  defp candidate_decision_issue(%CandidateResultRow{} = row, target, path) do
+    if row.passes == (row.informative and row.guarded_half_width <= target) do
+      []
+    else
+      [
+        issue(
+          "invalid_candidate_result",
+          path ++ ["passes"],
+          "A candidate row pass flag does not follow the declared decision rule."
+        )
+      ]
+    end
+  end
+
+  defp summary_issues(
+         %__MODULE__{} = result,
+         %PilotRequest{} = request,
+         %SnapshotPayload{} = payload
+       ) do
+    candidates = request.candidates
 
     coverage =
-      if length(result.candidate_summaries) == length(plans) * length(attacks) do
+      if length(result.candidate_summaries) == length(candidates) do
         []
       else
         [
@@ -342,49 +347,70 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
         ]
       end
 
-    coverage ++
-      combined_summary_issues(result, payload, plans, attacks)
+    coverage ++ combined_summary_issues(result, payload, candidates)
   end
 
-  defp combined_summary_issues(result, payload, plans, attacks) do
+  defp combined_summary_issues(result, payload, candidates) do
     result.candidate_summaries
     |> Enum.with_index()
     |> Enum.flat_map(fn {summary, index} ->
-      expected_candidate = index
-      {expected_plan, expected_attacks} = candidate_size(plans, attacks, expected_candidate)
-
-      position_issues =
-        if summary.candidate_position == expected_candidate do
-          []
-        else
-          [
-            issue(
-              "changed_candidate_result",
-              ["candidate_summaries", index, "candidate_position"],
-              "Candidate summaries must follow the declared candidate order."
-            )
-          ]
-        end
-
-      size_issues =
-        if summary.plan_count == expected_plan and summary.attacks_per_plan == expected_attacks do
-          []
-        else
-          [
-            issue(
-              "changed_candidate_result",
-              ["candidate_summaries", index],
-              "A candidate summary does not repeat its declared candidate size."
-            )
-          ]
-        end
-
-      position_issues ++ size_issues ++ recomputed_issues(result, payload, summary, index)
+      summary_issues_for_candidate(
+        result,
+        payload,
+        summary,
+        index,
+        Enum.at(candidates, index)
+      )
     end)
   end
 
+  defp summary_issues_for_candidate(_result, _payload, _summary, index, nil) do
+    [
+      issue(
+        "unexpected_candidate_result",
+        ["candidate_summaries", index],
+        "A candidate summary was not declared."
+      )
+    ]
+  end
+
+  defp summary_issues_for_candidate(result, payload, summary, index, %Candidate{} = candidate) do
+    summary_position_issue(summary, candidate, index) ++
+      summary_size_issue(summary, candidate, index) ++
+      recomputed_issues(result, payload, summary, index)
+  end
+
+  defp summary_position_issue(summary, candidate, index) do
+    if summary.candidate_id == candidate.id do
+      []
+    else
+      [
+        issue(
+          "changed_candidate_result",
+          ["candidate_summaries", index, "candidate_id"],
+          "Candidate summaries must follow the declared candidate order."
+        )
+      ]
+    end
+  end
+
+  defp summary_size_issue(summary, candidate, index) do
+    if summary.plan_count == candidate.plan_count and
+         summary.attacks_per_plan == candidate.attacks_per_plan do
+      []
+    else
+      [
+        issue(
+          "changed_candidate_result",
+          ["candidate_summaries", index],
+          "A candidate summary does not repeat its declared candidate size."
+        )
+      ]
+    end
+  end
+
   defp recomputed_issues(result, payload, summary, index) do
-    rows = candidate_rows(result, summary.candidate_position)
+    rows = candidate_rows(result, summary.candidate_id)
 
     if rows == [] do
       [
@@ -395,11 +421,11 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
         )
       ]
     else
-      recomputed_row_issues(result, payload, summary, index, rows)
+      recomputed_row_issues(payload, summary, index, rows)
     end
   end
 
-  defp recomputed_row_issues(_result, payload, summary, index, rows) do
+  defp recomputed_row_issues(payload, summary, index, rows) do
     widths = Enum.map(rows, & &1.guarded_half_width)
     expected_informative = Enum.all?(rows, & &1.informative)
 
@@ -448,15 +474,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
   defp check(true, _path, _message), do: nil
   defp check(false, path, message), do: issue("changed_candidate_result", path, message)
 
-  defp candidate_rows(%__MODULE__{} = result, candidate_position) do
-    Enum.filter(result.candidate_results, &(&1.candidate_position == candidate_position))
-  end
-
-  defp candidate_size(plans, attacks, candidate_position) do
-    attack_count = max(length(attacks), 1)
-
-    {Enum.at(plans, div(candidate_position, attack_count)),
-     Enum.at(attacks, rem(candidate_position, attack_count))}
+  defp candidate_rows(%__MODULE__{} = result, candidate_id) do
+    Enum.filter(result.candidate_results, &(&1.candidate_id == candidate_id))
   end
 
   @spec predicted_runtime(SnapshotPayload.t(), pos_integer(), pos_integer()) :: float()
@@ -488,29 +507,32 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
   end
 
   @doc """
-  Declared selection order for one candidate summary.
+  Selection order for one candidate summary and its declared position.
 
-  The selector and the read-back validator share this exact order: predicted
-  runtime, more plans, fewer attacks, then candidate position.
+  The selector and the read-back validator use this exact order: predicted
+  runtime, more plans, fewer attacks, then declared candidate position.
   """
-  @spec selection_key(CandidateSummary.t()) ::
-          {number(), integer(), integer(), integer()}
-  def selection_key(%CandidateSummary{} = summary) do
+  @spec selection_key(CandidateSummary.t(), non_neg_integer()) ::
+          {number(), integer(), integer(), non_neg_integer()}
+  def selection_key(%CandidateSummary{} = summary, candidate_position) do
     {summary.predicted_runtime_ms, -summary.plan_count, summary.attacks_per_plan,
-     summary.candidate_position}
+     candidate_position}
   end
 
   defp outcome_issues(%__MODULE__{} = result) do
-    passing = Enum.filter(result.candidate_summaries, & &1.all_comparisons_passed)
+    passing =
+      result.candidate_summaries
+      |> Enum.with_index()
+      |> Enum.filter(fn {summary, _position} -> summary.all_comparisons_passed end)
 
     computed =
       passing
-      |> Enum.sort_by(&selection_key/1)
+      |> Enum.sort_by(fn {summary, position} -> selection_key(summary, position) end)
       |> List.first()
 
     case {result.outcome, result.recommendation, result.insufficient_reason, computed} do
-      {"recommended", %Recommendation{} = recommendation, nil, %CandidateSummary{} = expected} ->
-        if recommendation.candidate_position == expected.candidate_position and
+      {"recommended", %Recommendation{} = recommendation, nil, {expected, _position}} ->
+        if recommendation.candidate_id == expected.candidate_id and
              recommendation.plan_count == expected.plan_count and
              recommendation.attacks_per_plan == expected.attacks_per_plan do
           []
@@ -536,7 +558,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotResult do
           )
         ]
 
-      {"insufficient", _recommendation, _reason, %CandidateSummary{}} ->
+      {"insufficient", _recommendation, _reason, {_summary, _position}} ->
         [
           issue(
             "invalid_candidate_result",

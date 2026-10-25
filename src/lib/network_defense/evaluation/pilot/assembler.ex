@@ -14,9 +14,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
 
   # Pure result assembly.
   #
-  # The selector and the tests use the same builder. Aggregates are recomputed
-  # from compact rows and the declared runtime evidence. A non-informative
-  # comparison position stays visible in every candidate summary.
+  # Internal candidate positions restore declared order. The persisted result
+  # contains candidate IDs and counts only.
 
   @spec assemble(PilotRequest.t(), SnapshotPayload.t(), [CandidateComparisonResult.t()]) ::
           {:ok, PilotResult.t()} | {:error, PilotError.t()}
@@ -44,7 +43,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
         snapshot_id: request.snapshot_id,
         outcome: outcome,
         expected_comparisons: request.expected_comparisons,
-        candidate_grid: request.candidate_grid,
+        candidates: request.candidates,
         pilot_sampling: request.pilot_sampling,
         precision: request.precision,
         selection: request.selection,
@@ -62,10 +61,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
     do: {:error, PilotError.incomplete_pilot("The pilot result inputs are malformed.")}
 
   defp complete?(%PilotRequest{} = request, results) do
-    expected =
-      length(request.candidate_grid.plan_count_candidates) *
-        length(request.candidate_grid.attacks_per_plan_candidates) *
-        length(request.expected_comparisons)
+    expected = length(request.candidates) * length(request.expected_comparisons)
 
     if length(results) == expected do
       :ok
@@ -79,7 +75,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
 
   defp row(%CandidateComparisonResult{} = result) do
     %CandidateResultRow{
-      candidate_position: result.candidate_position,
+      candidate_id: result.candidate.id,
       comparison_position: result.comparison_position,
       plan_count: result.candidate.plan_count,
       attacks_per_plan: result.candidate.attacks_per_plan,
@@ -90,18 +86,13 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
   end
 
   defp summaries(%PilotRequest{} = request, %SnapshotPayload{} = payload, rows) do
-    plans = request.candidate_grid.plan_count_candidates
-    attacks = request.candidate_grid.attacks_per_plan_candidates
-
-    for {plan_count, plan_index} <- Enum.with_index(plans),
-        {attacks_per_plan, attack_index} <- Enum.with_index(attacks) do
-      candidate_position = plan_index * length(attacks) + attack_index
-      candidate_rows = Enum.filter(rows, &(&1.candidate_position == candidate_position))
+    for candidate <- request.candidates do
+      candidate_rows = Enum.filter(rows, &(&1.candidate_id == candidate.id))
 
       %CandidateSummary{
-        candidate_position: candidate_position,
-        plan_count: plan_count,
-        attacks_per_plan: attacks_per_plan,
+        candidate_id: candidate.id,
+        plan_count: candidate.plan_count,
+        attacks_per_plan: candidate.attacks_per_plan,
         worst_guarded_half_width:
           candidate_rows |> Enum.map(& &1.guarded_half_width) |> Enum.max(fn -> 0.0 end),
         all_comparisons_informative: Enum.all?(candidate_rows, & &1.informative),
@@ -111,7 +102,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
           |> Enum.map(& &1.comparison_position)
           |> Enum.sort(),
         all_comparisons_passed: Enum.all?(candidate_rows, & &1.passes),
-        predicted_runtime_ms: PilotResult.predicted_runtime(payload, plan_count, attacks_per_plan)
+        predicted_runtime_ms:
+          PilotResult.predicted_runtime(payload, candidate.plan_count, candidate.attacks_per_plan)
       }
     end
   end
@@ -119,16 +111,17 @@ defmodule NetworkDefense.Evaluation.Pilot.Assembler do
   @spec recommendation([CandidateSummary.t()]) :: Recommendation.t() | nil
   def recommendation(summaries) do
     summaries
-    |> Enum.filter(& &1.all_comparisons_passed)
-    |> Enum.sort_by(&PilotResult.selection_key/1)
+    |> Enum.with_index()
+    |> Enum.filter(fn {summary, _position} -> summary.all_comparisons_passed end)
+    |> Enum.sort_by(fn {summary, position} -> PilotResult.selection_key(summary, position) end)
     |> List.first()
     |> case do
       nil ->
         nil
 
-      summary ->
+      {summary, _position} ->
         %Recommendation{
-          candidate_position: summary.candidate_position,
+          candidate_id: summary.candidate_id,
           plan_count: summary.plan_count,
           attacks_per_plan: summary.attacks_per_plan
         }

@@ -6,7 +6,13 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
   alias Gust.DAG.Loader.Worker, as: DagLoader
   alias Gust.Flows.Run
 
-  alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, PilotRequest, PilotResult}
+  alias NetworkDefense.Evaluation.Pilot.Contracts.{
+    Candidate,
+    PilotError,
+    PilotRequest,
+    PilotResult
+  }
+
   alias NetworkDefense.Evaluation.Pilot.{TaskFailure, TaskFailure.RetryableError, Workflow}
   alias NetworkDefense.Evaluation.PilotConformance
   alias NetworkDefense.Evaluations
@@ -83,7 +89,84 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert Gust.Repo.aggregate(Run, :count) == before_count
   end
 
-  test "WORKFLOW-04: a stored result reads back through the public boundary", %{
+  test "WORKFLOW-04: an old candidate grid is rejected before run creation", %{request: request} do
+    before_count = Gust.Repo.aggregate(Run, :count)
+
+    params =
+      request
+      |> PilotRequest.to_params()
+      |> Map.put("candidate_grid", %{
+        "plan_count_candidates" => [5],
+        "attacks_per_plan_candidates" => [10]
+      })
+
+    assert {:error, %PilotError{}} = Evaluations.submit_pilot(params)
+    assert Gust.Repo.aggregate(Run, :count) == before_count
+  end
+
+  test "WORKFLOW-05: two ordered candidates keep IDs and counts on read-back", %{
+    dag: dag,
+    snapshot: snapshot,
+    request: request
+  } do
+    ordered_candidates = request.candidates |> Enum.drop(2) |> Enum.reverse()
+    candidate_ids = Enum.map(ordered_candidates, & &1.id)
+
+    request_params =
+      request
+      |> Map.put(:candidates, ordered_candidates)
+      |> PilotRequest.to_params()
+
+    stored =
+      PilotConformance.stored_result()
+      |> Map.put("snapshot_id", snapshot.id)
+      |> Map.put("candidates", Enum.map(ordered_candidates, &Candidate.to_params/1))
+      |> Map.update!("candidate_results", fn rows ->
+        Enum.flat_map(candidate_ids, fn id -> Enum.filter(rows, &(&1["candidate_id"] == id)) end)
+      end)
+      |> Map.update!("candidate_summaries", fn summaries ->
+        Enum.flat_map(candidate_ids, fn id ->
+          Enum.filter(summaries, &(&1["candidate_id"] == id))
+        end)
+      end)
+
+    {:ok, run} =
+      Gust.Flows.create_run(%{
+        dag_id: dag.id,
+        params: request_params,
+        status: :succeeded
+      })
+
+    {:ok, _task} =
+      Gust.Flows.create_task(%{
+        name: "select_pilot",
+        run_id: run.id,
+        status: :succeeded,
+        result: stored
+      })
+
+    assert {:ok, %PilotResult{} = result} = Workflow.result(run.id)
+
+    assert Enum.map(result.candidates, &{&1.id, &1.plan_count, &1.attacks_per_plan}) ==
+             [{"large-wide", 6, 12}, {"large", 6, 10}]
+
+    assert Enum.map(
+             result.candidate_results,
+             &{&1.candidate_id, &1.plan_count, &1.attacks_per_plan}
+           ) ==
+             [{"large-wide", 6, 12}, {"large-wide", 6, 12}, {"large", 6, 10}, {"large", 6, 10}]
+
+    assert Enum.map(
+             result.candidate_summaries,
+             &{&1.candidate_id, &1.plan_count, &1.attacks_per_plan}
+           ) ==
+             [{"large-wide", 6, 12}, {"large", 6, 10}]
+
+    assert {result.recommendation.candidate_id, result.recommendation.plan_count,
+            result.recommendation.attacks_per_plan} == {"large", 6, 10}
+  end
+
+  test "WORKFLOW-06: a stored result reads back through the public boundary", %{
     dag: dag,
     snapshot: snapshot,
     request: request
@@ -108,10 +191,10 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert {:ok, %PilotResult{} = first} = Workflow.result(run.id)
     assert {:ok, %PilotResult{} = second} = Workflow.result(run.id)
     assert first == second
-    assert first.recommendation.candidate_position == 2
+    assert first.recommendation.candidate_id == "large"
   end
 
-  test "WORKFLOW-05: a changed stored result is rejected", %{
+  test "WORKFLOW-07: a changed stored result is rejected", %{
     dag: dag,
     snapshot: snapshot,
     request: request
@@ -139,7 +222,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert {:error, %PilotError{}} = Workflow.result(run.id)
   end
 
-  test "WORKFLOW-09: a reversed stored row order is rejected on read-back", %{
+  test "WORKFLOW-10: a reversed stored row order is rejected on read-back", %{
     dag: dag,
     snapshot: snapshot,
     request: request
@@ -170,7 +253,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert Enum.any?(issues, &(&1["code"] == "changed_candidate_result"))
   end
 
-  test "WORKFLOW-06: waiting reports timeout and readiness explicitly", %{dag: dag} do
+  test "WORKFLOW-08: waiting reports timeout and readiness explicitly", %{dag: dag} do
     {:ok, run} = Gust.Flows.create_run(%{dag_id: dag.id, params: %{}})
 
     assert {:error, :not_ready} = Workflow.result(run.id)
@@ -178,7 +261,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert {:error, :not_found} = Workflow.result(-1)
   end
 
-  test "WORKFLOW-07: failed runs decode the originating pilot error", %{dag: dag} do
+  test "WORKFLOW-09: failed runs decode the originating pilot error", %{dag: dag} do
     {:ok, run} = Gust.Flows.create_run(%{dag_id: dag.id, params: %{}, status: :failed})
 
     {:ok, _upstream} =
@@ -199,7 +282,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     assert {:error, %PilotError{code: "compute_unavailable"}} = Workflow.result(run.id)
   end
 
-  test "WORKFLOW-08: a pilot error envelope never decodes as another workflow error" do
+  test "WORKFLOW-11: a pilot error envelope never decodes as another workflow error" do
     assert :error =
              TaskFailure.decode(%{
                "type" => "Gust.DAG.NonRecError",

@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F4. F2 adds stable positional collection items. F3 adds synchronous simulation preparation. F4 adds validated, transactional runtime reservation.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F7. F5+F6+F7 replace the Pilot candidate grid with an ordered candidate list and carry stable candidate IDs through work, computation, and public results.
 
-The remaining work starts with F5+F6+F7. Candidate code on another branch can supply implementation details, but it does not define scope.
+The remaining work starts with F8+F9. Candidate code on another branch can supply implementation details, but it does not define scope.
 
 ## Prototype boundaries
 
@@ -289,7 +289,7 @@ A mismatched linked record fails and remains linked. Do not replace it.
 
 Do not add a separate concurrency test. The short row lock is the concurrency guard.
 
-### F5 + F6 + F7 — ordered Pilot candidate cutover
+### F5 + F6 + F7 — ordered Pilot candidate cutover — complete
 
 Replace `candidate_grid` with one ordered `candidates` array. Each candidate contains a stable ID, plan count per side, and attacks per plan.
 

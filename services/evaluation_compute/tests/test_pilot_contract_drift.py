@@ -9,12 +9,7 @@ from evaluation_compute.contracts.pilot import PilotIssueCode
 # differences stay explicit and documented.
 
 SCHEMAS = (
-    Path(__file__).resolve().parents[3]
-    / "contracts"
-    / "evaluation"
-    / "pilot"
-    / "v1"
-    / "schemas"
+    Path(__file__).resolve().parents[3] / "contracts" / "evaluation" / "pilot" / "v1" / "schemas"
 )
 
 CONTRACTS = ("snapshot", "request", "candidate_request", "candidate_response", "result")
@@ -59,19 +54,11 @@ def test_request_and_result_shared_setting_definitions_agree():
         assert result[definition] == request[definition], definition
 
 
-def test_candidate_grid_keeps_only_the_documented_unique_items_difference():
-    request = schema("request")["definitions"]["candidate_grid"]
-    result = schema("result")["definitions"]["candidate_grid"]
+def test_request_and_result_candidate_definitions_agree():
+    request = schema("request")["definitions"]["candidate"]
+    result = schema("result")["definitions"]["candidate"]
 
-    for field in ("plan_count_candidates", "attacks_per_plan_candidates"):
-        request_items = request["properties"][field]
-        result_items = result["properties"][field]
-
-        assert request_items.get("uniqueItems") is None
-        assert result_items["uniqueItems"] is True
-
-        without_unique = {key: value for key, value in result_items.items() if key != "uniqueItems"}
-        assert without_unique == request_items
+    assert result == request
 
 
 def test_python_pilot_issue_codes_match_the_error_schema():

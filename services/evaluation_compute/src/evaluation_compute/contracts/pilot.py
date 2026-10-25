@@ -62,7 +62,8 @@ PilotIssueCode = Literal[
     "snapshot_not_found",
     "snapshot_phase_mismatch",
     "changed_snapshot",
-    "invalid_candidate_grid",
+    "duplicate_candidate_id",
+    "duplicate_candidate_size",
     "candidate_exceeds_plan_rows",
     "candidate_exceeds_attack_columns",
     "incomplete_pilot",
@@ -124,10 +125,10 @@ def _diagnostic_count(diagnostics: list[SchemaDiagnostic]) -> int:
     return sum(1 + _diagnostic_count(diagnostic.causes) for diagnostic in diagnostics)
 
 
-
 class Candidate(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    id: Identifier
     plan_count: Annotated[StrictInt, Field(ge=5)]
     attacks_per_plan: Annotated[StrictInt, Field(ge=10)]
 

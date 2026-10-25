@@ -41,7 +41,7 @@ def candidate_request(**overrides) -> dict:
         "candidate_position": 0,
         "comparison_position": 0,
         "identity": comparison["identity"],
-        "candidate": {"plan_count": 5, "attacks_per_plan": 10},
+        "candidate": {"id": "small", "plan_count": 5, "attacks_per_plan": 10},
         "evidence": comparison["evidence"],
         "outer_subsamples": 20,
         "stream_seed": 700001,
@@ -50,7 +50,10 @@ def candidate_request(**overrides) -> dict:
         "confidence_level": 0.95,
         "bootstrap_replicates": 200,
     }
+    candidate = overrides.pop("candidate", None)
     request.update(overrides)
+    if candidate is not None:
+        request["candidate"] = {**request["candidate"], **candidate}
     return request
 
 
@@ -143,9 +146,7 @@ def test_pilot_02b_historical_outer_sampling_and_inner_seeds_are_preserved(monke
         return SimpleNamespace(lower=0.0, upper=0.2, informative=True)
 
     monkeypatch.setattr("evaluation_compute.pilot.np.random.default_rng", recording_default_rng)
-    monkeypatch.setattr(
-        "evaluation_compute.pilot.corrected_crossed_bootstrap", recording_bootstrap
-    )
+    monkeypatch.setattr("evaluation_compute.pilot.corrected_crossed_bootstrap", recording_bootstrap)
 
     result = evaluate_candidate_comparison(validated())
 
@@ -611,68 +612,57 @@ def _tier_positions(expected_comparisons: list[dict]) -> dict[tuple, tuple[int, 
 
 def test_pilot_17_checked_in_candidate_responses_are_exactly_reproduced():
     snapshot = snapshot_document()
-    request = json.loads(
-        (CONTRACTS_ROOT / "valid" / "pilot-small.request.json").read_text()
-    )
+    request = json.loads((CONTRACTS_ROOT / "valid" / "pilot-small.request.json").read_text())
     limits = load_pilot_limits()
 
-    plans = request["candidate_grid"]["plan_count_candidates"]
-    attacks = request["candidate_grid"]["attacks_per_plan_candidates"]
+    candidates = request["candidates"]
     positions = _tier_positions(request["expected_comparisons"])
     comparisons = snapshot["payload"]["comparisons"]
 
-    for plan_index, plan_count in enumerate(plans):
-        for attack_index, attacks_per_plan in enumerate(attacks):
-            candidate_position = plan_index * len(attacks) + attack_index
+    for candidate_position, candidate in enumerate(candidates):
+        for comparison_position, comparison in enumerate(comparisons):
+            identity = comparison["identity"]
+            key = (
+                identity["tier"],
+                identity["budget"],
+                identity["alternative"],
+                identity["reference"],
+                identity["outcome"],
+            )
+            tier_rank, occurrence = positions[key]
+            stream_seed = request["pilot_sampling"]["seed"] + tier_rank * 1_000_000 + occurrence * 2
 
-            for comparison_position, comparison in enumerate(comparisons):
-                identity = comparison["identity"]
-                key = (
-                    identity["tier"],
-                    identity["budget"],
-                    identity["alternative"],
-                    identity["reference"],
-                    identity["outcome"],
-                )
-                tier_rank, occurrence = positions[key]
-                stream_seed = (
-                    request["pilot_sampling"]["seed"] + tier_rank * 1_000_000 + occurrence * 2
-                )
+            document = {
+                "schema_version": 1,
+                "method": "precision_pilot_candidate_v1",
+                "pilot_id": request["pilot_id"],
+                "study_revision_id": request["study_revision_id"],
+                "family_id": request["family_id"],
+                "snapshot_id": request["snapshot_id"],
+                "candidate_position": candidate_position,
+                "comparison_position": comparison_position,
+                "identity": identity,
+                "candidate": candidate,
+                "evidence": comparison["evidence"],
+                "outer_subsamples": request["pilot_sampling"]["outer_subsamples"],
+                "stream_seed": stream_seed,
+                "guard_quantile": request["precision"]["guard_quantile"],
+                "target_half_width": request["precision"]["target_half_width"],
+                "confidence_level": request["precision"]["confidence_level"],
+                "bootstrap_replicates": request["precision"]["bootstrap_replicates"],
+            }
 
-                document = {
-                    "schema_version": 1,
-                    "method": "precision_pilot_candidate_v1",
-                    "pilot_id": request["pilot_id"],
-                    "study_revision_id": request["study_revision_id"],
-                    "family_id": request["family_id"],
-                    "snapshot_id": request["snapshot_id"],
-                    "candidate_position": candidate_position,
-                    "comparison_position": comparison_position,
-                    "identity": identity,
-                    "candidate": {
-                        "plan_count": plan_count,
-                        "attacks_per_plan": attacks_per_plan,
-                    },
-                    "evidence": comparison["evidence"],
-                    "outer_subsamples": request["pilot_sampling"]["outer_subsamples"],
-                    "stream_seed": stream_seed,
-                    "guard_quantile": request["precision"]["guard_quantile"],
-                    "target_half_width": request["precision"]["target_half_width"],
-                    "confidence_level": request["precision"]["confidence_level"],
-                    "bootstrap_replicates": request["precision"]["bootstrap_replicates"],
-                }
-
-                parsed = CandidateComparisonRequest.model_validate_json(
-                    json.dumps(document), strict=True
-                )
-                computed = evaluate_candidate_comparison(parsed, limits).model_dump(mode="json")
-                fixture_path = (
-                    CONTRACTS_ROOT
-                    / "valid"
-                    / "candidate-responses"
-                    / f"{candidate_position * len(comparisons) + comparison_position}.json"
-                )
-                assert computed == json.loads(fixture_path.read_text()), fixture_path.name
+            parsed = CandidateComparisonRequest.model_validate_json(
+                json.dumps(document), strict=True
+            )
+            computed = evaluate_candidate_comparison(parsed, limits).model_dump(mode="json")
+            fixture_path = (
+                CONTRACTS_ROOT
+                / "valid"
+                / "candidate-responses"
+                / f"{candidate_position * len(comparisons) + comparison_position}.json"
+            )
+            assert computed == json.loads(fixture_path.read_text()), fixture_path.name
 
 
 def test_pilot_18_inner_split_preserves_historical_child_seeds(monkeypatch):

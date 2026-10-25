@@ -46,7 +46,7 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
     assert {:ok, %PilotResult{} = result} = Evaluations.get_pilot_result(run_id)
 
     assert result.outcome == "recommended"
-    assert result.recommendation.candidate_position == 2
+    assert result.recommendation.candidate_id == "large"
     assert result.recommendation.plan_count == 6
     assert result.recommendation.attacks_per_plan == 10
     assert Enum.count(result.candidate_results) == 8
