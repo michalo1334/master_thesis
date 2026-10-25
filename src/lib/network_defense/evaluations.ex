@@ -10,6 +10,7 @@ defmodule NetworkDefense.Evaluations do
   alias NetworkDefense.Evaluation.Final.Contracts.{Request, SnapshotInput}
   alias NetworkDefense.Evaluation.Pilot
   alias NetworkDefense.Evaluation.Pilot.Contracts.{EvidenceSnapshotInput, PilotRequest}
+  alias NetworkDefense.Evaluation.Study.Revisions
 
   def submit_comparison(attrs) do
     with {:ok, request} <- ComparisonRequest.parse(attrs) do
@@ -73,4 +74,6 @@ defmodule NetworkDefense.Evaluations do
 
   def await_final(run_id, timeout_ms), do: Final.Workflow.await(run_id, timeout_ms)
   def get_final_result(run_id), do: Final.Workflow.result(run_id)
+
+  def create_study_revision(document), do: Revisions.create(document)
 end

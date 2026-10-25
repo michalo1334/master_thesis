@@ -88,6 +88,33 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         %{"limit" => limit, "actual" => actual}
       )
 
+  def graph_revision_not_found(path),
+    do:
+      new(
+        "validation_failed",
+        "graph_revision_not_found",
+        path,
+        "A declared graph revision does not exist."
+      )
+
+  def duplicate_revision,
+    do:
+      new(
+        "conflict",
+        "study_revision_exists",
+        [],
+        "The study revision already exists."
+      )
+
+  def storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        [],
+        "The study revision could not be stored safely."
+      )
+
   def new(code, issue_code, path, message, details \\ %{}) do
     %__MODULE__{
       code: code,

@@ -199,18 +199,21 @@ states the rules and risks.
 - **Normalized study revision:** The immutable JSON-compatible form of a valid
   study definition. It excludes source YAML text and secrets.
 - **Study execution:** One attempt to run a study revision through its lifecycle.
-- **Lifecycle state:** One explicit state such as validation, Pilot collection,
-  Pilot analysis, the Final gate, Final collection, Final analysis, success,
-  failure, or cancellation.
-- **Phase attempt:** One Gust run for a collection or analysis phase.
-- **Accepted phase result:** The attempt selected after Gust completion and
-  typed read-back validation.
+- **Lifecycle state:** One explicit state such as Pilot collection, Pilot
+  analysis, the Final gate, Final collection, Final analysis, success, failure,
+  or cancellation.
+- **Study phase:** One fixed collection or analysis phase and its Gust run.
+- **Accepted phase result:** The typed result that the ephemeral coordinator
+  accepts after Gust completion.
 - **Controlled collection:** Evidence collection through role-specific domain
-  APIs, phase runs, job IDs, and declared seed schedules.
-- **Compact study result:** An immutable terminal record with accepted phase
+  APIs, phase runs, item IDs, and declared seed schedules.
+- **Ephemeral coordinator:** One supervised application task that advances an
+  execution until the Final gate or a terminal state. It does not restart or
+  reconnect automatically after an application restart.
+- **Compact study result:** An immutable successful record with accepted phase
   references, selected counts, the Pilot outcome, the override marker, and the
   compact Final family result. Evidence matrices remain in their snapshots.
-- **At-least-once execution:** A phase can run again after interruption or
-  failure. Every attempt remains recorded.
-- **Replay:** A new execution of a saved study revision under an explicit replay
-  policy.
+- **Gust task retry:** Gust can repeat a task inside one persisted phase run.
+  Application collection items make repeated domain effects safe.
+- **Replay:** A new execution of a saved study revision. The prototype has no
+  automatic replay policy.

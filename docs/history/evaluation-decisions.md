@@ -17,10 +17,11 @@ Read the [runtime map](../architecture/evaluation-architecture.md), [target life
 - Keep scientific settings and deployment caps separate. Oversized work fails; no layer silently truncates evidence or repeat counts.
 - Preserve declared order and historical Pilot streams. Retries, workers, task IDs, and completion order must not change scientific randomness.
 - Keep direct Final source binding strict: a valid recommended Pilot, its exact selected counts, and a separate Final snapshot. Provenance remains caller-asserted in this API.
-- For the future full pipeline, use YAML input, an immutable normalized definition, one application state machine, and fixed phase DAGs. Do not store source YAML.
+- For the future prototype pipeline, use YAML input, an immutable normalized definition, one application state machine, and fixed phase DAGs. Do not store source YAML.
+- Use one supervised ephemeral coordinator task between phases. Persist one row for each fixed phase and its Gust run. Do not add an Oban lifecycle worker, callback path, automatic restart recovery, or phase replay.
 - Add separate future Pilot and Final collection DAGs with shared actions. Gust maps coarse collection work; the simulation API retains ScatterGather trial execution.
 - Always pause after valid Pilot analysis. Permit explicit confirmatory resume after insufficiency only with one declared candidate. Expose `pilot_override`; store no override actor, reason, or special timestamp. This is limited audit evidence, not a claim of adequate precision.
-- Keep all phase attempts and select one validated result. Do not claim exactly-once execution.
+- Make repeated Gust task effects safe through stable collection items. Do not claim exactly-once task execution.
 
 The insufficient-Pilot exception changes the earlier no-fallback policy for the target lifecycle only. It does not change the implemented direct Final contract. Its [scientific risks](../concepts/evaluation-methodology.md#insufficient-pilot-confirmatory-override) remain explicit.
 
@@ -63,8 +64,9 @@ The last operational record states that application, compute, messaging, and obs
 - The current direct Final APIs check assertions, not physical collection provenance. A relation-preserving change can pass stored-contract checks. No hash or database trigger protects snapshot immutability.
 - Insufficient-Pilot override accepts unmet precision, potentially wide intervals, unstable raw p-values, and post-Pilot selection bias. Holm does not repair weak evidence.
 - Gust `0.1.40` can re-arm retry budgets after coordinator restart. A lost response or effect-before-completion window can repeat work.
-- The Gust source review found no task-effect fence from the run lease and no reliable standalone parent notification guarantee. Terminal state precedes completion callbacks. Future lifecycle integration must reconcile persisted state.
-- Gust run persistence does not preserve an immutable executable DAG or imported Python environment. Cross-deployment recovery needs a separate policy.
+- The Gust source review found no task-effect fence from the run lease. Stable collection items must prevent duplicate optimization, experiment, and snapshot effects during task retry.
+- The ephemeral coordinator does not reconnect after an application restart. An active execution can remain stuck until the operator cancels it and starts a new execution.
+- Gust run persistence does not preserve an immutable executable DAG or imported Python environment. Cross-deployment recovery remains outside the prototype.
 - The historical Pilot deployment did not undergo active-run fault injection/restarts, parallel-run load, or near-limit valid capacity checks. Family automated restart coverage is not deployed Pilot proof.
 - Native ExJsonSchema diagnostic paths do not escape slash and tilde as typed JSON Pointer paths. They remain diagnostic text. Bounded adapters exclude submitted values and exception traces.
 - Historical checks reported a Starlette/AnyIO deprecation warning and asset chunk-size warnings. They did not fail those checks.
