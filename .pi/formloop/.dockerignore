@@ -1,6 +1,0 @@
-*
-!Dockerfile
-!package.json
-!package-lock.json
-!browser-notice
-!mcp-entry.mjs
