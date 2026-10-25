@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F7 are complete. The next slice is F8+F9.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F9 are complete. The next slice is F10+F11.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                           |
 | ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F7 are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F9 are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.            |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -17,9 +17,10 @@ Read these files before implementation:
 
 1. [Implementation plan](docs/design/evaluation-study-pipeline-implementation-plan.md)
 2. [Target design](docs/design/evaluation-study-pipeline.md)
-3. [Scientific methodology](docs/concepts/evaluation-methodology.md)
-4. [Vocabulary](docs/concepts/vocabulary.md)
-5. [Decision history](docs/history/evaluation-decisions.md)
+3. [Deferred runtime contract](docs/design/evaluation-study-runtime-contract-future-work.md)
+4. [Scientific methodology](docs/concepts/evaluation-methodology.md)
+5. [Vocabulary](docs/concepts/vocabulary.md)
+6. [Decision history](docs/history/evaluation-decisions.md)
 
 The plan retains every original ID for traceability. It merges related IDs and marks removed infrastructure IDs explicitly.
 
@@ -34,7 +35,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F3 is complete:** `Simulations.prepare/1` validates and stores one running experiment without starting simulation work.
 - **F4 is complete:** short locked transactions create or reuse linked optimization runs and experiments. Shared preparation validates requests before locking. Mismatched links remain unchanged.
 - **F5+F6+F7 are complete:** Pilot uses one ordered candidate list. Stable candidate IDs and exact counts pass through mapped work, Python computation, stored rows, summaries, recommendations, and public read-back. Declared position remains internal as the final tie-break. The removed grid shape is rejected before Gust run creation.
-- **F8 onward is not implemented.**
+- **F8+F9 are complete:** one deterministic Pilot builder emits comparison-side-plan work for one replica. It uses the required seed prefix and phase-item cap. One mapped action uses F4 reservations and returns compact runtime IDs and completion counts.
+- **The runtime contract limitation is deferred:** some schema-valid scientific settings do not yet control domain execution, and the mapped action does not yet rebuild canonical work from the stored revision. Keep the public lifecycle unavailable. Complete the linked deferred runtime contract before the real Pilot coordinator can accept evidence.
 
 Recorded checks:
 
@@ -54,7 +56,11 @@ Recorded checks:
 - F5+F6+F7 affected Elixir Pilot suite: 84 passed;
 - full suite after F5+F6+F7: 845 passed with two existing exclusions;
 - full Python evaluation-compute suite after F5+F6+F7: 135 passed;
-- formatting, compilation, Credo, Dialyzer, Ruff, schema drift, and frontend type checks passed.
+- F8+F9 focused collection and runtime-configuration suite: 26 passed;
+- complete study test directory after F8+F9: 95 passed;
+- evaluation regression suite after F8+F9: 422 passed;
+- the F8+F9 full-suite run passed 857 tests with two exclusions and one unrelated timing failure; that timing case passed three times in isolation;
+- formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
 
@@ -136,15 +142,14 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 When the user authorizes implementation:
 
 1. Recheck repository instructions and dirty state.
-2. Implement F8+F9 only.
-3. Build one ordered typed work-item list for a fixed phase and replica.
-4. Preserve declared comparison, side, graph, strategy, budget, plan, seed, and candidate order.
-5. Use the first required selection seeds and create no candidate Cartesian product.
-6. Reject duplicate work identities and phase work above the configured cap before Gust submission.
-7. Run each mapped item through the F4 optimization and experiment reservations. Keep computation outside locked transactions.
-8. Return compact runtime IDs and completion counts only.
-9. Cover the builder and mapped action with reasonable unit and integration tests.
-10. Run focused tests and the nearest regressions in a disposable database.
-11. Stop when the chunk is green.
+2. Implement F10+F11 only.
+3. Measure each simulation trial with `System.monotonic_time(:microsecond)` and persist elapsed `runtime_us`.
+4. Assemble Pilot runtime evidence from persisted optimization and simulation records.
+5. Convert trial microseconds to floating-point milliseconds only at the snapshot boundary.
+6. Preserve valid zero-millisecond optimization values.
+7. Reject absent required runtime values with a bounded error.
+8. Use focused simulation integration and assembler tests with shared fixtures.
+9. Run focused tests and the nearest regressions in a disposable database.
+10. Stop when the chunk is green.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

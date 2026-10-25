@@ -182,6 +182,86 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
           %{"reason" => Atom.to_string(reason)}
         )
 
+  def collection_configuration_invalid,
+    do:
+      new(
+        "unavailable",
+        "configuration_invalid",
+        [],
+        "The study collection controls are missing or invalid."
+      )
+
+  def unsupported_collection_phase(phase) when is_atom(phase),
+    do:
+      new(
+        "validation_failed",
+        "unsupported_collection_phase",
+        ["phase"],
+        "Only Pilot collection is supported.",
+        %{"phase" => Atom.to_string(phase)}
+      )
+
+  def collection_phase_mismatch,
+    do:
+      new(
+        "validation_failed",
+        "collection_phase_mismatch",
+        ["phase"],
+        "The study phase does not belong to the study execution."
+      )
+
+  def incomplete_collection_definition(path) when is_list(path),
+    do:
+      new(
+        "validation_failed",
+        "incomplete_collection_definition",
+        path,
+        "The study definition does not supply a required collection declaration."
+      )
+
+  def collection_work_exceeds_limit(limit, actual)
+      when is_integer(limit) and is_integer(actual),
+      do:
+        new(
+          "validation_failed",
+          "collection_work_limit_exceeded",
+          ["phase"],
+          "The phase work exceeds the configured item limit.",
+          %{"limit" => limit, "actual" => actual}
+        )
+
+  def collection_work_mismatch(field) when field in [:replica_position, :item_position],
+    do:
+      new(
+        "conflict",
+        "collection_work_mismatch",
+        [Atom.to_string(field)],
+        "The work item does not match the persisted collection item."
+      )
+
+  def collection_result_invalid,
+    do:
+      new(
+        "unavailable",
+        "incomplete_collection_result",
+        [],
+        "The collection item did not produce one complete runtime result."
+      )
+
+  def runtime_execution_failed(field, reason)
+      when field in [:optimization_run_id, :experiment_id],
+      do:
+        new(
+          "unavailable",
+          "runtime_execution_failed",
+          [Atom.to_string(field)],
+          "The reserved runtime record did not complete.",
+          %{"reason" => reason_label(reason)}
+        )
+
+  defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp reason_label(_reason), do: "unavailable"
+
   def new(code, issue_code, path, message, details \\ %{}) do
     %__MODULE__{
       code: code,

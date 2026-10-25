@@ -72,6 +72,10 @@ config :network_defense, NetworkDefense.Evaluation.Final.Limits,
   max_bootstrap_replicates: 1_000,
   max_total_work: 1_000_000
 
+config :network_defense, NetworkDefense.Evaluation.Study.CollectionLimits,
+  max_phase_items: 24,
+  max_gust_concurrency: 2
+
 # Print only warnings and errors during test
 config :logger, level: :warning
 

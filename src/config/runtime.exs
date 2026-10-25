@@ -209,6 +209,17 @@ case RuntimeConfig.pilot_limits() do
     IO.puts(:stderr, "Stage 4 Pilot limits are invalid and stay unconfigured: #{message}")
 end
 
+case RuntimeConfig.study_collection_limits() do
+  {:ok, limits} ->
+    config :network_defense, NetworkDefense.Evaluation.Study.CollectionLimits, limits
+
+  :unconfigured ->
+    :ok
+
+  {:error, message} ->
+    IO.puts(:stderr, "Study collection controls are invalid and stay unconfigured: #{message}")
+end
+
 gust_key_source =
   RuntimeConfig.read_secret("GUST_CLOAK_KEY") ||
     RuntimeConfig.read_secret("SECRET_KEY_BASE", "development-only-gust-key")

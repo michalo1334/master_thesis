@@ -174,6 +174,57 @@ defmodule NetworkDefense.RuntimeConfigTest do
       Integer.to_string(System.unique_integer([:positive]))
   end
 
+  @collection_variables [
+    "EVALUATION_STUDY_MAX_PHASE_ITEMS",
+    "EVALUATION_STUDY_MAX_GUST_CONCURRENCY"
+  ]
+
+  describe "study collection controls" do
+    setup do
+      previous = Map.new(@collection_variables, &{&1, System.get_env(&1)})
+      Enum.each(@collection_variables, &System.delete_env/1)
+
+      on_exit(fn ->
+        Enum.each(previous, fn {name, value} ->
+          if value, do: System.put_env(name, value), else: System.delete_env(name)
+        end)
+      end)
+    end
+
+    test "an unset control set stays unconfigured" do
+      assert RuntimeConfig.study_collection_limits() == :unconfigured
+    end
+
+    test "a full control set parses both controls" do
+      System.put_env("EVALUATION_STUDY_MAX_PHASE_ITEMS", "24")
+      System.put_env("EVALUATION_STUDY_MAX_GUST_CONCURRENCY", "2")
+
+      assert RuntimeConfig.study_collection_limits() ==
+               {:ok, [max_phase_items: 24, max_gust_concurrency: 2]}
+    end
+
+    test "a partial control set is rejected" do
+      System.put_env("EVALUATION_STUDY_MAX_PHASE_ITEMS", "24")
+
+      assert {:error, message} = RuntimeConfig.study_collection_limits()
+      assert message =~ "set all of them or none"
+    end
+
+    test "a malformed control value is rejected" do
+      for {name, value} <- [
+            {"EVALUATION_STUDY_MAX_PHASE_ITEMS", "0"},
+            {"EVALUATION_STUDY_MAX_GUST_CONCURRENCY", "two"}
+          ] do
+        Enum.each(@collection_variables, &System.put_env(&1, "1"))
+        System.put_env(name, value)
+
+        assert {:error, message} = RuntimeConfig.study_collection_limits()
+        assert message =~ name
+        assert message =~ "must be a positive integer"
+      end
+    end
+  end
+
   defp with_integer_env(name, value, fun) do
     previous = System.get_env(name)
     System.put_env(name, value)

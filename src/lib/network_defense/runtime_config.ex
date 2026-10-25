@@ -61,6 +61,11 @@ defmodule NetworkDefense.RuntimeConfig do
     candidate_request_bytes: "EVALUATION_PILOT_MAX_CANDIDATE_REQUEST_BYTES"
   }
 
+  @study_collection_variables %{
+    max_phase_items: "EVALUATION_STUDY_MAX_PHASE_ITEMS",
+    max_gust_concurrency: "EVALUATION_STUDY_MAX_GUST_CONCURRENCY"
+  }
+
   @doc """
   Reads the complete Stage 4 Pilot limit set from the environment.
 
@@ -72,10 +77,23 @@ defmodule NetworkDefense.RuntimeConfig do
   """
   @spec pilot_limits() :: {:ok, keyword()} | :unconfigured | {:error, String.t()}
   def pilot_limits do
+    read_positive_set(
+      @pilot_limit_variables,
+      "only some Stage 4 Pilot limit variables are set; set all of them or none"
+    )
+  end
+
+  @spec study_collection_limits() :: {:ok, keyword()} | :unconfigured | {:error, String.t()}
+  def study_collection_limits do
+    read_positive_set(
+      @study_collection_variables,
+      "only some study collection control variables are set; set all of them or none"
+    )
+  end
+
+  defp read_positive_set(variables, partial_message) do
     values =
-      Enum.map(@pilot_limit_variables, fn {key, variable} ->
-        {key, variable, System.get_env(variable)}
-      end)
+      Enum.map(variables, fn {key, variable} -> {key, variable, System.get_env(variable)} end)
 
     configured = Enum.reject(values, fn {_key, _variable, value} -> value in [nil, ""] end)
 
@@ -84,14 +102,14 @@ defmodule NetworkDefense.RuntimeConfig do
         :unconfigured
 
       Enum.count(configured) < Enum.count(values) ->
-        {:error, "only some Stage 4 Pilot limit variables are set; set all of them or none"}
+        {:error, partial_message}
 
       true ->
-        parse_pilot_limits(configured)
+        parse_positive_set(configured)
     end
   end
 
-  defp parse_pilot_limits(values) do
+  defp parse_positive_set(values) do
     Enum.reduce_while(values, {:ok, []}, fn {key, variable, value}, {:ok, acc} ->
       case Integer.parse(value) do
         {parsed, ""} when parsed > 0 ->

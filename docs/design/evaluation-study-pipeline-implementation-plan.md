@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F7. F5+F6+F7 replace the Pilot candidate grid with an ordered candidate list and carry stable candidate IDs through work, computation, and public results.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F9. F8+F9 add ordered Pilot collection work, bounded collection controls, and one compact mapped action over the F4 reservation boundary.
 
-The remaining work starts with F8+F9. Candidate code on another branch can supply implementation details, but it does not define scope.
+The remaining implementation starts with F10+F11. The deferred [study runtime contract](evaluation-study-runtime-contract-future-work.md) remains a completion gate before the real Pilot coordinator or public lifecycle can accept collection evidence.
 
 ## Prototype boundaries
 
@@ -315,7 +315,7 @@ A recommendation exposes the candidate ID and exact counts. Declared position re
 
 Retain existing scientific Pilot tests. Do not duplicate them for the new container shape.
 
-### F8 + F9 — collection plan and mapped action
+### F8 + F9 — collection plan and mapped action — complete
 
 **Internal interfaces:**
 
@@ -335,7 +335,9 @@ Add only these collection controls:
 - maximum items in one phase;
 - maximum Gust collection concurrency.
 
-Reuse existing ScatterGather concurrency and evidence limits. Validate the configured Gust × ScatterGather concurrency product once at startup.
+Reuse existing ScatterGather concurrency and evidence limits. Add no combined concurrency cap or Gust × ScatterGather product check.
+
+The current domain runtime cannot execute every scientific setting that the study schema accepts. It also cannot fully bind a mapped item to its immutable revision. [Evaluation study runtime contract — future work](evaluation-study-runtime-contract-future-work.md) records this deferred limitation and its completion gate. Keep the study lifecycle unavailable to public callers while this limitation remains.
 
 **EARS — unit:**
 

@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation.StudyFixtures do
   @moduledoc false
 
+  alias NetworkDefense.Evaluation.Study.Contracts.Definition
+  alias NetworkDefense.Evaluation.StudyConformance
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyRevision}
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
@@ -96,6 +98,85 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
   defp contains(graph, segment, host) do
     Edge.new(graph.id, segment.id, host.id, %{type: Atom.to_string(Contains), data: %{}})
   end
+
+  @collection_plan_count 5
+  @collection_attack_count 10
+
+  def collection_definition(graph, foothold) do
+    definition =
+      StudyConformance.definition()
+      |> StudyConformance.put_in_definition(["graphs"], [collection_graph(graph, foothold)])
+      |> StudyConformance.put_in_definition(["family", "comparisons"], [collection_comparison()])
+      |> StudyConformance.put_in_definition(["pilot", "candidates"], [collection_candidate()])
+      |> StudyConformance.put_in_definition(
+        ["pilot", "collection", "plan_count_per_side"],
+        @collection_plan_count
+      )
+      |> StudyConformance.put_in_definition(
+        ["pilot", "collection", "attacks_per_plan"],
+        @collection_attack_count
+      )
+      |> StudyConformance.put_in_definition(
+        ["pilot", "collection", "selection_seeds"],
+        collection_seeds()
+      )
+      |> StudyConformance.put_in_definition(
+        ["pilot", "collection", "roots"],
+        [%{"tier" => "core", "value" => 310_001}]
+      )
+      |> StudyConformance.put_in_definition(
+        ["final", "collection", "roots"],
+        [%{"tier" => "core", "value" => 320_001}]
+      )
+      |> StudyConformance.put_in_definition(["final", "analysis", "comparison_seeds"], [210_001])
+      |> StudyConformance.put_in_definition(["simulation", "iterations_per_run"], 1)
+      |> StudyConformance.put_in_definition(["simulation", "max_attempts"], 1)
+
+    {:ok, parsed} = Definition.parse(definition)
+    parsed
+  end
+
+  defp collection_graph(graph, foothold) do
+    %{
+      "tier" => "core",
+      "graph_revision_id" => graph.revision_id,
+      "initial_foothold_node_id" => foothold.id,
+      "strategies" => [
+        %{
+          "key" => "cvss",
+          "budget" => 1,
+          "candidate_action_types" => ["PatchVulnerability", "RevokeCredential"],
+          "require_pre_attack_feasibility" => true
+        },
+        %{
+          "key" => "null",
+          "budget" => 1,
+          "candidate_action_types" => ["PatchVulnerability"],
+          "require_pre_attack_feasibility" => true
+        }
+      ]
+    }
+  end
+
+  defp collection_comparison do
+    %{
+      "tier" => "core",
+      "budget" => 1,
+      "alternative" => "null",
+      "reference" => "cvss",
+      "outcome" => "mission_impact"
+    }
+  end
+
+  defp collection_candidate do
+    %{
+      "id" => "small",
+      "plan_count_per_side" => @collection_plan_count,
+      "attacks_per_plan" => @collection_attack_count
+    }
+  end
+
+  defp collection_seeds, do: [610_001, 610_002, 610_003, 610_004, 610_005]
 
   @doc "One typed optimization request for a stored graph."
   def optimization_request(graph, opts \\ []) do
