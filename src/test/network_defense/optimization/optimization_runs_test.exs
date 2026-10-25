@@ -7,13 +7,18 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
-  alias NetworkDefense.Optimization.Contracts.{OptimizationParams, RunOptimizationRequest}
+
+  alias NetworkDefense.Optimization.Contracts.{
+    OptimizationParams,
+    RunOptimizationRequest,
+    SimulationSettings
+  }
+
   alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Optimizations.OptimizationWorker
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
 
   describe "OptimizationRuns" do
     test "creates a run as running and completes it atomically with its actions" do
@@ -360,7 +365,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       request = %RunOptimizationRequest{
         graph_revision_id: graph.revision_id,
         correlation_id: Ecto.UUID.generate(),
-        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2}
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2, seed: 7}
       }
 
       assert {:ok, run} = Optimizations.run(request)
@@ -368,7 +373,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       assert run.output_graph_revision_id != nil
       assert run.output_graph_revision_id != graph.revision_id
       assert run.used_budget == 0
-      assert run.seed == nil
+      assert run.seed == 7
       assert run.simulation_config == nil
 
       assert %{status: "completed", actions: []} = OptimizationRuns.load(run.id)
@@ -385,12 +390,11 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         optimization_params: %OptimizationParams{
           strategy: "simulation_informed",
           budget: 1,
-          simulation_params: %SimulationParams{
+          seed: 42,
+          simulation_params: %SimulationSettings{
             monte_carlo_trials: 1,
             iterations_per_run: 1,
             initial_foothold_node_id: host.id,
-            seed: 42,
-            generate_seed: false,
             max_attempts: 1
           }
         }
@@ -417,12 +421,11 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         optimization_params: %OptimizationParams{
           strategy: "simulation_informed",
           budget: 1,
-          simulation_params: %SimulationParams{
+          seed: 42,
+          simulation_params: %SimulationSettings{
             monte_carlo_trials: 1,
             iterations_per_run: 1,
             initial_foothold_node_id: Ecto.UUID.generate(),
-            seed: 42,
-            generate_seed: false,
             max_attempts: 1
           }
         }
@@ -447,12 +450,11 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         optimization_params: %OptimizationParams{
           strategy: "topology_segmentation",
           budget: 1,
-          simulation_params: %SimulationParams{
+          seed: 42,
+          simulation_params: %SimulationSettings{
             monte_carlo_trials: 1,
             iterations_per_run: 1,
             initial_foothold_node_id: host.id,
-            seed: 42,
-            generate_seed: false,
             max_attempts: 1
           }
         }
@@ -467,13 +469,46 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
                )
     end
 
+    test "run_or_resume/2 rejects a request that changes the run identity" do
+      assert {:ok, graph} = Graphs.insert(graph_with_credential())
+      assert {:ok, other_graph} = Graphs.insert(graph_with_credential())
+
+      request = %RunOptimizationRequest{
+        graph_revision_id: graph.revision_id,
+        correlation_id: Ecto.UUID.generate(),
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1, seed: 0}
+      }
+
+      assert {:ok, %OptimizationRun{id: run_id}} = Optimizations.prepare(request)
+      assert {:ok, %OptimizationRun{status: "failed"}} = OptimizationRuns.fail(run_id)
+
+      changed_requests = [
+        %{request | graph_revision_id: other_graph.revision_id},
+        put_in(request.optimization_params.strategy, "null"),
+        put_in(request.optimization_params.budget, 2),
+        put_in(request.optimization_params.seed, 1)
+      ]
+
+      for changed <- changed_requests do
+        assert {:error, :request_mismatch} = Optimizations.run_or_resume(run_id, changed)
+        assert %OptimizationRun{status: "failed"} = OptimizationRuns.load(run_id)
+      end
+
+      assert {:ok, %OptimizationRun{status: "completed"}} =
+               Optimizations.run_or_resume(run_id, request)
+
+      for changed <- changed_requests do
+        assert {:error, :request_mismatch} = Optimizations.run_or_resume(run_id, changed)
+      end
+    end
+
     test "run_async/1 completes through the same pipeline and broadcasts completion" do
       assert {:ok, graph} = Graphs.insert(graph_with_credential())
 
       request = %RunOptimizationRequest{
         graph_revision_id: graph.revision_id,
         correlation_id: Ecto.UUID.generate(),
-        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2}
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 2, seed: 0}
       }
 
       correlation_id = request.correlation_id
@@ -511,17 +546,18 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
                OptimizationRun.new(
                  graph_revision_id: graph.revision_id,
                  strategy: "cvss",
-                 requested_budget: 1
+                 requested_budget: 1,
+                 seed: 0
                )
                |> OptimizationRuns.create()
 
       request = %RunOptimizationRequest{
         graph_revision_id: Ecto.UUID.generate(),
         correlation_id: Ecto.UUID.generate(),
-        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1}
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1, seed: 0}
       }
 
-      assert {:error, :not_found} =
+      assert {:error, :request_mismatch} =
                Optimizations.run_or_resume(run.id, request)
 
       assert {:error, :failed} =
@@ -539,7 +575,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       request = %RunOptimizationRequest{
         graph_revision_id: graph.revision_id,
         correlation_id: Ecto.UUID.generate(),
-        optimization_params: %OptimizationParams{strategy: "bogus", budget: 1}
+        optimization_params: %OptimizationParams{strategy: "bogus", budget: 1, seed: 0}
       }
 
       assert {:error, :unknown_strategy} = Optimizations.run(request)
@@ -551,7 +587,7 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
       request = %RunOptimizationRequest{
         graph_revision_id: graph.revision_id,
         correlation_id: Ecto.UUID.generate(),
-        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1}
+        optimization_params: %OptimizationParams{strategy: "cvss", budget: 1, seed: 0}
       }
 
       assert {:error, :infeasible_input} = Optimizations.run(request)

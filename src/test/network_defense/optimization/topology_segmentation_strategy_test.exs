@@ -240,11 +240,11 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
 
   defp simulation_params(source) do
     %{
+      seed: 0,
       simulation_params: %{
         monte_carlo_trials: 1,
         iterations_per_run: 1,
         initial_foothold_node_id: source.id,
-        generate_seed: true,
         max_attempts: 1
       }
     }

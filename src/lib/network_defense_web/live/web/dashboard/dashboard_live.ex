@@ -10,6 +10,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Runs
+  alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulations
   alias OpentelemetryProcessPropagator.Task.Supervisor, as: TaskSupervisor
   alias Phoenix.PubSub
@@ -244,7 +245,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   @impl true
   def handle_event("run_optimization_request", params, socket) do
     handle_run_request(
-      params,
+      resolve_optimization_seed(params),
       RunOptimizationPayload,
       &Optimizations.run_async/1,
       &optimization_request_reply/5,
@@ -835,6 +836,25 @@ defmodule NetworkDefenseWeb.DashboardLive do
       error: dashboard_error(error)
     })
   end
+
+  # A random seed is resolved before typed parsing, so the typed request always
+  # carries one concrete seed and no generate flag crosses the boundary.
+  defp resolve_optimization_seed(%{"request" => %{"optimization_params" => params}} = payload)
+       when is_map(params) do
+    case params do
+      %{"simulation_params" => %{"generate_seed" => true}} ->
+        put_in(
+          payload,
+          ["request", "optimization_params"],
+          Map.put(params, "seed", Seed.random())
+        )
+
+      _ ->
+        payload
+    end
+  end
+
+  defp resolve_optimization_seed(payload), do: payload
 
   defp handle_run_request(params, payload_mod, run_fun, reply_fun, success_flash, socket) do
     case payload_mod.validate(params) do

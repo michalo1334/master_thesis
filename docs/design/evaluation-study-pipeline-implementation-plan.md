@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6. Recorded I5+I6 checks include 3 focused tests, 74 study tests, and 825 full-suite tests with two existing exclusions.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1. Recorded F1 checks include 29 focused tests, 152 optimization and dashboard regression tests, and 127 touched frontend tests.
 
-The remaining work starts with F1. Candidate code on another branch can supply implementation details, but it does not define scope.
+The remaining work starts with F2. Candidate code on another branch can supply implementation details, but it does not define scope.
 
 ## Prototype boundaries
 
@@ -80,7 +80,7 @@ The completed prototype exposes these functions through `NetworkDefense.Evaluati
 
 ## Test policy
 
-Each implementation chunk starts with one observable EARS case. Add another automated case only when it protects a different risk.
+The EARS entries define required behaviors. They do not define an exact test count. Add a reasonable set of unit and integration tests for the risks in each chunk. Use shared fixtures for common setup and request data.
 
 Use automated tests for:
 
@@ -97,7 +97,7 @@ Use manual checks for:
 - operator-facing API use;
 - the complete timed journey.
 
-Do not add source-text, AST, schema-layout, helper, or manifest tests. Do not add exhaustive malformed-input or state-transition matrices. Do not prove one behavior again at unit, integration, and journey levels without a separate risk.
+Do not add source-text, AST, schema-layout, helper, or manifest tests. Do not add exhaustive malformed-input or state-transition matrices. Do not prove one behavior again at unit, integration, and journey levels without a separate risk. Use parameterized cases or shared fixtures when tests repeat the same setup.
 
 Every database-backed test run must use a fresh test partition and disposable database. Prepare application and Gust migrations, pin both repositories to that database, and drop it after the run.
 
@@ -166,7 +166,7 @@ The existing definition suite is sufficient. Add no cases.
 
 > WHEN the lifecycle receives each accepted phase event, THE lifecycle SHALL return its declared next state.
 
-Use one table-driven test.
+Use table-driven coverage for accepted transitions.
 
 **EARS — unit:**
 
@@ -192,7 +192,7 @@ Use representative invalid cases, not a complete state/event matrix.
 
 ## Slice 3 — core outcome path
 
-### F1 — explicit optimization seed
+### F1 — explicit optimization seed — complete
 
 **Public function signatures:** unchanged in `NetworkDefense.Optimizations`.
 
@@ -220,7 +220,7 @@ The typed `OptimizationParams` adds one required concrete seed for every strateg
 
 > WHEN resume changes the graph revision, strategy, budget, or seed, THE optimization SHALL reject the changed request.
 
-Use one test with four small observable cases.
+Use shared fixtures for the common request and persisted-run setup. Cover each changed resume-identity field without testing every combination.
 
 ### F2 — stable positional collection item
 
@@ -413,7 +413,7 @@ A phase failure stores a bounded execution error and enters `failed`. Before acc
 
 > WHEN Pilot analysis returns a recommendation or insufficiency, THE coordinator SHALL store that outcome, enter `awaiting_final`, and stop before Final collection.
 
-Use two outcomes in one test. Existing Pilot tests prove their scientific calculations.
+Cover the recommendation and insufficiency outcomes with shared Pilot fixtures. Existing Pilot tests prove their scientific calculations.
 
 ### F16 + F17 + F18 — Final selection and source binding
 
@@ -427,7 +427,7 @@ One `Final.Binding.verify/2` function checks the frozen source at every Final bo
 
 > WHEN a recommended or insufficient Pilot is resumed with its permitted selection form, THE application SHALL freeze one declared candidate, set the correct override marker, and enter Final collection.
 
-Use both valid forms in one test.
+Cover both valid resume forms with shared setup.
 
 **EARS — command integration:**
 
@@ -437,7 +437,7 @@ Use both valid forms in one test.
 
 > WHEN Final input differs from the frozen candidate, counts, family, or Pilot source, THE shared binding SHALL reject it.
 
-Use one small mismatch table. Do not repeat it at each caller.
+Use a small fixture-backed mismatch table. Do not repeat it at each caller.
 
 ### F19 + F20 + F21 — complete Final path and result
 
@@ -453,7 +453,7 @@ The result row is unique by execution. It stores accepted phase references, Pilo
 
 > WHEN Final analysis returns one complete family, THE coordinator SHALL store one compact result and change the execution to `succeeded`.
 
-This test also covers result persistence and read-back. Existing Final tests cover complete-family validation details.
+This coverage also checks result persistence and read-back. Existing Final tests cover complete-family validation details.
 
 ### F22 + F23 — public lifecycle activation
 

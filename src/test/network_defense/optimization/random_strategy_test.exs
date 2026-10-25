@@ -12,24 +12,24 @@ defmodule NetworkDefense.Optimization.RandomStrategyTest do
     graph = policy_graph()
 
     assert [%BlockSegmentReachability{edge_id: "policy-ab"}] =
-             Strategy.rank(%RandomStrategy{}, [BlockSegmentReachability], graph, 1)
+             Strategy.rank(%RandomStrategy{seed: 0}, [BlockSegmentReachability], graph, 1)
   end
 
   test "selects a credential node for revocation" do
     graph = graph([node("credential", Credential, credential_data())], [])
 
     assert [%RevokeCredential{credential_id: "credential"}] =
-             Strategy.rank(%RandomStrategy{}, [RevokeCredential], graph, 1)
+             Strategy.rank(%RandomStrategy{seed: 0}, [RevokeCredential], graph, 1)
   end
 
   test "returns no action when no eligible target exists" do
     graph = graph([node("host", Host, %{"name" => "host"})], [])
 
-    assert Strategy.rank(%RandomStrategy{}, [BlockSegmentReachability], graph, 1) == []
+    assert Strategy.rank(%RandomStrategy{seed: 0}, [BlockSegmentReachability], graph, 1) == []
   end
 
   test "returns no action when no action type is provided" do
-    assert Strategy.rank(%RandomStrategy{}, [], graph([], []), 1) == []
+    assert Strategy.rank(%RandomStrategy{seed: 0}, [], graph([], []), 1) == []
   end
 
   test "uses the selection seed without changing process-global random state" do

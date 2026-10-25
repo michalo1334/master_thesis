@@ -14,7 +14,8 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
 
   defstruct seed: nil
 
-  def new(_graph, params), do: {:ok, %__MODULE__{seed: Map.get(params, :seed)}}
+  # Keep strategy state explicit. This strategy retains only the declared seed.
+  def new(_graph, params), do: {:ok, %__MODULE__{seed: params.seed}}
 
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()
@@ -34,7 +35,7 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
 
         candidates ->
           {index, _state} =
-            :rand.uniform_s(length(candidates), Seed.integer_to_state(strategy.seed || 0))
+            :rand.uniform_s(length(candidates), Seed.integer_to_state(strategy.seed))
 
           [Enum.at(candidates, index - 1)]
       end

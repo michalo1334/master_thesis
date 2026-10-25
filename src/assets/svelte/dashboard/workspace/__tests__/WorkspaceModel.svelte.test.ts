@@ -121,6 +121,7 @@ describe("WorkspaceModel", () => {
             },
             optimizationParams: {
               strategy: "cvss" as const,
+              seed: 0,
               budget: 2,
               simulation_params: {
                 initial_foothold_node_id: "host-1",
@@ -212,6 +213,7 @@ describe("WorkspaceModel", () => {
               },
               optimizationParams: {
                 strategy: "cvss" as const,
+                seed: 0,
                 budget: 1,
                 simulation_params: {
                   initial_foothold_node_id: "",
@@ -275,6 +277,7 @@ describe("WorkspaceModel", () => {
               },
               optimizationParams: {
                 strategy: "cvss" as const,
+                seed: 0,
                 budget: 2,
                 simulation_params: {
                   initial_foothold_node_id: "",

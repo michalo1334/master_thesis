@@ -49,6 +49,7 @@ function renderRibbon({
       activeOptimizationId,
       optimizationParams: {
         budget: 1,
+        seed: 0,
         strategy: activeOptimizationId,
         simulation_params: simulationParams,
       },
@@ -228,6 +229,8 @@ describe("DashboardRibbon", () => {
     await openOptimizationTab();
 
     expect(screen.getByRole("button", { name: "Optimize" })).toBeEnabled();
+    expect(screen.getByRole("spinbutton", { name: "Seed" })).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "Random seed" })).toBeEnabled();
     await fireEvent.click(screen.getByRole("button", { name: "Optimize" }));
     expect(onOptimize).toHaveBeenCalledWith("cvss");
   });

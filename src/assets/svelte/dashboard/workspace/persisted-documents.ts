@@ -3,7 +3,9 @@ import type { SimulationParams } from "../../contracts.generated/simulation";
 
 export interface DashboardWorkspaceState {
   simulationParams: SimulationParams;
-  optimizationParams: OptimizationParams;
+  optimizationParams: OptimizationParams & {
+    simulation_params: SimulationParams;
+  };
 }
 
 export function isDashboardWorkspaceState(
@@ -33,6 +35,7 @@ function isOptimizationParams(value: unknown): value is OptimizationParams {
     isRecord(value) &&
     isStrategy(value.strategy) &&
     isNumber(value.budget) &&
+    isNumber(value.seed) &&
     isSimulationParams(value.simulation_params)
   );
 }

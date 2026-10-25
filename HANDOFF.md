@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. I5+I6 source implementation is complete. The next scheduled slice is F1.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 is complete. The next slice is F2.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                |
 | ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 are complete.        |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration. |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -29,7 +29,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **I2 is complete:** strict JSON Schema validation before Ecto materialization, normalized round-trip data, and scientific cross-field checks.
 - **I3+I4 are complete:** `create_study_revision/1` parses and validates YAML, resolves graph revisions, stores one normalized immutable revision, and returns bounded reference, conflict, or storage errors.
 - **I5+I6 are complete:** the pure lifecycle defines accepted transitions and idempotent terminal handling. Study executions and fixed phases have persisted closed sets and phase uniqueness.
-- **F1 onward is not implemented.**
+- **F1 is complete:** every typed optimization request carries one concrete top-level seed. Every strategy receives and persists it. Resume identity includes the graph revision, strategy, budget, seed, and simulation configuration. The dashboard exposes seed entry and random generation for every strategy.
+- **F2 onward is not implemented.**
 
 Recorded checks:
 
@@ -38,7 +39,10 @@ Recorded checks:
 - I5+I6 focused suite: 3 passed;
 - complete study test directory after I5+I6: 74 passed;
 - full suite after I5+I6: 825 passed with two existing exclusions;
-- formatting and normal static, frontend, and security checks passed.
+- F1 focused suite: 29 passed;
+- F1 optimization and dashboard regression suite: 152 passed;
+- touched F1 frontend suite: 127 passed;
+- formatting, compilation, Credo, Dialyzer, and frontend type checks passed.
 
 ## Approved prototype scope
 
@@ -103,7 +107,7 @@ The approved public study facade is:
 
 ## Verification policy
 
-Use the smallest check that protects a distinct risk:
+Use a reasonable set of unit and integration tests for each risk:
 
 - unit tests for deterministic scientific and lifecycle logic;
 - repository tests for uniqueness and transactional create-and-link behavior;
@@ -111,7 +115,7 @@ Use the smallest check that protects a distinct risk:
 - two automated core journeys: recommended and insufficient override;
 - one manual timed journey.
 
-Do not add source, AST, schema-layout, helper, or manifest tests. Do not add exhaustive malformed-input, mutation, or state-pair matrices. Do not duplicate a behavior across test layers without a separate risk.
+The EARS entries define behaviors, not an exact test count. Use shared fixtures for common setup and request data. Do not add source, AST, schema-layout, helper, or manifest tests. Do not add exhaustive malformed-input, mutation, or state-pair matrices. Do not duplicate a behavior across test layers without a separate risk.
 
 Every database-backed test invocation needs a fresh partition and disposable database. Prepare both application and Gust migrations. Verify both repositories use the disposable database. Drop it afterward. Never run an unpartitioned `mix test` or `mix run` against preserved data.
 
@@ -120,10 +124,10 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 When the user authorizes implementation:
 
 1. Recheck repository instructions and dirty state.
-2. Implement F1 only.
-3. Require one concrete seed in every typed optimization request, persist it for every strategy, and include it in resume identity checks.
-4. Preserve dashboard seed entry and random generation before typed request parsing.
-5. Add only the three approved contract and integration behaviors from the implementation plan.
+2. Implement F2 only.
+3. Persist one collection item for each phase, replica position, and item position.
+4. Return the same item for the same positional identity. Return a different item for another phase.
+5. Cover the repository behavior with reasonable fixture-backed integration tests.
 6. Run focused tests and the nearest regressions in a disposable database.
 7. Stop when the chunk is green.
 

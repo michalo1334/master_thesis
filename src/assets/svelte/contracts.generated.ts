@@ -25,6 +25,7 @@ export declare namespace NetworkDefense.Errors {
     | "task_unavailable"
     | "unknown_strategy"
     | "reachability_required"
+    | "request_mismatch"
     | "invalid_request";
 }
 
@@ -321,8 +322,9 @@ export declare namespace NetworkDefense.Graph.Contracts {
 export declare namespace NetworkDefense.Optimization.Contracts {
   export interface OptimizationParams {
     budget: number;
+    seed: number;
     simulation_params?:
-      NetworkDefense.Simulation.Contracts.SimulationParams | null;
+      NetworkDefense.Optimization.Contracts.SimulationSettings | null;
     strategy:
       | "null"
       | "random"
@@ -339,6 +341,16 @@ export declare namespace NetworkDefense.Optimization.Contracts {
     correlation_id: string;
     graph_revision_id: string;
     optimization_params: NetworkDefense.Optimization.Contracts.OptimizationParams;
+  }
+}
+
+// NetworkDefense.Optimization.Contracts.SimulationSettings (lib/network_defense/optimization/contracts/simulation_settings.ex)
+export declare namespace NetworkDefense.Optimization.Contracts {
+  export interface SimulationSettings {
+    initial_foothold_node_id: string;
+    iterations_per_run: number;
+    max_attempts: number;
+    monte_carlo_trials: number;
   }
 }
 

@@ -8,6 +8,7 @@ defmodule NetworkDefense.Optimizations.Errors do
     :unknown_strategy,
     :reachability_required,
     :infeasible_input,
+    :request_mismatch,
     :persistence_failed,
     :task_unavailable,
     :internal_error
@@ -17,6 +18,7 @@ defmodule NetworkDefense.Optimizations.Errors do
           :unknown_strategy
           | :reachability_required
           | :infeasible_input
+          | :request_mismatch
           | :persistence_failed
           | :task_unavailable
           | :internal_error

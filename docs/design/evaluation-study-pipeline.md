@@ -284,6 +284,6 @@ Automated checks should include:
 
 Manual checks can cover status inspection, cancellation, ordinary failure display, operator-facing API use, and the complete timed journey.
 
-Do not add source-text, AST, schema-layout, helper, or manifest tests. Do not build exhaustive malformed-input or state-pair matrices. Do not duplicate a behavior at unit, integration, and journey levels without a separate risk.
+Do not add source-text, AST, schema-layout, helper, or manifest tests. Do not build exhaustive malformed-input or state-pair matrices. Do not duplicate a behavior at unit, integration, and journey levels without a separate risk. Use shared fixtures for common setup and request data.
 
-The implementation plan defines one observable EARS case for each chunk. A chunk can use manual verification when automation would only repeat lower-level proof. Deployment and real evidence collection require separate approval.
+The implementation plan defines observable EARS behaviors. It does not define an exact test count. Add a reasonable set of unit and integration tests for each risk. A chunk can use manual verification when automation would only repeat lower-level proof. Deployment and real evidence collection require separate approval.

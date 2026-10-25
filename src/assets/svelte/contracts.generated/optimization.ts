@@ -3,3 +3,4 @@ import type * as __Contracts from "../contracts.generated";
 
 export type OptimizationParams = __Contracts.NetworkDefense.Optimization.Contracts.OptimizationParams;
 export type RunOptimizationRequest = __Contracts.NetworkDefense.Optimization.Contracts.RunOptimizationRequest;
+export type SimulationSettings = __Contracts.NetworkDefense.Optimization.Contracts.SimulationSettings;

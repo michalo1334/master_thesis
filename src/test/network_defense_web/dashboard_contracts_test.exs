@@ -183,7 +183,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
              RunOptimizationRequest.validate(%{
                "graph_revision_id" => Ecto.UUID.generate(),
                "correlation_id" => correlation_id,
-               "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+               "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
              })
 
     assert %{correlation_id: [_ | _]} = errors_on(optimization_changeset)

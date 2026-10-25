@@ -9,7 +9,8 @@ defmodule NetworkDefense.Optimization.CvssStrategy do
 
   defstruct seed: nil
 
-  def new(_graph, _params), do: {:ok, %__MODULE__{}}
+  # Keep strategy state explicit. This strategy retains only the declared seed.
+  def new(_graph, params), do: {:ok, %__MODULE__{seed: params.seed}}
 
   defimpl Strategy, for: __MODULE__ do
     @spec name(Strategy.t()) :: String.t()

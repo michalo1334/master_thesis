@@ -99,11 +99,11 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
     {graph, source} = graph()
 
     params = %{
+      seed: 42,
       simulation_params: %{
         monte_carlo_trials: 2,
         iterations_per_run: 2,
         initial_foothold_node_id: source.id,
-        seed: 42,
         max_attempts: 1
       },
       model: %{objective: :blast_radius_only, require_pre_attack_feasibility: false}
@@ -118,11 +118,11 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
     {graph, source} = graph()
 
     params = %{
+      seed: 42,
       simulation_params: %{
         monte_carlo_trials: 2,
         iterations_per_run: 2,
         initial_foothold_node_id: source.id,
-        seed: 42,
         max_attempts: 1
       }
     }

@@ -794,7 +794,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
         }
       })
 
@@ -892,7 +892,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
         }
       })
 
@@ -927,7 +927,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 0}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 0, "seed" => 0}
         }
       })
 
@@ -950,7 +950,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "simulation_informed", "budget" => 1}
+          "optimization_params" => %{
+            "strategy" => "simulation_informed",
+            "budget" => 1,
+            "seed" => 0
+          }
         }
       })
 
@@ -1063,7 +1067,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => source_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
         }
       })
 
@@ -1113,7 +1117,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => source_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
         }
       })
 
@@ -1161,7 +1165,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1}
+          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
         }
       })
 

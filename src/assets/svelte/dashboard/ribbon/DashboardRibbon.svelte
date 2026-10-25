@@ -147,6 +147,21 @@
         disabled={!hasActiveGraph}
         onchange={(budget) => onOptimizationParamsChange({ budget })}
       />
+      <NumberInput
+        label="Seed"
+        value={optimizationParams.simulation_params.seed}
+        disabled={optimizationParams.simulation_params.generate_seed}
+        onchange={(seed) =>
+          onOptimizationParamsChange({ simulation_params: { seed } })}
+      />
+      <Checkbox
+        label="Random seed"
+        checked={optimizationParams.simulation_params.generate_seed}
+        onchange={(generate_seed) =>
+          onOptimizationParamsChange({
+            simulation_params: { generate_seed },
+          })}
+      />
     </Ribbon.Section>
     {#if activeOptimizationId === "simulation_informed" || activeOptimizationId === "simulated_annealing"}
       <Ribbon.Section title="Simulation settings">
@@ -199,21 +214,6 @@
               })}
           />
         </div>
-        <NumberInput
-          label="Seed"
-          value={optimizationParams.simulation_params.seed}
-          disabled={optimizationParams.simulation_params.generate_seed}
-          onchange={(seed) =>
-            onOptimizationParamsChange({ simulation_params: { seed } })}
-        />
-        <Checkbox
-          label="Random seed"
-          checked={optimizationParams.simulation_params.generate_seed}
-          onchange={(generate_seed) =>
-            onOptimizationParamsChange({
-              simulation_params: { generate_seed },
-            })}
-        />
       </Ribbon.Section>
     {:else if activeOptimizationId === "topology_segmentation"}
       <Ribbon.Section title="Topology segmentation">

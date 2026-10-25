@@ -72,7 +72,7 @@ describe("DashboardApi", () => {
     const result = await createDashboardApi(live).runOptimization(
       "r1",
       "corr-1",
-      { strategy: "cvss", budget: 3 },
+      { strategy: "cvss", budget: 3, seed: 0 },
     );
 
     expect(result).toEqual(reply);
@@ -85,6 +85,7 @@ describe("DashboardApi", () => {
           optimization_params: {
             strategy: "cvss",
             budget: 3,
+            seed: 0,
           },
         },
       },

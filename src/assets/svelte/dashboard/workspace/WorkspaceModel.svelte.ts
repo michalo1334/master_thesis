@@ -60,6 +60,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   >({
     strategy: "cvss",
     budget: 1,
+    seed: 0,
     simulation_params: {
       initial_foothold_node_id: "",
       monte_carlo_trials: 1000,
@@ -750,6 +751,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       : this.optimizationParams.simulation_params;
     Object.assign(this.optimizationParams, {
       ...change,
+      seed: simulationParams.seed,
       simulation_params: simulationParams,
     });
   }
@@ -768,6 +770,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     Object.assign(this.simulationParams, state.simulationParams);
     Object.assign(this.optimizationParams, {
       ...state.optimizationParams,
+      seed: state.optimizationParams.simulation_params.seed,
       simulation_params: {
         ...state.optimizationParams.simulation_params,
       },

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
   @moduledoc false
 
   alias Ecto.Changeset
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
+  alias NetworkDefense.Optimization.Contracts.SimulationSettings
 
   use NetworkDefense.Contracts, category: :optimization
 
@@ -25,25 +25,28 @@ defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
   embedded_schema do
     field :strategy, :string
     field :budget, :integer
-    embeds_one :simulation_params, SimulationParams, on_replace: :update
+    field :seed, :integer
+    embeds_one :simulation_params, SimulationSettings, on_replace: :update
   end
 
   @type t :: %__MODULE__{
           strategy: String.t(),
           budget: pos_integer(),
-          simulation_params: SimulationParams.t() | nil
+          seed: non_neg_integer(),
+          simulation_params: SimulationSettings.t() | nil
         }
 
   def changeset(schema, attrs) do
     schema
-    |> cast(attrs, [:strategy, :budget])
+    |> cast(attrs, [:strategy, :budget, :seed])
     |> cast_embed(:simulation_params)
-    |> validate_required([:strategy, :budget])
+    |> validate_required([:strategy, :budget, :seed])
     |> validate_inclusion(
       :strategy,
       @enum_values |> Keyword.fetch!(:strategy) |> Enum.map(&Atom.to_string/1)
     )
     |> validate_number(:budget, greater_than: 0)
+    |> validate_number(:seed, greater_than_or_equal_to: 0)
     |> require_simulation_params()
   end
 

@@ -3,7 +3,6 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
 
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Simulation.Seed
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulations
 
@@ -27,16 +26,13 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
          rules: Simulator.default_rules(),
          run_count: simulation_params.monte_carlo_trials,
          iteration_count: simulation_params.iterations_per_run,
-         seed: simulation_seed(simulation_params),
+         seed: params.seed,
          max_attempts: simulation_params.max_attempts,
          objective: Map.get(model, :objective, :mission_then_blast_radius),
          require_pre_attack_feasibility: Map.get(model, :require_pre_attack_feasibility, true)
        )}
     end
   end
-
-  defp simulation_seed(%{generate_seed: true}), do: Seed.random()
-  defp simulation_seed(%{seed: seed}), do: seed
 
   @doc """
   Enumerates every eligible `{action, target}` candidate across the graph.

@@ -706,13 +706,14 @@ describe("EditableGraphDocument", () => {
 
       await doc.startOptimization(
         api,
-        { strategy: "cvss", budget: 3 },
+        { strategy: "cvss", budget: 3, seed: 0 },
         "corr-1",
       );
 
       expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", {
         strategy: "cvss",
         budget: 3,
+        seed: 0,
       });
     });
 
@@ -722,6 +723,7 @@ describe("EditableGraphDocument", () => {
       await doc.startOptimization(api, {
         strategy: "cvss",
         budget: 3,
+        seed: 0,
       });
 
       expect(api.runOptimization).not.toHaveBeenCalled();
