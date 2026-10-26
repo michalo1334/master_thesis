@@ -46,6 +46,10 @@ defmodule NetworkDefense.Contracts do
     do: Map.new(map, fn {key, value} -> {key, to_wire(value)} end)
 
   def to_wire(list) when is_list(list), do: Enum.map(list, &to_wire/1)
+
+  def to_wire(value) when is_atom(value) and value not in [nil, true, false],
+    do: Atom.to_string(value)
+
   def to_wire(value), do: value
 
   def to_params(%_{} = struct), do: struct |> Map.from_struct() |> to_params()
@@ -55,6 +59,10 @@ defmodule NetworkDefense.Contracts do
   end
 
   def to_params(list) when is_list(list), do: Enum.map(list, &to_params/1)
+
+  def to_params(value) when is_atom(value) and value not in [nil, true, false],
+    do: Atom.to_string(value)
+
   def to_params(value), do: value
 
   def validate_uuid(changeset, field) do

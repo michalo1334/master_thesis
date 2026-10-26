@@ -133,6 +133,24 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The study phase identifier does not name a stored study phase."
       )
 
+  def study_execution_not_found,
+    do:
+      new(
+        "validation_failed",
+        "study_execution_not_found",
+        ["execution"],
+        "The study phase does not link a stored study execution."
+      )
+
+  def study_revision_not_found,
+    do:
+      new(
+        "validation_failed",
+        "study_revision_not_found",
+        ["study_revision_id"],
+        "The study execution does not link a stored study revision."
+      )
+
   def invalid_collection_position(field) when field in [:replica_position, :item_position],
     do:
       new(
@@ -149,15 +167,6 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "collection_item_not_found",
         ["id"],
         "The study collection item does not exist."
-      )
-
-  def runtime_record_mismatch(field) when field in [:optimization_run_id, :experiment_id],
-    do:
-      new(
-        "conflict",
-        "runtime_record_mismatch",
-        [Atom.to_string(field)],
-        "The linked runtime record does not match the declared request."
       )
 
   def runtime_request_invalid(field, reason)
@@ -229,15 +238,6 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
           "The phase work exceeds the configured item limit.",
           %{"limit" => limit, "actual" => actual}
         )
-
-  def collection_work_mismatch(field) when field in [:replica_position, :item_position],
-    do:
-      new(
-        "conflict",
-        "collection_work_mismatch",
-        [Atom.to_string(field)],
-        "The work item does not match the persisted collection item."
-      )
 
   def collection_result_invalid,
     do:

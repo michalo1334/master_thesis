@@ -94,7 +94,11 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
     assert [first, second] = plan
     refute first == second
 
-    result = Optimizer.apply(graph, strategy, 2)
+    result =
+      Optimizer.apply(graph, strategy, 2,
+        action_types: default_actions,
+        require_pre_attack_feasibility: true
+      )
 
     assert result.budget_used == 2
     assert Enum.map(result.actions, & &1.edge_id) == Enum.map(plan, & &1.edge_id)

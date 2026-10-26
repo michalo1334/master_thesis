@@ -3,6 +3,8 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.GraphRevision
+  alias NetworkDefense.Optimization.Contracts.OptimizationParams
+  alias NetworkDefense.Optimization.ExecutionConfig
   alias NetworkDefense.Optimization.OptimizationAction
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -13,13 +15,13 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
           graph_revision_id: String.t() | nil,
           output_graph_revision_id: String.t() | nil,
           actions: list(OptimizationAction.t()) | Ecto.Association.NotLoaded.t(),
-          strategy: String.t() | nil,
+          strategy: OptimizationParams.strategy() | nil,
           requested_budget: integer() | nil,
           used_budget: integer() | nil,
           runtime_ms: integer() | nil,
           status: String.t() | nil,
           seed: integer() | nil,
-          simulation_config: map() | nil
+          execution_config: ExecutionConfig.t()
         }
 
   schema "optimization_runs" do
@@ -27,18 +29,20 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
     belongs_to :output_graph_revision, GraphRevision
     has_many :actions, OptimizationAction, foreign_key: :optimization_run_id
 
-    field :strategy, :string
+    field :strategy, Ecto.Enum, values: OptimizationParams.strategy_values()
     field :requested_budget, :integer
     field :used_budget, :integer, default: 0
     field :runtime_ms, :integer, default: 0
     field :status, :string, default: "running"
     field :seed, :integer
-    field :simulation_config, :map
+    embeds_one :execution_config, ExecutionConfig, on_replace: :update
 
     timestamps(type: :utc_datetime)
   end
 
   def changeset(run, attrs) do
+    attrs = normalize_execution_config(attrs)
+
     run
     |> cast(attrs, [
       :graph_revision_id,
@@ -48,9 +52,9 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       :used_budget,
       :runtime_ms,
       :status,
-      :seed,
-      :simulation_config
+      :seed
     ])
+    |> cast_embed(:execution_config, required: true)
     |> validate_required([:graph_revision_id, :strategy, :requested_budget])
     |> validate_number(:requested_budget, greater_than: 0)
     |> validate_number(:used_budget, greater_than_or_equal_to: 0)
@@ -74,9 +78,28 @@ defmodule NetworkDefense.Optimization.OptimizationRun do
       runtime_ms: Map.get(attrs, :runtime_ms, 0),
       status: Map.get(attrs, :status, "running"),
       seed: Map.get(attrs, :seed),
-      simulation_config: Map.get(attrs, :simulation_config)
+      execution_config: Map.fetch!(attrs, :execution_config)
     }
   end
+
+  defp normalize_execution_config(attrs) do
+    if Map.has_key?(attrs, :execution_config) do
+      Map.update!(attrs, :execution_config, &execution_config_attrs/1)
+    else
+      attrs
+    end
+  end
+
+  defp execution_config_attrs(%ExecutionConfig{} = config) do
+    config
+    |> Map.from_struct()
+    |> Map.update!(:scoring, &simulation_settings_attrs/1)
+  end
+
+  defp execution_config_attrs(attrs), do: attrs
+
+  defp simulation_settings_attrs(nil), do: nil
+  defp simulation_settings_attrs(settings), do: Map.from_struct(settings)
 
   defp validate_output_revision(changeset) do
     if get_field(changeset, :status) == "completed" do

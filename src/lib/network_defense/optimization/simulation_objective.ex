@@ -11,6 +11,9 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
 
   @type t :: :blast_radius_only | :mission_impact_only | :mission_then_blast_radius
 
+  @spec values() :: [t()]
+  def values, do: @objectives
+
   @spec from_wire(String.t()) :: {:ok, t()} | :error
   def from_wire(wire) when wire in @wire_objectives, do: {:ok, String.to_existing_atom(wire)}
   def from_wire(_wire), do: :error

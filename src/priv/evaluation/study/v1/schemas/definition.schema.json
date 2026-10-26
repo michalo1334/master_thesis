@@ -92,9 +92,9 @@
                       "items": {
                         "type": "string",
                         "enum": [
-                          "PatchVulnerability",
-                          "RevokeCredential",
-                          "BlockSegmentReachability"
+                          "block_segment_reachability",
+                          "patch_vulnerability",
+                          "revoke_credential"
                         ]
                       }
                     },
@@ -128,10 +128,10 @@
                           "items": {
                             "type": "string",
                             "enum": [
-                              "NetworkDefense.Rules.RemoteServiceExploitation",
-                              "NetworkDefense.Rules.LocalVulnerabilityExploitation",
-                              "NetworkDefense.Rules.AcquireCredentialRule",
-                              "NetworkDefense.Rules.ReuseCredentialRule"
+                              "remote_service_exploitation",
+                              "local_vulnerability_exploitation",
+                              "acquire_credential_rule",
+                              "reuse_credential_rule"
                             ]
                           }
                         }
@@ -161,9 +161,9 @@
                       "items": {
                         "type": "string",
                         "enum": [
-                          "PatchVulnerability",
-                          "RevokeCredential",
-                          "BlockSegmentReachability"
+                          "block_segment_reachability",
+                          "patch_vulnerability",
+                          "revoke_credential"
                         ]
                       }
                     },
@@ -195,10 +195,10 @@
           "items": {
             "type": "string",
             "enum": [
-              "NetworkDefense.Rules.RemoteServiceExploitation",
-              "NetworkDefense.Rules.LocalVulnerabilityExploitation",
-              "NetworkDefense.Rules.AcquireCredentialRule",
-              "NetworkDefense.Rules.ReuseCredentialRule"
+              "remote_service_exploitation",
+              "local_vulnerability_exploitation",
+              "acquire_credential_rule",
+              "reuse_credential_rule"
             ]
           }
         },

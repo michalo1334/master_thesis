@@ -11,13 +11,22 @@ import { OptimizationReportDocument } from "../optimization-report/OptimizationR
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
-import type { OptimizationParamsChange } from "../contract";
+import type {
+  DashboardOptimizationParams,
+  OptimizationParamsChange,
+} from "../contract";
+import {
+  DEFAULT_CANDIDATE_ACTION_TYPES,
+  DEFAULT_RULES,
+  DEFAULT_SIMULATION_SETTINGS,
+} from "../contract";
 import { isReport, type WorkspaceDocument } from "./WorkspaceDocument.svelte";
 import { GenericWorkspaceModel } from "../../ui-kit/workspace/WorkspaceModel.svelte";
 import { dashboardRegistry } from "./dashboard-registry";
 import type { DashboardRecoveryContext } from "./recovery-context";
 import {
   isDashboardWorkspaceState,
+  upgradeDashboardWorkspaceState,
   type DashboardWorkspaceState,
 } from "./persisted-documents";
 import type { WorkspaceEnvelope } from "../../ui-kit/workspace/workspace-persistence";
@@ -52,23 +61,18 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     max_attempts: 1,
     generate_seed: false,
     seed: 0,
+    rules: DEFAULT_RULES,
+    require_pre_attack_feasibility: true,
   });
-  optimizationParams = $state<
-    OptimizationParams & {
-      simulation_params: SimulationParams;
-    }
-  >({
+  optimizationParams = $state<DashboardOptimizationParams>({
     strategy: "cvss",
     budget: 1,
     seed: 0,
-    simulation_params: {
-      initial_foothold_node_id: "",
-      monte_carlo_trials: 1000,
-      iterations_per_run: 1000,
-      max_attempts: 1,
-      generate_seed: false,
-      seed: 0,
-    },
+    candidate_action_types: DEFAULT_CANDIDATE_ACTION_TYPES,
+    require_pre_attack_feasibility: true,
+    initial_foothold_node_id: "",
+    generate_seed: false,
+    simulation_params: { ...DEFAULT_SIMULATION_SETTINGS },
   });
   statusMessage = $state("");
 
@@ -751,7 +755,6 @@ export class WorkspaceModel extends GenericWorkspaceModel<
       : this.optimizationParams.simulation_params;
     Object.assign(this.optimizationParams, {
       ...change,
-      seed: simulationParams.seed,
       simulation_params: simulationParams,
     });
   }
@@ -767,12 +770,13 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   }
 
   private restoreState(state: DashboardWorkspaceState): void {
-    Object.assign(this.simulationParams, state.simulationParams);
+    const restored = upgradeDashboardWorkspaceState(state);
+
+    Object.assign(this.simulationParams, restored.simulationParams);
     Object.assign(this.optimizationParams, {
-      ...state.optimizationParams,
-      seed: state.optimizationParams.simulation_params.seed,
+      ...restored.optimizationParams,
       simulation_params: {
-        ...state.optimizationParams.simulation_params,
+        ...restored.optimizationParams.simulation_params,
       },
     });
   }
@@ -790,13 +794,10 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     }
     if (
       !hosts.some(
-        (host) =>
-          host.id ===
-          this.optimizationParams.simulation_params.initial_foothold_node_id,
+        (host) => host.id === this.optimizationParams.initial_foothold_node_id,
       )
     ) {
-      this.optimizationParams.simulation_params.initial_foothold_node_id =
-        hosts[0]?.id ?? "";
+      this.optimizationParams.initial_foothold_node_id = hosts[0]?.id ?? "";
     }
   }
 

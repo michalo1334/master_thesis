@@ -11,17 +11,11 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   defstruct [:initial_foothold_node_id, seed: nil]
 
   def new(graph, params) do
-    simulation_params = params.simulation_params
-
-    with :ok <-
-           Simulator.validate_initial_foothold(
-             graph,
-             simulation_params.initial_foothold_node_id
-           ),
+    with :ok <- Simulator.validate_initial_foothold(graph, params.initial_foothold_node_id),
          :ok <- ensure_reachability(graph) do
       {:ok,
        %__MODULE__{
-         initial_foothold_node_id: simulation_params.initial_foothold_node_id,
+         initial_foothold_node_id: params.initial_foothold_node_id,
          seed: params.seed
        }}
     end

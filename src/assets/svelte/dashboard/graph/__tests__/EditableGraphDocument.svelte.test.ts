@@ -2,6 +2,7 @@ import type { GraphContract } from "../../../contracts.generated/graph";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { EditableGraphDocument } from "../EditableGraphDocument.svelte";
 import type { DashboardApi } from "../../dashboard-api";
+import type { DashboardOptimizationParams } from "../../contract";
 
 function makeGraph(overrides: Partial<GraphContract> = {}): GraphContract {
   return {
@@ -704,17 +705,25 @@ describe("EditableGraphDocument", () => {
         }),
       } as unknown as DashboardApi;
 
-      await doc.startOptimization(
-        api,
-        { strategy: "cvss", budget: 3, seed: 0 },
-        "corr-1",
-      );
-
-      expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", {
-        strategy: "cvss",
+      const params = {
+        strategy: "cvss" as const,
         budget: 3,
         seed: 0,
-      });
+        candidate_action_types: ["patch_vulnerability"],
+        require_pre_attack_feasibility: true,
+        generate_seed: true,
+        simulation_params: {
+          objective: "mission_then_blast_radius",
+          monte_carlo_trials: 1,
+          iterations_per_run: 1,
+          max_attempts: 1,
+          rules: ["remote_service_exploitation"],
+        },
+      } satisfies DashboardOptimizationParams;
+
+      await doc.startOptimization(api, params, "corr-1");
+
+      expect(api.runOptimization).toHaveBeenCalledWith("r1", "corr-1", params);
     });
 
     it("does not call the API for an unloaded graph", async () => {
@@ -724,6 +733,16 @@ describe("EditableGraphDocument", () => {
         strategy: "cvss",
         budget: 3,
         seed: 0,
+        candidate_action_types: ["patch_vulnerability"],
+        require_pre_attack_feasibility: true,
+        generate_seed: false,
+        simulation_params: {
+          objective: "mission_then_blast_radius",
+          monte_carlo_trials: 1,
+          iterations_per_run: 1,
+          max_attempts: 1,
+          rules: ["remote_service_exploitation"],
+        },
       });
 
       expect(api.runOptimization).not.toHaveBeenCalled();

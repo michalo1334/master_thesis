@@ -14,12 +14,13 @@ defmodule NetworkDefense.Evaluation.Study.StudyPilotSnapshotTest do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
 
   setup do
-    study = StudyFixtures.study_with_two_phases()
     collection = StudyFixtures.insert_collection_graph("study-pilot-snapshot", mission: true)
     definition = StudyFixtures.collection_definition(collection.graph, collection.foothold)
+    study = StudyFixtures.study_with_two_phases(definition)
 
     study
     |> Map.merge(collection)
@@ -492,6 +493,8 @@ defmodule NetworkDefense.Evaluation.Study.StudyPilotSnapshotTest do
       Experiment.new(
         graph: other.graph,
         master_seed: 310_001,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 10,

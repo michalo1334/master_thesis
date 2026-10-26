@@ -4,6 +4,7 @@ defmodule NetworkDefense.Simulation.SimulationOperation do
   @behaviour NetworkDefense.Compute.ScatterGather
 
   alias NetworkDefense.Graph.{Graphs, MaterializeReachability}
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, Simulator}
   alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
 
@@ -39,10 +40,20 @@ defmodule NetworkDefense.Simulation.SimulationOperation do
     initial_attacker_state =
       Simulator.initial_attacker_state(graph, experiment.initial_foothold_node_id)
 
+    # A prepared experiment runs its stored rule subset, never the default set.
+    rules =
+      case RulesRegistry.resolve(experiment.rules) do
+        {:ok, rules} ->
+          rules
+
+        {:error, :unknown_rule} ->
+          raise ArgumentError, "stored experiment rules are not allowlisted"
+      end
+
     SimulationTelemetry.compute(experiment, trial_indexes, fn ->
       :timer.tc(fn ->
         Simulator.run_batch(experiment, graph, initial_attacker_state, trial_indexes,
-          rules: Simulator.default_rules(),
+          rules: rules,
           max_attempts: experiment.max_attempts
         )
       end)

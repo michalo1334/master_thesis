@@ -18,7 +18,16 @@ defmodule NetworkDefense.SimulationsTest do
   }
 
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
-  alias NetworkDefense.Simulation.{Experiment, Experiments, IterationStep, Run, SimulationReport}
+
+  alias NetworkDefense.Simulation.{
+    Experiment,
+    Experiments,
+    IterationStep,
+    Run,
+    SimulationReport
+  }
+
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulations
   alias NetworkDefense.Simulations.CoordinatorRegistry
 
@@ -30,6 +39,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 1,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 1,
@@ -74,6 +85,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 1,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         total_trials: 1,
         completed_trials: 1,
@@ -112,6 +125,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: correlation_id,
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 5,
                  iterations_per_run: 1,
                  initial_foothold_node_id: foothold.id,
@@ -135,6 +150,66 @@ defmodule NetworkDefense.SimulationsTest do
     assert Enum.all?(runs, fn run ->
              1 < run |> Run.current_attacker_state() |> AttackerState.foothold_nodes() |> length()
            end)
+  end
+
+  test "a prepared experiment runs the declared rule subset instead of the default rules" do
+    assert {:ok, graph} = Graphs.insert(canonical_graph("Declared Rules"))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    request = %{
+      canonical_request(graph, foothold, "declared-rules")
+      | simulation_params: %SimulationParams{
+          rules: [:reuse_credential_rule],
+          require_pre_attack_feasibility: true,
+          monte_carlo_trials: 5,
+          iterations_per_run: 1,
+          initial_foothold_node_id: foothold.id,
+          generate_seed: false,
+          seed: 42,
+          max_attempts: 1
+        }
+    }
+
+    assert {:ok, experiment} = Simulations.prepare(request)
+
+    assert experiment.rules == [:reuse_credential_rule]
+    assert experiment.require_pre_attack_feasibility == true
+
+    assert {:ok, %Experiment{status: :completed} = completed} =
+             Simulations.run(experiment.id, correlation_id: request.correlation_id)
+
+    assert Enum.all?(completed_runs(completed.id), fn run ->
+             run
+             |> Run.current_attacker_state()
+             |> AttackerState.foothold_nodes()
+             |> length() == 1
+           end)
+  end
+
+  test "a prepared experiment with a disabled feasibility policy skips the rejection" do
+    assert {:ok, graph} = Graphs.insert(mission_graph("Disabled Feasibility", missing_flow: true))
+
+    foothold =
+      Enum.find(Graph.nodes(graph), &(&1.type == Host and &1.data.name == "source"))
+
+    request = %{
+      canonical_request(graph, foothold, "disabled-feasibility")
+      | simulation_params: %SimulationParams{
+          rules: RulesRegistry.values(),
+          require_pre_attack_feasibility: false,
+          monte_carlo_trials: 1,
+          iterations_per_run: 1,
+          initial_foothold_node_id: foothold.id,
+          generate_seed: false,
+          seed: 42,
+          max_attempts: 1
+        }
+    }
+
+    assert {:ok, %Experiment{require_pre_attack_feasibility: false}} =
+             Simulations.prepare(request)
   end
 
   test "prepare stores one running experiment with zero completed trials" do
@@ -203,6 +278,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: "invalid-foothold-request",
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 1,
                  iterations_per_run: 1,
                  initial_foothold_node_id: Ecto.UUID.generate(),
@@ -224,6 +301,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: "infeasible-mission-request",
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 1,
                  iterations_per_run: 1,
                  initial_foothold_node_id: foothold.id,
@@ -247,6 +326,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: "infeasible-prepare-request",
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 1,
                  iterations_per_run: 1,
                  initial_foothold_node_id: foothold.id,
@@ -274,6 +355,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: correlation_id,
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 1,
                  iterations_per_run: 1,
                  initial_foothold_node_id: foothold.id,
@@ -299,6 +382,8 @@ defmodule NetworkDefense.SimulationsTest do
                graph_revision_id: graph.revision_id,
                correlation_id: "create-failure-request",
                simulation_params: %SimulationParams{
+                 rules: RulesRegistry.values(),
+                 require_pre_attack_feasibility: true,
                  monte_carlo_trials: 1,
                  iterations_per_run: 1,
                  initial_foothold_node_id: foothold.id,
@@ -321,6 +406,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 42,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 2,
@@ -359,6 +446,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 7,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 1,
@@ -382,6 +471,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 42,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 2,
@@ -405,6 +496,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 1,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 1,
@@ -429,6 +522,8 @@ defmodule NetworkDefense.SimulationsTest do
       Experiment.new(
         graph: graph,
         master_seed: 19,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 2,
@@ -465,6 +560,8 @@ defmodule NetworkDefense.SimulationsTest do
       graph_revision_id: graph.revision_id,
       correlation_id: correlation_id,
       simulation_params: %SimulationParams{
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         monte_carlo_trials: 5,
         iterations_per_run: 1,
         initial_foothold_node_id: foothold.id,
@@ -473,6 +570,11 @@ defmodule NetworkDefense.SimulationsTest do
         max_attempts: 1
       }
     }
+  end
+
+  defp completed_runs(experiment_id) do
+    %{runs: runs} = Experiments.load(experiment_id)
+    runs
   end
 
   defp experiment_count(graph_revision_id) do

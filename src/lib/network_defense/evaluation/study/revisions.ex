@@ -29,6 +29,30 @@ defmodule NetworkDefense.Evaluation.Study.Revisions do
     end
   end
 
+  # The stored row holds the normalized form, so parsing it returns the typed
+  # definition.
+  @spec load_definition(Ecto.UUID.t()) :: {:ok, Definition.t()} | {:error, StudyError.t()}
+  def load_definition(study_revision_id) do
+    with {:ok, id} <- cast_id(study_revision_id),
+         {:ok, revision} <- stored_revision(id) do
+      Definition.parse(revision.definition)
+    end
+  end
+
+  defp cast_id(value) do
+    case Ecto.UUID.cast(value) do
+      {:ok, id} -> {:ok, id}
+      :error -> {:error, StudyError.study_revision_not_found()}
+    end
+  end
+
+  defp stored_revision(id) do
+    case Repo.get(StudyRevision, id) do
+      %StudyRevision{} = revision -> {:ok, revision}
+      nil -> {:error, StudyError.study_revision_not_found()}
+    end
+  end
+
   defp resolve_graphs(%Definition{graphs: graphs}) do
     known =
       graphs

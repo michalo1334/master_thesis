@@ -84,7 +84,7 @@ defmodule NetworkDefense.Optimization.OptimizationReportTest do
         %OptimizationRun{
           id: "run-1",
           graph_revision_id: "revision-1",
-          strategy: "topology_segmentation",
+          strategy: :topology_segmentation,
           requested_budget: 1,
           used_budget: 1,
           runtime_ms: 1,
@@ -116,7 +116,7 @@ defmodule NetworkDefense.Optimization.OptimizationReportTest do
       %OptimizationRun{
         id: "run-1",
         graph_revision_id: "revision-1",
-        strategy: "topology_segmentation",
+        strategy: :topology_segmentation,
         requested_budget: 1,
         used_budget: 1,
         runtime_ms: 1,

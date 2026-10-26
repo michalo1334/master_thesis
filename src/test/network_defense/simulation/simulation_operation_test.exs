@@ -8,6 +8,7 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, Run, SimulationOperation}
 
   test "scatters weighted trial ranges and rejects completed trials" do
@@ -15,6 +16,8 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
       Experiment.new(
         graph_revision_id: Ecto.UUID.generate(),
         master_seed: 23,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 3
@@ -36,6 +39,8 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
       Experiment.new(
         graph_revision_id: Ecto.UUID.generate(),
         master_seed: 41,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 2,
         max_attempts: 1,
         total_trials: 63
@@ -87,6 +92,8 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
     Experiment.new(
       graph: graph,
       master_seed: 23,
+      rules: RulesRegistry.values(),
+      require_pre_attack_feasibility: true,
       iteration_count: 1,
       max_attempts: 1,
       total_trials: Keyword.get(opts, :total_trials, 3),

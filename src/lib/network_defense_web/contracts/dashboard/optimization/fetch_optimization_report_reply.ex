@@ -40,13 +40,15 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Optimization.FetchOptimizationRe
       graph_title: report.graph_title,
       graph_revision_id: report.graph_revision_id,
       report:
-        Map.take(report, [
+        report
+        |> Map.take([
           :strategy,
           :requested_budget,
           :used_budget,
           :runtime_ms,
           :actions
         ])
+        |> Map.update!(:strategy, &Atom.to_string/1)
     }
     |> validate()
   end

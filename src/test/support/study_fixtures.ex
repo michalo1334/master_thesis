@@ -18,6 +18,7 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
 
   alias NetworkDefense.Relationships.{Contains, Supports}
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
 
   # Stored study rows for repository tests.
@@ -58,9 +59,14 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     Repo.insert!(StudyPhase.changeset(%StudyPhase{}, %{execution_id: execution.id, phase: phase}))
   end
 
-  @doc "One revision, one execution, and the Pilot and Final collection phases."
-  def study_with_two_phases do
-    revision = insert_revision()
+  @doc """
+  One revision, one execution, and the Pilot and Final collection phases.
+
+  A mapped collection task reads the normalized definition from the stored
+  revision, so a collection fixture stores the definition it executes.
+  """
+  def study_with_two_phases(definition \\ nil) do
+    revision = insert_revision(revision_attrs(definition))
     execution = insert_execution(revision)
 
     %{
@@ -70,6 +76,11 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
       final_phase: insert_phase(execution, :final_collection)
     }
   end
+
+  defp revision_attrs(nil), do: %{}
+
+  defp revision_attrs(%Definition{} = definition),
+    do: %{definition: Definition.to_params(definition)}
 
   @doc """
   One stored graph revision with two foothold hosts.
@@ -156,7 +167,7 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
       {:ok, item} =
         CollectionItems.get_or_create(phase.id, replica_position, work_item.item_position)
 
-      {:ok, result} = Collection.run_collection_item(item, work_item)
+      {:ok, result} = Collection.run_collection_item(item.id)
       [Repo.get!(StudyCollectionItem, result.collection_item_id) | collected]
     end)
     |> Enum.reverse()
@@ -208,13 +219,13 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
         %{
           "key" => "cvss",
           "budget" => 1,
-          "candidate_action_types" => ["PatchVulnerability", "RevokeCredential"],
+          "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
           "require_pre_attack_feasibility" => true
         },
         %{
           "key" => "null",
           "budget" => 1,
-          "candidate_action_types" => ["PatchVulnerability"],
+          "candidate_action_types" => ["patch_vulnerability"],
           "require_pre_attack_feasibility" => true
         }
       ]
@@ -245,9 +256,11 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
   def optimization_request(graph, opts \\ []) do
     opts =
       Keyword.validate!(opts,
-        strategy: "cvss",
+        strategy: :cvss,
         budget: 1,
         seed: 7,
+        candidate_action_types: [:patch_vulnerability, :revoke_credential],
+        initial_foothold_node_id: nil,
         simulation_params: nil,
         correlation_id: "study-optimization"
       )
@@ -259,6 +272,9 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
         strategy: opts[:strategy],
         budget: opts[:budget],
         seed: opts[:seed],
+        candidate_action_types: opts[:candidate_action_types],
+        require_pre_attack_feasibility: true,
+        initial_foothold_node_id: opts[:initial_foothold_node_id],
         simulation_params: opts[:simulation_params]
       }
     }
@@ -273,18 +289,23 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
         trials: 1,
         iterations: 1,
         max_attempts: 1,
+        objective: :mission_then_blast_radius,
+        rules: RulesRegistry.values(),
         correlation_id: "study-optimization"
       )
 
     optimization_request(graph,
-      strategy: "simulation_informed",
+      strategy: :simulation_informed,
       budget: opts[:budget],
       seed: opts[:seed],
+      candidate_action_types: [:patch_vulnerability, :revoke_credential],
+      initial_foothold_node_id: foothold_id,
       simulation_params: %SimulationSettings{
+        objective: opts[:objective],
         monte_carlo_trials: opts[:trials],
         iterations_per_run: opts[:iterations],
-        initial_foothold_node_id: foothold_id,
-        max_attempts: opts[:max_attempts]
+        max_attempts: opts[:max_attempts],
+        rules: opts[:rules]
       },
       correlation_id: opts[:correlation_id]
     )
@@ -299,6 +320,8 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
         max_attempts: 1,
         seed: 11,
         generate_seed: false,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         correlation_id: "study-simulation"
       )
 
@@ -311,7 +334,9 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
         initial_foothold_node_id: foothold.id,
         generate_seed: opts[:generate_seed],
         seed: opts[:seed],
-        max_attempts: opts[:max_attempts]
+        max_attempts: opts[:max_attempts],
+        rules: opts[:rules],
+        require_pre_attack_feasibility: opts[:require_pre_attack_feasibility]
       }
     }
   end

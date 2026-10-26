@@ -239,15 +239,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
   end
 
   defp simulation_params(source) do
-    %{
-      seed: 0,
-      simulation_params: %{
-        monte_carlo_trials: 1,
-        iterations_per_run: 1,
-        initial_foothold_node_id: source.id,
-        max_attempts: 1
-      }
-    }
+    %{seed: 0, initial_foothold_node_id: source.id}
   end
 
   defp host(id), do: GraphFixtures.node(id, Host, %{"name" => id})

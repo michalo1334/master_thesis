@@ -7,7 +7,7 @@ import type {
   OptimizationCompletedEvent,
   OptimizationFailedEvent,
 } from "../contracts.generated/dashboard/optimization";
-import type { OptimizationParams } from "../contracts.generated/optimization";
+import type { DashboardOptimizationParams } from "./contract";
 import type { RunCancelledEvent } from "../contracts.generated/dashboard/runs";
 import type {
   SimulationCompletedEvent,
@@ -155,7 +155,7 @@ export class DashboardModel {
 
   private async runOptimization(
     document: EditableGraphDocument,
-    params: OptimizationParams,
+    params: DashboardOptimizationParams,
   ): Promise<boolean> {
     const expectedJob = this.createJob(document);
     if (!expectedJob) return false;

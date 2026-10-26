@@ -41,10 +41,10 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionWorkTest do
 
     assert Enum.map(items, & &1.selection_seed) == seeds ++ seeds ++ seeds ++ seeds
 
-    assert strategy_keys(items, 0..5) == List.duplicate("simulation_informed", 6)
-    assert strategy_keys(items, 6..11) == List.duplicate("cvss", 6)
-    assert strategy_keys(items, 12..17) == List.duplicate("simulated_annealing", 6)
-    assert strategy_keys(items, 18..23) == List.duplicate("cvss", 6)
+    assert strategy_keys(items, 0..5) == List.duplicate(:simulation_informed, 6)
+    assert strategy_keys(items, 6..11) == List.duplicate(:cvss, 6)
+    assert strategy_keys(items, 12..17) == List.duplicate(:simulated_annealing, 6)
+    assert strategy_keys(items, 18..23) == List.duplicate(:cvss, 6)
 
     assert Enum.map(items, & &1.comparison.tier) ==
              List.duplicate("core", 12) ++ List.duplicate("edge", 12)

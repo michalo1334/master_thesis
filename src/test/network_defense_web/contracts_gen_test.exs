@@ -2,8 +2,11 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   use ExUnit.Case, async: true
 
   alias Mix.Tasks.Gen.Contracts.{Registry, TypespecParser}
+  alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
+  alias NetworkDefense.Optimization.SimulationObjective
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
   @dashboard_categories [
@@ -135,6 +138,31 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
 
   test "generated file is in sync with contracts" do
     assert File.read!(Registry.output_path()) == Registry.render_all()
+  end
+
+  test "RTYPE-03: closed scalar and array fields render as string-literal unions" do
+    output = Registry.render_all()
+    flattened = String.replace(output, ~r/\s+/, " ")
+
+    refute output =~ "candidate_action_types: string[]"
+    refute output =~ "rules: string[]"
+    refute output =~ "objective: string;"
+    refute output =~ "NetworkDefense.Rules."
+
+    assert flattened =~ "candidate_action_types: Array<"
+    assert flattened =~ "rules: Array<"
+
+    for value <- RulesRegistry.values() do
+      assert output =~ ~s("#{value}")
+    end
+
+    for value <- DefenseActionsRegistry.values() do
+      assert output =~ ~s("#{value}")
+    end
+
+    for value <- SimulationObjective.values() do
+      assert output =~ ~s("#{value}")
+    end
   end
 
   test "generates runtime field metadata from typespecs and enum metadata" do

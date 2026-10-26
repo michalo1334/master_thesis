@@ -17,7 +17,7 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F13. F10–F13 add measured trial runtimes, persisted Pilot runtime assembly, authoritative replica-zero fan-in, and one idempotent phase-linked Pilot snapshot.
 
-The remaining implementation starts with the deferred [study runtime contract](evaluation-study-runtime-contract-future-work.md) and F14+F15 preparation. The runtime contract remains a completion gate before the real Pilot coordinator or public lifecycle can accept collection evidence.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F14+F15 preparation and implementation come next. The public study lifecycle stays unavailable until that coordination work exists.
 
 ## Prototype boundaries
 
@@ -321,8 +321,11 @@ Retain existing scientific Pilot tests. Do not duplicate them for the new contai
 
 ```elixir
 build_collection_work(execution, phase, definition, replica_position)
-run_collection_item(collection_item, work_item)
+run_collection_item(collection_item_id)
 ```
+
+Planning returns typed work items. Mapped execution accepts one collection-item
+identifier and rebuilds the canonical work from the stored revision.
 
 Each typed work item carries its declared position, comparison identity and position, side, graph, strategy, budget, plan position, concrete selection seed, evaluation root, attack count, and replica position.
 
@@ -337,7 +340,7 @@ Add only these collection controls:
 
 Reuse existing ScatterGather concurrency and evidence limits. Add no combined concurrency cap or Gust × ScatterGather product check.
 
-The current domain runtime cannot execute every scientific setting that the study schema accepts. It also cannot fully bind a mapped item to its immutable revision. [Evaluation study runtime contract — future work](evaluation-study-runtime-contract-future-work.md) records this deferred limitation and its completion gate. Keep the study lifecycle unavailable to public callers while this limitation remains.
+The runtime-contract gate now executes every scientific setting that the study schema accepts and binds a mapped item to its immutable revision. [Evaluation study runtime contract](evaluation-study-runtime-contract-future-work.md) records that gate. Keep the study lifecycle unavailable to public callers until the Pilot coordinator exists.
 
 **EARS — unit:**
 

@@ -7,7 +7,19 @@ defmodule NetworkDefense.Repo.Migrations.AddResumableSimulationProgress do
       add :completed_trials, :integer, null: false, default: 0
       add :status, :string, null: false, default: "completed"
       add :initial_foothold_node_id, :binary_id
+      add :rules, {:array, :string}, null: false, default: []
+      add :require_pre_attack_feasibility, :boolean, null: false, default: true
     end
+
+    execute("""
+    UPDATE experiments
+    SET rules = ARRAY[
+          'remote_service_exploitation',
+          'local_vulnerability_exploitation',
+          'acquire_credential_rule',
+          'reuse_credential_rule'
+        ]::varchar[]
+    """)
 
     execute("""
     UPDATE experiments
@@ -44,9 +56,14 @@ defmodule NetworkDefense.Repo.Migrations.AddResumableSimulationProgress do
     create constraint(:experiments, :experiments_status_valid,
              check: "status IN ('running', 'failed', 'completed')"
            )
+
+    create constraint(:experiments, :experiments_rules_present,
+             check: "coalesce(array_length(rules, 1), 0) >= 1"
+           )
   end
 
   def down do
+    drop constraint(:experiments, :experiments_rules_present)
     drop constraint(:experiments, :experiments_status_valid)
     drop constraint(:experiments, :experiments_completed_trials_non_negative)
     drop constraint(:experiments, :experiments_total_trials_positive)
@@ -57,6 +74,8 @@ defmodule NetworkDefense.Repo.Migrations.AddResumableSimulationProgress do
     end
 
     alter table(:experiments) do
+      remove :require_pre_attack_feasibility
+      remove :rules
       remove :initial_foothold_node_id
       remove :status
       remove :completed_trials

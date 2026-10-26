@@ -28,12 +28,12 @@ defmodule NetworkDefense.Optimizations do
 
   @optimization_events_topic "optimization_events"
   @strategy_modules %{
-    "null" => NullStrategy,
-    "random" => RandomStrategy,
-    "cvss" => CvssStrategy,
-    "simulation_informed" => SimulationInformedStrategy,
-    "topology_segmentation" => TopologySegmentationStrategy,
-    "simulated_annealing" => SimulatedAnnealingStrategy
+    null: NullStrategy,
+    random: RandomStrategy,
+    cvss: CvssStrategy,
+    simulation_informed: SimulationInformedStrategy,
+    topology_segmentation: TopologySegmentationStrategy,
+    simulated_annealing: SimulatedAnnealingStrategy
   }
 
   @type async_result :: {:ok, OptimizationRun.t()} | {:error, Errors.error()}
@@ -56,7 +56,9 @@ defmodule NetworkDefense.Optimizations do
   """
   @spec run(RunOptimizationRequest.t()) :: result()
   def run(%RunOptimizationRequest{} = request) do
-    with {:ok, run} <- prepare(request), do: run_or_resume(run.id, request)
+    with {:ok, run} <- prepare(request) do
+      run_reserved(run.id, correlation_id: request.correlation_id)
+    end
   end
 
   @spec prepare(RunOptimizationRequest.t()) :: result()
@@ -76,10 +78,13 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  @spec run_or_resume(Ecto.UUID.t(), RunOptimizationRequest.t()) :: result()
-  def run_or_resume(run_id, %RunOptimizationRequest{} = request) do
+  @doc "Executes one stored run from its persisted settings."
+  @spec run_reserved(Ecto.UUID.t(), keyword()) :: result()
+  def run_reserved(run_id, opts) do
+    correlation_id = Keyword.fetch!(opts, :correlation_id)
+
     with %OptimizationRun{} = stored_run <- OptimizationRuns.load(run_id),
-         :ok <- ensure_run_identity(stored_run, request) do
+         {:ok, request} <- RunIdentity.stored_request(stored_run, correlation_id) do
       case OptimizationRuns.resume_or_load(run_id) do
         {:ok, %OptimizationRun{status: "completed"} = run} -> {:ok, run}
         {:ok, run} -> run_resumed_optimization(run, request)
@@ -87,19 +92,22 @@ defmodule NetworkDefense.Optimizations do
       end
     else
       nil -> {:error, :not_found}
-      error -> error
+      {:error, reason} -> {:error, reason}
     end
   end
 
-  defp load_graph(%RunOptimizationRequest{graph_revision_id: graph_revision_id}) do
+  defp load_graph(%RunOptimizationRequest{graph_revision_id: graph_revision_id} = request) do
     case Graphs.load_revision(graph_revision_id) do
       nil -> {:error, :not_found}
       {:error, _reason} -> {:error, :invalid_graph}
-      graph -> ensure_pre_attack_feasible(graph)
+      graph -> ensure_pre_attack_feasible(graph, request.optimization_params)
     end
   end
 
-  defp ensure_pre_attack_feasible(graph) do
+  defp ensure_pre_attack_feasible(graph, %{require_pre_attack_feasibility: false}),
+    do: {:ok, graph}
+
+  defp ensure_pre_attack_feasible(graph, _params) do
     if MissionImpact.pre_attack_feasible?(graph) do
       {:ok, graph}
     else
@@ -139,8 +147,6 @@ defmodule NetworkDefense.Optimizations do
     end
   end
 
-  defp ensure_run_identity(run, request), do: RunIdentity.check(run, request)
-
   defp persist_run(graph, candidate, request) do
     case OptimizationRuns.create(candidate) do
       {:ok, run} ->
@@ -161,7 +167,7 @@ defmodule NetworkDefense.Optimizations do
   defp enqueue_optimization(request, run) do
     args = %{
       "run_id" => run.id,
-      "request" => RunOptimizationRequest.to_params(request)
+      "correlation_id" => request.correlation_id
     }
 
     case OpentelemetryOban.insert(OptimizationWorker.new(args)) do
@@ -198,9 +204,17 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp apply_optimization(graph, request, strategy) do
-    Optimizer.apply(graph, strategy, request.optimization_params.budget,
+    params = request.optimization_params
+
+    Optimizer.apply(graph, strategy, params.budget,
+      action_types: action_modules(params.candidate_action_types),
+      require_pre_attack_feasibility: params.require_pre_attack_feasibility,
       progress_callback: &broadcast_progress(graph, request.correlation_id, &1, &2, &3)
     )
+  end
+
+  defp action_modules(action_types) do
+    Enum.map(action_types, &DefenseActionsRegistry.module_for_value/1)
   end
 
   defp optimization_span_attributes(graph, request, run) do
@@ -209,7 +223,7 @@ defmodule NetworkDefense.Optimizations do
       "graph.revision_id": graph.revision_id,
       "optimization.run_id": run.id,
       "network_defense.correlation.id": request.correlation_id,
-      "optimization.strategy": request.optimization_params.strategy,
+      "optimization.strategy": Atom.to_string(request.optimization_params.strategy),
       "optimization.requested_budget": request.optimization_params.budget
     }
   end

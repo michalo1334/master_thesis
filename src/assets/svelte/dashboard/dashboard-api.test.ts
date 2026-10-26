@@ -1,6 +1,7 @@
 import type { GraphContract } from "../contracts.generated/graph";
 import { describe, expect, it, vi } from "vitest";
 import { createDashboardApi, type LiveServer } from "./dashboard-api";
+import type { DashboardOptimizationParams } from "./contract";
 describe("DashboardApi", () => {
   it("sends only the save contract fields", async () => {
     const reply = { status: "ok" as const };
@@ -55,7 +56,7 @@ describe("DashboardApi", () => {
     expect(live.pushEvent).not.toHaveBeenCalled();
   });
 
-  it("sends the optimization request and returns the reply", async () => {
+  it("sends a scoring optimization request with the seed flag outside it", async () => {
     const reply = {
       status: "accepted" as const,
       graph_revision_id: "r1",
@@ -69,23 +70,97 @@ describe("DashboardApi", () => {
       }),
     } as unknown as LiveServer;
 
+    const params = {
+      strategy: "simulation_informed" as const,
+      budget: 3,
+      seed: 7,
+      candidate_action_types: ["block_segment_reachability"],
+      require_pre_attack_feasibility: true,
+      initial_foothold_node_id: "host-1",
+      generate_seed: true,
+      simulation_params: {
+        objective: "mission_then_blast_radius",
+        monte_carlo_trials: 2,
+        iterations_per_run: 3,
+        max_attempts: 1,
+        rules: ["remote_service_exploitation"],
+      },
+    } satisfies DashboardOptimizationParams;
+
     const result = await createDashboardApi(live).runOptimization(
       "r1",
       "corr-1",
-      { strategy: "cvss", budget: 3, seed: 0 },
+      params,
     );
 
     expect(result).toEqual(reply);
     expect(live.pushEvent).toHaveBeenCalledWith(
       "run_optimization_request",
       {
+        generate_seed: true,
+        request: {
+          graph_revision_id: "r1",
+          correlation_id: "corr-1",
+          optimization_params: {
+            strategy: "simulation_informed",
+            budget: 3,
+            seed: 7,
+            candidate_action_types: ["block_segment_reachability"],
+            require_pre_attack_feasibility: true,
+            initial_foothold_node_id: "host-1",
+            simulation_params: params.simulation_params,
+          },
+        },
+      },
+      expect.any(Function),
+    );
+  });
+
+  it("omits scoring settings and an empty foothold for a non-scoring strategy", async () => {
+    const reply = {
+      status: "accepted" as const,
+      graph_revision_id: "r1",
+      correlation_id: "corr-1",
+      run_id: "optimization-run-1",
+    };
+    const live = {
+      pushEvent: vi.fn((_, __, onReply) => {
+        onReply(reply, 1);
+        return 1;
+      }),
+    } as unknown as LiveServer;
+
+    await createDashboardApi(live).runOptimization("r1", "corr-1", {
+      strategy: "cvss",
+      budget: 1,
+      seed: 0,
+      candidate_action_types: ["patch_vulnerability"],
+      require_pre_attack_feasibility: true,
+      initial_foothold_node_id: "",
+      generate_seed: false,
+      simulation_params: {
+        objective: "mission_then_blast_radius",
+        monte_carlo_trials: 2,
+        iterations_per_run: 3,
+        max_attempts: 1,
+        rules: ["remote_service_exploitation"],
+      },
+    });
+
+    expect(live.pushEvent).toHaveBeenCalledWith(
+      "run_optimization_request",
+      {
+        generate_seed: false,
         request: {
           graph_revision_id: "r1",
           correlation_id: "corr-1",
           optimization_params: {
             strategy: "cvss",
-            budget: 3,
+            budget: 1,
             seed: 0,
+            candidate_action_types: ["patch_vulnerability"],
+            require_pre_attack_feasibility: true,
+            initial_foothold_node_id: undefined,
           },
         },
       },

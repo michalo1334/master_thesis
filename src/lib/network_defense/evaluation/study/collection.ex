@@ -15,6 +15,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.Reservations
+  alias NetworkDefense.Evaluation.Study.Revisions
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyExecution, StudyPhase}
 
   alias NetworkDefense.Optimization.Contracts.{
@@ -25,6 +26,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
 
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimizations
+  alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulations
@@ -39,7 +41,8 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
         %Definition{} = definition,
         replica_position
       ) do
-    with :ok <- validate_phase(execution, phase),
+    with :ok <- ensure_supported_phase(phase),
+         :ok <- validate_phase(execution, phase),
          :ok <- validate_position(:replica_position, replica_position),
          {:ok, limits} <- CollectionLimits.fetch(),
          {:ok, plan} <- plan(definition),
@@ -48,32 +51,79 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     end
   end
 
-  @spec run_collection_item(StudyCollectionItem.t(), CollectionWorkItem.t()) ::
+  @spec run_collection_item(Ecto.UUID.t()) ::
           {:ok, CollectionResult.t()} | {:error, StudyError.t()}
-  def run_collection_item(
-        %StudyCollectionItem{} = item,
-        %CollectionWorkItem{} = work_item
-      ) do
-    with :ok <- validate_item(item, work_item),
+  def run_collection_item(collection_item_id) do
+    with {:ok, item} <- load_item(collection_item_id),
+         {:ok, phase} <- load_phase(item.study_phase_id),
+         :ok <- ensure_supported_phase(phase),
+         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
+         :ok <- validate_phase(execution, phase),
+         {:ok, work_item} <- canonical_work_item(execution, phase, definition, item),
          {:ok, limits} <- CollectionLimits.fetch(),
          :ok <- within_item_cap(work_item, limits),
          {:ok, run} <- run_optimization(item, work_item),
-         {:ok, experiment} <- run_experiment(item, work_item, run) do
+         {:ok, experiment} <- run_experiment(item, work_item, definition, run) do
       result(item, run, experiment)
     end
   end
 
-  defp validate_phase(%StudyExecution{id: execution_id}, %StudyPhase{} = phase) do
-    cond do
-      phase.phase != @collection_phase ->
-        {:error, StudyError.unsupported_collection_phase(phase.phase)}
-
-      phase.execution_id != execution_id ->
-        {:error, StudyError.collection_phase_mismatch()}
-
-      true ->
-        :ok
+  # The item identifier arrives in the task payload, so malformed input becomes a
+  # bounded error here. The phase and execution identifiers come from a stored
+  # row and are already typed, so they are read directly.
+  defp load_item(collection_item_id) do
+    with {:ok, id} <- cast_id(collection_item_id) do
+      case Repo.get(StudyCollectionItem, id) do
+        %StudyCollectionItem{} = item -> {:ok, item}
+        nil -> {:error, StudyError.collection_item_not_found()}
+      end
     end
+  end
+
+  defp cast_id(value) do
+    case Ecto.UUID.cast(value) do
+      {:ok, id} -> {:ok, id}
+      :error -> {:error, StudyError.collection_item_not_found()}
+    end
+  end
+
+  defp load_phase(study_phase_id) do
+    case Repo.get(StudyPhase, study_phase_id) do
+      %StudyPhase{} = phase -> {:ok, phase}
+      nil -> {:error, StudyError.invalid_study_phase()}
+    end
+  end
+
+  defp load_execution(execution_id) do
+    case Repo.get(StudyExecution, execution_id) do
+      %StudyExecution{} = execution -> {:ok, execution}
+      nil -> {:error, StudyError.study_execution_not_found()}
+    end
+  end
+
+  defp canonical_work_item(execution, phase, definition, %StudyCollectionItem{} = item) do
+    with {:ok, items} <-
+           build_collection_work(execution, phase, definition, item.replica_position) do
+      case Enum.at(items, item.item_position) do
+        %CollectionWorkItem{} = work_item ->
+          {:ok, work_item}
+
+        nil ->
+          {:error, StudyError.invalid_collection_position(:item_position)}
+      end
+    end
+  end
+
+  defp ensure_supported_phase(%StudyPhase{phase: @collection_phase}), do: :ok
+
+  defp ensure_supported_phase(%StudyPhase{phase: phase}),
+    do: {:error, StudyError.unsupported_collection_phase(phase)}
+
+  defp validate_phase(%StudyExecution{id: execution_id}, %StudyPhase{} = phase) do
+    if phase.execution_id == execution_id,
+      do: :ok,
+      else: {:error, StudyError.collection_phase_mismatch()}
   end
 
   defp validate_position(_field, position) when is_integer(position) and position >= 0, do: :ok
@@ -231,19 +281,6 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
   defp reverse_result({:ok, values}), do: {:ok, Enum.reverse(values)}
   defp reverse_result({:error, %StudyError{} = error}), do: {:error, error}
 
-  defp validate_item(%StudyCollectionItem{} = item, %CollectionWorkItem{} = work_item) do
-    cond do
-      item.replica_position != work_item.replica_position ->
-        {:error, StudyError.collection_work_mismatch(:replica_position)}
-
-      item.item_position != work_item.item_position ->
-        {:error, StudyError.collection_work_mismatch(:item_position)}
-
-      true ->
-        :ok
-    end
-  end
-
   defp within_item_cap(%CollectionWorkItem{item_position: item_position}, %CollectionLimits{
          max_phase_items: limit
        }) do
@@ -257,7 +294,9 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
 
     with {:ok, %OptimizationRun{} = reserved} <-
            Reservations.reserve_optimization(item.id, request) do
-      case Optimizations.run_or_resume(reserved.id, request) do
+      case Optimizations.run_reserved(reserved.id,
+             correlation_id: request.correlation_id
+           ) do
         {:ok, %OptimizationRun{status: "completed"} = run} ->
           {:ok, run}
 
@@ -273,9 +312,10 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
   defp run_experiment(
          %StudyCollectionItem{} = item,
          %CollectionWorkItem{} = work_item,
+         %Definition{} = definition,
          %OptimizationRun{} = run
        ) do
-    request = simulation_request(item, work_item, run)
+    request = simulation_request(item, work_item, definition, run)
 
     with {:ok, %Experiment{} = reserved} <- Reservations.reserve_experiment(item.id, request) do
       case Simulations.run(reserved.id, correlation_id: correlation_id(item, :experiment)) do
@@ -299,9 +339,17 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
         strategy: work_item.strategy.key,
         budget: work_item.budget,
         seed: work_item.selection_seed,
+        candidate_action_types: work_item.strategy.candidate_action_types,
+        require_pre_attack_feasibility: work_item.strategy.require_pre_attack_feasibility,
+        initial_foothold_node_id: foothold(work_item),
         simulation_params: scoring_settings(work_item)
       }
     }
+  end
+
+  defp foothold(%CollectionWorkItem{} = work_item) do
+    if OptimizationParams.requires_initial_foothold?(work_item.strategy.key),
+      do: work_item.initial_foothold_node_id
   end
 
   defp scoring_settings(%CollectionWorkItem{strategy: %{scoring: nil}}), do: nil
@@ -310,16 +358,18 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     scoring = work_item.strategy.scoring
 
     %SimulationSettings{
+      objective: scoring.objective,
       monte_carlo_trials: scoring.monte_carlo_trials,
       iterations_per_run: scoring.iterations_per_run,
-      initial_foothold_node_id: work_item.initial_foothold_node_id,
-      max_attempts: scoring.max_attempts
+      max_attempts: scoring.max_attempts,
+      rules: scoring.rules
     }
   end
 
   defp simulation_request(
          %StudyCollectionItem{} = item,
          %CollectionWorkItem{} = work_item,
+         %Definition{} = definition,
          %OptimizationRun{} = run
        ) do
     %RunSimulationRequest{
@@ -331,7 +381,9 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
         initial_foothold_node_id: work_item.initial_foothold_node_id,
         seed: work_item.evaluation_root,
         generate_seed: false,
-        max_attempts: work_item.max_attempts
+        max_attempts: work_item.max_attempts,
+        rules: definition.simulation.rules,
+        require_pre_attack_feasibility: definition.simulation.require_pre_attack_feasibility
       }
     }
   end

@@ -3,8 +3,9 @@ defmodule NetworkDefense.DocumentCatalogTest do
 
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments}
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
 
@@ -153,6 +154,8 @@ defmodule NetworkDefense.DocumentCatalogTest do
     Experiment.new(%{
       graph_revision_id: graph.revision_id,
       master_seed: 1,
+      rules: RulesRegistry.values(),
+      require_pre_attack_feasibility: true,
       iteration_count: 1,
       max_attempts: 1,
       total_trials: 1,
@@ -169,7 +172,11 @@ defmodule NetworkDefense.DocumentCatalogTest do
       output_graph_revision_id: output_graph_revision_id,
       strategy: "cvss",
       requested_budget: 1,
-      status: "completed"
+      status: "completed",
+      execution_config: %ExecutionConfig{
+        candidate_action_types: [:patch_vulnerability],
+        require_pre_attack_feasibility: true
+      }
     })
     |> Repo.insert()
   end

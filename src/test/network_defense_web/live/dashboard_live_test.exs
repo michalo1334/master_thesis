@@ -13,7 +13,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Relationships.Contains
@@ -21,6 +21,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Relationships.Runs
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, SimulationReport}
   alias NetworkDefense.Simulations
   alias NetworkDefenseWeb.DashboardLive
@@ -459,6 +460,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1,
             "initial_foothold_node_id" => foothold.id,
@@ -515,6 +518,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1,
             "initial_foothold_node_id" => foothold.id,
@@ -561,6 +566,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1,
             "initial_foothold_node_id" => foothold.id,
@@ -603,6 +610,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => foothold.graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 101,
             "iterations_per_run" => 1,
             "initial_foothold_node_id" => foothold.id,
@@ -631,6 +640,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1
           }
@@ -655,6 +666,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "graph_revision_id" => "not-a-uuid",
           "correlation_id" => correlation_id,
           "simulation_params" => %{
+            "rules" => RulesRegistry.values(),
+            "require_pre_attack_feasibility" => true,
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1
           }
@@ -794,7 +807,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -849,13 +868,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "optimization_params" => %{
             "strategy" => "topology_segmentation",
             "budget" => 1,
-            "simulation_params" => %{
-              "monte_carlo_trials" => 1,
-              "iterations_per_run" => 1,
-              "initial_foothold_node_id" => foothold.id,
-              "generate_seed" => true,
-              "max_attempts" => 1
-            }
+            "seed" => 0,
+            "candidate_action_types" => ["block_segment_reachability"],
+            "require_pre_attack_feasibility" => true,
+            "initial_foothold_node_id" => foothold.id
           }
         }
       })
@@ -878,6 +894,41 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       )
     end
 
+    test "replaces a random seed with one concrete seed", %{conn: conn} do
+      graph = insert_graph("random-seed-test")
+      foothold = insert_node(graph, "entry-host")
+      graph = Graphs.load_revision!(foothold.graph_revision_id)
+      correlation_id = "random-seed-request"
+
+      {:ok, view, _html} = live(conn, ~p"/")
+
+      render_hook(view, "run_optimization_request", %{
+        "generate_seed" => true,
+        "request" => %{
+          "graph_revision_id" => graph.revision_id,
+          "correlation_id" => correlation_id,
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
+        }
+      })
+
+      assert_reply(view, %{status: "accepted", correlation_id: ^correlation_id})
+
+      run_id = perform_optimization_job()
+
+      assert %OptimizationRun{seed: seed, execution_config: execution_config} =
+               OptimizationRuns.load(run_id)
+
+      assert is_integer(seed)
+      assert seed > 0
+      refute Map.has_key?(execution_config, "generate_seed")
+    end
+
     test "optimizes a graph with the maximum title length", %{conn: conn} do
       graph = insert_graph(String.duplicate("x", 255))
       graph_id = graph.id
@@ -892,7 +943,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -927,7 +984,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 0, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 0,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -953,7 +1016,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "optimization_params" => %{
             "strategy" => "simulation_informed",
             "budget" => 1,
-            "seed" => 0
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability"],
+            "require_pre_attack_feasibility" => true,
+            "initial_foothold_node_id" => Ecto.UUID.generate()
           }
         }
       })
@@ -980,13 +1046,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
           "optimization_params" => %{
             "strategy" => "topology_segmentation",
             "budget" => 1,
-            "simulation_params" => %{
-              "monte_carlo_trials" => 1,
-              "iterations_per_run" => 1,
-              "initial_foothold_node_id" => Ecto.UUID.generate(),
-              "generate_seed" => true,
-              "max_attempts" => 1
-            }
+            "seed" => 0,
+            "candidate_action_types" => ["block_segment_reachability"],
+            "require_pre_attack_feasibility" => true,
+            "initial_foothold_node_id" => Ecto.UUID.generate()
           }
         }
       })
@@ -1067,7 +1130,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => source_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -1117,7 +1186,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => source_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -1165,7 +1240,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "request" => %{
           "graph_revision_id" => graph_revision_id,
           "correlation_id" => correlation_id,
-          "optimization_params" => %{"strategy" => "cvss", "budget" => 1, "seed" => 0}
+          "optimization_params" => %{
+            "strategy" => "cvss",
+            "budget" => 1,
+            "seed" => 0,
+            "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+            "require_pre_attack_feasibility" => true
+          }
         }
       })
 
@@ -1910,6 +1991,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       Experiment.new(
         graph_revision_id: graph_revision_id,
         master_seed: 1,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 10,
@@ -1927,7 +2010,11 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
       graph_revision_id: graph_revision_id,
       strategy: "cvss",
       requested_budget: 1,
-      status: "running"
+      status: "running",
+      execution_config: %ExecutionConfig{
+        candidate_action_types: [:patch_vulnerability],
+        require_pre_attack_feasibility: true
+      }
     })
     |> Repo.insert!()
     |> Map.fetch!(:id)
@@ -1949,12 +2036,16 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
         "optimization_params" => %{
           "strategy" => strategy,
           "budget" => 1,
+          "seed" => 0,
+          "candidate_action_types" => ["patch_vulnerability", "revoke_credential"],
+          "require_pre_attack_feasibility" => true,
+          "initial_foothold_node_id" => foothold.id,
           "simulation_params" => %{
+            "objective" => "mission_then_blast_radius",
             "monte_carlo_trials" => 1,
             "iterations_per_run" => 1,
-            "initial_foothold_node_id" => foothold.id,
-            "generate_seed" => true,
-            "max_attempts" => 1
+            "max_attempts" => 1,
+            "rules" => RulesRegistry.values()
           }
         }
       }
@@ -2050,13 +2141,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp perform_optimization_job do
-    assert [%{args: %{"run_id" => run_id, "request" => request_params}}] =
+    assert [%{args: %{"run_id" => run_id, "correlation_id" => correlation_id}}] =
              all_enqueued(worker: OptimizationWorker)
 
     assert :ok =
              perform_job(OptimizationWorker, %{
                "run_id" => run_id,
-               "request" => request_params
+               "correlation_id" => correlation_id
              })
 
     run_id

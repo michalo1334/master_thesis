@@ -625,7 +625,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
       graph_id: run.graph_revision.graph_id,
       graph_revision_id: run.graph_revision_id,
       graph_title: run.graph_revision.title,
-      strategy: run.strategy,
+      strategy: Atom.to_string(run.strategy),
       requested_budget: run.requested_budget,
       used_budget: run.used_budget,
       runtime_ms: run.runtime_ms,
@@ -839,20 +839,17 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   # A random seed is resolved before typed parsing, so the typed request always
   # carries one concrete seed and no generate flag crosses the boundary.
-  defp resolve_optimization_seed(%{"request" => %{"optimization_params" => params}} = payload)
+  defp resolve_optimization_seed(
+         %{"generate_seed" => true, "request" => %{"optimization_params" => params}} = payload
+       )
        when is_map(params) do
-    case params do
-      %{"simulation_params" => %{"generate_seed" => true}} ->
-        put_in(
-          payload,
-          ["request", "optimization_params"],
-          Map.put(params, "seed", Seed.random())
-        )
-
-      _ ->
-        payload
-    end
+    payload
+    |> put_in(["request", "optimization_params"], Map.put(params, "seed", Seed.random()))
+    |> Map.delete("generate_seed")
   end
+
+  defp resolve_optimization_seed(payload) when is_map(payload),
+    do: Map.delete(payload, "generate_seed")
 
   defp resolve_optimization_seed(payload), do: payload
 

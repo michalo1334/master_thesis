@@ -1,4 +1,7 @@
-import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type {
+  OptimizationParams,
+  SimulationSettings,
+} from "../../contracts.generated/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/svelte";
@@ -8,6 +11,13 @@ type OptimizationOption = {
   title: string;
 };
 
+const rules: SimulationSettings["rules"] = [
+  "remote_service_exploitation",
+  "local_vulnerability_exploitation",
+  "acquire_credential_rule",
+  "reuse_credential_rule",
+];
+
 const simulationParams: SimulationParams = {
   generate_seed: false,
   initial_foothold_node_id: "host-1",
@@ -15,6 +25,16 @@ const simulationParams: SimulationParams = {
   max_attempts: 1,
   monte_carlo_trials: 1000,
   seed: 1,
+  rules,
+  require_pre_attack_feasibility: true,
+};
+
+const scoringSettings: SimulationSettings = {
+  objective: "mission_then_blast_radius",
+  monte_carlo_trials: 1000,
+  iterations_per_run: 1000,
+  max_attempts: 1,
+  rules,
 };
 
 const optimizationOptions: OptimizationOption[] = [
@@ -30,10 +50,12 @@ function renderRibbon({
   activeOptimizationId = "simulation_informed",
   footholdHosts = [{ id: "host-1", name: "Host 1" }],
   hasActiveGraph = true,
+  generateSeed = false,
 }: {
   activeOptimizationId?: OptimizationParams["strategy"];
   footholdHosts?: readonly { id: string; name: string }[];
   hasActiveGraph?: boolean;
+  generateSeed?: boolean;
 } = {}) {
   const onOptimize = vi.fn();
   const onOptimizationParamsChange = vi.fn();
@@ -51,7 +73,11 @@ function renderRibbon({
         budget: 1,
         seed: 0,
         strategy: activeOptimizationId,
-        simulation_params: simulationParams,
+        candidate_action_types: ["patch_vulnerability"],
+        require_pre_attack_feasibility: true,
+        initial_foothold_node_id: "host-1",
+        generate_seed: generateSeed,
+        simulation_params: scoringSettings,
       },
       onOptimizationParamsChange,
       onSimulationParamsChange: vi.fn(),
@@ -233,6 +259,14 @@ describe("DashboardRibbon", () => {
     expect(screen.getByRole("checkbox", { name: "Random seed" })).toBeEnabled();
     await fireEvent.click(screen.getByRole("button", { name: "Optimize" }));
     expect(onOptimize).toHaveBeenCalledWith("cvss");
+  });
+
+  it("disables the manual seed while the random seed is selected", async () => {
+    renderRibbon({ generateSeed: true });
+    await openOptimizationTab();
+
+    expect(screen.getByRole("spinbutton", { name: "Seed" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Random seed" })).toBeChecked();
   });
 
   it("keeps the standalone simulation controls unchanged", async () => {

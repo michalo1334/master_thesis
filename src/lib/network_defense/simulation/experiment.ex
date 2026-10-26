@@ -4,6 +4,7 @@ defmodule NetworkDefense.Simulation.Experiment do
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.{Graph, GraphRevision}
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Experiment.Status
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Seed
@@ -23,6 +24,8 @@ defmodule NetworkDefense.Simulation.Experiment do
           completed_trials: non_neg_integer(),
           status: Status.t(),
           initial_foothold_node_id: String.t() | nil,
+          rules: [RulesRegistry.rule_type()],
+          require_pre_attack_feasibility: boolean(),
           runs: list(Run.t()) | Ecto.Association.NotLoaded.t()
         }
 
@@ -38,6 +41,8 @@ defmodule NetworkDefense.Simulation.Experiment do
     field(:completed_trials, :integer, default: 0)
     field(:status, Ecto.Enum, values: Status.values(), default: :completed)
     field(:initial_foothold_node_id, :binary_id)
+    field(:rules, {:array, Ecto.Enum}, values: RulesRegistry.values())
+    field(:require_pre_attack_feasibility, :boolean)
 
     has_many(:runs, Run)
 
@@ -54,7 +59,9 @@ defmodule NetworkDefense.Simulation.Experiment do
       :total_trials,
       :completed_trials,
       :status,
-      :initial_foothold_node_id
+      :initial_foothold_node_id,
+      :rules,
+      :require_pre_attack_feasibility
     ])
     |> validate_required([
       :graph_revision_id,
@@ -63,8 +70,11 @@ defmodule NetworkDefense.Simulation.Experiment do
       :max_attempts,
       :total_trials,
       :completed_trials,
-      :status
+      :status,
+      :rules,
+      :require_pre_attack_feasibility
     ])
+    |> validate_length(:rules, min: 1)
     |> validate_number(:master_seed, greater_than_or_equal_to: 0)
     |> validate_number(:iteration_count, greater_than: 0)
     |> validate_number(:max_attempts, greater_than: 0)
@@ -89,6 +99,8 @@ defmodule NetworkDefense.Simulation.Experiment do
       completed_trials: Map.get(attrs, :completed_trials, 0),
       status: Map.get(attrs, :status, :running),
       initial_foothold_node_id: Map.get(attrs, :initial_foothold_node_id),
+      rules: Map.get(attrs, :rules, []),
+      require_pre_attack_feasibility: Map.get(attrs, :require_pre_attack_feasibility, true),
       runs: Map.get(attrs, :runs, [])
     }
   end

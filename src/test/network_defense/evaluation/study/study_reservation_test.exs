@@ -8,19 +8,13 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.Reservations
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyFixtures}
-  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
+  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Simulation.{Experiment, Run}
   alias NetworkDefense.Simulations
   alias NetworkDefense.Simulations.CoordinatorRegistry
 
-  # Three behaviors of the reservation boundary of one collection item:
-  #
-  # 1. a repeated matching reservation returns the same runtime record;
-  # 2. a changed request fails and keeps the original link and record;
-  # 3. the reservation stores the record and starts no runtime work.
-  #
-  # Both runtime sides are covered. The short row lock is the concurrency guard,
-  # so no concurrency test repeats it.
+  # The short row lock is the concurrency guard, so no concurrency test repeats
+  # it.
 
   setup do
     study = StudyFixtures.study_with_two_phases()
@@ -39,7 +33,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
 
     assert run.status == "running"
     assert run.graph_revision_id == graph.revision_id
-    assert run.strategy == "cvss"
+    assert run.strategy == :cvss
     assert run.requested_budget == 1
     assert run.seed == 7
 
@@ -62,38 +56,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
     assert MapSet.subset?(task_supervisor_children(), running_tasks)
   end
 
-  test "RESERVE-02: a changed optimization request fails and keeps the link", %{
-    pilot_phase: phase,
-    graph: graph
-  } do
-    item = collection_item(phase)
-    request = StudyFixtures.optimization_request(graph, seed: 7, budget: 1)
-
-    assert {:ok, %OptimizationRun{} = run} = Reservations.reserve_optimization(item.id, request)
-
-    changed_requests = [
-      StudyFixtures.optimization_request(graph, budget: 2),
-      StudyFixtures.optimization_request(graph, seed: 8),
-      StudyFixtures.optimization_request(graph, strategy: "null")
-    ]
-
-    for changed <- changed_requests do
-      assert {:error, %StudyError{code: "conflict", issues: [issue]}} =
-               Reservations.reserve_optimization(item.id, changed)
-
-      assert issue["code"] == "runtime_record_mismatch"
-      assert issue["path"] == ["optimization_run_id"]
-    end
-
-    assert %{optimization_run_id: linked_id} = Repo.get(StudyCollectionItem, item.id)
-    assert linked_id == run.id
-    assert optimization_run_count(graph.revision_id) == 1
-
-    assert %OptimizationRun{status: "running", requested_budget: 1, seed: 7} =
-             OptimizationRuns.load(run.id)
-  end
-
-  test "RESERVE-03: a repeated experiment reservation returns the stored experiment", %{
+  test "RESERVE-02: a repeated experiment reservation returns the stored experiment", %{
     pilot_phase: phase,
     graph: graph,
     foothold: foothold
@@ -145,7 +108,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
     refute_receive {:simulation_progress, _progress}, 50
   end
 
-  test "RESERVE-04: a generated seed stays outside the experiment identity", %{
+  test "RESERVE-03: a generated seed stays outside the experiment identity", %{
     pilot_phase: phase,
     graph: graph,
     foothold: foothold
@@ -161,42 +124,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
     assert experiment_count(graph.revision_id) == 1
   end
 
-  test "RESERVE-05: a changed experiment request fails and keeps the link", %{
-    pilot_phase: phase,
-    graph: graph,
-    foothold: foothold,
-    alternate_foothold: alternate_foothold
-  } do
-    item = collection_item(phase)
-    request = StudyFixtures.simulation_request(graph, foothold, seed: 11, trials: 2)
-
-    assert {:ok, %Experiment{} = experiment} = Reservations.reserve_experiment(item.id, request)
-
-    changed_requests = [
-      StudyFixtures.simulation_request(graph, foothold, seed: 11, trials: 3),
-      StudyFixtures.simulation_request(graph, foothold, seed: 12),
-      StudyFixtures.simulation_request(graph, foothold, seed: 11, iterations: 2),
-      StudyFixtures.simulation_request(graph, foothold, seed: 11, max_attempts: 2),
-      StudyFixtures.simulation_request(graph, alternate_foothold, seed: 11)
-    ]
-
-    for changed <- changed_requests do
-      assert {:error, %StudyError{code: "conflict", issues: [issue]}} =
-               Reservations.reserve_experiment(item.id, changed)
-
-      assert issue["code"] == "runtime_record_mismatch"
-      assert issue["path"] == ["experiment_id"]
-    end
-
-    assert %{experiment_id: linked_id} = Repo.get(StudyCollectionItem, item.id)
-    assert linked_id == experiment.id
-    assert experiment_count(graph.revision_id) == 1
-
-    assert %Experiment{status: :running, total_trials: 2, master_seed: 11} =
-             Experiments.get(experiment.id)
-  end
-
-  test "RESERVE-06: invalid simulation preparation fails without an experiment", %{
+  test "RESERVE-04: invalid simulation preparation fails without an experiment", %{
     pilot_phase: phase,
     graph: graph
   } do
@@ -213,7 +141,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
     assert experiment_count(graph.revision_id) == 0
   end
 
-  test "RESERVE-07: invalid optimization preparation fails without a run", %{
+  test "RESERVE-05: invalid optimization preparation fails without a run", %{
     pilot_phase: phase,
     graph: graph
   } do
@@ -231,7 +159,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyReservationTest do
     assert optimization_run_count(graph.revision_id) == 0
   end
 
-  test "RESERVE-08: an unknown collection item fails without a runtime record", %{
+  test "RESERVE-06: an unknown collection item fails without a runtime record", %{
     graph: graph,
     foothold: foothold
   } do

@@ -8,44 +8,25 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
-  alias NetworkDefense.Optimization.RunIdentity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
   alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.ExperimentIdentity
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
 
   # The runtime reservation boundary of one collection item.
   #
-  # One collection item carries two links: the optimization run and the
-  # experiment that its task created. A reservation locks the item row for one
-  # short transaction, then either creates one runtime record and links it, or
-  # verifies the record that the item already links. The transaction holds no
-  # computation, so no optimization, simulation, Task, ScatterGather, Gust, or
-  # Oban work runs under the row lock.
-  #
-  # A repeated matching reservation returns the linked record, so a retried
-  # collection attempt adds no second domain record. A linked record that does
-  # not match the declared request fails with a bounded study error and keeps
-  # its link, so a changed request cannot replace stored evidence.
-  #
-  # The caller sequence is: reserve the optimization run, compute outside the
-  # transaction, derive the simulation request from the optimized graph, reserve
-  # the experiment, and compute outside the transaction again.
-  #
-  # Optimization identity is the shared F1 rule in
-  # `NetworkDefense.Optimization.RunIdentity`. Experiment identity is
-  # `NetworkDefense.Simulation.ExperimentIdentity`. Both rules ignore the
-  # correlation identifier, which is operational metadata.
+  # A retry returns the linked record unchanged, and creation validates the
+  # canonical request before the first link. The item row is locked for one
+  # short transaction that holds no computation.
 
   @spec reserve_optimization(Ecto.UUID.t(), RunOptimizationRequest.t()) ::
           {:ok, OptimizationRun.t()} | {:error, StudyError.t()}
   def reserve_optimization(item_id, %RunOptimizationRequest{} = request) do
     case Optimizations.prepare_candidate(request) do
       {:ok, _graph, candidate} ->
-        transaction(item_id, &reserve_optimization_locked(&1, candidate, request))
+        transaction(item_id, &reserve_optimization_locked(&1, candidate))
 
       {:error, reason} ->
         {:error, candidate_failure(:optimization_run_id, reason)}
@@ -57,17 +38,13 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
   def reserve_experiment(item_id, %RunSimulationRequest{} = request) do
     case Simulations.prepare_candidate(request) do
       {:ok, candidate} ->
-        transaction(item_id, &reserve_experiment_locked(&1, candidate, request))
+        transaction(item_id, &reserve_experiment_locked(&1, candidate))
 
       {:error, reason} ->
         {:error, candidate_failure(:experiment_id, reason)}
     end
   end
 
-  # The item row is locked before the link is read, so a concurrent duplicate
-  # waits and then reads the committed link instead of creating a second
-  # runtime record. A rollback discards the created record together with the
-  # link, so one transaction never leaves an unlinked domain record.
   defp transaction(item_id, reserved) do
     case Ecto.UUID.cast(item_id) do
       {:ok, id} -> run_transaction(id, reserved)
@@ -99,8 +76,7 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
 
   defp reserve_optimization_locked(
          %StudyCollectionItem{optimization_run_id: nil} = item,
-         %OptimizationRun{} = candidate,
-         _request
+         %OptimizationRun{} = candidate
        ) do
     case OptimizationRuns.create(candidate) do
       {:ok, %OptimizationRun{} = run} ->
@@ -114,12 +90,11 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
 
   defp reserve_optimization_locked(
          %StudyCollectionItem{optimization_run_id: run_id},
-         _candidate,
-         request
+         _candidate
        ) do
     case Repo.get(OptimizationRun, run_id) do
       %OptimizationRun{} = run ->
-        verify_link(RunIdentity.check(run, request), :optimization_run_id, run)
+        {:ok, run}
 
       nil ->
         Repo.rollback(
@@ -130,8 +105,7 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
 
   defp reserve_experiment_locked(
          %StudyCollectionItem{experiment_id: nil} = item,
-         %Experiment{} = candidate,
-         _request
+         %Experiment{} = candidate
        ) do
     case Experiments.create(candidate) do
       {:ok, %Experiment{} = experiment} ->
@@ -145,24 +119,16 @@ defmodule NetworkDefense.Evaluation.Study.Reservations do
 
   defp reserve_experiment_locked(
          %StudyCollectionItem{experiment_id: experiment_id},
-         _candidate,
-         request
+         _candidate
        ) do
     case Experiments.get(experiment_id) do
       %Experiment{} = experiment ->
-        verify_link(ExperimentIdentity.check(experiment, request), :experiment_id, experiment)
+        {:ok, experiment}
 
       nil ->
         Repo.rollback({:error, StudyError.runtime_record_unavailable(:experiment_id, :not_found)})
     end
   end
-
-  # A linked record answers the request, or the reservation fails and keeps the
-  # link. The record itself stays unchanged in both cases.
-  defp verify_link(:ok, _field, record), do: {:ok, record}
-
-  defp verify_link({:error, :request_mismatch}, field, _record),
-    do: Repo.rollback({:error, StudyError.runtime_record_mismatch(field)})
 
   defp link(item, attrs) do
     case item |> StudyCollectionItem.link_changeset(attrs) |> Repo.update() do

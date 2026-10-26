@@ -1,13 +1,13 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F13 are complete. The next preparation step covers the deferred runtime-contract gate and F14+F15.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F13 and the runtime-contract gate are complete. F14+F15 are next.
 
 ## Worktree and branch
 
-| Worktree                                         | Branch / current commit                             | Meaning                                                            |
-| ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------ |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6 and F1 through F13 are complete. |
-| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.             |
+| Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
+| ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F13, and the runtime-contract gate are complete. |
+| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
 
@@ -38,7 +38,7 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F8+F9 are complete:** one deterministic Pilot builder emits comparison-side-plan work for one replica. It uses the required seed prefix and phase-item cap. One mapped action uses F4 reservations and returns compact runtime IDs and completion counts.
 - **F10+F11 are complete:** each completed simulation trial stores measured monotonic runtime in microseconds. Pilot runtime assembly uses persisted optimization and trial durations and converts them to floating-point milliseconds at the snapshot boundary.
 - **F12+F13 are complete:** Pilot fan-in locks the persisted phase, reloads the exact replica-zero collection rows, validates linked runtime identity and completeness, restores declared order, and creates or returns one phase-linked snapshot.
-- **The runtime contract limitation is deferred:** some schema-valid scientific settings do not yet control domain execution, and the mapped action does not yet rebuild canonical work from the stored revision. Keep the public lifecycle unavailable. Complete the linked deferred runtime contract before the real Pilot coordinator can accept evidence.
+- **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation. Keep the public lifecycle unavailable until Pilot and Final coordination are complete.
 
 Recorded checks:
 
@@ -65,6 +65,9 @@ Recorded checks:
 - F10–F13 focused runtime and fan-in suite: 29 passed;
 - evaluation regression suite after F10–F13: 433 passed;
 - full suite after F10–F13: 874 passed with two exclusions;
+- runtime-contract gate full Elixir suite: 899 passed with two exclusions;
+- runtime-contract gate frontend suite: 578 passed;
+- independent runtime-contract fresh-database regression suite: 333 passed;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
@@ -142,17 +145,17 @@ The EARS entries define behaviors, not an exact test count. Use shared fixtures 
 
 Every database-backed test invocation needs a fresh partition and disposable database. Prepare both application and Gust migrations. Verify both repositories use the disposable database. Drop it afterward. Never run an unpartitioned `mix test` or `mix run` against preserved data.
 
-## Next preparation action
+## Next implementation action
 
-Before more implementation:
+Implement F14+F15 as one Pilot coordination slice:
 
 1. Recheck repository instructions and dirty state.
-2. Inspect the deferred runtime-contract gate and F14+F15 together.
-3. Define the smallest typed runtime changes that make collected scientific settings authoritative.
-4. Define how the Pilot coordinator rebuilds work from the stored revision.
-5. Keep `start_study/1` unavailable.
-6. Preserve the supervised ephemeral coordinator and existing Gust boundaries.
-7. Present the proposed batch, acceptance cases, and test limits for approval.
-8. Do not implement the batch until the user approves its exact scope.
+2. Add the smallest supervised ephemeral Pilot coordinator.
+3. Run the existing collection and snapshot path, then submit Pilot analysis through the fixed Gust boundary.
+4. Persist the recommended or insufficient Pilot outcome.
+5. Transition the execution to `awaiting_final` and stop.
+6. Check the locked execution before accepted transitions so cancellation prevents later advancement.
+7. On failure, store one bounded execution error and mark the execution failed.
+8. Keep `start_study/1` unavailable and exclude F16+ Final behavior.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation.Study.Contracts.Definition.Simulation do
   @moduledoc false
 
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
+
   use NetworkDefense.Contracts, export: false
 
   # The exact evidence-simulation settings that both phases execute.
@@ -11,11 +13,19 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.Definition.Simulation do
   #
   # The rule list is explicit. A later phase must not fall back on the default
   # rule set, because the default is a runtime choice, not a study statement.
+  #
+  # One rule identifier reaches this contract as a wire string and materializes
+  # as the registry atom, so the typed definition never carries a string for a
+  # closed set.
+
+  @enum_values [rules: RulesRegistry.values()]
+
+  def contract_meta, do: %{enum_values: @enum_values}
 
   @type t :: %__MODULE__{
           iterations_per_run: pos_integer(),
           max_attempts: pos_integer(),
-          rules: [String.t()],
+          rules: [RulesRegistry.rule_type()],
           require_pre_attack_feasibility: boolean()
         }
 
@@ -29,7 +39,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.Definition.Simulation do
   embedded_schema do
     field :iterations_per_run, :integer
     field :max_attempts, :integer
-    field :rules, {:array, :string}
+    field :rules, {:array, Ecto.Enum}, values: RulesRegistry.values()
     field :require_pre_attack_feasibility, :boolean
   end
 

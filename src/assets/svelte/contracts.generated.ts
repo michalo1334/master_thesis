@@ -24,9 +24,8 @@ export declare namespace NetworkDefense.Errors {
     | "persistence_failed"
     | "task_unavailable"
     | "unknown_strategy"
-    | "reachability_required"
-    | "request_mismatch"
-    | "invalid_request";
+    | "invalid_request"
+    | "reachability_required";
 }
 
 // NetworkDefense.Graph.Contracts.Data.AuthenticatesToData (lib/network_defense/graph/contracts/data/authenticates_to_data.ex) — enum fields: granted_privilege
@@ -318,10 +317,16 @@ export declare namespace NetworkDefense.Graph.Contracts {
   }
 }
 
-// NetworkDefense.Optimization.Contracts.OptimizationParams (lib/network_defense/optimization/contracts/optimization_params.ex) — enum fields: strategy
+// NetworkDefense.Optimization.Contracts.OptimizationParams (lib/network_defense/optimization/contracts/optimization_params.ex) — enum fields: strategy, candidate_action_types
 export declare namespace NetworkDefense.Optimization.Contracts {
   export interface OptimizationParams {
     budget: number;
+    candidate_action_types:
+      Array<
+        "block_segment_reachability" | "patch_vulnerability" | "revoke_credential"
+      >;
+    initial_foothold_node_id?: string | null;
+    require_pre_attack_feasibility: boolean;
     seed: number;
     simulation_params?:
       NetworkDefense.Optimization.Contracts.SimulationSettings | null;
@@ -344,13 +349,18 @@ export declare namespace NetworkDefense.Optimization.Contracts {
   }
 }
 
-// NetworkDefense.Optimization.Contracts.SimulationSettings (lib/network_defense/optimization/contracts/simulation_settings.ex)
+// NetworkDefense.Optimization.Contracts.SimulationSettings (lib/network_defense/optimization/contracts/simulation_settings.ex) — enum fields: objective, rules
 export declare namespace NetworkDefense.Optimization.Contracts {
   export interface SimulationSettings {
-    initial_foothold_node_id: string;
     iterations_per_run: number;
     max_attempts: number;
     monte_carlo_trials: number;
+    objective:
+      "blast_radius_only" | "mission_impact_only" | "mission_then_blast_radius";
+    rules:
+      Array<
+        "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
+      >;
   }
 }
 
@@ -363,7 +373,7 @@ export declare namespace NetworkDefense.Simulation.Contracts {
   }
 }
 
-// NetworkDefense.Simulation.Contracts.SimulationParams (lib/network_defense/simulation/contracts/simulation_params.ex)
+// NetworkDefense.Simulation.Contracts.SimulationParams (lib/network_defense/simulation/contracts/simulation_params.ex) — enum fields: rules
 export declare namespace NetworkDefense.Simulation.Contracts {
   export interface SimulationParams {
     generate_seed: boolean;
@@ -371,6 +381,11 @@ export declare namespace NetworkDefense.Simulation.Contracts {
     iterations_per_run: number;
     max_attempts: number;
     monte_carlo_trials: number;
+    require_pre_attack_feasibility: boolean;
+    rules:
+      Array<
+        "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
+      >;
     seed: number;
   }
 }
@@ -1221,7 +1236,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
     graph_revision_id: string;
     graph_title: string;
     id: string;
-    kind: "graph" | "simulation_report" | "optimization_report";
+    kind: "graph" | "optimization_report" | "simulation_report";
     output_graph_revision_id?: string | null;
     output_revision_kind?: string | null;
     output_revision_number?: number | null;

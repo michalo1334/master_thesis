@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation.Study.Contracts.Definition.Comparison do
   @moduledoc false
 
+  alias NetworkDefense.Optimization.Contracts.OptimizationParams
+
   use NetworkDefense.Contracts, export: false
 
   # One primary comparison inside the declared family.
@@ -13,19 +15,21 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.Definition.Comparison do
   @type t :: %__MODULE__{
           tier: String.t(),
           budget: pos_integer(),
-          alternative: String.t(),
-          reference: String.t(),
+          alternative: OptimizationParams.strategy(),
+          reference: OptimizationParams.strategy(),
           outcome: String.t()
         }
 
   @typedoc "Canonical identity key. Two comparisons are equal when their keys are equal."
-  @type key :: {String.t(), pos_integer(), String.t(), String.t(), String.t()}
+  @type key ::
+          {String.t(), pos_integer(), OptimizationParams.strategy(),
+           OptimizationParams.strategy(), String.t()}
 
   embedded_schema do
     field :tier, :string
     field :budget, :integer
-    field :alternative, :string
-    field :reference, :string
+    field :alternative, Ecto.Enum, values: OptimizationParams.strategy_values()
+    field :reference, Ecto.Enum, values: OptimizationParams.strategy_values()
     field :outcome, :string
   end
 

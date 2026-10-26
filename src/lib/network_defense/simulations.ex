@@ -101,10 +101,14 @@ defmodule NetworkDefense.Simulations do
   defp prepare_experiment(%Graph{} = graph, simulation_params) do
     with :ok <-
            Simulator.validate_initial_foothold(graph, simulation_params.initial_foothold_node_id),
-         :ok <- validate_mission_feasibility(graph) do
+         :ok <- ensure_feasibility(graph, simulation_params.require_pre_attack_feasibility) do
       {:ok, build_experiment(graph, simulation_params)}
     end
   end
+
+  # The policy disables the pre-attack rejection only, not the foothold check.
+  defp ensure_feasibility(_graph, false), do: :ok
+  defp ensure_feasibility(graph, _require?), do: validate_mission_feasibility(graph)
 
   defp load_graph(graph_revision_id) do
     case Graphs.load_revision(graph_revision_id) do

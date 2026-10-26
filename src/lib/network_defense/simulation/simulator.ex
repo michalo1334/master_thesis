@@ -10,7 +10,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.Host
-  alias NetworkDefense.Rules.Rule
+  alias NetworkDefense.Rules.{Registry, Rule}
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.IterationStep
   alias NetworkDefense.Simulation.Run
@@ -37,14 +37,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   end
 
   @spec default_rules() :: [Rule.t()]
-  def default_rules do
-    [
-      %NetworkDefense.Rules.RemoteServiceExploitation{},
-      %NetworkDefense.Rules.LocalVulnerabilityExploitation{},
-      %NetworkDefense.Rules.AcquireCredentialRule{},
-      %NetworkDefense.Rules.ReuseCredentialRule{}
-    ]
-  end
+  def default_rules, do: Registry.default_rules()
 
   @doc """
   Runs a Monte Carlo experiment against graph with supplied options.

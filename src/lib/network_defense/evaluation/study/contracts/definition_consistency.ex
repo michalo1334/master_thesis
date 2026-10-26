@@ -32,7 +32,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.DefinitionConsistency do
   # submitted value, and no issue carries a document fragment.
 
   @max_issues 50
-  @reference_strategy "cvss"
+  @reference_strategy :cvss
 
   @spec validate(Definition.t()) :: :ok | {:error, StudyError.t()}
   def validate(%Definition{} = definition) do
@@ -365,6 +365,8 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.DefinitionConsistency do
 
   defp find_graph(definition, tier), do: Enum.find(definition.graphs, &(&1.tier == tier))
 
+  # A comparison and a typed strategy both hold the closed strategy identifier
+  # as an atom.
   defp find_strategy(graph, key), do: Enum.find(graph.strategies, &(&1.key == key))
 
   defp issue(code, path, message, details \\ %{}) do

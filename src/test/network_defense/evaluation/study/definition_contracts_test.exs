@@ -5,8 +5,7 @@ defmodule NetworkDefense.Evaluation.Study.DefinitionContractsTest do
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
   alias NetworkDefense.Evaluation.Study.Yaml
   alias NetworkDefense.Evaluation.StudyConformance
-  alias NetworkDefense.Registry
-  alias NetworkDefense.Simulation.Simulator
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
 
   # The study definition is the one place that holds every executable setting.
   # The retained cases prove three properties:
@@ -132,7 +131,7 @@ defmodule NetworkDefense.Evaluation.Study.DefinitionContractsTest do
     test "an unsupported enum value is rejected at its path" do
       for {path, value} <- [
             {["graphs", 0, "strategies", 0, "key"], "heuristic"},
-            {["simulation", "rules", 0], "NetworkDefense.Rules.UnknownRule"}
+            {["simulation", "rules", 0], "unknown_rule"}
           ] do
         error =
           path
@@ -592,10 +591,10 @@ defmodule NetworkDefense.Evaluation.Study.DefinitionContractsTest do
 
       assert {:ok, definition} = Definition.parse(attrs)
 
-      assert Enum.map(hd(definition.graphs).strategies, & &1.key) == ["cvss", "random"]
+      assert Enum.map(hd(definition.graphs).strategies, & &1.key) == [:cvss, :random]
 
       assert Enum.map(definition.graphs |> Enum.at(1) |> Map.fetch!(:strategies), & &1.key) ==
-               ["cvss", "topology_segmentation"]
+               [:cvss, :topology_segmentation]
     end
 
     test "equal final comparison seeds are not rejected" do
@@ -705,15 +704,14 @@ defmodule NetworkDefense.Evaluation.Study.DefinitionContractsTest do
   end
 
   defp candidate_action_types do
-    DefenseActionRegistry.get_all()
-    |> MapSet.to_list()
-    |> then(&Registry.contract_types/1)
+    DefenseActionRegistry.values()
+    |> Enum.map(&Atom.to_string/1)
     |> Enum.sort()
   end
 
   defp supported_rules do
-    Simulator.default_rules()
-    |> Enum.map(&(&1.__struct__ |> Module.split() |> Enum.join(".")))
+    RulesRegistry.values()
+    |> Enum.map(&Atom.to_string/1)
     |> Enum.sort()
   end
 

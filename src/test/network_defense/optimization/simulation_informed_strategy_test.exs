@@ -95,41 +95,42 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
     assert [] = Strategy.rank(strategy, [PatchVulnerability], graph, 2)
   end
 
-  test "new/3 fills objective and feasibility from an optional model configuration" do
+  test "new/2 reads the declared objective, rule subset, and feasibility policy" do
     {graph, source} = graph()
 
-    params = %{
-      seed: 42,
-      simulation_params: %{
-        monte_carlo_trials: 2,
-        iterations_per_run: 2,
-        initial_foothold_node_id: source.id,
-        max_attempts: 1
-      },
-      model: %{objective: :blast_radius_only, require_pre_attack_feasibility: false}
-    }
-
-    assert {:ok, strategy} = SimulationInformedStrategy.new(graph, params)
+    assert {:ok, strategy} = SimulationInformedStrategy.new(graph, scoring_params(source))
     assert strategy.objective == :blast_radius_only
     assert strategy.require_pre_attack_feasibility == false
+    assert strategy.rules == [%RemoteServiceExploitation{}]
+    assert strategy.run_count == 2
+    assert strategy.iteration_count == 2
+    assert strategy.max_attempts == 1
   end
 
-  test "new/3 keeps standalone defaults without a model configuration" do
+  test "new/2 rejects a rule name outside the fixed allowlist" do
     {graph, source} = graph()
 
-    params = %{
+    params =
+      put_in(scoring_params(source), [:simulation_params, :rules], [
+        :unknown_rule
+      ])
+
+    assert {:error, :invalid_request} = SimulationInformedStrategy.new(graph, params)
+  end
+
+  defp scoring_params(source) do
+    %{
       seed: 42,
+      require_pre_attack_feasibility: false,
+      initial_foothold_node_id: source.id,
       simulation_params: %{
+        objective: :blast_radius_only,
         monte_carlo_trials: 2,
         iterations_per_run: 2,
-        initial_foothold_node_id: source.id,
-        max_attempts: 1
+        max_attempts: 1,
+        rules: [:remote_service_exploitation]
       }
     }
-
-    assert {:ok, strategy} = SimulationInformedStrategy.new(graph, params)
-    assert strategy.objective == :mission_then_blast_radius
-    assert strategy.require_pre_attack_feasibility == true
   end
 
   defp mixed_reachability_graph do

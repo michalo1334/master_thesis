@@ -3,9 +3,10 @@ defmodule NetworkDefense.RunsTest do
 
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
@@ -111,6 +112,8 @@ defmodule NetworkDefense.RunsTest do
       Experiment.new(
         graph_revision_id: graph_revision_id,
         master_seed: 1,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 10,
@@ -127,7 +130,11 @@ defmodule NetworkDefense.RunsTest do
       graph_revision_id: graph_revision_id,
       strategy: "cvss",
       requested_budget: 1,
-      status: status
+      status: status,
+      execution_config: %ExecutionConfig{
+        candidate_action_types: [:patch_vulnerability],
+        require_pre_attack_feasibility: true
+      }
     }
 
     attrs =

@@ -81,7 +81,15 @@ defmodule NetworkDefense.Observability.LogValue do
 
         params ->
           params
-          |> Map.take([:strategy, :budget, :seed, :simulation_params])
+          |> Map.take([
+            :strategy,
+            :budget,
+            :seed,
+            :candidate_action_types,
+            :require_pre_attack_feasibility,
+            :initial_foothold_node_id,
+            :simulation_params
+          ])
           |> normalize_optimization_params()
       end
 
@@ -135,9 +143,10 @@ defmodule NetworkDefense.Observability.LogValue do
         value ->
           value
           |> Map.take([
+            :objective,
+            :rules,
             :monte_carlo_trials,
             :iterations_per_run,
-            :initial_foothold_node_id,
             :max_attempts
           ])
       end

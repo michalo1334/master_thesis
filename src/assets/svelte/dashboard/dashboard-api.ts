@@ -7,9 +7,15 @@ import type {
   FetchDocumentCatalogReply,
 } from "../contracts.generated/dashboard/workspace";
 import type { GraphContract } from "../contracts.generated/graph";
-import type { OptimizationParams } from "../contracts.generated/optimization";
 import type { SimulationParams } from "../contracts.generated/simulation";
+import type { DashboardOptimizationParams } from "./contract";
+import { optimizationRequestParams } from "./contract";
 export type DocumentCatalogQuery = FetchDocumentCatalogPayload;
+
+type RunOptimizationEventPayload =
+  OptimizationContracts.RunOptimizationPayload & {
+    generate_seed: boolean;
+  };
 
 export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
@@ -34,7 +40,7 @@ export interface DashboardApi {
   runOptimization(
     graphRevisionId: string,
     correlationId: string,
-    optimizationParams: OptimizationParams,
+    optimizationParams: DashboardOptimizationParams,
   ): Promise<OptimizationContracts.RunOptimizationReply>;
   requestSimulationReport(documentId: string, experimentId: string): void;
   requestOptimizationReport(documentId: string, optimizationId: string): void;
@@ -133,13 +139,14 @@ export function createDashboardApi(live: LiveServer): DashboardApi {
     },
     runOptimization(graphRevisionId, correlationId, optimizationParams) {
       return requestReply<
-        OptimizationContracts.RunOptimizationPayload,
+        RunOptimizationEventPayload,
         OptimizationContracts.RunOptimizationReply
       >(live, "run_optimization_request", {
+        generate_seed: optimizationParams.generate_seed,
         request: {
           graph_revision_id: graphRevisionId,
           correlation_id: correlationId,
-          optimization_params: optimizationParams,
+          optimization_params: optimizationRequestParams(optimizationParams),
         },
       });
     },

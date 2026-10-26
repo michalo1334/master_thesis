@@ -6,6 +6,7 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
 
   test "persists committed batches for the pinned graph revision" do
@@ -15,6 +16,8 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
       Experiment.new(
         graph: graph,
         master_seed: 42,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 2,
@@ -46,6 +49,8 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
       Experiment.new(
         graph: experiment_graph,
         master_seed: 42,
+        rules: RulesRegistry.values(),
+        require_pre_attack_feasibility: true,
         iteration_count: 1,
         max_attempts: 1,
         total_trials: 1
@@ -154,6 +159,8 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
     Experiment.new(
       graph: graph,
       master_seed: 17,
+      rules: RulesRegistry.values(),
+      require_pre_attack_feasibility: true,
       iteration_count: 1,
       max_attempts: 1,
       total_trials: 2,

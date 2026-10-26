@@ -8,6 +8,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
+  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, IterationStep, Run}
 
   test "creates a graph with an immutable root revision" do
@@ -349,6 +350,8 @@ defmodule NetworkDefense.Graph.GraphTest do
         total_trials: 1,
         completed_trials: 0,
         status: "running",
+        rules: Enum.map(RulesRegistry.values(), &Atom.to_string/1),
+        require_pre_attack_feasibility: true,
         inserted_at: DateTime.utc_now(),
         updated_at: DateTime.utc_now()
       }

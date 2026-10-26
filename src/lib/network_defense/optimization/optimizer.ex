@@ -1,11 +1,8 @@
 defmodule NetworkDefense.Optimization.Optimizer do
   @moduledoc false
 
-  alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.DefenseActions.DefenseAction
-  alias NetworkDefense.DefenseActions.PatchVulnerability
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
-  alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Budget
   alias NetworkDefense.Optimization.Strategy
@@ -14,13 +11,15 @@ defmodule NetworkDefense.Optimization.Optimizer do
   require OpenTelemetry.Tracer, as: Tracer
 
   @type option ::
-          {:progress_callback, (non_neg_integer(), pos_integer(), String.t() -> any())}
+          {:action_types, [module()]}
           | {:require_pre_attack_feasibility, boolean()}
+          | {:progress_callback, (non_neg_integer(), pos_integer(), String.t() -> any())}
 
   @spec apply(Graph.t(), term(), Budget.t(), [option()]) :: map()
-  def apply(graph, strategy, budget, opts \\ []) do
+  def apply(graph, strategy, budget, opts) do
     progress_callback = Keyword.get(opts, :progress_callback, fn _, _, _ -> :ok end)
-    require_pre_attack_feasibility? = Keyword.get(opts, :require_pre_attack_feasibility, true)
+    action_types = Keyword.fetch!(opts, :action_types)
+    require_pre_attack_feasibility? = Keyword.fetch!(opts, :require_pre_attack_feasibility)
 
     Tracer.with_span "optimizer.apply",
       attributes: %{
@@ -32,7 +31,14 @@ defmodule NetworkDefense.Optimization.Optimizer do
       } do
       {elapsed_us, result} =
         :timer.tc(fn ->
-          do_optimize(graph, strategy, budget, progress_callback, require_pre_attack_feasibility?)
+          do_optimize(
+            graph,
+            strategy,
+            action_types,
+            budget,
+            progress_callback,
+            require_pre_attack_feasibility?
+          )
         end)
 
       :telemetry.execute(
@@ -50,14 +56,19 @@ defmodule NetworkDefense.Optimization.Optimizer do
     end
   end
 
-  defp do_optimize(graph, strategy, budget, progress_callback, require_pre_attack_feasibility?) do
-    default_actions = [BlockSegmentReachability, PatchVulnerability, RevokeCredential]
-
+  defp do_optimize(
+         graph,
+         strategy,
+         action_types,
+         budget,
+         progress_callback,
+         require_pre_attack_feasibility?
+       ) do
     if Strategy.plan?(strategy) do
       optimize_plan(
         graph,
         strategy,
-        default_actions,
+        action_types,
         budget,
         progress_callback,
         require_pre_attack_feasibility?
@@ -66,7 +77,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
       optimize_stepwise(
         graph,
         strategy,
-        default_actions,
+        action_types,
         budget,
         progress_callback,
         require_pre_attack_feasibility?
@@ -74,9 +85,9 @@ defmodule NetworkDefense.Optimization.Optimizer do
     end
   end
 
-  defp optimize_plan(graph, strategy, default_actions, budget, progress_callback, require?) do
+  defp optimize_plan(graph, strategy, action_types, budget, progress_callback, require?) do
     strategy
-    |> rank_with_span(default_actions, graph, budget)
+    |> rank_with_span(action_types, graph, budget)
     |> Enum.reduce_while({graph, budget, [], 0}, fn action, state ->
       apply_plan_action(action, state, budget, progress_callback, require?)
     end)
@@ -85,10 +96,10 @@ defmodule NetworkDefense.Optimization.Optimizer do
     end)
   end
 
-  defp rank_with_span(strategy, default_actions, graph, budget) do
+  defp rank_with_span(strategy, action_types, graph, budget) do
     Tracer.with_span "optimizer.rank",
       attributes: %{"optimization.requested_budget": budget} do
-      result = Strategy.rank(strategy, default_actions, graph, budget)
+      result = Strategy.rank(strategy, action_types, graph, budget)
       Tracer.set_attributes(%{"optimization.ranked_count": length(result)})
       result
     end
@@ -145,7 +156,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
     }
   end
 
-  defp optimize_stepwise(graph, strategy, default_actions, budget, progress_callback, require?) do
+  defp optimize_stepwise(graph, strategy, action_types, budget, progress_callback, require?) do
     1..budget
     |> Enum.reduce_while({graph, budget, [], 0}, fn step,
                                                     {graph, remaining_budget, actions,
@@ -153,7 +164,7 @@ defmodule NetworkDefense.Optimization.Optimizer do
       progress_callback.(step - 1, budget, "Selecting defense #{step} of #{budget}")
 
       candidate_actions =
-        rank_with_span(strategy, default_actions, graph, remaining_budget)
+        rank_with_span(strategy, action_types, graph, remaining_budget)
         |> Enum.reject(fn action -> DefenseAction.cost(action) > remaining_budget end)
         |> Enum.filter(&feasible_after?(&1, graph, require?))
 

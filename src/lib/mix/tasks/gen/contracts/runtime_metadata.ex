@@ -83,18 +83,18 @@ defmodule Mix.Tasks.Gen.Contracts.RuntimeMetadata do
     end
   end
 
-  defp type_details(_type, enum_values) when is_list(enum_values) and enum_values != [] do
-    %{kind: "enum", attributes: ["choices: #{inspect(Enum.map(enum_values, &to_string/1))}"]}
-  end
-
-  defp type_details({:type, _, :list, [item]}, _enum_values) do
+  defp type_details({:type, _, :list, [item]}, enum_values) do
     attributes =
       case contract_reference(item) do
         nil -> []
         module -> ["itemContract: #{inspect(Renderer.module_namespace(module))}"]
       end
 
-    %{kind: "list", attributes: attributes}
+    %{kind: "list", attributes: attributes ++ choices(enum_values)}
+  end
+
+  defp type_details(_type, enum_values) when is_list(enum_values) and enum_values != [] do
+    %{kind: "enum", attributes: choices(enum_values)}
   end
 
   defp type_details(type, _enum_values) do
@@ -106,6 +106,14 @@ defmodule Mix.Tasks.Gen.Contracts.RuntimeMetadata do
         %{kind: "object", attributes: ["contract: #{inspect(Renderer.module_namespace(module))}"]}
     end
   end
+
+  # One closed set reports its choices, whether the schema declares one value or
+  # one list of values.
+  defp choices(enum_values) when is_list(enum_values) and enum_values != [] do
+    ["choices: #{inspect(Enum.map(enum_values, &to_string/1))}"]
+  end
+
+  defp choices(_enum_values), do: []
 
   defp unwrap_nullable({:type, _, :union, members} = union) do
     case Enum.split_with(members, &match?({:atom, _, nil}, &1)) do

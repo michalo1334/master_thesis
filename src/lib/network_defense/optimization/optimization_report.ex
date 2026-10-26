@@ -15,6 +15,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
 
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Optimization.Contracts.OptimizationParams
   alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.ReportProgress
@@ -28,7 +29,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
           graph_title: String.t(),
           graph: Graph.t(),
           graph_revision_id: String.t(),
-          strategy: String.t(),
+          strategy: OptimizationParams.strategy(),
           requested_budget: integer(),
           used_budget: integer(),
           runtime_ms: integer(),
@@ -63,7 +64,7 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
         "optimization.run_id": run.id,
         "graph.id": graph.id,
         "graph.revision_id": run.graph_revision_id,
-        "optimization.strategy": run.strategy,
+        "optimization.strategy": Atom.to_string(run.strategy),
         "optimization.action_count": length(run.actions)
       } do
       Logger.debug("Optimization report generation started",

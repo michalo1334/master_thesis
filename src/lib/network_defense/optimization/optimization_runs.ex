@@ -19,7 +19,7 @@ defmodule NetworkDefense.Optimization.OptimizationRuns do
       runtime_ms: run.runtime_ms,
       status: run.status,
       seed: run.seed,
-      simulation_config: run.simulation_config
+      execution_config: run.execution_config
     })
     |> Repo.insert()
   end

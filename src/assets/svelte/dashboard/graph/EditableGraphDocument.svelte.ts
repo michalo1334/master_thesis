@@ -8,7 +8,7 @@ import type {
   GraphValidationError,
   TopologyProjection,
 } from "../../contracts.generated/dashboard/graph";
-import type { OptimizationParams } from "../../contracts.generated/optimization";
+import type { DashboardOptimizationParams } from "../contract";
 import type { RunOptimizationReply } from "../../contracts.generated/dashboard/optimization";
 import type { SimulationParams } from "../../contracts.generated/simulation";
 import type { DashboardApi } from "../dashboard-api";
@@ -517,7 +517,7 @@ export class EditableGraphDocument extends WorkspaceDocumentBase {
 
   async startOptimization(
     api: DashboardApi,
-    params: OptimizationParams,
+    params: DashboardOptimizationParams,
     correlationId: string = crypto.randomUUID(),
   ): Promise<RunOptimizationReply | null> {
     if (!this.loadedRevisionId) return null;

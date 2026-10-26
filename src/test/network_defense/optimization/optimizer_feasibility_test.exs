@@ -15,7 +15,9 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
       Optimizer.apply(
         graph,
         %TopologySegmentationStrategy{initial_foothold_node_id: source.id},
-        1
+        1,
+        action_types: [BlockSegmentReachability],
+        require_pre_attack_feasibility: true
       )
 
     assert result.actions == []
@@ -30,7 +32,9 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
       Optimizer.apply(
         graph,
         %TopologySegmentationStrategy{initial_foothold_node_id: source.id},
-        1
+        1,
+        action_types: [BlockSegmentReachability],
+        require_pre_attack_feasibility: true
       )
 
     assert [%BlockSegmentReachability{edge_id: "a-other-policy"}] = result.actions
@@ -47,6 +51,7 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
         graph,
         %TopologySegmentationStrategy{initial_foothold_node_id: source.id},
         1,
+        action_types: [BlockSegmentReachability],
         require_pre_attack_feasibility: false
       )
 

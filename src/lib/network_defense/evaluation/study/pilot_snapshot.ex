@@ -397,7 +397,11 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
         incomplete(["comparisons", position, Atom.to_string(side)])
 
       [%{work: work} | _rest] ->
-        {:ok, %ComparisonSide{strategy: work.strategy.key, plans: Enum.map(matching, &plan/1)}}
+        {:ok,
+         %ComparisonSide{
+           strategy: Atom.to_string(work.strategy.key),
+           plans: Enum.map(matching, &plan/1)
+         }}
     end
   end
 
@@ -409,8 +413,8 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
     attrs = %{
       "tier" => comparison.tier,
       "budget" => comparison.budget,
-      "alternative" => comparison.alternative,
-      "reference" => comparison.reference,
+      "alternative" => Atom.to_string(comparison.alternative),
+      "reference" => Atom.to_string(comparison.reference),
       "outcome" => comparison.outcome
     }
 

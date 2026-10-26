@@ -11,6 +11,49 @@ import type { DashboardApi } from "../../dashboard-api";
 
 import { SimulationReportDocument } from "../../simulation-report/SimulationReportDocument.svelte";
 import { createWorkspaceEnvelope } from "../../../ui-kit/workspace/workspace-persistence";
+import type { DashboardWorkspaceState } from "../persisted-documents";
+import type { SimulationSettings } from "../../../contracts.generated/optimization";
+
+const RULES: SimulationSettings["rules"] = [
+  "remote_service_exploitation",
+  "local_vulnerability_exploitation",
+  "acquire_credential_rule",
+  "reuse_credential_rule",
+];
+
+function dashboardState(
+  foothold: string,
+  budget: number,
+): DashboardWorkspaceState {
+  return {
+    simulationParams: {
+      initial_foothold_node_id: foothold,
+      monte_carlo_trials: 10,
+      iterations_per_run: 20,
+      max_attempts: 1,
+      generate_seed: false,
+      seed: 0,
+      rules: RULES,
+      require_pre_attack_feasibility: true,
+    },
+    optimizationParams: {
+      strategy: "cvss" as const,
+      seed: 0,
+      budget,
+      candidate_action_types: ["patch_vulnerability"],
+      require_pre_attack_feasibility: true,
+      initial_foothold_node_id: foothold,
+      generate_seed: false,
+      simulation_params: {
+        objective: "mission_then_blast_radius",
+        monte_carlo_trials: 10,
+        iterations_per_run: 20,
+        max_attempts: 1,
+        rules: RULES,
+      },
+    },
+  };
+}
 
 function makeGraphSummary(overrides: Partial<GraphSummary> = {}): GraphSummary {
   return {
@@ -107,31 +150,67 @@ describe("WorkspaceModel", () => {
   });
 
   describe("persistence restoration", () => {
+    it("upgrades a saved state that predates the explicit settings", () => {
+      model = new WorkspaceModel();
+      // A state saved by a build before the explicit settings.
+      const legacyState = {
+        simulationParams: {
+          initial_foothold_node_id: "host-1",
+          monte_carlo_trials: 30,
+          iterations_per_run: 40,
+          max_attempts: 2,
+          generate_seed: false,
+          seed: 5,
+        },
+        optimizationParams: {
+          strategy: "simulation_informed" as const,
+          seed: 9,
+          budget: 3,
+          simulation_params: {
+            initial_foothold_node_id: "host-1",
+            monte_carlo_trials: 50,
+            iterations_per_run: 60,
+            max_attempts: 4,
+            generate_seed: true,
+            seed: 9,
+          },
+        },
+      } as unknown as DashboardWorkspaceState;
+
+      model.restorePersistence(
+        createWorkspaceEnvelope({ state: legacyState, documents: [] }, 1),
+      );
+
+      expect(model.simulationParams.rules).toEqual(RULES);
+      expect(model.simulationParams.require_pre_attack_feasibility).toBe(true);
+      expect(model.simulationParams.monte_carlo_trials).toBe(30);
+      expect(model.optimizationParams.strategy).toBe("simulation_informed");
+      expect(model.optimizationParams.seed).toBe(9);
+      expect(model.optimizationParams.budget).toBe(3);
+      expect(model.optimizationParams.generate_seed).toBe(true);
+      expect(model.optimizationParams.initial_foothold_node_id).toBe("host-1");
+      expect(model.optimizationParams.candidate_action_types).toEqual([
+        "block_segment_reachability",
+        "patch_vulnerability",
+        "revoke_credential",
+      ]);
+      expect(model.optimizationParams.require_pre_attack_feasibility).toBe(
+        true,
+      );
+      expect(model.optimizationParams.simulation_params).toEqual({
+        objective: "mission_then_blast_radius",
+        monte_carlo_trials: 50,
+        iterations_per_run: 60,
+        max_attempts: 4,
+        rules: RULES,
+      });
+    });
+
     it("restores durable stubs and loads them only when activated", async () => {
       const persistence = createWorkspaceEnvelope(
         {
           state: {
-            simulationParams: {
-              initial_foothold_node_id: "host-1",
-              monte_carlo_trials: 10,
-              iterations_per_run: 20,
-              max_attempts: 1,
-              generate_seed: false,
-              seed: 0,
-            },
-            optimizationParams: {
-              strategy: "cvss" as const,
-              seed: 0,
-              budget: 2,
-              simulation_params: {
-                initial_foothold_node_id: "host-1",
-                monte_carlo_trials: 10,
-                iterations_per_run: 20,
-                max_attempts: 1,
-                generate_seed: false,
-                seed: 0,
-              },
-            },
+            ...dashboardState("host-1", 2),
           },
           documents: [
             {
@@ -203,27 +282,7 @@ describe("WorkspaceModel", () => {
         createWorkspaceEnvelope(
           {
             state: {
-              simulationParams: {
-                initial_foothold_node_id: "",
-                monte_carlo_trials: 10,
-                iterations_per_run: 20,
-                max_attempts: 1,
-                generate_seed: false,
-                seed: 0,
-              },
-              optimizationParams: {
-                strategy: "cvss" as const,
-                seed: 0,
-                budget: 1,
-                simulation_params: {
-                  initial_foothold_node_id: "",
-                  monte_carlo_trials: 10,
-                  iterations_per_run: 20,
-                  max_attempts: 1,
-                  generate_seed: false,
-                  seed: 0,
-                },
-              },
+              ...dashboardState("", 1),
             },
             documents: [
               { kind: "graph", ids: { revisionId: "r1" }, title: "Topology" },
@@ -267,27 +326,7 @@ describe("WorkspaceModel", () => {
         createWorkspaceEnvelope(
           {
             state: {
-              simulationParams: {
-                initial_foothold_node_id: "",
-                monte_carlo_trials: 10,
-                iterations_per_run: 20,
-                max_attempts: 1,
-                generate_seed: false,
-                seed: 0,
-              },
-              optimizationParams: {
-                strategy: "cvss" as const,
-                seed: 0,
-                budget: 2,
-                simulation_params: {
-                  initial_foothold_node_id: "",
-                  monte_carlo_trials: 10,
-                  iterations_per_run: 20,
-                  max_attempts: 1,
-                  generate_seed: false,
-                  seed: 0,
-                },
-              },
+              ...dashboardState("", 2),
             },
             documents: [
               { kind: "document-catalog", ids: {}, title: "Documents" },

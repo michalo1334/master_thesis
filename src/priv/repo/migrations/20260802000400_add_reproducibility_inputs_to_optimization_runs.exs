@@ -4,7 +4,7 @@ defmodule NetworkDefense.Repo.Migrations.AddReproducibilityInputsToOptimizationR
   def change do
     alter table(:optimization_runs) do
       add :seed, :bigint
-      add :simulation_config, :map
+      add :execution_config, :map, null: false
     end
   end
 end

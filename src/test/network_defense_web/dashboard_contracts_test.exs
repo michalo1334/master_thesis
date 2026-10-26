@@ -558,7 +558,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
     graph = %{Graph.new("Test graph") | id: @graph_id, revision_id: @parent_graph_id}
 
     report = %{
-      strategy: "cvss",
+      strategy: :cvss,
       requested_budget: 2,
       used_budget: 1,
       runtime_ms: 12,

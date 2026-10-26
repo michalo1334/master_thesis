@@ -34,16 +34,16 @@ graphs:
       - key: cvss
         budget: 4
         candidate_action_types:
-          - PatchVulnerability
-          - RevokeCredential
-          - BlockSegmentReachability
+          - patch_vulnerability
+          - revoke_credential
+          - block_segment_reachability
         require_pre_attack_feasibility: true
       - key: simulation_informed
         budget: 4
         candidate_action_types:
-          - PatchVulnerability
-          - RevokeCredential
-          - BlockSegmentReachability
+          - patch_vulnerability
+          - revoke_credential
+          - block_segment_reachability
         require_pre_attack_feasibility: true
         scoring:
           objective: mission_then_blast_radius
@@ -51,10 +51,10 @@ graphs:
           iterations_per_run: 40
           max_attempts: 12
           rules:
-            - NetworkDefense.Rules.RemoteServiceExploitation
-            - NetworkDefense.Rules.LocalVulnerabilityExploitation
-            - NetworkDefense.Rules.AcquireCredentialRule
-            - NetworkDefense.Rules.ReuseCredentialRule
+            - remote_service_exploitation
+            - local_vulnerability_exploitation
+            - acquire_credential_rule
+            - reuse_credential_rule
   - tier: edge
     graph_revision_id: 5b7d9e1f-2a3c-4d5e-8f60-7a8b9c0d1e2f
     initial_foothold_node_id: 9e7f0a1b-2c3d-4e5f-8a6b-9c0d1e2f3a4b
@@ -62,15 +62,15 @@ graphs:
       - key: cvss
         budget: 6
         candidate_action_types:
-          - PatchVulnerability
-          - RevokeCredential
-          - BlockSegmentReachability
+          - patch_vulnerability
+          - revoke_credential
+          - block_segment_reachability
         require_pre_attack_feasibility: true
       - key: simulated_annealing
         budget: 6
         candidate_action_types:
-          - PatchVulnerability
-          - BlockSegmentReachability
+          - patch_vulnerability
+          - block_segment_reachability
         require_pre_attack_feasibility: true
         scoring:
           objective: mission_then_blast_radius
@@ -78,10 +78,10 @@ graphs:
           iterations_per_run: 30
           max_attempts: 8
           rules:
-            - NetworkDefense.Rules.RemoteServiceExploitation
-            - NetworkDefense.Rules.LocalVulnerabilityExploitation
-            - NetworkDefense.Rules.AcquireCredentialRule
-            - NetworkDefense.Rules.ReuseCredentialRule
+            - remote_service_exploitation
+            - local_vulnerability_exploitation
+            - acquire_credential_rule
+            - reuse_credential_rule
 
 # Evidence simulation. Its trial count comes from the Pilot capacity or from the
 # resumed Final candidate, so it is not declared here.
@@ -89,10 +89,10 @@ simulation:
   iterations_per_run: 40
   max_attempts: 12
   rules:
-    - NetworkDefense.Rules.RemoteServiceExploitation
-    - NetworkDefense.Rules.LocalVulnerabilityExploitation
-    - NetworkDefense.Rules.AcquireCredentialRule
-    - NetworkDefense.Rules.ReuseCredentialRule
+    - remote_service_exploitation
+    - local_vulnerability_exploitation
+    - acquire_credential_rule
+    - reuse_credential_rule
   require_pre_attack_feasibility: true
 
 family:
