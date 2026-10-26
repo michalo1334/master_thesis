@@ -99,7 +99,7 @@ Key decisions:
 - Use the accepted Pilot analysis phase as the lifecycle source. Bind its persisted Gust run at every Final analysis boundary.
 - Add only `study_execution_id` to the strict Final request. Load the candidate, override marker, and accepted phase records from PostgreSQL.
 - Start no Final coordinator shell in F16+F17+F18. F19+F20+F21 start the real coordinator after the resume transaction commits.
-- Retire all direct Pilot and Final facade functions when the complete study lifecycle activates.
+- Direct Pilot and Final facade functions are retired. Their modules remain internal to the study coordinator.
 - Keep lower-level comparison and family APIs.
 - Keep fixed Gust phase DAGs, ScatterGather trial batches, and synchronous stateless Python computation.
 

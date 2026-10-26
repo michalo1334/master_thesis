@@ -5,9 +5,9 @@
 Implemented in the runtime-contract gate. This document records the condition
 before the gate and the contract that the gate establishes.
 
-The study lifecycle was unavailable to public callers before the gate. It stays
-unavailable, because the Pilot coordinator and the Final work remain future
-batches.
+The study lifecycle was unavailable to public callers before this gate. Later
+slices added the Pilot and Final coordinators. F22+F23 then activated the public
+lifecycle.
 
 ## Previous limitation
 
@@ -117,7 +117,7 @@ The mapped action now:
 7. builds complete runtime creation requests from that item; and
 8. creates and links missing runtime records in short transactions.
 
-A Final-phase item stays unsupported until the Final source binding exists.
+Final-phase items became supported when the later Final source-binding and collection slices were completed.
 
 ## Compatibility
 
@@ -146,8 +146,8 @@ Focused automated checks cover these behaviors:
 5. An item from an unsupported phase creates no runtime record.
 6. A retry returns the linked runtime record and starts no second one.
 
-## Completion gate
+## Completion state
 
-Complete the Pilot coordinator before the study lifecycle accepts collection
-evidence. The lifecycle must not produce a scientific result before that
-coordinator exists.
+The Pilot coordinator, Final path, and public lifecycle now satisfy this gate.
+The lifecycle accepts collection evidence only through those coordinator
+boundaries.

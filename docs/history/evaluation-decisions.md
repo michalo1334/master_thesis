@@ -16,14 +16,14 @@ Read the [runtime map](../architecture/evaluation-architecture.md), [target life
 - Enforce snapshot encoded-size caps on create through `JsonBoundary`. The current seven-column schema has no stored byte count. Reads validate contracts and relations, not encoded-byte equality or content integrity.
 - Keep scientific settings and deployment caps separate. Oversized work fails; no layer silently truncates evidence or repeat counts.
 - Preserve declared order and historical Pilot streams. Retries, workers, task IDs, and completion order must not change scientific randomness.
-- Keep direct Final source binding strict: a valid recommended Pilot, its exact selected counts, and a separate Final snapshot. Provenance remains caller-asserted in this API.
-- For the future prototype pipeline, use YAML input, an immutable normalized definition, one application state machine, and fixed phase DAGs. Do not store source YAML.
-- Use one supervised ephemeral coordinator task between phases. Persist one row for each fixed phase and its Gust run. Do not add an Oban lifecycle worker, callback path, automatic restart recovery, or phase replay.
-- Add separate future Pilot and Final collection DAGs with shared actions. Gust maps coarse collection work; the simulation API retains ScatterGather trial execution.
+- The pre-lifecycle direct Final boundary required a valid recommended Pilot, exact selected counts, and a separate Final snapshot. The active lifecycle supersedes that public boundary. Its coordinator now reloads the frozen selection, accepted Pilot phase, and Final snapshot from PostgreSQL.
+- Use YAML input, an immutable normalized definition, one application state machine, and fixed phase DAGs. Do not store source YAML.
+- Use one supervised ephemeral coordinator task between phases. Persist one row for each fixed phase and its Gust run. Gust completion callbacks are non-authoritative wake-up signals only. Do not add an Oban lifecycle worker, automatic restart recovery, or phase replay.
+- Use separate Pilot and Final collection DAGs with shared actions. Gust maps coarse collection work; the simulation API retains ScatterGather trial execution.
 - Always pause after valid Pilot analysis. Permit explicit confirmatory resume after insufficiency only with one declared candidate. Expose `pilot_override`; store no override actor, reason, or special timestamp. This is limited audit evidence, not a claim of adequate precision.
 - Make repeated Gust task effects safe through stable collection items. Do not claim exactly-once task execution.
 
-The insufficient-Pilot exception changes the earlier no-fallback policy for the target lifecycle only. It does not change the implemented direct Final contract. Its [scientific risks](../concepts/evaluation-methodology.md#insufficient-pilot-confirmatory-override) remain explicit.
+The insufficient-Pilot exception changes the earlier no-fallback policy for the study lifecycle only. `resume_study/2` records the declared override candidate and `pilot_override`. Its [scientific risks](../concepts/evaluation-methodology.md#insufficient-pilot-confirmatory-override) remain explicit.
 
 ## Rejected or superseded designs
 
@@ -61,7 +61,7 @@ The last operational record states that application, compute, messaging, and obs
 
 ## Known limits and risks
 
-- The current direct Final APIs check assertions, not physical collection provenance. A relation-preserving change can pass stored-contract checks. No hash or database trigger protects snapshot immutability.
+- The pre-lifecycle direct Final APIs checked assertions, not physical collection provenance. The active lifecycle adds authoritative revision, phase, and source binding, but it still does not authenticate physical collection history. A relation-preserving matrix change can pass stored-contract checks. No hash or database trigger protects snapshot immutability.
 - Insufficient-Pilot override accepts unmet precision, potentially wide intervals, unstable raw p-values, and post-Pilot selection bias. Holm does not repair weak evidence.
 - Gust `0.1.40` can re-arm retry budgets after coordinator restart. A lost response or effect-before-completion window can repeat work.
 - The Gust source review found no task-effect fence from the run lease. Stable collection items must prevent duplicate optimization, experiment, and snapshot effects during task retry.
@@ -71,6 +71,6 @@ The last operational record states that application, compute, messaging, and obs
 - Native ExJsonSchema diagnostic paths do not escape slash and tilde as typed JSON Pointer paths. They remain diagnostic text. Bounded adapters exclude submitted values and exception traces.
 - Historical checks reported a Starlette/AnyIO deprecation warning and asset chunk-size warnings. They did not fail those checks.
 - The original Gust source review noted inconsistent license metadata. That review alone did not resolve the package-license question.
-- Real-study values, representative resource capacities, and deployment remain unapproved. No lifecycle or collector verification exists yet.
+- Synthetic lifecycle and collector verification exists. Real-study values, representative resource capacities, evidence collection, and deployment remain unapproved. No real-study or deployment verification exists.
 
 The Gust assessment examined [core source at `23fc836`](https://github.com/marciok/gust/tree/23fc8361482c2f85169c89a384d3a5ee73c2f317) and [GustPy at `e40bbc0`](https://github.com/marciok/gust_py/tree/e40bbc00295d2eb50ea1e4ab5652cb3d5533da15). It was a source review, not a crash-test result. The [evaluation methodology](../concepts/evaluation-methodology.md) states the scientific protocol independently of that software review.

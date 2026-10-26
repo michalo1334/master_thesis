@@ -2,9 +2,9 @@
 
 ## Status and authority
 
-This document defines the target design for the YAML study pipeline. Application developers and study authors are its audience.
+This document defines the current core YAML study lifecycle and the remaining timing design. Application developers and study authors are its audience.
 
-The bounded YAML wrapper and the strict study-definition contract are implemented. Revision persistence, the lifecycle, collection DAGs, and compact study results are not implemented on `evaluation/rebuild`.
+The YAML boundary, immutable revisions, lifecycle, collection and analysis DAGs, and compact study results are implemented on `evaluation/rebuild`. Timing replicas and summaries are not implemented.
 
 The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and known limits. Current source contracts define implemented behavior.
 
@@ -85,7 +85,7 @@ A rejected resume request leaves the execution at `awaiting_final`. It does not 
 
 ### Ephemeral coordinator
 
-The first prototype uses one supervised application task to coordinate phases. Gust persists each phase run and owns task retries inside that run. The application does not add an Oban handoff, polling worker, completion callback, or automatic restart recovery.
+The prototype uses one supervised application task to coordinate phases. Gust persists each phase run and owns task retries inside that run. Gust completion callbacks wake temporary waiters, but persisted Gust rows remain authoritative. The application does not add an Oban handoff, polling worker, automatic restart recovery, or phase replay.
 
 Each fixed phase has one application row. The row links the execution, phase, Gust run, accepted snapshot or result reference, and bounded error.
 
@@ -106,12 +106,12 @@ An application restart can leave an active execution without a coordinator. The 
 
 The pipeline has four checked-in phase DAGs:
 
-| DAG                           | Current status       | Role                                         |
-| ----------------------------- | -------------------- | -------------------------------------------- |
-| `evaluation_pilot_collection` | Future               | Collect and assemble Pilot evidence          |
-| `evaluation_pilot`            | Implemented analysis | Evaluate declared sample-size candidates     |
-| `evaluation_final_collection` | Future               | Collect separate Final evidence after resume |
-| `evaluation_final`            | Implemented analysis | Analyze the complete Final family            |
+| DAG                                 | Current status | Role                                         |
+| ----------------------------------- | -------------- | -------------------------------------------- |
+| `evaluation_study_pilot_collection` | Implemented    | Collect and assemble Pilot evidence          |
+| `evaluation_pilot`                  | Implemented    | Evaluate declared sample-size candidates     |
+| `evaluation_study_final_collection` | Implemented    | Collect separate Final evidence after resume |
+| `evaluation_final`                  | Implemented    | Analyze the complete Final family            |
 
 ```mermaid
 flowchart LR
@@ -124,7 +124,7 @@ flowchart LR
 
 The lower-level comparison and family workflows remain reusable. Phase actions reuse their mathematics. They do not create nested Gust runs for each comparison.
 
-When the lifecycle activates, Pilot and Final submission, await, result, and snapshot functions leave the public `NetworkDefense.Evaluations` facade. The lifecycle uses their modules internally.
+The active lifecycle keeps Pilot and Final submission, await, result, and snapshot functions out of the public `NetworkDefense.Evaluations` facade. The lifecycle uses their modules internally.
 
 The YAML definition supplies ordered work data to checked-in DAGs. It must not generate modules, tasks, source code, or DAG topology. Do not add a workflow framework or DAG compiler.
 

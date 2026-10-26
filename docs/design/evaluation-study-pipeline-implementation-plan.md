@@ -340,7 +340,7 @@ Add only these collection controls:
 
 Reuse existing ScatterGather concurrency and evidence limits. Add no combined concurrency cap or Gust × ScatterGather product check.
 
-The runtime-contract gate now executes every scientific setting that the study schema accepts and binds a mapped item to its immutable revision. [Evaluation study runtime contract](evaluation-study-runtime-contract-future-work.md) records that gate. Keep the study lifecycle unavailable to public callers until the Pilot coordinator exists.
+The runtime-contract gate executes every scientific setting that the study schema accepts and binds a mapped item to its immutable revision. [Evaluation study runtime contract](evaluation-study-runtime-contract-future-work.md) records that gate. At this stage, the lifecycle remained unavailable until the later coordinator and activation slices were complete.
 
 **EARS — unit:**
 
@@ -406,7 +406,7 @@ Existing snapshot tests cover detailed malformed matrix cases.
 
 The internal supervised coordinator runs Pilot collection, validates its snapshot, runs Pilot analysis, stores the outcome, enters `awaiting_final`, and stops.
 
-Do not activate `start_study/1` yet. The public lifecycle activates only after Final works.
+This chunk did not activate `start_study/1`. F22+F23 activated the public lifecycle after the Final path was complete.
 
 A phase failure stores a bounded execution error and enters `failed`. Before acceptance, the task locks and checks the execution. Cancellation wins over a late completion.
 
@@ -422,7 +422,7 @@ Cover the recommendation and insufficiency outcomes with shared Pilot fixtures. 
 
 ### F16 + F17 + F18 — Final selection and source binding
 
-**Reserved public interface:** `resume_study/2` with `:recommended` or `{:override_insufficient, candidate_id}`.
+**Public interface, activated in F22+F23:** `resume_study/2` with `:recommended` or `{:override_insufficient, candidate_id}`.
 
 The resume transaction locks the paused execution, validates the tagged selection, resolves one declared candidate, freezes its counts, stores `pilot_override`, enters `collecting_final`, and creates the Final phase row. F19+F20+F21 start the real Final coordinator after the resume transaction commits. F16+F17+F18 add no coordinator shell or no-op task.
 
@@ -462,7 +462,7 @@ This coverage also checks result persistence and read-back. Existing Final tests
 
 ### F22 + F23 — public lifecycle activation — complete
 
-Activate the six public study functions and remove the direct Pilot and Final facade groups.
+The six public study functions are active. The direct Pilot and Final facade groups are removed.
 
 **EARS — backend journey:**
 
