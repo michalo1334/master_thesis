@@ -17,6 +17,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
   alias NetworkDefense.Evaluation.Final.{Limits, Member, TaskFailure}
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
+  alias NetworkDefense.Evaluation.StudyFixtures
   alias NetworkDefense.Evaluations
 
   # Acceptance coverage in this file:
@@ -42,11 +43,15 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
     end)
 
     :ok = FinalComputeStub.start_gust!()
-    agent = FinalComputeStub.start!()
+    fixture = final_fixture()
+    agent = FinalComputeStub.start!(final_fixture: fixture)
     pilot_run_id = FinalComputeStub.recommended_pilot_run!()
+    lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+
+    _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
     %{
       agent: agent,
@@ -61,7 +66,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       snapshot: snapshot,
       pilot_run_id: pilot_run_id
     } do
-      request = FinalConformance.parsed_request!(snapshot.id, pilot_run_id)
+      request = parsed_request!(snapshot.id, pilot_run_id)
 
       # Two declared comparisons, two plan sides of six rows, ten shared attack
       # columns, and five hundred replicates.
@@ -73,7 +78,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       snapshot: snapshot,
       pilot_run_id: pilot_run_id
     } do
-      request = FinalConformance.parsed_request!(snapshot.id, pilot_run_id)
+      request = parsed_request!(snapshot.id, pilot_run_id)
 
       assert :ok = Limits.validate(at_replicates(request, @max_replicates))
 
@@ -102,7 +107,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       final_runs_before: final_runs_before
     } do
       params =
-        FinalConformance.request_params!(snapshot.id, pilot_run_id)
+        request_params!(snapshot.id, pilot_run_id)
         |> Map.put("analysis", %{
           "alpha" => 0.05,
           "confidence_level" => 0.95,
@@ -135,7 +140,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
     } do
       Application.delete_env(:network_defense, @config)
 
-      params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+      params = request_params!(snapshot.id, pilot_run_id)
 
       assert {:error, %FinalError{code: "workflow_failed", issues: [issue]}} =
                Evaluations.submit_final(params)
@@ -149,7 +154,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       pilot_run_id: pilot_run_id,
       final_runs_before: final_runs_before
     } do
-      params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+      params = request_params!(snapshot.id, pilot_run_id)
 
       malformed = [
         [max_bootstrap_replicates: @max_replicates],
@@ -197,7 +202,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       snapshot: snapshot,
       pilot_run_id: pilot_run_id
     } do
-      params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+      params = request_params!(snapshot.id, pilot_run_id)
 
       for config <- [
             [max_bootstrap_replicates: @max_replicates, max_total_work: @max_work],
@@ -235,7 +240,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
              ] == 1_024
 
       params =
-        FinalConformance.request_params!(snapshot.id, pilot_run_id)
+        request_params!(snapshot.id, pilot_run_id)
         |> Map.put("analysis", %{
           "alpha" => 0.05,
           "confidence_level" => 0.95,
@@ -337,9 +342,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       assert read_issue["code"] == "configuration_invalid"
 
       assert {:error, %FinalError{issues: [submit_issue]}} =
-               Evaluations.submit_final(
-                 FinalConformance.request_params!(snapshot.id, pilot_run_id)
-               )
+               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
 
       assert submit_issue["code"] == "configuration_invalid"
       assert runs_on_final_dag() == final_runs_before
@@ -363,9 +366,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       assert create_issue["code"] == "configuration_invalid"
 
       assert {:error, %FinalError{issues: [submit_issue]}} =
-               Evaluations.submit_final(
-                 FinalConformance.request_params!(snapshot.id, pilot_run_id)
-               )
+               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
 
       assert submit_issue["code"] == "configuration_invalid"
       assert runs_on_final_dag() == final_runs_before
@@ -403,15 +404,11 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
 
     test "LIMITS-16: a successful result read reports the shared configuration as Final", %{
       shared: shared,
+      snapshot: snapshot,
       pilot_run_id: pilot_run_id
     } do
-      assert {:ok, snapshot} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
-
       assert {:ok, run_id} =
-               Evaluations.submit_final(
-                 FinalConformance.request_params!(snapshot.id, pilot_run_id)
-               )
+               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
 
       assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
 
@@ -421,6 +418,35 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       assert issue["code"] == "configuration_invalid"
     end
   end
+
+  defp request_params!(snapshot_id, pilot_run_id) do
+    FinalConformance.request_params!(
+      snapshot_id,
+      pilot_run_id,
+      accepted_execution_id!(snapshot_id),
+      final_fixture()
+    )
+  end
+
+  defp parsed_request!(snapshot_id, pilot_run_id) do
+    FinalConformance.parsed_request!(
+      snapshot_id,
+      pilot_run_id,
+      accepted_execution_id!(snapshot_id),
+      final_fixture()
+    )
+  end
+
+  defp accepted_execution_id!(snapshot_id) do
+    phase =
+      NetworkDefense.Repo.get_by!(NetworkDefense.Evaluation.StudyPhase,
+        snapshot_id: snapshot_id
+      )
+
+    phase.execution_id
+  end
+
+  defp final_fixture, do: StudyFixtures.final_conformance_fixture()
 
   defp at_replicates(%Request{} = request, replicates) do
     %{request | analysis: %{request.analysis | bootstrap_replicates: replicates}}
@@ -432,7 +458,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
 
   defp over_cap_run!(snapshot_id, pilot_run_id) do
     params =
-      FinalConformance.request_params!(snapshot_id, pilot_run_id)
+      request_params!(snapshot_id, pilot_run_id)
       |> Map.put("analysis", %{
         "alpha" => 0.05,
         "confidence_level" => 0.95,
@@ -447,7 +473,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
 
   defp run_at_cap!(snapshot_id, pilot_run_id) do
     params =
-      FinalConformance.request_params!(snapshot_id, pilot_run_id)
+      request_params!(snapshot_id, pilot_run_id)
       |> Map.put("analysis", %{
         "alpha" => 0.05,
         "confidence_level" => 0.95,
@@ -461,7 +487,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
   end
 
   defp declared_item!(snapshot_id, pilot_run_id, position) do
-    request = FinalConformance.parsed_request!(snapshot_id, pilot_run_id)
+    request = parsed_request!(snapshot_id, pilot_run_id)
     Enum.at(Member.declared_items(request), position)
   end
 

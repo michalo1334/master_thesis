@@ -206,7 +206,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "validation_failed",
         "unsupported_collection_phase",
         ["phase"],
-        "Only Pilot collection is supported.",
+        "Only Pilot or Final collection is supported.",
         %{"phase" => Atom.to_string(phase)}
       )
 
@@ -383,6 +383,69 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "pilot_analysis_failed",
         ["pilot_analysis"],
         "The Pilot analysis workflow failed."
+      )
+
+  def final_collection_workflow_failed,
+    do:
+      new(
+        "unavailable",
+        "final_collection_workflow_failed",
+        ["final_collection"],
+        "The Final collection workflow failed."
+      )
+
+  def incomplete_final_evidence(path) when is_list(path),
+    do:
+      new(
+        "validation_failed",
+        "incomplete_final_evidence",
+        path,
+        "The Final collection evidence is missing, incomplete, or inconsistent."
+      )
+
+  def final_snapshot_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        ["final_collection"],
+        "The Final evidence snapshot could not be stored safely."
+      )
+
+  def final_analysis_failed,
+    do:
+      new(
+        "unavailable",
+        "final_analysis_failed",
+        ["final_analysis"],
+        "The Final analysis workflow failed."
+      )
+
+  def final_result_invalid,
+    do:
+      new(
+        "validation_failed",
+        "final_result_invalid",
+        ["final_result"],
+        "The Final result does not match the accepted study source."
+      )
+
+  def final_result_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "final_result_storage_failed",
+        ["final_result"],
+        "The compact study result could not be stored safely."
+      )
+
+  def result_unavailable,
+    do:
+      new(
+        "unavailable",
+        "result_unavailable",
+        ["result"],
+        "The compact study result is not available."
       )
 
   defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)

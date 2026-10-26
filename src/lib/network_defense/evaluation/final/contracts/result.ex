@@ -152,8 +152,9 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Result do
     expected = request.expected_comparisons
 
     with :ok <- check_metadata(result, request, expected),
-         :ok <- check_counts(result, expected, members) do
-      parse_comparisons(result, result.comparisons, members, result.alpha)
+         :ok <- check_counts(result, expected, members),
+         :ok <- validate_intrinsic(result) do
+      parse_comparisons(result, result.comparisons, members)
     end
   end
 
@@ -208,13 +209,12 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Result do
 
   # Every comparison is checked in declared order and the first failure wins.
   # No check changes a comparison, so the validated result is returned as is.
-  defp parse_comparisons(result, comparisons, members, alpha) do
+  defp parse_comparisons(result, comparisons, members) do
     comparisons
     |> Enum.zip(members)
     |> Enum.reduce_while(:ok, fn {comparison, member}, :ok ->
       with :ok <- check_identity(comparison.identity, member.identity),
-           :ok <- check_statistics(comparison.statistics, member),
-           :ok <- check_adjustment(comparison.adjustment, member.statistics, alpha) do
+           :ok <- check_statistics(comparison.statistics, member) do
         {:cont, :ok}
       else
         {:error, %FinalError{} = error} -> {:halt, {:error, error}}
@@ -245,6 +245,25 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Result do
       _changed_or_invalid ->
         invalid("A stored Final comparison result does not match its collected member.")
     end
+  end
+
+  @doc false
+  @spec validate_intrinsic(t()) :: :ok | {:error, FinalError.t()}
+  def validate_intrinsic(%__MODULE__{} = result) do
+    if result.family_size == length(result.comparisons) do
+      validate_adjustments(result.comparisons, result.alpha)
+    else
+      invalid("The stored Final family is incomplete.")
+    end
+  end
+
+  defp validate_adjustments(comparisons, alpha) do
+    Enum.reduce_while(comparisons, :ok, fn comparison, :ok ->
+      case check_adjustment(comparison.adjustment, comparison.statistics, alpha) do
+        :ok -> {:cont, :ok}
+        {:error, %FinalError{} = error} -> {:halt, {:error, error}}
+      end
+    end)
   end
 
   # A Holm correction cannot lower a p-value and cannot leave the unit

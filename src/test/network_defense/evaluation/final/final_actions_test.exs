@@ -7,10 +7,14 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.Final.Actions.{CorrectFinalFamily, PrepareFinal}
-  alias NetworkDefense.Evaluation.Final.{Collector, Member, TaskFailure}
+  alias NetworkDefense.Evaluation.Final.Collector
+  alias NetworkDefense.Evaluation.Final.Contracts.Request
+  alias NetworkDefense.Evaluation.Final.Member
+  alias NetworkDefense.Evaluation.Final.TaskFailure
   alias NetworkDefense.Evaluation.Final.TaskFailure.RetryableError
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
+  alias NetworkDefense.Evaluation.StudyFixtures
   alias NetworkDefense.Evaluations
   alias NetworkDefense.Repo
 
@@ -29,14 +33,18 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
     end)
 
     :ok = FinalComputeStub.start_gust!()
-    agent = FinalComputeStub.start!()
+    fixture = final_fixture()
+    agent = FinalComputeStub.start!(final_fixture: fixture)
     pilot_run_id = FinalComputeStub.recommended_pilot_run!()
+    lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     {:ok, dag} =
       Flows.create_dag(%{name: "evaluation_final_actions_#{System.unique_integer([:positive])}"})
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+
+    _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
     %{dag: dag, snapshot: snapshot, pilot_run_id: pilot_run_id, agent: agent}
   end
@@ -200,7 +208,7 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
 
       assert Enum.map(comparisons, & &1["adjustment"]["adjusted_p_value"]) ==
                Enum.map(
-                 FinalConformance.correction_response()["results"],
+                 final_fixture().correction_response["results"],
                  & &1["adjusted_p_value"]
                )
 
@@ -343,30 +351,36 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
   end
 
   describe "preparation" do
-    test "ACTIONS-04: preparation rejects a source that is not a Pilot run", %{
-      dag: dag,
-      snapshot: snapshot
-    } do
+    test "ACTIONS-04: preparation rejects a Pilot run that is not the accepted lifecycle source",
+         %{
+           dag: dag,
+           snapshot: snapshot
+         } do
       run = run!(dag, snapshot.id, 987_654_321)
 
       exception =
         assert_raise(NonRecError, fn -> PrepareFinal.execute([], %{run_id: run.id}) end)
 
-      assert "pilot_not_found" in failure_issue_codes(exception)
+      assert "changed_pilot_source" in failure_issue_codes(exception)
     end
   end
 
   defp run!(dag, snapshot_id, source_pilot_run_id, overrides \\ []) do
     params =
-      FinalConformance.request_params!(snapshot_id, source_pilot_run_id)
+      FinalConformance.request_params!(
+        snapshot_id,
+        source_pilot_run_id,
+        accepted_execution_id!(snapshot_id),
+        final_fixture()
+      )
       |> Map.merge(Map.new(overrides, fn {key, value} -> {Atom.to_string(key), value} end))
 
     {:ok, run} = Flows.create_run(%{dag_id: dag.id, params: params})
     run
   end
 
-  defp prepared!(run, snapshot_id) do
-    request = FinalConformance.parsed_request!(snapshot_id, run.params["source_pilot_run_id"])
+  defp prepared!(run, _snapshot_id) do
+    {:ok, request} = Request.parse(run.params)
 
     {:ok, _task} =
       Flows.create_task(%{
@@ -378,7 +392,7 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
   end
 
   defp members!(_run, _snapshot_id) do
-    FinalConformance.member_requests!()
+    final_fixture().member_requests
     |> Enum.with_index()
     |> Enum.map(fn {request, position} ->
       identity = Enum.at(declared_identities(), position)
@@ -387,7 +401,10 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
         map_index: position,
         params: %{"position" => position, "identity" => identity},
         status: :succeeded,
-        result: %{"identity" => identity, "statistics" => FinalConformance.response_for(request)}
+        result: %{
+          "identity" => identity,
+          "statistics" => FinalConformance.response_for(request, final_fixture())
+        }
       }
     end)
   end
@@ -406,18 +423,25 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
     end)
   end
 
-  defp collect(run, snapshot_id) do
-    request = FinalConformance.parsed_request!(snapshot_id, run.params["source_pilot_run_id"])
-    Collector.collect(run.id, request, FinalConformance.parsed_payload!())
+  defp collect(run, _snapshot_id) do
+    {:ok, request} = Request.parse(run.params)
+    Collector.collect(run.id, request, FinalConformance.parsed_payload!(final_fixture()))
   end
 
+  defp accepted_execution_id!(snapshot_id) do
+    phase = Repo.get_by!(NetworkDefense.Evaluation.StudyPhase, snapshot_id: snapshot_id)
+    phase.execution_id
+  end
+
+  defp final_fixture, do: StudyFixtures.final_conformance_fixture()
+
   defp declared_identities do
-    FinalConformance.snapshot()["payload"]["comparisons"]
+    final_fixture().snapshot["payload"]["comparisons"]
     |> Enum.map(&Map.fetch!(&1, "identity"))
   end
 
   defp declared_keys do
-    FinalConformance.snapshot()["payload"]["comparisons"]
+    final_fixture().snapshot["payload"]["comparisons"]
     |> Enum.map(fn comparison ->
       identity = comparison["identity"]
 

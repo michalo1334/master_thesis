@@ -9,10 +9,38 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
   alias NetworkDefense.Evaluation.StudyConformance
   alias NetworkDefense.Repo
 
+  defmodule CoordinatorStub do
+    def start(_execution_id), do: {:ok, self()}
+  end
+
+  defmodule FailingCoordinatorStub do
+    def start(_execution_id), do: {:error, StudyError.coordinator_not_startable()}
+  end
+
+  defmodule RaisingCoordinatorStub do
+    def start(_execution_id), do: raise(ArgumentError, "injected coordinator defect")
+  end
+
+  test "FINAL-RESUME-07: WHEN coordinator startup raises a programming exception, resume SHALL propagate it after committing the selection" do
+    context = paused_context(:recommended)
+
+    assert_raise ArgumentError, "injected coordinator defect", fn ->
+      Resume.resume(context.execution.id, :recommended, coordinator: RaisingCoordinatorStub)
+    end
+
+    assert Repo.get!(StudyExecution, context.execution.id).state == :collecting_final
+  end
+
+  test "FINAL-RESUME-08: WHEN the execution ID is invalid or absent, resume SHALL keep its not-found error" do
+    for id <- ["invalid", Ecto.UUID.generate()] do
+      assert resume(id, :recommended) == {:error, StudyError.study_execution_not_found()}
+    end
+  end
+
   test "FINAL-RESUME-01: WHEN a valid recommendation resumes, THE application SHALL freeze its candidate and counts, set override false, enter collecting_final, and create one empty Final phase" do
     context = paused_context(:recommended)
 
-    assert {:ok, resumed} = Resume.resume(context.execution.id, :recommended)
+    assert {:ok, resumed} = resume(context.execution.id, :recommended)
 
     assert resumed.id == context.execution.id
     assert resumed.state == :collecting_final
@@ -43,7 +71,7 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
     existing_phase = StudyFixtures.insert_phase(context.execution, :final_collection)
 
     assert {:ok, resumed} =
-             Resume.resume(context.execution.id, {:override_insufficient, context.candidate.id})
+             resume(context.execution.id, {:override_insufficient, context.candidate.id})
 
     assert resumed.state == :collecting_final
     assert resumed.selected_candidate_id == context.candidate.id
@@ -79,7 +107,7 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
     for {_case, outcome, selection} <- invalid_selections do
       context = paused_context(outcome)
 
-      assert {:error, %StudyError{}} = Resume.resume(context.execution.id, selection)
+      assert {:error, %StudyError{}} = resume(context.execution.id, selection)
 
       assert %StudyExecution{
                state: :awaiting_final,
@@ -99,7 +127,7 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
   test "FINAL-RESUME-04: WHEN the accepted Pilot source is incomplete, THE application SHALL reject resume without changing the paused execution" do
     context = paused_context(:recommended, pilot_result_ref: nil)
 
-    assert {:error, %StudyError{}} = Resume.resume(context.execution.id, :recommended)
+    assert {:error, %StudyError{}} = resume(context.execution.id, :recommended)
 
     assert %StudyExecution{
              state: :awaiting_final,
@@ -120,7 +148,7 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
     final_phase =
       Repo.update!(StudyPhase.changeset(final_phase, %{gust_run_id: 902}))
 
-    assert {:error, %StudyError{} = error} = Resume.resume(context.execution.id, :recommended)
+    assert {:error, %StudyError{} = error} = resume(context.execution.id, :recommended)
     assert error == StudyError.final_phase_conflict()
 
     assert %StudyExecution{
@@ -140,6 +168,26 @@ defmodule NetworkDefense.Evaluation.Study.ResumeTest do
            } = Repo.reload!(final_phase)
 
     assert phase_id == final_phase.id
+  end
+
+  test "FINAL-RESUME-06: WHEN Final coordinator startup fails after commit, THE application SHALL return a bounded error and keep collecting_final" do
+    context = paused_context(:recommended)
+
+    assert {:error, %StudyError{code: "conflict"}} =
+             Resume.resume(context.execution.id, :recommended,
+               coordinator: FailingCoordinatorStub
+             )
+
+    assert Repo.get!(StudyExecution, context.execution.id).state == :collecting_final
+
+    assert Repo.get_by!(StudyPhase,
+             execution_id: context.execution.id,
+             phase: :final_collection
+           )
+  end
+
+  defp resume(execution_id, selection) do
+    Resume.resume(execution_id, selection, coordinator: CoordinatorStub)
   end
 
   defp paused_context(outcome_kind, opts \\ []) do

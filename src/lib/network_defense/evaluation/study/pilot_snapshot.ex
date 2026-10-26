@@ -62,6 +62,29 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
   def assemble_and_store_pilot_snapshot(_phase, _collection_items, _definition),
     do: incomplete(["collection_items"])
 
+  @doc false
+  @spec assemble_evidence(StudyPhase.t(), [StudyCollectionItem.t()], Definition.t()) ::
+          {:ok, {[ComparisonEvidence.t()], [item_evidence()]}} | {:error, StudyError.t()}
+  def assemble_evidence(
+        %StudyPhase{} = phase,
+        collection_items,
+        %Definition{} = definition
+      )
+      when is_list(collection_items) do
+    with {:ok, item_ids} <- collection_item_ids(collection_items),
+         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, work} <-
+           Collection.build_collection_work(execution, phase, definition, @replica_position),
+         {:ok, ordered} <- order_items(phase, work, item_ids),
+         {:ok, evidence} <- item_evidence(ordered),
+         {:ok, comparisons} <- comparisons(evidence, definition) do
+      {:ok, {comparisons, evidence}}
+    end
+  end
+
+  def assemble_evidence(_phase, _collection_items, _definition),
+    do: incomplete(["collection_items"])
+
   defp collection_item_ids(collection_items) do
     collection_items
     |> Enum.reduce_while({:ok, []}, fn item, {:ok, ids} ->
@@ -143,14 +166,16 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
   end
 
   defp assemble(%StudyPhase{} = phase, item_ids, %Definition{} = definition) do
+    items = reload_items!(item_ids)
+
     with {:ok, execution} <- load_execution(phase.execution_id),
-         {:ok, work} <-
-           Collection.build_collection_work(execution, phase, definition, @replica_position),
-         {:ok, ordered} <- order_items(phase, work, item_ids),
-         {:ok, evidence} <- item_evidence(ordered),
-         {:ok, comparisons} <- comparisons(evidence, definition) do
+         {:ok, {comparisons, evidence}} <- assemble_evidence(phase, items, definition) do
       input(execution, definition, payload(comparisons, evidence, definition))
     end
+  end
+
+  defp reload_items!(item_ids) do
+    Repo.all(from item in StudyCollectionItem, where: item.id in ^item_ids)
   end
 
   defp load_execution(execution_id) do

@@ -9,7 +9,7 @@ defmodule NetworkDefense.Evaluation.Final.Binding do
     SnapshotPayload
   }
 
-  alias NetworkDefense.Evaluation.Final.{Limits, Source}
+  alias NetworkDefense.Evaluation.Final.Limits
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.{FinalBindingContext, FinalSource}
   alias NetworkDefense.Evaluation.StudyPhase
@@ -39,8 +39,7 @@ defmodule NetworkDefense.Evaluation.Final.Binding do
     with {:ok, snapshot, payload} <- EvidenceSnapshots.load_final(request.snapshot_id),
          :ok <- Request.matches_snapshot(request, snapshot, payload),
          :ok <- check_limits(request, options),
-         {:ok, pilot} <- Source.require_recommended_pilot(request.source_pilot_run_id),
-         :ok <- Request.matches_pilot(request, pilot) do
+         :ok <- verify_lifecycle_source(request) do
       {:ok, payload}
     end
   end
@@ -51,6 +50,54 @@ defmodule NetworkDefense.Evaluation.Final.Binding do
     with {:ok, context} <- FinalBindingContext.load(execution_id),
          :ok <- FinalSource.compare(source, context) do
       {:ok, context.accepted_pilot_phase}
+    end
+  end
+
+  defp verify_lifecycle_source(%Request{} = request) do
+    case FinalBindingContext.load_for_analysis(request.study_execution_id) do
+      {:ok, context} -> compare_request_source(request, context)
+      {:error, %StudyError{}} -> {:error, FinalError.changed_pilot_source()}
+    end
+  end
+
+  defp compare_request_source(%Request{} = request, context) do
+    selection = context.selection
+    definition = context.definition
+    pilot_phase = context.accepted_pilot_phase
+    final_collection_phase = context.accepted_final_collection_phase
+
+    comparisons =
+      Enum.map(definition.family.comparisons, fn comparison ->
+        {
+          comparison.tier,
+          comparison.budget,
+          Atom.to_string(comparison.alternative),
+          Atom.to_string(comparison.reference),
+          comparison.outcome
+        }
+      end)
+
+    requested =
+      Enum.map(request.expected_comparisons, fn comparison ->
+        {
+          comparison.tier,
+          comparison.budget,
+          comparison.alternative,
+          comparison.reference,
+          comparison.outcome
+        }
+      end)
+
+    if request.study_revision_id == context.execution.study_revision_id and
+         request.family_id == definition.family.id and
+         request.plan_count == selection.plan_count_per_side and
+         request.attacks_per_plan == selection.attacks_per_plan and
+         request.source_pilot_run_id == pilot_phase.gust_run_id and
+         request.snapshot_id == final_collection_phase.snapshot_id and
+         requested == comparisons do
+      :ok
+    else
+      {:error, FinalError.changed_pilot_source()}
     end
   end
 

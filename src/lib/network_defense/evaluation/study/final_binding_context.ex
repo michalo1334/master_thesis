@@ -11,14 +11,15 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
   @usable_final_states [:collecting_final, :analyzing_final, :succeeded]
 
   @enforce_keys [:execution, :selection, :definition, :pilot_outcome, :accepted_pilot_phase]
-  defstruct @enforce_keys
+  defstruct @enforce_keys ++ [accepted_final_collection_phase: nil]
 
   @type t :: %__MODULE__{
           execution: StudyExecution.t(),
           selection: FinalSelection.t(),
           definition: Definition.t(),
           pilot_outcome: PilotOutcome.t(),
-          accepted_pilot_phase: StudyPhase.t()
+          accepted_pilot_phase: StudyPhase.t(),
+          accepted_final_collection_phase: StudyPhase.t() | nil
         }
 
   @spec load(Ecto.UUID.t()) :: {:ok, t()} | {:error, StudyError.t()}
@@ -38,6 +39,16 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
          pilot_outcome: outcome,
          accepted_pilot_phase: phase
        }}
+    end
+  end
+
+  @spec load_for_analysis(Ecto.UUID.t()) :: {:ok, t()} | {:error, StudyError.t()}
+  def load_for_analysis(execution_id) do
+    with {:ok, context} <- load(execution_id),
+         :ok <- require_post_collection_state(context.execution),
+         {:ok, phase} <- load_final_collection_phase(context.execution),
+         :ok <- verify_final_collection_phase(phase) do
+      {:ok, %{context | accepted_final_collection_phase: phase}}
     end
   end
 
@@ -71,6 +82,33 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
          ) do
       %StudyPhase{} = phase -> {:ok, phase}
       nil -> {:error, StudyError.pilot_source_incomplete()}
+    end
+  end
+
+  defp require_post_collection_state(%StudyExecution{state: state})
+       when state in [:analyzing_final, :succeeded],
+       do: :ok
+
+  defp require_post_collection_state(%StudyExecution{}),
+    do: {:error, StudyError.final_source_mismatch()}
+
+  defp load_final_collection_phase(%StudyExecution{} = execution) do
+    case Repo.one(
+           from phase in StudyPhase,
+             where: phase.execution_id == ^execution.id and phase.phase == :final_collection
+         ) do
+      %StudyPhase{} = phase -> {:ok, phase}
+      nil -> {:error, StudyError.final_source_mismatch()}
+    end
+  end
+
+  defp verify_final_collection_phase(%StudyPhase{} = phase) do
+    with true <- is_integer(phase.gust_run_id) and phase.gust_run_id > 0,
+         true <- is_nil(phase.error),
+         {:ok, _snapshot_id} <- Ecto.UUID.cast(phase.snapshot_id) do
+      :ok
+    else
+      _invalid_or_incomplete -> {:error, StudyError.final_source_mismatch()}
     end
   end
 

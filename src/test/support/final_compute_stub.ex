@@ -32,7 +32,9 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
 
   Returns the agent that records the observed traffic.
   """
-  def start! do
+  def start!(opts \\ []) do
+    final_fixture = Keyword.get(opts, :final_fixture, FinalConformance.fixture())
+
     agent =
       ExUnit.Callbacks.start_supervised!(
         {Agent,
@@ -44,7 +46,8 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
              correction_requests: [],
              delays: %{},
              fail_seeds: [],
-             correction_failures: []
+             correction_failures: [],
+             final_fixture: final_fixture
            }
          end}
       )
@@ -206,7 +209,7 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
       Map.update!(current, :completion_order, &[seed | &1])
     end)
 
-    case FinalConformance.response_for(request) do
+    case FinalConformance.response_for(request, state.final_fixture) do
       nil ->
         {422, error_envelope("invalid_json")}
 
@@ -220,9 +223,9 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
   end
 
   defp correction(request, agent) do
-    failure =
+    {failure, fixture} =
       Agent.get_and_update(agent, fn state ->
-        {List.first(state.correction_failures),
+        {{List.first(state.correction_failures), state.final_fixture},
          %{
            state
            | correction_requests: [request | state.correction_requests],
@@ -231,14 +234,14 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
       end)
 
     cond do
-      request != FinalConformance.correction_request() ->
+      request != fixture.correction_request ->
         {422, FinalConformance.error_envelope("validation_failed")}
 
       failure ->
         failure
 
       true ->
-        {200, FinalConformance.correction_response()}
+        {200, fixture.correction_response}
     end
   end
 

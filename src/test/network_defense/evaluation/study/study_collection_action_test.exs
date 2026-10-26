@@ -145,9 +145,10 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionActionTest do
   end
 
   test "COLLECTION-ACTION-05: an unsupported phase creates no runtime record", %{
-    final_phase: phase,
+    execution: execution,
     graph: graph
   } do
+    phase = StudyFixtures.insert_phase(execution, :final_analysis)
     item = collection_item(phase, 0)
 
     assert {:error, %StudyError{issues: [issue]}} = Collection.run_collection_item(item.id)

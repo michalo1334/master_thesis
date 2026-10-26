@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "FinalRequest",
-  "description": "Strict versioned Final analysis request. It binds one Final evidence snapshot to one recommended Pilot result and carries explicit settings, one explicit Final seed per declared comparison, and caller assertions. It carries no evidence matrix.",
+  "description": "Strict versioned Final analysis request. It binds one Final evidence snapshot to one study execution and its accepted Pilot phase. It carries explicit settings, one explicit Final seed per declared comparison, and caller assertions. It carries no evidence matrix.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,6 +10,7 @@
     "method",
     "family_id",
     "study_revision_id",
+    "study_execution_id",
     "snapshot_id",
     "source_pilot_run_id",
     "plan_count",
@@ -25,6 +26,7 @@
     "method": {"type": "string", "enum": ["holm"]},
     "family_id": {"$ref": "#/definitions/identifier"},
     "study_revision_id": {"$ref": "#/definitions/uuid"},
+    "study_execution_id": {"$ref": "#/definitions/uuid"},
     "snapshot_id": {"$ref": "#/definitions/uuid"},
     "source_pilot_run_id": {"type": "integer", "minimum": 1},
     "plan_count": {"type": "integer", "minimum": 1},

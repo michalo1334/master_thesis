@@ -26,6 +26,7 @@ OUT = ROOT / "contracts" / "evaluation" / "final" / "v1" / "valid"
 BASE_URL = os.environ.get("EVALUATION_FINAL_COMPUTE_URL", "http://127.0.0.1:18080")
 
 STUDY_REVISION_ID = "4f4a33c6-cc8e-4ac1-b145-18647a928e49"
+STUDY_EXECUTION_ID = "5a5b44d7-dd9f-4bd2-a256-29758ba39f50"
 SNAPSHOT_ID = "0f9e8d7c-6b5a-4c3d-9e2f-1a2b3c4d5e6f"
 FAMILY_ID = "family-example"
 PLAN_COUNT = 6
@@ -155,6 +156,7 @@ def main() -> None:
         "method": "holm",
         "family_id": FAMILY_ID,
         "study_revision_id": STUDY_REVISION_ID,
+        "study_execution_id": STUDY_EXECUTION_ID,
         "snapshot_id": SNAPSHOT_ID,
         "source_pilot_run_id": 1,
         "plan_count": PLAN_COUNT,

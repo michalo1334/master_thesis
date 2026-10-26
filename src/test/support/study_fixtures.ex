@@ -4,7 +4,17 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
   alias NetworkDefense.Evaluation.Study.Collection
   alias NetworkDefense.Evaluation.Study.CollectionItems
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
-  alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyExecution, StudyPhase, StudyRevision}
+  alias NetworkDefense.Evaluation.Study.PilotOutcome
+
+  alias NetworkDefense.Evaluation.{
+    EvidenceSnapshot,
+    FinalConformance,
+    StudyCollectionItem,
+    StudyExecution,
+    StudyPhase,
+    StudyRevision
+  }
+
   alias NetworkDefense.Evaluation.StudyConformance
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
@@ -81,6 +91,150 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
 
   defp revision_attrs(%Definition{} = definition),
     do: %{definition: Definition.to_params(definition)}
+
+  @doc "An executable study fixture adapted from the checked Final conformance documents."
+  def final_conformance_fixture do
+    FinalConformance.fixture()
+    |> replace_heuristic()
+  end
+
+  @doc "A study definition for the executable Final conformance lifecycle fixture."
+  @spec final_conformance_definition!() :: Definition.t()
+  def final_conformance_definition! do
+    request = FinalConformance.request()
+    analysis = request["analysis"]
+
+    StudyConformance.definition()
+    |> put_in(["family", "id"], request["family_id"])
+    |> put_in(
+      ["pilot", "candidates", Access.at(1), "attacks_per_plan"],
+      request["attacks_per_plan"]
+    )
+    |> put_in(["final", "analysis", "comparison_seeds"], request["comparison_seeds"])
+    |> put_in(["final", "analysis", "alpha"], analysis["alpha"])
+    |> put_in(["final", "analysis", "confidence_level"], analysis["confidence_level"])
+    |> put_in(["final", "analysis", "test_alternative"], analysis["test_alternative"])
+    |> put_in(["final", "analysis", "bootstrap_replicates"], analysis["bootstrap_replicates"])
+    |> Definition.parse()
+    |> fixture_ok!()
+  end
+
+  @doc "Persist the executable Final conformance lifecycle through its Pilot source."
+  def persist_final_conformance_lifecycle!(pilot_run_id, opts \\ []) do
+    final_lifecycle(final_conformance_definition!(),
+      candidate_id: "medium",
+      state: Keyword.get(opts, :state, :collecting_final),
+      outcome: Keyword.get(opts, :outcome, :recommended),
+      pilot_run_id: pilot_run_id,
+      revision_attrs: [id: FinalConformance.request()["study_revision_id"]]
+    )
+  end
+
+  @doc "Persist the accepted Final collection run and snapshot, then enter Final analysis."
+  def accept_final_collection!(context, snapshot_id, run_id \\ 902) do
+    Repo.transaction(fn ->
+      _snapshot = Repo.get!(EvidenceSnapshot, snapshot_id)
+      phase = Repo.get!(StudyPhase, context.final_phase.id)
+      execution = Repo.get!(StudyExecution, context.execution.id)
+
+      if not is_nil(phase.snapshot_id) and phase.snapshot_id != snapshot_id do
+        raise "the Final collection phase already accepts a different snapshot"
+      end
+
+      phase =
+        phase
+        |> StudyPhase.changeset(%{snapshot_id: snapshot_id, gust_run_id: run_id, error: nil})
+        |> Repo.update!()
+
+      execution = accept_final_analysis_state!(execution)
+      %{context | execution: execution, final_phase: phase}
+    end)
+    |> case do
+      {:ok, accepted} -> accepted
+      {:error, reason} -> raise "could not accept Final collection: #{inspect(reason)}"
+    end
+  end
+
+  @doc "One stored execution with a frozen Final selection and an accepted Pilot analysis phase."
+  def final_lifecycle(%Definition{} = definition, opts \\ []) do
+    candidate_id = Keyword.get(opts, :candidate_id, hd(definition.pilot.candidates).id)
+    candidate = Enum.find(definition.pilot.candidates, &(&1.id == candidate_id))
+    outcome_kind = Keyword.get(opts, :outcome, :recommended)
+
+    outcome =
+      case outcome_kind do
+        :recommended ->
+          PilotOutcome.to_params(%PilotOutcome{
+            outcome: :recommended,
+            candidate_id: candidate.id,
+            plan_count_per_side: candidate.plan_count_per_side,
+            attacks_per_plan: candidate.attacks_per_plan
+          })
+
+        :insufficient ->
+          PilotOutcome.to_params(%PilotOutcome{
+            outcome: :insufficient,
+            reason: "no_passing_candidate"
+          })
+      end
+
+    revision_attrs =
+      definition
+      |> revision_attrs()
+      |> Map.merge(Map.new(Keyword.get(opts, :revision_attrs, [])))
+
+    revision = insert_revision(revision_attrs)
+
+    execution =
+      insert_execution(revision, %{
+        state: Keyword.get(opts, :state, :collecting_final),
+        pilot_outcome: outcome,
+        selected_candidate_id: candidate.id,
+        selected_plan_count_per_side: candidate.plan_count_per_side,
+        selected_attacks_per_plan: candidate.attacks_per_plan,
+        pilot_override: outcome_kind == :insufficient
+      })
+
+    pilot_phase = insert_phase(execution, :pilot_analysis)
+
+    pilot_phase =
+      Repo.update!(
+        StudyPhase.changeset(pilot_phase, %{
+          gust_run_id: Keyword.get(opts, :pilot_run_id, 901),
+          result_ref: outcome
+        })
+      )
+
+    %{
+      revision: revision,
+      execution: execution,
+      pilot_phase: pilot_phase,
+      final_phase: insert_phase(execution, :final_collection),
+      candidate: candidate,
+      definition: definition
+    }
+  end
+
+  defp accept_final_analysis_state!(%StudyExecution{state: :collecting_final} = execution) do
+    execution
+    |> StudyExecution.changeset(%{state: :analyzing_final})
+    |> Repo.update!()
+  end
+
+  defp accept_final_analysis_state!(%StudyExecution{state: state} = execution)
+       when state in [:analyzing_final, :succeeded],
+       do: execution
+
+  defp replace_heuristic("heuristic"), do: "simulated_annealing"
+  defp replace_heuristic(value) when is_list(value), do: Enum.map(value, &replace_heuristic/1)
+
+  defp replace_heuristic(value) when is_map(value),
+    do: Map.new(value, fn {key, item} -> {key, replace_heuristic(item)} end)
+
+  defp replace_heuristic(value), do: value
+
+  defp fixture_ok!({:ok, value}), do: value
+  defp fixture_ok!({:error, error}), do: raise("expected fixture, got: #{inspect(error)}")
 
   @doc """
   One stored graph revision with two foothold hosts.

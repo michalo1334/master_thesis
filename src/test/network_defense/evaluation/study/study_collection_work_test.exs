@@ -114,16 +114,55 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionWorkTest do
     end
   end
 
-  test "COLLECTION-WORK-04: a Final phase is rejected instead of planned", %{
-    definition: definition,
-    execution: execution
-  } do
-    phase = phase(execution, :final_collection)
+  test "F19-01: WHEN Final collection builds work, THE application SHALL use the frozen counts and declared Final seed and root roles",
+       %{
+         definition: definition,
+         execution: pilot_execution,
+         phase: pilot_phase
+       } do
+    selected = Enum.find(definition.pilot.candidates, &(&1.id == "medium"))
 
-    assert {:error, %StudyError{code: "validation_failed", issues: [issue]}} =
-             Collection.build_collection_work(execution, phase, definition, 0)
+    final_execution = %{
+      pilot_execution
+      | state: :collecting_final,
+        selected_candidate_id: selected.id,
+        selected_plan_count_per_side: selected.plan_count_per_side,
+        selected_attacks_per_plan: selected.attacks_per_plan,
+        pilot_override: false
+    }
 
-    assert issue["code"] == "unsupported_collection_phase"
+    final_phase = phase(final_execution, :final_collection)
+
+    assert {:ok, pilot_items} =
+             Collection.build_collection_work(pilot_execution, pilot_phase, definition, 0)
+
+    assert {:ok, final_items} =
+             Collection.build_collection_work(final_execution, final_phase, definition, 0)
+
+    assert Enum.map(final_items, &{&1.comparison_position, &1.side, &1.plan_position}) ==
+             for(
+               comparison_position <- 0..1,
+               side <- [:alternative, :reference],
+               plan_position <- 0..5,
+               do: {comparison_position, side, plan_position}
+             )
+
+    final_seeds = Enum.take(definition.final.collection.selection_seeds, 6)
+
+    assert Enum.map(final_items, & &1.selection_seed) ==
+             final_seeds ++ final_seeds ++ final_seeds ++ final_seeds
+
+    assert Enum.map(final_items, & &1.evaluation_root) ==
+             List.duplicate(320_001, 12) ++ List.duplicate(320_002, 12)
+
+    assert Enum.all?(final_items, &(&1.replica_position == 0))
+    assert Enum.all?(final_items, &(&1.attack_count == selected.attacks_per_plan))
+
+    refute Enum.map(final_items, & &1.selection_seed) ==
+             Enum.map(pilot_items, & &1.selection_seed)
+
+    refute Enum.map(final_items, & &1.evaluation_root) ==
+             Enum.map(pilot_items, & &1.evaluation_root)
   end
 
   test "COLLECTION-WORK-05: a foreign phase or an invalid replica is rejected", %{

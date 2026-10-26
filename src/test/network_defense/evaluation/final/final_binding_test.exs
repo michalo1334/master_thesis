@@ -7,7 +7,7 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
   alias Gust.DAG.{ErrorParser, NonRecError}
   alias Gust.Flows
 
-  alias NetworkDefense.Evaluation.EvidenceSnapshot
+  alias NetworkDefense.Evaluation.{EvidenceSnapshot, StudyFixtures, StudyPhase}
   alias NetworkDefense.Evaluation.Final.Actions.{CompareFinalMember, CorrectFinalFamily}
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request}
   alias NetworkDefense.Evaluation.Final.{Member, TaskFailure}
@@ -36,13 +36,23 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
     end)
 
     :ok = FinalComputeStub.start_gust!()
-    agent = FinalComputeStub.start!()
+    fixture = StudyFixtures.final_conformance_fixture()
+    agent = FinalComputeStub.start!(final_fixture: fixture)
     pilot_run_id = FinalComputeStub.recommended_pilot_run!()
+    lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
 
-    params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+    _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
+
+    params =
+      FinalConformance.request_params!(
+        snapshot.id,
+        pilot_run_id,
+        lifecycle.execution.id,
+        fixture
+      )
 
     %{agent: agent, pilot_run_id: pilot_run_id, snapshot: snapshot, params: params}
   end
@@ -80,13 +90,12 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       assert FinalComputeStub.requests(agent, :correction_requests) == []
     end
 
-    test "BIND-03: a source Pilot that stopped being recommended stops a member", %{
+    test "BIND-03: a changed accepted Pilot phase stops a member", %{
       agent: agent,
-      pilot_run_id: pilot_run_id,
       params: params
     } do
       run = crafted_run!(params)
-      invalidate_pilot!(pilot_run_id)
+      invalidate_pilot_phase!(params["study_execution_id"])
 
       exception =
         assert_raise(NonRecError, fn ->
@@ -97,13 +106,12 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       assert FinalComputeStub.requests(agent, :comparison_seeds) == []
     end
 
-    test "BIND-04: a source Pilot that stopped being recommended stops the fan-in", %{
+    test "BIND-04: a changed accepted Pilot phase stops the fan-in", %{
       agent: agent,
-      pilot_run_id: pilot_run_id,
       params: params
     } do
       run = crafted_run!(params)
-      invalidate_pilot!(pilot_run_id)
+      invalidate_pilot_phase!(params["study_execution_id"])
 
       exception =
         assert_raise(NonRecError, fn -> CorrectFinalFamily.execute([], %{run_id: run.id}) end)
@@ -139,12 +147,11 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       assert "changed_snapshot" in issue_codes(error)
     end
 
-    test "BIND-07: an invalidated source Pilot after success makes the result unreadable", %{
-      pilot_run_id: pilot_run_id,
+    test "BIND-07: a changed accepted Pilot phase after success makes the result unreadable", %{
       params: params
     } do
       run_id = succeeded_run!(params)
-      invalidate_pilot!(pilot_run_id)
+      invalidate_pilot_phase!(params["study_execution_id"])
 
       assert {:error, error} = Evaluations.get_final_result(run_id)
       assert issue_codes(error) != []
@@ -190,17 +197,9 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       )
   end
 
-  # Replace the stored Pilot selection outcome. The Pilot run still exists, but
-  # it no longer reports a recommendation.
-  defp invalidate_pilot!(pilot_run_id) do
-    task =
-      Gust.Repo.one!(
-        from(task in Gust.Flows.Task,
-          where: task.run_id == ^pilot_run_id and task.name == "select_pilot"
-        )
-      )
-
-    {:ok, _task} = Flows.update_task_result(task, %{task.result | "outcome" => "no_candidate"})
+  defp invalidate_pilot_phase!(execution_id) do
+    phase = Repo.get_by!(StudyPhase, execution_id: execution_id, phase: :pilot_analysis)
+    Repo.update!(StudyPhase.changeset(phase, %{gust_run_id: phase.gust_run_id + 1}))
   end
 
   defp issue_codes(%FinalError{} = error), do: Enum.map(error.issues, & &1["code"])

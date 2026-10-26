@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
   use ExUnit.Case, async: false
 
+  import Ecto.Query
+
   alias Ecto.Adapters.SQL.Sandbox
 
   alias NetworkDefense.Evaluation.EvidenceSnapshot
@@ -12,10 +14,11 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     SnapshotPayload
   }
 
-  alias NetworkDefense.Evaluation.Final.Limits
+  alias NetworkDefense.Evaluation.Final.{Limits, Workflow}
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
   alias NetworkDefense.Evaluation.Pilot.Limits, as: PilotLimits
+  alias NetworkDefense.Evaluation.StudyFixtures
   alias NetworkDefense.Evaluations
   alias NetworkDefense.Repo
 
@@ -39,10 +42,12 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     end)
 
     :ok = FinalComputeStub.start_gust!()
-    _agent = FinalComputeStub.start!()
+    fixture = StudyFixtures.final_conformance_fixture()
+    _agent = FinalComputeStub.start!(final_fixture: fixture)
     pilot_run_id = FinalComputeStub.recommended_pilot_run!()
+    lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
-    %{pilot_run_id: pilot_run_id}
+    %{fixture: fixture, lifecycle: lifecycle, pilot_run_id: pilot_run_id}
   end
 
   describe "snapshot creation" do
@@ -173,14 +178,57 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     end
   end
 
+  describe "workflow creation" do
+    test "API-10: a different valid Final snapshot is rejected before a Gust run is created",
+         %{fixture: fixture, lifecycle: lifecycle, pilot_run_id: pilot_run_id} do
+      assert {:ok, accepted_snapshot} =
+               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+
+      _accepted =
+        StudyFixtures.accept_final_collection!(lifecycle, accepted_snapshot.id)
+
+      accepted_params =
+        FinalConformance.request_params!(
+          accepted_snapshot.id,
+          pilot_run_id,
+          lifecycle.execution.id,
+          fixture
+        )
+
+      assert {:ok, other_snapshot} =
+               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+
+      params = Map.put(accepted_params, "snapshot_id", other_snapshot.id)
+      run_count = evaluation_final_run_count()
+
+      assert {:error,
+              %FinalError{
+                code: "validation_failed",
+                issues: [%{"code" => "changed_pilot_source"}]
+              }} = Workflow.create(params)
+
+      assert evaluation_final_run_count() == run_count
+    end
+  end
+
   describe "await and read" do
     test "API-08: await reports status only and the result comes from read", %{
+      fixture: fixture,
+      lifecycle: lifecycle,
       pilot_run_id: pilot_run_id
     } do
       assert {:ok, snapshot} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
 
-      params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+      _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
+
+      params =
+        FinalConformance.request_params!(
+          snapshot.id,
+          pilot_run_id,
+          lifecycle.execution.id,
+          fixture
+        )
 
       assert {:ok, run_id} = Evaluations.submit_final(params)
       assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
@@ -197,5 +245,10 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
       assert limits.max_bootstrap_replicates > 0
       assert limits.max_total_work > 0
     end
+  end
+
+  defp evaluation_final_run_count do
+    dag = Gust.Flows.get_dag_by_name("evaluation_final")
+    Gust.Repo.aggregate(from(run in Gust.Flows.Run, where: run.dag_id == ^dag.id), :count)
   end
 end

@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F18. F16+F17+F18 add the internal Final resume command, typed frozen selection, Final collection phase creation, and immutable Pilot-phase source binding.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F21. F19+F20+F21 add fresh Final collection, lifecycle-bound complete-family analysis, one immutable compact result, and success coordination.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F19+F20+F21 come next. The public study lifecycle stays unavailable until the complete Final path exists.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F22+F23 come next. The public study lifecycle stays unavailable until that activation slice is complete.
 
 ## Prototype boundaries
 
@@ -444,7 +444,7 @@ Cover both valid resume forms with shared setup.
 
 Use a small fixture-backed mismatch table. Do not repeat it at each caller.
 
-### F19 + F20 + F21 — complete Final path and result
+### F19 + F20 + F21 — complete Final path and result — complete
 
 The Final coordinator builds fresh Final work, uses Final seeds and roots, rejects Pilot evidence and runtime IDs, creates one Final snapshot, runs complete-family analysis, stores one compact result, enters `succeeded`, and stops.
 

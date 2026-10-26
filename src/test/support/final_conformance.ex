@@ -1,11 +1,17 @@
 defmodule NetworkDefense.Evaluation.FinalConformance do
   @moduledoc false
 
+  alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonStatistics
+  alias NetworkDefense.Evaluation.Family.Contracts.{HolmRequest, HolmResponse, RawResult}
+
   alias NetworkDefense.Evaluation.Final.Contracts.{
     Request,
+    Result,
     SnapshotInput,
     SnapshotPayload
   }
+
+  alias NetworkDefense.Evaluation.Final.Member
 
   # Checked-in Final conformance examples.
   #
@@ -54,26 +60,114 @@ defmodule NetworkDefense.Evaluation.FinalConformance do
   def correction_response, do: @correction_response
   def member_responses, do: @member_responses
 
+  def fixture do
+    %{
+      snapshot: @snapshot,
+      request: @request,
+      correction_request: @correction_request,
+      correction_response: @correction_response,
+      member_requests: @member_requests,
+      member_responses: @member_responses
+    }
+  end
+
   def read(relative_path),
     do: @root |> Path.join(relative_path) |> File.read!() |> Jason.decode!()
 
-  @spec snapshot_input!() :: SnapshotInput.t()
-  def snapshot_input!, do: assert_ok(SnapshotInput.parse(@snapshot))
+  @spec snapshot_input!(map()) :: SnapshotInput.t()
+  def snapshot_input!(fixture \\ fixture()),
+    do: assert_ok(SnapshotInput.parse(fixture.snapshot))
 
-  @spec parsed_payload!() :: SnapshotPayload.t()
-  def parsed_payload!, do: snapshot_input!().payload
+  @spec parsed_payload!(map()) :: SnapshotPayload.t()
+  def parsed_payload!(fixture \\ fixture()), do: snapshot_input!(fixture).payload
 
   @spec request_params!(String.t(), integer()) :: map()
   def request_params!(snapshot_id, source_pilot_run_id) do
-    @request
+    request_params!(
+      snapshot_id,
+      source_pilot_run_id,
+      @request["study_execution_id"],
+      fixture()
+    )
+  end
+
+  @spec request_params!(String.t(), integer(), String.t()) :: map()
+  def request_params!(snapshot_id, source_pilot_run_id, study_execution_id) do
+    request_params!(snapshot_id, source_pilot_run_id, study_execution_id, fixture())
+  end
+
+  @spec request_params!(String.t(), integer(), String.t(), map()) :: map()
+  def request_params!(snapshot_id, source_pilot_run_id, study_execution_id, fixture) do
+    fixture.request
     |> Map.put("snapshot_id", snapshot_id)
     |> Map.put("source_pilot_run_id", source_pilot_run_id)
+    |> Map.put("study_execution_id", study_execution_id)
   end
 
   @spec parsed_request!(String.t(), integer()) :: Request.t()
   def parsed_request!(snapshot_id, source_pilot_run_id) do
     assert_ok(Request.parse(request_params!(snapshot_id, source_pilot_run_id)))
   end
+
+  @spec parsed_request!(String.t(), integer(), String.t()) :: Request.t()
+  def parsed_request!(snapshot_id, source_pilot_run_id, study_execution_id) do
+    parsed_request!(snapshot_id, source_pilot_run_id, study_execution_id, fixture())
+  end
+
+  @spec parsed_request!(String.t(), integer(), String.t(), map()) :: Request.t()
+  def parsed_request!(snapshot_id, source_pilot_run_id, study_execution_id, fixture) do
+    assert_ok(
+      Request.parse(
+        request_params!(snapshot_id, source_pilot_run_id, study_execution_id, fixture)
+      )
+    )
+  end
+
+  @doc "One typed complete-family result for the supplied strict request."
+  @spec result!(Request.t(), map()) :: Result.t()
+  def result!(%Request{} = request, fixture \\ fixture()) do
+    payload = parsed_payload!(fixture)
+
+    members =
+      payload.comparisons
+      |> Enum.with_index()
+      |> Enum.map(fn {comparison, position} ->
+        comparison_request =
+          request
+          |> Member.comparison_request(payload, position)
+          |> assert_ok()
+
+        statistics =
+          position
+          |> response(fixture)
+          |> ComparisonStatistics.parse(comparison_request)
+          |> assert_ok()
+
+        %{identity: comparison.identity, request: comparison_request, statistics: statistics}
+      end)
+
+    correction_request = %HolmRequest{
+      schema_version: 1,
+      family_id: request.family_id,
+      method: request.method,
+      alpha: request.analysis.alpha,
+      expected_comparisons: request.expected_comparisons,
+      raw_results:
+        Enum.map(members, fn member ->
+          %RawResult{
+            identity: member.identity,
+            raw_p_value: member.statistics.test["raw_p_value"] / 1
+          }
+        end)
+    }
+
+    correction =
+      assert_ok(HolmResponse.parse(fixture.correction_response, correction_request))
+
+    assert_ok(Result.from_response(request, members, correction))
+  end
+
+  defp response(position, fixture), do: Enum.at(fixture.member_responses, position)
 
   @doc """
   The exact comparison request maps the Final adapter must send, in declared order.
@@ -82,21 +176,22 @@ defmodule NetworkDefense.Evaluation.FinalConformance do
   The stub matches received traffic against them, so a changed evidence value in
   the adapter cannot move the expectation with it.
   """
-  @spec member_requests!() :: [map()]
-  def member_requests!, do: @member_requests
+  @spec member_requests!(map()) :: [map()]
+  def member_requests!(fixture \\ fixture()), do: fixture.member_requests
 
   @doc "Checked-in statistics for an exact Final member request."
-  @spec response_for(map()) :: map() | nil
-  def response_for(generated_request) do
-    @member_requests
-    |> Enum.zip(@member_responses)
+  @spec response_for(map(), map()) :: map() | nil
+  def response_for(generated_request, fixture \\ fixture()) do
+    fixture.member_requests
+    |> Enum.zip(fixture.member_responses)
     |> Enum.find_value(fn {request, response} ->
       if request == generated_request, do: response
     end)
   end
 
   @doc "Raw p-values in declared order, taken from the checked-in member responses."
-  def raw_p_values, do: Enum.map(@member_responses, & &1["test"]["raw_p_value"])
+  def raw_p_values(fixture \\ fixture()),
+    do: Enum.map(fixture.member_responses, & &1["test"]["raw_p_value"])
 
   @doc """
   A bounded error envelope both evaluation endpoints accept.

@@ -7,7 +7,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
   alias Gust.DAG.Run.Trigger
   alias Gust.Flows
 
-  alias NetworkDefense.Evaluation.EvidenceSnapshot
+  alias NetworkDefense.Evaluation.{EvidenceSnapshot, StudyFixtures}
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Result}
   alias NetworkDefense.Evaluation.FinalComputeStub
@@ -37,13 +37,23 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
 
     :ok = FinalComputeStub.start_gust!()
 
-    agent = FinalComputeStub.start!()
+    fixture = final_fixture()
+    agent = FinalComputeStub.start!(final_fixture: fixture)
     pilot_run_id = FinalComputeStub.recommended_pilot_run!()
+    lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
 
-    params = FinalConformance.request_params!(snapshot.id, pilot_run_id)
+    _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
+
+    params =
+      FinalConformance.request_params!(
+        snapshot.id,
+        pilot_run_id,
+        lifecycle.execution.id,
+        fixture
+      )
 
     %{agent: agent, pilot_run_id: pilot_run_id, snapshot: snapshot, params: params}
   end
@@ -71,7 +81,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     assert result.attacks_per_plan == 10
 
     assert Enum.map(result.comparisons, &Identity.key(&1.identity)) ==
-             Enum.map(FinalConformance.snapshot()["payload"]["comparisons"], fn comparison ->
+             Enum.map(final_fixture().snapshot["payload"]["comparisons"], fn comparison ->
                identity = comparison["identity"]
 
                {identity["tier"], identity["budget"], identity["alternative"],
@@ -82,7 +92,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
              FinalConformance.raw_p_values()
 
     assert Enum.map(result.comparisons, & &1.adjustment.adjusted_p_value) ==
-             Enum.map(FinalConformance.correction_response()["results"], & &1["adjusted_p_value"])
+             Enum.map(final_fixture().correction_response["results"], & &1["adjusted_p_value"])
 
     assert Enum.all?(result.comparisons, & &1.adjustment.reject_null)
 
@@ -138,16 +148,18 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     assert count_final_runs() == before_count
   end
 
-  test "E2E-04: a missing or secondary Pilot source rejects without a run", %{params: params} do
+  test "E2E-04: a Pilot run that is not the accepted lifecycle source rejects without a run", %{
+    params: params
+  } do
     before_count = count_final_runs()
 
     unknown_pilot = Map.put(params, "source_pilot_run_id", 999_999)
 
     assert {:error, %FinalError{} = error} = Evaluations.submit_final(unknown_pilot)
-    assert Enum.any?(error.issues, &(&1["code"] == "pilot_not_found"))
+    assert Enum.any?(error.issues, &(&1["code"] == "changed_pilot_source"))
 
-    # A comparison run is not a Pilot run, so it cannot supply Final counts.
-    [comparison_request | _rest] = FinalConformance.member_requests!()
+    # A comparison run is not the accepted Pilot analysis run.
+    [comparison_request | _rest] = final_fixture().member_requests
 
     assert {:ok, comparison_run_id} = Evaluations.submit_comparison(comparison_request)
     assert {:ok, :succeeded} = Evaluations.await_comparison(comparison_run_id, 20_000)
@@ -251,14 +263,14 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
 
     # The correction was attempted twice: the failed call and the retry.
     assert Enum.count(state.correction_requests) == 2
-    assert Enum.uniq(state.correction_requests) == [FinalConformance.correction_request()]
+    assert Enum.uniq(state.correction_requests) == [final_fixture().correction_request]
 
     # The seeds, the order, and the numerical answers are unchanged.
     assert Enum.map(result.comparisons, & &1.statistics.test["raw_p_value"]) ==
              FinalConformance.raw_p_values()
 
     assert Enum.map(result.comparisons, & &1.adjustment.adjusted_p_value) ==
-             Enum.map(FinalConformance.correction_response()["results"], & &1["adjusted_p_value"])
+             Enum.map(final_fixture().correction_response["results"], & &1["adjusted_p_value"])
   end
 
   test "E2E-10: an exhausted temporary outage decodes as a bounded Final failure", %{
@@ -286,7 +298,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
   end
 
   defp tamper_payload!(snapshot_id) do
-    payload = FinalConformance.snapshot()["payload"]
+    payload = final_fixture().snapshot["payload"]
     changed = %{payload | "comparisons" => Enum.reverse(payload["comparisons"])}
 
     {_count, _rows} =
@@ -294,6 +306,8 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
         set: [payload: changed]
       )
   end
+
+  defp final_fixture, do: StudyFixtures.final_conformance_fixture()
 
   defp swap_first_comparison_identity!(run_id) do
     task =

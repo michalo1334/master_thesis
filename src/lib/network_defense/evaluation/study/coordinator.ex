@@ -3,8 +3,9 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   import Ecto.Query
 
-  alias NetworkDefense.Evaluation.{EvidenceSnapshots, Pilot}
+  alias NetworkDefense.Evaluation.{EvidenceSnapshots, Final, Pilot}
 
+  alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request, Result}
   alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, PilotResult}
   alias NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest, as: PilotRequestContract
 
@@ -12,9 +13,12 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   alias NetworkDefense.Evaluation.Study.{
     CollectionWorkflow,
+    FinalCollectionWorkflow,
+    FinalRequest,
     Lifecycle,
     PilotOutcome,
     PilotRequest,
+    Results,
     Revisions
   }
 
@@ -56,7 +60,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   defp claim_and_run(caller, handshake, execution_id, opts) do
     case Registry.register(@coordinator_registry, execution_id, nil) do
       {:ok, _owner} ->
-        case context(execution_id, :collecting_pilot) do
+        case start_context(execution_id) do
           {:ok, _execution, _phase} ->
             send(caller, {:coordinator_claimed, handshake, self()})
 
@@ -105,6 +109,20 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   @spec run(Ecto.UUID.t(), keyword()) :: :ok | {:error, StudyError.t()}
   def run(execution_id, opts \\ []) do
+    case current_state(execution_id) do
+      {:ok, :collecting_pilot} -> run_pilot(execution_id, opts)
+      {:ok, :collecting_final} -> run_final(execution_id, opts)
+      {:ok, state} when state in @terminal_states -> :ok
+      _invalid -> {:error, StudyError.study_execution_not_found()}
+    end
+  rescue
+    _exception ->
+      error = unexpected_error(execution_id)
+      fail_active(execution_id, error)
+      {:error, error}
+  end
+
+  defp run_pilot(execution_id, opts) do
     collection = Keyword.get(opts, :collection_workflow, CollectionWorkflow)
     pilot = Keyword.get(opts, :pilot_workflow, Pilot.Workflow)
 
@@ -141,23 +159,77 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
         finish_pilot(execution_id, outcome)
       end
 
-    case result do
-      :ok ->
-        :ok
+    finish_run(execution_id, result, &bounded_pilot_error/1)
+  end
 
-      {:stop, _state} ->
-        :ok
+  defp run_final(execution_id, opts) do
+    collection = Keyword.get(opts, :final_collection_workflow, FinalCollectionWorkflow)
+    final = Keyword.get(opts, :final_workflow, Final.Workflow)
 
-      {:error, reason} ->
-        error = bounded_error(reason)
-        fail_active(execution_id, error)
-        {:error, error}
+    result =
+      with {:ok, _execution, collection_phase} <- context(execution_id, :collecting_final),
+           {:ok, collection_run_id} <- collection.create(collection_phase),
+           :ok <- accept_run(execution_id, :collecting_final, collection_phase, collection_run_id),
+           :ok <-
+             dispatch_run(
+               execution_id,
+               :collecting_final,
+               collection_phase,
+               collection_run_id,
+               collection
+             ),
+           {:ok, snapshot_id} <- collection.await(collection_run_id),
+           {:ok, execution, analysis_phase} <-
+             begin_final_analysis(execution_id, snapshot_id),
+           {:ok, %Request{} = request} <- FinalRequest.build(execution.id, snapshot_id),
+           {:ok, analysis_run_id} <- final.create(Final.Wire.request(request)),
+           :ok <- accept_run(execution_id, :analyzing_final, analysis_phase, analysis_run_id),
+           :ok <-
+             dispatch_run(
+               execution_id,
+               :analyzing_final,
+               analysis_phase,
+               analysis_run_id,
+               final
+             ),
+           {:ok, :succeeded} <- final.await(analysis_run_id),
+           {:ok, %Result{} = final_result} <- final.result(analysis_run_id),
+           {:ok, _compact_result} <- Results.create_success(execution, final_result) do
+        :ok
+      end
+
+    finish_run(execution_id, result, &bounded_final_error/1)
+  end
+
+  defp finish_run(_execution_id, :ok, _mapper), do: :ok
+  defp finish_run(_execution_id, {:stop, _state}, _mapper), do: :ok
+
+  defp finish_run(execution_id, {:error, reason}, mapper) do
+    error = mapper.(reason)
+    fail_active(execution_id, error)
+    {:error, error}
+  end
+
+  defp current_state(execution_id) do
+    with {:ok, id} <- Ecto.UUID.cast(execution_id),
+         %StudyExecution{} = execution <- Repo.get(StudyExecution, id) do
+      {:ok, execution.state}
+    else
+      _invalid -> :error
     end
-  rescue
-    _exception ->
-      error = unexpected_error(execution_id)
-      fail_active(execution_id, error)
-      {:error, error}
+  end
+
+  defp start_context(execution_id) do
+    case current_state(execution_id) do
+      {:ok, state} when state in [:collecting_pilot, :collecting_final] ->
+        context(execution_id, state)
+
+      {:ok, state} when state in @terminal_states ->
+        {:stop, state}
+
+      _invalid ->
+        {:error, start_error()}
+    end
   end
 
   defp context(execution_id, expected_state) do
@@ -303,6 +375,44 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     end
   end
 
+  defp begin_final_analysis(execution_id, snapshot_id) do
+    case transaction(&begin_final_analysis_transition(&1, snapshot_id), execution_id) do
+      %StudyExecution{} = execution ->
+        case Repo.get_by(StudyPhase, execution_id: execution.id, phase: :final_analysis) do
+          %StudyPhase{} = phase -> {:ok, execution, phase}
+          nil -> {:error, StudyError.invalid_study_phase()}
+        end
+
+      other ->
+        other
+    end
+  end
+
+  defp begin_final_analysis_transition(
+         %StudyExecution{state: :collecting_final} = execution,
+         snapshot_id
+       ) do
+    phase = lock_named_phase(execution.id, :final_collection)
+
+    if is_nil(phase.snapshot_id) or phase.snapshot_id == snapshot_id do
+      update_phase!(phase, %{snapshot_id: snapshot_id})
+      transitioned = transition_execution!(execution, :final_collected)
+      insert_final_analysis_phase!(execution.id)
+      transitioned
+    else
+      Repo.rollback({:error, StudyError.final_collection_workflow_failed()})
+    end
+  end
+
+  defp begin_final_analysis_transition(%StudyExecution{state: state}, _snapshot_id),
+    do: stop(state)
+
+  defp insert_final_analysis_phase!(execution_id) do
+    %StudyPhase{}
+    |> StudyPhase.changeset(%{execution_id: execution_id, phase: :final_analysis})
+    |> Repo.insert!()
+  end
+
   defp finish_pilot(execution_id, %PilotOutcome{} = outcome) do
     params = PilotOutcome.to_params(outcome)
 
@@ -332,7 +442,13 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     transaction(
       fn execution ->
         case execution.state do
-          state when state in [:collecting_pilot, :analyzing_pilot] ->
+          state
+          when state in [
+                 :collecting_pilot,
+                 :analyzing_pilot,
+                 :collecting_final,
+                 :analyzing_final
+               ] ->
             phase = lock_named_phase(execution.id, phase(state))
             update_phase!(phase, %{error: params})
 
@@ -367,7 +483,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   defp active_phase(execution_id, error) do
     case Repo.get(StudyExecution, execution_id) do
-      %StudyExecution{state: state} when state in [:collecting_pilot, :analyzing_pilot] ->
+      %StudyExecution{state: state}
+      when state in [:collecting_pilot, :analyzing_pilot, :collecting_final, :analyzing_final] ->
         phase(state)
 
       _inactive_or_unavailable ->
@@ -381,6 +498,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     cond do
       Enum.any?(issues, &(Map.get(&1, "path") == ["pilot_collection"])) -> :pilot_collection
       Enum.any?(issues, &(Map.get(&1, "path") == ["pilot_analysis"])) -> :pilot_analysis
+      Enum.any?(issues, &(Map.get(&1, "path") == ["final_collection"])) -> :final_collection
+      Enum.any?(issues, &(Map.get(&1, "path") == ["final_analysis"])) -> :final_analysis
       true -> :unknown
     end
   end
@@ -433,20 +552,30 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   defp phase(:collecting_pilot), do: :pilot_collection
   defp phase(:analyzing_pilot), do: :pilot_analysis
+  defp phase(:collecting_final), do: :final_collection
+  defp phase(:analyzing_final), do: :final_analysis
 
   defp unexpected_error(execution_id) do
     case Repo.get(StudyExecution, execution_id) do
       %StudyExecution{state: :collecting_pilot} -> StudyError.collection_workflow_failed()
-      _analysis_or_unavailable -> StudyError.pilot_analysis_failed()
+      %StudyExecution{state: :analyzing_pilot} -> StudyError.pilot_analysis_failed()
+      %StudyExecution{state: :collecting_final} -> StudyError.final_collection_workflow_failed()
+      _analysis_or_unavailable -> StudyError.final_analysis_failed()
     end
   rescue
-    _exception -> StudyError.pilot_analysis_failed()
+    _exception -> StudyError.final_analysis_failed()
   end
 
   defp workflow_error(:collecting_pilot), do: StudyError.collection_workflow_failed()
   defp workflow_error(:analyzing_pilot), do: StudyError.pilot_analysis_failed()
+  defp workflow_error(:collecting_final), do: StudyError.final_collection_workflow_failed()
+  defp workflow_error(:analyzing_final), do: StudyError.final_analysis_failed()
 
-  defp bounded_error(%StudyError{} = error), do: error
-  defp bounded_error(%PilotError{}), do: StudyError.pilot_analysis_failed()
-  defp bounded_error(_reason), do: StudyError.pilot_analysis_failed()
+  defp bounded_pilot_error(%StudyError{} = error), do: error
+  defp bounded_pilot_error(%PilotError{}), do: StudyError.pilot_analysis_failed()
+  defp bounded_pilot_error(_reason), do: StudyError.pilot_analysis_failed()
+
+  defp bounded_final_error(%StudyError{} = error), do: error
+  defp bounded_final_error(%FinalError{}), do: StudyError.final_analysis_failed()
+  defp bounded_final_error(_reason), do: StudyError.final_analysis_failed()
 end

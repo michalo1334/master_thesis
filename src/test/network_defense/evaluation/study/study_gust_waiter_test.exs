@@ -2,11 +2,14 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
   use ExUnit.Case, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
+  alias NetworkDefense.Evaluation.Final.Contracts.FinalError
+  alias NetworkDefense.Evaluation.Final.Workflow, as: FinalWorkflow
   alias NetworkDefense.Evaluation.Pilot.Contracts.PilotError
   alias NetworkDefense.Evaluation.Pilot.Workflow
 
   alias NetworkDefense.Evaluation.Study.{
     CollectionWorkflow,
+    FinalCollectionWorkflow,
     GustRunNotifier,
     GustWaiter
   }
@@ -181,7 +184,14 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
   end
 
   test "STUDY-WAITER-10: waiter-path modules have no PubSub calls" do
-    for module <- [GustWaiter, GustRunNotifier, Workflow, CollectionWorkflow] do
+    for module <- [
+          GustWaiter,
+          GustRunNotifier,
+          Workflow,
+          FinalWorkflow,
+          CollectionWorkflow,
+          FinalCollectionWorkflow
+        ] do
       imported_modules = imported_modules(module)
       refute Gust.PubSub in imported_modules
       refute Phoenix.PubSub in imported_modules
@@ -227,6 +237,24 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
 
     assert CollectionWorkflow.await(run.id, 100) ==
              {:error, StudyError.collection_workflow_failed()}
+  end
+
+  test "STUDY-WAITER-15: Final await maps an unavailable Registry to a bounded error", %{
+    dag: dag
+  } do
+    run = create_run(dag)
+    stop_waiter_registry()
+
+    assert FinalWorkflow.await(run.id, 100) == {:error, FinalError.unavailable()}
+  end
+
+  test "STUDY-WAITER-16: Final collection await maps an unavailable Registry to its bounded error",
+       %{dag: dag} do
+    run = create_run(dag)
+    stop_waiter_registry()
+
+    assert FinalCollectionWorkflow.await(run.id, 100) ==
+             {:error, StudyError.final_collection_workflow_failed()}
   end
 
   defp create_run(dag) do
@@ -279,7 +307,9 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
     modules =
       [
         "priv/gust/dags/evaluation_pilot.exs",
-        "priv/gust/dags/evaluation_study_pilot_collection.exs"
+        "priv/gust/dags/evaluation_final.exs",
+        "priv/gust/dags/evaluation_study_pilot_collection.exs",
+        "priv/gust/dags/evaluation_study_final_collection.exs"
       ]
       |> Enum.flat_map(fn path -> Code.compile_file(Path.join(root, path)) end)
       |> Enum.map(&elem(&1, 0))

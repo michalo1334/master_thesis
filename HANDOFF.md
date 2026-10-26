@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F18 and the runtime-contract gate are complete. F19+F20+F21 are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F21 and the runtime-contract gate are complete. F22+F23 are next.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
 | ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F18, and the runtime-contract gate are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F21, and the runtime-contract gate are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -40,7 +40,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F12+F13 are complete:** Pilot fan-in locks the persisted phase, reloads the exact replica-zero collection rows, validates linked runtime identity and completeness, restores declared order, and creates or returns one phase-linked snapshot.
 - **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation.
 - **F14+F15 are complete:** one supervised temporary task runs Pilot collection and analysis. Fixed Gust DAGs use bounded callbacks as wake-up signals. Persisted Gust rows remain authoritative. The coordinator stores one compact recommendation or insufficiency outcome and stops at `awaiting_final`.
-- **F16+F17+F18 are complete:** the internal resume command locks a paused execution, validates the tagged selection, stores one typed frozen candidate and override, enters `collecting_final`, and creates or reuses one empty Final collection phase. The accepted Pilot analysis phase ID is the sole source identity. Shared binding reloads authoritative state and compares one typed Final source. Keep the public lifecycle unavailable until Final coordination is complete.
+- **F16+F17+F18 are complete:** the internal resume command locks a paused execution, validates the tagged selection, stores one typed frozen candidate and override, enters `collecting_final`, and creates or reuses one empty Final collection phase. Shared binding reloads authoritative state and compares one typed Final source.
+- **F19+F20+F21 are complete:** the Final coordinator collects fresh Final work with separate seeds and roots, links one Final snapshot, runs lifecycle-bound complete-family analysis, stores one immutable compact result, and enters `succeeded`. The strict Final request adds only `study_execution_id`. Every Final analysis boundary reloads the frozen selection and accepted phase records from PostgreSQL. Keep the public lifecycle unavailable until F22+F23.
 
 Recorded checks:
 
@@ -73,6 +74,7 @@ Recorded checks:
 - complete study test directory after F14+F15: 144 passed;
 - Pilot workflow regression suite after F14+F15: 11 passed;
 - independent F16+F17+F18 selection and binding suite: 34 passed;
+- independent Final and study regression suite after F19+F20+F21: 270 passed;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
@@ -90,8 +92,9 @@ Key decisions:
 - If the application restarts during active coordination, the execution can remain stuck. The operator cancels it and starts a new execution.
 - Store compact results only for successful executions.
 - Keep `pilot_override` null before resume, false for a recommendation, and true for an insufficient override.
-- Use the accepted Pilot analysis phase ID as the sole lifecycle source identity.
-- Start no Final coordinator shell in F16+F17+F18. F19+F20+F21 wire the real coordinator after the resume transaction commits.
+- Use the accepted Pilot analysis phase as the lifecycle source. Bind its persisted Gust run at every Final analysis boundary.
+- Add only `study_execution_id` to the strict Final request. Load the candidate, override marker, and accepted phase records from PostgreSQL.
+- Start no Final coordinator shell in F16+F17+F18. F19+F20+F21 start the real coordinator after the resume transaction commits.
 - Retire all direct Pilot and Final facade functions when the complete study lifecycle activates.
 - Keep lower-level comparison and family APIs.
 - Keep fixed Gust phase DAGs, ScatterGather trial batches, and synchronous stateless Python computation.
@@ -156,15 +159,14 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 
 ## Next implementation action
 
-Prepare F19+F20+F21 as one complete Final path and compact-result slice:
+Prepare F22+F23 as one public lifecycle activation slice:
 
 1. Recheck repository instructions and dirty state.
-2. Define the Final coordinator boundary that starts after a successful resume commit.
-3. Build fresh Final collection work from the frozen selection and immutable revision.
-4. Use separate Final seeds and roots. Reject all Pilot evidence and runtime IDs.
-5. Create one Final snapshot and run complete-family analysis.
-6. Store one immutable compact result and enter `succeeded`.
-7. Keep evidence matrices and task history out of the compact result.
-8. Keep the public lifecycle unavailable and exclude F22+ facade activation.
+2. Activate `start_study/1`, `study_status/1`, `resume_study/2`, `cancel_study/1`, and `study_result/1` beside the existing revision function.
+3. Retire direct Pilot and Final snapshot, submission, wait, and result functions from the public facade.
+4. Keep lower-level comparison and family functions.
+5. Verify one recommended journey through a compact result with `pilot_override: false`.
+6. Verify one insufficient-with-override journey through a compact result with `pilot_override: true`.
+7. Keep timing T1–T5, deployment, recovery, replay, polling, and UI work out of scope.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

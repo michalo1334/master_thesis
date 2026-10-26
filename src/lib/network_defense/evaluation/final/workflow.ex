@@ -8,7 +8,8 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
   alias NetworkDefense.Evaluation.Final.Binding
   alias NetworkDefense.Evaluation.Final.Collector
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request, Result}
-  alias NetworkDefense.Evaluation.Final.TaskFailure
+  alias NetworkDefense.Evaluation.Final.{Limits, Member, TaskFailure, Wire}
+  alias NetworkDefense.Evaluation.Study.GustWaiter
 
   # Separate Final workflow.
   #
@@ -18,31 +19,50 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
 
   @dag_name "evaluation_final"
   @correct_task "correct_final_family"
-  @poll_interval 100
 
-  @spec submit(map()) :: {:ok, integer()} | {:error, FinalError.t()}
-  def submit(request_map) do
-    with dag when not is_nil(dag) <- Gust.Flows.get_dag_by_name(@dag_name),
-         {:ok, run} <- Gust.Flows.create_run(%{dag_id: dag.id, params: request_map}) do
-      dispatched = Trigger.dispatch_run(run)
-      {:ok, dispatched.id}
+  @spec create(map()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def create(request_map) do
+    with {:ok, %Request{} = request} <- Request.parse(request_map),
+         :ok <- Limits.validate(request),
+         {:ok, payload} <- Binding.verify(request, limits: false),
+         :ok <- Member.preflight(request, payload),
+         %{id: dag_id} <- Gust.Flows.get_dag_by_name(@dag_name),
+         {:ok, run} <- Gust.Flows.create_run(%{dag_id: dag_id, params: Wire.request(request)}) do
+      {:ok, run.id}
     else
+      {:error, %FinalError{} = error} -> {:error, error}
       _error -> {:error, workflow_error()}
     end
   rescue
-    _exception -> {:error, workflow_error()}
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
   end
 
-  @spec await(integer(), non_neg_integer()) ::
+  @spec dispatch(integer()) :: :ok | {:error, FinalError.t()}
+  def dispatch(run_id) do
+    run = Gust.Flows.get_run!(run_id)
+    _dispatched = Trigger.dispatch_run(run)
+    :ok
+  rescue
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
+  end
+
+  @spec submit(map()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def submit(request_map) do
+    with {:ok, run_id} <- create(request_map),
+         :ok <- dispatch(run_id) do
+      {:ok, run_id}
+    end
+  end
+
+  @spec await(integer(), timeout()) ::
           {:ok, :succeeded} | {:error, :timeout | :not_found | FinalError.t()}
-  def await(run_id, timeout_ms) do
+  def await(run_id, timeout \\ :infinity) do
     with {:ok, run_id} <- valid_run_id(run_id),
-         {:ok, timeout_ms} <- valid_timeout(timeout_ms) do
-      deadline = System.monotonic_time(:millisecond) + timeout_ms
-      await_loop(run_id, deadline)
+         {:ok, timeout} <- valid_timeout(timeout) do
+      await_persisted(run_id, timeout)
     end
   rescue
-    _exception -> {:error, workflow_error()}
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
   end
 
   @spec result(integer()) ::
@@ -52,7 +72,7 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
       stored_result_for(run_id)
     end
   rescue
-    _exception -> {:error, workflow_error()}
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
   end
 
   # Read-back repeats the snapshot metadata, byte count, declared order, and
@@ -86,6 +106,8 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
   defp valid_run_id(_run_id),
     do: {:error, FinalError.invalid_argument("The Final run ID must be a positive integer.")}
 
+  defp valid_timeout(:infinity), do: {:ok, :infinity}
+
   defp valid_timeout(timeout_ms) when is_integer(timeout_ms) and timeout_ms >= 0,
     do: {:ok, timeout_ms}
 
@@ -105,27 +127,16 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
       task -> decode_task_error(task.error)
     end
   rescue
-    _exception -> workflow_error()
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> workflow_error()
   end
 
-  defp await_loop(run_id, deadline) do
-    case fetch_run(run_id) do
-      nil ->
-        {:error, :not_found}
-
-      %{status: :succeeded} ->
-        {:ok, :succeeded}
-
-      %{status: :failed} ->
-        {:error, failure_for_run(run_id)}
-
-      _run ->
-        if System.monotonic_time(:millisecond) >= deadline do
-          {:error, :timeout}
-        else
-          Process.sleep(@poll_interval)
-          await_loop(run_id, deadline)
-        end
+  defp await_persisted(run_id, timeout) do
+    case GustWaiter.await(run_id, timeout) do
+      {:ok, :succeeded} -> {:ok, :succeeded}
+      {:error, :failed} -> {:error, failure_for_run(run_id)}
+      {:error, :not_found} -> {:error, :not_found}
+      {:error, :timeout} -> {:error, :timeout}
+      {:error, :unavailable} -> {:error, FinalError.unavailable()}
     end
   end
 

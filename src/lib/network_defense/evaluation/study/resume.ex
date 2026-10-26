@@ -5,7 +5,14 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
 
-  alias NetworkDefense.Evaluation.Study.{FinalSelection, Lifecycle, PilotOutcome, Revisions}
+  alias NetworkDefense.Evaluation.Study.{
+    Coordinator,
+    FinalSelection,
+    Lifecycle,
+    PilotOutcome,
+    Revisions
+  }
+
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
@@ -15,14 +22,22 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
 
   @spec resume(Ecto.UUID.t(), final_selection()) ::
           {:ok, StudyExecution.t()} | {:error, StudyError.t()}
-  def resume(execution_id, selection) do
-    with {:ok, id} <- cast_execution_id(execution_id) do
-      id
-      |> resume_transaction(selection)
-      |> transaction_result()
+  def resume(execution_id, selection), do: resume(execution_id, selection, [])
+
+  @doc false
+  @spec resume(Ecto.UUID.t(), final_selection(), keyword()) ::
+          {:ok, StudyExecution.t()} | {:error, StudyError.t()}
+  def resume(execution_id, selection, opts) do
+    coordinator = Keyword.get(opts, :coordinator, Coordinator)
+
+    with {:ok, id} <- cast_execution_id(execution_id),
+         {:ok, execution} <- id |> resume_transaction(selection) |> transaction_result(),
+         {:ok, _pid} <- coordinator.start(execution.id) do
+      {:ok, execution}
     end
   rescue
-    _exception -> {:error, StudyError.final_selection_storage_failed()}
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] ->
+      {:error, StudyError.final_selection_storage_failed()}
   end
 
   defp cast_execution_id(value) do

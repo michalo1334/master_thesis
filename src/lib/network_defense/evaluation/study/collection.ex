@@ -6,14 +6,10 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
   alias NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
 
-  alias NetworkDefense.Evaluation.Study.Contracts.Definition.{
-    Comparison,
-    Graph,
-    PilotCollection,
-    Strategy
-  }
+  alias NetworkDefense.Evaluation.Study.Contracts.Definition.{Comparison, Graph, Strategy}
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.FinalSelection
   alias NetworkDefense.Evaluation.Study.Reservations
   alias NetworkDefense.Evaluation.Study.Revisions
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyExecution, StudyPhase}
@@ -31,7 +27,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulations
 
-  @collection_phase :pilot_collection
+  @collection_phases [:pilot_collection, :final_collection]
 
   @spec build_collection_work(StudyExecution.t(), StudyPhase.t(), Definition.t(), integer()) ::
           {:ok, [CollectionWorkItem.t()]} | {:error, StudyError.t()}
@@ -45,7 +41,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
          :ok <- validate_phase(execution, phase),
          :ok <- validate_position(:replica_position, replica_position),
          {:ok, limits} <- CollectionLimits.fetch(),
-         {:ok, plan} <- plan(definition),
+         {:ok, plan} <- plan(execution, phase, definition),
          :ok <- within_phase_item_cap(plan, limits) do
       items(plan, replica_position)
     end
@@ -115,7 +111,8 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     end
   end
 
-  defp ensure_supported_phase(%StudyPhase{phase: @collection_phase}), do: :ok
+  defp ensure_supported_phase(%StudyPhase{phase: phase}) when phase in @collection_phases,
+    do: :ok
 
   defp ensure_supported_phase(%StudyPhase{phase: phase}),
     do: {:error, StudyError.unsupported_collection_phase(phase)}
@@ -131,29 +128,64 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
   defp validate_position(field, _position),
     do: {:error, StudyError.invalid_collection_position(field)}
 
-  defp plan(%Definition{} = definition) do
+  defp plan(
+         _execution,
+         %StudyPhase{phase: :pilot_collection},
+         %Definition{} = definition
+       ) do
     collection = definition.pilot.collection
 
-    with {:ok, groups} <- groups(definition),
-         {:ok, seeds} <- selection_seeds(collection) do
+    collection_plan(
+      definition,
+      collection.roots,
+      collection.selection_seeds,
+      collection.plan_count_per_side,
+      collection.attacks_per_plan,
+      ["pilot", "collection"]
+    )
+  end
+
+  defp plan(
+         %StudyExecution{} = execution,
+         %StudyPhase{phase: :final_collection},
+         %Definition{} = definition
+       ) do
+    collection = definition.final.collection
+
+    with {:ok, selection} <- FinalSelection.from_execution(execution) do
+      collection_plan(
+        definition,
+        collection.roots,
+        collection.selection_seeds,
+        selection.plan_count_per_side,
+        selection.attacks_per_plan,
+        ["final", "collection"]
+      )
+    end
+  end
+
+  defp collection_plan(definition, roots, seeds, plan_count, attacks, path) do
+    with {:ok, groups} <- groups(definition, roots, path),
+         {:ok, selected_seeds} <- selection_seeds(seeds, plan_count, path) do
       {:ok,
        %{
          groups: groups,
-         seeds: seeds,
-         attacks: collection.attacks_per_plan,
+         seeds: selected_seeds,
+         attacks: attacks,
          iterations_per_run: definition.simulation.iterations_per_run,
-         max_attempts: definition.simulation.max_attempts
+         max_attempts: definition.simulation.max_attempts,
+         definition_path: path
        }}
     end
   end
 
-  defp groups(%Definition{} = definition) do
-    roots = Map.new(definition.pilot.collection.roots, &{&1.tier, &1.value})
+  defp groups(%Definition{} = definition, declared_roots, path) do
+    roots = Map.new(declared_roots, &{&1.tier, &1.value})
 
     definition.family.comparisons
     |> Enum.with_index()
     |> Enum.reduce_while({:ok, []}, fn {comparison, comparison_position}, {:ok, groups} ->
-      case group(definition, comparison, comparison_position, roots) do
+      case group(definition, comparison, comparison_position, roots, path) do
         {:ok, group} -> {:cont, {:ok, [group | groups]}}
         {:error, %StudyError{} = error} -> {:halt, {:error, error}}
       end
@@ -161,13 +193,19 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     |> reverse_result()
   end
 
-  defp group(%Definition{} = definition, %Comparison{} = comparison, comparison_position, roots) do
+  defp group(
+         %Definition{} = definition,
+         %Comparison{} = comparison,
+         comparison_position,
+         roots,
+         path
+       ) do
     with {:ok, graph} <- graph(definition, comparison, comparison_position),
          {:ok, alternative} <-
            strategy(graph, comparison.alternative, comparison_position, "alternative"),
          {:ok, reference} <-
            strategy(graph, comparison.reference, comparison_position, "reference"),
-         {:ok, root} <- root(roots, comparison) do
+         {:ok, root} <- root(roots, comparison, path) do
       {:ok,
        %{
          comparison: comparison,
@@ -206,25 +244,21 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     end
   end
 
-  defp root(roots, %Comparison{} = comparison) do
+  defp root(roots, %Comparison{} = comparison, path) do
     case Map.fetch(roots, comparison.tier) do
       {:ok, value} ->
         {:ok, value}
 
       :error ->
-        {:error, StudyError.incomplete_collection_definition(["pilot", "collection", "roots"])}
+        {:error, StudyError.incomplete_collection_definition(path ++ ["roots"])}
     end
   end
 
-  defp selection_seeds(%PilotCollection{
-         plan_count_per_side: plan_count,
-         selection_seeds: seeds
-       }) do
+  defp selection_seeds(seeds, plan_count, path) do
     if length(seeds) >= plan_count do
       {:ok, Enum.take(seeds, plan_count)}
     else
-      {:error,
-       StudyError.incomplete_collection_definition(["pilot", "collection", "selection_seeds"])}
+      {:error, StudyError.incomplete_collection_definition(path ++ ["selection_seeds"])}
     end
   end
 
@@ -251,7 +285,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
           {:cont, {:ok, [item | items]}}
 
         :error ->
-          {:halt, {:error, StudyError.incomplete_collection_definition(["pilot", "collection"])}}
+          {:halt, {:error, StudyError.incomplete_collection_definition(plan.definition_path)}}
       end
     end)
     |> reverse_result()

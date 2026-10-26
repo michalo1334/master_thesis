@@ -18,10 +18,10 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
 
   # Root Final analysis request.
   #
-  # The request names a pre-created Final snapshot and a completed recommended
-  # Pilot. It repeats the declared ordered family, source IDs, copied
-  # recommendation counts, explicit analysis settings, one explicit seed per
-  # declared comparison, and caller assertions. It never carries an evidence
+  # The request names one study execution, one pre-created Final snapshot, and
+  # the accepted Pilot run. It repeats the declared ordered family, counts,
+  # explicit analysis settings, one explicit seed per declared comparison, and
+  # caller assertions. It never carries an evidence
   # matrix, so the snapshot stays the only owner of Final evidence.
   #
   # No seed is derived here. The caller supplies every Final seed explicitly
@@ -36,6 +36,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
           method: String.t(),
           family_id: String.t(),
           study_revision_id: String.t(),
+          study_execution_id: String.t(),
           snapshot_id: String.t(),
           source_pilot_run_id: integer(),
           plan_count: integer(),
@@ -52,6 +53,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
     field :method, :string
     field :family_id, :string
     field :study_revision_id, :string
+    field :study_execution_id, :string
     field :snapshot_id, :string
     field :source_pilot_run_id, :integer
     field :plan_count, :integer
@@ -155,6 +157,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
       :method,
       :family_id,
       :study_revision_id,
+      :study_execution_id,
       :snapshot_id,
       :source_pilot_run_id,
       :plan_count,
@@ -194,8 +197,16 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
 
   defp normalize_uuids(%__MODULE__{} = request) do
     with {:ok, study_revision_id} <- cast_uuid(request.study_revision_id, "study_revision_id"),
+         {:ok, study_execution_id} <-
+           cast_uuid(request.study_execution_id, "study_execution_id"),
          {:ok, snapshot_id} <- cast_uuid(request.snapshot_id, "snapshot_id") do
-      {:ok, %{request | study_revision_id: study_revision_id, snapshot_id: snapshot_id}}
+      {:ok,
+       %{
+         request
+         | study_revision_id: study_revision_id,
+           study_execution_id: study_execution_id,
+           snapshot_id: snapshot_id
+       }}
     end
   end
 
