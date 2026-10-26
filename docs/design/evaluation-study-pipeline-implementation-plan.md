@@ -15,13 +15,13 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F13. F10–F13 add measured trial runtimes, persisted Pilot runtime assembly, authoritative replica-zero fan-in, and one idempotent phase-linked Pilot snapshot.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F15. F14+F15 add the supervised Pilot coordinator, fixed collection DAG, bounded completion waiting, compact Pilot outcome persistence, and the pause at `awaiting_final`.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F14+F15 preparation and implementation come next. The public study lifecycle stays unavailable until that coordination work exists.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F16+F17+F18 come next. The public study lifecycle stays unavailable until the complete Final path exists.
 
 ## Prototype boundaries
 
-The prototype uses one supervised application task to coordinate study phases. Gust persists work inside each phase. The application does not add an Oban lifecycle worker, callback system, automatic restart recovery, or phase replay.
+The prototype uses one supervised application task to coordinate study phases. Gust persists work inside each phase. Gust completion callbacks send non-authoritative wake-up signals to temporary waiters. The application does not add an Oban lifecycle worker, periodic polling, automatic restart recovery, or phase replay.
 
 An application restart can leave an active execution without a coordinator. The operator cancels that execution and starts a new one.
 

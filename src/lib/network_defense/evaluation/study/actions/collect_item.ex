@@ -2,7 +2,7 @@ defmodule NetworkDefense.Evaluation.Study.Actions.CollectItem do
   @moduledoc false
   @behaviour Gust.Action
 
-  alias NetworkDefense.Evaluation.Study.Collection
+  alias NetworkDefense.Evaluation.Study.{Collection, CollectionConcurrencyGate}
   alias NetworkDefense.Evaluation.Study.Contracts.{CollectionResult, StudyError}
 
   # The task payload carries one stable collection-item identifier and nothing
@@ -11,7 +11,10 @@ defmodule NetworkDefense.Evaluation.Study.Actions.CollectItem do
   @impl true
   def execute(args, _context) do
     with {:ok, collection_item_id} <- collection_item_id(args),
-         {:ok, %CollectionResult{} = result} <- Collection.run_collection_item(collection_item_id) do
+         {:ok, %CollectionResult{} = result} <-
+           CollectionConcurrencyGate.run(fn ->
+             Collection.run_collection_item(collection_item_id)
+           end) do
       CollectionResult.to_params(result)
     else
       {:error, %StudyError{} = error} -> raise_permanent(error)

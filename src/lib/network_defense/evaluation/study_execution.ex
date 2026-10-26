@@ -15,7 +15,7 @@ defmodule NetworkDefense.Evaluation.StudyExecution do
   # phase. A selected candidate, the Pilot outcome, and the override flag join
   # this record only when their behavior becomes active.
 
-  @fields [:study_revision_id, :state, :error]
+  @fields [:study_revision_id, :state, :pilot_outcome, :error]
 
   @primary_key {:id, :binary_id, autogenerate: true}
   schema "evaluation_study_executions" do
@@ -33,6 +33,7 @@ defmodule NetworkDefense.Evaluation.StudyExecution do
         :cancelled
       ]
 
+    field :pilot_outcome, :map
     field :error, :map
 
     timestamps(type: :utc_datetime_usec)
@@ -42,6 +43,7 @@ defmodule NetworkDefense.Evaluation.StudyExecution do
           id: binary(),
           study_revision_id: binary(),
           state: NetworkDefense.Evaluation.Study.Lifecycle.state(),
+          pilot_outcome: map() | nil,
           error: map() | nil,
           inserted_at: DateTime.t(),
           updated_at: DateTime.t()

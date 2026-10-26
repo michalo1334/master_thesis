@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F13 and the runtime-contract gate are complete. F14+F15 are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F15 and the runtime-contract gate are complete. F16+F17+F18 are next.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
 | ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F13, and the runtime-contract gate are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F15, and the runtime-contract gate are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -38,7 +38,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F8+F9 are complete:** one deterministic Pilot builder emits comparison-side-plan work for one replica. It uses the required seed prefix and phase-item cap. One mapped action uses F4 reservations and returns compact runtime IDs and completion counts.
 - **F10+F11 are complete:** each completed simulation trial stores measured monotonic runtime in microseconds. Pilot runtime assembly uses persisted optimization and trial durations and converts them to floating-point milliseconds at the snapshot boundary.
 - **F12+F13 are complete:** Pilot fan-in locks the persisted phase, reloads the exact replica-zero collection rows, validates linked runtime identity and completeness, restores declared order, and creates or returns one phase-linked snapshot.
-- **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation. Keep the public lifecycle unavailable until Pilot and Final coordination are complete.
+- **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation.
+- **F14+F15 are complete:** one supervised temporary task runs Pilot collection and analysis. Fixed Gust DAGs use bounded callbacks as wake-up signals. Persisted Gust rows remain authoritative. The coordinator stores one compact recommendation or insufficiency outcome and stops at `awaiting_final`. Keep the public lifecycle unavailable until Final coordination is complete.
 
 Recorded checks:
 
@@ -68,6 +69,8 @@ Recorded checks:
 - runtime-contract gate full Elixir suite: 899 passed with two exclusions;
 - runtime-contract gate frontend suite: 578 passed;
 - independent runtime-contract fresh-database regression suite: 333 passed;
+- complete study test directory after F14+F15: 144 passed;
+- Pilot workflow regression suite after F14+F15: 11 passed;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
@@ -79,7 +82,8 @@ Key decisions:
 - Merge I3+I4 and I5+I6.
 - Remove I7–I13 as standalone durable-infrastructure chunks.
 - Use one supervised ephemeral coordinator task.
-- Do not add an Oban lifecycle handoff, callback, poller, automatic restart recovery, or phase replay.
+- Do not add an Oban lifecycle handoff, periodic poller, automatic restart recovery, or phase replay.
+- Use Gust completion callbacks only as non-authoritative wake-up signals. Persisted Gust rows remain authoritative.
 - Persist one row for each fixed study phase and its Gust run.
 - If the application restarts during active coordination, the execution can remain stuck. The operator cancels it and starts a new execution.
 - Store compact results only for successful executions.
@@ -147,15 +151,16 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 
 ## Next implementation action
 
-Implement F14+F15 as one Pilot coordination slice:
+Implement F16+F17+F18 as one Final selection and source-binding slice:
 
 1. Recheck repository instructions and dirty state.
-2. Add the smallest supervised ephemeral Pilot coordinator.
-3. Run the existing collection and snapshot path, then submit Pilot analysis through the fixed Gust boundary.
-4. Persist the recommended or insufficient Pilot outcome.
-5. Transition the execution to `awaiting_final` and stop.
-6. Check the locked execution before accepted transitions so cancellation prevents later advancement.
-7. On failure, store one bounded execution error and mark the execution failed.
-8. Keep `start_study/1` unavailable and exclude F16+ Final behavior.
+2. Add the reserved internal `resume_study/2` behavior for `:recommended` and `{:override_insufficient, candidate_id}`.
+3. Lock the paused execution and validate the tagged selection form.
+4. Resolve one declared candidate and freeze its identity and counts.
+5. Store the derived `pilot_override` value.
+6. Enter `collecting_final`, create the Final phase row, commit, and then start the Final coordinator task.
+7. Add one shared binding check for the frozen candidate, counts, family, and Pilot source.
+8. Return a bounded error and keep `awaiting_final` for an invalid selection.
+9. Keep the public lifecycle unavailable and exclude F19+ complete Final behavior.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

@@ -277,6 +277,42 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
           %{"reason" => reason_label(reason)}
         )
 
+  def pilot_outcome_invalid,
+    do:
+      new(
+        "validation_failed",
+        "invalid_pilot_outcome",
+        ["pilot_outcome"],
+        "The Pilot outcome is invalid."
+      )
+
+  def coordinator_not_startable,
+    do:
+      new(
+        "conflict",
+        "study_execution_not_collecting_pilot",
+        ["state"],
+        "The study execution cannot start the Pilot coordinator in its current state."
+      )
+
+  def collection_workflow_failed,
+    do:
+      new(
+        "unavailable",
+        "collection_workflow_failed",
+        ["pilot_collection"],
+        "The Pilot collection workflow failed."
+      )
+
+  def pilot_analysis_failed,
+    do:
+      new(
+        "unavailable",
+        "pilot_analysis_failed",
+        ["pilot_analysis"],
+        "The Pilot analysis workflow failed."
+      )
+
   defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_label(_reason), do: "unavailable"
 

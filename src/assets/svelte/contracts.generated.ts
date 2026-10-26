@@ -1236,7 +1236,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
     graph_revision_id: string;
     graph_title: string;
     id: string;
-    kind: "graph" | "optimization_report" | "simulation_report";
+    kind: "graph" | "simulation_report" | "optimization_report";
     output_graph_revision_id?: string | null;
     output_revision_kind?: string | null;
     output_revision_number?: number | null;

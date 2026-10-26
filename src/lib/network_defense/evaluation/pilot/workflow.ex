@@ -10,6 +10,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
   }
 
   alias NetworkDefense.Evaluation.Pilot.TaskFailure
+  alias NetworkDefense.Evaluation.Study.GustWaiter
 
   alias Gust.DAG.Run.Trigger
 
@@ -20,13 +21,10 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
 
   @dag_name "evaluation_pilot"
   @select_task "select_pilot"
-  @poll_interval 100
-
-  def submit(request_map) do
+  def create(request_map) do
     with dag when not is_nil(dag) <- Gust.Flows.get_dag_by_name(@dag_name),
          {:ok, run} <- Gust.Flows.create_run(%{dag_id: dag.id, params: request_map}) do
-      dispatched = Trigger.dispatch_run(run)
-      {:ok, dispatched.id}
+      {:ok, run.id}
     else
       _error -> {:error, workflow_error()}
     end
@@ -34,9 +32,31 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
     _exception -> {:error, workflow_error()}
   end
 
-  def await(run_id, timeout_ms) when is_integer(timeout_ms) and timeout_ms >= 0 do
-    deadline = System.monotonic_time(:millisecond) + timeout_ms
-    await_loop(run_id, deadline)
+  def dispatch(run_id) do
+    run = Gust.Flows.get_run!(run_id)
+    _dispatched = Trigger.dispatch_run(run)
+    :ok
+  rescue
+    _exception -> {:error, workflow_error()}
+  end
+
+  def submit(request_map) do
+    with {:ok, run_id} <- create(request_map),
+         :ok <- dispatch(run_id) do
+      {:ok, run_id}
+    end
+  end
+
+  def await(run_id), do: await(run_id, :infinity)
+
+  def await(run_id, timeout)
+      when timeout == :infinity or (is_integer(timeout) and timeout >= 0) do
+    case GustWaiter.await(run_id, timeout) do
+      {:ok, :succeeded} -> {:ok, :succeeded}
+      {:error, :failed} -> {:error, failure_for_run(run_id)}
+      {:error, :unavailable} -> {:error, workflow_error()}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def result(run_id) do
@@ -76,27 +96,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
     end
   rescue
     _exception -> workflow_error()
-  end
-
-  defp await_loop(run_id, deadline) do
-    case fetch_run(run_id) do
-      nil ->
-        {:error, :not_found}
-
-      %{status: :succeeded} ->
-        {:ok, :succeeded}
-
-      %{status: :failed} ->
-        {:error, failure_for_run(run_id)}
-
-      _run ->
-        if System.monotonic_time(:millisecond) >= deadline do
-          {:error, :timeout}
-        else
-          Process.sleep(@poll_interval)
-          await_loop(run_id, deadline)
-        end
-    end
   end
 
   defp fetch_run(run_id), do: Gust.Repo.get(Gust.Flows.Run, run_id)
