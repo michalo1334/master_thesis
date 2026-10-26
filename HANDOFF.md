@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F15 and the runtime-contract gate are complete. F16+F17+F18 are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F18 and the runtime-contract gate are complete. F19+F20+F21 are next.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
 | ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F15, and the runtime-contract gate are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F18, and the runtime-contract gate are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -39,7 +39,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F10+F11 are complete:** each completed simulation trial stores measured monotonic runtime in microseconds. Pilot runtime assembly uses persisted optimization and trial durations and converts them to floating-point milliseconds at the snapshot boundary.
 - **F12+F13 are complete:** Pilot fan-in locks the persisted phase, reloads the exact replica-zero collection rows, validates linked runtime identity and completeness, restores declared order, and creates or returns one phase-linked snapshot.
 - **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation.
-- **F14+F15 are complete:** one supervised temporary task runs Pilot collection and analysis. Fixed Gust DAGs use bounded callbacks as wake-up signals. Persisted Gust rows remain authoritative. The coordinator stores one compact recommendation or insufficiency outcome and stops at `awaiting_final`. Keep the public lifecycle unavailable until Final coordination is complete.
+- **F14+F15 are complete:** one supervised temporary task runs Pilot collection and analysis. Fixed Gust DAGs use bounded callbacks as wake-up signals. Persisted Gust rows remain authoritative. The coordinator stores one compact recommendation or insufficiency outcome and stops at `awaiting_final`.
+- **F16+F17+F18 are complete:** the internal resume command locks a paused execution, validates the tagged selection, stores one typed frozen candidate and override, enters `collecting_final`, and creates or reuses one empty Final collection phase. The accepted Pilot analysis phase ID is the sole source identity. Shared binding reloads authoritative state and compares one typed Final source. Keep the public lifecycle unavailable until Final coordination is complete.
 
 Recorded checks:
 
@@ -71,6 +72,7 @@ Recorded checks:
 - independent runtime-contract fresh-database regression suite: 333 passed;
 - complete study test directory after F14+F15: 144 passed;
 - Pilot workflow regression suite after F14+F15: 11 passed;
+- independent F16+F17+F18 selection and binding suite: 34 passed;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
@@ -87,6 +89,9 @@ Key decisions:
 - Persist one row for each fixed study phase and its Gust run.
 - If the application restarts during active coordination, the execution can remain stuck. The operator cancels it and starts a new execution.
 - Store compact results only for successful executions.
+- Keep `pilot_override` null before resume, false for a recommendation, and true for an insufficient override.
+- Use the accepted Pilot analysis phase ID as the sole lifecycle source identity.
+- Start no Final coordinator shell in F16+F17+F18. F19+F20+F21 wire the real coordinator after the resume transaction commits.
 - Retire all direct Pilot and Final facade functions when the complete study lifecycle activates.
 - Keep lower-level comparison and family APIs.
 - Keep fixed Gust phase DAGs, ScatterGather trial batches, and synchronous stateless Python computation.
@@ -151,16 +156,15 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 
 ## Next implementation action
 
-Implement F16+F17+F18 as one Final selection and source-binding slice:
+Prepare F19+F20+F21 as one complete Final path and compact-result slice:
 
 1. Recheck repository instructions and dirty state.
-2. Add the reserved internal `resume_study/2` behavior for `:recommended` and `{:override_insufficient, candidate_id}`.
-3. Lock the paused execution and validate the tagged selection form.
-4. Resolve one declared candidate and freeze its identity and counts.
-5. Store the derived `pilot_override` value.
-6. Enter `collecting_final`, create the Final phase row, commit, and then start the Final coordinator task.
-7. Add one shared binding check for the frozen candidate, counts, family, and Pilot source.
-8. Return a bounded error and keep `awaiting_final` for an invalid selection.
-9. Keep the public lifecycle unavailable and exclude F19+ complete Final behavior.
+2. Define the Final coordinator boundary that starts after a successful resume commit.
+3. Build fresh Final collection work from the frozen selection and immutable revision.
+4. Use separate Final seeds and roots. Reject all Pilot evidence and runtime IDs.
+5. Create one Final snapshot and run complete-family analysis.
+6. Store one immutable compact result and enter `succeeded`.
+7. Keep evidence matrices and task history out of the compact result.
+8. Keep the public lifecycle unavailable and exclude F22+ facade activation.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

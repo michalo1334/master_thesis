@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F15. F14+F15 add the supervised Pilot coordinator, fixed collection DAG, bounded completion waiting, compact Pilot outcome persistence, and the pause at `awaiting_final`.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F18. F16+F17+F18 add the internal Final resume command, typed frozen selection, Final collection phase creation, and immutable Pilot-phase source binding.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F16+F17+F18 come next. The public study lifecycle stays unavailable until the complete Final path exists.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F19+F20+F21 come next. The public study lifecycle stays unavailable until the complete Final path exists.
 
 ## Prototype boundaries
 
@@ -424,7 +424,7 @@ Cover the recommendation and insufficiency outcomes with shared Pilot fixtures. 
 
 **Reserved public interface:** `resume_study/2` with `:recommended` or `{:override_insufficient, candidate_id}`.
 
-The resume transaction locks the paused execution, validates the tagged selection, resolves one declared candidate, freezes its counts, stores `pilot_override`, enters `collecting_final`, and creates the Final phase row. After commit, it starts the Final coordinator task.
+The resume transaction locks the paused execution, validates the tagged selection, resolves one declared candidate, freezes its counts, stores `pilot_override`, enters `collecting_final`, and creates the Final phase row. F19+F20+F21 start the real Final coordinator after the resume transaction commits. F16+F17+F18 add no coordinator shell or no-op task.
 
 One `Final.Binding.verify/2` function checks the frozen source at every Final boundary.
 

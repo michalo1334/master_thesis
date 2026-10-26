@@ -295,6 +295,78 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The study execution cannot start the Pilot coordinator in its current state."
       )
 
+  def final_resume_not_allowed,
+    do:
+      new(
+        "conflict",
+        "study_execution_not_awaiting_final",
+        ["state"],
+        "The study execution cannot resume Final work in its current state."
+      )
+
+  def final_selection_invalid,
+    do:
+      new(
+        "validation_failed",
+        "invalid_final_selection",
+        ["selection"],
+        "The Final selection is not valid for the stored Pilot outcome."
+      )
+
+  def selected_candidate_not_declared,
+    do:
+      new(
+        "validation_failed",
+        "selected_candidate_not_declared",
+        ["selection"],
+        "The selected candidate is not declared by the study revision."
+      )
+
+  def pilot_source_incomplete,
+    do:
+      new(
+        "unavailable",
+        "pilot_source_incomplete",
+        ["pilot_analysis"],
+        "The accepted Pilot source is missing or inconsistent."
+      )
+
+  def final_phase_conflict,
+    do:
+      new(
+        "conflict",
+        "final_phase_conflict",
+        ["final_collection"],
+        "The Final collection phase is not empty."
+      )
+
+  def final_selection_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        [],
+        "The Final selection could not be stored safely."
+      )
+
+  def final_source_mismatch,
+    do:
+      new(
+        "conflict",
+        "final_source_mismatch",
+        [],
+        "The Final input does not match the frozen source."
+      )
+
+  def final_binding_not_allowed,
+    do:
+      new(
+        "conflict",
+        "study_execution_not_in_final_state",
+        ["state"],
+        "The study execution cannot run or read Final work in its current state."
+      )
+
   def collection_workflow_failed,
     do:
       new(
