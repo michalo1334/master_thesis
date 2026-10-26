@@ -15,9 +15,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 ## Current branch status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F21. F19+F20+F21 add fresh Final collection, lifecycle-bound complete-family analysis, one immutable compact result, and success coordination.
+The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F23. F22+F23 activate the six public study lifecycle functions and retire the direct Pilot and Final facade groups.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. F22+F23 come next. The public study lifecycle stays unavailable until that activation slice is complete.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. T1+T2 come next.
 
 ## Prototype boundaries
 
@@ -71,12 +71,12 @@ The completed prototype exposes these functions through `NetworkDefense.Evaluati
         {:ok, StudyExecution.t()} | {:error, StudyError.t()}
 
 @spec study_result(Ecto.UUID.t()) ::
-        {:ok, StudyResult.t()} | {:error, StudyError.t()}
+        {:ok, Study.CompactResult.t()} | {:error, StudyError.t()}
 ```
 
-`cancel_study/1` is idempotent for an already-cancelled execution. It rejects `succeeded` and `failed` executions.
+`cancel_study/1` is idempotent for an already-cancelled execution. It rejects `succeeded` and `failed` executions with the bounded conflict reason `study_execution_not_cancellable`.
 
-`study_result/1` returns a bounded `result_unavailable` error until a successful result exists. It never returns a partial result.
+`study_result/1` returns a bounded `result_unavailable` error until a successful result exists. It returns the typed compact result and never the `StudyResult` persistence row. It never returns a partial result.
 
 ## Test policy
 
@@ -460,7 +460,7 @@ The result row is unique by execution. It stores accepted phase references, Pilo
 
 This coverage also checks result persistence and read-back. Existing Final tests cover complete-family validation details.
 
-### F22 + F23 — public lifecycle activation
+### F22 + F23 — public lifecycle activation — complete
 
 Activate the six public study functions and remove the direct Pilot and Final facade groups.
 

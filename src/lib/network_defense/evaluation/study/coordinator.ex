@@ -345,23 +345,27 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
          snapshot_id
        ) do
     phase = lock_named_phase(execution.id, :pilot_collection)
-    store_collected_snapshot(execution, phase, snapshot_id)
+
+    if is_nil(phase.snapshot_id) or phase.snapshot_id == snapshot_id do
+      update_phase!(phase, %{snapshot_id: snapshot_id})
+      transitioned = transition_execution!(execution, :pilot_collected)
+      insert_pilot_analysis_phase!(execution.id)
+      transitioned
+    else
+      Repo.rollback({:error, StudyError.collection_workflow_failed()})
+    end
   end
 
   defp begin_analysis_transition(%StudyExecution{state: state}, _snapshot_id), do: stop(state)
 
-  defp store_collected_snapshot(
-         execution,
-         %StudyPhase{snapshot_id: current_snapshot_id} = phase,
-         snapshot_id
-       )
-       when is_nil(current_snapshot_id) or current_snapshot_id == snapshot_id do
-    update_phase!(phase, %{snapshot_id: snapshot_id})
-    transition_execution!(execution, :pilot_collected)
-  end
-
-  defp store_collected_snapshot(_execution, _phase, _snapshot_id) do
-    Repo.rollback({:error, StudyError.collection_workflow_failed()})
+  defp insert_pilot_analysis_phase!(execution_id) do
+    %StudyPhase{}
+    |> StudyPhase.changeset(%{execution_id: execution_id, phase: :pilot_analysis})
+    |> Repo.insert()
+    |> case do
+      {:ok, %StudyPhase{}} -> :ok
+      {:error, _changeset} -> Repo.rollback({:error, StudyError.pilot_analysis_failed()})
+    end
   end
 
   defp load_analysis_context(%StudyExecution{} = execution) do

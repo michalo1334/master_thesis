@@ -8,12 +8,12 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
   alias Gust.Flows
 
   alias NetworkDefense.Evaluation.{EvidenceSnapshot, StudyFixtures, StudyPhase}
+  alias NetworkDefense.Evaluation.Final
   alias NetworkDefense.Evaluation.Final.Actions.{CompareFinalMember, CorrectFinalFamily}
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request}
   alias NetworkDefense.Evaluation.Final.{Member, TaskFailure}
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
-  alias NetworkDefense.Evaluations
   alias NetworkDefense.Repo
 
   # Acceptance coverage in this file:
@@ -42,7 +42,7 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
     lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+             FinalConformance.store_snapshot(fixture.snapshot)
 
     _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
@@ -128,11 +128,11 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
     } do
       run_id = succeeded_run!(params)
 
-      assert {:ok, _result} = Evaluations.get_final_result(run_id)
+      assert {:ok, _result} = Final.Workflow.result(run_id)
 
       move_family!(snapshot.id, "family-other")
 
-      assert {:error, error} = Evaluations.get_final_result(run_id)
+      assert {:error, error} = Final.Workflow.result(run_id)
       assert "changed_snapshot" in issue_codes(error)
     end
 
@@ -143,7 +143,7 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       run_id = succeeded_run!(params)
       move_study!(snapshot.id, "8f14e45f-ceea-467f-a831-9dbfe8dd0a11")
 
-      assert {:error, error} = Evaluations.get_final_result(run_id)
+      assert {:error, error} = Final.Workflow.result(run_id)
       assert "changed_snapshot" in issue_codes(error)
     end
 
@@ -153,14 +153,14 @@ defmodule NetworkDefense.Evaluation.Final.BindingTest do
       run_id = succeeded_run!(params)
       invalidate_pilot_phase!(params["study_execution_id"])
 
-      assert {:error, error} = Evaluations.get_final_result(run_id)
+      assert {:error, error} = Final.Workflow.result(run_id)
       assert issue_codes(error) != []
     end
   end
 
   defp succeeded_run!(params) do
-    assert {:ok, run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
+    assert {:ok, run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
     run_id
   end
 

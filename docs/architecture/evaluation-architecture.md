@@ -45,7 +45,7 @@ Comparison and family requests include bounded matrices in Gust run parameters. 
 
 ## Fixed analysis DAGs
 
-A caller starts each workflow. No analysis DAG starts another DAG. Family and Final tasks reuse the comparison action and Holm call directly, not nested comparison or family runs.
+The facade starts the comparison and family workflows, and the study coordinator starts the Pilot and Final workflows. No analysis DAG starts another DAG. Family and Final tasks reuse the comparison action and Holm call directly, not nested comparison or family runs.
 
 | DAG                     | Fixed task shape                                                          | Output                                          |
 | ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------- |
@@ -66,31 +66,41 @@ The current Pilot contract declares separate plan-count and attack-count arrays.
 | -------------- | ---------------------------------------------------------------------- |
 | Comparison     | `submit_comparison/1`, `await_comparison/2`, `get_comparison_result/1` |
 | Family         | `submit_family/1`, `await_family/2`, `get_family_result/1`             |
-| Pilot snapshot | `create_evidence_snapshot/1`, `get_evidence_snapshot/1`                |
-| Pilot analysis | `submit_pilot/1`, `await_pilot/2`, `get_pilot_result/1`                |
-| Final snapshot | `create_final_evidence_snapshot/1`, `get_final_evidence_snapshot/1`    |
-| Final analysis | `submit_final/1`, `await_final/2`, `get_final_result/1`                |
+| Study revision | `create_study_revision/1`                                              |
+| Study start    | `start_study/1`                                                        |
+| Study status   | `study_status/1`                                                       |
+| Study resume   | `resume_study/2`                                                       |
+| Study cancel   | `cancel_study/1`                                                       |
+| Study result   | `study_result/1`                                                       |
 
-Each `submit_*` operation returns a Gust run ID. Each `await_*` operation returns the completion status and does not return the scientific result. Each `get_*_result` operation performs a separate, typed read-back from persisted data. All operations return typed success or bounded error values.
+Each comparison or family `submit_*` operation returns a Gust run ID, each `await_*` operation returns the completion status, and each `get_*_result` operation performs a separate, typed read-back from persisted data. All operations return typed success or bounded error values.
 
-The development commands `mix evaluation.compare` and `mix evaluation.family` run named synthetic fixtures. Pilot and Final use the Elixir boundary.
+The Pilot and Final workflows have no public group. They stay internal to the study coordinator, so a caller cannot start a Gust run, create an evidence snapshot, or read a Pilot or Final result outside one study execution. The Pilot and Final sections below describe those internal boundaries.
+
+The development commands `mix evaluation.compare` and `mix evaluation.family` run named synthetic fixtures. Pilot and Final work runs only inside a study execution.
 
 ### Final source and evidence boundary
 
-Current Final submission requires a pre-created Final snapshot and an integer `source_pilot_run_id`. The source Pilot must be complete, readable, valid, and have outcome `recommended`.
+This is an internal coordinator contract. No caller submits Final work directly.
 
-The request must match the source Pilot and snapshot on:
+`resume_study/2` takes only the Final selection: `:recommended` or `{:override_insufficient, candidate_id}`. Every other Final input comes from PostgreSQL. In one locked transaction, the resume command stores the frozen selection, the selected counts, and the override flag, and it creates the empty `final_collection` phase. The coordinator then owns the rest of the boundary:
+
+- it runs Final collection and links the returned snapshot to the `final_collection` phase;
+- it reads the accepted Pilot analysis run, the frozen selection, and the Final snapshot when it builds the Final request; and
+- it writes the completion assertions from the stored phase rows.
+
+The built request must match the accepted Pilot source and the Final snapshot on:
 
 - study revision and family;
 - the complete ordered comparison identities;
 - the selected plan count per side and attacks per plan; and
 - the declared source and Final metadata.
 
-The caller cannot change the recommended counts. An insufficient, failed, invalid, or incomplete Pilot cannot supply a fallback. The [target confirmatory override](../design/evaluation-study-pipeline.md#pilot-to-final-gate) does not exist in this API.
+A recommended Pilot must freeze the recommended counts. An insufficient Pilot accepts only a candidate the stored revision declares, and the stored override flag then records that choice. A failed, invalid, or incomplete Pilot supplies no fallback.
 
-The caller supplies required true assertions that Final evidence was collected after the Pilot and excludes Pilot observations. The contract also validates completion metadata and related bindings. These checks validate caller assertions. They do not authenticate collection history, prove physical freshness, or detect reused observations from matrix values.
+The stored assertions claim that Final evidence was collected after the Pilot and excludes Pilot observations. The contract validates those stored assertions and the completion metadata. It does not authenticate collection history, prove physical freshness, or detect reused observations from matrix values.
 
-Each Final comparison has an explicit caller-provided analysis seed in declared order. Final does not derive these seeds or compare them with Pilot seeds. Disjoint Pilot/Final collection seeds remain a scientific requirement, not a provenance guarantee from this API.
+Each Final comparison takes its analysis seed from the declared study definition, in declared order. Final does not derive these seeds or compare them with Pilot seeds. Disjoint Pilot/Final collection seeds remain a scientific requirement, not a provenance guarantee from these checks.
 
 ## Contracts, limits, and read-back
 

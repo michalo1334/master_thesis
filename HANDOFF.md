@@ -1,12 +1,12 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F21 and the runtime-contract gate are complete. F22+F23 are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F23 and the runtime-contract gate are complete. T1+T2 are next.
 
 ## Worktree and branch
 
 | Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
 | ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F21, and the runtime-contract gate are complete. |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F23, and the runtime-contract gate are complete. |
 | `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
@@ -41,7 +41,8 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **The runtime-contract gate is complete:** typed optimization and simulation requests materialize closed values as atoms and persist all effective scientific settings. Runtime execution rebuilds typed requests from stored records. The mapped collection action accepts only a collection-item ID, reloads the immutable study revision, and rebuilds canonical work before reservation.
 - **F14+F15 are complete:** one supervised temporary task runs Pilot collection and analysis. Fixed Gust DAGs use bounded callbacks as wake-up signals. Persisted Gust rows remain authoritative. The coordinator stores one compact recommendation or insufficiency outcome and stops at `awaiting_final`.
 - **F16+F17+F18 are complete:** the internal resume command locks a paused execution, validates the tagged selection, stores one typed frozen candidate and override, enters `collecting_final`, and creates or reuses one empty Final collection phase. Shared binding reloads authoritative state and compares one typed Final source.
-- **F19+F20+F21 are complete:** the Final coordinator collects fresh Final work with separate seeds and roots, links one Final snapshot, runs lifecycle-bound complete-family analysis, stores one immutable compact result, and enters `succeeded`. The strict Final request adds only `study_execution_id`. Every Final analysis boundary reloads the frozen selection and accepted phase records from PostgreSQL. Keep the public lifecycle unavailable until F22+F23.
+- **F19+F20+F21 are complete:** the Final coordinator collects fresh Final work with separate seeds and roots, links one Final snapshot, runs lifecycle-bound complete-family analysis, stores one immutable compact result, and enters `succeeded`. The strict Final request adds only `study_execution_id`. Every Final analysis boundary reloads the frozen selection and accepted phase records from PostgreSQL.
+- **F22+F23 are complete:** the six public study lifecycle functions are active. Start creates the execution and Pilot collection phase atomically. The coordinator creates each analysis phase at its accepted handoff. Cancellation is locked and idempotent for cancelled executions. Result read-back returns one typed compact result only after success. Direct Pilot and Final facade groups are removed; comparison and family APIs remain.
 
 Recorded checks:
 
@@ -75,6 +76,9 @@ Recorded checks:
 - Pilot workflow regression suite after F14+F15: 11 passed;
 - independent F16+F17+F18 selection and binding suite: 34 passed;
 - independent Final and study regression suite after F19+F20+F21: 270 passed;
+- F22+F23 focused activation and journey suite: 63 passed;
+- F22+F23 Study, Pilot, Final, and Family regression suites: 474 passed;
+- F22+F23 contract drift suite: 13 passed;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
 
 ## Approved prototype scope
@@ -159,14 +163,14 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 
 ## Next implementation action
 
-Prepare F22+F23 as one public lifecycle activation slice:
+Prepare T1+T2 as one timing-foundation slice:
 
 1. Recheck repository instructions and dirty state.
-2. Activate `start_study/1`, `study_status/1`, `resume_study/2`, `cancel_study/1`, and `study_result/1` beside the existing revision function.
-3. Retire direct Pilot and Final snapshot, submission, wait, and result functions from the public facade.
-4. Keep lower-level comparison and family functions.
-5. Verify one recommended journey through a compact result with `pilot_override: false`.
-6. Verify one insufficient-with-override journey through a compact result with `pilot_override: true`.
-7. Keep timing T1–T5, deployment, recovery, replay, polling, and UI work out of scope.
+2. Define the typed schedule for warm-up replica `-1` and measured replicas `0` through `4` for each tier.
+3. Keep tiers sequential.
+4. Define monotonic microsecond intervals for plan selection, simulation, and total elapsed work.
+5. Measure each interval from its own boundaries. Do not calculate total by adding overlapping intervals.
+6. Limit clock injection to the small interval function used by its unit test.
+7. Keep T3+T4 environment and equivalence gates, T5 summaries, deployment, recovery, replay, polling, and UI work out of scope.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

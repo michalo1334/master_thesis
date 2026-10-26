@@ -15,16 +15,15 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
 
   alias NetworkDefense.Evaluation.Pilot.Limits
   alias NetworkDefense.Evaluation.PilotConformance
-  alias NetworkDefense.Evaluations
 
   test "PERSIST-01: a snapshot is stored once and loads with its payload" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     assert snapshot.phase == :pilot
     assert snapshot.schema_version == 1
     assert snapshot.family_id == "family-example"
 
-    assert {:ok, loaded} = Evaluations.get_evidence_snapshot(snapshot.id)
+    assert {:ok, loaded} = EvidenceSnapshots.get(snapshot.id)
     assert loaded.id == snapshot.id
 
     assert {:ok, ^loaded, payload} = EvidenceSnapshots.load(snapshot.id)
@@ -32,10 +31,10 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
   end
 
   test "PERSIST-02: reads do not apply the create-time storage byte limit" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     with_limit(:snapshot_payload_bytes, 1)
 
-    assert {:ok, loaded} = Evaluations.get_evidence_snapshot(snapshot.id)
+    assert {:ok, loaded} = EvidenceSnapshots.get(snapshot.id)
     assert loaded.id == snapshot.id
     assert {:ok, ^loaded, %SnapshotPayload{}} = EvidenceSnapshots.load(snapshot.id)
   end
@@ -51,7 +50,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
   end
 
   test "PERSIST-04: the Pilot read path rejects a Final row" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     attrs = %{
       study_revision_id: snapshot.study_revision_id,
@@ -68,18 +67,18 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     assert issue["code"] == "snapshot_phase_mismatch"
 
     assert {:error, %PilotError{issues: [issue]}} =
-             Evaluations.get_evidence_snapshot(final_snapshot.id)
+             EvidenceSnapshots.get(final_snapshot.id)
 
     assert issue["code"] == "snapshot_phase_mismatch"
 
     request = PilotConformance.request_params(final_snapshot.id)
 
-    assert {:error, %PilotError{issues: issues}} = Evaluations.submit_pilot(request)
+    assert {:error, %PilotError{issues: issues}} = PilotConformance.submit(request)
     assert Enum.any?(issues, &(&1["code"] == "snapshot_phase_mismatch"))
   end
 
   test "PERSIST-04b: a Pilot row with a final evidence role is rejected on read" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     final_payload = Map.put(snapshot.payload, "evidence_role", "final")
 
     attrs = %{
@@ -94,14 +93,14 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
       Repo.insert(EvidenceSnapshot.create_changeset(%EvidenceSnapshot{}, attrs))
 
     assert {:error, %PilotError{}} = EvidenceSnapshots.load(final_role_snapshot.id)
-    assert {:error, %PilotError{}} = Evaluations.get_evidence_snapshot(final_role_snapshot.id)
+    assert {:error, %PilotError{}} = EvidenceSnapshots.get(final_role_snapshot.id)
   end
 
-  test "PERSIST-05: the public snapshot path rejects a final phase before any insert" do
+  test "PERSIST-05: the snapshot boundary rejects a final phase before any insert" do
     count = Repo.aggregate(EvidenceSnapshot, :count)
     attrs = Map.put(PilotConformance.snapshot(), "phase", "final")
 
-    assert {:error, %PilotError{}} = Evaluations.create_evidence_snapshot(attrs)
+    assert {:error, %PilotError{}} = PilotConformance.store_snapshot(attrs)
     assert Repo.aggregate(EvidenceSnapshot, :count) == count
   end
 
@@ -111,18 +110,18 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     count = Repo.aggregate(EvidenceSnapshot, :count)
 
     with_limit(:snapshot_payload_bytes, bytes + 1)
-    assert {:ok, _snapshot} = Evaluations.create_evidence_snapshot(attrs)
+    assert {:ok, _snapshot} = PilotConformance.store_snapshot(attrs)
     assert Repo.aggregate(EvidenceSnapshot, :count) == count + 1
 
     with_limit(:snapshot_payload_bytes, bytes)
-    assert {:ok, _snapshot} = Evaluations.create_evidence_snapshot(attrs)
+    assert {:ok, _snapshot} = PilotConformance.store_snapshot(attrs)
     assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
 
     with_limit(:snapshot_payload_bytes, bytes - 1)
     assert {:ok, %EvidenceSnapshotInput{}} = EvidenceSnapshotInput.parse(attrs)
 
     assert {:error, %PilotError{code: "request_too_large", issues: [issue]}} =
-             Evaluations.create_evidence_snapshot(attrs)
+             PilotConformance.store_snapshot(attrs)
 
     assert issue["details"] == %{"limit_bytes" => bytes - 1, "actual_bytes" => bytes}
     assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
@@ -139,14 +138,14 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
       )
 
     assert {:error, %PilotError{code: "validation_failed", issues: [issue]}} =
-             Evaluations.create_evidence_snapshot(attrs)
+             PilotConformance.store_snapshot(attrs)
 
     assert issue["code"] == "invalid_type"
     assert Repo.aggregate(EvidenceSnapshot, :count) == count
   end
 
   test "PERSIST-08: an existing snapshot is rejected when a limit decreases" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     original = Application.get_env(:network_defense, Limits)
     on_exit(fn -> Application.put_env(:network_defense, Limits, original) end)
 
@@ -167,10 +166,10 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
       Application.put_env(:network_defense, Limits, Keyword.put(original, limit, value))
 
       assert {:error, %PilotError{code: ^expected_code}} =
-               Evaluations.get_evidence_snapshot(snapshot.id),
+               EvidenceSnapshots.get(snapshot.id),
              "expected read to reject lowered limit #{inspect(limit)}"
 
-      assert {:error, %PilotError{}} = Evaluations.submit_pilot(attrs),
+      assert {:error, %PilotError{}} = PilotConformance.submit(attrs),
              "expected submission to reject lowered limit #{inspect(limit)}"
     end
   end
@@ -180,7 +179,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     count = Repo.aggregate(EvidenceSnapshot, :count)
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.create_evidence_snapshot(snapshot_with_plan_rows(6, 5))
+             PilotConformance.store_snapshot(snapshot_with_plan_rows(6, 5))
 
     assert has_limit_issue?(
              issues,
@@ -197,7 +196,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     count = Repo.aggregate(EvidenceSnapshot, :count)
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.create_evidence_snapshot(snapshot_with_plan_rows(5, 6))
+             PilotConformance.store_snapshot(snapshot_with_plan_rows(5, 6))
 
     assert has_limit_issue?(
              issues,
@@ -214,7 +213,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     count = Repo.aggregate(EvidenceSnapshot, :count)
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+             PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     assert has_limit_issue?(
              issues,
@@ -230,7 +229,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     gust_owner = Sandbox.start_owner!(Gust.Repo, shared: true)
     on_exit(fn -> Sandbox.stop_owner(gust_owner) end)
 
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     request = PilotConformance.request_params(snapshot.id)
 
     _ = Gust.Flows.create_dag(%{name: "evaluation_pilot"})
@@ -239,13 +238,13 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotPersistenceTest do
     with_limit(:candidate_request_bytes, 100)
     runs_before = Gust.Repo.aggregate(Gust.Flows.Run, :count)
 
-    assert {:error, %PilotError{code: "request_too_large"}} = Evaluations.submit_pilot(request)
+    assert {:error, %PilotError{code: "request_too_large"}} = PilotConformance.submit(request)
 
     assert Gust.Repo.aggregate(Gust.Flows.Run, :count) == runs_before
   end
 
   test "PERSIST-07: a snapshot whose study revision differs from the request is rejected" do
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     request = PilotConformance.parsed_request(%{"snapshot_id" => snapshot.id})
 
     {:ok, _snapshot, payload} = EvidenceSnapshots.load(snapshot.id)

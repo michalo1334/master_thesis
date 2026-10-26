@@ -1,11 +1,14 @@
 defmodule NetworkDefense.Evaluation.PilotConformance do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Pilot.Work
+  alias NetworkDefense.Evaluation.EvidenceSnapshot
+  alias NetworkDefense.Evaluation.EvidenceSnapshots
+  alias NetworkDefense.Evaluation.Pilot.{Wire, Work, Workflow}
 
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
     CandidateComparisonRequest,
     EvidenceSnapshotInput,
+    PilotError,
     PilotRequest,
     PilotResult,
     SnapshotPayload
@@ -44,6 +47,38 @@ defmodule NetworkDefense.Evaluation.PilotConformance do
     do: @root |> Path.join(relative_path) |> File.read!() |> Jason.decode!()
 
   def snapshot_input, do: EvidenceSnapshotInput.parse(@snapshot)
+
+  @doc """
+  Store one Pilot evidence snapshot through the snapshot boundary.
+
+  The boundary validates the whole document before one insert, so a caller
+  receives the same bounded errors a stored snapshot produces.
+  """
+  @spec store_snapshot(map()) ::
+          {:ok, EvidenceSnapshot.t()} | {:error, PilotError.t()}
+  def store_snapshot(attrs) do
+    with {:ok, input} <- EvidenceSnapshotInput.parse(attrs),
+         do: EvidenceSnapshots.create(input)
+  end
+
+  @doc """
+  Submit one Pilot request through the Pilot workflow boundary.
+
+  The request is admitted against its stored snapshot and its resource limits
+  before a Gust run exists, which is the admission the study coordinator
+  applies before it creates a Pilot run.
+  """
+  @spec submit(map()) :: {:ok, integer()} | {:error, PilotError.t()}
+  def submit(attrs) do
+    with {:ok, request} <- PilotRequest.parse(attrs),
+         {:ok, snapshot, payload} <- EvidenceSnapshots.load(request.snapshot_id),
+         :ok <- PilotRequest.matches_snapshot(request, snapshot, payload),
+         :ok <- Work.preflight(request, payload) do
+      request
+      |> Wire.request()
+      |> Workflow.submit()
+    end
+  end
 
   @spec snapshot_input!() :: EvidenceSnapshotInput.t()
   def snapshot_input! do

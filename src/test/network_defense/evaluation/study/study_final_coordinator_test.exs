@@ -14,8 +14,6 @@ defmodule NetworkDefense.Evaluation.Study.FinalCoordinatorTest do
     StudyResult
   }
 
-  alias NetworkDefense.Evaluations
-
   defmodule Store do
     use Agent
 
@@ -76,10 +74,10 @@ defmodule NetworkDefense.Evaluation.Study.FinalCoordinatorTest do
     context = StudyFixtures.persist_final_conformance_lifecycle!(901)
 
     {:ok, pilot_snapshot} =
-      Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+      PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     {:ok, final_snapshot} =
-      Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+      FinalConformance.store_snapshot(fixture.snapshot)
 
     pilot_collection = StudyFixtures.insert_phase(context.execution, :pilot_collection)
 

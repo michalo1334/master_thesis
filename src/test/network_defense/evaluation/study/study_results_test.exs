@@ -20,10 +20,10 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
     context = StudyFixtures.persist_final_conformance_lifecycle!(901)
 
     {:ok, pilot_snapshot} =
-      Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+      PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     {:ok, final_snapshot} =
-      Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+      FinalConformance.store_snapshot(fixture.snapshot)
 
     context = StudyFixtures.accept_final_collection!(context, final_snapshot.id, 902)
 
@@ -163,6 +163,17 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
       assert {:error, error} = CompactResult.parse(invalid)
       assert error == StudyError.final_result_invalid()
     end
+  end
+
+  test "STUDY-RESULT-01: WHEN a public result read happens before success, THE application SHALL return result_unavailable, and after success it SHALL return the typed compact result",
+       context do
+    assert Evaluations.study_result(context.execution.id) ==
+             {:error, StudyError.result_unavailable()}
+
+    assert {:ok, created} = Results.create_success(context.execution, context.final_result)
+
+    assert {:ok, %CompactResult{} = loaded} = Evaluations.study_result(context.execution.id)
+    assert loaded == created
   end
 
   test "F21-08: WHEN result insertion violates uniqueness, THE application SHALL return a bounded storage error and keep the transaction unchanged",

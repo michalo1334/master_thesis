@@ -21,7 +21,6 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotActionsTest do
 
   alias NetworkDefense.Evaluation.Pilot.{Limits, TaskFailure, TaskFailure.RetryableError, Work}
   alias NetworkDefense.Evaluation.PilotConformance
-  alias NetworkDefense.Evaluations
 
   setup do
     gust_owner = Sandbox.start_owner!(Gust.Repo, shared: true)
@@ -35,7 +34,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotActionsTest do
     {:ok, dag} =
       Flows.create_dag(%{name: "evaluation_pilot_actions_#{System.unique_integer([:positive])}"})
 
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     request = PilotConformance.parsed_request(%{"snapshot_id" => snapshot.id})
 
     %{dag: dag, snapshot: snapshot, request: request}

@@ -129,13 +129,13 @@ defmodule NetworkDefense.Evaluation.FinalComputeStub do
   @doc "Create and complete one real recommended Pilot run through Gust."
   def recommended_pilot_run! do
     alias NetworkDefense.Evaluation.Pilot.Contracts.PilotResult
+    alias NetworkDefense.Evaluation.Pilot.Workflow
     alias NetworkDefense.Evaluation.PilotConformance
-    alias NetworkDefense.Evaluations
 
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
-    {:ok, run_id} = Evaluations.submit_pilot(PilotConformance.request_params(snapshot.id))
-    {:ok, :succeeded} = Evaluations.await_pilot(run_id, 20_000)
-    {:ok, %PilotResult{outcome: "recommended"}} = Evaluations.get_pilot_result(run_id)
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
+    {:ok, run_id} = PilotConformance.submit(PilotConformance.request_params(snapshot.id))
+    {:ok, :succeeded} = Workflow.await(run_id, 20_000)
+    {:ok, %PilotResult{outcome: "recommended"}} = Workflow.result(run_id)
 
     run_id
   end

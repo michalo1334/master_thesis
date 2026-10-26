@@ -2,16 +2,18 @@ defmodule NetworkDefense.Evaluation.FinalConformance do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonStatistics
+  alias NetworkDefense.Evaluation.{EvidenceSnapshot, EvidenceSnapshots}
   alias NetworkDefense.Evaluation.Family.Contracts.{HolmRequest, HolmResponse, RawResult}
 
   alias NetworkDefense.Evaluation.Final.Contracts.{
+    FinalError,
     Request,
     Result,
     SnapshotInput,
     SnapshotPayload
   }
 
-  alias NetworkDefense.Evaluation.Final.Member
+  alias NetworkDefense.Evaluation.Final.{Member, Wire, Workflow}
 
   # Checked-in Final conformance examples.
   #
@@ -80,6 +82,35 @@ defmodule NetworkDefense.Evaluation.FinalConformance do
 
   @spec parsed_payload!(map()) :: SnapshotPayload.t()
   def parsed_payload!(fixture \\ fixture()), do: snapshot_input!(fixture).payload
+
+  @doc """
+  Store one Final evidence snapshot through the snapshot boundary.
+
+  The boundary validates the whole document and its encoded size before one
+  insert, so a caller receives the same bounded errors a stored snapshot
+  produces.
+  """
+  @spec store_snapshot(map()) ::
+          {:ok, EvidenceSnapshot.t()} | {:error, FinalError.t()}
+  def store_snapshot(attrs) do
+    with {:ok, input} <- SnapshotInput.parse(attrs),
+         do: EvidenceSnapshots.create_final(input)
+  end
+
+  @doc """
+  Submit one Final request through the Final workflow boundary.
+
+  The workflow validates the request, its limits, its source binding, and its
+  member work before a Gust run exists.
+  """
+  @spec submit(map()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def submit(attrs) do
+    with {:ok, %Request{} = request} <- Request.parse(attrs) do
+      request
+      |> Wire.request()
+      |> Workflow.submit()
+    end
+  end
 
   @spec request_params!(String.t(), integer()) :: map()
   def request_params!(snapshot_id, source_pilot_run_id) do

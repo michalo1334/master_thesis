@@ -151,6 +151,24 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The study execution does not link a stored study revision."
       )
 
+  def study_execution_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "storage_failed",
+        ["execution"],
+        "The study execution could not be stored safely."
+      )
+
+  def study_execution_not_cancellable,
+    do:
+      new(
+        "conflict",
+        "study_execution_not_cancellable",
+        ["state"],
+        "A succeeded or failed study execution cannot be cancelled."
+      )
+
   def invalid_collection_position(field) when field in [:replica_position, :item_position],
     do:
       new(

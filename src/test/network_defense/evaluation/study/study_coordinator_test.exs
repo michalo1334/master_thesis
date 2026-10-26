@@ -7,7 +7,6 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
   alias NetworkDefense.Evaluation.{PilotConformance, StudyExecution, StudyFixtures, StudyPhase}
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.{Coordinator, PilotOutcome, PilotSnapshot}
-  alias NetworkDefense.Evaluations
 
   @failure_persistence_event [
     :network_defense,
@@ -88,7 +87,6 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     collection = StudyFixtures.insert_collection_graph("study-coordinator", mission: true)
     definition = StudyFixtures.collection_definition(collection.graph, collection.foothold)
     study = StudyFixtures.study_with_two_phases(definition)
-    analysis_phase = StudyFixtures.insert_phase(study.execution, :pilot_analysis)
 
     collection_items =
       StudyFixtures.collect_pilot_items(study.execution, study.pilot_phase, definition)
@@ -126,7 +124,6 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     )
 
     Map.merge(study, %{
-      analysis_phase: analysis_phase,
       definition: definition,
       snapshot: snapshot,
       recommended: recommended
@@ -157,7 +154,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     assert collection_phase.gust_run_id == 101
     assert collection_phase.snapshot_id == context.snapshot.id
 
-    analysis_phase = Repo.get!(StudyPhase, context.analysis_phase.id)
+    analysis_phase = pilot_analysis_phase(context.execution)
     assert analysis_phase.gust_run_id == 202
     assert analysis_phase.result_ref == execution.pilot_outcome
   end
@@ -200,7 +197,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     assert {:error, %StudyError{}} = run(context.execution.id)
 
     execution = Repo.get!(StudyExecution, context.execution.id)
-    phase = Repo.get!(StudyPhase, context.analysis_phase.id)
+    phase = pilot_analysis_phase(context.execution)
 
     assert execution.state == :failed
     assert execution.error == phase.error
@@ -231,7 +228,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     task = Task.async(fn -> run(context.execution.id) end)
     assert_receive {:pilot_waiting, coordinator_pid}, 2_000
 
-    Repo.delete!(context.analysis_phase)
+    Repo.delete!(pilot_analysis_phase(context.execution))
     send(coordinator_pid, :continue_pilot)
 
     assert {:error,
@@ -264,12 +261,12 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     assert Task.await(task, 2_000) == :ok
 
     execution = Repo.get!(StudyExecution, context.execution.id)
-    analysis_phase = Repo.get!(StudyPhase, context.analysis_phase.id)
+    analysis_phase = pilot_analysis_phase(context.execution)
 
     assert execution.state == :cancelled
     assert execution.error == nil
     assert execution.pilot_outcome == nil
-    assert analysis_phase.gust_run_id == nil
+    assert analysis_phase == nil
     refute_received {:pilot_created, _request}
   end
 
@@ -340,7 +337,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
 
     task = Task.async(fn -> run(context.execution.id) end)
     assert_receive {:run_accepted, :analysis, coordinator_pid}, 2_000
-    assert Repo.get!(StudyPhase, context.analysis_phase.id).gust_run_id == 202
+    assert pilot_analysis_phase(context.execution).gust_run_id == 202
 
     cancel_execution(context.execution)
     send(coordinator_pid, {:continue_after_accept, :analysis})
@@ -351,7 +348,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
   end
 
   test "STUDY-COORD-10: snapshot validation runs before Pilot run creation", context do
-    {:ok, mismatched} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, mismatched} = PilotConformance.store_snapshot(PilotConformance.snapshot())
 
     context.pilot_phase
     |> Repo.reload!()
@@ -367,6 +364,68 @@ defmodule NetworkDefense.Evaluation.Study.StudyCoordinatorTest do
     assert execution.state == :failed
     assert Jason.encode!(execution.error) =~ "pilot_analysis_failed"
     refute_received {:pilot_created, _request}
+  end
+
+  test "STUDY-COORD-12: WHEN the Pilot collection snapshot is accepted, THE coordinator SHALL create one pilot_analysis phase in that transition and SHALL continue into Pilot analysis",
+       context do
+    assert pilot_analysis_phase(context.execution) == nil
+
+    assert :ok = run(context.execution.id)
+
+    phase = pilot_analysis_phase(context.execution)
+    assert phase.phase == :pilot_analysis
+    assert phase.gust_run_id == 202
+
+    assert Repo.all(
+             from(row in StudyPhase,
+               where: row.execution_id == ^context.execution.id,
+               select: row.phase,
+               order_by: row.phase
+             )
+           ) == [:final_collection, :pilot_analysis, :pilot_collection]
+
+    assert Repo.get!(StudyExecution, context.execution.id).state == :awaiting_final
+  end
+
+  test "STUDY-COORD-13: WHEN the Pilot analysis phase cannot be created, THE coordinator SHALL keep the bounded Pilot workflow error on the Pilot collection phase and SHALL leave no accepted handoff behind",
+       context do
+    conflicting = StudyFixtures.insert_phase(context.execution, :pilot_analysis)
+
+    # The setup assembles the Pilot snapshot and links it to the collection
+    # phase. Clear that link on the stored row, so the handoff below is the only
+    # writer of the snapshot and its rollback stays observable.
+    _cleared =
+      StudyPhase
+      |> Repo.get!(context.pilot_phase.id)
+      |> StudyPhase.changeset(%{snapshot_id: nil})
+      |> Repo.update!()
+
+    assert {:error,
+            %StudyError{
+              code: "unavailable",
+              issues: [%{"code" => "pilot_analysis_failed"}]
+            }} = run(context.execution.id)
+
+    execution = Repo.get!(StudyExecution, context.execution.id)
+    assert execution.state == :failed
+    assert Jason.encode!(execution.error) =~ "pilot_analysis_failed"
+
+    collection_phase = Repo.get!(StudyPhase, context.pilot_phase.id)
+    assert collection_phase.snapshot_id == nil
+    assert collection_phase.error == StudyError.to_params(StudyError.pilot_analysis_failed())
+
+    unchanged = Repo.get!(StudyPhase, conflicting.id)
+    assert unchanged.gust_run_id == nil
+    assert unchanged.snapshot_id == nil
+    assert unchanged.result_ref == nil
+    assert unchanged.error == nil
+
+    refute_received {:pilot_created, _request}
+    refute_received {:pilot_dispatched, _pid}
+  end
+
+  defp pilot_analysis_phase(execution) do
+    Repo.get_by(StudyPhase, execution_id: execution.id, phase: :pilot_analysis)
   end
 
   defp run(execution_id) do

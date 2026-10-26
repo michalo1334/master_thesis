@@ -6,6 +6,8 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
   alias Ecto.Adapters.SQL.Sandbox
 
   alias NetworkDefense.Evaluation.EvidenceSnapshot
+  alias NetworkDefense.Evaluation.EvidenceSnapshots
+  alias NetworkDefense.Evaluation.Final
 
   alias NetworkDefense.Evaluation.Final.Contracts.{
     FinalError,
@@ -19,7 +21,6 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
   alias NetworkDefense.Evaluation.FinalConformance
   alias NetworkDefense.Evaluation.Pilot.Limits, as: PilotLimits
   alias NetworkDefense.Evaluation.StudyFixtures
-  alias NetworkDefense.Evaluations
   alias NetworkDefense.Repo
 
   # Acceptance coverage in this file:
@@ -53,9 +54,9 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
   describe "snapshot creation" do
     test "API-01: creation returns the stored representation", %{} do
       assert {:ok, created} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               FinalConformance.store_snapshot(FinalConformance.snapshot())
 
-      assert {:ok, stored} = Evaluations.get_final_evidence_snapshot(created.id)
+      assert {:ok, stored} = EvidenceSnapshots.get_final(created.id)
 
       assert created == stored
       assert created.phase == :final
@@ -66,7 +67,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
 
     test "API-02: the returned payload is the stored JSONB representation", %{} do
       assert {:ok, snapshot} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               FinalConformance.store_snapshot(FinalConformance.snapshot())
 
       assert %{"schema_version" => 1, "evidence_role" => "final"} = snapshot.payload
       assert [first | _rest] = snapshot.payload["comparisons"]
@@ -76,11 +77,11 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
 
     test "API-03: reads do not apply the create-time storage byte limit", %{} do
       assert {:ok, snapshot} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               FinalConformance.store_snapshot(FinalConformance.snapshot())
 
       with_snapshot_limit(1)
 
-      assert {:ok, loaded} = Evaluations.get_final_evidence_snapshot(snapshot.id)
+      assert {:ok, loaded} = EvidenceSnapshots.get_final(snapshot.id)
       assert loaded == snapshot
     end
 
@@ -90,18 +91,18 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
       count = Repo.aggregate(EvidenceSnapshot, :count)
 
       with_snapshot_limit(bytes + 1)
-      assert {:ok, _snapshot} = Evaluations.create_final_evidence_snapshot(attrs)
+      assert {:ok, _snapshot} = FinalConformance.store_snapshot(attrs)
       assert Repo.aggregate(EvidenceSnapshot, :count) == count + 1
 
       with_snapshot_limit(bytes)
-      assert {:ok, _snapshot} = Evaluations.create_final_evidence_snapshot(attrs)
+      assert {:ok, _snapshot} = FinalConformance.store_snapshot(attrs)
       assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
 
       with_snapshot_limit(bytes - 1)
       assert {:ok, %SnapshotInput{}} = SnapshotInput.parse(attrs)
 
       assert {:error, %FinalError{code: "request_too_large", issues: [issue]}} =
-               Evaluations.create_final_evidence_snapshot(attrs)
+               FinalConformance.store_snapshot(attrs)
 
       assert issue["details"] == %{"limit_bytes" => bytes - 1, "actual_bytes" => bytes}
       assert Repo.aggregate(EvidenceSnapshot, :count) == count + 2
@@ -118,7 +119,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
         )
 
       assert {:error, %FinalError{code: "validation_failed", issues: [issue]}} =
-               Evaluations.create_final_evidence_snapshot(attrs)
+               FinalConformance.store_snapshot(attrs)
 
       assert issue["code"] == "invalid_type"
       assert Repo.aggregate(EvidenceSnapshot, :count) == count
@@ -143,17 +144,17 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     IO.iodata_length(encoded)
   end
 
-  describe "public input validation" do
+  describe "workflow input validation" do
     test "API-05: a malformed run identifier returns a typed error", %{} do
       for value <- [nil, "abc", 0, -1, 1.5, :run, %{}, []] do
         assert {:error, %FinalError{code: "validation_failed", issues: [issue]}} =
-                 Evaluations.await_final(value, 100),
+                 Final.Workflow.await(value, 100),
                "expected a bounded error for #{inspect(value)}"
 
         assert issue["code"] == "invalid_argument"
 
         assert {:error, %FinalError{issues: [result_issue]}} =
-                 Evaluations.get_final_result(value),
+                 Final.Workflow.result(value),
                "expected a bounded error for #{inspect(value)}"
 
         assert result_issue["code"] == "invalid_argument"
@@ -163,7 +164,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     test "API-06: a malformed timeout returns a typed error" do
       for value <- [nil, "soon", -1, 1.5, :forever, %{}] do
         assert {:error, %FinalError{code: "validation_failed", issues: [issue]}} =
-                 Evaluations.await_final(1, value),
+                 Final.Workflow.await(1, value),
                "expected a bounded error for #{inspect(value)}"
 
         assert issue["code"] == "invalid_argument"
@@ -173,8 +174,8 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     test "API-07: an unknown but well-formed run identifier is not found", %{} do
       unknown = System.unique_integer([:positive]) + 9_000_000
 
-      assert {:error, :not_found} = Evaluations.await_final(unknown, 1_000)
-      assert {:error, :not_found} = Evaluations.get_final_result(unknown)
+      assert {:error, :not_found} = Final.Workflow.await(unknown, 1_000)
+      assert {:error, :not_found} = Final.Workflow.result(unknown)
     end
   end
 
@@ -182,7 +183,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
     test "API-10: a different valid Final snapshot is rejected before a Gust run is created",
          %{fixture: fixture, lifecycle: lifecycle, pilot_run_id: pilot_run_id} do
       assert {:ok, accepted_snapshot} =
-               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+               FinalConformance.store_snapshot(fixture.snapshot)
 
       _accepted =
         StudyFixtures.accept_final_collection!(lifecycle, accepted_snapshot.id)
@@ -196,7 +197,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
         )
 
       assert {:ok, other_snapshot} =
-               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+               FinalConformance.store_snapshot(fixture.snapshot)
 
       params = Map.put(accepted_params, "snapshot_id", other_snapshot.id)
       run_count = evaluation_final_run_count()
@@ -218,7 +219,7 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
       pilot_run_id: pilot_run_id
     } do
       assert {:ok, snapshot} =
-               Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+               FinalConformance.store_snapshot(fixture.snapshot)
 
       _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
@@ -230,11 +231,11 @@ defmodule NetworkDefense.Evaluation.Final.WorkflowApiTest do
           fixture
         )
 
-      assert {:ok, run_id} = Evaluations.submit_final(params)
-      assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
-      assert {:ok, :succeeded} = Evaluations.await_final(run_id, 0)
+      assert {:ok, run_id} = FinalConformance.submit(params)
+      assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
+      assert {:ok, :succeeded} = Final.Workflow.await(run_id, 0)
 
-      assert {:ok, %Result{} = result} = Evaluations.get_final_result(run_id)
+      assert {:ok, %Result{} = result} = Final.Workflow.result(run_id)
       assert result.snapshot_id == snapshot.id
       assert result.evidence_role == "final"
       assert result.assertion_basis == "caller_asserted"

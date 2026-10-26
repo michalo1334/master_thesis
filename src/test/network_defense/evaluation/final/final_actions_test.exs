@@ -15,7 +15,6 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
   alias NetworkDefense.Evaluation.StudyFixtures
-  alias NetworkDefense.Evaluations
   alias NetworkDefense.Repo
 
   # Acceptance coverage in this file:
@@ -42,7 +41,7 @@ defmodule NetworkDefense.Evaluation.Final.ActionsTest do
       Flows.create_dag(%{name: "evaluation_final_actions_#{System.unique_integer([:positive])}"})
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+             FinalConformance.store_snapshot(fixture.snapshot)
 
     _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 

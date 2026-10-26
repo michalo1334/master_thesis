@@ -6,6 +6,8 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
   alias Gust.DAG.Loader.Worker, as: DagLoader
   alias Gust.Flows.Run
 
+  alias NetworkDefense.Evaluation.Pilot
+
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
     Candidate,
     PilotError,
@@ -15,7 +17,6 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
 
   alias NetworkDefense.Evaluation.Pilot.{TaskFailure, TaskFailure.RetryableError, Workflow}
   alias NetworkDefense.Evaluation.PilotConformance
-  alias NetworkDefense.Evaluations
 
   setup do
     gust_owner = Sandbox.start_owner!(Gust.Repo, shared: true)
@@ -35,7 +36,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     {:ok, dag} =
       Gust.Flows.create_dag(%{name: "evaluation_pilot_#{System.unique_integer([:positive])}"})
 
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     request = PilotConformance.parsed_request(%{"snapshot_id" => snapshot.id})
 
     %{dag: dag, snapshot: snapshot, request: request}
@@ -53,7 +54,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
       |> Map.put("snapshot_id", snapshot.id)
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.submit_pilot(params)
+             PilotConformance.submit(params)
 
     codes = Enum.map(issues, & &1["code"])
     assert "missing_comparison" in codes
@@ -67,7 +68,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
     params =
       PilotConformance.request_params(Ecto.UUID.generate())
 
-    assert {:error, %PilotError{issues: [issue]}} = Evaluations.submit_pilot(params)
+    assert {:error, %PilotError{issues: [issue]}} = PilotConformance.submit(params)
     assert issue["code"] == "snapshot_not_found"
     assert Gust.Repo.aggregate(Run, :count) == before_count
   end
@@ -83,7 +84,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
       |> put_in(["expected_comparisons", Access.at(1), "budget"], 8)
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.submit_pilot(params)
+             PilotConformance.submit(params)
 
     assert Enum.any?(issues, &(&1["code"] == "missing_comparison"))
     assert Gust.Repo.aggregate(Run, :count) == before_count
@@ -100,7 +101,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
         "attacks_per_plan_candidates" => [10]
       })
 
-    assert {:error, %PilotError{}} = Evaluations.submit_pilot(params)
+    assert {:error, %PilotError{}} = PilotConformance.submit(params)
     assert Gust.Repo.aggregate(Run, :count) == before_count
   end
 
@@ -166,7 +167,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
             result.recommendation.attacks_per_plan} == {"large", 6, 10}
   end
 
-  test "WORKFLOW-06: a stored result reads back through the public boundary", %{
+  test "WORKFLOW-06: a stored result reads back through the workflow boundary", %{
     dag: dag,
     snapshot: snapshot,
     request: request
@@ -248,7 +249,7 @@ defmodule NetworkDefense.Evaluation.Pilot.PilotWorkflowTest do
       })
 
     assert {:error, %PilotError{code: "validation_failed", issues: issues}} =
-             Evaluations.get_pilot_result(run.id)
+             Pilot.Workflow.result(run.id)
 
     assert Enum.any?(issues, &(&1["code"] == "changed_candidate_result"))
   end

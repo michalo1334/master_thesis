@@ -119,6 +119,63 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     |> fixture_ok!()
   end
 
+  @doc """
+  A journey definition with one stored graph for each declared tier.
+
+  The Pilot collection runs real items on the stored graphs. The family,
+  candidate, and analysis settings match the checked-in Final conformance
+  examples, so the Final result the journey uses is the same validated source
+  the other Final suites use. Each scoring block shrinks to one trial, one
+  iteration, and one attempt, because a journey checks the lifecycle and not
+  the scientific cost.
+  """
+  @spec conformance_journey_definition!(map(), map()) :: Definition.t()
+  def conformance_journey_definition!(core, edge) do
+    request = FinalConformance.request()
+    analysis = request["analysis"]
+    [core_graph, edge_graph] = StudyConformance.definition()["graphs"]
+
+    StudyConformance.definition()
+    |> put_in(["graphs"], [
+      journey_graph(core_graph, core),
+      journey_graph(edge_graph, edge)
+    ])
+    |> put_in(["family", "id"], request["family_id"])
+    |> put_in(
+      ["pilot", "candidates", Access.at(1), "attacks_per_plan"],
+      request["attacks_per_plan"]
+    )
+    |> put_in(["pilot", "collection", "attacks_per_plan"], request["attacks_per_plan"])
+    |> put_in(["final", "analysis", "comparison_seeds"], request["comparison_seeds"])
+    |> put_in(["final", "analysis", "alpha"], analysis["alpha"])
+    |> put_in(["final", "analysis", "confidence_level"], analysis["confidence_level"])
+    |> put_in(["final", "analysis", "test_alternative"], analysis["test_alternative"])
+    |> put_in(["final", "analysis", "bootstrap_replicates"], analysis["bootstrap_replicates"])
+    |> put_in(["simulation", "iterations_per_run"], 1)
+    |> put_in(["simulation", "max_attempts"], 1)
+    |> Definition.parse()
+    |> fixture_ok!()
+  end
+
+  defp journey_graph(graph, stored) do
+    graph
+    |> Map.put("graph_revision_id", stored.graph.revision_id)
+    |> Map.put("initial_foothold_node_id", stored.foothold.id)
+    |> Map.update!("strategies", fn strategies -> Enum.map(strategies, &shrink_scoring/1) end)
+  end
+
+  defp shrink_scoring(%{"scoring" => scoring} = strategy) do
+    scoring =
+      scoring
+      |> Map.put("monte_carlo_trials", 1)
+      |> Map.put("iterations_per_run", 1)
+      |> Map.put("max_attempts", 1)
+
+    Map.put(strategy, "scoring", scoring)
+  end
+
+  defp shrink_scoring(strategy), do: strategy
+
   @doc "Persist the executable Final conformance lifecycle through its Pilot source."
   def persist_final_conformance_lifecycle!(pilot_run_id, opts \\ []) do
     final_lifecycle(final_conformance_definition!(),

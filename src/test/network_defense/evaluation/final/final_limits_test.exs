@@ -7,6 +7,9 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
   alias Gust.DAG.{ErrorParser, NonRecError}
   alias Gust.Flows
 
+  alias NetworkDefense.Evaluation.EvidenceSnapshots
+  alias NetworkDefense.Evaluation.Final
+
   alias NetworkDefense.Evaluation.Final.Actions.{
     CompareFinalMember,
     CorrectFinalFamily,
@@ -18,7 +21,6 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
   alias NetworkDefense.Evaluation.StudyFixtures
-  alias NetworkDefense.Evaluations
 
   # Acceptance coverage in this file:
   #   S5-03  a source that cannot be computed stays rejected before any run
@@ -49,7 +51,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
     lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+             FinalConformance.store_snapshot(fixture.snapshot)
 
     _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
@@ -116,7 +118,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
         })
 
       assert {:error, %FinalError{code: "validation_failed", issues: [issue]}} =
-               Evaluations.submit_final(params)
+               FinalConformance.submit(params)
 
       assert issue["code"] == "bootstrap_replicates_exceeded"
       assert runs_on_final_dag() == final_runs_before
@@ -143,7 +145,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       params = request_params!(snapshot.id, pilot_run_id)
 
       assert {:error, %FinalError{code: "workflow_failed", issues: [issue]}} =
-               Evaluations.submit_final(params)
+               FinalConformance.submit(params)
 
       assert issue["code"] == "configuration_invalid"
       assert runs_on_final_dag() == final_runs_before
@@ -189,7 +191,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
         Application.put_env(:network_defense, @config, config)
 
         assert {:error, %FinalError{code: "workflow_failed", issues: [issue]}} =
-                 Evaluations.submit_final(params),
+                 FinalConformance.submit(params),
                "expected a bounded configuration error for #{inspect(config)}"
 
         assert issue["code"] == "configuration_invalid"
@@ -213,7 +215,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
         assert {:ok, limits} = Limits.fetch()
         assert limits == %{max_bootstrap_replicates: @max_replicates, max_total_work: @max_work}
 
-        assert {:ok, _run_id} = Evaluations.submit_final(params)
+        assert {:ok, _run_id} = FinalConformance.submit(params)
       end
     end
 
@@ -248,7 +250,7 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
           "bootstrap_replicates" => 1_024
         })
 
-      assert {:error, %FinalError{issues: [issue]}} = Evaluations.submit_final(params)
+      assert {:error, %FinalError{issues: [issue]}} = FinalConformance.submit(params)
       assert issue["code"] == "bootstrap_replicates_exceeded"
       assert runs_on_final_dag() == final_runs_before
     end
@@ -331,18 +333,18 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       rows_before = final_snapshot_rows()
 
       assert {:error, %FinalError{code: "workflow_failed", issues: [issue]}} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               FinalConformance.store_snapshot(FinalConformance.snapshot())
 
       assert issue["code"] == "configuration_invalid"
       assert final_snapshot_rows() == rows_before
 
       assert {:error, %FinalError{issues: [read_issue]}} =
-               Evaluations.get_final_evidence_snapshot(snapshot.id)
+               EvidenceSnapshots.get_final(snapshot.id)
 
       assert read_issue["code"] == "configuration_invalid"
 
       assert {:error, %FinalError{issues: [submit_issue]}} =
-               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
+               FinalConformance.submit(request_params!(snapshot.id, pilot_run_id))
 
       assert submit_issue["code"] == "configuration_invalid"
       assert runs_on_final_dag() == final_runs_before
@@ -361,12 +363,12 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       )
 
       assert {:error, %FinalError{issues: [create_issue]}} =
-               Evaluations.create_final_evidence_snapshot(FinalConformance.snapshot())
+               FinalConformance.store_snapshot(FinalConformance.snapshot())
 
       assert create_issue["code"] == "configuration_invalid"
 
       assert {:error, %FinalError{issues: [submit_issue]}} =
-               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
+               FinalConformance.submit(request_params!(snapshot.id, pilot_run_id))
 
       assert submit_issue["code"] == "configuration_invalid"
       assert runs_on_final_dag() == final_runs_before
@@ -408,13 +410,13 @@ defmodule NetworkDefense.Evaluation.Final.LimitsTest do
       pilot_run_id: pilot_run_id
     } do
       assert {:ok, run_id} =
-               Evaluations.submit_final(request_params!(snapshot.id, pilot_run_id))
+               FinalConformance.submit(request_params!(snapshot.id, pilot_run_id))
 
-      assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
+      assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
 
       Application.delete_env(:network_defense, shared)
 
-      assert {:error, %FinalError{issues: [issue]}} = Evaluations.get_final_result(run_id)
+      assert {:error, %FinalError{issues: [issue]}} = Final.Workflow.result(run_id)
       assert issue["code"] == "configuration_invalid"
     end
   end

@@ -8,7 +8,9 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
   alias Gust.Flows
 
   alias NetworkDefense.Evaluation.{EvidenceSnapshot, StudyFixtures}
+  alias NetworkDefense.Evaluation.EvidenceSnapshots
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
+  alias NetworkDefense.Evaluation.Final
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Result}
   alias NetworkDefense.Evaluation.FinalComputeStub
   alias NetworkDefense.Evaluation.FinalConformance
@@ -43,7 +45,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     lifecycle = StudyFixtures.persist_final_conformance_lifecycle!(pilot_run_id)
 
     assert {:ok, snapshot} =
-             Evaluations.create_final_evidence_snapshot(fixture.snapshot)
+             FinalConformance.store_snapshot(fixture.snapshot)
 
     _accepted = StudyFixtures.accept_final_collection!(lifecycle, snapshot.id)
 
@@ -63,14 +65,14 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     snapshot: snapshot,
     params: params
   } do
-    assert {:ok, stored} = Evaluations.get_final_evidence_snapshot(snapshot.id)
+    assert {:ok, stored} = EvidenceSnapshots.get_final(snapshot.id)
     assert stored.phase == :final
     assert stored.family_id == "family-example"
     assert stored == snapshot
 
-    assert {:ok, run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
-    assert {:ok, %Result{} = result} = Evaluations.get_final_result(run_id)
+    assert {:ok, run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
+    assert {:ok, %Result{} = result} = Final.Workflow.result(run_id)
 
     assert result.evidence_role == "final"
     assert result.method == "holm"
@@ -128,9 +130,9 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     [first_seed | _rest] = params["comparison_seeds"]
     FinalComputeStub.slow!(agent, first_seed, 400)
 
-    assert {:ok, run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
-    assert {:ok, %Result{} = result} = Evaluations.get_final_result(run_id)
+    assert {:ok, run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
+    assert {:ok, %Result{} = result} = Final.Workflow.result(run_id)
 
     assert Enum.map(result.comparisons, & &1.identity.tier) == ["core", "edge"]
 
@@ -143,7 +145,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
 
     unknown = Map.put(params, "snapshot_id", "11111111-2222-3333-4444-555555555555")
 
-    assert {:error, %FinalError{} = error} = Evaluations.submit_final(unknown)
+    assert {:error, %FinalError{} = error} = FinalConformance.submit(unknown)
     assert Enum.any?(error.issues, &(&1["code"] == "snapshot_not_found"))
     assert count_final_runs() == before_count
   end
@@ -155,7 +157,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
 
     unknown_pilot = Map.put(params, "source_pilot_run_id", 999_999)
 
-    assert {:error, %FinalError{} = error} = Evaluations.submit_final(unknown_pilot)
+    assert {:error, %FinalError{} = error} = FinalConformance.submit(unknown_pilot)
     assert Enum.any?(error.issues, &(&1["code"] == "changed_pilot_source"))
 
     # A comparison run is not the accepted Pilot analysis run.
@@ -165,7 +167,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     assert {:ok, :succeeded} = Evaluations.await_comparison(comparison_run_id, 20_000)
 
     wrong_source = Map.put(params, "source_pilot_run_id", comparison_run_id)
-    assert {:error, %FinalError{}} = Evaluations.submit_final(wrong_source)
+    assert {:error, %FinalError{}} = FinalConformance.submit(wrong_source)
     assert count_final_runs() == before_count
   end
 
@@ -175,12 +177,12 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     # An overridden count contradicts the stored evidence, so the snapshot
     # correlation rejects it before the Pilot recommendation is consulted.
     assert {:error, %FinalError{} = error} =
-             Evaluations.submit_final(Map.put(params, "plan_count", 7))
+             FinalConformance.submit(Map.put(params, "plan_count", 7))
 
     assert Enum.any?(error.issues, &(&1["code"] == "plan_count_mismatch"))
 
     assert {:error, %FinalError{} = error} =
-             Evaluations.submit_final(
+             FinalConformance.submit(
                Map.put(params, "comparison_seeds", Enum.take(params["comparison_seeds"], 1))
              )
 
@@ -204,7 +206,7 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
 
     dispatched = Trigger.dispatch_run(run)
 
-    assert {:error, %FinalError{} = error} = Evaluations.await_final(dispatched.id, 20_000)
+    assert {:error, %FinalError{} = error} = Final.Workflow.await(dispatched.id, 20_000)
 
     assert error.code in ["validation_failed", "workflow_failed", "invalid_response_contract"]
 
@@ -220,26 +222,26 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
   end
 
   test "E2E-07: a tampered stored result is rejected on read-back", %{params: params} do
-    assert {:ok, run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(run_id, 20_000)
-    assert {:ok, %Result{}} = Evaluations.get_final_result(run_id)
+    assert {:ok, run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(run_id, 20_000)
+    assert {:ok, %Result{}} = Final.Workflow.result(run_id)
 
     swap_first_comparison_identity!(run_id)
 
-    assert {:error, %FinalError{} = error} = Evaluations.get_final_result(run_id)
+    assert {:error, %FinalError{} = error} = Final.Workflow.result(run_id)
     assert error.code in ["invalid_response_contract", "validation_failed"]
   end
 
   test "E2E-08: the same request can start a second run", %{params: params} do
-    assert {:ok, first_run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(first_run_id, 20_000)
+    assert {:ok, first_run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(first_run_id, 20_000)
 
-    assert {:ok, second_run_id} = Evaluations.submit_final(params)
+    assert {:ok, second_run_id} = FinalConformance.submit(params)
     assert second_run_id != first_run_id
-    assert {:ok, :succeeded} = Evaluations.await_final(second_run_id, 20_000)
+    assert {:ok, :succeeded} = Final.Workflow.await(second_run_id, 20_000)
 
-    assert {:ok, %Result{} = first} = Evaluations.get_final_result(first_run_id)
-    assert {:ok, %Result{} = second} = Evaluations.get_final_result(second_run_id)
+    assert {:ok, %Result{} = first} = Final.Workflow.result(first_run_id)
+    assert {:ok, %Result{} = second} = Final.Workflow.result(second_run_id)
     assert first == second
   end
 
@@ -251,9 +253,9 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
     # already succeeded, so Gust must retry the fan-in alone.
     FinalComputeStub.fail_correction!(agent, 503, "compute_unavailable")
 
-    assert {:ok, run_id} = Evaluations.submit_final(params)
-    assert {:ok, :succeeded} = Evaluations.await_final(run_id, 60_000)
-    assert {:ok, %Result{} = result} = Evaluations.get_final_result(run_id)
+    assert {:ok, run_id} = FinalConformance.submit(params)
+    assert {:ok, :succeeded} = Final.Workflow.await(run_id, 60_000)
+    assert {:ok, %Result{} = result} = Final.Workflow.result(run_id)
 
     state = Agent.get(agent, & &1)
 
@@ -283,12 +285,12 @@ defmodule NetworkDefense.Evaluation.Final.GustIntegrationTest do
       FinalComputeStub.fail_correction!(agent, 503, "compute_unavailable")
     end)
 
-    assert {:ok, run_id} = Evaluations.submit_final(params)
+    assert {:ok, run_id} = FinalConformance.submit(params)
 
-    assert {:error, %FinalError{} = error} = Evaluations.await_final(run_id, 120_000)
+    assert {:error, %FinalError{} = error} = Final.Workflow.await(run_id, 120_000)
     assert error.code in ["compute_unavailable", "compute_failed", "workflow_failed"]
 
-    assert {:error, %FinalError{}} = Evaluations.get_final_result(run_id)
+    assert {:error, %FinalError{}} = Final.Workflow.result(run_id)
     assert Enum.count(Agent.get(agent, & &1.comparison_seeds)) == 2
   end
 

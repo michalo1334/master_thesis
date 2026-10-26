@@ -6,11 +6,11 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.Flows
 
+  alias NetworkDefense.Evaluation.Pilot
   alias NetworkDefense.Evaluation.Pilot.Client
   alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, PilotResult}
   alias NetworkDefense.Evaluation.Pilot.Work
   alias NetworkDefense.Evaluation.PilotConformance
-  alias NetworkDefense.Evaluations
 
   setup do
     gust_owner = Sandbox.start_owner!(Gust.Repo, shared: true)
@@ -29,7 +29,7 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
 
     wait_for_pilot_dag!()
 
-    {:ok, snapshot} = Evaluations.create_evidence_snapshot(PilotConformance.snapshot())
+    {:ok, snapshot} = PilotConformance.store_snapshot(PilotConformance.snapshot())
     request_params = PilotConformance.request_params(snapshot.id)
 
     %{snapshot: snapshot, request_params: request_params}
@@ -41,9 +41,9 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
   } do
     agent = start_http_stub!()
 
-    assert {:ok, run_id} = Evaluations.submit_pilot(request_params)
-    assert {:ok, :succeeded} = Evaluations.await_pilot(run_id, 20_000)
-    assert {:ok, %PilotResult{} = result} = Evaluations.get_pilot_result(run_id)
+    assert {:ok, run_id} = PilotConformance.submit(request_params)
+    assert {:ok, :succeeded} = Pilot.Workflow.await(run_id, 20_000)
+    assert {:ok, %PilotResult{} = result} = Pilot.Workflow.result(run_id)
 
     assert result.outcome == "recommended"
     assert result.recommendation.candidate_id == "large"
@@ -64,16 +64,16 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
     assert Enum.all?(state.requests, &(&1["snapshot_id"] == snapshot.id))
   end
 
-  test "E2E-02: the published result reads back through the public boundary", %{
+  test "E2E-02: the published result reads back through the workflow boundary", %{
     request_params: request_params
   } do
     start_http_stub!()
 
-    assert {:ok, run_id} = Evaluations.submit_pilot(request_params)
-    assert {:ok, :succeeded} = Evaluations.await_pilot(run_id, 20_000)
+    assert {:ok, run_id} = PilotConformance.submit(request_params)
+    assert {:ok, :succeeded} = Pilot.Workflow.await(run_id, 20_000)
 
-    assert {:ok, %PilotResult{} = first} = Evaluations.get_pilot_result(run_id)
-    assert {:ok, %PilotResult{} = second} = Evaluations.get_pilot_result(run_id)
+    assert {:ok, %PilotResult{} = first} = Pilot.Workflow.result(run_id)
+    assert {:ok, %PilotResult{} = second} = Pilot.Workflow.result(run_id)
     assert first == second
   end
 
@@ -82,8 +82,8 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
   } do
     start_http_stub!()
 
-    assert {:ok, run_id} = Evaluations.submit_pilot(request_params)
-    assert {:ok, :succeeded} = Evaluations.await_pilot(run_id, 20_000)
+    assert {:ok, run_id} = PilotConformance.submit(request_params)
+    assert {:ok, :succeeded} = Pilot.Workflow.await(run_id, 20_000)
 
     persisted = Flows.get_run_with_tasks!(run_id)
     assert persisted.params == request_params
@@ -116,8 +116,8 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
     use_immediate_retries!()
     agent = start_http_stub!(temporary_positions: [3])
 
-    assert {:ok, run_id} = Evaluations.submit_pilot(request_params)
-    assert {:ok, :succeeded} = Evaluations.await_pilot(run_id, 20_000)
+    assert {:ok, run_id} = PilotConformance.submit(request_params)
+    assert {:ok, :succeeded} = Pilot.Workflow.await(run_id, 20_000)
 
     persisted = Flows.get_run_with_tasks!(run_id)
 
@@ -129,7 +129,7 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
 
     assert Enum.take(attempts, 6) == [1, 1, 1, 1, 1, 1]
     assert Enum.sort(Enum.drop(attempts, 6)) == [1, 2]
-    assert {:ok, %PilotResult{}} = Evaluations.get_pilot_result(run_id)
+    assert {:ok, %PilotResult{}} = Pilot.Workflow.result(run_id)
 
     position_three =
       Enum.filter(Agent.get(agent, & &1.requests), &(&1["candidate_position"] == 3))
@@ -142,9 +142,9 @@ defmodule NetworkDefense.Evaluation.Pilot.GustIntegrationTest do
   } do
     start_http_stub!(permanent_positions: [1])
 
-    assert {:ok, run_id} = Evaluations.submit_pilot(request_params)
-    assert {:error, %PilotError{code: "invalid_json"}} = Evaluations.await_pilot(run_id, 20_000)
-    assert {:error, %PilotError{}} = Evaluations.get_pilot_result(run_id)
+    assert {:ok, run_id} = PilotConformance.submit(request_params)
+    assert {:error, %PilotError{code: "invalid_json"}} = Pilot.Workflow.await(run_id, 20_000)
+    assert {:error, %PilotError{}} = Pilot.Workflow.result(run_id)
 
     persisted = Flows.get_run_with_tasks!(run_id)
     assert persisted.status == :failed
