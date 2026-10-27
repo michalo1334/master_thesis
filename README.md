@@ -48,16 +48,16 @@ The `application` entry in the URL output identifies the dashboard. A small exam
 
 These are example inputs, not recommended research settings.
 
-The [setup verification](docs/getting-started-verification.md) records the exercised environment and its limits. The [infrastructure guide](docs/infrastructure.md) covers configuration, port conflicts, and lifecycle details. This development stack is intended for local use; it is not a hardened public deployment.
+The [infrastructure guide](docs/infrastructure.md) covers configuration and lifecycle details. This development stack is intended for local use; it is not a hardened public deployment.
 
 Running `./terraform.sh destroy` from the same directory removes the stack. **This deletes its database and other managed data volumes.** Host secret files remain.
 
 ## Repository guide
 
 - **Model:** [scope and limits](docs/concepts/scope.md), [requirements](docs/concepts/requirements.md), [graph and reachability](docs/concepts/graph.md), [attack simulation](docs/concepts/attack.md), [defenses](docs/concepts/defense.md).
-- **Research workflow:** [methodology](docs/concepts/evaluation-methodology.md), [current evaluation runtime](docs/architecture/evaluation-architecture.md), [target study pipeline](docs/design/evaluation-study-pipeline.md), [decision history](docs/history/evaluation-decisions.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md).
-- **Engineering:** [architecture](docs/architecture.md), [dashboard](docs/design/dashboard.md), [RabbitMQ executor](docs/design/rabbitmq-distributed-executor.md), [interview evidence and tradeoffs](docs/interview-evidence.md).
+- **Research workflow:** [study overview](docs/concepts/evaluation-study-overview.md), [methodology](docs/concepts/evaluation-methodology.md), [current evaluation runtime](docs/architecture/evaluation-architecture.md), [study pipeline and timing](docs/design/evaluation-study-pipeline.md), [decision history](docs/history/evaluation-decisions.md), [worked example](docs/concepts/model-example.md), [vocabulary](docs/concepts/vocabulary.md).
+- **Engineering:** [architecture](docs/architecture.md), [dashboard](docs/design/dashboard.md), [RabbitMQ executor](docs/design/rabbitmq-distributed-executor.md).
 
-The comparison, family, Precision Pilot, and Final analysis components are implemented. Verification uses synthetic evidence. The YAML lifecycle and Pilot/Final collectors remain unimplemented. Real-study settings and deployment remain unapproved.
+The YAML study lifecycle, Pilot and Final collection and analysis, and compact results are implemented. Final collection runs tiers sequentially. Each tier has one excluded warm-up and measured positions `0..4`. The application validates timing values in memory. Timing summaries and their compact-result persistence are not implemented. Verification uses synthetic evidence. Real-study settings and deployment remain unapproved.
 
-The Elixir/Phoenix application and Svelte UI live in [`src/`](src/); provisioning lives in [`infra/`](infra/). [`docs/`](docs/) holds project documentation and [`planning/`](planning/) holds working plans. The thesis text is maintained separately.
+The Elixir/Phoenix application and Svelte UI live in [`src/`](src/); provisioning lives in [`infra/`](infra/). [`docs/`](docs/) holds project documentation. The thesis text is maintained separately.

@@ -2,9 +2,14 @@
 
 ## Status and authority
 
-This document defines the current core YAML study lifecycle and the remaining timing design. Application developers and study authors are its audience.
+This document is the implementation authority for the current YAML study lifecycle and the remaining timing design. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
 
-The YAML boundary, immutable revisions, lifecycle, collection and analysis DAGs, and compact study results are implemented on `evaluation/rebuild`. Timing replicas and summaries are not implemented.
+| Boundary                 | Current state                                                                                                                                                      | Remaining work                                                                             |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Definition and lifecycle | YAML input, immutable normalized revisions, public operations, and explicit pause/resume are implemented.                                                          | No automatic coordinator restart recovery or phase replay is planned for this prototype.   |
+| Core outcome path        | Pilot/Final collection and analysis and compact successful results are implemented.                                                                                | Preserve the accepted scientific and lifecycle boundaries.                                 |
+| Operational timing       | T1–T4 are implemented: sequential tiers, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality. | No replacement replica, automatic recovery, or replay.                                     |
+| Timing output            | Five measured timing values per tier are validated in memory. Compact-result timing is empty (`null`).                                                             | T5 adds timing summaries, compact-result timing persistence, and the manual timed journey. |
 
 The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and known limits. Current source contracts define implemented behavior.
 
@@ -87,7 +92,9 @@ A rejected resume request leaves the execution at `awaiting_final`. It does not 
 
 The prototype uses one supervised application task to coordinate phases. Gust persists each phase run and owns task retries inside that run. Gust completion callbacks wake temporary waiters, but persisted Gust rows remain authoritative. The application does not add an Oban handoff, polling worker, automatic restart recovery, or phase replay.
 
-Each fixed phase has one application row. The row links the execution, phase, Gust run, accepted snapshot or result reference, and bounded error.
+Each fixed phase has one application row. It links the execution, phase, accepted snapshot or result reference, and bounded error. Pilot collection and both analysis phases each link one scalar Gust run ID.
+
+Final collection keeps `StudyPhase.gust_run_id` nil. Ordered `StudyPhaseRun` rows link one Gust run per declared tier. Each row records the tier and its position. These rows form one phase-run tier family, not replay attempts.
 
 `start_study` stores the execution and its Pilot collection phase before it starts the coordinator task. The task then:
 
@@ -98,26 +105,26 @@ Each fixed phase has one application row. The row links the execution, phase, Gu
 5. Stores the accepted references and lifecycle transition.
 6. Continues with the next phase or stops at `awaiting_final`.
 
-`resume_study` starts a new task for the Final phases. A task checks the locked execution state before it accepts a result. A completion after cancellation must not revive the execution.
+`resume_study` starts a new task for the Final phases. It dispatches and awaits each tier run before starting the next tier. After timing validation and complete-family equality, it creates the replica-zero snapshot outside Gust and starts Final analysis. A task checks the locked execution state before it accepts a result. Snapshot acceptance also locks and checks that state. A completion after cancellation must not revive the execution.
 
 An application restart can leave an active execution without a coordinator. The prototype does not reconnect automatically. The operator cancels that execution and starts a new one. Whole-phase replay and multiple attempts are outside this prototype.
 
 ## Fixed phase DAGs
 
-The pipeline has four checked-in phase DAGs:
+The pipeline uses four checked-in DAG definitions. Final collection instantiates its tier DAG once per tier:
 
-| DAG                                 | Current status | Role                                         |
-| ----------------------------------- | -------------- | -------------------------------------------- |
-| `evaluation_study_pilot_collection` | Implemented    | Collect and assemble Pilot evidence          |
-| `evaluation_pilot`                  | Implemented    | Evaluate declared sample-size candidates     |
-| `evaluation_study_final_collection` | Implemented    | Collect separate Final evidence after resume |
-| `evaluation_final`                  | Implemented    | Analyze the complete Final family            |
+| DAG                                      | Current status | Role                                                                            |
+| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
+| `evaluation_study_pilot_collection`      | Implemented    | Collect and assemble Pilot evidence                                             |
+| `evaluation_pilot`                       | Implemented    | Evaluate declared sample-size candidates                                        |
+| `evaluation_study_final_tier_collection` | Implemented    | Collect one tier's warm-up and measured evidence; return a compact tier receipt |
+| `evaluation_final`                       | Implemented    | Analyze the complete Final family                                               |
 
 ```mermaid
 flowchart LR
     PC["Pilot collection"] --> PA["Pilot analysis"]
     PA --> GATE["Pause and explicit resume"]
-    GATE --> FC["Final collection"]
+    GATE --> FC["Sequential Final tier runs and replica-zero snapshot"]
     FC --> FA["Final analysis"]
     FA --> RESULT["Successful compact result"]
 ```
@@ -130,7 +137,7 @@ The YAML definition supplies ordered work data to checked-in DAGs. It must not g
 
 ### Collection boundary
 
-Pilot and Final collection use shared actions with different role contracts:
+Pilot and Final collection share planning, reservation, and evidence rules but use different DAG actions. Their data boundary is:
 
 ```mermaid
 flowchart TD
@@ -140,16 +147,16 @@ flowchart TD
     SIM --> SG["ScatterGather trial batches"]
     SG --> DB[("Application PostgreSQL")]
     DB --> FAN["Validate and assemble evidence"]
-    FAN --> SNAP["Create role-specific snapshot"]
+    FAN --> SNAP["Pilot DAG or Final coordinator creates snapshot"]
 ```
 
-The supervised task owns the ephemeral sequence between phases. Gust owns durable work inside each phase, coarse mapped work, task retries, and fan-in. ScatterGather owns trial batches inside one experiment. Python remains synchronous, stateless numerical computation.
+The supervised task owns the ephemeral sequence between phases and between Final tiers. Gust owns durable work inside each run, coarse mapped work, and task retries. Pilot snapshot fan-in runs inside Gust. Final complete-family equality and snapshot creation run in the coordinator after all tier runs finish. ScatterGather owns trial batches inside one experiment. Python remains synchronous, stateless numerical computation.
 
 Each declared collection item has one stable application record. A retry reuses its linked optimization run and experiment. The record closes the crash window between a domain effect and Gust task-result storage.
 
 Gust task results contain compact record IDs. Evidence and simulation data remain in application PostgreSQL. Fan-in loads only linked records. It rejects incomplete work and restores declared order before it creates a snapshot.
 
-The first implementation uses one Gust task per experiment. Add one cap for collection items per phase and one cap for Gust collection concurrency. Reuse existing ScatterGather limits. Validate the configured Gust × ScatterGather concurrency product at startup.
+Pilot collection maps one collection action per item. Final tier runs have separate mapped plan-selection and simulation stages for each replica. Each tier run has fixed warm-up and measured stages, environment checks, synchronous timing markers, and a compact tier receipt. The application enforces a collection-item cap and a shared Gust collection-concurrency cap. ScatterGather retains its existing controls for trial batches. These controls remain separate; the application does not validate a combined Gust × ScatterGather concurrency product at startup.
 
 ## Outcome journey
 
@@ -226,50 +233,57 @@ Every typed optimization request contains one concrete selection seed. The study
 
 When a role requires `n` plan-selection seeds, use the first `n` seeds in declared order. Do not choose another valid subset. Attack columns follow the existing child-seed policy from each declared tier root.
 
-## Timing
+## Timing — implemented collection and remaining output
 
-Timing is the last implementation slice. It does not change the outcome method.
-
-For each tier, Final collection runs:
+Operational T1–T4 integration is complete. It does not change the outcome method. Final collection runs tiers sequentially in the order the comparison family first declares each tier. For each tier, it runs:
 
 - one excluded warm-up with replica position `-1`; and
 - five measured replicas with positions `0` through `4`.
 
-Run tiers sequentially. All replicas use the same scientific inputs. The measured replicas must match in selected plans, attack outcomes, capability outcomes, host compromises, and other non-timing summaries. Replica `0` supplies Final outcome evidence after all five measured replicas pass.
+Measured work starts only after warm-up succeeds. All replicas use the same scientific inputs. Warm-up supplies neither accepted Final evidence nor measured timing values. The prototype creates no replacement replica after rejection.
 
-Use the Final coordinator VM clock domain and `System.monotonic_time(:microsecond)`. Measure plan selection from first optimization dispatch to last optimization completion. Measure simulation from first experiment dispatch to last experiment completion. Measure total from first optimization dispatch to last experiment completion. These elapsed spans include Gust and ScatterGather wait time and can overlap. Do not add them to calculate total elapsed time.
+The definition supplies the expected measured-environment revision. Application configuration supplies the current observed operator assertion. Each tier run compares them before warm-up and before and after each measured replica. A missing or different assertion fails with a bounded error. This check adds no fingerprint or authenticated provenance.
 
-The definition supplies the expected measured-environment revision. Application configuration supplies the current operator assertion. Compare them before the warm-up and before and after each measured replica. A missing or changed value fails with a bounded error. Do not add a fingerprint, use UTC as a substitute, or create replica-retry epochs.
+Synchronous boundary markers let the Final coordinator measure intervals with `System.monotonic_time(:microsecond)` in its own process. Plan selection spans optimization dispatch through completion. Simulation spans experiment dispatch through completion. Total spans optimization dispatch through experiment completion. These elapsed intervals include Gust and ScatterGather wait time. Each interval uses its own boundaries; total is not the sum of the other intervals. The pure interval calculation also supports overlapping spans.
 
-For each duration, store all five measured microsecond values, their median, minimum, and maximum. Store no raw monotonic timestamps. Completed historical summaries remain readable after restart.
+The coordinator validates exactly five measured timing values, in positions `0..4`, for every tier. These values remain memory-only. Raw monotonic readings and Final elapsed intervals are not persisted.
+
+After all tier runs finish, the coordinator reloads detailed PostgreSQL evidence. It builds one non-timing summary for each measured position across the complete declared family. Summaries cover selected plans, graph content, ordered attack histories, capability outcomes, host compromises, and other scientific evidence. Runtime IDs, durations, timestamps, and graph layout do not determine equality.
+
+The coordinator calls the canonical selector once with the five complete-family summaries. All five must match. Only replica `0` supplies the Final snapshot; replicas `1..4` supply timing variation, not additional inferential evidence. Snapshot creation and acceptance run outside Gust, under the lifecycle state gate.
+
+T5 remains: summarize each duration in microseconds with its five measured values, median, minimum, and maximum. Persist those summaries in the compact result and validate read-back. The manual timed journey must also check the resulting summaries and persistence. Until T5, compact-result timing stays `null`.
 
 ## Persistence
 
-| Record                    | Purpose                                                                                    |
-| ------------------------- | ------------------------------------------------------------------------------------------ |
-| Normalized study revision | Immutable validated definition; no source YAML                                             |
-| Study execution           | Mutable lifecycle state, selected candidate, accepted phase references, and terminal error |
-| Study phase               | One fixed-phase row with its Gust run, accepted references, or bounded error               |
-| Collection item           | Stable link to retried optimization and experiment effects                                 |
-| Pilot and Final snapshots | Existing immutable role-specific evidence records                                          |
-| Compact study result      | One immutable successful scientific outcome                                                |
+| Record                    | Purpose                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Normalized study revision | Immutable validated definition; no source YAML                                                               |
+| Study execution           | Mutable lifecycle state, selected candidate, accepted phase references, and terminal error                   |
+| Study phase               | One fixed-phase row with accepted references or bounded error; a scalar Gust run except for Final collection |
+| Study phase run           | One Final tier row with declared position and linked Gust run; ordered across the phase                      |
+| Collection item           | Stable link to retried optimization and experiment effects                                                   |
+| Pilot and Final snapshots | Existing immutable role-specific evidence records                                                            |
+| Compact study result      | One immutable successful scientific outcome                                                                  |
 
 A failed or cancelled execution has no compact scientific result. Its execution record exposes its terminal state, bounded error, and accepted phase references.
 
 The successful compact result contains:
 
-| Group        | Data                                                                        |
-| ------------ | --------------------------------------------------------------------------- |
-| Identity     | Result ID, schema version, study-revision ID, and execution ID              |
-| Pilot        | Accepted collection and analysis run IDs, snapshot ID, and Pilot outcome    |
-| Selection    | Candidate ID, counts, and `pilot_override`                                  |
-| Final        | Accepted collection and analysis run IDs and snapshot ID                    |
-| Timing       | Per-tier durations, medians, and observed ranges                            |
-| Inference    | Family identity, method, alpha, family size, and compact comparison results |
-| Reproduction | Declared software and environment revision assertions                       |
-| Metadata     | Insertion time                                                              |
+| Group        | Data                                                                                    |
+| ------------ | --------------------------------------------------------------------------------------- |
+| Identity     | Result ID, schema version, study-revision ID, and execution ID                          |
+| Pilot        | Accepted collection and analysis run IDs, snapshot ID, and Pilot outcome                |
+| Selection    | Candidate ID, counts, and `pilot_override`                                              |
+| Final        | Accepted collection and analysis run IDs and snapshot ID                                |
+| Timing       | Empty (`null`) until T5 persists per-tier measured values, medians, and observed ranges |
+| Inference    | Family identity, method, alpha, family size, and compact comparison results             |
+| Reproduction | Declared software and environment revision assertions                                   |
+| Metadata     | Insertion time                                                                          |
 
-Do not copy evidence matrices into the result. Each comparison keeps its identity, estimate, interval, raw and adjusted p-values, and assessment.
+Compact collection references use ordered `gust_run_ids`. Pilot collection has a one-item list. Final collection has one ID per tier in the same order as its `StudyPhaseRun` rows. Pilot and Final analysis references remain scalar. Result creation and read-back validate the Final tier family against PostgreSQL.
+
+Do not copy evidence matrices into the result. Detailed evidence stays in PostgreSQL snapshots and runtime records. Each comparison keeps its identity, estimate, interval, raw and adjusted p-values, and assessment.
 
 ## Verification policy
 

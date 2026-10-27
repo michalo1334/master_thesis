@@ -53,9 +53,10 @@ topologies.
 Pilot observations select sample sizes. Final analysis uses freshly collected
 observations for confirmation.
 
-## Evaluation scope
+## Implemented evaluation scope
 
-The evaluation covers:
+The [study overview](evaluation-study-overview.md) describes the public operations
+and current limits. The implemented prototype covers:
 
 - one alternative-versus-CVSS comparison for each declared tier, budget,
   strategy, and outcome;
@@ -73,6 +74,27 @@ normalized definition and discards the input text.
 
 The default lifecycle begins after optimizer calibration, topology construction,
 and other pilot work have accepted scientific contracts.
+
+## Operational timing scope
+
+Operational timing collection is implemented. Final collection runs tiers
+sequentially. Each tier has excluded warm-up `-1` and measured replicas `0..4`.
+The configured observed environment assertion must match the revision before
+warm-up and before and after each measured replica.
+
+The coordinator measures plan-selection, simulation, and total elapsed intervals
+in its own process. It validates timing values in memory. Five complete-family
+non-timing summaries must match before replica `0` alone supplies the Final
+snapshot. Other replicas do not increase the inferential sample size.
+
+Timing summaries and their compact-result persistence are not implemented. Raw
+monotonic readings and Final elapsed intervals are not persisted. Detailed
+evidence stays in PostgreSQL snapshots and runtime records.
+
+Timing collection does not change the outcome method or authorize real-study
+values, real evidence collection, or deployment. Current verification uses
+synthetic evidence. The prototype adds no replacement replica, automatic
+recovery, replay, polling, PubSub, or Oban lifecycle handoff.
 
 ## Pilot-to-Final boundary
 

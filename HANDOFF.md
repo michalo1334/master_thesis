@@ -1,13 +1,13 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F23 and the runtime-contract gate are complete. T1+T2 are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F23, the runtime-contract gate, and operational T1–T4 integration are complete. T5 timing summaries and compact-result timing persistence are next.
 
 ## Worktree and branch
 
-| Worktree                                         | Branch / current commit                             | Meaning                                                                                        |
-| ------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F23, and the runtime-contract gate are complete. |
-| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                         |
+| Worktree                                         | Branch / current commit                             | Meaning                                                                                                           |
+| ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F23, the runtime-contract gate, and operational T1–T4 are complete. |
+| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                                            |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
 
@@ -44,6 +44,11 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **F19+F20+F21 are complete:** the Final coordinator collects fresh Final work with separate seeds and roots, links one Final snapshot, runs lifecycle-bound complete-family analysis, stores one immutable compact result, and enters `succeeded`. The strict Final request adds only `study_execution_id`. Every Final analysis boundary reloads the frozen selection and accepted phase records from PostgreSQL.
 - **F22+F23 are complete:** the six public study lifecycle functions are active. Start creates the execution and Pilot collection phase atomically. The coordinator creates each analysis phase at its accepted handoff. Cancellation is locked and idempotent for cancelled executions. Result read-back returns one typed compact result only after success. Direct Pilot and Final facade groups are removed; comparison and family APIs remain.
 
+- **Operational T1–T4 integration is complete** at `b1f83e0913e56373d6a95b9d13cc820a795a5ce1`. The coordinator runs one fixed Final tier DAG per tier, sequentially. Each run collects excluded warm-up `-1` and measured positions `0..4`, with configured environment checks and synchronous timing markers.
+- Final collection keeps its scalar `gust_run_id` nil. Ordered `StudyPhaseRun` rows link one Gust run per tier. Compact collection references use ordered `gust_run_ids`; Pilot has a one-item list. Pilot and Final analysis references remain scalar.
+- After all tiers finish, one canonical selector checks five complete-family non-timing summaries. Only replica `0` supplies the Final snapshot, which the coordinator creates outside Gust.
+- Final elapsed intervals are validated in coordinator memory only. Raw monotonic readings and intervals are not persisted. Compact-result timing remains nil until T5. Detailed evidence stays in PostgreSQL snapshots and runtime records.
+
 Recorded checks:
 
 - I1+I2 focused suite: 69 passed;
@@ -79,7 +84,11 @@ Recorded checks:
 - F22+F23 focused activation and journey suite: 63 passed;
 - F22+F23 Study, Pilot, Final, and Family regression suites: 474 passed;
 - F22+F23 contract drift suite: 13 passed;
-- formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices.
+- operational T1–T4 integration verification: 118 Chunk A/B checks, 298 study checks, and 635 evaluation checks passed;
+- full Elixir suite after integration: 1,099 passed with two exclusions; both public journeys passed;
+- integration checks cover ordered tier runs, complete-family equality, replica-zero evidence, cancellation at snapshot acceptance, and compact-reference read-back;
+- the unrelated Family Gust restart characterization passed in three isolated runs after an earlier timing-sensitive failure;
+- formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices. The integration verification also passed forced warning-as-error compilation, strict Credo, Dialyzer, and contract generation without drift.
 
 ## Approved prototype scope
 
@@ -92,7 +101,7 @@ Key decisions:
 - Use one supervised ephemeral coordinator task.
 - Do not add an Oban lifecycle handoff, periodic poller, automatic restart recovery, or phase replay.
 - Use Gust completion callbacks only as non-authoritative wake-up signals. Persisted Gust rows remain authoritative.
-- Persist one row for each fixed study phase and its Gust run.
+- Persist one row for each fixed study phase. Final collection links its ordered tier-run family through `StudyPhaseRun` rows, not one scalar Gust run.
 - If the application restarts during active coordination, the execution can remain stuck. The operator cancels it and starts a new execution.
 - Store compact results only for successful executions.
 - Keep `pilot_override` null before resume, false for a recommendation, and true for an insufficient override.
@@ -134,7 +143,7 @@ The approved public study facade is:
 
 ## Timing decisions
 
-- Run timing last.
+- T1–T4 timing collection is active. T5 timing output is the remaining implementation slice.
 - Run tiers sequentially.
 - Use warm-up replica `-1` and measured replicas `0..4`.
 - Replica `0` supplies Final evidence after all measured replicas pass equivalence.
@@ -144,7 +153,7 @@ The approved public study facade is:
 - Read the current measured-environment assertion from application configuration.
 - Compare it before warm-up and before and after each measured replica.
 - Add no fingerprint, UTC substitute, or replica retry epoch.
-- Store five measured values, median, minimum, and maximum for each duration.
+- T1–T4 validate five measured records per tier in memory. Each record contains plan-selection, simulation, and total elapsed intervals. T5 must persist the five values, median, minimum, and maximum for each duration.
 - Verify the complete timed journey manually. Keep pure schedule, interval, equivalence, environment, and summary checks automated.
 
 ## Verification policy
@@ -163,14 +172,14 @@ Every database-backed test invocation needs a fresh partition and disposable dat
 
 ## Next implementation action
 
-Prepare T1+T2 as one timing-foundation slice:
+Implement T5 timing summaries and compact-result timing persistence:
 
 1. Recheck repository instructions and dirty state.
-2. Define the typed schedule for warm-up replica `-1` and measured replicas `0` through `4` for each tier.
-3. Keep tiers sequential.
-4. Define monotonic microsecond intervals for plan selection, simulation, and total elapsed work.
-5. Measure each interval from its own boundaries. Do not calculate total by adding overlapping intervals.
-6. Limit clock injection to the small interval function used by its unit test.
-7. Keep T3+T4 environment and equivalence gates, T5 summaries, deployment, recovery, replay, polling, and UI work out of scope.
+2. Use the accepted in-memory timings from sequential tier runs. Require measured positions `0..4` for every tier.
+3. Summarize each duration in microseconds with its five measured values, median, minimum, and maximum.
+4. Persist the summaries in the compact result and validate them during typed read-back. Store no raw monotonic readings.
+5. Preserve the environment gates, complete-family equality check, and replica-zero snapshot boundary.
+6. Run one tiny controlled manual timed journey. Check summaries and result persistence without asserting exact durations.
+7. Keep replacement replicas, deployment, recovery, replay, polling, and UI work out of scope.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

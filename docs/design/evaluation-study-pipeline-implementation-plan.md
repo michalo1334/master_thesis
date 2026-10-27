@@ -17,7 +17,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F23. F22+F23 activate the six public study lifecycle functions and retire the direct Pilot and Final facade groups.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) is complete. T1+T2 come next.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) and operational T1–T4 integration are complete. Final collection runs sequential tier DAGs with excluded warm-up `-1`, measured positions `0..4`, coordinator elapsed intervals, and environment gates. One canonical selector checks five complete-family summaries before the coordinator creates the replica-zero snapshot. Ordered tier rows supply Final collection's run-ID list; its scalar run ID remains nil. Timings are validated in memory only.
+
+T5 is next: timing summaries, compact-result timing persistence, and the manual timed journey. Compact-result timing remains nil. The slice descriptions and acceptance cases below retain their original implementation sequence; they are not a second current-state reference.
 
 ## Prototype boundaries
 
@@ -478,7 +480,7 @@ These are the only automated full core journeys.
 
 ## Slice 4 — timing
 
-### T1 + T2 — replica schedule and elapsed intervals
+### T1 + T2 — replica schedule and elapsed intervals — complete
 
 For each tier, run warm-up replica `-1`, then measured replicas `0` through `4`. Run tiers sequentially. Do not start measured work until the warm-up succeeds.
 
@@ -500,7 +502,7 @@ The small interval function can accept an optional `now_us` function for its uni
 
 > WHEN plan selection and simulation spans overlap, THE recorder SHALL calculate each elapsed span and total from its own boundaries.
 
-### T3 + T4 — environment, equivalence, and canonical evidence
+### T3 + T4 — environment, equivalence, and canonical evidence — complete
 
 Read the current measured-environment revision from application configuration. Compare it with the definition before the warm-up and before and after each measured replica. A missing or changed value fails with a bounded error.
 
@@ -524,7 +526,7 @@ Use one representative difference.
 
 > WHEN the configured environment assertion changes before or after a replica, THE gate SHALL return a bounded failure.
 
-### T5 — timing summary and manual journey
+### T5 — timing summary and manual journey — next
 
 Store microseconds explicitly. For each tier and duration type, keep the five measured values, median, minimum, and maximum.
 

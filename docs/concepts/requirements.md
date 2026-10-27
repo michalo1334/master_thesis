@@ -114,12 +114,32 @@ receiving a misleading multiplicity correction.
 - An invalid, failed, partial, or exhausted Pilot must enter the terminal failed
   state.
 - Resume must collect fresh Final observations.
-- Each phase may run more than once. The execution must retain every attempt and
-  identify the one accepted result.
+- Each fixed phase has at most one persisted row per execution. Pilot collection
+  and each analysis phase accept one Gust run. Final collection accepts an
+  ordered family of tier runs, one per declared tier.
+- Final collection must run tiers sequentially. Each tier must run excluded
+  warm-up `-1` before measured replicas `0..4`.
+- The configured observed environment assertion must match the revision before
+  warm-up and before and after each measured replica. A missing or different
+  assertion must fail collection.
+- The coordinator must measure plan-selection, simulation, and total elapsed
+  intervals in one process clock domain. It must validate five measured timing
+  values per tier in memory.
+- Five complete-family non-timing summaries must match before replica `0` alone
+  supplies the Final snapshot. A rejected replica must have no replacement.
+- Gust may retry tasks inside a run. Task retries do not create another phase
+  attempt. The prototype supports no phase replay, automatic recovery, polling,
+  PubSub, or Oban lifecycle handoff.
 - A successful study must create one immutable compact result. It must include
   accepted phase references, the Pilot outcome, the selected candidate, the
   override marker, and the validated Final family result.
+- Compact collection references must use ordered `gust_run_ids`: one ID for
+  Pilot collection and one ID per tier for Final collection. Analysis references
+  remain scalar. Final collection's scalar `gust_run_id` remains nil.
+- Timing summaries and their compact-result persistence are not implemented.
+  Raw monotonic readings and Final elapsed intervals are not persisted. Detailed
+  evidence stays in PostgreSQL snapshots and runtime records.
 
 The explicit pause separates sample-size selection from confirmatory evidence
-collection. Retaining every attempt supports at-least-once execution without
-claiming exactly-once behavior.
+collection. Gust task retries allow work to execute more than once inside a run;
+they do not provide exactly-once computation or phase replay.

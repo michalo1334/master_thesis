@@ -178,8 +178,9 @@ states the rules and risks.
   declared relationships.
 - **Resource cap:** A deployment limit on work size, configured independently
   from scientific settings.
-- **Evidence snapshot:** An immutable application record that contains Pilot or
-  Final evidence matrices.
+- **Evidence snapshot:** An application-managed record that contains Pilot or
+  Final evidence matrices. The application treats it as immutable; the database
+  does not enforce immutability.
 - **Study revision ID:** The identifier of one immutable normalized study
   definition.
 - **Evidence role:** The declared purpose of evidence, such as Pilot or Final.
@@ -193,6 +194,9 @@ states the rules and risks.
 
 ## Study lifecycle
 
+See the [study overview](evaluation-study-overview.md) for the public operations,
+states, resume choices, and current limits.
+
 - **Study definition:** Versioned YAML that declares domain revisions,
   scientific settings, ordered candidates, comparison family, seeds, and the
   Pilot-to-Final pause.
@@ -202,18 +206,43 @@ states the rules and risks.
 - **Lifecycle state:** One explicit state such as Pilot collection, Pilot
   analysis, the Final gate, Final collection, Final analysis, success, failure,
   or cancellation.
-- **Study phase:** One fixed collection or analysis phase and its Gust run.
+- **Study phase:** One fixed collection or analysis phase in a study execution.
+  Pilot collection and each analysis phase link one Gust run. Final collection
+  links an ordered tier-run family instead.
+- **Phase-run tier family:** The ordered Final collection runs, one per tier in
+  the order the comparison family first declares it. Each `StudyPhaseRun` row
+  links its tier and position to one Gust run.
+  These runs are not replay attempts. Final collection's scalar `gust_run_id`
+  remains nil.
+- **Warm-up replica:** The excluded collection at position `-1` before a tier's
+  measured replicas. It supplies neither accepted Final evidence nor timing
+  values.
+- **Measured replica:** One repeat of a tier's Final collection with the same
+  scientific inputs, at position `0` through `4`. Tiers run sequentially.
+- **Complete-family replica summary:** The non-timing scientific evidence for
+  one measured position across every tier. All five summaries must match before
+  replica `0` alone supplies the Final snapshot.
+- **Observed environment assertion:** The operator-configured revision string
+  checked against the study revision before warm-up and before and after each
+  measured replica. It is not an authenticated environment fingerprint.
+- **Final elapsed interval:** A plan-selection, simulation, or total duration
+  measured in the coordinator process. Values remain memory-only. Timing
+  summaries and their compact-result persistence are not implemented.
 - **Accepted phase result:** The typed result that the ephemeral coordinator
   accepts after Gust completion.
 - **Controlled collection:** Evidence collection through role-specific domain
   APIs, phase runs, item IDs, and declared seed schedules.
-- **Ephemeral coordinator:** One supervised application task that advances an
-  execution until the Final gate or a terminal state. It does not restart or
-  reconnect automatically after an application restart.
+- **Ephemeral coordinator:** One temporary supervised application task that
+  advances a study execution.
 - **Compact study result:** An immutable successful record with accepted phase
   references, selected counts, the Pilot outcome, the override marker, and the
-  compact Final family result. Evidence matrices remain in their snapshots.
+  compact Final family result. Collection references use ordered `gust_run_ids`:
+  one for Pilot and one per tier for Final. Analysis references remain scalar.
+  Timing summaries are not stored. Detailed evidence stays in PostgreSQL
+  snapshots and runtime records. Raw monotonic readings and Final elapsed
+  intervals are not persisted.
 - **Gust task retry:** Gust can repeat a task inside one persisted phase run.
   Application collection items make repeated domain effects safe.
-- **Replay:** A new execution of a saved study revision. The prototype has no
-  automatic replay policy.
+- **Phase replay:** A new run of a fixed phase within the same study execution.
+  The prototype does not support it. Starting a new execution is a separate
+  operation.

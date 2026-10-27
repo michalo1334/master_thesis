@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-This page maps the current evaluation runtime for application developers. The public study lifecycle coordinates Pilot and Final collection and analysis. The comparison and family workflows remain reusable lower-level operations. Timing replicas are not implemented.
+This page maps the current evaluation runtime for application developers. Start with the [study overview](../concepts/evaluation-study-overview.md) for the user workflow. The public study lifecycle coordinates Pilot and Final collection and analysis. The comparison and family workflows remain reusable lower-level operations. Operational T1–T4 timing collection is implemented. T5 timing summaries and compact-result timing persistence remain planned.
 
 Only synthetic evidence supports the recorded verification. Real-study settings, evidence collection, and deployment remain unapproved. Historical local checks do not establish current service readiness. See [verification history and limits](../history/evaluation-decisions.md#verification-and-operational-evidence).
 
@@ -17,25 +17,32 @@ Only synthetic evidence supports the recorded verification. Real-study settings,
 ## Runtime ownership
 
 ```mermaid
-flowchart LR
-    CALLER["Application caller"] --> API["Evaluations lifecycle API"]
-    API --> DB[("Application PostgreSQL")]
-    API --> COORD["Supervised study coordinator"]
-    COORD --> COLLECT["Pilot or Final collection DAG"]
-    COLLECT --> DOMAIN["Optimization and simulation APIs"]
-    DOMAIN --> DB
-    COLLECT --> DB
-    COORD --> ANALYZE["Pilot or Final analysis DAG"]
-    ANALYZE -->|"bounded synchronous HTTP"| PY["Python numerical compute"]
-    PY -->|"typed response"| ANALYZE
-    COLLECT --> GS[("Gust PostgreSQL tables")]
-    ANALYZE --> GS
-    COORD --> DB
-    DB --> API
-    API --> CALLER
+sequenceDiagram
+    participant Caller as Elixir caller
+    participant App as Study application
+    participant DB as Application PostgreSQL
+    participant Gust as Fixed Gust phase DAG
+    participant Registry as Local Registry
+    participant Waiter as Temporary waiter
+    participant GS as Persisted Gust status
+    Caller->>App: Start or resume execution
+    App->>DB: Store lifecycle state
+    App->>Gust: Dispatch fixed phase
+    App->>Waiter: Await phase completion
+    Waiter->>Registry: Register for local wake-ups
+    Waiter->>GS: Load persisted status
+    Gust->>GS: Persist terminal status
+    Gust-->>Registry: Send completion callback wake-up
+    Registry-->>Waiter: Deliver non-authoritative signal
+    Waiter->>GS: Reload persisted status
+    GS-->>Waiter: Return authoritative run status
+    Waiter-->>App: Return terminal status
+    App->>DB: Store validated phase transition
 ```
 
-This is a data-flow map, not a scheduling DAG.
+This diagram shows the study callback boundary, not the task schedule. Fixed Gust DAG completion callbacks send local wake-ups through a Registry. Temporary waiters load persisted Gust status after registration and reload it after a wake-up. The signal itself cannot establish success.
+
+Application PostgreSQL owns study state. The public study lifecycle uses neither polling nor Phoenix PubSub. This statement does not cover every lower-level comparison or family workflow. Registry entries and coordinators are local, temporary processes. An application restart does not recreate coordinators automatically.
 
 | Owner                  | Responsibility                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,16 +59,75 @@ Comparison and family requests include bounded matrices in Gust run parameters. 
 
 The facade starts the comparison and family workflows. The study coordinator starts the Pilot and Final collection and analysis workflows. No DAG starts another DAG. Family and Final analysis tasks reuse the comparison action and Holm call directly, not nested comparison or family runs.
 
-| DAG                                 | Fixed task shape                                                                     | Output                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `evaluation_comparison`             | `prepare` → `compare`                                                                | One comparison statistics record                |
-| `evaluation_family`                 | `prepare_family` → mapped `compare_member` → `correct_family`                        | One complete-family result with Holm adjustment |
-| `evaluation_study_pilot_collection` | `prepare_pilot_collection` → mapped `collect_pilot_item` → `assemble_pilot_snapshot` | One Pilot snapshot ID                           |
-| `evaluation_pilot`                  | `prepare_pilot` → mapped `evaluate_candidate_comparison` → `select_pilot`            | One recommendation or explicit insufficiency    |
-| `evaluation_study_final_collection` | `prepare_final_collection` → mapped `collect_final_item` → `assemble_final_snapshot` | One Final snapshot ID                           |
-| `evaluation_final`                  | `prepare_final` → mapped `compare_final_member` → `correct_final_family`             | One validated Final family result               |
+| DAG                                      | Fixed task shape                                                                                                                                 | Output                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `evaluation_comparison`                  | `prepare` → `compare`                                                                                                                            | One comparison statistics record                       |
+| `evaluation_family`                      | `prepare_family` → mapped `compare_member` → `correct_family`                                                                                    | One complete-family result with Holm adjustment        |
+| `evaluation_study_pilot_collection`      | `prepare_pilot_collection` → mapped `collect_pilot_item` → `assemble_pilot_snapshot`                                                             | One Pilot snapshot ID                                  |
+| `evaluation_pilot`                       | `prepare_pilot` → mapped `evaluate_candidate_comparison` → `select_pilot`                                                                        | One recommendation or explicit insufficiency           |
+| `evaluation_study_final_tier_collection` | One run per tier: environment check → excluded warm-up → five fixed measured stages with environment checks and timing markers → tier completion | One compact tier receipt; evidence stays in PostgreSQL |
+| `evaluation_final`                       | `prepare_final` → mapped `compare_final_member` → `correct_final_family`                                                                         | One validated Final family result                      |
 
-Pilot maps one candidate/comparison pair. Family and Final map one declared comparison. Fan-in restores declared order and rejects missing, duplicate, or unexpected rows. Pilot selects locally and runs no Holm correction. Family and Final apply Holm once across the complete family.
+### Study DAG data flow
+
+```mermaid
+flowchart TB
+    REV["Stored study revision<br/>Comparisons, candidates, seeds, and rules"]
+
+    subgraph PC["Pilot collection DAG"]
+        PC_PREP["Prepare work<br/>Input: revision and Pilot settings<br/>Output: ordered collection-item IDs"]
+        PC_RUN["Collect mapped items<br/>Input: collection-item ID<br/>Output: item position, plan-run and experiment IDs, and trial counts"]
+        PC_SNAP["Assemble snapshot<br/>Input: complete linked evidence<br/>Output: Pilot snapshot ID"]
+        PC_PREP --> PC_RUN --> PC_SNAP
+    end
+
+    subgraph PA["Pilot analysis DAG"]
+        PA_PREP["Prepare candidates<br/>Input: Pilot snapshot ID and analysis settings<br/>Output: candidate/comparison work"]
+        PA_RUN["Evaluate mapped work<br/>Input: one candidate and comparison<br/>Output: one candidate assessment"]
+        PA_SELECT["Select outcome<br/>Input: ordered assessments<br/>Output: candidate rows, summaries, and recommendation or insufficiency"]
+        PA_PREP --> PA_RUN --> PA_SELECT
+    end
+
+    GATE["Explicit resume<br/>Input: Pilot outcome and caller selection<br/>Output: frozen candidate, counts, and override marker"]
+
+    subgraph FC["Final tier DAG family - sequential tiers"]
+        FC_WARM["Check environment and warm up<br/>Input: stored revision, frozen selection, declared tier, and environment setting<br/>Output: persisted excluded warm-up evidence at -1"]
+        FC_RUN["Collect five measured replicas<br/>Input: successful warm-up, canonical tier work, and environment setting<br/>Output: persisted evidence at 0..4 and synchronous timing markers"]
+        FC_RECEIPT["Complete tier<br/>Input: completed warm-up and measured work<br/>Output: persisted warm-up/measured evidence and compact tier receipt"]
+        FC_WARM --> FC_RUN --> FC_RECEIPT
+    end
+
+    EQUALITY["Coordinator equality gate and snapshot acceptance<br/>Input: all tier evidence for positions 0..4<br/>Output: accepted replica-0 Final snapshot ID"]
+
+    subgraph FA["Final analysis DAG"]
+        FA_PREP["Prepare family<br/>Input: Final snapshot ID, stored Pilot source, frozen counts, and declared identities<br/>Output: comparison work"]
+        FA_RUN["Evaluate mapped comparisons<br/>Input: one declared comparison<br/>Output: one comparison result"]
+        FA_CORRECT["Correct family<br/>Input: complete ordered results<br/>Output: validated family result"]
+        FA_PREP --> FA_RUN --> FA_CORRECT
+    end
+
+    RESULT["Persist success<br/>Input: accepted phase references and Final result<br/>Output: compact study result with no timing summary"]
+
+    REV --> PC_PREP
+    PC_SNAP -->|Pilot snapshot ID| PA_PREP
+    PA_SELECT --> GATE
+    GATE --> FC_WARM
+    FC_RECEIPT -->|All tiers complete; reload measured evidence| EQUALITY
+    EQUALITY -->|Accepted Final snapshot ID| FA_PREP
+    FA_CORRECT --> RESULT
+```
+
+The collection DAGs store detailed evidence in PostgreSQL. Pilot collection returns a snapshot ID; each Final tier run returns a compact tier receipt. The analysis DAGs consume snapshot IDs and stored settings. They return typed outcomes instead of evidence matrices.
+
+The coordinator runs tiers in the order the comparison family first declares each tier. It stores the ordered Gust run IDs in `StudyPhaseRun` rows. Each tier has excluded warm-up `-1`, then measured positions `0..4`. The configured environment assertion must match the revision before warm-up and before and after each measured replica.
+
+Synchronous timing markers let the coordinator measure plan-selection, simulation, and total elapsed intervals in its own clock domain. It validates five measured timing values per tier in memory. Raw monotonic readings and these intervals are not persisted.
+
+After all tiers finish, the coordinator loads PostgreSQL evidence and builds five complete-family non-timing summaries, one per measured position. One canonical selector call checks equality and selects replica `0`. The coordinator creates and accepts that replica's Final snapshot outside Gust. It accepts no replacement replica.
+
+The diagram shows the public study lifecycle only. Timing summaries and their compact-result persistence are not implemented.
+
+Pilot maps one candidate/comparison pair. Family and Final map one declared comparison. Fan-in restores declared order and rejects missing, duplicate, or unexpected rows. Pilot selects within its own run and applies no Holm correction. Family and Final apply Holm once across the complete family.
 
 The current Pilot contract uses one ordered candidate list. Each candidate has a stable ID, a plan count per side, and an attack count per plan. The coordinator preserves declared candidate order through analysis and result read-back.
 
@@ -92,7 +158,7 @@ This is an internal coordinator contract. No caller submits Final work directly.
 
 `resume_study/2` takes only the Final selection: `:recommended` or `{:override_insufficient, candidate_id}`. Every other Final input comes from PostgreSQL. In one locked transaction, the resume command stores the frozen selection, the selected counts, and the override flag, and it creates the empty `final_collection` phase. The coordinator then owns the rest of the boundary:
 
-- it runs Final collection and links the returned snapshot to the `final_collection` phase;
+- it runs the ordered Final tier family, validates complete-family equality, and creates and links the replica-zero snapshot to `final_collection`;
 - it reads the accepted Pilot analysis run, the frozen selection, and the Final snapshot when it builds the Final request; and
 - it writes the completion assertions from the stored phase rows.
 
@@ -163,7 +229,9 @@ Pilot preserves the historical tier/occurrence offsets and candidate-specific ch
 
 Temporary transport failures and valid documented HTTP `500`/`503` failures remain retryable. Documented client errors, malformed success responses, and contract mismatches are permanent. Invalid response envelopes do not become retryable merely because the HTTP status is `500` or `503`.
 
-A retry retains the request and scientific seeds. Work can execute more than once after a lost response. The coordinator accepts one Gust run for each phase in one execution, but another study execution creates new runs. There is no exactly-once computation guarantee. The prototype adds no automatic coordinator restart recovery or phase replay.
+A retry retains the request and scientific seeds. Work can execute more than once after a lost response. Pilot collection and each analysis phase accept one Gust run per execution. Final collection accepts one run per declared tier through ordered phase-run rows. Another study execution creates new runs. There is no exactly-once computation guarantee. The prototype adds no automatic coordinator restart recovery or phase replay.
+
+`final_collection.gust_run_id` is nil. Compact collection references use ordered `gust_run_ids`: a one-item list for Pilot and one ID per tier for Final. Pilot and Final analysis references remain scalar.
 
 ## Source ownership
 
@@ -182,6 +250,6 @@ A retry retains the request and scientific seeds. Work can execute more than onc
 
 The current runtime has the YAML boundary, immutable normalized study revisions, the study state machine, fixed collection and analysis DAGs, explicit resume and cancellation, and one immutable compact result after success.
 
-T1+T2 are next. They add the replica schedule and elapsed intervals. T3+T4 later add environment checks, equivalence checks, and canonical replica selection. T5 then adds timing summaries and the manual timed journey. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that work.
+Operational T1–T4 integration is complete: sequential tier runs, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality. Timing values remain memory-only, and compact-result timing is empty. T5 adds timing summaries, compact-result persistence, and the manual timed journey. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that work.
 
 This prototype does not authorize deployment, real evidence collection, automatic restart recovery, phase replay, or production scientific settings.
