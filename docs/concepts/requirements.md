@@ -132,13 +132,16 @@ receiving a misleading multiplicity correction.
   PubSub, or Oban lifecycle handoff.
 - A successful study must create one immutable compact result. It must include
   accepted phase references, the Pilot outcome, the selected candidate, the
-  override marker, and the validated Final family result.
+  override marker, the validated Final family result, and one timing summary for
+  each declared tier.
 - Compact collection references must use ordered `gust_run_ids`: one ID for
   Pilot collection and one ID per tier for Final collection. Analysis references
   remain scalar. Final collection's scalar `gust_run_id` remains nil.
-- Timing summaries and their compact-result persistence are not implemented.
-  Raw monotonic readings and Final elapsed intervals are not persisted. Detailed
-  evidence stays in PostgreSQL snapshots and runtime records.
+- Each tier timing summary must contain five measured microsecond values, the
+  median, the observed minimum, and the observed maximum for plan selection,
+  simulation, and total duration. Raw monotonic readings and interval boundaries
+  are not persisted. Historical schema-version-one results without timing remain
+  readable. Detailed evidence stays in PostgreSQL snapshots and runtime records.
 
 The explicit pause separates sample-size selection from confirmatory evidence
 collection. Gust task retries allow work to execute more than once inside a run;

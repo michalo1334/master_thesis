@@ -17,9 +17,9 @@ This plan does not authorize deployment, real evidence collection, UI work beyon
 
 The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F23. F22+F23 activate the six public study lifecycle functions and retire the direct Pilot and Final facade groups.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) and operational T1–T4 integration are complete. Final collection runs sequential tier DAGs with excluded warm-up `-1`, measured positions `0..4`, coordinator elapsed intervals, and environment gates. One canonical selector checks five complete-family summaries before the coordinator creates the replica-zero snapshot. Ordered tier rows supply Final collection's run-ID list; its scalar run ID remains nil. Timings are validated in memory only.
+The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) and T1 through T5 are complete. Final collection runs sequential tier DAGs with excluded warm-up `-1`, measured positions `0..4`, coordinator elapsed intervals, and environment gates. One canonical selector checks five complete-family summaries before the coordinator creates the replica-zero snapshot. Ordered tier rows supply Final collection's run-ID list; its scalar run ID remains nil. The compact result stores validated per-tier timing values and descriptive statistics.
 
-T5 is next: timing summaries, compact-result timing persistence, and the manual timed journey. Compact-result timing remains nil. The slice descriptions and acceptance cases below retain their original implementation sequence; they are not a second current-state reference.
+No planned implementation slice remains. The slice descriptions and acceptance cases below retain their original implementation sequence; they are not a second current-state reference.
 
 ## Prototype boundaries
 
@@ -450,7 +450,7 @@ Use a small fixture-backed mismatch table. Do not repeat it at each caller.
 
 The Final coordinator builds fresh Final work, uses Final seeds and roots, rejects Pilot evidence and runtime IDs, creates one Final snapshot, runs complete-family analysis, stores one compact result, enters `succeeded`, and stops.
 
-The result row is unique by execution. It stores accepted phase references, Pilot outcome, selected candidate, override marker, compact Final family, reproduction assertions, optional timing, and insertion time. It stores no evidence matrix.
+The result row is unique by execution. It stores accepted phase references, Pilot outcome, selected candidate, override marker, compact Final family, reproduction assertions, the per-tier timing summary, and insertion time. It stores no evidence matrix.
 
 **EARS — Final collection integration:**
 
@@ -526,14 +526,14 @@ Use one representative difference.
 
 > WHEN the configured environment assertion changes before or after a replica, THE gate SHALL return a bounded failure.
 
-### T5 — timing summary and manual journey — next
+### T5 — timing summary and manual journey — complete
 
 Store microseconds explicitly. For each tier and duration type, keep the five measured values, median, minimum, and maximum.
 
 **Internal interface:**
 
 ```elixir
-@spec summarize([ReplicaTiming.t()]) ::
+@spec summarize(String.t(), non_neg_integer(), [ReplicaTiming.t()]) ::
         {:ok, TierTiming.t()} | {:error, StudyError.t()}
 ```
 

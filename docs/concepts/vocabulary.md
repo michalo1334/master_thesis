@@ -226,8 +226,9 @@ states, resume choices, and current limits.
   checked against the study revision before warm-up and before and after each
   measured replica. It is not an authenticated environment fingerprint.
 - **Final elapsed interval:** A plan-selection, simulation, or total duration
-  measured in the coordinator process. Values remain memory-only. Timing
-  summaries and their compact-result persistence are not implemented.
+  measured in the coordinator process. For each tier and each duration type, the
+  compact result stores five measured microsecond values and their median,
+  observed minimum, and observed maximum.
 - **Accepted phase result:** The typed result that the ephemeral coordinator
   accepts after Gust completion.
 - **Controlled collection:** Evidence collection through role-specific domain
@@ -238,9 +239,9 @@ states, resume choices, and current limits.
   references, selected counts, the Pilot outcome, the override marker, and the
   compact Final family result. Collection references use ordered `gust_run_ids`:
   one for Pilot and one per tier for Final. Analysis references remain scalar.
-  Timing summaries are not stored. Detailed evidence stays in PostgreSQL
-  snapshots and runtime records. Raw monotonic readings and Final elapsed
-  intervals are not persisted.
+  The result stores per-tier timing values, medians, minima, and maxima. Detailed
+  evidence stays in PostgreSQL snapshots and runtime records. Raw monotonic
+  readings and interval boundaries are not persisted.
 - **Gust task retry:** Gust can repeat a task inside one persisted phase run.
   Application collection items make repeated domain effects safe.
 - **Phase replay:** A new run of a fixed phase within the same study execution.

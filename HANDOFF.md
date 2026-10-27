@@ -1,13 +1,13 @@
 # Next-agent handoff: study pipeline
 
-This file is an operational handoff. The canonical implementation plan remains the work authority. F1 through F23, the runtime-contract gate, and operational T1–T4 integration are complete. T5 timing summaries and compact-result timing persistence are next.
+This file is an operational handoff. The canonical implementation plan remains the work authority. I1 through I6, F1 through F23, the runtime-contract gate, and T1 through T5 are complete. No planned implementation slice remains.
 
 ## Worktree and branch
 
-| Worktree                                         | Branch / current commit                             | Meaning                                                                                                           |
-| ------------------------------------------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F23, the runtime-contract gate, and operational T1–T4 are complete. |
-| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                                            |
+| Worktree                                         | Branch / current commit                             | Meaning                                                                                                       |
+| ------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `/home/michalo/master_thesis-evaluation-rebuild` | `evaluation/rebuild` / current `HEAD`               | Integration target. I1 through I6, F1 through F23, the runtime-contract gate, and T1 through T5 are complete. |
+| `/home/michalo/master_thesis`                    | `main` / `8f9ede57369c38e7daf69ef23bd4727aa3742bbd` | Primary worktree. Do not modify it during integration.                                                        |
 
 Do not merge or cherry-pick the full candidate commit `70a2fa3`. Review candidate files only for selective reuse.
 
@@ -47,7 +47,7 @@ The plan retains every original ID for traceability. It merges related IDs and m
 - **Operational T1–T4 integration is complete** at `b1f83e0913e56373d6a95b9d13cc820a795a5ce1`. The coordinator runs one fixed Final tier DAG per tier, sequentially. Each run collects excluded warm-up `-1` and measured positions `0..4`, with configured environment checks and synchronous timing markers.
 - Final collection keeps its scalar `gust_run_id` nil. Ordered `StudyPhaseRun` rows link one Gust run per tier. Compact collection references use ordered `gust_run_ids`; Pilot has a one-item list. Pilot and Final analysis references remain scalar.
 - After all tiers finish, one canonical selector checks five complete-family non-timing summaries. Only replica `0` supplies the Final snapshot, which the coordinator creates outside Gust.
-- Final elapsed intervals are validated in coordinator memory only. Raw monotonic readings and intervals are not persisted. Compact-result timing remains nil until T5. Detailed evidence stays in PostgreSQL snapshots and runtime records.
+- The coordinator validates Final elapsed intervals in memory. The compact result stores five measured values, median, minimum, and maximum for each tier and duration type. Raw monotonic readings and interval boundaries are not persisted. Detailed evidence stays in PostgreSQL snapshots and runtime records.
 
 Recorded checks:
 
@@ -87,6 +87,8 @@ Recorded checks:
 - operational T1–T4 integration verification: 118 Chunk A/B checks, 298 study checks, and 635 evaluation checks passed;
 - full Elixir suite after integration: 1,099 passed with two exclusions; both public journeys passed;
 - integration checks cover ordered tier runs, complete-family equality, replica-zero evidence, cancellation at snapshot acceptance, and compact-reference read-back;
+- T5 independent verification passed 24 pure timing checks, 19 result checks, 13 Final coordinator checks, both public journeys, 331 study checks, 668 evaluation checks, and the full suite with 1,132 passed and two exclusions;
+- T5 verification also passed warning-as-error compilation, formatting, strict Credo, Dialyzer, contract generation without drift, and disposable-database teardown;
 - the unrelated Family Gust restart characterization passed in three isolated runs after an earlier timing-sensitive failure;
 - formatting, warning-as-error compilation, strict Credo, Dialyzer, Ruff, schema drift, frontend type checks, and diff checks passed for their applicable slices. The integration verification also passed forced warning-as-error compilation, strict Credo, Dialyzer, and contract generation without drift.
 
@@ -143,7 +145,7 @@ The approved public study facade is:
 
 ## Timing decisions
 
-- T1–T4 timing collection is active. T5 timing output is the remaining implementation slice.
+- T1–T5 timing collection, summary construction, compact-result persistence, and read-back are complete.
 - Run tiers sequentially.
 - Use warm-up replica `-1` and measured replicas `0..4`.
 - Replica `0` supplies Final evidence after all measured replicas pass equivalence.
@@ -153,8 +155,9 @@ The approved public study facade is:
 - Read the current measured-environment assertion from application configuration.
 - Compare it before warm-up and before and after each measured replica.
 - Add no fingerprint, UTC substitute, or replica retry epoch.
-- T1–T4 validate five measured records per tier in memory. Each record contains plan-selection, simulation, and total elapsed intervals. T5 must persist the five values, median, minimum, and maximum for each duration.
-- Verify the complete timed journey manually. Keep pure schedule, interval, equivalence, environment, and summary checks automated.
+- The coordinator validates five measured records per tier in memory. Each record contains plan-selection, simulation, and total elapsed intervals.
+- The compact result stores the five values, median, minimum, and maximum for each duration in declared tier order.
+- The tiny controlled timed journey passed. It checked warm-up exclusion, measured positions, replica-zero evidence, summaries, and read-back without asserting exact durations.
 
 ## Verification policy
 
@@ -170,16 +173,12 @@ The EARS entries define behaviors, not an exact test count. Use shared fixtures 
 
 Every database-backed test invocation needs a fresh partition and disposable database. Prepare both application and Gust migrations. Verify both repositories use the disposable database. Drop it afterward. Never run an unpartitioned `mix test` or `mix run` against preserved data.
 
-## Next implementation action
+## Next action
 
-Implement T5 timing summaries and compact-result timing persistence:
+The canonical implementation plan is complete. Close out the prototype before any new feature work:
 
-1. Recheck repository instructions and dirty state.
-2. Use the accepted in-memory timings from sequential tier runs. Require measured positions `0..4` for every tier.
-3. Summarize each duration in microseconds with its five measured values, median, minimum, and maximum.
-4. Persist the summaries in the compact result and validate them during typed read-back. Store no raw monotonic readings.
-5. Preserve the environment gates, complete-family equality check, and replica-zero snapshot boundary.
-6. Run one tiny controlled manual timed journey. Check summaries and result persistence without asserting exact durations.
-7. Keep replacement replicas, deployment, recovery, replay, polling, and UI work out of scope.
+1. Keep the accepted implementation and documentation synchronized.
+2. Preserve the prototype limits and recorded verification evidence.
+3. Require a separate approved plan for deployment, real evidence collection, automatic recovery, replay, replacement replicas, or UI expansion.
 
 Preserve unrelated user changes. Do not deploy, push, collect real evidence, or modify the primary worktree.

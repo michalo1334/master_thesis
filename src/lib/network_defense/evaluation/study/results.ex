@@ -19,19 +19,24 @@ defmodule NetworkDefense.Evaluation.Study.Results do
     Revisions
   }
 
+  alias NetworkDefense.Evaluation.Study.Timing.TimingSummary
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyResult}
   alias NetworkDefense.Repo
 
   @phase_names [:pilot_collection, :pilot_analysis, :final_collection, :final_analysis]
 
-  @spec create_success(StudyExecution.t(), FinalResult.t()) ::
+  @spec create_success(StudyExecution.t(), FinalResult.t(), TimingSummary.t() | nil) ::
           {:ok, CompactResult.t()} | {:stop, atom()} | {:error, StudyError.t()}
-  def create_success(%StudyExecution{id: execution_id}, %FinalResult{} = final_result) do
+  def create_success(
+        %StudyExecution{id: execution_id},
+        %FinalResult{} = final_result,
+        %TimingSummary{} = timing
+      ) do
     result =
       Repo.transaction(fn ->
         case lock_execution(execution_id) do
           %StudyExecution{state: :analyzing_final} = execution ->
-            persist_success(execution, final_result)
+            persist_success(execution, final_result, timing)
 
           %StudyExecution{state: state} ->
             Repo.rollback({:stop, state})
@@ -47,8 +52,8 @@ defmodule NetworkDefense.Evaluation.Study.Results do
       {:error, StudyError.final_result_storage_failed()}
   end
 
-  def create_success(_execution, _final_result),
-    do: {:error, StudyError.final_result_invalid()}
+  def create_success(_execution, _final_result, _timing),
+    do: {:error, StudyError.final_timing_incomplete()}
 
   @spec get_for_execution(Ecto.UUID.t()) ::
           {:ok, CompactResult.t()} | {:error, StudyError.t()}
@@ -67,15 +72,28 @@ defmodule NetworkDefense.Evaluation.Study.Results do
       {:error, StudyError.result_unavailable()}
   end
 
-  defp persist_success(%StudyExecution{} = execution, %FinalResult{} = final_result) do
+  defp persist_success(
+         %StudyExecution{} = execution,
+         %FinalResult{} = final_result,
+         %TimingSummary{} = timing
+       ) do
     with {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
          {:ok, selection} <- FinalSelection.from_execution(execution),
          {:ok, outcome} <- parse_outcome(execution.pilot_outcome),
          {:ok, phases} <- lock_phases(execution),
          :ok <- validate_phases(execution, definition, phases),
          :ok <- validate_final_result(execution, selection, definition, phases, final_result),
+         :ok <- validate_timing(timing, definition),
          {:ok, compact} <-
-           compact_result(execution, selection, outcome, definition, phases, final_result),
+           compact_result(
+             execution,
+             selection,
+             outcome,
+             definition,
+             phases,
+             final_result,
+             timing
+           ),
          {:ok, row} <- insert_result(execution, compact),
          {:ok, _phase} <- store_result_reference(phases.final_analysis, row.id),
          {:ok, _execution} <- succeed(execution) do
@@ -83,6 +101,15 @@ defmodule NetworkDefense.Evaluation.Study.Results do
     else
       {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
       _invalid -> Repo.rollback({:error, StudyError.final_result_storage_failed()})
+    end
+  end
+
+  # Timing belongs to the immutable declared tier order. The stored summary is
+  # rejected unless its tiers follow that order.
+  defp validate_timing(%TimingSummary{} = timing, definition) do
+    case Collection.tier_order(definition) do
+      {:ok, tiers} -> TimingSummary.validate_declared_order(timing, tiers)
+      {:error, %StudyError{}} -> {:error, StudyError.final_result_invalid()}
     end
   end
 
@@ -227,7 +254,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   defp strategy_name(value) when is_atom(value), do: Atom.to_string(value)
   defp strategy_name(value) when is_binary(value), do: value
 
-  defp compact_result(execution, selection, outcome, definition, phases, final_result) do
+  defp compact_result(execution, selection, outcome, definition, phases, final_result, timing) do
     with {:ok, pilot_collection} <- collection_reference(phases.pilot_collection),
          {:ok, final_collection} <- collection_reference(phases.final_collection) do
       compact = %CompactResult{
@@ -247,7 +274,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
         },
         final_result: final_result,
         revision_assertions: definition.study.revisions,
-        timing: nil
+        timing: timing
       }
 
       compact |> CompactResult.to_params() |> CompactResult.parse()
@@ -332,6 +359,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
          true <- compact.pilot_analysis.outcome == outcome,
          true <- compact.revision_assertions == definition.study.revisions,
          true <- readback_phases_match?(compact, phases, row.id, definition),
+         :ok <- validate_readback_timing(compact.timing, definition),
          :ok <-
            validate_final_result(
              execution,
@@ -340,6 +368,19 @@ defmodule NetworkDefense.Evaluation.Study.Results do
              phases,
              compact.final_result
            ) do
+      :ok
+    else
+      _invalid -> {:error, StudyError.result_unavailable()}
+    end
+  end
+
+  # A historical schema-version-one result holds no timing and stays readable.
+  # A stored timing summary must follow the declared tier order.
+  defp validate_readback_timing(nil, _definition), do: :ok
+
+  defp validate_readback_timing(%TimingSummary{} = timing, definition) do
+    with {:ok, tiers} <- Collection.tier_order(definition),
+         :ok <- TimingSummary.validate_declared_order(timing, tiers) do
       :ok
     else
       _invalid -> {:error, StudyError.result_unavailable()}

@@ -32,7 +32,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   alias NetworkDefense.Evaluation.Study.Timing.{
     Canonical,
     FinalReplicaSummary,
-    ReplicaTiming
+    ReplicaTiming,
+    TimingSummary
   }
 
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
@@ -184,8 +185,9 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
       with {:ok, execution, collection_phase} <- context(execution_id, :collecting_final),
            {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
            {:ok, tiers} <- Collection.tier_order(definition),
-           {:ok, _timings} <-
+           {:ok, timings} <-
              run_tiers(execution_id, tiers, tier_workflow, tier_timeout),
+           {:ok, timing_summary} <- TimingSummary.summarize(tiers, timings),
            :ok <- require_collecting_final(execution_id),
            {:ok, items} <- assemble_replicas(collection_phase, definition),
            {:ok, snapshot_id} <- snapshot.assemble_and_store(collection_phase, items, definition),
@@ -204,7 +206,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
              ),
            {:ok, :succeeded} <- final.await(analysis_run_id),
            {:ok, %Result{} = final_result} <- final.result(analysis_run_id),
-           {:ok, _compact_result} <- Results.create_success(execution, final_result) do
+           {:ok, _compact_result} <-
+             Results.create_success(execution, final_result, timing_summary) do
         :ok
       end
 

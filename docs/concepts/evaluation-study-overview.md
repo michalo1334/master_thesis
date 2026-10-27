@@ -83,7 +83,7 @@ Final collection uses the frozen counts and separate collection seeds. It runs t
 
 The configured observed environment assertion must match the revision's declared environment before warm-up and before and after each measured replica. A missing or different assertion fails collection. This check compares operator assertions; it does not authenticate the environment.
 
-The coordinator process measures plan-selection, simulation, and total elapsed intervals. These intervals include Gust and ScatterGather wait time. Total elapsed time has its own boundaries; it is not the sum of the other intervals. Timing values are validated in memory but are not persisted.
+The coordinator process measures plan-selection, simulation, and total elapsed intervals. These intervals include Gust and ScatterGather wait time. Total elapsed time has its own boundaries; it is not the sum of the other intervals. The application keeps the five measured values per tier in memory until successful result creation stores their summaries. Raw monotonic readings and interval boundaries are not persisted.
 
 After all tiers complete, the application assembles one complete-family non-timing summary for each measured position. All five summaries must match. Only replica `0` supplies the new Final snapshot. Warm-up supplies neither accepted outcome evidence nor timing values. A rejected replica has no replacement.
 
@@ -126,12 +126,13 @@ The successful compact result contains:
 - study and execution identities;
 - accepted collection and analysis references, including snapshot identities;
 - the Pilot outcome, selected candidate, counts, and override marker;
-- the complete Final family result, including estimates, intervals, raw and adjusted p-values, and assessments; and
+- the complete Final family result, including estimates, intervals, raw and adjusted p-values, and assessments;
+- per-tier plan-selection, simulation, and total timing summaries; and
 - declared software and environment revision assertions.
 
 Collection references use ordered Gust run-ID lists: one entry for Pilot collection and one entry per tier for Final collection. Pilot and Final analysis references each retain one scalar run ID.
 
-The result excludes evidence matrices, raw trial histories, and detailed workflow logs. Timing summaries and their compact-result persistence are not implemented. Detailed evidence stays in PostgreSQL snapshots and runtime records. Raw monotonic readings and Final elapsed intervals are not persisted.
+The result excludes evidence matrices, raw trial histories, and detailed workflow logs. Each timing summary contains five measured microsecond values, the median, the observed minimum, and the observed maximum. Detailed evidence stays in PostgreSQL snapshots and runtime records. Raw monotonic readings and interval boundaries are not persisted.
 
 ## Ownership and current limits
 
@@ -139,7 +140,7 @@ The application owns the study lifecycle, persisted state, source checks, and re
 
 The current prototype has these limits:
 
-- Operational timing collection is implemented, but its values remain memory-only. Timing summaries and their compact-result persistence are not implemented.
+- Operational timing collection and compact-result timing summaries are implemented. Timing does not change Final evidence selection.
 - An application restart does not automatically recreate coordinators. The prototype has no automatic restart recovery or phase replay. Cancel a stranded execution and start a new one.
 - Cancellation does not cancel underlying Gust, optimization, or simulation work. It prevents late completion from advancing the cancelled execution.
 - Verification uses synthetic evidence. Real-study values, real evidence collection, and deployment remain outside approved prototype scope.
@@ -150,4 +151,4 @@ The current prototype has these limits:
 - [Evaluation methodology](evaluation-methodology.md): scientific rules and interpretation limits.
 - [Vocabulary](vocabulary.md): shared terms.
 - [Evaluation architecture](../architecture/evaluation-architecture.md): developer-facing runtime boundaries.
-- [Study pipeline](../design/evaluation-study-pipeline.md): implementation authority and remaining timing output work.
+- [Study pipeline](../design/evaluation-study-pipeline.md): implementation authority for the study lifecycle and timing.

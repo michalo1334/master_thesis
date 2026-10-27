@@ -11,6 +11,7 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
   alias NetworkDefense.Evaluation.Study.Contracts.Definition.Revisions
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.{FinalSelection, PilotOutcome}
+  alias NetworkDefense.Evaluation.Study.Timing.TimingSummary
 
   @primary_key false
   embedded_schema do
@@ -23,7 +24,7 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
     embeds_one :final_analysis, AnalysisReference
     embeds_one :final_result, FinalResult
     embeds_one :revision_assertions, Revisions
-    field :timing, :map
+    embeds_one :timing, TimingSummary, on_replace: :update
   end
 
   @type t :: %__MODULE__{
@@ -36,7 +37,7 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
           final_analysis: AnalysisReference.t(),
           final_result: FinalResult.t(),
           revision_assertions: Revisions.t(),
-          timing: nil
+          timing: TimingSummary.t() | nil
         }
 
   @spec parse(term()) :: {:ok, t()} | {:error, StudyError.t()}
@@ -54,7 +55,7 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
 
   defp changeset(result, attrs) do
     result
-    |> cast(attrs, [:study_revision_id, :execution_id, :timing], empty_values: [])
+    |> cast(attrs, [:study_revision_id, :execution_id], empty_values: [])
     |> validate_required([:study_revision_id, :execution_id])
     |> cast_embed(:pilot_collection, required: true)
     |> cast_embed(:pilot_analysis, required: true)
@@ -63,7 +64,7 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
     |> cast_embed(:final_analysis, required: true)
     |> cast_embed(:final_result, required: true)
     |> cast_embed(:revision_assertions, required: true)
-    |> validate_change(:timing, fn :timing, _value -> [timing: "must be null"] end)
+    |> cast_embed(:timing, required: false)
   end
 
   @spec to_params(t()) :: map()
@@ -79,7 +80,13 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
   # Ecto casts ignore unknown keys. Check the JSON shape against the embedded
   # fields before casting, without maintaining a second list of payload keys.
   # FinalResult has its own strict JSON schema; PilotOutcome has its own parser.
+  #
+  # This check owns unknown-field rejection for every level, so the embedded
+  # changesets keep value validation only. A nil optional embed passes here and
+  # stays rejected by its own `cast_embed(required: true)` where it is required.
   defp exact_fields?(_attrs, FinalResult), do: true
+
+  defp exact_fields?(nil, _schema), do: true
 
   defp exact_fields?(attrs, schema) when is_map(attrs) do
     fields = schema.__schema__(:fields) ++ schema.__schema__(:virtual_fields)
@@ -88,9 +95,21 @@ defmodule NetworkDefense.Evaluation.Study.CompactResult do
     Enum.sort(Map.keys(attrs)) == Enum.sort(expected) and
       Enum.all?(schema.__schema__(:embeds), fn field ->
         embed = schema.__schema__(:embed, field)
-        exact_fields?(attrs[Atom.to_string(field)], embed.related)
+        exact_embed?(attrs[Atom.to_string(field)], embed)
       end)
   end
 
   defp exact_fields?(_attrs, _schema), do: false
+
+  defp exact_embed?(nil, _embed), do: true
+
+  defp exact_embed?(items, %{cardinality: :many} = embed) when is_list(items) do
+    Enum.all?(items, &exact_fields?(&1, embed.related))
+  end
+
+  defp exact_embed?(item, %{cardinality: :one} = embed) when is_map(item) do
+    exact_fields?(item, embed.related)
+  end
+
+  defp exact_embed?(_other, _embed), do: false
 end

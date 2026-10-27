@@ -2,17 +2,17 @@
 
 ## Status and authority
 
-This page maps the current evaluation runtime for application developers. Start with the [study overview](../concepts/evaluation-study-overview.md) for the user workflow. The public study lifecycle coordinates Pilot and Final collection and analysis. The comparison and family workflows remain reusable lower-level operations. Operational T1–T4 timing collection is implemented. T5 timing summaries and compact-result timing persistence remain planned.
+This page maps the current evaluation runtime for application developers. Start with the [study overview](../concepts/evaluation-study-overview.md) for the user workflow. The public study lifecycle coordinates Pilot and Final collection and analysis. The comparison and family workflows remain reusable lower-level operations. Operational timing collection, summaries, and compact-result persistence are implemented.
 
 Only synthetic evidence supports the recorded verification. Real-study settings, evidence collection, and deployment remain unapproved. Historical local checks do not establish current service readiness. See [verification history and limits](../history/evaluation-decisions.md#verification-and-operational-evidence).
 
-| Question                                  | Authority                                                       |
-| ----------------------------------------- | --------------------------------------------------------------- |
-| Scientific method                         | [Evaluation methodology](../concepts/evaluation-methodology.md) |
-| Shared terms                              | [Vocabulary](../concepts/vocabulary.md#evaluation-and-study)    |
-| Current behavior                          | Source, checked-in schemas, and tests linked below              |
-| Study lifecycle and remaining timing work | [Study pipeline design](../design/evaluation-study-pipeline.md) |
-| Decisions and historical evidence         | [Evaluation decisions](../history/evaluation-decisions.md)      |
+| Question                          | Authority                                                       |
+| --------------------------------- | --------------------------------------------------------------- |
+| Scientific method                 | [Evaluation methodology](../concepts/evaluation-methodology.md) |
+| Shared terms                      | [Vocabulary](../concepts/vocabulary.md#evaluation-and-study)    |
+| Current behavior                  | Source, checked-in schemas, and tests linked below              |
+| Study lifecycle and timing        | [Study pipeline design](../design/evaluation-study-pipeline.md) |
+| Decisions and historical evidence | [Evaluation decisions](../history/evaluation-decisions.md)      |
 
 ## Runtime ownership
 
@@ -106,7 +106,7 @@ flowchart TB
         FA_PREP --> FA_RUN --> FA_CORRECT
     end
 
-    RESULT["Persist success<br/>Input: accepted phase references and Final result<br/>Output: compact study result with no timing summary"]
+    RESULT["Persist success<br/>Input: accepted phase references, Final result, and typed timing summary<br/>Output: compact study result with per-tier timing summaries"]
 
     REV --> PC_PREP
     PC_SNAP -->|Pilot snapshot ID| PA_PREP
@@ -121,11 +121,11 @@ The collection DAGs store detailed evidence in PostgreSQL. Pilot collection retu
 
 The coordinator runs tiers in the order the comparison family first declares each tier. It stores the ordered Gust run IDs in `StudyPhaseRun` rows. Each tier has excluded warm-up `-1`, then measured positions `0..4`. The configured environment assertion must match the revision before warm-up and before and after each measured replica.
 
-Synchronous timing markers let the coordinator measure plan-selection, simulation, and total elapsed intervals in its own clock domain. It validates five measured timing values per tier in memory. Raw monotonic readings and these intervals are not persisted.
+Synchronous timing markers let the coordinator measure plan-selection, simulation, and total elapsed intervals in its own clock domain. It validates five measured timing values per tier in memory. Successful result creation stores the five values, median, minimum, and maximum. Raw monotonic readings and interval boundaries are not persisted.
 
 After all tiers finish, the coordinator loads PostgreSQL evidence and builds five complete-family non-timing summaries, one per measured position. One canonical selector call checks equality and selects replica `0`. The coordinator creates and accepts that replica's Final snapshot outside Gust. It accepts no replacement replica.
 
-The diagram shows the public study lifecycle only. Timing summaries and their compact-result persistence are not implemented.
+The diagram shows the public study lifecycle only. Result creation persists typed timing summaries in the same success transaction.
 
 Pilot maps one candidate/comparison pair. Family and Final map one declared comparison. Fan-in restores declared order and rejects missing, duplicate, or unexpected rows. Pilot selects within its own run and applies no Holm correction. Family and Final apply Holm once across the complete family.
 
@@ -250,6 +250,6 @@ A retry retains the request and scientific seeds. Work can execute more than onc
 
 The current runtime has the YAML boundary, immutable normalized study revisions, the study state machine, fixed collection and analysis DAGs, explicit resume and cancellation, and one immutable compact result after success.
 
-Operational T1–T4 integration is complete: sequential tier runs, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality. Timing values remain memory-only, and compact-result timing is empty. T5 adds timing summaries, compact-result persistence, and the manual timed journey. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that work.
+Operational timing is complete: sequential tier runs, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, complete-family equality, typed summaries, compact-result persistence, and validated read-back. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that behavior.
 
 This prototype does not authorize deployment, real evidence collection, automatic restart recovery, phase replay, or production scientific settings.

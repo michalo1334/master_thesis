@@ -2,14 +2,14 @@
 
 ## Status and authority
 
-This document is the implementation authority for the current YAML study lifecycle and the remaining timing design. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
+This document is the implementation authority for the current YAML study lifecycle and timing behavior. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
 
-| Boundary                 | Current state                                                                                                                                                      | Remaining work                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Definition and lifecycle | YAML input, immutable normalized revisions, public operations, and explicit pause/resume are implemented.                                                          | No automatic coordinator restart recovery or phase replay is planned for this prototype.   |
-| Core outcome path        | Pilot/Final collection and analysis and compact successful results are implemented.                                                                                | Preserve the accepted scientific and lifecycle boundaries.                                 |
-| Operational timing       | T1–T4 are implemented: sequential tiers, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality. | No replacement replica, automatic recovery, or replay.                                     |
-| Timing output            | Five measured timing values per tier are validated in memory. Compact-result timing is empty (`null`).                                                             | T5 adds timing summaries, compact-result timing persistence, and the manual timed journey. |
+| Boundary                 | Current state                                                                                                                                               | Remaining work                                                                           |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Definition and lifecycle | YAML input, immutable normalized revisions, public operations, and explicit pause/resume are implemented.                                                   | No automatic coordinator restart recovery or phase replay is planned for this prototype. |
+| Core outcome path        | Pilot/Final collection and analysis and compact successful results are implemented.                                                                         | Preserve the accepted scientific and lifecycle boundaries.                               |
+| Operational timing       | Sequential tiers, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality are implemented. | No replacement replica, automatic recovery, or replay.                                   |
+| Timing output            | The compact result stores five measured values, median, minimum, and maximum for each tier and duration type.                                               | No additional timing-output work is planned.                                             |
 
 The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and known limits. Current source contracts define implemented behavior.
 
@@ -233,9 +233,9 @@ Every typed optimization request contains one concrete selection seed. The study
 
 When a role requires `n` plan-selection seeds, use the first `n` seeds in declared order. Do not choose another valid subset. Attack columns follow the existing child-seed policy from each declared tier root.
 
-## Timing — implemented collection and remaining output
+## Timing — complete
 
-Operational T1–T4 integration is complete. It does not change the outcome method. Final collection runs tiers sequentially in the order the comparison family first declares each tier. For each tier, it runs:
+Operational timing integration is complete. It does not change the outcome method. Final collection runs tiers sequentially in the order the comparison family first declares each tier. For each tier, it runs:
 
 - one excluded warm-up with replica position `-1`; and
 - five measured replicas with positions `0` through `4`.
@@ -246,13 +246,13 @@ The definition supplies the expected measured-environment revision. Application 
 
 Synchronous boundary markers let the Final coordinator measure intervals with `System.monotonic_time(:microsecond)` in its own process. Plan selection spans optimization dispatch through completion. Simulation spans experiment dispatch through completion. Total spans optimization dispatch through experiment completion. These elapsed intervals include Gust and ScatterGather wait time. Each interval uses its own boundaries; total is not the sum of the other intervals. The pure interval calculation also supports overlapping spans.
 
-The coordinator validates exactly five measured timing values, in positions `0..4`, for every tier. These values remain memory-only. Raw monotonic readings and Final elapsed intervals are not persisted.
+The coordinator validates exactly five measured timing values, in positions `0..4`, for every tier. It keeps them in memory until successful result creation. The stored list keeps measured-position order; only a copy is sorted to find the median. Raw monotonic readings and interval boundaries are not persisted.
 
 After all tier runs finish, the coordinator reloads detailed PostgreSQL evidence. It builds one non-timing summary for each measured position across the complete declared family. Summaries cover selected plans, graph content, ordered attack histories, capability outcomes, host compromises, and other scientific evidence. Runtime IDs, durations, timestamps, and graph layout do not determine equality.
 
 The coordinator calls the canonical selector once with the five complete-family summaries. All five must match. Only replica `0` supplies the Final snapshot; replicas `1..4` supply timing variation, not additional inferential evidence. Snapshot creation and acceptance run outside Gust, under the lifecycle state gate.
 
-T5 remains: summarize each duration in microseconds with its five measured values, median, minimum, and maximum. Persist those summaries in the compact result and validate read-back. The manual timed journey must also check the resulting summaries and persistence. Until T5, compact-result timing stays `null`.
+For each tier and duration type, the application stores the five measured microsecond values, median, observed minimum, and observed maximum. Result creation validates the summary against declared tier order and persists it atomically with success. Read-back validates the typed summary. Historical schema-version-one results with `timing: null` remain readable.
 
 ## Persistence
 
@@ -270,16 +270,16 @@ A failed or cancelled execution has no compact scientific result. Its execution 
 
 The successful compact result contains:
 
-| Group        | Data                                                                                    |
-| ------------ | --------------------------------------------------------------------------------------- |
-| Identity     | Result ID, schema version, study-revision ID, and execution ID                          |
-| Pilot        | Accepted collection and analysis run IDs, snapshot ID, and Pilot outcome                |
-| Selection    | Candidate ID, counts, and `pilot_override`                                              |
-| Final        | Accepted collection and analysis run IDs and snapshot ID                                |
-| Timing       | Empty (`null`) until T5 persists per-tier measured values, medians, and observed ranges |
-| Inference    | Family identity, method, alpha, family size, and compact comparison results             |
-| Reproduction | Declared software and environment revision assertions                                   |
-| Metadata     | Insertion time                                                                          |
+| Group        | Data                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Identity     | Result ID, schema version, study-revision ID, and execution ID                                                             |
+| Pilot        | Accepted collection and analysis run IDs, snapshot ID, and Pilot outcome                                                   |
+| Selection    | Candidate ID, counts, and `pilot_override`                                                                                 |
+| Final        | Accepted collection and analysis run IDs and snapshot ID                                                                   |
+| Timing       | Per-tier measured values, medians, observed minima, and observed maxima for plan selection, simulation, and total duration |
+| Inference    | Family identity, method, alpha, family size, and compact comparison results                                                |
+| Reproduction | Declared software and environment revision assertions                                                                      |
+| Metadata     | Insertion time                                                                                                             |
 
 Compact collection references use ordered `gust_run_ids`. Pilot collection has a one-item list. Final collection has one ID per tier in the same order as its `StudyPhaseRun` rows. Pilot and Final analysis references remain scalar. Result creation and read-back validate the Final tier family against PostgreSQL.
 

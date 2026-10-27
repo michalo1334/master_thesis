@@ -20,7 +20,7 @@ defmodule NetworkDefense.Evaluation.Study.PublicJourneyTest do
 
   alias NetworkDefense.Evaluation.Study.{CompactResult, PilotOutcome, PilotSnapshot}
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.Timing.{Interval, ReplicaTiming}
+  alias NetworkDefense.Evaluation.Study.Timing.{Interval, ReplicaTiming, TimingSummary}
 
   alias NetworkDefense.Evaluation.{
     StudyCollectionItem,
@@ -213,6 +213,20 @@ defmodule NetworkDefense.Evaluation.Study.PublicJourneyTest do
     assert Enum.sort(positions) == [-1, 0, 1, 2, 3, 4]
     assert compact.final_collection.gust_run_ids == Enum.map(phase_runs, & &1.gust_run_id)
     assert length(compact.final_collection.gust_run_ids) == length(tiers)
+
+    # The accepted timing family holds one summary per declared tier, in
+    # declared order, with warm-up excluded.
+    assert %TimingSummary{tiers: timing_tiers} = compact.timing
+    assert Enum.map(timing_tiers, & &1.tier) == tiers
+    assert Enum.map(timing_tiers, & &1.tier_position) == Enum.to_list(0..(length(tiers) - 1))
+
+    for %{plan_selection: plan, simulation: simulation, total: total} <- timing_tiers,
+        duration <- [plan, simulation, total] do
+      assert duration.values_us == [1, 1, 1, 1, 1]
+      assert duration.median_us == 1
+      assert duration.minimum_us == 1
+      assert duration.maximum_us == 1
+    end
   end
 
   # The coordinator owns the activation boundary: it registers the execution

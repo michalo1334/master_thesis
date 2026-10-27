@@ -87,9 +87,10 @@ in its own process. It validates timing values in memory. Five complete-family
 non-timing summaries must match before replica `0` alone supplies the Final
 snapshot. Other replicas do not increase the inferential sample size.
 
-Timing summaries and their compact-result persistence are not implemented. Raw
-monotonic readings and Final elapsed intervals are not persisted. Detailed
-evidence stays in PostgreSQL snapshots and runtime records.
+The compact result stores five measured microsecond values, the median, the
+observed minimum, and the observed maximum for each tier and duration type. Raw
+monotonic readings and interval boundaries are not persisted. Detailed evidence
+stays in PostgreSQL snapshots and runtime records.
 
 Timing collection does not change the outcome method or authorize real-study
 values, real evidence collection, or deployment. Current verification uses

@@ -15,6 +15,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalCoordinatorTest do
 
   alias NetworkDefense.Evaluation.Study.PhaseRuns
   alias NetworkDefense.Evaluation.Study.Timing.Canonical
+  alias NetworkDefense.Evaluation.Study.Timing.{TierTiming, TimingSummary}
 
   alias NetworkDefense.Evaluation.{
     EvidenceSnapshot,
@@ -42,17 +43,19 @@ defmodule NetworkDefense.Evaluation.Study.FinalCoordinatorTest do
   defmodule ReplicaTimingStub do
     alias NetworkDefense.Evaluation.Study.Timing.{Interval, ReplicaTiming}
 
+    # Each tier holds distinct measured values, so a summary proves the tier's own
+    # timings were used in declared tier order.
     def timings(tier) do
-      interval = %Interval{elapsed_us: 100}
+      offset = if tier == "core", do: 100, else: 900
 
       Enum.map(0..4, fn position ->
         {:ok, timing} =
           ReplicaTiming.new(%{
             tier: tier,
             position: position,
-            plan_selection: interval,
-            simulation: interval,
-            total: interval
+            plan_selection: %Interval{elapsed_us: offset + position},
+            simulation: %Interval{elapsed_us: offset + 50 + position},
+            total: %Interval{elapsed_us: offset + 200 + position}
           })
 
         timing
@@ -282,10 +285,33 @@ defmodule NetworkDefense.Evaluation.Study.FinalCoordinatorTest do
     assert compact.pilot_collection.gust_run_ids == [801]
     assert compact.final_collection.gust_run_ids == [902, 903]
     assert compact.final_collection.snapshot_id == snapshot_id
-    assert compact.timing == nil
+
+    assert %TimingSummary{tiers: [%TierTiming{tier: "core"}, %TierTiming{tier: "edge"}]} =
+             compact.timing
 
     # One canonical selector call accepts the measured family.
     assert Store.get(:select_calls) == 1
+  end
+
+  test "T5-12: WHEN the accepted timing family reaches Final result creation, THE stored result SHALL hold one summary per declared tier in declared order",
+       context do
+    assert :ok = run(context.execution.id)
+
+    assert {:ok, compact} = Results.get_for_execution(context.execution.id)
+
+    assert [
+             %TierTiming{tier: "core", tier_position: 0} = core,
+             %TierTiming{tier: "edge", tier_position: 1} = edge
+           ] = compact.timing.tiers
+
+    assert core.plan_selection.values_us == [100, 101, 102, 103, 104]
+    assert core.plan_selection.median_us == 102
+    assert core.simulation.values_us == [150, 151, 152, 153, 154]
+    assert core.total.maximum_us == 304
+
+    assert edge.plan_selection.values_us == [900, 901, 902, 903, 904]
+    assert edge.simulation.median_us == 952
+    assert edge.total.values_us == [1_100, 1_101, 1_102, 1_103, 1_104]
   end
 
   test "C-13: WHEN cancellation commits between evidence assembly and snapshot acceptance, THE coordinator SHALL keep cancelled and store no Final evidence",
