@@ -535,6 +535,33 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "Final timing is incomplete."
       )
 
+  def final_replica_summary_invalid,
+    do:
+      new(
+        "validation_failed",
+        "final_replica_summary_invalid",
+        ["final_collection", "summary"],
+        "The Final replica evidence is missing, incomplete, or inconsistent."
+      )
+
+  def final_replica_mismatch,
+    do:
+      new(
+        "conflict",
+        "final_replica_mismatch",
+        ["final_collection", "summary"],
+        "The measured Final replicas do not hold equal evidence."
+      )
+
+  def incomplete_final_family,
+    do:
+      new(
+        "unavailable",
+        "incomplete_final_family",
+        ["final_collection"],
+        "The Final tier run family is incomplete."
+      )
+
   defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_label(_reason), do: "unavailable"
 

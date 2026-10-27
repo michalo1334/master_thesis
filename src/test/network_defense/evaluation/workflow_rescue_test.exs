@@ -6,8 +6,15 @@ defmodule NetworkDefense.Evaluation.WorkflowRescueTest do
   alias NetworkDefense.Evaluation.Final.Workflow
   alias NetworkDefense.Evaluation.FinalConformance
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{FinalCollectionWorkflow, GustWaiter, Resume}
-  alias NetworkDefense.Evaluation.StudyPhase
+
+  alias NetworkDefense.Evaluation.Study.{
+    FinalTierAwaiter,
+    FinalTierWorkflow,
+    GustWaiter,
+    Resume
+  }
+
+  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhaseRun}
   alias NetworkDefense.Repo
 
   @execution_id "00000000-0000-4000-8000-000000000001"
@@ -15,15 +22,14 @@ defmodule NetworkDefense.Evaluation.WorkflowRescueTest do
   # Inject failures at public dependencies. Do not stop repositories or change
   # database tables to simulate outages.
   for {id, boundary, operation, dependency, function, arity} <- [
-        {"RESCUE-01", FinalCollectionWorkflow, :create, Repo, :get, 2},
-        {"RESCUE-02", FinalCollectionWorkflow, :dispatch, Gust.Flows, :get_run!, 1},
-        {"RESCUE-03", FinalCollectionWorkflow, :result, Gust.Flows, :get_tasks_by_name, 2},
-        {"RESCUE-04", Workflow, :create, Binding, :verify, 2},
-        {"RESCUE-05", Workflow, :dispatch, Gust.Flows, :get_run!, 1},
-        {"RESCUE-06", Workflow, :await, GustWaiter, :await, 2},
-        {"RESCUE-07", Workflow, :result, Gust.Repo, :get, 2},
-        {"RESCUE-08", Workflow, :failure_for_run, Gust.Flows, :get_run_with_tasks!, 1},
-        {"RESCUE-09", Resume, :resume, Repo, :transaction, 1}
+        {"RESCUE-01", FinalTierWorkflow, :create, Repo, :get, 2},
+        {"RESCUE-02", FinalTierAwaiter, :await, Repo, :get, 2},
+        {"RESCUE-03", Workflow, :create, Binding, :verify, 2},
+        {"RESCUE-04", Workflow, :dispatch, Gust.Flows, :get_run!, 1},
+        {"RESCUE-05", Workflow, :await, GustWaiter, :await, 2},
+        {"RESCUE-06", Workflow, :result, Gust.Repo, :get, 2},
+        {"RESCUE-07", Workflow, :failure_for_run, Gust.Flows, :get_run_with_tasks!, 1},
+        {"RESCUE-08", Resume, :resume, Repo, :transaction, 1}
       ] do
     @tag type: :unit
     test "#{id}: WHEN #{inspect(boundary)}.#{operation} encounters an exception, it SHALL propagate defects and bound only database failures" do
@@ -54,27 +60,47 @@ defmodule NetworkDefense.Evaluation.WorkflowRescueTest do
   end
 
   @tag type: :unit
-  test "RESCUE-10: WHEN the waiter is unavailable, Final await SHALL keep its bounded unavailable error" do
+  test "RESCUE-09: WHEN the waiter is unavailable, Final await SHALL keep its bounded unavailable error" do
     :meck.new(GustWaiter, [:passthrough, :no_link])
     on_exit(fn -> :meck.unload(GustWaiter) end)
     :meck.expect(GustWaiter, :await, fn 1, 0 -> {:error, :unavailable} end)
 
     assert Workflow.await(1, 0) == {:error, FinalError.unavailable()}
-
-    assert FinalCollectionWorkflow.await(1, 0) ==
-             {:error, StudyError.final_collection_workflow_failed()}
   end
 
-  defp arguments(FinalCollectionWorkflow, :create),
-    do: [%StudyPhase{execution_id: @execution_id}]
+  defp arguments(FinalTierWorkflow, :create),
+    do: [
+      %StudyPhaseRun{
+        id: @execution_id,
+        study_phase_id: @execution_id,
+        tier: "core",
+        tier_position: 0
+      }
+    ]
+
+  defp arguments(FinalTierAwaiter, :await),
+    do: [
+      %StudyExecution{id: @execution_id},
+      %StudyPhaseRun{
+        id: @execution_id,
+        study_phase_id: @execution_id,
+        tier: "core",
+        tier_position: 0,
+        gust_run_id: 1
+      },
+      0
+    ]
 
   defp arguments(Workflow, :create), do: [FinalConformance.request()]
   defp arguments(Workflow, :await), do: [1, 0]
   defp arguments(Resume, :resume), do: [@execution_id, :recommended]
   defp arguments(_boundary, _operation), do: [1]
 
-  defp bounded_error(FinalCollectionWorkflow, _operation),
+  defp bounded_error(FinalTierWorkflow, _operation),
     do: {:error, StudyError.final_collection_workflow_failed()}
+
+  defp bounded_error(FinalTierAwaiter, _operation),
+    do: {:error, StudyError.final_timing_unavailable()}
 
   defp bounded_error(Resume, :resume),
     do: {:error, StudyError.final_selection_storage_failed()}

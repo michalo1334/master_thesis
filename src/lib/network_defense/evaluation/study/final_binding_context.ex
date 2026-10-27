@@ -4,7 +4,15 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
   import Ecto.Query
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.{FinalSelection, PilotOutcome, Revisions}
+
+  alias NetworkDefense.Evaluation.Study.{
+    Collection,
+    FinalSelection,
+    PhaseRuns,
+    PilotOutcome,
+    Revisions
+  }
+
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
@@ -47,7 +55,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
     with {:ok, context} <- load(execution_id),
          :ok <- require_post_collection_state(context.execution),
          {:ok, phase} <- load_final_collection_phase(context.execution),
-         :ok <- verify_final_collection_phase(phase) do
+         :ok <- verify_final_collection_phase(phase, context.definition) do
       {:ok, %{context | accepted_final_collection_phase: phase}}
     end
   end
@@ -102,15 +110,34 @@ defmodule NetworkDefense.Evaluation.Study.FinalBindingContext do
     end
   end
 
-  defp verify_final_collection_phase(%StudyPhase{} = phase) do
-    with true <- is_integer(phase.gust_run_id) and phase.gust_run_id > 0,
+  # The accepted Final collection phase holds one linked Gust run for each
+  # declared tier in first-seen comparison order, one accepted snapshot, and no
+  # scalar phase run.
+  defp verify_final_collection_phase(%StudyPhase{} = phase, %Definition{} = definition) do
+    with true <- is_nil(phase.gust_run_id),
          true <- is_nil(phase.error),
-         {:ok, _snapshot_id} <- Ecto.UUID.cast(phase.snapshot_id) do
+         {:ok, _snapshot_id} <- Ecto.UUID.cast(phase.snapshot_id),
+         :ok <- verify_ordered_family(phase, definition) do
       :ok
     else
       _invalid_or_incomplete -> {:error, StudyError.final_source_mismatch()}
     end
   end
+
+  defp verify_ordered_family(%StudyPhase{id: phase_id}, %Definition{} = definition) do
+    with {:ok, tiers} <- Collection.tier_order(definition),
+         {:ok, rows} <- PhaseRuns.ordered_for_phase(phase_id),
+         true <- Enum.map(rows, & &1.tier) == tiers,
+         true <- Enum.map(rows, & &1.tier_position) == tier_positions(tiers),
+         true <- Enum.all?(rows, &(&1.study_phase_id == phase_id)),
+         true <- Enum.all?(rows, &(is_integer(&1.gust_run_id) and &1.gust_run_id > 0)) do
+      :ok
+    else
+      _incomplete -> {:error, StudyError.final_source_mismatch()}
+    end
+  end
+
+  defp tier_positions(tiers), do: Enum.to_list(0..(length(tiers) - 1))
 
   defp verify_stored_source(execution, selection, definition, outcome, phase) do
     with :ok <- verify_stored_phase(execution, phase),

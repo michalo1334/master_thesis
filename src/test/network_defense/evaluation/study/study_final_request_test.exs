@@ -4,8 +4,22 @@ defmodule NetworkDefense.Evaluation.Study.FinalRequestTest do
   alias NetworkDefense.Evaluation.EvidenceSnapshots
   alias NetworkDefense.Evaluation.Final.Binding
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request, SnapshotInput}
-  alias NetworkDefense.Evaluation.Study.{FinalRequest, FinalSnapshot, PilotOutcome}
-  alias NetworkDefense.Evaluation.{StudyExecution, StudyFixtures, StudyPhase}
+
+  alias NetworkDefense.Evaluation.Study.{
+    FinalBindingContext,
+    FinalRequest,
+    FinalSnapshot,
+    PilotOutcome
+  }
+
+  alias NetworkDefense.Evaluation.{
+    StudyExecution,
+    StudyFixtures,
+    StudyPhase,
+    StudyPhaseRun
+  }
+
+  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
 
   setup do
     final_context(:recommended)
@@ -92,6 +106,39 @@ defmodule NetworkDefense.Evaluation.Study.FinalRequestTest do
              PilotOutcome.parse(execution.pilot_outcome)
   end
 
+  test "F20-02: WHEN the Final tier-run family is incomplete or misordered, THE Final analysis source SHALL be rejected",
+       context do
+    assert {:ok, %Request{}} =
+             FinalRequest.build(context.execution.id, context.snapshot_id)
+
+    # One extra tier row no longer matches the declared tier order.
+    %StudyPhaseRun{}
+    |> StudyPhaseRun.changeset(%{
+      study_phase_id: context.final_phase.id,
+      tier: "extra",
+      tier_position: 9,
+      gust_run_id: 999_001
+    })
+    |> Repo.insert!()
+
+    assert {:error, %FinalError{}} =
+             FinalRequest.build(context.execution.id, context.snapshot_id)
+
+    assert {:error, %StudyError{}} =
+             FinalBindingContext.load_for_analysis(context.execution.id)
+
+    # No tier row left: the family is incomplete.
+    Repo.delete_all(
+      from run in StudyPhaseRun, where: run.study_phase_id == ^context.final_phase.id
+    )
+
+    assert {:error, %FinalError{}} =
+             FinalRequest.build(context.execution.id, context.snapshot_id)
+
+    assert {:error, %StudyError{}} =
+             FinalBindingContext.load_for_analysis(context.execution.id)
+  end
+
   defp final_context(outcome_kind) do
     collection =
       StudyFixtures.insert_collection_graph(
@@ -126,10 +173,8 @@ defmodule NetworkDefense.Evaluation.Study.FinalRequestTest do
       })
       |> Repo.update!()
 
-    final_phase =
-      study.final_phase
-      |> StudyPhase.changeset(%{gust_run_id: 902})
-      |> Repo.update!()
+    final_phase = study.final_phase
+    _phase_runs = StudyFixtures.link_final_phase_runs!(definition, final_phase)
 
     items = StudyFixtures.collect_pilot_items(execution, final_phase, definition)
     {:ok, snapshot_id} = FinalSnapshot.assemble_and_store(final_phase, items, definition)

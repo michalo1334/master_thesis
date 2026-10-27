@@ -9,7 +9,15 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   alias NetworkDefense.Evaluation.Study.CompactResult.{AnalysisReference, CollectionReference}
   alias NetworkDefense.Evaluation.Study.CompactResult.PilotAnalysisReference
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{FinalSelection, Lifecycle, PilotOutcome, Revisions}
+
+  alias NetworkDefense.Evaluation.Study.{
+    Collection,
+    FinalSelection,
+    Lifecycle,
+    PhaseRuns,
+    PilotOutcome,
+    Revisions
+  }
 
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyResult}
   alias NetworkDefense.Repo
@@ -64,7 +72,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
          {:ok, selection} <- FinalSelection.from_execution(execution),
          {:ok, outcome} <- parse_outcome(execution.pilot_outcome),
          {:ok, phases} <- lock_phases(execution),
-         :ok <- validate_phases(execution, phases),
+         :ok <- validate_phases(execution, definition, phases),
          :ok <- validate_final_result(execution, selection, definition, phases, final_result),
          {:ok, compact} <-
            compact_result(execution, selection, outcome, definition, phases, final_result),
@@ -110,19 +118,64 @@ defmodule NetworkDefense.Evaluation.Study.Results do
     end
   end
 
-  defp validate_phases(execution, phases) do
-    valid? =
-      complete_collection?(phases.pilot_collection) and
-        complete_pilot_analysis?(phases.pilot_analysis, execution.pilot_outcome) and
-        complete_collection?(phases.final_collection) and
-        empty_final_analysis?(phases.final_analysis)
-
-    if valid?, do: :ok, else: {:error, StudyError.final_result_invalid()}
+  defp validate_phases(execution, definition, phases) do
+    with :ok <- validate_pilot_collection(phases.pilot_collection),
+         :ok <- validate_pilot_analysis(phases.pilot_analysis, execution.pilot_outcome),
+         :ok <- validate_final_collection(phases.final_collection, definition) do
+      validate_final_analysis(phases.final_analysis)
+    end
   end
 
-  defp complete_collection?(%StudyPhase{} = phase) do
+  defp validate_pilot_collection(%StudyPhase{} = phase) do
+    if complete_pilot_collection?(phase),
+      do: :ok,
+      else: {:error, StudyError.final_result_invalid()}
+  end
+
+  defp validate_pilot_analysis(%StudyPhase{} = phase, outcome) do
+    if complete_pilot_analysis?(phase, outcome),
+      do: :ok,
+      else: {:error, StudyError.final_result_invalid()}
+  end
+
+  defp validate_final_collection(%StudyPhase{} = phase, definition) do
+    if complete_final_collection?(phase, definition),
+      do: :ok,
+      else: {:error, StudyError.final_result_invalid()}
+  end
+
+  defp validate_final_analysis(%StudyPhase{} = phase) do
+    if empty_final_analysis?(phase),
+      do: :ok,
+      else: {:error, StudyError.final_result_invalid()}
+  end
+
+  defp complete_pilot_collection?(%StudyPhase{} = phase) do
     positive_run?(phase.gust_run_id) and uuid?(phase.snapshot_id) and is_nil(phase.error)
   end
+
+  # A Final collection phase owns one linked Gust run for each declared tier.
+  # The phase keeps no scalar run identification, so completeness comes from the
+  # ordered phase-run family and the accepted snapshot.
+  defp complete_final_collection?(%StudyPhase{} = phase, definition) do
+    is_nil(phase.gust_run_id) and uuid?(phase.snapshot_id) and is_nil(phase.error) and
+      match?(:ok, complete_tier_runs?(phase, definition))
+  end
+
+  defp complete_tier_runs?(%StudyPhase{id: phase_id}, definition) do
+    with {:ok, tiers} <- Collection.tier_order(definition),
+         {:ok, rows} <- PhaseRuns.ordered_for_phase(phase_id),
+         true <- Enum.map(rows, & &1.tier) == tiers,
+         true <- Enum.map(rows, & &1.tier_position) == tier_positions(tiers),
+         true <- Enum.all?(rows, &(&1.study_phase_id == phase_id)),
+         true <- Enum.all?(rows, &positive_run?(&1.gust_run_id)) do
+      :ok
+    else
+      _incomplete -> :error
+    end
+  end
+
+  defp tier_positions(tiers), do: Enum.to_list(0..(length(tiers) - 1))
 
   defp complete_pilot_analysis?(%StudyPhase{} = phase, outcome) do
     positive_run?(phase.gust_run_id) and phase.result_ref == outcome and is_nil(phase.error)
@@ -175,35 +228,53 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   defp strategy_name(value) when is_binary(value), do: value
 
   defp compact_result(execution, selection, outcome, definition, phases, final_result) do
-    compact = %CompactResult{
-      study_revision_id: execution.study_revision_id,
-      execution_id: execution.id,
-      pilot_collection: collection_reference(phases.pilot_collection),
-      pilot_analysis: %PilotAnalysisReference{
-        phase_id: phases.pilot_analysis.id,
-        gust_run_id: phases.pilot_analysis.gust_run_id,
-        outcome: outcome
-      },
-      selection: selection,
-      final_collection: collection_reference(phases.final_collection),
-      final_analysis: %AnalysisReference{
-        phase_id: phases.final_analysis.id,
-        gust_run_id: phases.final_analysis.gust_run_id
-      },
-      final_result: final_result,
-      revision_assertions: definition.study.revisions,
-      timing: nil
-    }
+    with {:ok, pilot_collection} <- collection_reference(phases.pilot_collection),
+         {:ok, final_collection} <- collection_reference(phases.final_collection) do
+      compact = %CompactResult{
+        study_revision_id: execution.study_revision_id,
+        execution_id: execution.id,
+        pilot_collection: pilot_collection,
+        pilot_analysis: %PilotAnalysisReference{
+          phase_id: phases.pilot_analysis.id,
+          gust_run_id: phases.pilot_analysis.gust_run_id,
+          outcome: outcome
+        },
+        selection: selection,
+        final_collection: final_collection,
+        final_analysis: %AnalysisReference{
+          phase_id: phases.final_analysis.id,
+          gust_run_id: phases.final_analysis.gust_run_id
+        },
+        final_result: final_result,
+        revision_assertions: definition.study.revisions,
+        timing: nil
+      }
 
-    compact |> CompactResult.to_params() |> CompactResult.parse()
+      compact |> CompactResult.to_params() |> CompactResult.parse()
+    end
   end
 
-  defp collection_reference(phase) do
-    %CollectionReference{
-      phase_id: phase.id,
-      gust_run_id: phase.gust_run_id,
-      snapshot_id: phase.snapshot_id
-    }
+  defp collection_reference(%StudyPhase{phase: :final_collection} = phase) do
+    with {:ok, run_ids} <- PhaseRuns.ordered_run_ids(phase.id),
+         true <- Enum.all?(run_ids, &positive_run?/1) do
+      {:ok,
+       %CollectionReference{
+         phase_id: phase.id,
+         gust_run_ids: run_ids,
+         snapshot_id: phase.snapshot_id
+       }}
+    else
+      _incomplete -> {:error, StudyError.incomplete_final_family()}
+    end
+  end
+
+  defp collection_reference(%StudyPhase{} = phase) do
+    {:ok,
+     %CollectionReference{
+       phase_id: phase.id,
+       gust_run_ids: [phase.gust_run_id],
+       snapshot_id: phase.snapshot_id
+     }}
   end
 
   defp insert_result(execution, compact) do
@@ -260,7 +331,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
          true <- compact.selection == selection,
          true <- compact.pilot_analysis.outcome == outcome,
          true <- compact.revision_assertions == definition.study.revisions,
-         true <- readback_phases_match?(compact, phases, row.id),
+         true <- readback_phases_match?(compact, phases, row.id, definition),
          :ok <-
            validate_final_result(
              execution,
@@ -292,14 +363,14 @@ defmodule NetworkDefense.Evaluation.Study.Results do
     end
   end
 
-  defp readback_phases_match?(compact, phases, result_id) do
+  defp readback_phases_match?(compact, phases, result_id, definition) do
     checks = [
-      complete_collection?(phases.pilot_collection),
+      complete_pilot_collection?(phases.pilot_collection),
       complete_pilot_analysis?(
         phases.pilot_analysis,
         PilotOutcome.to_params(compact.pilot_analysis.outcome)
       ),
-      complete_collection?(phases.final_collection),
+      complete_final_collection?(phases.final_collection, definition),
       positive_run?(phases.final_analysis.gust_run_id),
       is_nil(phases.final_analysis.error),
       phases.final_analysis.result_ref == %{"study_result_id" => result_id},
@@ -315,9 +386,17 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   end
 
   defp collection_matches?(reference, phase) do
-    reference.phase_id == phase.id and reference.gust_run_id == phase.gust_run_id and
-      reference.snapshot_id == phase.snapshot_id
+    reference.phase_id == phase.id and reference.snapshot_id == phase.snapshot_id and
+      stored_run_ids?(reference.gust_run_ids, phase)
   end
+
+  # The stored list must equal the authoritative ordered run IDs of the phase.
+  defp stored_run_ids?(stored, %StudyPhase{phase: :final_collection} = phase) do
+    is_nil(phase.gust_run_id) and
+      match?({:ok, ^stored}, PhaseRuns.ordered_run_ids(phase.id))
+  end
+
+  defp stored_run_ids?(stored, %StudyPhase{gust_run_id: run_id}), do: stored == [run_id]
 
   defp transaction_result({:ok, {:ok, compact}}), do: {:ok, compact}
   defp transaction_result({:error, {:stop, state}}), do: {:stop, state}

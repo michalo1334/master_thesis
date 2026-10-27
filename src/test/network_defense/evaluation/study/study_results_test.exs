@@ -10,6 +10,7 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
     StudyExecution,
     StudyFixtures,
     StudyPhase,
+    StudyPhaseRun,
     StudyResult
   }
 
@@ -25,7 +26,7 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
     {:ok, final_snapshot} =
       FinalConformance.store_snapshot(fixture.snapshot)
 
-    context = StudyFixtures.accept_final_collection!(context, final_snapshot.id, 902)
+    context = StudyFixtures.accept_final_collection!(context, final_snapshot.id)
 
     pilot_collection = StudyFixtures.insert_phase(context.execution, :pilot_collection)
 
@@ -97,6 +98,97 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
 
     assert_raise Postgrex.Error, fn ->
       Repo.transaction(fn -> Repo.delete!(row) end)
+    end
+  end
+
+  test "C-14: WHEN a compact result is created, THE Pilot collection reference SHALL contain one run ID and THE Final collection reference SHALL contain the ordered tier-run IDs",
+       context do
+    assert {:ok, %CompactResult{} = compact} =
+             Results.create_success(context.execution, context.final_result)
+
+    phase_runs =
+      Repo.all(
+        from run in StudyPhaseRun,
+          where: run.study_phase_id == ^context.final_collection.id,
+          order_by: run.tier_position
+      )
+
+    assert length(phase_runs) == length(context.definition.family.comparisons)
+    assert compact.pilot_collection.gust_run_ids == [context.pilot_collection.gust_run_id]
+    assert compact.final_collection.gust_run_ids == Enum.map(phase_runs, & &1.gust_run_id)
+    assert is_nil(Repo.get!(StudyPhase, context.final_collection.id).gust_run_id)
+
+    params = CompactResult.to_params(compact)
+    assert params["final_collection"]["gust_run_ids"] == Enum.map(phase_runs, & &1.gust_run_id)
+    refute Map.has_key?(params["final_collection"], "gust_run_id")
+  end
+
+  test "C-15: WHEN a compact result is read, THE stored run-ID lists SHALL match the authoritative phase and phase-run rows",
+       context do
+    assert {:ok, %CompactResult{} = compact} =
+             Results.create_success(context.execution, context.final_result)
+
+    assert {:ok, ^compact} = Results.get_for_execution(context.execution.id)
+
+    # The stored list must match the authoritative ordered phase-run rows.
+    Repo.get_by!(StudyPhaseRun, study_phase_id: context.final_collection.id, tier_position: 1)
+    |> Repo.delete!()
+
+    assert Results.get_for_execution(context.execution.id) ==
+             {:error, StudyError.result_unavailable()}
+  end
+
+  test "C-15: WHEN the authoritative tier rows change after creation, THE stored run-ID list SHALL be rejected on read",
+       context do
+    assert {:ok, %CompactResult{} = compact} =
+             Results.create_success(context.execution, context.final_result)
+
+    [first, second | _rest] = ordered_runs(context.final_collection.id)
+    assert compact.final_collection.gust_run_ids == [first.gust_run_id, second.gust_run_id]
+
+    # One authoritative run ID no longer matches the stored list.
+    second
+    |> Ecto.Changeset.change(%{gust_run_id: second.gust_run_id + 500})
+    |> Repo.update!()
+
+    assert Results.get_for_execution(context.execution.id) ==
+             {:error, StudyError.result_unavailable()}
+
+    # Restored rows match again; the same runs in a different order do not.
+    second
+    |> Repo.reload!()
+    |> Ecto.Changeset.change(%{gust_run_id: second.gust_run_id})
+    |> Repo.update!()
+
+    assert {:ok, ^compact} = Results.get_for_execution(context.execution.id)
+
+    first |> Ecto.Changeset.change(%{tier_position: 99}) |> Repo.update!()
+
+    assert Results.get_for_execution(context.execution.id) ==
+             {:error, StudyError.result_unavailable()}
+  end
+
+  test "C-16: WHEN a result carries the removed scalar collection field or an invalid run-ID list, THE strict parser SHALL reject it",
+       context do
+    assert {:ok, compact} = Results.create_success(context.execution, context.final_result)
+    params = CompactResult.to_params(compact)
+
+    [first_run_id | _rest_run_ids] = params["final_collection"]["gust_run_ids"]
+
+    invalid_payloads = [
+      params
+      |> put_in(["final_collection", "gust_run_id"], first_run_id)
+      |> Map.update!("final_collection", &Map.delete(&1, "gust_run_ids")),
+      put_in(params, ["final_collection", "gust_run_ids"], []),
+      put_in(params, ["final_collection", "gust_run_ids"], [0]),
+      put_in(params, ["final_collection", "gust_run_ids"], [first_run_id, -1]),
+      put_in(params, ["final_collection", "gust_run_ids"], [first_run_id, first_run_id]),
+      put_in(params, ["pilot_collection", "gust_run_ids"], "not-a-list")
+    ]
+
+    for invalid <- invalid_payloads do
+      assert {:error, error} = CompactResult.parse(invalid)
+      assert error == StudyError.final_result_invalid()
     end
   end
 
@@ -191,5 +283,13 @@ defmodule NetworkDefense.Evaluation.Study.ResultsTest do
     assert Repo.aggregate(StudyResult, :count, :id) == 1
     assert Repo.reload!(context.execution).state == :analyzing_final
     assert Repo.reload!(context.final_analysis).result_ref == nil
+  end
+
+  defp ordered_runs(phase_id) do
+    Repo.all(
+      from run in StudyPhaseRun,
+        where: run.study_phase_id == ^phase_id,
+        order_by: run.tier_position
+    )
   end
 end

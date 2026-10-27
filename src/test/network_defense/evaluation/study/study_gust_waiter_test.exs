@@ -9,7 +9,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
 
   alias NetworkDefense.Evaluation.Study.{
     CollectionWorkflow,
-    FinalCollectionWorkflow,
+    FinalTierWorkflow,
     GustRunNotifier,
     GustWaiter
   }
@@ -190,7 +190,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
           Workflow,
           FinalWorkflow,
           CollectionWorkflow,
-          FinalCollectionWorkflow
+          FinalTierWorkflow
         ] do
       imported_modules = imported_modules(module)
       refute Gust.PubSub in imported_modules
@@ -248,12 +248,8 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
     assert FinalWorkflow.await(run.id, 100) == {:error, FinalError.unavailable()}
   end
 
-  test "STUDY-WAITER-16: Final collection await maps an unavailable Registry to its bounded error",
-       %{dag: dag} do
-    run = create_run(dag)
-    stop_waiter_registry()
-
-    assert FinalCollectionWorkflow.await(run.id, 100) ==
+  test "STUDY-WAITER-16: Final tier result maps an unknown run to its bounded error" do
+    assert FinalTierWorkflow.result(9_000_000) ==
              {:error, StudyError.final_collection_workflow_failed()}
   end
 
@@ -309,7 +305,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyGustWaiterTest do
         "priv/gust/dags/evaluation_pilot.exs",
         "priv/gust/dags/evaluation_final.exs",
         "priv/gust/dags/evaluation_study_pilot_collection.exs",
-        "priv/gust/dags/evaluation_study_final_collection.exs"
+        "priv/gust/dags/evaluation_study_final_tier_collection.exs"
       ]
       |> Enum.flat_map(fn path -> Code.compile_file(Path.join(root, path)) end)
       |> Enum.map(&elem(&1, 0))

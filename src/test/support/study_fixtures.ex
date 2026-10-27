@@ -4,6 +4,7 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
   alias NetworkDefense.Evaluation.Study.Collection
   alias NetworkDefense.Evaluation.Study.CollectionItems
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
+  alias NetworkDefense.Evaluation.Study.PhaseRuns
   alias NetworkDefense.Evaluation.Study.PilotOutcome
 
   alias NetworkDefense.Evaluation.{
@@ -18,7 +19,7 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
   alias NetworkDefense.Evaluation.StudyConformance
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment}
+  alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
 
   alias NetworkDefense.Optimization.Contracts.{
     OptimizationParams,
@@ -26,7 +27,7 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     SimulationSettings
   }
 
-  alias NetworkDefense.Relationships.{Contains, Supports}
+  alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability, Supports}
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
@@ -187,8 +188,14 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     )
   end
 
-  @doc "Persist the accepted Final collection run and snapshot, then enter Final analysis."
-  def accept_final_collection!(context, snapshot_id, run_id \\ 902) do
+  @doc """
+  Persist the accepted Final collection snapshot and the ordered tier-run family,
+  then enter Final analysis.
+
+  The Final collection phase keeps no scalar Gust run. One phase-run row holds
+  the one Gust run of each declared tier, in first-seen comparison order.
+  """
+  def accept_final_collection!(context, snapshot_id, run_ids \\ nil) do
     Repo.transaction(fn ->
       _snapshot = Repo.get!(EvidenceSnapshot, snapshot_id)
       phase = Repo.get!(StudyPhase, context.final_phase.id)
@@ -199,17 +206,51 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
       end
 
       phase =
-        phase
-        |> StudyPhase.changeset(%{snapshot_id: snapshot_id, gust_run_id: run_id, error: nil})
-        |> Repo.update!()
+        phase |> StudyPhase.changeset(%{snapshot_id: snapshot_id, error: nil}) |> Repo.update!()
+
+      phase_runs =
+        link_final_phase_runs!(
+          context.definition,
+          phase,
+          if(is_nil(run_ids), do: [], else: [run_ids: run_ids])
+        )
 
       execution = accept_final_analysis_state!(execution)
-      %{context | execution: execution, final_phase: phase}
+
+      context
+      |> Map.merge(%{execution: execution, final_phase: phase})
+      |> Map.put(:final_phase_runs, phase_runs)
     end)
     |> case do
       {:ok, accepted} -> accepted
       {:error, reason} -> raise "could not accept Final collection: #{inspect(reason)}"
     end
+  end
+
+  @doc """
+  Store one linked Gust run for each declared tier of a Final collection phase.
+
+  A caller that needs only the ordered family, without a snapshot, uses this
+  helper directly.
+  """
+  def link_final_phase_runs!(%Definition{} = definition, %StudyPhase{} = phase, opts \\ []) do
+    {:ok, tiers} = Collection.tier_order(definition)
+    run_ids = Keyword.get(opts, :run_ids, unique_run_ids(length(tiers)))
+
+    tiers
+    |> Enum.with_index()
+    |> Enum.map(fn {tier, tier_position} ->
+      {:ok, row} = PhaseRuns.get_or_create(phase, tier, tier_position)
+      {:ok, linked} = PhaseRuns.link_gust_run(row, Enum.at(run_ids, tier_position))
+      linked
+    end)
+  end
+
+  # A Gust run belongs to one phase run, so a stored fixture family needs run
+  # identifiers that no other stored row already holds.
+  defp unique_run_ids(count) do
+    base = 1_000_000 + System.unique_integer([:positive, :monotonic])
+    Enum.map(0..(count - 1), &(base + &1))
   end
 
   @doc "One stored execution with a frozen Final selection and an accepted Pilot analysis phase."
@@ -315,22 +356,92 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
       |> Graph.add_node(alternate)
       |> add_contains(segment, foothold)
       |> add_contains(segment, alternate)
-      |> add_mission_capabilities(foothold, alternate, Keyword.get(opts, :mission, false))
+
+    {graph, required_flows} =
+      add_required_flow(graph, segment, Keyword.get(opts, :required_flow, false))
+
+    graph =
+      add_mission_capabilities(
+        graph,
+        foothold,
+        alternate,
+        Keyword.get(opts, :mission, false),
+        required_flows
+      )
 
     {:ok, inserted} = Graphs.insert(graph)
 
-    %{graph: inserted, foothold: foothold, alternate_foothold: alternate}
+    %{
+      graph: inserted,
+      foothold: foothold,
+      alternate_foothold: alternate,
+      required_flows: required_flows
+    }
+  end
+
+  # One declared flow needs a policy to the segment that runs the target service.
+  # The option adds two flows with different source segments, so projection order
+  # is comparable with the declared order.
+  defp add_required_flow(graph, _segment, false), do: {graph, []}
+
+  defp add_required_flow(graph, segment, true) do
+    target_segment = GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "internal"})
+    target_host = GraphFixtures.build_node(graph, Host, %{"name" => "service-host"})
+    dmz = GraphFixtures.build_node(graph, NetworkSegment, %{"name" => "dmz"})
+    dmz_host = GraphFixtures.build_node(graph, Host, %{"name" => "dmz-host"})
+
+    api =
+      GraphFixtures.build_node(graph, Service, %{
+        "name" => "api",
+        "protocol" => "tcp",
+        "port" => 8080
+      })
+
+    database =
+      GraphFixtures.build_node(graph, Service, %{
+        "name" => "db",
+        "protocol" => "tcp",
+        "port" => 5432
+      })
+
+    graph =
+      graph
+      |> Graph.add_node(target_segment)
+      |> Graph.add_node(target_host)
+      |> Graph.add_node(dmz)
+      |> Graph.add_node(dmz_host)
+      |> Graph.add_node(api)
+      |> Graph.add_node(database)
+      |> add_contains(target_segment, target_host)
+      |> add_contains(dmz, dmz_host)
+      |> Graph.add_edge(relationship_edge(graph, target_host, api, Runs))
+      |> Graph.add_edge(relationship_edge(graph, target_host, database, Runs))
+      |> add_policy(segment, target_segment)
+      |> add_policy(dmz, target_segment)
+
+    {graph,
+     [
+       %{"source_segment_id" => segment.id, "target_service_id" => api.id},
+       %{"source_segment_id" => dmz.id, "target_service_id" => database.id}
+     ]}
+  end
+
+  defp add_policy(graph, from, to) do
+    Graph.add_edge(
+      graph,
+      relationship_edge(graph, from, to, SegmentReachability, %{"protocol" => "tcp"})
+    )
   end
 
   defp add_contains(graph, segment, host) do
     Graph.add_edge(graph, contains(graph, segment, host))
   end
 
-  defp add_mission_capabilities(graph, _foothold, _alternate, false), do: graph
+  defp add_mission_capabilities(graph, _foothold, _alternate, false, _required_flows), do: graph
 
-  defp add_mission_capabilities(graph, foothold, alternate, true) do
-    exclusive = mission_capability(graph, "primary", 8.0)
-    shared = mission_capability(graph, "secondary", 4.0)
+  defp add_mission_capabilities(graph, foothold, alternate, true, required_flows) do
+    exclusive = mission_capability(graph, "primary", 8.0, required_flows)
+    shared = mission_capability(graph, "secondary", 4.0, [])
 
     graph
     |> Graph.add_node(exclusive)
@@ -340,12 +451,12 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     |> add_supports(alternate, shared)
   end
 
-  defp mission_capability(graph, name, impact_weight) do
+  defp mission_capability(graph, name, impact_weight, required_flows) do
     GraphFixtures.build_node(graph, MissionCapability, %{
       "name" => name,
       "impact_weight" => impact_weight,
       "min_operational_support" => 1,
-      "required_flows" => []
+      "required_flows" => required_flows
     })
   end
 
@@ -353,8 +464,8 @@ defmodule NetworkDefense.Evaluation.StudyFixtures do
     Graph.add_edge(graph, relationship_edge(graph, host, capability, Supports))
   end
 
-  defp relationship_edge(graph, from, to, type) do
-    Edge.new(graph.id, from.id, to.id, %{type: Atom.to_string(type), data: %{}})
+  defp relationship_edge(graph, from, to, type, data \\ %{}) do
+    Edge.new(graph.id, from.id, to.id, %{type: Atom.to_string(type), data: data})
   end
 
   defp contains(graph, segment, host) do

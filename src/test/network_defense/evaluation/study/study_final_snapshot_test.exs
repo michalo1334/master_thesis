@@ -1,8 +1,8 @@
 defmodule NetworkDefense.Evaluation.Study.FinalSnapshotTest do
   use NetworkDefense.DataCase, async: false
 
+  alias NetworkDefense.Evaluation.Study.{Cancel, FinalSnapshot, PilotSnapshot}
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{FinalSnapshot, PilotSnapshot}
 
   alias NetworkDefense.Evaluation.{
     EvidenceSnapshot,
@@ -126,6 +126,104 @@ defmodule NetworkDefense.Evaluation.Study.FinalSnapshotTest do
              )
 
     assert issue["code"] == "incomplete_final_evidence"
+  end
+
+  test "C-12: WHEN supplied snapshot items include any other replica position, THE Final snapshot boundary SHALL reject them",
+       context do
+    measured_items =
+      StudyFixtures.collect_pilot_items(
+        context.execution,
+        context.final_phase,
+        context.definition,
+        1
+      )
+
+    assert {:ok, snapshot_id} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               context.final_items,
+               context.definition
+             )
+
+    assert {:error, %StudyError{issues: [issue]}} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               measured_items,
+               context.definition
+             )
+
+    assert issue["code"] == "incomplete_final_evidence"
+    assert Repo.get!(StudyPhase, context.final_phase.id).snapshot_id == snapshot_id
+  end
+
+  test "C-12: WHEN supplied snapshot items belong to another phase, THE Final snapshot boundary SHALL reject them",
+       context do
+    assert {:error, %StudyError{issues: [issue]}} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               context.pilot_items,
+               context.definition
+             )
+
+    assert issue["code"] == "incomplete_final_evidence"
+  end
+
+  test "C-13: WHEN a cancellation commits before snapshot acceptance, THE boundary SHALL stop without stored evidence",
+       context do
+    assert {:stop, :cancelled} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               context.final_items,
+               context.definition,
+               on_prepared: fn -> cancel!(context.execution.id) end
+             )
+
+    assert Repo.get!(StudyExecution, context.execution.id).state == :cancelled
+    assert is_nil(Repo.get!(StudyPhase, context.final_phase.id).snapshot_id)
+    assert final_snapshots() == []
+  end
+
+  test "C-13: WHEN a cancellation commits after snapshot acceptance, THE boundary SHALL keep the accepted snapshot",
+       context do
+    assert {:ok, snapshot_id} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               context.final_items,
+               context.definition
+             )
+
+    assert Repo.get_by!(EvidenceSnapshot, id: snapshot_id, phase: :final)
+
+    assert {:ok, %StudyExecution{state: :cancelled}} = Cancel.cancel(context.execution.id)
+
+    assert Repo.get!(StudyPhase, context.final_phase.id).snapshot_id == snapshot_id
+    assert [_] = final_snapshots()
+  end
+
+  test "C-13: WHEN the execution is not collecting Final, THE boundary SHALL reject acceptance without a new row",
+       context do
+    context.execution
+    |> StudyExecution.changeset(%{state: :collecting_pilot})
+    |> Repo.update!()
+
+    assert {:stop, :collecting_pilot} =
+             FinalSnapshot.assemble_and_store(
+               context.final_phase,
+               context.final_items,
+               context.definition
+             )
+
+    assert is_nil(Repo.get!(StudyPhase, context.final_phase.id).snapshot_id)
+    assert final_snapshots() == []
+  end
+
+  defp cancel!(execution_id) do
+    assert {:ok, %StudyExecution{state: :cancelled}} = Cancel.cancel(execution_id)
+    :ok
+  end
+
+  defp final_snapshots do
+    Repo.all(from snapshot in EvidenceSnapshot, where: snapshot.phase == :final)
   end
 
   defp disjoint_ids?(left, right, mapper) do
