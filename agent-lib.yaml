@@ -1,0 +1,19 @@
+schema: 1
+target: pi
+source:
+  url: https://github.com/michalo1334/michalo-common-agent-lib.git
+  ref: main
+bundles:
+- core
+- diagrams
+- frontend
+- research
+- github
+- ssh
+- android
+- blender
+- comfort
+- memory
+- obsidian
+- elixir-quality
+- elixir-index

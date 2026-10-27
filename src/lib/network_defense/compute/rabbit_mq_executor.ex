@@ -4,6 +4,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
   @behaviour NetworkDefense.Compute.ScatterGather.Executor
 
   alias NetworkDefense.Compute.{
+    Progress,
     RabbitMQ.Connection,
     RabbitMQ.Envelope,
     RabbitMQ.Worker,
@@ -185,7 +186,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
        ) do
     completed = state.completed + work_units
 
-    with :ok <- report_progress(state.on_progress, %{completed: completed, total: state.total}),
+    with :ok <- Progress.report(state.on_progress, %{completed: completed, total: state.total}),
          {:ok, state} <-
            publish_window(channel, %{
              state
@@ -214,17 +215,6 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
     operation.gather(results, input, %{
       compute_duration_ms: NetworkDefense.Observability.duration_ms(started_at)
     })
-  end
-
-  defp report_progress(on_progress, progress) do
-    case on_progress.(progress) do
-      {:error, _reason} = error -> error
-      _result -> :ok
-    end
-  rescue
-    error -> {:error, error}
-  catch
-    kind, reason -> {:error, {kind, reason}}
   end
 
   defp operation_name(NetworkDefense.Simulation.SimulationOperation), do: {:ok, "simulation"}

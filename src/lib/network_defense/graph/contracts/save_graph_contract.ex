@@ -3,7 +3,7 @@ defmodule NetworkDefense.Graph.Contracts.SaveGraphContract do
 
   use NetworkDefense.Contracts, category: :graph
 
-  alias NetworkDefense.Graph.Contracts.{Edge, Node}
+  alias NetworkDefense.Graph.Contracts.{Edge, Mapper, Node}
 
   embedded_schema do
     field :id, :string
@@ -33,28 +33,14 @@ defmodule NetworkDefense.Graph.Contracts.SaveGraphContract do
   end
 
   def to_replace_attrs(%__MODULE__{} = graph) do
-    with {:ok, nodes} <- map_contracts(graph.nodes, &Node.to_attrs/1),
-         {:ok, edges} <- map_contracts(graph.edges, &Edge.to_attrs/1) do
+    with {:ok, nodes} <- Mapper.map(graph.nodes, &Node.to_attrs/1),
+         {:ok, edges} <- Mapper.map(graph.edges, &Edge.to_attrs/1) do
       {:ok,
        %{
          id: graph.id,
          base_revision_id: graph.revision_id,
          attrs: %{"title" => graph.title, "nodes" => nodes, "edges" => edges}
        }}
-    end
-  end
-
-  defp map_contracts(values, mapper) do
-    Enum.reduce_while(values, {:ok, []}, fn value, {:ok, mapped} ->
-      case mapper.(value) do
-        {:ok, contract} -> {:cont, {:ok, [contract | mapped]}}
-        :error -> {:halt, :error}
-        {:error, _reason} = error -> {:halt, error}
-      end
-    end)
-    |> case do
-      {:ok, mapped} -> {:ok, Enum.reverse(mapped)}
-      error -> error
     end
   end
 end

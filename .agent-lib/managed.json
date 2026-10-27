@@ -1,0 +1,454 @@
+{
+  "schema": 1,
+  "files": [
+    ".agent-lib/bin/agent_lib.py",
+    ".agent-lib/bin/elixir_setup.py",
+    ".agent-lib/elixir/installer/lib/mix/tasks/agent_lib_elixir.install.ex",
+    ".agent-lib/elixir/installer/mix.exs",
+    ".agent-lib/elixir/preflight.exs",
+    ".agent-lib/elixir/recipes.yaml",
+    ".agent-lib/instructions/common.md",
+    ".agent-lib/requirements.txt",
+    ".gitignore",
+    ".pi/APPEND_SYSTEM.md",
+    ".pi/agents/planner.md",
+    ".pi/agents/reviewer.md",
+    ".pi/agents/scout.md",
+    ".pi/agents/worker.md",
+    ".pi/mcp-adapter.json",
+    ".pi/settings.json",
+    ".pi/skills/asd-ste100/LICENSE",
+    ".pi/skills/asd-ste100/README.md",
+    ".pi/skills/asd-ste100/SKILL.md",
+    ".pi/skills/asd-ste100/examples/before-after.md",
+    ".pi/skills/asd-ste100/references/writing-rules.md",
+    ".pi/skills/c4-architecture/README.md",
+    ".pi/skills/c4-architecture/SKILL.md",
+    ".pi/skills/c4-architecture/references/advanced-patterns.md",
+    ".pi/skills/c4-architecture/references/c4-syntax.md",
+    ".pi/skills/c4-architecture/references/common-mistakes.md",
+    ".pi/skills/first-principles-debugging/SKILL.md",
+    ".pi/skills/first-principles-debugging/references/methods.md",
+    ".pi/skills/grilling/SKILL.md",
+    ".pi/skills/impeccable/SKILL.md",
+    ".pi/skills/impeccable/reference/adapt.md",
+    ".pi/skills/impeccable/reference/adapt.native.md",
+    ".pi/skills/impeccable/reference/android.md",
+    ".pi/skills/impeccable/reference/animate.md",
+    ".pi/skills/impeccable/reference/audit.md",
+    ".pi/skills/impeccable/reference/audit.native.md",
+    ".pi/skills/impeccable/reference/bolder.md",
+    ".pi/skills/impeccable/reference/clarify.md",
+    ".pi/skills/impeccable/reference/colorize.md",
+    ".pi/skills/impeccable/reference/craft-floor.md",
+    ".pi/skills/impeccable/reference/craft.md",
+    ".pi/skills/impeccable/reference/critique.md",
+    ".pi/skills/impeccable/reference/degraded/asset-producer.md",
+    ".pi/skills/impeccable/reference/degraded/documenter.md",
+    ".pi/skills/impeccable/reference/degraded/finish-reviewer.md",
+    ".pi/skills/impeccable/reference/degraded/manual-edit-applier.md",
+    ".pi/skills/impeccable/reference/delight.md",
+    ".pi/skills/impeccable/reference/distill.md",
+    ".pi/skills/impeccable/reference/doctor.md",
+    ".pi/skills/impeccable/reference/document.md",
+    ".pi/skills/impeccable/reference/extract.md",
+    ".pi/skills/impeccable/reference/harden.md",
+    ".pi/skills/impeccable/reference/hooks.md",
+    ".pi/skills/impeccable/reference/init.md",
+    ".pi/skills/impeccable/reference/ios.md",
+    ".pi/skills/impeccable/reference/layout.md",
+    ".pi/skills/impeccable/reference/live-setup.md",
+    ".pi/skills/impeccable/reference/live.md",
+    ".pi/skills/impeccable/reference/new-work.md",
+    ".pi/skills/impeccable/reference/onboard.md",
+    ".pi/skills/impeccable/reference/operate.md",
+    ".pi/skills/impeccable/reference/optimize.md",
+    ".pi/skills/impeccable/reference/overdrive.md",
+    ".pi/skills/impeccable/reference/polish.md",
+    ".pi/skills/impeccable/reference/quieter.md",
+    ".pi/skills/impeccable/reference/routing.md",
+    ".pi/skills/impeccable/reference/shape.md",
+    ".pi/skills/impeccable/reference/typeset.md",
+    ".pi/skills/impeccable/reference/visualize.md",
+    ".pi/skills/impeccable/scripts/VERSION",
+    ".pi/skills/impeccable/scripts/bin/linux-x64/impeccable",
+    ".pi/skills/impeccable/scripts/command-metadata.json",
+    ".pi/skills/impeccable/scripts/data/font-index-failures.json",
+    ".pi/skills/impeccable/scripts/data/font-index.json",
+    ".pi/skills/impeccable/scripts/impeccable",
+    ".pi/skills/impeccable/scripts/live-browser-dom.js",
+    ".pi/skills/impeccable/scripts/live-browser-ignores.js",
+    ".pi/skills/impeccable/scripts/live-browser-session.js",
+    ".pi/skills/impeccable/scripts/live-browser.js",
+    ".pi/skills/impeccable/scripts/modern-screenshot.umd.js",
+    ".pi/skills/mermaid-diagrams/README.md",
+    ".pi/skills/mermaid-diagrams/SKILL.md",
+    ".pi/skills/mermaid-diagrams/references/advanced-features.md",
+    ".pi/skills/mermaid-diagrams/references/architecture-diagrams.md",
+    ".pi/skills/mermaid-diagrams/references/c4-diagrams.md",
+    ".pi/skills/mermaid-diagrams/references/class-diagrams.md",
+    ".pi/skills/mermaid-diagrams/references/erd-diagrams.md",
+    ".pi/skills/mermaid-diagrams/references/flowcharts.md",
+    ".pi/skills/mermaid-diagrams/references/sequence-diagrams.md",
+    ".pi/skills/mo-testing/SKILL.md",
+    ".pi/skills/playwright-cli/SKILL.md",
+    ".pi/skills/playwright-cli/references/element-attributes.md",
+    ".pi/skills/playwright-cli/references/playwright-tests.md",
+    ".pi/skills/playwright-cli/references/request-mocking.md",
+    ".pi/skills/playwright-cli/references/running-code.md",
+    ".pi/skills/playwright-cli/references/session-management.md",
+    ".pi/skills/playwright-cli/references/spec-driven-testing.md",
+    ".pi/skills/playwright-cli/references/storage-state.md",
+    ".pi/skills/playwright-cli/references/test-generation.md",
+    ".pi/skills/playwright-cli/references/tracing.md",
+    ".pi/skills/playwright-cli/references/video-recording.md",
+    ".pi/skills/reducing-entropy/README.md",
+    ".pi/skills/reducing-entropy/SKILL.md",
+    ".pi/skills/reducing-entropy/adding-reference-mindsets.md",
+    ".pi/skills/reducing-entropy/references/data-over-abstractions.md",
+    ".pi/skills/reducing-entropy/references/design-is-taking-apart.md",
+    ".pi/skills/reducing-entropy/references/expensive-to-add-later.md",
+    ".pi/skills/reducing-entropy/references/simplicity-vs-easy.md",
+    ".pi/skills/svelte-code-writer/SKILL.md",
+    ".pi/skills/svelte-core-bestpractices/SKILL.md",
+    ".pi/skills/svelte-core-bestpractices/references/attach.md",
+    ".pi/skills/svelte-core-bestpractices/references/await-expressions.md",
+    ".pi/skills/svelte-core-bestpractices/references/bind.md",
+    ".pi/skills/svelte-core-bestpractices/references/each.md",
+    ".pi/skills/svelte-core-bestpractices/references/hydratable.md",
+    ".pi/skills/svelte-core-bestpractices/references/inspect.md",
+    ".pi/skills/svelte-core-bestpractices/references/render.md",
+    ".pi/skills/svelte-core-bestpractices/references/snippet.md",
+    ".pi/skills/svelte-core-bestpractices/references/svelte-reactivity.md",
+    ".pi/skills/writing-clearly-and-concisely/README.md",
+    ".pi/skills/writing-clearly-and-concisely/SKILL.md",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/01-introductory.md",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/02-elementary-rules-of-usage.md",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/03-elementary-principles-of-composition.md",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/04-a-few-matters-of-form.md",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/05-words-and-expressions-commonly-misused.md",
+    ".pi/skills/writing-clearly-and-concisely/signs-of-ai-writing.md",
+    ".pi/skills/writing-great-skills/GLOSSARY.md",
+    ".pi/skills/writing-great-skills/SKILL.md",
+    ".pi/skills/writing-great-skills/agents/openai.yaml",
+    ".pi/ssh-mcp/config.toml.example",
+    "agent-lib",
+    "update-agent-setup"
+  ],
+  "hashes": {
+    ".pi/skills/asd-ste100/LICENSE": "d3c674e8592076c9021a59b55177adbcba6fd7e1710082becb922522b22ec672",
+    ".pi/skills/asd-ste100/README.md": "30ae8e838d6545046dcc02f29f678a4d854af6b9000d9adc7e5436a2208e1f4a",
+    ".pi/skills/asd-ste100/SKILL.md": "87a75ab21197f9ac82a3073fa1885900097bdbab300449224634d4812487cb46",
+    ".pi/skills/asd-ste100/examples/before-after.md": "b192ac4e360170fac7403e9b4813555cd8c9a25f8553b5f6b99a7604f296c0ff",
+    ".pi/skills/asd-ste100/references/writing-rules.md": "887f6d399c9dcfbe806d30f2d745afb399be51655b254f925db3678713548d64",
+    ".pi/skills/c4-architecture/README.md": "a6cc0c7349701259260ae67e052371db9fca02a0c4e75dc0add600a61ced0ef4",
+    ".pi/skills/c4-architecture/SKILL.md": "b20979cdde8f01297ea6a52e3155f906f10b7f4e62ebae1cbdd7c7b4c2d2e491",
+    ".pi/skills/c4-architecture/references/advanced-patterns.md": "b640499e9f085e8b173578cf824e0fddec003a126636256924b67d0e35945dac",
+    ".pi/skills/c4-architecture/references/c4-syntax.md": "a0396bf1ca0a26e463c29ce5c565b3baab2c089bc461c9ff539ce4e2432e0202",
+    ".pi/skills/c4-architecture/references/common-mistakes.md": "863966b79d44776bef6416f8e8dd179baf9ef7aadbacb105bd24767b2e5d7ad1",
+    ".pi/skills/first-principles-debugging/SKILL.md": "31dee813e6a7f133f811c0c3748d98d8fb3f4731def437887b6dd4fb757fecf6",
+    ".pi/skills/first-principles-debugging/references/methods.md": "0652555061f422b44ef8a9f471477de0f5cdb24b6c787816e41eb75c07951668",
+    ".pi/skills/grilling/SKILL.md": "92bf0a6053a0b83b10583e5e2d7bd96d53be6cba783d972b3798f7769b5dcbe9",
+    ".pi/skills/impeccable/SKILL.md": "402656ca6df17bad1cd55ede0a966a7bb5b187cf4f89c517851f9efe7f14c0fd",
+    ".pi/skills/impeccable/reference/adapt.md": "ec58806f16fc7ba29bccef08f2e158cd00be077ce05d45e943a59bd26dc6dc55",
+    ".pi/skills/impeccable/reference/adapt.native.md": "17c583cf8ad41266ea1e787b666b9d91fe13469d3d0f6af57c08e0146f9b17ac",
+    ".pi/skills/impeccable/reference/android.md": "058f81f256134841875fd3183e06b37a023de0c877fd2b9eecd97011640791fe",
+    ".pi/skills/impeccable/reference/animate.md": "94b4ce6299fea93d9f256b2d25705961a76bc5ea940c56db4145686ebc99df1b",
+    ".pi/skills/impeccable/reference/audit.md": "57402ef6fd9d0745f8c60d778f77da83a8b16edf751fa1013598a0f6e5f0f541",
+    ".pi/skills/impeccable/reference/audit.native.md": "fe91fcf28638f95577af481a50edaf339d6c9a3ad3b9fa477bc81c116b8bc392",
+    ".pi/skills/impeccable/reference/bolder.md": "37565671b09d983ea1ad83a9e9190bc37255d93c68445958c6facecc7e0f7c4f",
+    ".pi/skills/impeccable/reference/clarify.md": "6c382f8283756e8a693d832b750f7e4cbff1ca5bdcc3825b2b4ef4da9f21876a",
+    ".pi/skills/impeccable/reference/colorize.md": "d1fbd55074abb2251bdaa03749d34acc42c38e46e47549f18f5848df57d43c42",
+    ".pi/skills/impeccable/reference/craft-floor.md": "96e2e6bd4fcf9a2c6da65fb029f96d9176308fae2efd9d8653d3b8d838960e07",
+    ".pi/skills/impeccable/reference/craft.md": "9205e222bc6565b37fb504ceec93233c2d2a456802b69d16e6b1c44723907c4c",
+    ".pi/skills/impeccable/reference/critique.md": "b0e1a0721a1e47675a8750cfb608138743dd9fa9c047146e5cc8f82b9041be7a",
+    ".pi/skills/impeccable/reference/degraded/asset-producer.md": "424b2e75cb204e2dca7db4a40dfe5a81f78dc0fc58ac4790e8b7bbf2f330bba4",
+    ".pi/skills/impeccable/reference/degraded/documenter.md": "bcc05ea92faebb5c74037a9d4263a5ce9a56f5ab07c8ab3c59ee704d8cade745",
+    ".pi/skills/impeccable/reference/degraded/finish-reviewer.md": "5f24c5a97b4ffcabc7c432b064cfdd04c7a2ad52f52e765be648dc0aadab8f38",
+    ".pi/skills/impeccable/reference/degraded/manual-edit-applier.md": "5fae7f8a2fc3ddd49ad0a413446dc44daedef5b6b7de5eb935bd2fbfad646d58",
+    ".pi/skills/impeccable/reference/delight.md": "56500b1f9d2fcec8324d7f448d813048b5831a46d3feeb1055bd3eb17ec3660f",
+    ".pi/skills/impeccable/reference/distill.md": "74e20b26c29242bbebf79760315f7f0788e001566695618cfc70805484c6f92a",
+    ".pi/skills/impeccable/reference/doctor.md": "5c4cd151c97dae824a039211d7ccfba4c572b76d8f079c6186ba1dd5dae7732b",
+    ".pi/skills/impeccable/reference/document.md": "7848f40e224cf520bd8554943c9816a1ff8c97b1db57af0844e3b1ebb223d91f",
+    ".pi/skills/impeccable/reference/extract.md": "54e71283cbd5646021fcd8eaa28d85852ec5288109c306aca9db9e2e4832338e",
+    ".pi/skills/impeccable/reference/harden.md": "8a1c872773996dfa1c1eb765ac7ed8e8d41f99d4f12f090b4725b694e85eaa62",
+    ".pi/skills/impeccable/reference/hooks.md": "bc7a5128cfed46148396c08798b6b9429406fbe477e84e331a36ee2840b6b776",
+    ".pi/skills/impeccable/reference/init.md": "ac695dd89d5f1261004cfa966526f5d5e913c92fa0640d4d71cb42493effad08",
+    ".pi/skills/impeccable/reference/ios.md": "40c87038b5f75147a5952a96237acf312a327bf70c1bcd8e0a5f064625ae9668",
+    ".pi/skills/impeccable/reference/layout.md": "11f75834c26ecd8a5b0afdf696e838953b235dc4835b7293bbc6b1bc27dd3106",
+    ".pi/skills/impeccable/reference/live-setup.md": "d87879329982d608866e4babd31c61438ec34c68483e529761fbf420203eeebd",
+    ".pi/skills/impeccable/reference/live.md": "8a2d316593a631579bbb2f3fcb90d4488f85e97f69698dd2dd4fb50766f537d3",
+    ".pi/skills/impeccable/reference/new-work.md": "733504a70ed20bcfca9c26c353f7b88f8491d24f3f2fe124dc1e73b28eefa296",
+    ".pi/skills/impeccable/reference/onboard.md": "9a2c08ee2516d2ee87129e7ebe6a0895f9990c9852d1f6fa7e70be9a6a88a659",
+    ".pi/skills/impeccable/reference/operate.md": "a9d2203acd45ca33a13d5c68b02b23ed512425ac15f0e8438318ed124b43729d",
+    ".pi/skills/impeccable/reference/optimize.md": "6d368b679a0ed1815812815de65863b5840d419589dfbda06224c01149240287",
+    ".pi/skills/impeccable/reference/overdrive.md": "96e508039c719c0815701c36b8418b18baee1967f915fa29b23b84861ae8ea94",
+    ".pi/skills/impeccable/reference/polish.md": "98afc4c6da252e90c6b783079b6f157bf94a13dd4351392e881edd2a100edf6a",
+    ".pi/skills/impeccable/reference/quieter.md": "494d6fcb4701c437597c2ed16a9595af92f3d9ad53c944c96a2fb563bd766af5",
+    ".pi/skills/impeccable/reference/routing.md": "04af9f2d6883fe76f9539d310d9c369052822a24886d2c330ab1e3fe5981c8a1",
+    ".pi/skills/impeccable/reference/shape.md": "a55f016c046cb6a27c55bd7f346375aeb506a755c4fbca19a5f92dbd42309c23",
+    ".pi/skills/impeccable/reference/typeset.md": "420d82fe41884b7aa8c28750520146d8160c91396ac332a96b2d82a90b017fb2",
+    ".pi/skills/impeccable/reference/visualize.md": "943b0d7c9ce4f6802d8440a07b2ad3c61cbd1cc00ab63962bab7eea9ca584d20",
+    ".pi/skills/impeccable/scripts/VERSION": "800cf1c0392b24de7c0a1c6ea6778ecb433dec71c49a150bce96a98477527b2f",
+    ".pi/skills/impeccable/scripts/bin/linux-x64/impeccable": "cf5231a4b1ae66996c85b033800b1dad0797e590eae2f21ef2579430af187f19",
+    ".pi/skills/impeccable/scripts/command-metadata.json": "6bdbc3f745ceee15e10b050f109ce42bbeb53ab3c3b5239257de1d596654dee7",
+    ".pi/skills/impeccable/scripts/data/font-index-failures.json": "835f19a0a3812f3652dd6979a2ce5597f654fd01f26e1b420b92d5f42b997ce4",
+    ".pi/skills/impeccable/scripts/data/font-index.json": "47edbdfaf27073c47033d1ac7dfee881be49e2dcbda7671d1157300481dde6da",
+    ".pi/skills/impeccable/scripts/impeccable": "39d9600489073e227e4f4d55c451ce4252a6632ed7ae37923efbbcbc91f16d07",
+    ".pi/skills/impeccable/scripts/live-browser-dom.js": "de1b7404f4cdfd7b515196afb17b74b1980f0bc88cb8681ae93a76ca48ec7bdb",
+    ".pi/skills/impeccable/scripts/live-browser-ignores.js": "c1cb6877ca99a0c1b38ba0c7d59f32702d3022f6821d8045f7133f7c40b6362f",
+    ".pi/skills/impeccable/scripts/live-browser-session.js": "edddeb3fad88adec9a055b1bf9d5c75418cbe97a13b1a7f6765e73249e482563",
+    ".pi/skills/impeccable/scripts/live-browser.js": "7af0a8665057c83b39bca2c8c7427ef2343734f70d4128c377113a6726a1e3b1",
+    ".pi/skills/impeccable/scripts/modern-screenshot.umd.js": "bb36665889124a0b6e15f16045265737449c3bdcf2712cdb08af3cfa01563e2b",
+    ".pi/skills/mermaid-diagrams/README.md": "bfd56369f13d920723821adf10287cb4ab2096b0738d3387d541c04a474cd597",
+    ".pi/skills/mermaid-diagrams/SKILL.md": "5d224e04ca49daf24f60b258cca43c0d0b4f9d0826d5f34415b44399822989c8",
+    ".pi/skills/mermaid-diagrams/references/advanced-features.md": "eed1f02e961cb5d0c1aae393cc81371304b0d0398af6146db4c7c25d1fbbef1e",
+    ".pi/skills/mermaid-diagrams/references/architecture-diagrams.md": "489330654e97e62205b0a756d6de8a6f9921224af50137c944e3259a3928fff8",
+    ".pi/skills/mermaid-diagrams/references/c4-diagrams.md": "208330dda084c752bacbdfd55ff4765559ad58f33ecb00eb249685363ce233fa",
+    ".pi/skills/mermaid-diagrams/references/class-diagrams.md": "eaa6f40e4a1b7bb334b169f33873fc0ed0771d067ddc1c584625aa3107c27b85",
+    ".pi/skills/mermaid-diagrams/references/erd-diagrams.md": "bde1379dc70da5cbb08af3566b2de45ef1b3cdb7fb656411c1867edf97ae6a05",
+    ".pi/skills/mermaid-diagrams/references/flowcharts.md": "c1fd63035066dab2c0b758300101ed0d8c8f1aaae345f64a58dec38a91ad26d1",
+    ".pi/skills/mermaid-diagrams/references/sequence-diagrams.md": "04f2ffee4a4b176c8d7414bb4415d4783a5387588416655433edb1d36cb6285b",
+    ".pi/skills/mo-testing/SKILL.md": "8bb7e18abdc0ab329a5e6cc8896e96673cdbbdf8c413ed2362a289e08b598da0",
+    ".pi/skills/playwright-cli/SKILL.md": "a04171ce11728e721dd4e7ea43fb9b9738c4de1669545d1d1cd443452c171cce",
+    ".pi/skills/playwright-cli/references/element-attributes.md": "d7ed255be9c39aedb988ec12cb5103d84f5d9bf291470502500bc617dbf6efeb",
+    ".pi/skills/playwright-cli/references/playwright-tests.md": "ab8a26938bd7cfba1da3337987610ded503bab22d6da5eceaca6082b2593e87d",
+    ".pi/skills/playwright-cli/references/request-mocking.md": "54e801c9663fc2b6d68ceb058cb1c360724c2499f42acc7852a68e83e5b5f37c",
+    ".pi/skills/playwright-cli/references/running-code.md": "d28eebbdbc5c0fb1009209fff271a5985c52dfdb9ad64bb5bd158c4366ef3064",
+    ".pi/skills/playwright-cli/references/session-management.md": "da4b75503d40c5f3dc3b793eb64e2fb5b4e7ae2edbf2137efbb905b7342e3fae",
+    ".pi/skills/playwright-cli/references/spec-driven-testing.md": "438e110107df3448791bc1e9ce82963078cb2cc95ddf12efcb93b73e2734de68",
+    ".pi/skills/playwright-cli/references/storage-state.md": "9ac47f9ae4a1aedcd2077f8ac9ab1ba6bee1962cb83ff51adcd36fb6d83b5ec6",
+    ".pi/skills/playwright-cli/references/test-generation.md": "5fda50aab4baa156c63519a47aea38ee59fce928fd7d7c90b2050839b7446278",
+    ".pi/skills/playwright-cli/references/tracing.md": "dc92927d05958e738bcdb1d7f53066e351f878b59dc005ffd9cf3ab8913d1714",
+    ".pi/skills/playwright-cli/references/video-recording.md": "dbea778336f2158e2d705b288b604b83d326352b6107a263bd356cc3428e2cf9",
+    ".pi/skills/reducing-entropy/README.md": "a49e0e5570b7458a77253c1692f6247c7f10c58a98575d5e762511890e79d535",
+    ".pi/skills/reducing-entropy/SKILL.md": "50958820599ab873eda7c8dca4949a01cb1026f845e6a09d3c448f2a7b95d1bb",
+    ".pi/skills/reducing-entropy/adding-reference-mindsets.md": "61f52f2704a949960b1bcf98ca888871414e054bb95d230cd09252c89d4e9590",
+    ".pi/skills/reducing-entropy/references/data-over-abstractions.md": "fdfa218c0fea9726fa6276b32c3407e1995a21d99f5f00c45f6e2200fdb6f213",
+    ".pi/skills/reducing-entropy/references/design-is-taking-apart.md": "62694edb44965c50b7a88fc1f891ae38948b2acd1b872d25c2adc988f352ebe0",
+    ".pi/skills/reducing-entropy/references/expensive-to-add-later.md": "e00a5bb7d7f485417f72bc95a0c8629ce571bbf7a6353fe23809515e957b0832",
+    ".pi/skills/reducing-entropy/references/simplicity-vs-easy.md": "4985506e956ee3e5f2825e1f70c7525642a351536aa08d6403d508ff440e133e",
+    ".pi/skills/svelte-code-writer/SKILL.md": "ccd435bc524f1bdc38f7ca34a3ff279de1e855d3e5165151345d08b85706e95f",
+    ".pi/skills/svelte-core-bestpractices/SKILL.md": "27582b7f66ec4e599bdacb98126662920548b101a7cbfebef65eb89cec768ba0",
+    ".pi/skills/svelte-core-bestpractices/references/attach.md": "3c38d00f0274bda6e869fd53c111ab9929a603c58e6dc86641bdc3762a7abc01",
+    ".pi/skills/svelte-core-bestpractices/references/await-expressions.md": "ec1790bdf4519c1b7216d8a47938bb63b65bdb5dbe18f537941711f4bf7581fc",
+    ".pi/skills/svelte-core-bestpractices/references/bind.md": "5ced04c7951c6b11bbc4beedd4887e58569f460147aaa348aa83da1ea574c8af",
+    ".pi/skills/svelte-core-bestpractices/references/each.md": "5ba456d6a1655e361cb37de1575a56e2f04af7be61023e309747ec8a2e1b2c3e",
+    ".pi/skills/svelte-core-bestpractices/references/hydratable.md": "23b7c39345461671ef5ef2568b37f7bd56c354cb96e5ca20f34480edcd4ff2e6",
+    ".pi/skills/svelte-core-bestpractices/references/inspect.md": "935945566e3a7d12ca1db345ff8bfc478ae984f5995dd0d34bb9289f12d8e475",
+    ".pi/skills/svelte-core-bestpractices/references/render.md": "372f1ca7ee3205d7d9e4aaa687b1d4a5e71bcc5937e1cce7f3c98a51d8b1f746",
+    ".pi/skills/svelte-core-bestpractices/references/snippet.md": "b7924dc1babe16e5f938ce257041636e21a0eb585015bde3561aabd1bec3d52b",
+    ".pi/skills/svelte-core-bestpractices/references/svelte-reactivity.md": "962d86eca94fc2377b8ffddbe35c556e23a5b3e941ec04d6320e85828c727487",
+    ".pi/skills/writing-clearly-and-concisely/README.md": "a1206cef6cd38c8924df40b2479589af80a0e49b653039891ceb8b9006627a74",
+    ".pi/skills/writing-clearly-and-concisely/SKILL.md": "1d8f235395c6b33124a0ccbb29bf3ecc35ab2fb3b447f97de073b69b365d5ef2",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/01-introductory.md": "3a7605719ee599c3df5ff508a49927fffdda25ecaab098ff310cef121b29ff0a",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/02-elementary-rules-of-usage.md": "3c9dfb71b17bd0a0fa530509902dbbae1415d9527b6f05e750d29119b0daa0d2",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/03-elementary-principles-of-composition.md": "c29ba78bf4e5919134cf763e7efdfb321785200ee249d0f5cd7c4c6eb3359011",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/04-a-few-matters-of-form.md": "c740a45e4e86e1c0c4aa5076f14a98e3514b54a578a2481ef78bb1218c44f8c3",
+    ".pi/skills/writing-clearly-and-concisely/elements-of-style/05-words-and-expressions-commonly-misused.md": "ce2aff81c34a91716683961edb763b0b2a10b3f3e7ef878d5e4a4093bca6964e",
+    ".pi/skills/writing-clearly-and-concisely/signs-of-ai-writing.md": "673d9b84b1986c72b0b007b91ce659def73f88f590c222b8d9924aca9ba08d2c",
+    ".pi/skills/writing-great-skills/GLOSSARY.md": "670a3bc8c5011da9855e3e9ca6cea0e6e9aad05017988a201294689f88aa566c",
+    ".pi/skills/writing-great-skills/SKILL.md": "c70b16b5c748c2baeeab5d2af6e27f37f61b865ba65de0ba8ec6980b87213d23",
+    ".pi/skills/writing-great-skills/agents/openai.yaml": "b3c555d2654ec61aed78f8435f583c6a0cd6bf980d71317724682ad20075c33d",
+    ".pi/agents/planner.md": "550a2d8bfd066f3e9e5feaa3081ee5ed12b8abc6d6fd215e086e22133b8b49e6",
+    ".pi/agents/reviewer.md": "d10ca97a4669cb5c4b37a0741970987588c75fb2f5ae556940131b38c902d5be",
+    ".pi/agents/scout.md": "a13948dd80aabb210dd412ede608963aca3fd920afdaf02a31bde7ec2cb4c5c1",
+    ".pi/agents/worker.md": "12492a61a80b58cd7962b0e5f21baeb885679874aede6feb60d245482741831c",
+    ".agent-lib/instructions/common.md": "780eb28f8f393f97a845453703e97cb6e6ac69d1711e302605fbaeeeb4d5e0bf",
+    "agent-lib": "55dba057018a14faa870267e8847c3669d286e1ebee2115160ec399713d8be2e",
+    "update-agent-setup": "071a44a0b2c8b90f9dddadfc1cd19cd6f0a092dbcd06fd99ce4df7b32365401b",
+    ".agent-lib/bin/agent_lib.py": "1712c7e987b24755f89ff8f3d17b9bcd18711982e842b96b3b7ac69c9e2a26bc",
+    ".agent-lib/bin/elixir_setup.py": "4f1ef8b15d625f9909808a4cd14b762fbfdafa0ad98fff671a28237fc69a88e9",
+    ".agent-lib/requirements.txt": "0969da99a0bc2a1b71ed50584560f4588a37567ac63af3ddbaf3c4617ca5621a",
+    ".agent-lib/elixir/installer/lib/mix/tasks/agent_lib_elixir.install.ex": "3fe3f3d9e855f3c3b925424fcfd7f5ec2a23235d4cb1a339814b9e9651154e67",
+    ".agent-lib/elixir/installer/mix.exs": "22abc12c5e3ebe8ace16485334d0c3f54c33dee35fcd57788dcfe1b6d3e50d82",
+    ".agent-lib/elixir/preflight.exs": "8c6aad10b13d4e894494d426407939561ace4d72fc561af73d5e29d8b12e7fb6",
+    ".agent-lib/elixir/recipes.yaml": "64dbced58d8c607f24e649cefaa1a67105489710db93e6e21168cd34001e4388",
+    ".pi/ssh-mcp/config.toml.example": "84f1762e29dae1d965ea626a4374c708ea344254d80e77b8c74be1d77799df5b",
+    ".pi/settings.json": "c6633805d688e7b4d4a89cd02e3445b8c1fa18b0a9ae2f0204a93e27285f9509",
+    ".pi/mcp-adapter.json": "dbceee430bd455f1ed16332477cb5bbfd2731b4b64ac6f4661a05dda8a868a2e",
+    ".pi/APPEND_SYSTEM.md": "b656b241586ae6fd39f6cc85ef187ff9b6dd91fe2fc3f696067e11be01dd221d",
+    ".gitignore": "91108e846a9c6d56cd77d05c0eb8a8d2a0bbcb3be427f662628e4f88f9368bcc"
+  },
+  "removed": [],
+  "config": {
+    "packages": [
+      "npm:@juicesharp/rpiv-args@2.13.9",
+      "npm:@juicesharp/rpiv-btw@2.13.9",
+      "npm:pi-cache-graph@1.0.2",
+      "npm:cache-warm@0.2.0",
+      "npm:context-mode@1.0.169",
+      "npm:pi-context-prune@2.1.0",
+      "npm:pi-context-usage@2.1.0",
+      "npm:pi-mcp-adapter@5.3.2",
+      "npm:pi-observational-memory@3.1.4",
+      "npm:@aliou/pi-neuralwatt@0.18.0",
+      {
+        "source": "git:github.com/kepano/obsidian-skills@3ccff5338ea700537839b21900aa5358a0402c98",
+        "skills": [
+          "obsidian-markdown",
+          "obsidian-bases",
+          "json-canvas",
+          "obsidian-cli"
+        ]
+      },
+      "npm:pi-markdown-preview@0.23.0",
+      "npm:@juicesharp/rpiv-ask-user-question@2.13.9",
+      "npm:cc-safety-net@2.6.14",
+      "npm:statusline-pi@1.3.1",
+      "git:github.com/michalo1334/pi-interactive-subagents@3c474813bf9e8011a80d28255ca3a4ee548dd196",
+      "npm:@juicesharp/rpiv-todo@2.13.9",
+      "npm:@narumitw/pi-usage@0.67.0"
+    ],
+    "extensions": [
+      "-builtin:mcp"
+    ],
+    "settings": {
+      "observational-memory": {
+        "compactAfterTokensMode": "ratio",
+        "compactAfterTokensRatio": 0.9,
+        "model": {
+          "provider": "openai",
+          "id": "gpt-6-luna",
+          "thinking": "high"
+        }
+      },
+      "compaction": {
+        "modelOverrides": {
+          "deepseek/deepseek-flash": {
+            "reserveTokens": 644000
+          },
+          "neuralwatt/deepseek-v4-flash": {
+            "reserveTokens": 692560
+          },
+          "neuralwatt/deepseek-v4-flash-flex": {
+            "reserveTokens": 692560
+          },
+          "neuralwatt/deepseek-v4-flash-speed": {
+            "reserveTokens": 692560
+          },
+          "neuralwatt/deepseek-v4.1-flash": {
+            "reserveTokens": 692560
+          },
+          "neuralwatt/deepseek-v4.1-flash-flex": {
+            "reserveTokens": 692560
+          },
+          "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731": {
+            "reserveTokens": 692576
+          },
+          "fireworks/accounts/fireworks/models/deepseek-v4-flash-vision-exp": {
+            "reserveTokens": 692576
+          },
+          "fireworks/accounts/fireworks/models/deepseek-v4p1-flash": {
+            "reserveTokens": 692576
+          },
+          "fireworks/accounts/fireworks/routers/deepseek-flash-latest": {
+            "reserveTokens": 692576
+          },
+          "makora/deepseek-ai/DeepSeek-V4.1-Flash": {
+            "reserveTokens": 692576
+          }
+        }
+      }
+    },
+    "servers": {
+      "android-mcp": {
+        "command": "uvx",
+        "args": [
+          "--python",
+          "3.13",
+          "android-mcp==0.2.0"
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      },
+      "blender-mcp": {
+        "command": "uvx",
+        "args": [
+          "--python",
+          "3.11",
+          "blender-mcp==2.0.0"
+        ],
+        "env": {
+          "UV_PYTHON_PREFERENCE": "only-managed",
+          "BLENDER_MCP_SAFE_MODE": "1",
+          "DISABLE_TELEMETRY": "true"
+        },
+        "requestTimeoutMs": 120000
+      },
+      "docs-mcp-server": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@arabold/docs-mcp-server@3.3.0"
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      },
+      "github": {
+        "command": "docker",
+        "args": [
+          "run",
+          "-i",
+          "--rm",
+          "-e",
+          "GITHUB_PERSONAL_ACCESS_TOKEN",
+          "ghcr.io/github/github-mcp-server@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132"
+        ],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "!gh auth token"
+        },
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      },
+      "paper-search-mcp": {
+        "command": "uvx",
+        "args": [
+          "--with",
+          "mcp==1.30.0",
+          "paper-search-mcp==0.1.4"
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      },
+      "ssh-mcp": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "ssh-mcp@2.19.1",
+          "--config=.pi/ssh-mcp/config.toml"
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false,
+        "description": "Controlled SSH access to remote hosts (security-first, approval-gated)"
+      },
+      "svelte": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@sveltejs/mcp@0.1.27"
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      },
+      "web-search": {
+        "command": "sh",
+        "args": [
+          "-c",
+          "exec node \"${WEB_SEARCH_MCP_BIN:?set WEB_SEARCH_MCP_BIN}\""
+        ],
+        "requestTimeoutMs": 120000,
+        "directTools": false
+      }
+    },
+    "mcp_settings": {
+      "scriptMode": true
+    }
+  },
+  "append_block": "<!-- BEGIN agent-lib -->\n# Shared instructions\n\n## Documentation\n\n## ASD-STE100 & writing clarity\n\n**Always** use `asd-ste100` skill when writing documentation or outputting an explanation, text or anything else that is\ndirected towards communication with the user.\n\n**Always** use plain and concise English language, do not use filler or less common, exotic wordings unless they\nrepresent exact technical jargon and there is no alternative way to describe a definition, concept etc.\n\nWhen being prompted to review documentation for clarity towards the intended audience, follow\n`writing-clearly-and-concisely` skill as suplemental.\n\n## Decoupling the intent and implementation\n\nWhen documentation warrants code or pseudo code, do not use concrete code fragments or values pasted directly into the\ndocumentation. It gets outdated quickly. Instead refer to concrete modules, files or use illustrative code or values\n(abstract enough it doesn't get confused with real one).\n\nIn short: document in a way that minimizes coupling between the implementation and description. Ask yourself a question:\nWhen source code or file contents change, how much documentation must change because of appearance rather than\nfunctionality?\n\n## Example based\n\nFor complex documentation use examples, either enumerating inline (`e.g. ...`) or full worked ones that led the reader\nstep by step to better turn abstract description into concrete chain of action.\n\n## Illustrating\n\nUse _visualization_ to let reader better understand the intent behind the words. One clear diagram explains more than\ndetailed paragraphs in English. _Visualization_ is not just embedded monolithic blocks that break wall of text but also\ninline code (or pseudocode) examples, mathematical expressions. Think rich text like in MS Word.\n\n**Do not** add visualization just in case for every single paragraph. It introduces unnecessary noise for the reader.\n\nJudge the relevant section and rate whether it warrants a visualization aspect or plain paragraph of text is sufficient.\n\nExamples of visualizing:\n\n- code & pseudocode examples - snippets, example config values, class names, public interface (API, OOP etc.) names\n- tables\n- images\n- input and output examples - interface usage with parameters, example output\n- mermaid diagrams - C4, state machine, sequential, activity, flowchart\n- LaTeX - for mathematical formalisms\n\n## Relevancy\n\nPhrases such as `complex` or `every single` were left vague intentionally as it's difficult to exactly quantize when one\nshould add visualization or example. Rate the difficulty indvidually. Consider each time perspective of: 1. domain\nexpert, 2. first time reader, engineer or user that wants to better understand the context. 3. a person with basic\ndomain knowledge. How much each group can construct of their own internal understanding?\n\n**Important**: do not dumb down documentation just because it needs to be accessible for everyone. Each documentation\ncan and should be addressed to different groups.\n\n# Workflow\n\n- Use the `scout` agent for codebase exploration when subagent tools are available.\n- Use the `worker` agent for implementation when subagent tools are available.\n- If delegation is unavailable, report the limitation and continue directly with the same verification requirements.\n- Do not assume that a named tool, skill, or agent exists. Check the available capabilities first.\n<!-- END agent-lib -->",
+  "ignore_block": "# BEGIN agent-lib\n.agent-lib/state/\n.agent-lib/backups/\n.peru/\n.pi/npm/\n.pi/git/\n.pi/node_modules/\n.pi/package.json\n.pi/package-lock.json\n.pi/bun.lock\n.pi/ssh-mcp/config.toml\n__pycache__/\n*.pyc\n# END agent-lib",
+  "setup": [
+    "elixir-index",
+    "elixir-quality"
+  ]
+}

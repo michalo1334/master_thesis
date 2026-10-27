@@ -1,77 +1,78 @@
 {
+  "packages": [
+    "npm:@juicesharp/rpiv-args@2.13.9",
+    "npm:@juicesharp/rpiv-btw@2.13.9",
+    "npm:pi-cache-graph@1.0.2",
+    "npm:cache-warm@0.2.0",
+    "npm:context-mode@1.0.169",
+    "npm:pi-context-prune@2.1.0",
+    "npm:pi-context-usage@2.1.0",
+    "npm:pi-mcp-adapter@5.3.2",
+    "npm:pi-observational-memory@3.1.4",
+    "npm:@aliou/pi-neuralwatt@0.18.0",
+    {
+      "source": "git:github.com/kepano/obsidian-skills@3ccff5338ea700537839b21900aa5358a0402c98",
+      "skills": [
+        "obsidian-markdown",
+        "obsidian-bases",
+        "json-canvas",
+        "obsidian-cli"
+      ]
+    },
+    "npm:pi-markdown-preview@0.23.0",
+    "npm:@juicesharp/rpiv-ask-user-question@2.13.9",
+    "npm:cc-safety-net@2.6.14",
+    "npm:statusline-pi@1.3.1",
+    "git:github.com/michalo1334/pi-interactive-subagents@3c474813bf9e8011a80d28255ca3a4ee548dd196",
+    "npm:@juicesharp/rpiv-todo@2.13.9",
+    "npm:@narumitw/pi-usage@0.67.0"
+  ],
   "extensions": [
     "-builtin:mcp"
   ],
-  "packages": [
-    "npm:pi-mcp-adapter",
-    "npm:context-mode",
-    "npm:@juicesharp/rpiv-ask-user-question",
-    "npm:@juicesharp/rpiv-todo",
-    "npm:@juicesharp/rpiv-args",
-    "npm:@juicesharp/rpiv-btw",
-    "npm:cc-safety-net",
-    "npm:pi-markdown-preview",
-    "npm:@narumitw/pi-usage",
-    "git:github.com/michalo1334/pi-interactive-subagents",
-    "git:github.com/michalo1334/pi-fusion",
-    "npm:@aliou/pi-neuralwatt",
-    "npm:statusline-pi@1.3.1",
-    "npm:cache-warm@0.2.0",
-    "git:github.com/monotykamary/pi-wafer-provider"
-  ],
-  "fusion": {
-    "sidekickModel": "openai-codex/gpt-5.6-luna",
-    "timeoutMinutes": 10,
-    "sidekickTools": [
-      "read",
-      "bash",
-      "edit",
-      "write",
-      "grep",
-      "find",
-      "ls",
-      "mcp",
-      "mcpScript"
-    ],
-    "sidekickExtensions": [
-      "pi-mcp-adapter",
-      "context-mode"
-    ]
+  "observational-memory": {
+    "compactAfterTokensMode": "ratio",
+    "compactAfterTokensRatio": 0.9,
+    "model": {
+      "provider": "openai",
+      "id": "gpt-6-luna",
+      "thinking": "high"
+    }
   },
   "compaction": {
     "modelOverrides": {
       "deepseek/deepseek-flash": {
-        "reserveTokens": 840000
+        "reserveTokens": 644000
       },
       "neuralwatt/deepseek-v4-flash": {
-        "reserveTokens": 888560
+        "reserveTokens": 692560
       },
       "neuralwatt/deepseek-v4-flash-flex": {
-        "reserveTokens": 888560
+        "reserveTokens": 692560
       },
       "neuralwatt/deepseek-v4-flash-speed": {
-        "reserveTokens": 888560
+        "reserveTokens": 692560
       },
       "neuralwatt/deepseek-v4.1-flash": {
-        "reserveTokens": 888560
+        "reserveTokens": 692560
       },
       "neuralwatt/deepseek-v4.1-flash-flex": {
-        "reserveTokens": 888560
+        "reserveTokens": 692560
       },
       "fireworks/accounts/fireworks/models/deepseek-v4-flash-0731": {
-        "reserveTokens": 840000
+        "reserveTokens": 692576
       },
       "fireworks/accounts/fireworks/models/deepseek-v4-flash-vision-exp": {
-        "reserveTokens": 840000
+        "reserveTokens": 692576
       },
       "fireworks/accounts/fireworks/models/deepseek-v4p1-flash": {
-        "reserveTokens": 840000
+        "reserveTokens": 692576
       },
       "fireworks/accounts/fireworks/routers/deepseek-flash-latest": {
-        "reserveTokens": 840000
+        "reserveTokens": 692576
       },
       "makora/deepseek-ai/DeepSeek-V4.1-Flash": {
-        "reserveTokens": 840000
+        "reserveTokens": 692576
       }
     }
   }

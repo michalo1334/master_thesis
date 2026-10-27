@@ -140,6 +140,18 @@ defmodule NetworkDefense.Graph.Graph do
     |> Map.fetch!(:incoming)
   end
 
+  @doc "Groups host IDs by the ID of their containing segment."
+  @spec hosts_by_segment(t()) :: %{optional(Ecto.UUID.t()) => [Ecto.UUID.t()]}
+  def hosts_by_segment(graph) do
+    graph
+    |> edges()
+    |> Enum.flat_map(fn
+      %{type: Contains, from_id: segment_id, to_id: host_id} -> [{segment_id, host_id}]
+      _ -> []
+    end)
+    |> Enum.group_by(&elem(&1, 0), &elem(&1, 1))
+  end
+
   @doc "Returns IDs of hosts that support a capability."
   def supporting_host_ids(graph, capability_id) do
     graph

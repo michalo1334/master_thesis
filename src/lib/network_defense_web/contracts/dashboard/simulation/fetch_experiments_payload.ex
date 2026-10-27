@@ -11,15 +11,5 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchExperimentsPaylo
           graph_revision_ids: [String.t()]
         }
 
-  def changeset(schema, attrs) do
-    schema
-    |> cast(attrs, [:graph_revision_ids])
-    |> validate_change(:graph_revision_ids, fn :graph_revision_ids, revision_ids ->
-      if Enum.all?(revision_ids, &match?({:ok, _}, Ecto.UUID.cast(&1))) do
-        []
-      else
-        [graph_revision_ids: "contains an invalid UUID"]
-      end
-    end)
-  end
+  def changeset(schema, attrs), do: Contracts.graph_revision_ids_changeset(schema, attrs)
 end

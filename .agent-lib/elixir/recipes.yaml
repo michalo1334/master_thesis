@@ -1,0 +1,26 @@
+schema: 1
+recipes:
+  elixir-quality:
+    elixir: '1.18'
+    dependencies:
+      ex_ast: '0.12.9'
+      ex_dna: '1.5.4'
+      ex_slop: '0.4.5'
+    only: [dev, test]
+    runtime: false
+    credo_plugins: [ExDNA.Credo, ExSlop]
+  elixir-index:
+    elixir: '1.19'
+    dependencies:
+      ex_ast: '0.12.9'
+      ex_dna: '1.5.4'
+      exograph: '0.9.12'
+    only: [dev, test]
+    runtime: true
+  phoenix-replay:
+    elixir: '1.18'
+    dependencies:
+      phoenix_replay: '0.6.2'
+    requires: [phoenix_live_view]
+    runtime: true
+    recording: explicit

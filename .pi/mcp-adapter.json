@@ -1,8 +1,22 @@
 {
   "mcpServers": {
+    "android-mcp": {
+      "command": "uvx",
+      "args": [
+        "--python",
+        "3.13",
+        "android-mcp==0.2.0"
+      ],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
     "blender-mcp": {
       "command": "uvx",
-      "args": ["--python", "3.11", "blender-mcp"],
+      "args": [
+        "--python",
+        "3.11",
+        "blender-mcp==2.0.0"
+      ],
       "env": {
         "UV_PYTHON_PREFERENCE": "only-managed",
         "BLENDER_MCP_SAFE_MODE": "1",
@@ -10,43 +24,67 @@
       },
       "requestTimeoutMs": 120000
     },
-    "svelte": {
+    "docs-mcp-server": {
       "command": "npx",
-      "args": ["-y", "@sveltejs/mcp"],
-      "requestTimeoutMs": 120000,
-      "directTools": false
-    },
-    "web-search": {
-      "command": "sh",
-      "args": ["-c", "exec node \"${WEB_SEARCH_MCP_BIN:?set WEB_SEARCH_MCP_BIN}\""],
-      "requestTimeoutMs": 120000,
-      "directTools": false
-    },
-    "android-mcp": {
-      "command": "uvx",
-      "args": ["--python", "3.13", "android-mcp"],
+      "args": [
+        "-y",
+        "@arabold/docs-mcp-server@3.3.0"
+      ],
       "requestTimeoutMs": 120000,
       "directTools": false
     },
     "github": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server@sha256:250bc6ce70788207608ef74cef4397230ff2e8481218da74d6093e4bd9101132"
+      ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "!gh auth token"
       },
       "requestTimeoutMs": 120000,
       "directTools": false
     },
+    "paper-search-mcp": {
+      "command": "uvx",
+      "args": [
+        "--with",
+        "mcp==1.30.0",
+        "paper-search-mcp==0.1.4"
+      ],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
     "ssh-mcp": {
       "command": "npx",
-      "args": ["ssh-mcp", "--config=.pi/ssh-mcp/config.toml"],
+      "args": [
+        "-y",
+        "ssh-mcp@2.19.1",
+        "--config=.pi/ssh-mcp/config.toml"
+      ],
       "requestTimeoutMs": 120000,
       "directTools": false,
       "description": "Controlled SSH access to remote hosts (security-first, approval-gated)"
     },
-    "docs-mcp-server": {
+    "svelte": {
       "command": "npx",
-      "args": ["-y", "@arabold/docs-mcp-server@latest"],
+      "args": [
+        "-y",
+        "@sveltejs/mcp@0.1.27"
+      ],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
+    "web-search": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "exec node \"${WEB_SEARCH_MCP_BIN:?set WEB_SEARCH_MCP_BIN}\""
+      ],
       "requestTimeoutMs": 120000,
       "directTools": false
     }
