@@ -17,8 +17,6 @@ defmodule NetworkDefense.Evaluation.StudyCollectionItem do
   # them, so a repeated request reuses the linked records instead of creating
   # new domain effects.
   #
-  # The repository validates that both positions are non-negative integers
-  # before it inserts one row, so the table holds no range check of its own.
 
   @fields [
     :study_phase_id,
@@ -44,7 +42,7 @@ defmodule NetworkDefense.Evaluation.StudyCollectionItem do
   @type t :: %__MODULE__{
           id: binary(),
           study_phase_id: binary(),
-          replica_position: non_neg_integer(),
+          replica_position: -1..4,
           item_position: non_neg_integer(),
           optimization_run_id: binary() | nil,
           experiment_id: binary() | nil,
@@ -56,6 +54,9 @@ defmodule NetworkDefense.Evaluation.StudyCollectionItem do
     item
     |> cast(attrs, @fields)
     |> validate_required([:study_phase_id, :replica_position, :item_position])
+    |> validate_number(:replica_position, greater_than_or_equal_to: -1, less_than_or_equal_to: 4)
+    |> validate_number(:item_position, greater_than_or_equal_to: 0)
+    |> check_constraint(:replica_position, name: :study_collection_items_replica_position_check)
     |> unique_constraint([:study_phase_id, :replica_position, :item_position],
       name: :evaluation_study_collection_items_position_index
     )

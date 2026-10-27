@@ -39,7 +39,7 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
       ) do
     with :ok <- ensure_supported_phase(phase),
          :ok <- validate_phase(execution, phase),
-         :ok <- validate_position(:replica_position, replica_position),
+         :ok <- validate_replica(phase, replica_position),
          {:ok, limits} <- CollectionLimits.fetch(),
          {:ok, plan} <- plan(execution, phase, definition),
          :ok <- within_phase_item_cap(plan, limits) do
@@ -47,19 +47,56 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     end
   end
 
+  @spec tier_order(Definition.t()) :: {:ok, [String.t()]} | {:error, StudyError.t()}
+  def tier_order(%Definition{} = definition) do
+    tiers = definition.family.comparisons |> Enum.map(& &1.tier) |> Enum.uniq()
+
+    if tiers != [] and Enum.all?(tiers, &(is_binary(&1) and String.trim(&1) != "")),
+      do: {:ok, tiers},
+      else: {:error, StudyError.invalid_tier()}
+  end
+
+  @spec filter_tier([CollectionWorkItem.t()], Definition.t(), String.t()) ::
+          {:ok, [CollectionWorkItem.t()]} | {:error, StudyError.t()}
+  def filter_tier(items, definition, tier) do
+    with {:ok, tiers} <- tier_order(definition), true <- tier in tiers do
+      case Enum.filter(items, &(&1.comparison.tier == tier)) do
+        [] -> {:error, StudyError.invalid_tier()}
+        selected -> {:ok, selected}
+      end
+    else
+      _ -> {:error, StudyError.invalid_tier()}
+    end
+  end
+
   @spec run_collection_item(Ecto.UUID.t()) ::
           {:ok, CollectionResult.t()} | {:error, StudyError.t()}
   def run_collection_item(collection_item_id) do
-    with {:ok, item} <- load_item(collection_item_id),
-         {:ok, phase} <- load_phase(item.study_phase_id),
-         :ok <- ensure_supported_phase(phase),
-         {:ok, execution} <- load_execution(phase.execution_id),
-         {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
-         :ok <- validate_phase(execution, phase),
-         {:ok, work_item} <- canonical_work_item(execution, phase, definition, item),
-         {:ok, limits} <- CollectionLimits.fetch(),
-         :ok <- within_item_cap(work_item, limits),
-         {:ok, run} <- run_optimization(item, work_item),
+    with {:ok, _item} <- run_plan_selection_item(collection_item_id) do
+      run_simulation_item(collection_item_id)
+    end
+  end
+
+  @spec run_plan_selection_item(Ecto.UUID.t()) ::
+          {:ok, StudyCollectionItem.t()} | {:error, StudyError.t()}
+  def run_plan_selection_item(collection_item_id) do
+    with {:ok, item, _phase, _execution, _definition, work_item} <-
+           item_context(collection_item_id),
+         {:ok, _run} <- run_optimization(item, work_item),
+         %StudyCollectionItem{} = reloaded <- Repo.get(StudyCollectionItem, item.id) do
+      {:ok, reloaded}
+    else
+      nil -> {:error, StudyError.collection_item_not_found()}
+      {:error, %StudyError{} = error} -> {:error, error}
+    end
+  end
+
+  @spec run_simulation_item(Ecto.UUID.t()) ::
+          {:ok, CollectionResult.t()} | {:error, StudyError.t()}
+  def run_simulation_item(collection_item_id) do
+    with {:ok, item, _phase, _execution, definition, work_item} <-
+           item_context(collection_item_id),
+         {:ok, run} <- linked_completed_optimization(item),
          {:ok, experiment} <- run_experiment(item, work_item, definition, run) do
       result(item, run, experiment)
     end
@@ -111,6 +148,38 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
     end
   end
 
+  defp item_context(collection_item_id) do
+    with {:ok, item} <- load_item(collection_item_id),
+         {:ok, phase} <- load_phase(item.study_phase_id),
+         :ok <- ensure_supported_phase(phase),
+         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
+         :ok <- validate_phase(execution, phase),
+         {:ok, work_item} <- canonical_work_item(execution, phase, definition, item),
+         {:ok, limits} <- CollectionLimits.fetch(),
+         :ok <- within_item_cap(work_item, limits) do
+      {:ok, item, phase, execution, definition, work_item}
+    end
+  end
+
+  defp linked_completed_optimization(%StudyCollectionItem{optimization_run_id: run_id})
+       when is_binary(run_id) do
+    case Repo.get(OptimizationRun, run_id) do
+      %OptimizationRun{status: "completed", output_graph_revision_id: output} = run
+      when is_binary(output) and output != "" ->
+        {:ok, run}
+
+      %OptimizationRun{} ->
+        {:error, StudyError.runtime_execution_failed(:optimization_run_id, :incomplete)}
+
+      nil ->
+        {:error, StudyError.runtime_record_unavailable(:optimization_run_id, :not_found)}
+    end
+  end
+
+  defp linked_completed_optimization(%StudyCollectionItem{}),
+    do: {:error, StudyError.runtime_record_unavailable(:optimization_run_id, :not_found)}
+
   defp ensure_supported_phase(%StudyPhase{phase: phase}) when phase in @collection_phases,
     do: :ok
 
@@ -123,10 +192,13 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
       else: {:error, StudyError.collection_phase_mismatch()}
   end
 
-  defp validate_position(_field, position) when is_integer(position) and position >= 0, do: :ok
+  defp validate_replica(%StudyPhase{phase: :pilot_collection}, 0), do: :ok
 
-  defp validate_position(field, _position),
-    do: {:error, StudyError.invalid_collection_position(field)}
+  defp validate_replica(%StudyPhase{phase: :final_collection}, position)
+       when is_integer(position) and position in -1..4, do: :ok
+
+  defp validate_replica(_, _),
+    do: {:error, StudyError.invalid_collection_position(:replica_position)}
 
   defp plan(
          _execution,
@@ -331,7 +403,12 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
       case Optimizations.run_reserved(reserved.id,
              correlation_id: request.correlation_id
            ) do
-        {:ok, %OptimizationRun{status: "completed"} = run} ->
+        {:ok,
+         %OptimizationRun{
+           status: "completed",
+           output_graph_revision_id: output_graph_revision_id
+         } = run}
+        when is_binary(output_graph_revision_id) and output_graph_revision_id != "" ->
           {:ok, run}
 
         {:ok, %OptimizationRun{}} ->
@@ -349,19 +426,33 @@ defmodule NetworkDefense.Evaluation.Study.Collection do
          %Definition{} = definition,
          %OptimizationRun{} = run
        ) do
-    request = simulation_request(item, work_item, definition, run)
+    with :ok <- ensure_output_graph(run),
+         request <- simulation_request(item, work_item, definition, run),
+         {:ok, %Experiment{} = reserved} <- Reservations.reserve_experiment(item.id, request) do
+      simulation_result(reserved, item)
+    end
+  end
 
-    with {:ok, %Experiment{} = reserved} <- Reservations.reserve_experiment(item.id, request) do
-      case Simulations.run(reserved.id, correlation_id: correlation_id(item, :experiment)) do
-        {:ok, %Experiment{status: :completed} = experiment} ->
-          {:ok, experiment}
+  defp ensure_output_graph(%OptimizationRun{output_graph_revision_id: output})
+       when is_binary(output) and output != "",
+       do: :ok
 
-        {:ok, %Experiment{} = experiment} ->
-          {:error, StudyError.runtime_execution_failed(:experiment_id, experiment.status)}
+  defp ensure_output_graph(_run),
+    do: {:error, StudyError.runtime_execution_failed(:optimization_run_id, :incomplete)}
 
-        {:error, reason} ->
-          {:error, StudyError.runtime_execution_failed(:experiment_id, reason)}
-      end
+  defp simulation_result(%Experiment{} = reserved, %StudyCollectionItem{} = item) do
+    case Simulations.run(reserved.id, correlation_id: correlation_id(item, :experiment)) do
+      {:ok,
+       %Experiment{status: :completed, completed_trials: completed, total_trials: total} =
+           experiment}
+      when is_integer(completed) and is_integer(total) and total > 0 and completed == total ->
+        {:ok, experiment}
+
+      {:ok, %Experiment{} = experiment} ->
+        {:error, StudyError.runtime_execution_failed(:experiment_id, experiment.status)}
+
+      {:error, reason} ->
+        {:error, StudyError.runtime_execution_failed(:experiment_id, reason)}
     end
   end
 

@@ -9,7 +9,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem do
 
   @type t :: %__MODULE__{
           item_position: non_neg_integer(),
-          replica_position: non_neg_integer(),
+          replica_position: -1..4,
           comparison_position: non_neg_integer(),
           comparison: Comparison.t(),
           side: side(),
@@ -43,7 +43,6 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem do
 
   @positions [
     :item_position,
-    :replica_position,
     :comparison_position,
     :plan_position,
     :selection_seed,
@@ -89,6 +88,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem do
     |> validate_number(:iterations_per_run, greater_than: 0)
     |> validate_number(:max_attempts, greater_than: 0)
     |> validate_positions()
+    |> validate_number(:replica_position, greater_than_or_equal_to: -1, less_than_or_equal_to: 4)
     |> Contracts.validate_uuid(:graph_revision_id)
     |> Contracts.validate_uuid(:initial_foothold_node_id)
   end

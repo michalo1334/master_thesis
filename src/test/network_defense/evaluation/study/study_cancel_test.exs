@@ -74,6 +74,33 @@ defmodule NetworkDefense.Evaluation.Study.CancelTest do
     end
   end
 
+  test "CHUNK-B-CANCEL-01: WHEN cancellation commits, THE command SHALL directly notify the registered coordinator" do
+    execution = execution(:collecting_final)
+    registry = NetworkDefense.Evaluation.Study.CoordinatorRegistry
+    assert {:ok, _owner} = Registry.register(registry, execution.id, nil)
+
+    assert {:ok, cancelled} = Evaluations.cancel_study(execution.id)
+    assert_received {:study_cancelled, execution_id}
+    assert execution_id == execution.id
+    assert Repo.get!(StudyExecution, execution_id).state == :cancelled
+    assert Evaluations.cancel_study(execution.id) == {:ok, cancelled}
+    assert_received {:study_cancelled, ^execution_id}
+    Registry.unregister(registry, execution.id)
+  end
+
+  test "CHUNK-B-CANCEL-02: WHEN the Registry is unavailable, THE command SHALL retain cancellation success" do
+    execution = execution(:collecting_final)
+    registry = NetworkDefense.Evaluation.Study.CoordinatorRegistry
+    assert :ok = Supervisor.terminate_child(NetworkDefense.Supervisor, registry)
+
+    try do
+      assert {:ok, %StudyExecution{state: :cancelled}} = Evaluations.cancel_study(execution.id)
+      assert Repo.get!(StudyExecution, execution.id).state == :cancelled
+    after
+      assert {:ok, _pid} = Supervisor.restart_child(NetworkDefense.Supervisor, registry)
+    end
+  end
+
   defp revision do
     definition = StudyConformance.parsed!()
     StudyFixtures.insert_revision(%{definition: Definition.to_params(definition)})

@@ -118,7 +118,15 @@ defmodule NetworkDefense.Evaluation.Study.StudyPilotSnapshotTest do
     count = snapshot_count()
 
     {:ok, foreign} = CollectionItems.get_or_create(context.final_phase.id, 0, 9)
-    {:ok, replicated} = CollectionItems.get_or_create(context.pilot_phase.id, 1, 9)
+
+    replicated =
+      %StudyCollectionItem{}
+      |> StudyCollectionItem.create_changeset(%{
+        study_phase_id: context.pilot_phase.id,
+        replica_position: 1,
+        item_position: 9
+      })
+      |> Repo.insert!()
 
     rejected_sets = [
       Enum.drop(items, -1),

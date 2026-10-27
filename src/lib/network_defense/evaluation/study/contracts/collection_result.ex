@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionResult do
 
   @type t :: %__MODULE__{
           collection_item_id: String.t(),
-          replica_position: non_neg_integer(),
+          replica_position: -1..4,
           item_position: non_neg_integer(),
           optimization_run_id: String.t(),
           experiment_id: String.t(),
@@ -47,7 +47,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionResult do
     result
     |> cast(attrs, @fields)
     |> validate_required(@fields)
-    |> validate_number(:replica_position, greater_than_or_equal_to: 0)
+    |> validate_number(:replica_position, greater_than_or_equal_to: -1, less_than_or_equal_to: 4)
     |> validate_number(:item_position, greater_than_or_equal_to: 0)
     |> validate_number(:completed_trials, greater_than_or_equal_to: 0)
     |> validate_number(:total_trials, greater_than: 0)

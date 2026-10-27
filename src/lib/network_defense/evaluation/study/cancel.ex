@@ -77,10 +77,25 @@ defmodule NetworkDefense.Evaluation.Study.Cancel do
     end
   end
 
-  defp transaction_result({:ok, %StudyExecution{} = execution}), do: {:ok, execution}
+  defp transaction_result({:ok, %StudyExecution{} = execution}) do
+    dispatch_wakeup(execution.id)
+    {:ok, execution}
+  end
+
   defp transaction_result({:error, %StudyError{} = error}), do: {:error, error}
   defp transaction_result(_result), do: {:error, StudyError.study_execution_storage_failed()}
 
   defp unwrap({:ok, value}), do: value
   defp unwrap({:error, %StudyError{} = error}), do: Repo.rollback(error)
+
+  defp dispatch_wakeup(execution_id) do
+    case Registry.lookup(NetworkDefense.Evaluation.Study.CoordinatorRegistry, execution_id) do
+      [{pid, _value} | _] when is_pid(pid) -> send(pid, {:study_cancelled, execution_id})
+      _ -> :ok
+    end
+  rescue
+    _exception -> :ok
+  catch
+    :exit, _reason -> :ok
+  end
 end

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Evaluation.Study.CollectionItems do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.StudyCollectionItem
+  alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyPhase}
   alias NetworkDefense.Repo
 
   # The stable positional identity of one collection item.
@@ -17,12 +17,14 @@ defmodule NetworkDefense.Evaluation.Study.CollectionItems do
   # concurrent duplicate both read the one stored row. A phase identifier that
   # names no stored phase reports an unavailable store.
 
-  @spec get_or_create(String.t(), non_neg_integer(), non_neg_integer()) ::
+  @spec get_or_create(String.t(), -1..4, non_neg_integer()) ::
           {:ok, StudyCollectionItem.t()} | {:error, StudyError.t()}
   def get_or_create(study_phase_id, replica_position, item_position) do
     with {:ok, phase_id} <- cast_phase_id(study_phase_id),
-         :ok <- validate_position(:replica_position, replica_position),
-         :ok <- validate_position(:item_position, item_position) do
+         {:ok, phase} <- load_phase(phase_id),
+         :ok <- ensure_supported_phase(phase),
+         :ok <- validate_position(phase, :replica_position, replica_position),
+         :ok <- validate_position(phase, :item_position, item_position) do
       attrs = %{
         study_phase_id: phase_id,
         replica_position: replica_position,
@@ -40,10 +42,36 @@ defmodule NetworkDefense.Evaluation.Study.CollectionItems do
     end
   end
 
-  defp validate_position(_field, position) when is_integer(position) and position >= 0, do: :ok
+  defp load_phase(phase_id) do
+    case Repo.get(StudyPhase, phase_id) do
+      %StudyPhase{} = phase -> {:ok, phase}
+      nil -> {:error, StudyError.collection_item_storage_failed()}
+    end
+  end
 
-  defp validate_position(field, _position),
-    do: {:error, StudyError.invalid_collection_position(field)}
+  defp ensure_supported_phase(%StudyPhase{phase: phase})
+       when phase in [:pilot_collection, :final_collection],
+       do: :ok
+
+  defp ensure_supported_phase(%StudyPhase{phase: phase}),
+    do: {:error, StudyError.unsupported_collection_phase(phase)}
+
+  defp validate_position(%StudyPhase{phase: :pilot_collection}, :replica_position, 0),
+    do: :ok
+
+  defp validate_position(%StudyPhase{phase: :final_collection}, :replica_position, position)
+       when is_integer(position) and position in -1..4,
+       do: :ok
+
+  defp validate_position(_phase, :replica_position, _position),
+    do: {:error, StudyError.invalid_collection_position(:replica_position)}
+
+  defp validate_position(_phase, :item_position, position)
+       when is_integer(position) and position >= 0,
+       do: :ok
+
+  defp validate_position(_phase, :item_position, _position),
+    do: {:error, StudyError.invalid_collection_position(:item_position)}
 
   defp insert(attrs) do
     %StudyCollectionItem{}

@@ -62,7 +62,7 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionWorkTest do
     assert {:ok, repeated} = Collection.build_collection_work(execution, phase, definition, 0)
     assert repeated == items
 
-    assert {:ok, [%{replica_position: 1, item_position: 0} | _rest]} =
+    assert {:error, %StudyError{}} =
              Collection.build_collection_work(execution, phase, definition, 1)
   end
 
@@ -207,6 +207,45 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionWorkTest do
 
     assert issue["code"] == "incomplete_collection_definition"
     assert issue["path"] == ["pilot", "collection", "selection_seeds"]
+  end
+
+  test "TIER-01: WHEN Final work is filtered, THE application SHALL keep global positions and first-seen order",
+       %{definition: definition, execution: execution} do
+    selected = Enum.find(definition.pilot.candidates, &(&1.id == "medium"))
+
+    execution = %{
+      execution
+      | state: :collecting_final,
+        selected_candidate_id: selected.id,
+        selected_plan_count_per_side: selected.plan_count_per_side,
+        selected_attacks_per_plan: selected.attacks_per_plan,
+        pilot_override: false
+    }
+
+    phase = phase(execution, :final_collection)
+
+    assert {:ok, ["core", "edge"]} = Collection.tier_order(definition)
+    [core, edge] = definition.family.comparisons
+    repeated = %{definition | family: %{definition.family | comparisons: [edge, core, edge]}}
+    assert {:ok, ["edge", "core"]} = Collection.tier_order(repeated)
+    empty = %{definition | family: %{definition.family | comparisons: []}}
+    assert {:error, %StudyError{}} = Collection.tier_order(empty)
+
+    for position <- -1..4 do
+      assert {:ok, items} =
+               Collection.build_collection_work(execution, phase, definition, position)
+
+      assert {:ok, edge} = Collection.filter_tier(items, definition, "edge")
+      assert Enum.map(edge, & &1.item_position) == Enum.to_list(12..23)
+    end
+
+    for position <- [-2, 5] do
+      assert {:error, %StudyError{}} =
+               Collection.build_collection_work(execution, phase, definition, position)
+    end
+
+    assert {:ok, items} = Collection.build_collection_work(execution, phase, definition, 0)
+    assert {:error, %StudyError{}} = Collection.filter_tier(items, definition, "unknown")
   end
 
   defp strategy_keys(items, range),

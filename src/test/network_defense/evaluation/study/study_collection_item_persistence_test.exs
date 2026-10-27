@@ -1,6 +1,7 @@
 defmodule NetworkDefense.Evaluation.Study.StudyCollectionItemPersistenceTest do
   use NetworkDefense.DataCase, async: false
 
+  alias Ecto.Adapters.SQL
   alias NetworkDefense.Evaluation.Study.CollectionItems
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyFixtures}
@@ -19,6 +20,48 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionItemPersistenceTest do
 
   setup do
     StudyFixtures.study_with_two_phases()
+  end
+
+  test "COLLECTION-REPO-05: WHEN Final positions are stored, THE database SHALL reject values outside -1 through 4",
+       %{final_phase: phase} do
+    for position <- -1..4 do
+      assert {:ok, _} = CollectionItems.get_or_create(phase.id, position, 0)
+    end
+
+    for position <- [-2, 5] do
+      attrs = %{study_phase_id: phase.id, replica_position: position, item_position: 1}
+      refute StudyCollectionItem.create_changeset(%StudyCollectionItem{}, attrs).valid?
+      assert {:error, %StudyError{}} = CollectionItems.get_or_create(phase.id, position, 1)
+
+      assert {:error, %Postgrex.Error{postgres: %{code: :check_violation}}} =
+               SQL.query(
+                 Repo,
+                 "INSERT INTO evaluation_study_collection_items (id, study_phase_id, replica_position, item_position, inserted_at, updated_at) VALUES ($1, $2, $3, 1, now(), now())",
+                 [Ecto.UUID.bingenerate(), Ecto.UUID.dump!(phase.id), position],
+                 mode: :savepoint
+               )
+    end
+  end
+
+  @tag :integration
+  test "COLLECTION-REPO-06: WHEN Pilot replicas are requested, THE store SHALL accept only position zero",
+       %{pilot_phase: phase} do
+    assert {:ok, _} = CollectionItems.get_or_create(phase.id, 0, 0)
+
+    for position <- [-1, 1, 4] do
+      assert {:error, %StudyError{issues: [%{"code" => "invalid_collection_position"}]}} =
+               CollectionItems.get_or_create(phase.id, position, 0)
+    end
+  end
+
+  @tag :integration
+  test "COLLECTION-REPO-07: WHEN an analysis phase is used, THE store SHALL reject it", %{
+    execution: execution
+  } do
+    phase = StudyFixtures.insert_phase(execution, :pilot_analysis)
+
+    assert {:error, %StudyError{issues: [%{"code" => "unsupported_collection_phase"}]}} =
+             CollectionItems.get_or_create(phase.id, 0, 0)
   end
 
   test "COLLECTION-REPO-01: a repeated positional request returns the stored item", %{
@@ -46,14 +89,14 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionItemPersistenceTest do
     final_phase: final_phase
   } do
     assert {:ok, %StudyCollectionItem{} = pilot_item} =
-             CollectionItems.get_or_create(pilot_phase.id, 1, 2)
+             CollectionItems.get_or_create(pilot_phase.id, 0, 2)
 
     assert {:ok, %StudyCollectionItem{} = final_item} =
-             CollectionItems.get_or_create(final_phase.id, 1, 2)
+             CollectionItems.get_or_create(final_phase.id, 0, 2)
 
     refute final_item.id == pilot_item.id
     assert final_item.study_phase_id == final_phase.id
-    assert final_item.replica_position == 1
+    assert final_item.replica_position == 0
     assert final_item.item_position == 2
     assert Repo.aggregate(StudyCollectionItem, :count) == 2
   end

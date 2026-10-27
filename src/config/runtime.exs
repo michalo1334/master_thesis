@@ -194,6 +194,10 @@ config :network_defense, NetworkDefense.Evaluation.Family.Client,
 config :network_defense, NetworkDefense.Evaluation.Pilot.Client,
   base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
 
+config :network_defense,
+       :measured_environment_revision,
+       System.get_env("EVALUATION_MEASURED_ENVIRONMENT_REVISION")
+
 # Stage 4 Pilot limits are deployment resource caps, not scientific settings.
 # They are all-or-none. Without them the application, Stage 2, and Stage 3 run
 # normally and every Pilot call fails with a bounded configuration_invalid

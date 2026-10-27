@@ -115,6 +115,30 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "The study revision could not be stored safely."
       )
 
+  def phase_run_storage_failed,
+    do:
+      new(
+        "unavailable",
+        "final_phase_run_storage_failed",
+        [],
+        "The phase run could not be stored safely."
+      )
+
+  def phase_run_conflict,
+    do:
+      new(
+        "conflict",
+        "final_phase_run_conflict",
+        [],
+        "The phase run identity or link conflicts with a stored row."
+      )
+
+  def phase_runs_incomplete,
+    do: new("unavailable", "incomplete_phase_run_list", [], "The phase run list is incomplete.")
+
+  def invalid_tier,
+    do: new("validation_failed", "invalid_tier", [], "The tier is not declared or has no work.")
+
   def collection_item_storage_failed,
     do:
       new(
@@ -175,7 +199,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "validation_failed",
         "invalid_collection_position",
         [Atom.to_string(field)],
-        "A collection position is not a non-negative integer."
+        "A collection position is outside the allowed range."
       )
 
   def collection_item_not_found,
@@ -464,6 +488,51 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
         "result_unavailable",
         ["result"],
         "The compact study result is not available."
+      )
+
+  def measured_environment_unavailable,
+    do:
+      new(
+        "unavailable",
+        "measured_environment_unavailable",
+        ["environment"],
+        "The measured environment is not available."
+      )
+
+  def measured_environment_changed,
+    do:
+      new(
+        "conflict",
+        "measured_environment_changed",
+        ["environment"],
+        "The measured environment changed during Final collection."
+      )
+
+  def final_timing_unavailable,
+    do:
+      new(
+        "unavailable",
+        "final_timing_unavailable",
+        ["timing"],
+        "Final timing is not available."
+      )
+
+  def final_timing_invalid,
+    do:
+      new(
+        "validation_failed",
+        "final_timing_invalid",
+        ["timing"],
+        "Final timing contains an invalid boundary."
+      )
+
+  def final_timing_incomplete,
+    do:
+      new(
+        "unavailable",
+        "final_timing_incomplete",
+        ["timing"],
+        "Final timing is incomplete."
       )
 
   defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)

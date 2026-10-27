@@ -149,7 +149,15 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionActionTest do
     graph: graph
   } do
     phase = StudyFixtures.insert_phase(execution, :final_analysis)
-    item = collection_item(phase, 0)
+
+    item =
+      %StudyCollectionItem{}
+      |> StudyCollectionItem.create_changeset(%{
+        study_phase_id: phase.id,
+        replica_position: 0,
+        item_position: 0
+      })
+      |> Repo.insert!()
 
     assert {:error, %StudyError{issues: [issue]}} = Collection.run_collection_item(item.id)
     assert issue["code"] == "unsupported_collection_phase"
@@ -173,6 +181,43 @@ defmodule NetworkDefense.Evaluation.Study.StudyCollectionActionTest do
     assert repeated.experiment_id == first.experiment_id
 
     assert Repo.aggregate(from(item in StudyCollectionItem), :count) == 1
+  end
+
+  test "CHUNK-B-SPLIT-01: WHEN plan and simulation run separately, THE application SHALL reuse links and simulate the output graph",
+       %{pilot_phase: phase} do
+    item = collection_item(phase, 0)
+    assert {:error, %StudyError{}} = Collection.run_simulation_item(item.id)
+    assert Repo.get!(StudyCollectionItem, item.id).experiment_id == nil
+
+    assert {:ok, planned} = Collection.run_plan_selection_item(item.id)
+    assert planned.optimization_run_id != nil
+    assert planned.experiment_id == nil
+    assert {:ok, ^planned} = Collection.run_plan_selection_item(item.id)
+
+    run = Repo.get!(OptimizationRun, planned.optimization_run_id)
+    assert run.status == "completed"
+    assert {:ok, %CollectionResult{} = result} = Collection.run_simulation_item(item.id)
+    assert {:ok, ^result} = Collection.run_simulation_item(item.id)
+    assert result.optimization_run_id == run.id
+    assert result.completed_trials == result.total_trials
+    assert Experiments.get(result.experiment_id).graph_revision_id == run.output_graph_revision_id
+    assert Repo.aggregate(OptimizationRun, :count) == 1
+    assert Repo.aggregate(Experiment, :count) == 1
+  end
+
+  test "CHUNK-B-SPLIT-02: WHEN optimization evidence is incomplete, THE application SHALL not release simulation",
+       %{pilot_phase: phase} do
+    item = collection_item(phase, 0)
+    assert {:ok, planned} = Collection.run_plan_selection_item(item.id)
+    run = Repo.get!(OptimizationRun, planned.optimization_run_id)
+
+    for attrs <- [%{status: "failed"}, %{status: "running", output_graph_revision_id: nil}] do
+      OptimizationRun |> Repo.get!(run.id) |> Ecto.Changeset.change(attrs) |> Repo.update!()
+      assert {:error, %StudyError{}} = Collection.run_simulation_item(item.id)
+      assert Repo.get!(StudyCollectionItem, item.id).experiment_id == nil
+    end
+
+    assert Repo.aggregate(Experiment, :count) == 0
   end
 
   defp collection_item(phase, position) do
