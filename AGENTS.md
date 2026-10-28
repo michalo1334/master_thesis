@@ -1,62 +1,43 @@
 # Documentation
 
-## ASD-STE100 & writing clarity
+# Keywords:
 
-**Always** use `asd-ste100` skill when writing documentation or outputting an explanation, text or anything else that is
-directed towards communication with the user.
+| Bold keyword(s)  | What to do  |
+|---|---|
+| **Always**  | follow instruction regardless of current circumstances  |
+| **Always** with **when**, **only**, **unless** in the instruction | follow (or ignore) under described conditions. Requires judgement based on surrounding context  |
+| **Never** | Absolutely forbidden under all conditions from doing the action. Must double check if the instruction was followed (pink elephant problem)  |
+| **Never** with **unless** in the instruction | forbidden from doing the action but permitted under described conditions |
 
-**Always** use plain and concise English language, do not use filler or less common, exotic wordings unless they
-represent exact technical jargon and there is no alternative way to describe a definition, concept etc.
+Hints:
+ - **Never** vs **Always** with negation words: **Never** is much stronger and majority (~95%) of the time it's required to **not** do the described action.
+ - Judgement based on surrounding context: instruction may state the reason. Use it to better understand the intent.
+ - LLMs suffer from pink elephant problem, so all negative or forbidding instructions must be double checked.
+ - user's instructions **always** override the instruction.
 
-When being prompted to review documentation for clarity towards the intended audience, follow
-`writing-clearly-and-concisely` skill as suplemental.
+## Writing clarity
 
-## Decoupling the intent and implementation
+ - **Always** Adjust documentation prose and verbosity according to target audience (request by user or inferred from documentation structure) - beginner, technical audience with/without expertise etc. Do not under or overexplain just because it's convenient.
+ - Prioritize (**unless** it's not relevant to the documentation) 
+ - **Never** use parallel negativisms (e.g. "it's X, not Y", "This does not state Z" etc. One could call it legalese speak), **when** a constraint or limitation has been stated somewhere, relevant to the document. The negative statement can be inferred from the positive ones. 
+ - **Always** use parallel negativisms or similar form **only** when they state an importnant limitation. The intent is to save crucial "why" decisions, not treat user like a dumb-dumb.
+ - **Always** use `asd-ste100` (Simplified technical english) skill **when** writing technical explanation or communicating with the user  
+ - **Never** use filler, fluff, exotic wordings **unless** they are part of the technical jargon, relevant to work being conveyed
+ - **Always** use visualization  and examples to better plan, explain, elaborate etc. the concept. Use **when** relevant, do not overuse for every single question, doc section or answer: tables, pseudocode, code, worked examples, mermaid diagrams, comparisions, enumerations etc.
+ - When documentation warrants example with code (source code, config etc.), **never** use concrete code fragments or values pasted directly from the codebase. They get oudated quickly and may confuse future readers. Use abstract enough but relevant to the context, values or code. Intent: minimize coupling between documentation and actual code.
+ - **When** writing comments or explanation, do not explain in detail what the code does. Describe **briefly** what it does for reader. State "why"/rationale/limitations when relevant.
 
-When documentation warrants code or pseudo code, do not use concrete code fragments or values pasted directly into the
-documentation. It gets outdated quickly. Instead refer to concrete modules, files or use illustrative code or values
-(abstract enough it doesn't get confused with real one).
 
-In short: document in a way that minimizes coupling between the implementation and description. Ask yourself a question:
-When source code or file contents change, how much documentation must change because of appearance rather than
-functionality?
+# Subagents
 
-## Example based
+Use `scout` for:
+- search codebase, docs, internet. 
+- **Never** use it to design, explain or plan.
 
-For complex documentation use examples, either enumerating inline (`e.g. ...`) or full worked ones that led the reader
-step by step to better turn abstract description into concrete chain of action.
+Use `worker` for:
+- implementation. 
 
-## Illustrating
+Use persistent (resume as needed) `worker` with `openai/gpt-6.1-terra`, thinking `xhigh` model for:
+ - tasks that involve computer use/handling UI. Do not use it just because it's easier. Prioritize first programmatic access. When programmatic access becomes too difficult (failed after 2 attempts or no access at all), then use it.
 
-Use _visualization_ to let reader better understand the intent behind the words. One clear diagram explains more than
-detailed paragraphs in English. _Visualization_ is not just embedded monolithic blocks that break wall of text but also
-inline code (or pseudocode) examples, mathematical expressions. Think rich text like in MS Word.
-
-**Do not** add visualization just in case for every single paragraph. It introduces unnecessary noise for the reader.
-
-Judge the relevant section and rate whether it warrants a visualization aspect or plain paragraph of text is sufficient.
-
-Examples of visualizing:
-
-- code & pseudocode examples - snippets, example config values, class names, public interface (API, OOP etc.) names
-- tables
-- images
-- input and output examples - interface usage with parameters, example output
-- mermaid diagrams - C4, state machine, sequential, activity, flowchart
-- LaTeX - for mathematical formalisms
-
-## Relevancy
-
-Phrases such as `complex` or `every single` were left vague intentionally as it's difficult to exactly quantize when one
-should add visualization or example. Rate the difficulty indvidually. Consider each time perspective of: 1. domain
-expert, 2. first time reader, engineer or user that wants to better understand the context. 3. a person with basic
-domain knowledge. How much each group can construct of their own internal understanding?
-
-**Important**: do not dumb down documentation just because it needs to be accessible for everyone. Each documentation
-can and should be addressed to different groups.
-
-# Workflow
-
-- Use `scout` with the exact `openai/gpt-5.6-luna` model override to explore the codebase or research the internet.
-- Use `worker` subagent delegation for implementation.
-- When you delegate work, tell the subagent to use its available `subagent_tool` tools for further independent delegation.
+- **Always** plan or design yourself.
