@@ -2,7 +2,8 @@ defmodule NetworkDefense.Evaluation.Study.Start do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{Coordinator, Lifecycle, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.{Coordinator, Lifecycle}
+  alias NetworkDefense.Evaluation.Study.Revisions
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 

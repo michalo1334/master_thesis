@@ -55,7 +55,7 @@ defmodule NetworkDefense.Evaluation.StudyExecution do
   @type t :: %__MODULE__{
           id: binary(),
           study_revision_id: binary(),
-          state: NetworkDefense.Evaluation.Study.Lifecycle.state(),
+          state: NetworkDefense.Evaluation.Study.Pipeline.Lifecycle.state(),
           pilot_outcome: map() | nil,
           selected_candidate_id: String.t() | nil,
           selected_plan_count_per_side: pos_integer() | nil,

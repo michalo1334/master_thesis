@@ -2,65 +2,107 @@
 
 ## Status and authority
 
-This document is the implementation authority for the current YAML study lifecycle and timing behavior. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
+This document describes the implemented evaluation study pipeline. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
 
-| Boundary                 | Current state                                                                                                                                               | Remaining work                                                                           |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| Definition and lifecycle | YAML input, immutable normalized revisions, public operations, and explicit pause/resume are implemented.                                                   | No automatic coordinator restart recovery or phase replay is planned for this prototype. |
-| Core outcome path        | Pilot/Final collection and analysis and compact successful results are implemented.                                                                         | Preserve the accepted scientific and lifecycle boundaries.                               |
-| Operational timing       | Sequential tiers, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, and complete-family equality are implemented. | No replacement replica, automatic recovery, or replay.                                   |
-| Timing output            | The compact result stores five measured values, median, minimum, and maximum for each tier and duration type.                                               | No additional timing-output work is planned.                                             |
+The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and prototype limits.
 
-The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and known limits. Current source contracts define implemented behavior.
+The modular pipeline refactor is complete through R7. R8 manual end-to-end verification and R9 automated test reconstruction remain separate work.
 
-Real-study settings, evidence collection, and deployment remain unapproved. Examples approve no scientific values.
+Real-study settings, evidence collection, and deployment remain unapproved. The examples approve no scientific values.
+
+## Public boundary
+
+`NetworkDefense.Evaluations` keeps six study operations:
+
+- create a study revision;
+- start a study;
+- read study status;
+- resume a paused study;
+- cancel a study; and
+- read a successful result.
+
+The comparison and family APIs remain separate reusable workflows. Pilot and Final stages are internal to the study pipeline.
+
+The public study modules stay under `NetworkDefense.Evaluation.Study`. Pipeline process and stage modules stay under `NetworkDefense.Evaluation.Study.Pipeline`.
+
+## Runtime structure
+
+```mermaid
+flowchart LR
+    CALLER["Caller"] --> FACADE["NetworkDefense.Evaluations"]
+    FACADE --> PUBLIC["Study public modules<br/>Start, Resume, Status, Cancel, Revisions, Results"]
+    PUBLIC --> COORD["Pipeline.Coordinator<br/>process shell"]
+    COORD --> RUNNER["Pipeline.Runner<br/>active-stage selection"]
+    RUNNER --> PC["Pilot.Collection"]
+    PC --> PA["Pilot.Analysis"]
+    PA --> GATE["Persisted pause"]
+    GATE --> FC["Final.Collection"]
+    FC --> FA["Final.Analysis"]
+    FA --> RESULT["Pipeline.Result.Store"]
+    PC & PA & FC & FA --> GUST["Fixed Gust DAGs"]
+    PUBLIC & RUNNER & PC & PA & FC & FA & RESULT --> DB[("Application PostgreSQL")]
+```
+
+### Process ownership
+
+`Pipeline.Coordinator` owns process concerns:
+
+- start one supervised task;
+- claim one execution in the local coordinator registry;
+- complete the caller handshake; and
+- invoke `Pipeline.Runner` in the registered process.
+
+`Pipeline.Runner` owns orchestration:
+
+- select the active stage from persisted execution state;
+- compose Pilot Collection and Pilot Analysis;
+- compose Final Collection and Final Analysis;
+- resume explicit Final Analysis coordination from `analyzing_final`;
+- map stage failures to bounded study errors; and
+- persist active-phase failure state.
+
+Each stage owns its successful database transition. The runner does not duplicate stage-specific persistence.
+
+The registered coordinator process also receives Final timing-boundary messages. This keeps all elapsed measurements in one monotonic clock domain.
+
+### Recovery boundary
+
+Gust persists run and task state. Completion callbacks only wake local waiters. A waiter reloads persisted Gust status before it accepts completion.
+
+The application does not start an automatic recovery worker. An application restart can leave an active execution without a coordinator. Explicit internal coordination can continue `analyzing_final`, but the public API does not perform automatic replay.
 
 ## Definition boundary
 
-YAML is the only user input format. It is an input transport, not a second stored authority.
+YAML is the user input transport. PostgreSQL stores one normalized immutable definition.
 
-The revision-creation boundary uses `YamlElixir.read_from_string/1` with default string keys. The application does not call `:yamerl` directly. It does not define separate YAML rules for aliases, merge keys, tags, or duplicate keys.
+Revision creation performs these steps:
 
-Revision creation has these steps:
-
-1. Read one bounded YAML string.
+1. Read one bounded YAML document.
 2. Parse it once.
-3. Validate the parsed value with the versioned definition schema.
+3. Validate the versioned definition contract.
 4. Resolve each graph revision.
-5. Store one immutable, normalized, JSON-compatible definition.
+5. Store one normalized JSON-compatible revision.
 
-The parsed root must be a map with `schema_version`. The schema rejects unsupported versions, missing fields, unknown fields, incorrect types, invalid ranges, and inconsistent scientific settings. A JSON-compatibility check runs before storage.
+Only graph revisions have application-owned immutable records and loaders. Other revision strings remain bounded caller assertions.
 
-Only graph revisions have application-owned immutable records and loaders. Other revision strings are bounded caller assertions. They do not create authenticated provenance. Do not add records, resolvers, hashes, or registries for those strings.
+Scientific settings and seeds are required. Deployment resource limits remain application configuration. A resource limit cannot replace or truncate a scientific setting.
 
-The declared study ID and revision number identify one caller-defined revision and must be unique together. The stored study-revision UUID is the application record identity. Creation does not compare content or return an existing revision.
-
-Scientific settings and seeds are required. Deployment resource caps remain external configuration. Work above a cap fails without changing scientific settings. The loader must not fill missing settings with defaults.
-
-Store no source YAML. Execute from the stored definition. Later boundaries validate typed inputs, bindings, and results. They do not parse YAML again.
-
-The checked-in contract is the source of truth for the definition shape:
+The checked-in contract defines the input shape:
 
 - [JSON Schema](../../src/priv/evaluation/study/v1/schemas/definition.schema.json)
-- [YAML conformance example](../../contracts/evaluation/study/v1/valid/study-small.yaml)
+- [YAML example](../../contracts/evaluation/study/v1/valid/study-small.yaml)
 - [Normalized JSON example](../../contracts/evaluation/study/v1/valid/study-small.json)
 
-## Lifecycle ownership
-
-Revision creation is outside the execution lifecycle. `start_study` accepts one stored study-revision ID. An invalid or missing revision creates no execution.
-
-One application state machine owns each study execution. Gust owns work inside fixed phase DAGs. Gust does not own study state.
-
-There is no calibration lifecycle phase. Calibration finishes before revision creation.
+## Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> collecting_pilot: start valid stored revision
+    [*] --> collecting_pilot
     collecting_pilot --> analyzing_pilot: accept Pilot snapshot
-    analyzing_pilot --> awaiting_final: accept recommendation or insufficiency
+    analyzing_pilot --> awaiting_final: accept Pilot outcome
     awaiting_final --> collecting_final: explicit valid resume
-    collecting_final --> analyzing_final: accept separate Final snapshot
-    analyzing_final --> succeeded: accept complete Final family
+    collecting_final --> analyzing_final: accept Final snapshot and handoff
+    analyzing_final --> succeeded: store compact result
     collecting_pilot --> failed
     analyzing_pilot --> failed
     collecting_final --> failed
@@ -75,229 +117,173 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-A rejected resume request leaves the execution at `awaiting_final`. It does not fail the execution. A validated insufficient Pilot is not a failed analysis.
+A rejected resume keeps the execution at `awaiting_final`. A valid insufficient Pilot result also pauses. It is not a failed analysis.
 
-| State                 | Accepted event or condition                           | Result                                                    |
-| --------------------- | ----------------------------------------------------- | --------------------------------------------------------- |
-| `collecting_pilot`    | Pilot collection returns a valid snapshot             | Store the accepted references and start Pilot analysis    |
-| `analyzing_pilot`     | Pilot returns a valid recommendation or insufficiency | Store the outcome and enter `awaiting_final`              |
-| `awaiting_final`      | Explicit resume satisfies the Final gate              | Freeze the selected candidate and start Final collection  |
-| `collecting_final`    | Final collection returns a valid separate snapshot    | Store the accepted references and start Final analysis    |
-| `analyzing_final`     | Final returns one valid complete family               | Store the successful compact result and enter `succeeded` |
-| Any active phase      | The phase fails terminally                            | Store a bounded execution error and enter `failed`        |
-| Any nonterminal state | Cancellation is accepted                              | Enter `cancelled`                                         |
-| Any terminal state    | A duplicate or late event arrives                     | Keep the terminal state                                   |
+| State | Stage responsibility |
+| --- | --- |
+| `collecting_pilot` | Collect Pilot evidence and accept the Pilot snapshot. |
+| `analyzing_pilot` | Evaluate candidates, persist the Pilot outcome, and pause. |
+| `awaiting_final` | Validate the caller selection and freeze one declared candidate. |
+| `collecting_final` | Run sequential tiers, validate replicas and timing, and accept the Final snapshot. |
+| `analyzing_final` | Analyze the complete family and store the compact result. |
 
-### Ephemeral coordinator
+Cancellation locks the execution row. A late stage result cannot revive a cancelled execution.
 
-The prototype uses one supervised application task to coordinate phases. Gust persists each phase run and owns task retries inside that run. Gust completion callbacks wake temporary waiters, but persisted Gust rows remain authoritative. The application does not add an Oban handoff, polling worker, automatic restart recovery, or phase replay.
+## Stage contracts
 
-Each fixed phase has one application row. It links the execution, phase, accepted snapshot or result reference, and bounded error. Pilot collection and both analysis phases each link one scalar Gust run ID.
+Each stage has one typed IO family. Mapped Gust work uses smaller item contracts with stable database references.
 
-Final collection keeps `StudyPhase.gust_run_id` nil. Ordered `StudyPhaseRun` rows link one Gust run per declared tier. Each row records the tier and its position. These rows form one phase-run tier family, not replay attempts.
+Stage return rules are:
 
-`start_study` stores the execution and its Pilot collection phase before it starts the coordinator task. The task then:
+- Pilot Collection returns Pilot Analysis IO;
+- Pilot Analysis returns `:paused`;
+- Final Collection returns Final Analysis IO; and
+- Final Analysis returns `:completed`.
 
-1. Submits the phase to Gust.
-2. Stores the returned Gust run ID.
-3. Awaits the terminal Gust result.
-4. Validates the typed result.
-5. Stores the accepted references and lifecycle transition.
-6. Continues with the next phase or stops at `awaiting_final`.
+Gust stores compact identifiers and receipts. In-process IO can contain loaded definitions, phases, snapshots, tier rows, and typed results.
 
-`resume_study` starts a new task for the Final phases. It dispatches and awaits each tier run before starting the next tier. After timing validation and complete-family equality, it creates the replica-zero snapshot outside Gust and starts Final analysis. A task checks the locked execution state before it accepts a result. Snapshot acceptance also locks and checks that state. A completion after cancellation must not revive the execution.
+The Final Collection-to-Analysis handoff is versioned and stored in the locked Final Collection phase. The handoff contains the accepted snapshot reference, ordered tier references, and validated timing summary. A repeated acceptance must match the stored handoff.
 
-An application restart can leave an active execution without a coordinator. The prototype does not reconnect automatically. The operator cancels that execution and starts a new one. Whole-phase replay and multiple attempts are outside this prototype.
+## Gust DAGs
 
-## Fixed phase DAGs
+The runtime uses six checked-in DAGs. Four belong to the study lifecycle.
 
-The pipeline uses four checked-in DAG definitions. Final collection instantiates its tier DAG once per tier:
+| DAG | Role |
+| --- | --- |
+| `evaluation_comparison` | Run one reusable comparison. |
+| `evaluation_family` | Run one reusable corrected family. |
+| `evaluation_study_pilot_collection` | Prepare Pilot work, collect mapped items, and assemble the Pilot snapshot. |
+| `evaluation_pilot` | Prepare candidates, evaluate mapped candidate comparisons, and select the Pilot outcome. |
+| `evaluation_study_final_tier_collection` | Collect one Final tier with warm-up, measured replicas, timing markers, and environment boundaries. |
+| `evaluation_final` | Prepare, compare, and correct the Final family. |
 
-| DAG                                      | Current status | Role                                                                            |
-| ---------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
-| `evaluation_study_pilot_collection`      | Implemented    | Collect and assemble Pilot evidence                                             |
-| `evaluation_pilot`                       | Implemented    | Evaluate declared sample-size candidates                                        |
-| `evaluation_study_final_tier_collection` | Implemented    | Collect one tier's warm-up and measured evidence; return a compact tier receipt |
-| `evaluation_final`                       | Implemented    | Analyze the complete Final family                                               |
+The DAG files define static topology. A compile-time macro expands the five measured Final replica chains. It does not generate a graph at runtime.
 
-```mermaid
-flowchart LR
-    PC["Pilot collection"] --> PA["Pilot analysis"]
-    PA --> GATE["Pause and explicit resume"]
-    GATE --> FC["Sequential Final tier runs and replica-zero snapshot"]
-    FC --> FA["Final analysis"]
-    FA --> RESULT["Successful compact result"]
-```
+No study DAG starts another DAG. The pipeline stages create, accept, dispatch, await, and read their own Gust runs.
 
-The lower-level comparison and family workflows remain reusable. Phase actions reuse their mathematics. They do not create nested Gust runs for each comparison.
+## Shared collection boundary
 
-The active lifecycle keeps Pilot and Final submission, await, result, and snapshot functions out of the public `NetworkDefense.Evaluations` facade. The lifecycle uses their modules internally.
+Pilot and Final collection share these modules under `Pipeline.Collection`:
 
-The YAML definition supplies ordered work data to checked-in DAGs. It must not generate modules, tasks, source code, or DAG topology. Do not add a workflow framework or DAG compiler.
+- planning and phase lookup;
+- stable collection-item storage;
+- reservations and run identity;
+- concurrency control;
+- work-item and receipt contracts; and
+- evidence assembly.
 
-### Collection boundary
+Pilot and Final stages keep separate task IO, DAGs, bounded errors, and acceptance rules.
 
-Pilot and Final collection share planning, reservation, and evidence rules but use different DAG actions. Their data boundary is:
+Each collection item has a stable application record. A retry reuses linked optimization and experiment effects. This supports repeat-safe effects, but it does not promise exactly-once computation.
 
-```mermaid
-flowchart TD
-    ROLE["Pilot or Final role"] --> PREP["Prepare ordered plan work"]
-    PREP --> PLANS["Select plans"]
-    PLANS --> SIM["Run experiments"]
-    SIM --> SG["ScatterGather trial batches"]
-    SG --> DB[("Application PostgreSQL")]
-    DB --> FAN["Validate and assemble evidence"]
-    FAN --> SNAP["Pilot DAG or Final coordinator creates snapshot"]
-```
+Detailed evidence remains in application PostgreSQL. Gust task results contain compact references. Fan-in reloads linked records, rejects incomplete work, and restores declared order.
 
-The supervised task owns the ephemeral sequence between phases and between Final tiers. Gust owns durable work inside each run, coarse mapped work, and task retries. Pilot snapshot fan-in runs inside Gust. Final complete-family equality and snapshot creation run in the coordinator after all tier runs finish. ScatterGather owns trial batches inside one experiment. Python remains synchronous, stateless numerical computation.
+## Pilot
 
-Each declared collection item has one stable application record. A retry reuses its linked optimization run and experiment. The record closes the crash window between a domain effect and Gust task-result storage.
+Pilot Collection creates one evidence snapshot. Pilot Analysis evaluates one ordered candidate list.
 
-Gust task results contain compact record IDs. Evidence and simulation data remain in application PostgreSQL. Fan-in loads only linked records. It rejects incomplete work and restores declared order before it creates a snapshot.
-
-Pilot collection maps one collection action per item. Final tier runs have separate mapped plan-selection and simulation stages for each replica. Each tier run has fixed warm-up and measured stages, environment checks, synchronous timing markers, and a compact tier receipt. The application enforces a collection-item cap and a shared Gust collection-concurrency cap. ScatterGather retains its existing controls for trial batches. These controls remain separate; the application does not validate a combined Gust × ScatterGather concurrency product at startup.
-
-## Outcome journey
-
-One execution follows this sequence:
-
-1. The author creates an immutable revision from YAML.
-2. The author starts an execution from the stored revision ID.
-3. Pilot collection creates a Pilot snapshot from persisted plan and trial evidence.
-4. Pilot analysis returns a recommendation or insufficiency. The execution always pauses.
-5. Explicit resume freezes one declared candidate. Final collection uses separate seeds and evidence.
-6. Final analysis calculates every comparison and applies one Holm correction.
-7. The lifecycle stores one successful compact result.
-
-Pilot and Final observations never share an evidence snapshot.
-
-## Pilot candidates and Final gate
-
-A Pilot candidate is one ordered item with:
+Each candidate has:
 
 - a stable candidate ID;
 - a plan count per side; and
 - an attack count per plan.
 
-Do not use separate count arrays or an implicit Cartesian product. Candidate IDs must be unique. Counts must meet the methodology bounds and fit every Pilot comparison on both sides.
+A candidate passes only if every declared comparison passes. Selection uses the declared runtime rule. The tie-break order is lower predicted runtime, more plans, fewer attacks, then earlier declared position.
 
-For each candidate and comparison, the Pilot:
+Pilot Analysis applies no Holm correction. If no candidate passes, it stores an `insufficient` outcome. The execution always pauses after a valid Pilot outcome.
 
-1. Samples alternative and reference rows independently without replacement.
-2. Samples shared attack columns without replacement.
-3. Runs the corrected crossed bootstrap inside each outer sample.
-4. Takes the declared guard quantile of interval half-widths.
-5. Requires informative evidence and the target width.
+Resume accepts:
 
-A candidate passes only when every declared comparison passes. Selection uses the declared runtime rule. The tie-break order is:
+- the recommended candidate; or
+- one declared candidate as an explicit insufficient override.
 
-1. lower predicted runtime;
-2. more plans;
-3. fewer attacks; and
-4. earlier declared position.
+The resume transaction freezes the candidate, counts, and override marker before Final work starts.
 
-Runtime prediction is a resource heuristic. It is not statistical evidence. Pilot analysis applies no Holm correction. If no candidate passes, the result is `insufficient`. Do not select the largest candidate automatically.
+## Final Collection
 
-Every definition uses `pilot_to_final.mode: pause`. Final collection never starts automatically.
+Final Collection runs tiers sequentially in declared family order. Each tier has:
 
-| Pilot outcome     | Resume rule                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `recommended`     | Use the recommended declared candidate and its exact counts                 |
-| `insufficient`    | Require one manually selected declared candidate and `pilot_override: true` |
-| Failed or invalid | Reject resume                                                               |
+- one excluded warm-up at position `-1`; and
+- five measured replicas at positions `0` through `4`.
 
-An override cannot change the family, counts, or any other frozen scientific setting. Such a change requires a new study revision.
+The static tier DAG uses seven environment checks:
 
-The successful result exposes `pilot_override` for both paths. The override does not change the Pilot outcome. It does not establish that the precision target passed.
+1. before warm-up;
+2. before measured replica `0`;
+3. one shared boundary between each adjacent measured replica; and
+4. after measured replica `4`.
 
-## Scientific invariants
+A shared boundary is both the end check for one replica and the start check for the next replica.
 
-Preserve these rules from the methodology:
+Synchronous markers measure plan selection, simulation, and total elapsed time. Total is measured directly. It is not calculated as the sum of the other intervals.
 
-- Scientific identity is `(tier, budget, alternative, reference, outcome)`.
-- The effect is the alternative mean outcome minus the declared reference mean outcome.
-- A budget is the maximum number of defense actions, not a required exact plan size.
-- Alternative and reference plan rows are independent.
-- Every plan in a comparison uses the same ordered attack columns.
-- Intervals use the corrected crossed bootstrap.
-- Raw p-values use the centered crossed bootstrap with add-one correction.
-- Final analysis applies Holm once across the complete declared family.
-- Non-informative members remain in that family.
-- Fan-in restores declared order.
-- Scheduling IDs and completion order do not affect scientific randomness.
+After all tiers finish, Final Collection:
 
-Collection seeds and analysis seeds have separate roles. Pilot and Final selection pools and evaluation roots are disjoint.
+1. validates five measured timing records for every tier;
+2. builds one complete-family non-timing summary for each measured position;
+3. requires all five summaries to match;
+4. selects replica `0` as the evidence source;
+5. creates and accepts the Final snapshot; and
+6. stores the Final Analysis handoff.
 
-Every typed optimization request contains one concrete selection seed. The study supplies its declared seed. The dashboard can preserve its Random seed option, but it resolves generation before typed request parsing.
+The stage creates no replacement replica after a mismatch.
 
-When a role requires `n` plan-selection seeds, use the first `n` seeds in declared order. Do not choose another valid subset. Attack columns follow the existing child-seed policy from each declared tier root.
+## Final Analysis and result
 
-## Timing — complete
+Final Analysis reloads authoritative values from PostgreSQL. It checks the frozen selection, accepted Pilot source, Final snapshot, ordered family, and analysis settings.
 
-Operational timing integration is complete. It does not change the outcome method. Final collection runs tiers sequentially in the order the comparison family first declares each tier. For each tier, it runs:
+The Final DAG calculates every comparison and applies one Holm correction across the complete declared family.
 
-- one excluded warm-up with replica position `-1`; and
-- five measured replicas with positions `0` through `4`.
+`Pipeline.Result.Store` creates one immutable compact result and transitions the execution to `succeeded` in the locked success transaction. Read-back validates the result against:
 
-Measured work starts only after warm-up succeeds. All replicas use the same scientific inputs. Warm-up supplies neither accepted Final evidence nor measured timing values. The prototype creates no replacement replica after rejection.
+- the study revision;
+- all four phase rows;
+- the ordered Final tier-run family; and
+- the stored compact result contract.
 
-The definition supplies the expected measured-environment revision. Application configuration supplies the current observed operator assertion. Each tier run compares them before warm-up and before and after each measured replica. A missing or different assertion fails with a bounded error. This check adds no fingerprint or authenticated provenance.
-
-Synchronous boundary markers let the Final coordinator measure intervals with `System.monotonic_time(:microsecond)` in its own process. Plan selection spans optimization dispatch through completion. Simulation spans experiment dispatch through completion. Total spans optimization dispatch through experiment completion. These elapsed intervals include Gust and ScatterGather wait time. Each interval uses its own boundaries; total is not the sum of the other intervals. The pure interval calculation also supports overlapping spans.
-
-The coordinator validates exactly five measured timing values, in positions `0..4`, for every tier. It keeps them in memory until successful result creation. The stored list keeps measured-position order; only a copy is sorted to find the median. Raw monotonic readings and interval boundaries are not persisted.
-
-After all tier runs finish, the coordinator reloads detailed PostgreSQL evidence. It builds one non-timing summary for each measured position across the complete declared family. Summaries cover selected plans, graph content, ordered attack histories, capability outcomes, host compromises, and other scientific evidence. Runtime IDs, durations, timestamps, and graph layout do not determine equality.
-
-The coordinator calls the canonical selector once with the five complete-family summaries. All five must match. Only replica `0` supplies the Final snapshot; replicas `1..4` supply timing variation, not additional inferential evidence. Snapshot creation and acceptance run outside Gust, under the lifecycle state gate.
-
-For each tier and duration type, the application stores the five measured microsecond values, median, observed minimum, and observed maximum. Result creation validates the summary against declared tier order and persists it atomically with success. Read-back validates the typed summary. Historical schema-version-one results with `timing: null` remain readable.
+Failed and cancelled executions have no compact scientific result.
 
 ## Persistence
 
-| Record                    | Purpose                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Normalized study revision | Immutable validated definition; no source YAML                                                               |
-| Study execution           | Mutable lifecycle state, selected candidate, accepted phase references, and terminal error                   |
-| Study phase               | One fixed-phase row with accepted references or bounded error; a scalar Gust run except for Final collection |
-| Study phase run           | One Final tier row with declared position and linked Gust run; ordered across the phase                      |
-| Collection item           | Stable link to retried optimization and experiment effects                                                   |
-| Pilot and Final snapshots | Existing immutable role-specific evidence records                                                            |
-| Compact study result      | One immutable successful scientific outcome                                                                  |
+| Record | Purpose |
+| --- | --- |
+| Study revision | Immutable normalized definition. |
+| Study execution | Lifecycle state, Pilot outcome, frozen Final selection, and bounded error. |
+| Study phase | One fixed stage with accepted run, snapshot, handoff, result reference, or error. |
+| Study phase run | One ordered Final tier and its Gust run. |
+| Collection item | Stable link to optimization and simulation effects. |
+| Evidence snapshot | Immutable Pilot or Final evidence payload. |
+| Study result | Immutable compact successful result. |
 
-A failed or cancelled execution has no compact scientific result. Its execution record exposes its terminal state, bounded error, and accepted phase references.
+Final Collection keeps its scalar phase run ID empty. Ordered `StudyPhaseRun` rows hold one Gust run per tier. Pilot Collection, Pilot Analysis, and Final Analysis each use one scalar Gust run ID.
 
-The successful compact result contains:
+Historical migration module and table names remain because Ecto migration history requires them. Current schemas and pipeline persistence use those tables directly.
 
-| Group        | Data                                                                                                                       |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Identity     | Result ID, schema version, study-revision ID, and execution ID                                                             |
-| Pilot        | Accepted collection and analysis run IDs, snapshot ID, and Pilot outcome                                                   |
-| Selection    | Candidate ID, counts, and `pilot_override`                                                                                 |
-| Final        | Accepted collection and analysis run IDs and snapshot ID                                                                   |
-| Timing       | Per-tier measured values, medians, observed minima, and observed maxima for plan selection, simulation, and total duration |
-| Inference    | Family identity, method, alpha, family size, and compact comparison results                                                |
-| Reproduction | Declared software and environment revision assertions                                                                      |
-| Metadata     | Insertion time                                                                                                             |
+## Scientific invariants
 
-Compact collection references use ordered `gust_run_ids`. Pilot collection has a one-item list. Final collection has one ID per tier in the same order as its `StudyPhaseRun` rows. Pilot and Final analysis references remain scalar. Result creation and read-back validate the Final tier family against PostgreSQL.
+The refactor preserves these rules:
 
-Do not copy evidence matrices into the result. Detailed evidence stays in PostgreSQL snapshots and runtime records. Each comparison keeps its identity, estimate, interval, raw and adjusted p-values, and assessment.
+- scientific identity is `(tier, budget, alternative, reference, outcome)`;
+- alternative and reference plan rows are independent;
+- all plans in one comparison use the same ordered attack columns;
+- intervals use the corrected crossed bootstrap;
+- raw p-values use the centered crossed bootstrap with add-one correction;
+- Final Analysis applies Holm once across the complete family;
+- non-informative members remain in that family;
+- fan-in restores declared order; and
+- scheduling IDs and completion order do not change scientific randomness.
 
-## Verification policy
+Pilot and Final use separate collection seeds and evidence snapshots.
 
-Use tests for behavior that protects scientific validity, persistence, or phase transitions. Use manual checks for wiring that is easy to observe and cheap to repeat.
+## Verification state
 
-Automated checks should include:
+R7 static verification includes formatting, warnings-as-errors compilation, strict Credo, Dialyzer, DAG loading, and namespace searches.
 
-- focused unit tests for parsing, definition rules, pure transitions, and deterministic selection;
-- repository tests for revision, execution, phase, and result constraints;
-- a small number of integration tests for coordinator transitions and collection-item reuse; and
-- one recommended journey and one insufficient-override journey.
+R8 is the first behavioral gate for the rebuilt pipeline. It must run:
 
-Manual checks can cover status inspection, cancellation, ordinary failure display, operator-facing API use, and the complete timed journey.
+1. one complete public study journey through pause, resume, Final tiers, Final Analysis, and result read-back; and
+2. one cancellation journey during active work.
 
-Do not add source-text, AST, schema-layout, helper, or manifest tests. Do not build exhaustive malformed-input or state-pair matrices. Do not duplicate a behavior at unit, integration, and journey levels without a separate risk. Use shared fixtures for common setup and request data.
+R9 reconstructs automated tests from the pre-refactor baseline. Tests must target public behavior, scientific calculations, typed stage contracts, persistence invariants, DAG topology, cancellation, bounded failures, environment boundaries, timing summaries, and compact results.
 
-The implementation plan defines observable EARS behaviors. It does not define an exact test count. Add a reasonable set of unit and integration tests for each risk. A chunk can use manual verification when automation would only repeat lower-level proof. Deployment and real evidence collection require separate approval.
+Deployment, real evidence collection, automatic recovery, phase replay, replacement replicas, and UI expansion require separate approval.

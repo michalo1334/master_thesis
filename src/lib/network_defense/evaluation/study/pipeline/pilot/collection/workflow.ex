@@ -3,7 +3,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Workflow do
 
   alias Gust.DAG.Run.Trigger
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{GustWaiter, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.GustWaiter
+
+  alias NetworkDefense.Evaluation.Study.Revisions
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo

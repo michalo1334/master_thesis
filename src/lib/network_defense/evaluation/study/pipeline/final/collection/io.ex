@@ -2,7 +2,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
+
+  alias NetworkDefense.Evaluation.Study.Revisions
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.{Phase, Planner}
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{

@@ -2,8 +2,8 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Awaiter do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{GustWaiter, WaitDeadline}
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Recorder
+  alias NetworkDefense.Evaluation.Study.Pipeline.{GustWaiter, WaitDeadline}
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
   alias NetworkDefense.Repo
 

@@ -1,9 +1,9 @@
-defmodule NetworkDefense.Evaluation.Study.GustWaiter do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.GustWaiter do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Study.WaitDeadline
+  alias NetworkDefense.Evaluation.Study.Pipeline.WaitDeadline
 
-  @registry NetworkDefense.Evaluation.Study.GustWaiterRegistry
+  @registry NetworkDefense.Evaluation.Study.Pipeline.GustWaiterRegistry
 
   @spec await(integer(), timeout()) ::
           {:ok, :succeeded} | {:error, :failed | :not_found | :timeout | :unavailable}

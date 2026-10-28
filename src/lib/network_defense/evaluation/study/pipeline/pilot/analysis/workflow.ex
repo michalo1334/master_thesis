@@ -11,7 +11,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Workflow do
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.TaskFailure
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 
-  alias NetworkDefense.Evaluation.Study.GustWaiter
+  alias NetworkDefense.Evaluation.Study.Pipeline.GustWaiter
   alias NetworkDefense.Evaluation.WorkflowRun
 
   alias Gust.DAG.Run.Trigger

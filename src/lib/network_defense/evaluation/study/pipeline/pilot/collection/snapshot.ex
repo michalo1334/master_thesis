@@ -19,8 +19,8 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot do
 
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.EvidenceAssembler
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 

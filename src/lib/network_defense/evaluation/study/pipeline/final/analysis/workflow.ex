@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Workflow do
 
   alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonError
   alias NetworkDefense.Evaluation.Comparison.TaskFailure, as: ComparisonTaskFailure
-  alias NetworkDefense.Evaluation.Study.GustWaiter
+  alias NetworkDefense.Evaluation.Study.Pipeline.GustWaiter
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.{Binding, Collector, Member}
 

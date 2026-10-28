@@ -34,8 +34,10 @@ defmodule NetworkDefense.Application do
     children =
       node_js_children ++
         [
-          {Registry, keys: :unique, name: NetworkDefense.Evaluation.Study.CoordinatorRegistry},
-          {Registry, keys: :duplicate, name: NetworkDefense.Evaluation.Study.GustWaiterRegistry},
+          {Registry,
+           keys: :unique, name: NetworkDefense.Evaluation.Study.Pipeline.CoordinatorRegistry},
+          {Registry,
+           keys: :duplicate, name: NetworkDefense.Evaluation.Study.Pipeline.GustWaiterRegistry},
           {Task.Supervisor, name: NetworkDefense.TaskSupervisor},
           NetworkDefense.Evaluation.Study.Pipeline.Collection.ConcurrencyGate,
           NetworkDefense.Simulations.CoordinatorRegistry,

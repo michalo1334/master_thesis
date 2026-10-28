@@ -13,13 +13,13 @@ The plan has four slices:
 
 This plan does not authorize deployment, real evidence collection, UI work beyond preserving the optimization controls, or new scientific defaults.
 
-## Current branch status
+## Implementation status
 
-The current `evaluation/rebuild` branch contains I1 through I6 and F1 through F23. F22+F23 activate the six public study lifecycle functions and retire the direct Pilot and Final facade groups.
+I1 through I6, F1 through F23, the [runtime-contract gate](evaluation-study-runtime-contract-future-work.md), and T1 through T5 are complete. The later modular refactor is also complete through R7.
 
-The [runtime-contract gate](evaluation-study-runtime-contract-future-work.md) and T1 through T5 are complete. Final collection runs sequential tier DAGs with excluded warm-up `-1`, measured positions `0..4`, coordinator elapsed intervals, and environment gates. One canonical selector checks five complete-family summaries before the coordinator creates the replica-zero snapshot. Ordered tier rows supply Final collection's run-ID list; its scalar run ID remains nil. The compact result stores validated per-tier timing values and descriptive statistics.
+Final Collection runs sequential tier DAGs with excluded warm-up `-1`, measured positions `0..4`, registered-process elapsed intervals, and shared environment boundaries. One canonical selector checks five complete-family summaries before Final Collection creates the replica-zero snapshot. Ordered tier rows supply Final Collection's run-ID list; its scalar run ID remains empty. The compact result stores validated per-tier timing values and descriptive statistics.
 
-No planned implementation slice remains. The slice descriptions and acceptance cases below retain their original implementation sequence; they are not a second current-state reference.
+This file records the original implementation sequence. The [current pipeline design](evaluation-study-pipeline.md) defines the implemented architecture. R8 manual verification and R9 automated test reconstruction belong to the modular refactor plan.
 
 ## Prototype boundaries
 
@@ -504,7 +504,7 @@ The small interval function can accept an optional `now_us` function for its uni
 
 ### T3 + T4 — environment, equivalence, and canonical evidence — complete
 
-Read the current measured-environment revision from application configuration. Compare it with the definition before the warm-up and before and after each measured replica. A missing or changed value fails with a bounded error.
+Read the current measured-environment revision from application configuration. Compare it with the definition before warm-up, before replica `0`, at each shared boundary between adjacent measured replicas, and after replica `4`. A missing or changed value fails with a bounded error.
 
 Create one typed non-timing summary for each measured replica. Compare summaries directly. Add no content hash.
 

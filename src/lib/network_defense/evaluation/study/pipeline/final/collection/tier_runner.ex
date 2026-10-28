@@ -4,7 +4,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRunner d
   import Ecto.Query
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRuns
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.ReplicaTiming

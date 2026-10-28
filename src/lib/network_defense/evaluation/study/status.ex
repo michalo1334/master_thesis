@@ -2,7 +2,7 @@ defmodule NetworkDefense.Evaluation.Study.Status do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.StudyExecution
 
   # The study status read boundary.

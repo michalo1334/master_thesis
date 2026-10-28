@@ -80,12 +80,14 @@ and other pilot work have accepted scientific contracts.
 Operational timing collection is implemented. Final collection runs tiers
 sequentially. Each tier has excluded warm-up `-1` and measured replicas `0..4`.
 The configured observed environment assertion must match the revision before
-warm-up and before and after each measured replica.
+warm-up, before replica `0`, at each shared boundary between adjacent measured
+replicas, and after replica `4`.
 
-The coordinator measures plan-selection, simulation, and total elapsed intervals
-in its own process. It validates timing values in memory. Five complete-family
-non-timing summaries must match before replica `0` alone supplies the Final
-snapshot. Other replicas do not increase the inferential sample size.
+The registered coordinator process measures plan-selection, simulation, and total
+elapsed intervals. Final Collection validates the values and stores the typed
+summary in the Final Analysis handoff. Five complete-family non-timing summaries
+must match before replica `0` alone supplies the Final snapshot. Other replicas
+do not increase the inferential sample size.
 
 The compact result stores five measured microsecond values, the median, the
 observed minimum, and the observed maximum for each tier and duration type. Raw

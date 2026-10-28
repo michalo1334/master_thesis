@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation.Study.WaitDeadline do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.WaitDeadline do
   @moduledoc false
 
   @type t :: integer() | :infinity

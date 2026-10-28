@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation.Study.Lifecycle do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.Lifecycle do
   @moduledoc false
 
   # Pure study lifecycle.

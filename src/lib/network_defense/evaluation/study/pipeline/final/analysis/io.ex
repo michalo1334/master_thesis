@@ -6,8 +6,8 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO do
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
 
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Binding
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Result

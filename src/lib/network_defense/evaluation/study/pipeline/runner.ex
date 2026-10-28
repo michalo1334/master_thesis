@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation.Study.Coordinator do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.Runner do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis, as: FinalAnalysis
@@ -9,12 +9,11 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   alias NetworkDefense.Evaluation.Study.Pipeline.State
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
   @terminal_states [:awaiting_final, :succeeded, :failed, :cancelled]
-  @coordinator_registry NetworkDefense.Evaluation.Study.CoordinatorRegistry
   @failure_persistence_event [
     :network_defense,
     :evaluation,
@@ -22,77 +21,6 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     :coordinator,
     :failure_persistence
   ]
-  @start_timeout 5_000
-
-  @spec start(Ecto.UUID.t()) :: {:ok, pid()} | {:error, StudyError.t()}
-  def start(execution_id) do
-    case Ecto.UUID.cast(execution_id) do
-      {:ok, id} -> start_coordinator(id)
-      :error -> {:error, StudyError.study_execution_not_found()}
-    end
-  end
-
-  defp start_coordinator(execution_id) do
-    caller = self()
-    handshake = make_ref()
-
-    case Task.Supervisor.start_child(NetworkDefense.TaskSupervisor, fn ->
-           claim_and_run(caller, handshake, execution_id, [])
-         end) do
-      {:ok, pid} -> await_start(pid, handshake)
-      {:error, _reason} -> {:error, StudyError.coordinator_not_startable()}
-    end
-  end
-
-  defp claim_and_run(caller, handshake, execution_id, opts) do
-    case Registry.register(@coordinator_registry, execution_id, nil) do
-      {:ok, _owner} ->
-        case start_context(execution_id) do
-          {:ok, _execution, _phase} ->
-            send(caller, {:coordinator_claimed, handshake, self()})
-
-            receive do
-              {:run_coordinator, ^handshake} -> run(execution_id, opts)
-            after
-              @start_timeout -> :ok
-            end
-
-          {:stop, _state} ->
-            send(caller, {:coordinator_start_error, handshake, self(), start_error()})
-
-          {:error, %StudyError{} = error} ->
-            send(caller, {:coordinator_start_error, handshake, self(), error})
-        end
-
-      {:error, {:already_registered, _pid}} ->
-        send(caller, {:coordinator_start_error, handshake, self(), start_error()})
-    end
-  end
-
-  defp await_start(pid, handshake) do
-    monitor = Process.monitor(pid)
-
-    receive do
-      {:coordinator_claimed, ^handshake, ^pid} ->
-        Process.demonitor(monitor, [:flush])
-        send(pid, {:run_coordinator, handshake})
-        {:ok, pid}
-
-      {:coordinator_start_error, ^handshake, ^pid, %StudyError{} = error} ->
-        Process.demonitor(monitor, [:flush])
-        {:error, error}
-
-      {:DOWN, ^monitor, :process, ^pid, _reason} ->
-        {:error, start_error()}
-    after
-      @start_timeout ->
-        Process.exit(pid, :kill)
-        Process.demonitor(monitor, [:flush])
-        {:error, start_error()}
-    end
-  end
-
-  defp start_error, do: StudyError.coordinator_not_startable()
 
   @spec run(Ecto.UUID.t(), keyword()) :: :ok | {:error, StudyError.t()}
   def run(execution_id, opts \\ []) do
@@ -126,8 +54,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   # Final collection ends in the Final analysis stage. The analysis stage owns
-  # the accepted run, the wait, and the result persistence, so the coordinator
-  # only composes the two stages.
+  # the accepted run, the wait, and the result persistence.
   defp run_final(execution_id, opts) do
     collection = Keyword.get(opts, :final_collection, FinalCollection)
 
@@ -185,16 +112,16 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     end
   end
 
-  defp start_context(execution_id) do
+  def prepare(execution_id) do
     case current_state(execution_id) do
-      {:ok, state} when state in [:collecting_pilot, :collecting_final] ->
+      {:ok, state} when state in [:collecting_pilot, :collecting_final, :analyzing_final] ->
         context(execution_id, state)
 
       {:ok, state} when state in @terminal_states ->
         {:stop, state}
 
       _invalid ->
-        {:error, start_error()}
+        {:error, StudyError.coordinator_not_startable()}
     end
   end
 
@@ -301,12 +228,12 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     _exception -> StudyError.final_analysis_failed()
   end
 
-  # The Pilot stages expose study failures only, so the coordinator keeps one
+  # The Pilot stages expose study failures only, so the runner keeps one
   # bounded error family.
   defp as_study_error(%StudyError{} = error), do: error
   defp as_study_error(_reason), do: StudyError.pilot_analysis_failed()
 
-  # The Final stages expose study failures only, so the coordinator keeps one
+  # The Final stages expose study failures only, so the runner keeps one
   # bounded error family.
   defp bounded_final_error(%StudyError{} = error), do: error
   defp bounded_final_error(_reason), do: StudyError.final_analysis_failed()

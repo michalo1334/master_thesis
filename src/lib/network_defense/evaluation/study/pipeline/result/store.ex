@@ -16,7 +16,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Result.Store do
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
 
-  alias NetworkDefense.Evaluation.Study.{Lifecycle, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Lifecycle
+
+  alias NetworkDefense.Evaluation.Study.Revisions
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRuns
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection, as: FinalSelection
 

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation.Study.ExecutionAccess do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess do
   @moduledoc false
 
   import Ecto.Query

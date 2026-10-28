@@ -25,7 +25,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TimingBounda
     marker_ref = make_ref()
     marker_pid = self()
 
-    case Registry.lookup(NetworkDefense.Evaluation.Study.CoordinatorRegistry, execution_id) do
+    case Registry.lookup(
+           NetworkDefense.Evaluation.Study.Pipeline.CoordinatorRegistry,
+           execution_id
+         ) do
       [{coordinator, _value} | _] when is_pid(coordinator) ->
         send(
           coordinator,

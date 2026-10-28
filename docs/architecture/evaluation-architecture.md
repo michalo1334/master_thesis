@@ -46,7 +46,7 @@ Application PostgreSQL owns study state. The public study lifecycle uses neither
 
 | Owner                  | Responsibility                                                                                                                         |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Elixir application     | Lifecycle state, strict contracts, collection planning, source binding, coordinator transitions, preflight, and typed result read-back |
+| Elixir application     | Lifecycle state, strict contracts, collection planning, source binding, stage transitions, preflight, and typed result read-back       |
 | Application PostgreSQL | Immutable study revisions and results; execution, phase, collection, runtime-link, and evidence-snapshot records                       |
 | Gust                   | Fixed collection and analysis DAGs, mapped work, retries, run/task state, errors, and saved task results                               |
 | Python                 | One synchronous, stateless numerical calculation per request; no database, job registry, scheduler, or result store                    |
@@ -57,7 +57,7 @@ Comparison and family requests include bounded matrices in Gust run parameters. 
 
 ## Fixed Gust DAGs
 
-The facade starts the comparison and family workflows. The study coordinator starts the Pilot and Final collection and analysis workflows. No DAG starts another DAG. Family and Final analysis tasks reuse the comparison action and Holm call directly, not nested comparison or family runs.
+The facade starts the comparison and family workflows. The study pipeline stages start the Pilot and Final collection and analysis workflows. No DAG starts another DAG. Family and Final analysis tasks reuse the comparison action and Holm call directly, not nested comparison or family runs.
 
 | DAG                                      | Fixed task shape                                                                                                                                 | Output                                                 |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ |
@@ -97,7 +97,7 @@ flowchart TB
         FC_WARM --> FC_RUN --> FC_RECEIPT
     end
 
-    EQUALITY["Coordinator equality gate and snapshot acceptance<br/>Input: all tier evidence for positions 0..4<br/>Output: accepted replica-0 Final snapshot ID"]
+    EQUALITY["Final Collection equality gate and snapshot acceptance<br/>Input: all tier evidence for positions 0..4<br/>Output: accepted replica-0 Final snapshot ID"]
 
     subgraph FA["Final analysis DAG"]
         FA_PREP["Prepare family<br/>Input: Final snapshot ID, stored Pilot source, frozen counts, and declared identities<br/>Output: comparison work"]
@@ -119,17 +119,17 @@ flowchart TB
 
 The collection DAGs store detailed evidence in PostgreSQL. Pilot collection returns a snapshot ID; each Final tier run returns a compact tier receipt. The analysis DAGs consume snapshot IDs and stored settings. They return typed outcomes instead of evidence matrices.
 
-The coordinator runs tiers in the order the comparison family first declares each tier. It stores the ordered Gust run IDs in `StudyPhaseRun` rows. Each tier has excluded warm-up `-1`, then measured positions `0..4`. The configured environment assertion must match the revision before warm-up and before and after each measured replica.
+Final Collection runs tiers in the order the comparison family first declares each tier. It stores the ordered Gust run IDs in `StudyPhaseRun` rows. Each tier has excluded warm-up `-1`, then measured positions `0..4`. The configured environment assertion must match the revision before warm-up, before replica `0`, at each shared boundary between adjacent measured replicas, and after replica `4`.
 
-Synchronous timing markers let the coordinator measure plan-selection, simulation, and total elapsed intervals in its own clock domain. It validates five measured timing values per tier in memory. Successful result creation stores the five values, median, minimum, and maximum. Raw monotonic readings and interval boundaries are not persisted.
+Synchronous timing markers let the registered coordinator process measure plan-selection, simulation, and total elapsed intervals in one clock domain. Final Collection validates five measured timing values per tier. It stores the validated timing summary in the versioned Final Analysis handoff. Successful result creation also stores the five values, median, minimum, and maximum. Raw monotonic readings and interval boundaries are not persisted.
 
-After all tiers finish, the coordinator loads PostgreSQL evidence and builds five complete-family non-timing summaries, one per measured position. One canonical selector call checks equality and selects replica `0`. The coordinator creates and accepts that replica's Final snapshot outside Gust. It accepts no replacement replica.
+After all tiers finish, Final Collection loads PostgreSQL evidence and builds five complete-family non-timing summaries, one per measured position. One canonical selector call checks equality and selects replica `0`. Final Collection creates and accepts that replica's Final snapshot outside Gust. It accepts no replacement replica.
 
 The diagram shows the public study lifecycle only. Result creation persists typed timing summaries in the same success transaction.
 
 Pilot maps one candidate/comparison pair. Family and Final map one declared comparison. Fan-in restores declared order and rejects missing, duplicate, or unexpected rows. Pilot selects within its own run and applies no Holm correction. Family and Final apply Holm once across the complete family.
 
-The current Pilot contract uses one ordered candidate list. Each candidate has a stable ID, a plan count per side, and an attack count per plan. The coordinator preserves declared candidate order through analysis and result read-back.
+The current Pilot contract uses one ordered candidate list. Each candidate has a stable ID, a plan count per side, and an attack count per plan. The Pilot stages preserve declared candidate order through analysis and result read-back.
 
 ## Public application boundary
 
@@ -148,19 +148,20 @@ The current Pilot contract uses one ordered candidate list. Each candidate has a
 
 Each comparison or family `submit_*` operation returns a Gust run ID, each `await_*` operation returns the completion status, and each `get_*_result` operation performs a separate, typed read-back from persisted data. All operations return typed success or bounded error values.
 
-The Pilot and Final workflows have no public group. They stay internal to the study coordinator, so a caller cannot start a Gust run, create an evidence snapshot, or read a Pilot or Final result outside one study execution. The Pilot and Final sections below describe those internal boundaries.
+The Pilot and Final workflows have no public group. They stay internal to the study pipeline, so a caller cannot start a Gust run, create an evidence snapshot, or read a Pilot or Final result outside one study execution. The Pilot and Final sections below describe those internal boundaries.
 
 The development commands `mix evaluation.compare` and `mix evaluation.family` run named synthetic fixtures. Pilot and Final work runs only inside a study execution.
 
 ### Final source and evidence boundary
 
-This is an internal coordinator contract. No caller submits Final work directly.
+This is an internal pipeline contract. No caller submits Final work directly.
 
-`resume_study/2` takes only the Final selection: `:recommended` or `{:override_insufficient, candidate_id}`. Every other Final input comes from PostgreSQL. In one locked transaction, the resume command stores the frozen selection, the selected counts, and the override flag, and it creates the empty `final_collection` phase. The coordinator then owns the rest of the boundary:
+`resume_study/2` takes only the Final selection: `:recommended` or `{:override_insufficient, candidate_id}`. Every other Final input comes from PostgreSQL. In one locked transaction, the resume command stores the frozen selection, the selected counts, and the override flag, and it creates the empty `final_collection` phase. The Final stages then own the boundary:
 
-- it runs the ordered Final tier family, validates complete-family equality, and creates and links the replica-zero snapshot to `final_collection`;
-- it reads the accepted Pilot analysis run, the frozen selection, and the Final snapshot when it builds the Final request; and
-- it writes the completion assertions from the stored phase rows.
+- Final Collection runs the ordered tier family, validates complete-family equality, and creates and links the replica-zero snapshot;
+- Final Collection stores the accepted snapshot, ordered tiers, and timing summary in a versioned handoff;
+- Final Analysis reloads the accepted Pilot run, frozen selection, Final snapshot, and handoff when it builds the Final request; and
+- Final Analysis writes completion references from the stored phase rows.
 
 The built request must match the accepted Pilot source and the Final snapshot on:
 
@@ -238,8 +239,8 @@ A retry retains the request and scientific seeds. Work can execute more than onc
 | Concern                              | Authoritative location                                                                                                                                                                                                        |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Comparison and family                | [`comparison/`](../../src/lib/network_defense/evaluation/comparison/), [`family/`](../../src/lib/network_defense/evaluation/family/)                                                                                          |
-| Study lifecycle and collection       | [`study/`](../../src/lib/network_defense/evaluation/study/), [`study_execution.ex`](../../src/lib/network_defense/evaluation/study_execution.ex), [`study_phase.ex`](../../src/lib/network_defense/evaluation/study_phase.ex) |
-| Pilot and Final analysis             | [`pilot/`](../../src/lib/network_defense/evaluation/pilot/), [`final/`](../../src/lib/network_defense/evaluation/final/)                                                                                                      |
+| Public study lifecycle               | [`study/`](../../src/lib/network_defense/evaluation/study/), [`study_execution.ex`](../../src/lib/network_defense/evaluation/study_execution.ex), [`study_phase.ex`](../../src/lib/network_defense/evaluation/study_phase.ex) |
+| Pipeline stages and shared collection | [`study/pipeline/`](../../src/lib/network_defense/evaluation/study/pipeline/)                                                                                                                                                 |
 | Snapshots                            | [`evidence_snapshot.ex`](../../src/lib/network_defense/evaluation/evidence_snapshot.ex), [`evidence_snapshots.ex`](../../src/lib/network_defense/evaluation/evidence_snapshots.ex)                                            |
 | DAGs                                 | [`priv/gust/dags/`](../../src/priv/gust/dags/)                                                                                                                                                                                |
 | Schemas and conformance fixtures     | [`priv/evaluation/`](../../src/priv/evaluation/), shared through [`contracts/evaluation/`](../../contracts/evaluation/)                                                                                                       |
@@ -250,6 +251,6 @@ A retry retains the request and scientific seeds. Work can execute more than onc
 
 The current runtime has the YAML boundary, immutable normalized study revisions, the study state machine, fixed collection and analysis DAGs, explicit resume and cancellation, and one immutable compact result after success.
 
-Operational timing is complete: sequential tier runs, excluded warm-up, five measured replicas, coordinator elapsed intervals, environment gates, complete-family equality, typed summaries, compact-result persistence, and validated read-back. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that behavior.
+Operational timing is complete: sequential tier runs, excluded warm-up, five measured replicas, registered-process elapsed intervals, shared environment boundaries, complete-family equality, typed summaries, compact-result persistence, and validated read-back. The [study pipeline design](../design/evaluation-study-pipeline.md) defines that behavior.
 
 This prototype does not authorize deployment, real evidence collection, automatic restart recovery, phase replay, or production scientific settings.

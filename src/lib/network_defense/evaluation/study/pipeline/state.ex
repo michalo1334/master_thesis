@@ -4,7 +4,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.State do
   import Ecto.Query
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Lifecycle}
+  alias NetworkDefense.Evaluation.Study.Pipeline.{ExecutionAccess, Lifecycle}
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 

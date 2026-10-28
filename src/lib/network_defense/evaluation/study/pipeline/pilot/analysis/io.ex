@@ -10,7 +10,9 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.IO do
     PilotResult
   }
 
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
+  alias NetworkDefense.Evaluation.Study.Revisions
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Outcome
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Work
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection

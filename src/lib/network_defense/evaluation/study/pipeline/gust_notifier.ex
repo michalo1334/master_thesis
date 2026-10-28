@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.GustNotifier do
   @moduledoc false
 
-  @registry NetworkDefense.Evaluation.Study.GustWaiterRegistry
+  @registry NetworkDefense.Evaluation.Study.Pipeline.GustWaiterRegistry
 
   @spec notify(integer()) :: :ok
   def notify(run_id) when is_integer(run_id) do

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Evaluation.Study.Cancel do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Lifecycle}
+  alias NetworkDefense.Evaluation.Study.Pipeline.{ExecutionAccess, Lifecycle}
   alias NetworkDefense.Evaluation.StudyExecution
   alias NetworkDefense.Repo
 
@@ -80,7 +80,10 @@ defmodule NetworkDefense.Evaluation.Study.Cancel do
   defp unwrap({:error, %StudyError{} = error}), do: Repo.rollback(error)
 
   defp dispatch_wakeup(execution_id) do
-    case Registry.lookup(NetworkDefense.Evaluation.Study.CoordinatorRegistry, execution_id) do
+    case Registry.lookup(
+           NetworkDefense.Evaluation.Study.Pipeline.CoordinatorRegistry,
+           execution_id
+         ) do
       [{pid, _value} | _] when is_pid(pid) -> send(pid, {:study_cancelled, execution_id})
       _ -> :ok
     end

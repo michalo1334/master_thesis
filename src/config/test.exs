@@ -51,9 +51,9 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
 
 config :network_defense, :metrics_port, 0
 
-# Test-only Pilot limits. The application and Stage 2 and Stage 3 paths start
-# without them. Manual checks supply their own explicit values.
-config :network_defense, NetworkDefense.Evaluation.Pilot.Limits,
+# Test-only Pilot limits. Unrelated application paths start without them.
+# Manual checks supply their own explicit values.
+config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Pilot.Limits,
   snapshot_payload_bytes: 2_097_152,
   snapshot_comparisons: 16,
   comparison_count: 16,

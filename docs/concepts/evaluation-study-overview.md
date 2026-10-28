@@ -81,7 +81,7 @@ The application freezes the accepted selection before Final collection. An overr
 
 Final collection uses the frozen counts and separate collection seeds. It runs tiers sequentially. Each tier has one excluded warm-up at position `-1`, then five measured replicas at positions `0..4`. Each replica repeats the same scientific inputs.
 
-The configured observed environment assertion must match the revision's declared environment before warm-up and before and after each measured replica. A missing or different assertion fails collection. This check compares operator assertions; it does not authenticate the environment.
+The configured observed environment assertion must match the revision's declared environment before warm-up, before measured replica `0`, at each shared boundary between adjacent measured replicas, and after replica `4`. A missing or different assertion fails collection. This check compares operator assertions; it does not authenticate the environment.
 
 The coordinator process measures plan-selection, simulation, and total elapsed intervals. These intervals include Gust and ScatterGather wait time. Total elapsed time has its own boundaries; it is not the sum of the other intervals. The application keeps the five measured values per tier in memory until successful result creation stores their summaries. Raw monotonic readings and interval boundaries are not persisted.
 

@@ -120,11 +120,12 @@ receiving a misleading multiplicity correction.
 - Final collection must run tiers sequentially. Each tier must run excluded
   warm-up `-1` before measured replicas `0..4`.
 - The configured observed environment assertion must match the revision before
-  warm-up and before and after each measured replica. A missing or different
-  assertion must fail collection.
-- The coordinator must measure plan-selection, simulation, and total elapsed
-  intervals in one process clock domain. It must validate five measured timing
-  values per tier in memory.
+  warm-up, before replica `0`, at each shared boundary between adjacent measured
+  replicas, and after replica `4`. A missing or different assertion must fail
+  collection.
+- The registered coordinator process must measure plan-selection, simulation,
+  and total elapsed intervals in one process clock domain. Final Collection must
+  validate five measured timing values per tier and persist the typed handoff.
 - Five complete-family non-timing summaries must match before replica `0` alone
   supplies the Final snapshot. A rejected replica must have no replacement.
 - Gust may retry tasks inside a run. Task retries do not create another phase

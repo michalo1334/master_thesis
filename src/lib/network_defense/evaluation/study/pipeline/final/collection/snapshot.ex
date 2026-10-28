@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot do
 
   alias NetworkDefense.Evaluation.EvidenceSnapshots
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.ExecutionAccess
+  alias NetworkDefense.Evaluation.Study.Pipeline.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Input
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.EvidenceAssembler

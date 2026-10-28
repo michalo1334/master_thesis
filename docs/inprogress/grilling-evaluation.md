@@ -1,8 +1,8 @@
 # Evaluation simplification
 
-Status: staged implementation is authorized. The lead owns design and acceptance; interactive Sol agents implement the stages. See the rebuild plan and stage handoffs for runtime status. Earlier sections record the design discussion, including superseded proposals.
+Status: historical design record. The modular pipeline is implemented through R7. See the [current pipeline design](../design/evaluation-study-pipeline.md) for the active architecture and the [refactor plan](../design/evaluation-study-pipeline-refactor-plan.md) for remaining R8 and R9 work.
 
-This record separates observed code behavior, proposed changes, and user decisions. A recommendation is not an accepted decision.
+The sections below preserve the design discussion, including superseded proposals. They do not define current runtime behavior.
 
 ## User intent
 
