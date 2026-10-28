@@ -7,9 +7,15 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot do
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{ComparisonEvidence, RuntimeEvidence}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{
+    ComparisonEvidence,
+    RuntimeEvidence
+  }
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.{Input, Payload}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.{
+    Input,
+    Payload
+  }
 
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError

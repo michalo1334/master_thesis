@@ -6,7 +6,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Collection.EvidenceAssembler 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Evaluation.Comparison.Contracts.{ComparisonSide, Evidence, PlanEvidence}
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{ComparisonEvidence, Provenance}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{
+    ComparisonEvidence,
+    Provenance
+  }
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.Study.Contracts.Definition

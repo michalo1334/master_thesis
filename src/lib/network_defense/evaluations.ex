@@ -6,8 +6,8 @@ defmodule NetworkDefense.Evaluations do
   alias NetworkDefense.Evaluation.Family
   alias NetworkDefense.Evaluation.Family.Contracts.FamilyRequest
   alias NetworkDefense.Evaluation.Study.Cancel
-  alias NetworkDefense.Evaluation.Study.CompactResult
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Result, as: CompactResult
   alias NetworkDefense.Evaluation.Study.Results
   alias NetworkDefense.Evaluation.Study.Resume
   alias NetworkDefense.Evaluation.Study.Revisions

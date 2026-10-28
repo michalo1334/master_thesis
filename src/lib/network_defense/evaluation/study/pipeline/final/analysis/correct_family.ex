@@ -1,24 +1,17 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CorrectFamily do
   @moduledoc false
-  @behaviour Gust.Action
 
   alias NetworkDefense.Evaluation.Family.Client
   alias NetworkDefense.Evaluation.Family.Contracts.{HolmRequest, RawResult}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Binding
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Collector
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Result
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Payload
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.{Request, Result}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Wire
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure
-
-  # Final fan-in task.
+  # Final fan-in step.
   #
   # It verifies the complete declared family, applies one Holm correction to
-  # all raw p-values in declared order, and stores one typed Final result. A
+  # all raw p-values in declared order, and returns one typed Final result. A
   # failure stores no result. A retry repeats only this pure correction call.
   #
   # The fan-in repeats the snapshot metadata, byte count, declared order,
@@ -26,27 +19,22 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CorrectFamily 
   # snapshot or Pilot that changed after the members ran therefore stops the
   # run with no Holm dispatch.
 
-  @impl true
-  def execute(_args, %{run_id: run_id}) do
-    with {:ok, request, payload} <- load(run_id),
+  @spec run(IO.t()) ::
+          {:ok, IO.t()}
+          | {:error, FinalError.t()}
+          | {:error, {:temporary, FinalError.t()}}
+  def run(%IO{gust_run: %{id: run_id}} = io) do
+    with {:ok, request, payload} <- IO.values(io),
          {:ok, members} <- Collector.collect(run_id, request, payload),
          {:ok, correction} <- correction_request(request, members),
          {:ok, response} <- call_correction(correction),
          {:ok, result} <- Result.from_response(request, members, response) do
-      Wire.result(result)
-    else
-      {:error, :permanent, error} -> TaskFailure.raise_permanent(error)
-      {:error, :temporary, error} -> TaskFailure.raise_retryable(error)
-      {:error, %FinalError{} = error} -> TaskFailure.raise_permanent(error)
+      {:ok, %{io | result: result}}
     end
   end
 
-  defp load(run_id) do
-    with {:ok, %Request{} = request} <-
-           run_id |> Gust.Flows.get_run!() |> Map.fetch!(:params) |> Request.parse(),
-         {:ok, %Payload{} = payload} <- Binding.verify(request) do
-      {:ok, request, payload}
-    end
+  def run(%IO{}) do
+    {:error, FinalError.incomplete_family("The persisted Final run is missing.")}
   end
 
   defp correction_request(%Request{} = request, members) do
@@ -81,8 +69,11 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CorrectFamily 
       {:ok, response} ->
         {:ok, response}
 
+      {:error, :temporary, error} ->
+        {:error, {:temporary, correction_error(:temporary, error)}}
+
       {:error, classification, error} ->
-        {:error, classification, correction_error(classification, error)}
+        {:error, correction_error(classification, error)}
     end
   end
 
@@ -94,4 +85,22 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CorrectFamily 
 
   defp correction_error(:temporary, _error), do: FinalError.unavailable()
   defp correction_error(:permanent, _error), do: FinalError.invalid_correction()
+
+  defmodule Gust do
+    @moduledoc false
+
+    use NetworkDefense.Evaluation.Study.Pipeline.GustAdapter,
+      step: NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CorrectFamily,
+      failures: NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure
+
+    alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Result
+    alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO
+    alias NetworkDefense.Evaluation.Study.Pipeline.GustAdapter
+
+    @impl GustAdapter
+    def decode(_args, %{run_id: run_id}), do: IO.load_from_gust_run(run_id)
+
+    @impl GustAdapter
+    def encode(%IO{result: %Result{} = result}), do: Result.to_params(result)
+  end
 end

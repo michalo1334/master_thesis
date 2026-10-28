@@ -7,7 +7,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Con
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.SchemaValidator
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{ComparisonEvidence, RuntimeEvidence}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Evidence.Contracts.{
+    ComparisonEvidence,
+    RuntimeEvidence
+  }
 
   # Stored snapshot payload. Database columns own the study revision, phase,
   # schema version, and family ID, so the payload never repeats them.

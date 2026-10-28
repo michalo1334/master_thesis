@@ -7,7 +7,18 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Final
 
   alias NetworkDefense.Contracts
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.FinalReplicaSummary.{AttackAction, AttackerState, AttackStep, CanonicalGraph, CapabilityStatus, Foothold, Item, PlanAction, RequiredFlowStatus, Trial}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.FinalReplicaSummary.{
+    AttackAction,
+    AttackerState,
+    AttackStep,
+    CanonicalGraph,
+    CapabilityStatus,
+    Foothold,
+    Item,
+    PlanAction,
+    RequiredFlowStatus,
+    Trial
+  }
 
   alias NetworkDefense.Graph.Contracts.Node
 

@@ -1,7 +1,6 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Wire
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure.RetryableError
   alias NetworkDefense.Evaluation.TaskFailureCodec
@@ -26,6 +25,11 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure do
   end
 
   defp message(%FinalError{} = error) do
-    TaskFailureCodec.encode(error, @kind, &Wire.error/1, &FinalError.workflow_failed/0)
+    TaskFailureCodec.encode(
+      error,
+      @kind,
+      &FinalError.to_envelope/1,
+      &FinalError.workflow_failed/0
+    )
   end
 end

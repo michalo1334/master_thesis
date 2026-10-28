@@ -5,9 +5,9 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
 
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection, as: FinalSelection
+  alias NetworkDefense.Evaluation.Study.ExecutionAccess
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRuns
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection, as: FinalSelection
   alias NetworkDefense.Evaluation.Study.Revisions
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner

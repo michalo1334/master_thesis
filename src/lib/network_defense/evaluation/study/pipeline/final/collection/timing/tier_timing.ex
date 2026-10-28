@@ -9,7 +9,11 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.TierT
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{DurationSummary, Interval, ReplicaTiming}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{
+    DurationSummary,
+    Interval,
+    ReplicaTiming
+  }
 
   @measured_positions [0, 1, 2, 3, 4]
 

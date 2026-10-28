@@ -4,14 +4,19 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Resu
 
   alias NetworkDefense.Evaluation.Comparison.Contracts.{ComparisonRequest, ComparisonStatistics}
 
-  alias NetworkDefense.Evaluation.Family.Contracts.{Adjustment, HolmResponse, Identity, ResultComparison}
+  alias NetworkDefense.Evaluation.Family.Contracts.{
+    Adjustment,
+    HolmResponse,
+    Identity,
+    ResultComparison
+  }
 
   alias NetworkDefense.Evaluation.Family.ResultAssembly
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Assertions
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.SchemaValidator
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.SchemaValidator
 
   # Persisted Final result.
   #

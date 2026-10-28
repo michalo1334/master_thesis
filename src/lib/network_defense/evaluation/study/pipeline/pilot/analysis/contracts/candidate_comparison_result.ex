@@ -6,7 +6,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.Cand
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{Candidate, CandidateComparisonRequest}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    Candidate,
+    CandidateComparisonRequest
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 

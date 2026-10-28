@@ -1,11 +1,17 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Member do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Comparison.Contracts.{ComparisonError, ComparisonRequest, ComparisonStatistics, Evidence}
+  alias NetworkDefense.Evaluation.Comparison.Contracts.{
+    ComparisonError,
+    ComparisonRequest,
+    ComparisonStatistics,
+    Evidence
+  }
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request, as: FinalRequest
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request,
+    as: FinalRequest
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Payload
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError

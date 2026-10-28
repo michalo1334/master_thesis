@@ -2,65 +2,84 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Acceptance d
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Handoff
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO, as: AnalysisIO
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRuns
   alias NetworkDefense.Evaluation.Study.Pipeline.State
-  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
+  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
   # Acceptance of one complete Final collection.
   #
   # The transition runs under the execution lock, then the collection phase lock.
-  # It accepts the snapshot only for a complete ordered tier family, keeps no
-  # scalar Gust run on the collection phase, and creates the Final analysis phase
-  # once. A repeated attempt reuses that phase instead of inserting a second one.
+  # It accepts the snapshot only for a complete ordered tier family, persists the
+  # Final analysis handoff in `result_ref`, keeps no scalar Gust run on the
+  # collection phase, and creates the Final analysis phase once. A repeated
+  # attempt accepts only the identical snapshot and handoff instead of
+  # inserting a second phase or rewriting another handoff.
   #
   # A late attempt that finds another state stops without linking a snapshot,
-  # creating a phase, or reviving the execution.
+  # persisting a handoff, creating a phase, or reviving the execution.
   @spec run(IO.t(), Ecto.UUID.t(), term()) ::
           {:ok, AnalysisIO.t()} | {:error, StudyError.t()} | {:stop, atom()}
   def run(%IO{} = io, snapshot_id, timing_summary) do
     execution_id = io.execution.id
 
-    case State.transaction(execution_id, &locked_accept(&1, io.tiers, snapshot_id)) do
-      {execution, phase, rows} ->
-        {:ok, analysis_io(io, execution, phase, rows, snapshot_id, timing_summary)}
+    case State.transaction(execution_id, &locked_accept(&1, io, snapshot_id, timing_summary)) do
+      {execution, phase, handoff} ->
+        {:ok, analysis_io(io, execution, phase, handoff)}
 
       other ->
         other
     end
   end
 
-  defp locked_accept(%StudyExecution{state: :collecting_final} = execution, tiers, snapshot_id) do
+  defp locked_accept(
+         %StudyExecution{state: :collecting_final} = execution,
+         %IO{} = io,
+         snapshot_id,
+         timing_summary
+       ) do
     phase = State.lock_named_phase(execution.id, :final_collection)
 
-    case ordered_family(phase, tiers) do
-      {:ok, rows} -> accept_snapshot(execution, phase, rows, snapshot_id)
+    with {:ok, rows} <- ordered_family(phase, io.tiers),
+         {:ok, handoff} <- Handoff.new(io.tiers, rows, timing_summary) do
+      accept_snapshot(execution, phase, snapshot_id, handoff)
+    else
       {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
     end
   end
 
-  defp locked_accept(%StudyExecution{state: state}, _tiers, _snapshot_id), do: State.stop(state)
+  defp locked_accept(%StudyExecution{state: state}, _io, _snapshot_id, _timing_summary),
+    do: State.stop(state)
 
-  defp accept_snapshot(%StudyExecution{} = execution, phase, rows, snapshot_id) do
-    case phase.snapshot_id do
-      nil ->
-        State.update_phase!(phase, %{snapshot_id: snapshot_id})
-        accept(execution, rows)
+  # The snapshot and the handoff describe the same accepted collection, so both
+  # are stored in one phase update. A repeated acceptance must repeat the
+  # identical values.
+  defp accept_snapshot(%StudyExecution{} = execution, phase, snapshot_id, %Handoff{} = handoff) do
+    params = Handoff.to_params(handoff)
 
-      existing when existing == snapshot_id ->
-        accept(execution, rows)
-
-      _other_snapshot ->
-        Repo.rollback({:error, StudyError.final_collection_workflow_failed()})
+    with :ok <- identical_or_empty(phase.snapshot_id, snapshot_id),
+         :ok <- identical_or_empty(phase.result_ref, params) do
+      State.update_phase!(phase, %{snapshot_id: snapshot_id, result_ref: params})
+      accept(execution, handoff)
+    else
+      {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
     end
   end
 
-  defp accept(%StudyExecution{} = execution, rows) do
+  defp accept(%StudyExecution{} = execution, %Handoff{} = handoff) do
     transitioned = State.transition!(execution, :final_collected)
-    {transitioned, analysis_phase!(execution.id), rows}
+    {transitioned, analysis_phase!(execution.id), handoff}
   end
+
+  defp identical_or_empty(nil, _expected), do: :ok
+  defp identical_or_empty(existing, expected) when existing == expected, do: :ok
+
+  defp identical_or_empty(_existing, _expected),
+    do: {:error, StudyError.final_collection_workflow_failed()}
 
   # Final analysis starts only for a complete ordered tier-run family. Final
   # collection keeps no scalar Gust run.
@@ -88,23 +107,26 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Acceptance d
     end
   end
 
-  defp analysis_io(%IO{} = io, execution, phase, rows, snapshot_id, timing_summary) do
+  # The in-process handoff and the reloaded one describe the same contract: the
+  # same execution, phase, definition, snapshot, declared tiers, stored runs,
+  # and timing summary.
+  defp analysis_io(%IO{} = io, execution, phase, %Handoff{} = handoff) do
     %AnalysisIO{
       execution: execution,
       phase: phase,
       definition: io.definition,
-      snapshot_id: snapshot_id,
-      tiers: io.tiers,
-      runs: Enum.map(rows, &tier_run/1),
-      timing: timing_summary
+      snapshot_id: phase.snapshot_id,
+      tiers: handoff.tiers,
+      runs: Enum.map(handoff.runs, &tier_run/1),
+      timing: handoff.timing
     }
   end
 
-  defp tier_run(%StudyPhaseRun{} = row) do
+  defp tier_run(%Handoff.Run{tier: tier, tier_position: position, gust_run_id: gust_run_id}) do
     %AnalysisIO.TierRun{
-      tier: row.tier,
-      tier_position: row.tier_position,
-      gust_run_id: row.gust_run_id
+      tier: tier,
+      tier_position: position,
+      gust_run_id: gust_run_id
     }
   end
 end

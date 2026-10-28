@@ -6,6 +6,28 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Error do
     identifier_errors: true,
     correction_errors: true
 
+  alias NetworkDefense.Evaluation.ErrorEnvelope
+
+  @fallback_body %{
+    "code" => "workflow_failed",
+    "issues" => [
+      %{
+        "code" => "workflow_failed",
+        "path" => [],
+        "message" => "The Final workflow failed safely.",
+        "details" => %{}
+      }
+    ]
+  }
+
+  # Persisted Gust task errors carry this envelope. The fallback keeps one bounded
+  # body when the typed error has no issues and no schema diagnostics.
+  def to_envelope(%__MODULE__{} = error) do
+    body = ErrorEnvelope.body(error.code, error.issues, error.schema_errors, @fallback_body)
+
+    %{"schema_version" => error.schema_version, "error" => body}
+  end
+
   # Bounded typed error for the Final snapshot, Final request, and Final
   # workflow. The codes follow the accepted Stage 2 and Stage 3 envelopes. Final
   # adds source-binding issue codes, so a caller can tell a Pilot binding

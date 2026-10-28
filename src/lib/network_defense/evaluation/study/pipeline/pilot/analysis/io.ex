@@ -52,7 +52,9 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.IO do
           gust_run: Gust.Flows.Run.t() | nil,
           result: PilotResult.t() | nil,
           outcome: Outcome.t() | nil,
-          candidates: [CandidateItem.t()]
+          candidates: [
+            NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.IO.CandidateItem.t()
+          ]
         }
 
   # One mapped candidate comparison. The canonical item is the persisted work
@@ -206,10 +208,11 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.IO do
   end
 
   defp load_snapshot(%PilotRequest{snapshot_id: snapshot_id}) do
+    # The snapshot loader reports Pilot errors only, so this branch stays bounded
+    # without a study-error fallback.
     case EvidenceSnapshots.load(snapshot_id) do
       {:ok, %EvidenceSnapshot{} = snapshot, %Payload{} = payload} -> {:ok, snapshot, payload}
       {:error, %PilotError{} = error} -> {:error, error}
-      {:error, %StudyError{} = error} -> {:error, bounded(error)}
     end
   end
 

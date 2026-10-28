@@ -4,7 +4,12 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Work do
   alias NetworkDefense.Evaluation.Comparison.Contracts.Evidence
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{Candidate, CandidateComparisonRequest, CandidateComparisonResult, PilotRequest}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    Candidate,
+    CandidateComparisonRequest,
+    CandidateComparisonResult,
+    PilotRequest
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 

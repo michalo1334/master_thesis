@@ -1,40 +1,16 @@
 defmodule NetworkDefense.Evaluation.Study.Coordinator do
   @moduledoc false
 
-  import Ecto.Query
-
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis, as: FinalAnalysis
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.{Request, Result}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
-
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Results, Revisions}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.RequestBuilder, as: FinalRequest
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.{
-    ReplicaSummaryAssembler,
-    Snapshot,
-    TierRuns,
-    Workflow
-  }
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner
-
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO, as: FinalAnalysisIO
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection, as: FinalCollection
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis, as: PilotAnalysis
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection, as: PilotCollection
   alias NetworkDefense.Evaluation.Study.Pipeline.State
 
-  alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Canonical.MeasuredReplica
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{
-    Canonical,
-    FinalReplicaSummary,
-    ReplicaTiming,
-    TimingSummary
-  }
-
-  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
+  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.ExecutionAccess
+  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
   @terminal_states [:awaiting_final, :succeeded, :failed, :cancelled]
@@ -123,6 +99,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     case current_state(execution_id) do
       {:ok, :collecting_pilot} -> run_pilot(execution_id, opts)
       {:ok, :collecting_final} -> run_final(execution_id, opts)
+      {:ok, :analyzing_final} -> resume_final(execution_id, opts)
       {:ok, state} when state in @terminal_states -> :ok
       _invalid -> {:error, StudyError.study_execution_not_found()}
     end
@@ -148,338 +125,51 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     finish_run(execution_id, result, &as_study_error/1)
   end
 
+  # Final collection ends in the Final analysis stage. The analysis stage owns
+  # the accepted run, the wait, and the result persistence, so the coordinator
+  # only composes the two stages.
   defp run_final(execution_id, opts) do
-    tier_workflow = Keyword.get(opts, :final_tier_workflow, Workflow)
-    final = Keyword.get(opts, :final_workflow, FinalAnalysis.Workflow)
-    snapshot = Keyword.get(opts, :final_snapshot, Snapshot)
-    tier_timeout = Keyword.get(opts, :final_tier_timeout, :infinity)
+    collection = Keyword.get(opts, :final_collection, FinalCollection)
 
     result =
-      with {:ok, execution, collection_phase} <- context(execution_id, :collecting_final),
-           {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
-           {:ok, tiers} <- Planner.tier_order(definition),
-           {:ok, timings} <-
-             run_tiers(execution_id, tiers, tier_workflow, tier_timeout),
-           {:ok, timing_summary} <- TimingSummary.summarize(tiers, timings),
-           :ok <- require_collecting_final(execution_id),
-           {:ok, items} <- assemble_replicas(collection_phase, definition),
-           {:ok, snapshot_id} <- snapshot.assemble_and_store(collection_phase, items, definition),
-           {:ok, execution, analysis_phase} <-
-             begin_final_analysis(execution_id, snapshot_id, tiers),
-           {:ok, %Request{} = request} <- FinalRequest.build(execution.id, snapshot_id),
-           {:ok, analysis_run_id} <- final.create(FinalAnalysis.Wire.request(request)),
-           :ok <-
-             State.accept_run(
-               execution_id,
-               :analyzing_final,
-               analysis_phase,
-               analysis_run_id
-             ),
-           :ok <-
-             State.dispatch_run(
-               execution_id,
-               :analyzing_final,
-               analysis_phase,
-               analysis_run_id,
-               final
-             ),
-           {:ok, :succeeded} <- final.await(analysis_run_id),
-           {:ok, %Result{} = final_result} <- final.result(analysis_run_id),
-           {:ok, _compact_result} <-
-             Results.create_success(execution, final_result, timing_summary) do
-        :ok
+      with {:ok, collection_io} <- FinalCollection.IO.load(execution_id),
+           {:ok, %FinalAnalysisIO{} = analysis_io} <-
+             collection.run(collection_io, collection_opts(opts)) do
+        FinalAnalysis.run(analysis_io, analysis_opts(opts))
       end
 
     finish_run(execution_id, result, &bounded_final_error/1)
   end
 
-  # Final collection runs one tier Gust run at a time, in first-seen comparison
-  # order. The coordinator keeps the five measured timing values of each tier in
-  # memory only. A tier starts only after the previous tier returned them.
-  defp run_tiers(execution_id, tiers, workflow, timeout) do
+  # A resumed coordination reuses the accepted Final analysis run. Repeated
+  # entry after completion is a terminal no-op.
+  defp resume_final(execution_id, opts) do
     result =
-      tiers
-      |> Enum.with_index()
-      |> Enum.reduce_while({:ok, %{}}, fn {tier, tier_position}, {:ok, collected} ->
-        case run_tier(execution_id, tier, tier_position, workflow, timeout) do
-          {:ok, timings} ->
-            {:cont,
-             {:ok, Map.put(collected, tier, %{tier_position: tier_position, timings: timings})}}
-
-          other ->
-            {:halt, other}
-        end
-      end)
-
-    with {:ok, collected} <- result,
-         :ok <- validate_timing_family(collected, tiers) do
-      {:ok, collected}
-    end
-  end
-
-  defp run_tier(execution_id, tier, tier_position, workflow, timeout) do
-    with {:ok, phase, phase_run} <- prepare_tier(execution_id, tier, tier_position),
-         {:ok, gust_run_id} <- tier_run_id(workflow, phase_run),
-         {:ok, _linked} <- link_tier_run(execution_id, phase, phase_run, gust_run_id),
-         :ok <- dispatch_tier_run(execution_id, phase_run, gust_run_id, workflow),
-         {:ok, timings} <-
-           await_tier(workflow, execution_id, phase_run.id, gust_run_id, timeout),
-         :ok <- validate_tier_timings(tier, timings) do
-      {:ok, timings}
-    end
-  end
-
-  # A phase-run row is created under the execution lock, so two coordinators
-  # cannot create two rows for one tier position.
-  defp prepare_tier(execution_id, tier, tier_position) do
-    State.transaction(execution_id, &locked_prepare_tier(&1, tier, tier_position))
-  end
-
-  defp locked_prepare_tier(
-         %StudyExecution{state: :collecting_final} = execution,
-         tier,
-         tier_position
-       ) do
-    phase = State.lock_named_phase(execution.id, :final_collection)
-
-    case TierRuns.get_or_create(phase, tier, tier_position) do
-      {:ok, %StudyPhaseRun{tier: ^tier, tier_position: ^tier_position} = phase_run} ->
-        {:ok, phase, phase_run}
-
-      {:ok, %StudyPhaseRun{}} ->
-        Repo.rollback({:error, StudyError.phase_run_conflict()})
-
-      {:error, %StudyError{} = error} ->
-        Repo.rollback({:error, error})
-    end
-  end
-
-  defp locked_prepare_tier(%StudyExecution{state: state}, _tier, _tier_position),
-    do: State.stop(state)
-
-  # One phase-run row owns one Gust run. A row that already links a run keeps it,
-  # so a repeated coordination attempt never creates a second run for it.
-  defp tier_run_id(workflow, %StudyPhaseRun{gust_run_id: nil} = phase_run),
-    do: create_tier_run(workflow, phase_run)
-
-  defp tier_run_id(_workflow, %StudyPhaseRun{gust_run_id: run_id})
-       when is_integer(run_id) and run_id > 0,
-       do: {:ok, run_id}
-
-  defp create_tier_run(workflow, %StudyPhaseRun{} = phase_run) do
-    case workflow.create(phase_run) do
-      {:ok, run_id} when is_integer(run_id) and run_id > 0 -> {:ok, run_id}
-      {:error, %StudyError{} = error} -> {:error, error}
-      _invalid -> {:error, StudyError.final_collection_workflow_failed()}
-    end
-  end
-
-  defp link_tier_run(execution_id, %StudyPhase{id: phase_id}, %StudyPhaseRun{id: id}, gust_run_id) do
-    State.transaction(
-      execution_id,
-      &locked_link_tier_run(&1, phase_id, id, gust_run_id)
-    )
-  end
-
-  defp locked_link_tier_run(
-         %StudyExecution{state: :collecting_final},
-         phase_id,
-         id,
-         gust_run_id
-       ) do
-    case lock_phase_run(id) do
-      %StudyPhaseRun{study_phase_id: ^phase_id, gust_run_id: nil} = phase_run ->
-        link_locked_run(phase_run, gust_run_id)
-
-      %StudyPhaseRun{study_phase_id: ^phase_id, gust_run_id: ^gust_run_id} = phase_run ->
-        link_locked_run(phase_run, gust_run_id)
-
-      %StudyPhaseRun{} ->
-        Repo.rollback({:error, StudyError.phase_run_conflict()})
-    end
-  end
-
-  defp locked_link_tier_run(%StudyExecution{state: state}, _phase_id, _id, _gust_run_id),
-    do: State.stop(state)
-
-  defp link_locked_run(%StudyPhaseRun{} = phase_run, gust_run_id) do
-    case TierRuns.link_gust_run(phase_run, gust_run_id) do
-      {:ok, %StudyPhaseRun{} = updated} -> {:ok, updated}
-      {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
-    end
-  end
-
-  defp dispatch_tier_run(execution_id, %StudyPhaseRun{id: id}, gust_run_id, workflow) do
-    State.transaction(
-      execution_id,
-      &locked_dispatch_tier_run(&1, id, gust_run_id, workflow)
-    )
-  end
-
-  defp locked_dispatch_tier_run(
-         %StudyExecution{state: :collecting_final},
-         id,
-         gust_run_id,
-         workflow
-       ) do
-    case lock_phase_run(id) do
-      %StudyPhaseRun{gust_run_id: ^gust_run_id} -> dispatch_locked_run(gust_run_id, workflow)
-      %StudyPhaseRun{} -> Repo.rollback({:error, StudyError.phase_run_conflict()})
-    end
-  end
-
-  defp locked_dispatch_tier_run(%StudyExecution{state: state}, _id, _gust_run_id, _workflow),
-    do: State.stop(state)
-
-  defp dispatch_locked_run(gust_run_id, workflow) do
-    case workflow.dispatch(gust_run_id) do
-      :ok -> :ok
-      {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
-      _invalid -> Repo.rollback({:error, StudyError.final_collection_workflow_failed()})
-    end
-  end
-
-  # The await boundary stays outside the database locks, so a timing marker and
-  # a cancellation wake-up can reach the coordinator process. The stored state is
-  # authoritative after the wait.
-  defp await_tier(workflow, execution_id, phase_run_id, gust_run_id, timeout) do
-    with {:ok, execution} <- ExecutionAccess.fetch(execution_id),
-         {:ok, %StudyPhaseRun{gust_run_id: ^gust_run_id} = phase_run} <-
-           reload_phase_run(phase_run_id),
-         {:ok, timings} <- workflow.await(execution, phase_run, timeout),
-         :ok <- require_collecting_final(execution_id) do
-      {:ok, timings}
-    else
-      {:error, %StudyError{} = error} -> {:error, error}
-      {:stop, _state} = stop -> stop
-      {:ok, %StudyPhaseRun{}} -> {:error, StudyError.phase_run_conflict()}
-      _invalid -> {:error, StudyError.final_collection_workflow_failed()}
-    end
-  end
-
-  defp reload_phase_run(phase_run_id) do
-    with {:ok, id} <- Ecto.UUID.cast(phase_run_id),
-         %StudyPhaseRun{} = phase_run <- Repo.get(StudyPhaseRun, id) do
-      {:ok, phase_run}
-    else
-      _invalid -> {:error, StudyError.phase_run_conflict()}
-    end
-  end
-
-  defp lock_phase_run(phase_run_id) do
-    Repo.one!(from run in StudyPhaseRun, where: run.id == ^phase_run_id, lock: "FOR UPDATE")
-  end
-
-  defp require_collecting_final(execution_id) do
-    State.transaction(execution_id, fn execution ->
-      if execution.state == :collecting_final, do: :ok, else: State.stop(execution.state)
-    end)
-  end
-
-  defp validate_tier_timings(tier, timings) when is_list(timings) do
-    positions = Enum.map(timings, & &1.position)
-
-    if Enum.all?(timings, &match?(%ReplicaTiming{tier: ^tier}, &1)) and
-         positions == Enum.to_list(0..4) do
-      :ok
-    else
-      {:error, StudyError.final_timing_incomplete()}
-    end
-  end
-
-  defp validate_tier_timings(_tier, _timings),
-    do: {:error, StudyError.final_timing_incomplete()}
-
-  defp five_timings?([_, _, _, _, _]), do: true
-  defp five_timings?(_timings), do: false
-
-  defp validate_timing_family(collected, tiers) when is_map(collected) do
-    valid? =
-      Map.keys(collected) |> Enum.sort() == Enum.sort(tiers) and
-        Enum.with_index(tiers)
-        |> Enum.all?(fn {tier, position} ->
-          case Map.fetch(collected, tier) do
-            {:ok, %{tier_position: ^position, timings: timings}} ->
-              five_timings?(timings)
-
-            _missing ->
-              false
-          end
-        end)
-
-    if valid?, do: :ok, else: {:error, StudyError.final_timing_incomplete()}
-  end
-
-  # One complete-family summary per measured position, one canonical selector
-  # call, and the accepted replica-zero summary.
-  defp assemble_replicas(%StudyPhase{} = phase, %Definition{} = definition) do
-    result =
-      Enum.reduce_while(Enum.to_list(0..4), {:ok, %{}}, fn position, {:ok, collected} ->
-        case assemble_replica(phase, definition, position) do
-          {:ok, replica, items} ->
-            {:cont, {:ok, Map.put(collected, position, {replica, items})}}
-
-          {:error, %StudyError{} = error} ->
-            {:halt, {:error, error}}
-        end
-      end)
-
-    with {:ok, collected} <- result,
-         {:ok, {zero_replica, zero_items}} <- fetch_replica(collected, 0),
-         {:ok, %FinalReplicaSummary{} = selected} <- select_replica(collected),
-         true <- selected == zero_replica.summary do
-      {:ok, zero_items}
-    else
-      false -> {:error, StudyError.final_replica_mismatch()}
-      {:error, %StudyError{} = error} -> {:error, error}
-    end
-  end
-
-  defp assemble_replica(phase, %Definition{} = definition, position) do
-    with {:ok, summary, items} <-
-           ReplicaSummaryAssembler.assemble(phase, definition, position),
-         {:ok, replica} <-
-           Canonical.MeasuredReplica.validate(%MeasuredReplica{
-             position: position,
-             summary: summary
-           }) do
-      {:ok, replica, items}
-    else
-      {:error, %StudyError{} = error} -> {:error, error}
-      {:error, _reason} -> {:error, StudyError.final_replica_summary_invalid()}
-    end
-  end
-
-  defp fetch_replica(collected, position) do
-    case Map.fetch(collected, position) do
-      {:ok, {_replica, _items} = entry} -> {:ok, entry}
-      :error -> {:error, StudyError.incomplete_final_family()}
-    end
-  end
-
-  defp select_replica(collected) do
-    with {:ok, replicas} <- ordered_replicas(collected) do
-      case Canonical.select(replicas) do
-        {:ok, %FinalReplicaSummary{} = summary} -> {:ok, summary}
-        {:error, :replica_mismatch} -> {:error, StudyError.final_replica_mismatch()}
-        {:error, _reason} -> {:error, StudyError.final_replica_summary_invalid()}
+      with {:ok, %FinalAnalysisIO{} = analysis_io} <- FinalAnalysisIO.load(execution_id) do
+        FinalAnalysis.run(analysis_io, analysis_opts(opts))
       end
-    end
+
+    finish_run(execution_id, result, &bounded_final_error/1)
   end
 
-  defp ordered_replicas(collected) do
-    result =
-      Enum.reduce_while(Enum.to_list(0..4), {:ok, []}, fn position, {:ok, replicas} ->
-        case fetch_replica(collected, position) do
-          {:ok, {replica, _items}} -> {:cont, {:ok, [replica | replicas]}}
-          {:error, %StudyError{} = error} -> {:halt, {:error, error}}
-        end
-      end)
-
-    with {:ok, replicas} <- result, do: {:ok, Enum.reverse(replicas)}
+  # The collection stage keeps the injected tier workflow, snapshot, and timeout.
+  defp collection_opts(opts) do
+    [
+      workflow: Keyword.get(opts, :final_tier_workflow, FinalCollection.Workflow),
+      snapshot: Keyword.get(opts, :final_snapshot, FinalCollection.Snapshot),
+      timeout: Keyword.get(opts, :final_tier_timeout, :infinity)
+    ]
   end
 
-  defp finish_run(_execution_id, :ok, _mapper), do: :ok
+  # The analysis stage keeps the injected Final workflow and its wait timeout.
+  defp analysis_opts(opts) do
+    [
+      workflow: Keyword.get(opts, :final_workflow, FinalAnalysis.Workflow),
+      timeout: Keyword.get(opts, :final_analysis_timeout, :infinity)
+    ]
+  end
+
+  defp finish_run(_execution_id, {:ok, _outcome}, _mapper), do: :ok
   defp finish_run(_execution_id, {:stop, _state}, _mapper), do: :ok
 
   defp finish_run(execution_id, {:error, reason}, mapper) do
@@ -534,66 +224,6 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
        do: {:error, StudyError.incomplete_final_family()}
 
   defp reject_legacy_final_run(_state, %StudyPhase{}), do: :ok
-
-  defp begin_final_analysis(execution_id, snapshot_id, tiers) do
-    case State.transaction(
-           execution_id,
-           &begin_final_analysis_transition(&1, snapshot_id, tiers)
-         ) do
-      %StudyExecution{} = execution ->
-        case Repo.get_by(StudyPhase, execution_id: execution.id, phase: :final_analysis) do
-          %StudyPhase{} = phase -> {:ok, execution, phase}
-          nil -> {:error, StudyError.invalid_study_phase()}
-        end
-
-      other ->
-        other
-    end
-  end
-
-  defp begin_final_analysis_transition(
-         %StudyExecution{state: :collecting_final} = execution,
-         snapshot_id,
-         tiers
-       ) do
-    phase = State.lock_named_phase(execution.id, :final_collection)
-    :ok = require_ordered_family(phase, tiers)
-
-    if is_nil(phase.snapshot_id) or phase.snapshot_id == snapshot_id do
-      State.update_phase!(phase, %{snapshot_id: snapshot_id})
-      transitioned = State.transition!(execution, :final_collected)
-      insert_final_analysis_phase!(execution.id)
-      transitioned
-    else
-      Repo.rollback({:error, StudyError.final_collection_workflow_failed()})
-    end
-  end
-
-  defp begin_final_analysis_transition(%StudyExecution{state: state}, _snapshot_id, _tiers),
-    do: State.stop(state)
-
-  # Final analysis starts only for a complete ordered tier-run family. The Final
-  # collection phase keeps no scalar Gust run.
-  defp require_ordered_family(%StudyPhase{id: phase_id} = phase, tiers) do
-    case TierRuns.ordered_for_phase(phase_id) do
-      {:ok, rows} ->
-        complete? =
-          is_nil(phase.gust_run_id) and
-            Enum.map(rows, & &1.tier) == tiers and
-            Enum.all?(rows, &(is_integer(&1.gust_run_id) and &1.gust_run_id > 0))
-
-        if complete?, do: :ok, else: Repo.rollback({:error, StudyError.incomplete_final_family()})
-
-      {:error, %StudyError{} = error} ->
-        Repo.rollback({:error, error})
-    end
-  end
-
-  defp insert_final_analysis_phase!(execution_id) do
-    %StudyPhase{}
-    |> StudyPhase.changeset(%{execution_id: execution_id, phase: :final_analysis})
-    |> Repo.insert!()
-  end
 
   defp fail_active(execution_id, %StudyError{} = error) do
     params = StudyError.to_params(error)
@@ -676,7 +306,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   defp as_study_error(%StudyError{} = error), do: error
   defp as_study_error(_reason), do: StudyError.pilot_analysis_failed()
 
+  # The Final stages expose study failures only, so the coordinator keeps one
+  # bounded error family.
   defp bounded_final_error(%StudyError{} = error), do: error
-  defp bounded_final_error(%FinalError{}), do: StudyError.final_analysis_failed()
   defp bounded_final_error(_reason), do: StudyError.final_analysis_failed()
 end

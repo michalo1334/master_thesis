@@ -1,71 +1,87 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CompareMember do
   @moduledoc false
-  @behaviour Gust.Action
 
   alias NetworkDefense.Evaluation.Comparison.Actions.Compare
   alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonRequest
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Binding
-
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request, as: FinalRequest
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO.ComparisonItem
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Member
-
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure
 
-  # Final-member adapter.
+  # One mapped Final comparison.
   #
-  # The mapped item carries one declared position and one declared identity.
-  # The adapter rebuilds the accepted comparison request from the stored Final
-  # snapshot and the submitted seed, then delegates the statistics to the
-  # accepted Stage 2 action. It only adds the declared identity and checks the
-  # returned statistics against the same request.
+  # The item carries one declared position and one declared identity, and the
+  # comparison request is already rebuilt from the stored Final snapshot and the
+  # submitted seed. The step delegates the statistics to the accepted Stage 2
+  # action and checks the returned statistics against the same request.
   #
-  # Before any statistics call the adapter repeats the snapshot metadata, the
+  # The step runs after preparation validated the snapshot metadata, the
   # snapshot byte count, the declared order, the resource caps, and the actual
   # source Pilot binding. A snapshot or Pilot that changed after preparation
   # therefore stops the member with no compute call.
 
-  @impl true
-  def execute(args, %{run_id: run_id} = context) do
-    item = Keyword.fetch!(args, :item)
-
-    with {:ok, request} <- load_request(run_id),
-         {:ok, %{position: position, identity: identity}} <- Member.parse_item(item),
-         {:ok, payload} <- Binding.verify(request),
-         {:ok, comparison_request} <- Member.comparison_request(request, payload, position),
-         :ok <- check_declared(request, position, identity) do
-      statistics =
-        Compare.execute([request: ComparisonRequest.to_params(comparison_request)], context)
-
-      case Member.parse_result(
-             %{"identity" => Identity.to_params(identity), "statistics" => statistics},
-             comparison_request
-           ) do
-        {:ok, _member} ->
-          %{"identity" => Identity.to_params(identity), "statistics" => statistics}
-
-        {:error, %FinalError{} = error} ->
-          TaskFailure.raise_permanent(error)
-      end
-    else
-      {:error, %FinalError{} = error} -> TaskFailure.raise_permanent(error)
+  @spec run(ComparisonItem.t()) :: {:ok, ComparisonItem.t()} | {:error, FinalError.t()}
+  def run(%ComparisonItem{} = comparison) do
+    with {:ok, _request, _payload} <- ComparisonItem.values(comparison),
+         {:ok, comparison_request} <- comparison_request(comparison),
+         {:ok, item} <- item(comparison),
+         statistics =
+           Compare.execute([request: ComparisonRequest.to_params(comparison_request)], %{}),
+         {:ok, result} <- parse_result(statistics, item, comparison_request) do
+      {:ok, %{comparison | result: result}}
     end
   end
 
-  defp load_request(run_id) do
-    run_id
-    |> Gust.Flows.get_run!()
-    |> Map.fetch!(:params)
-    |> FinalRequest.parse()
+  defp comparison_request(%ComparisonItem{comparison_request: %ComparisonRequest{} = request}),
+    do: {:ok, request}
+
+  defp comparison_request(%ComparisonItem{}) do
+    {:error, FinalError.incomplete_family("The mapped Final comparison is not prepared.")}
   end
 
-  defp check_declared(%FinalRequest{} = request, position, identity) do
-    if Identity.matches?(Enum.at(request.expected_comparisons, position), identity) do
-      :ok
-    else
-      {:error,
-       FinalError.changed_member("A mapped Final member does not hold its declared identity.")}
+  defp item(%ComparisonItem{item: item}) do
+    case Member.parse_item(item) do
+      {:ok, parsed} -> {:ok, parsed}
+      {:error, %FinalError{} = error} -> {:error, error}
+    end
+  end
+
+  defp parse_result(statistics, item, %ComparisonRequest{} = comparison_request) do
+    case Member.parse_result(
+           %{"identity" => Identity.to_params(item.identity), "statistics" => statistics},
+           comparison_request
+         ) do
+      {:ok, result} -> {:ok, result}
+      {:error, %FinalError{} = error} -> {:error, error}
+    end
+  end
+
+  defmodule Gust do
+    @moduledoc false
+
+    use NetworkDefense.Evaluation.Study.Pipeline.GustAdapter,
+      step: NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.CompareMember,
+      failures: NetworkDefense.Evaluation.Study.Pipeline.Final.TaskFailure
+
+    alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonStatistics
+    alias NetworkDefense.Evaluation.Family.Contracts.Identity
+    alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO
+    alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO.ComparisonItem
+    alias NetworkDefense.Evaluation.Study.Pipeline.GustAdapter
+
+    @impl GustAdapter
+    def decode(args, %{run_id: run_id}) do
+      with {:ok, io} <- IO.load_from_gust_run(run_id) do
+        IO.comparison(io, Keyword.fetch!(args, :item))
+      end
+    end
+
+    @impl GustAdapter
+    def encode(%ComparisonItem{result: result}) when not is_nil(result) do
+      %{
+        "identity" => Identity.to_params(result.identity),
+        "statistics" => ComparisonStatistics.to_params(result.statistics)
+      }
     end
   end
 end

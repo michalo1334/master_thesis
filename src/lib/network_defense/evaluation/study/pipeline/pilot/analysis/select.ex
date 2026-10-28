@@ -1,7 +1,11 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Select do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{CandidateComparisonResult, PilotRequest, PilotResult}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    CandidateComparisonResult,
+    PilotRequest,
+    PilotResult
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.{Assembler, IO, Work}
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.Payload

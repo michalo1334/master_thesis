@@ -8,7 +8,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Binding do
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext, as: FinalBindingContext
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext,
+    as: FinalBindingContext
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Source, as: FinalSource
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Limits
   alias NetworkDefense.Evaluation.StudyPhase

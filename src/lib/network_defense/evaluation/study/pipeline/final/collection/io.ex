@@ -2,11 +2,14 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
+  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Revisions}
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.{Phase, Planner}
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{ReplicaTiming, TimingSummary}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{
+    ReplicaTiming,
+    TimingSummary
+  }
 
-  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Revisions}
   alias NetworkDefense.Evaluation.{StudyCollectionItem, StudyExecution, StudyPhase, StudyPhaseRun}
   alias NetworkDefense.Repo
 
@@ -39,10 +42,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO do
           phase: StudyPhase.t(),
           definition: Definition.t(),
           tiers: [String.t()],
-          runs: [Tier.t()],
+          runs: [NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO.Tier.t()],
           timing: TimingSummary.t() | nil,
           snapshot_id: Ecto.UUID.t() | nil,
-          items: [Item.t()]
+          items: [NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO.Item.t()]
         }
 
   # One stored tier run with its Gust run identifier.

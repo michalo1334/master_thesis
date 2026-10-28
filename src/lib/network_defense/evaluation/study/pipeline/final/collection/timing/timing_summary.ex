@@ -9,7 +9,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Timin
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{DurationSummary, TierTiming}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{
+    DurationSummary,
+    TierTiming
+  }
 
   @type t :: %__MODULE__{tiers: [TierTiming.t()]}
 
@@ -62,6 +65,20 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Timin
         changeset
     end
   end
+
+  # `to_params/1` comes from the shared contract codec: it keeps the declared
+  # field set and produces string-keyed JSON-safe params. `parse/1` is the
+  # matching read-back, so a persisted summary is validated before it is used.
+  @doc "Decode and validate one persisted timing summary."
+  @spec parse(term()) :: {:ok, t()} | {:error, StudyError.t()}
+  def parse(%{"tiers" => [_ | _] = tiers}) do
+    case %__MODULE__{} |> changeset(%{"tiers" => tiers}) |> apply_action(:validate) do
+      {:ok, %__MODULE__{} = summary} -> {:ok, summary}
+      {:error, %Ecto.Changeset{}} -> {:error, StudyError.final_timing_incomplete()}
+    end
+  end
+
+  def parse(_params), do: {:error, StudyError.final_timing_incomplete()}
 
   defp build(tier_summaries) do
     case %__MODULE__{}

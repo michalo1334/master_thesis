@@ -7,13 +7,13 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Requ
   alias NetworkDefense.Evaluation.{EvidenceSnapshot, ExpectedComparisons}
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Settings, as: Analysis
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Assertions
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Settings, as: Analysis
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Payload
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
   alias NetworkDefense.Evaluation.JsonBoundary
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.SchemaValidator
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.SchemaValidator
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.PilotResult
 
   # Root Final analysis request.

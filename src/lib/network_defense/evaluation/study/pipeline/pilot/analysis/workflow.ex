@@ -3,7 +3,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Workflow do
 
   alias NetworkDefense.Evaluation.EvidenceSnapshots
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{PilotRequest, PilotResult}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    PilotRequest,
+    PilotResult
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.TaskFailure
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError

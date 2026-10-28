@@ -5,13 +5,11 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Workflow do
 
   alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonError
   alias NetworkDefense.Evaluation.Comparison.TaskFailure, as: ComparisonTaskFailure
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Binding
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Collector
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Result
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Member
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Wire
   alias NetworkDefense.Evaluation.Study.GustWaiter
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.{Binding, Collector, Member}
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.{Request, Result}
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.{Limits, TaskFailure}
   alias NetworkDefense.Evaluation.WorkflowRun
@@ -24,15 +22,16 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Workflow do
 
   @dag_name "evaluation_final"
   @correct_task "correct_final_family"
+  @accepted_statuses [:created, :enqueued, :starting, :running, :waiting, :succeeded]
 
-  @spec create(map()) :: {:ok, integer()} | {:error, FinalError.t()}
-  def create(request_map) do
-    with {:ok, %Request{} = request} <- Request.parse(request_map),
-         :ok <- Limits.validate(request),
+  @spec create(Request.t()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def create(%Request{} = request) do
+    with :ok <- Limits.validate(request),
          {:ok, payload} <- Binding.verify(request, limits: false),
          :ok <- Member.preflight(request, payload),
          %{id: dag_id} <- Gust.Flows.get_dag_by_name(@dag_name),
-         {:ok, run} <- Gust.Flows.create_run(%{dag_id: dag_id, params: Wire.request(request)}) do
+         {:ok, run} <-
+           Gust.Flows.create_run(%{dag_id: dag_id, params: Request.to_params(request)}) do
       {:ok, run.id}
     else
       {:error, %FinalError{} = error} -> {:error, error}
@@ -42,18 +41,66 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Workflow do
     _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
   end
 
+  # Dispatch is idempotent: only a freshly created run is dispatched. A run that
+  # is already active or succeeded keeps its status, so a repeated stage entry
+  # never resets it, and a failed run reports its stored failure.
   @spec dispatch(integer()) :: :ok | {:error, FinalError.t()}
   def dispatch(run_id) do
-    run = Gust.Flows.get_run!(run_id)
-    _dispatched = Trigger.dispatch_run(run)
-    :ok
+    case WorkflowRun.fetch_run(run_id) do
+      %{status: status} = run ->
+        case dispatch_decision(status) do
+          :dispatch ->
+            _dispatched = Trigger.dispatch_run(run)
+            :ok
+
+          :accepted ->
+            :ok
+
+          :failed ->
+            {:error, failure_for_run(run_id)}
+
+          :invalid ->
+            {:error, workflow_error()}
+        end
+
+      nil ->
+        {:error, workflow_error()}
+    end
   rescue
     _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
   end
 
-  @spec submit(map()) :: {:ok, integer()} | {:error, FinalError.t()}
-  def submit(request_map) do
-    with {:ok, run_id} <- create(request_map),
+  # The persisted Gust status stays authoritative. Only a created run is
+  # dispatched; every active or succeeded status is already accepted, and a
+  # failed run reports its stored failure.
+  @doc false
+  @spec dispatch_decision(atom()) :: :dispatch | :accepted | :failed | :invalid
+  def dispatch_decision(:created), do: :dispatch
+  def dispatch_decision(status) when status in @accepted_statuses, do: :accepted
+  def dispatch_decision(:failed), do: :failed
+  def dispatch_decision(_status), do: :invalid
+
+  # A reused run must carry the request the stage would submit now.
+  @spec verify_request(integer(), Request.t()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def verify_request(run_id, %Request{} = request) do
+    case WorkflowRun.fetch_run(run_id) do
+      %{params: params} when is_map(params) ->
+        if params == Request.to_params(request) do
+          {:ok, run_id}
+        else
+          {:error, workflow_error()}
+        end
+
+      _missing ->
+        {:error, workflow_error()}
+    end
+  rescue
+    _exception in [Postgrex.Error, DBConnection.ConnectionError] -> {:error, workflow_error()}
+  end
+
+  @spec submit(Request.t()) :: {:ok, integer()} | {:error, FinalError.t()}
+  def submit(%Request{} = request) do
+    with {:ok, run_id} <- create(request),
          :ok <- dispatch(run_id) do
       {:ok, run_id}
     end

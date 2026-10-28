@@ -8,7 +8,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Sch
   # Both documents belong to one trust boundary: the snapshot envelope and the
   # stored payload are decoded from a database row, so they are validated before
   # any typed value exists.
-  use NetworkDefense.Evaluation.Study.Pipeline.Pilot.SchemaGate,
+  use NetworkDefense.Evaluation.Study.Pipeline.SchemaGate,
+    dir: "priv/evaluation/pilot/v1/schemas",
+    error: NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error,
+    tag: :pilot_error,
     schemas: [
       snapshot: {"snapshot.schema.json", :document},
       snapshot_payload: {"snapshot.schema.json", :payload}

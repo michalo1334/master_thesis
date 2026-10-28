@@ -9,7 +9,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.SchemaValidato
   # and response cross the compute service, and the result is decoded from a
   # stored task result. Every check runs on serialized data, before a typed
   # value exists.
-  use NetworkDefense.Evaluation.Study.Pipeline.Pilot.SchemaGate,
+  use NetworkDefense.Evaluation.Study.Pipeline.SchemaGate,
+    dir: "priv/evaluation/pilot/v1/schemas",
+    error: NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error,
+    tag: :pilot_error,
     schemas: [
       request: {"request.schema.json", :document},
       candidate_request: {"candidate_request.schema.json", :document},
@@ -20,5 +23,5 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.SchemaValidato
   @impl true
   def safe_error(:request), do: generic_schema_error("Pilot request validation failed safely.")
 
-  def safe_error(_kind), do: PilotError.invalid_response_contract()
+  def safe_error(_kind), do: Error.invalid_response_contract()
 end

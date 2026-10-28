@@ -11,7 +11,6 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelopeTest do
   alias NetworkDefense.Evaluation.Family.Wire, as: FamilyWire
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.SchemaValidator, as: FinalSchemaValidator
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Wire, as: FinalWire
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.SchemaValidator, as: PilotSchemaValidator
 
@@ -36,7 +35,7 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelopeTest do
        "The family workflow failed safely."},
       {PilotError, &PilotError.to_envelope/1, &PilotSchemaValidator.validate/2,
        "The pilot workflow failed safely."},
-      {FinalError, &FinalWire.error/1, &FinalSchemaValidator.validate/2,
+      {FinalError, &FinalError.to_envelope/1, &FinalSchemaValidator.validate/2,
        "The Final workflow failed safely."}
     ]
   end

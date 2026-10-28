@@ -17,12 +17,12 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.DAG do
   # DAG contains no nested comparison, family, or pilot run: it reuses the
   # accepted comparison action and the accepted correction call directly.
 
-  task_action(:prepare_final, {Prepare, []},
+  task_action(:prepare_final, {Prepare.Gust, []},
     downstream: [:compare_final_member],
     store_result: true
   )
 
-  task_action :compare_final_member, CompareMember,
+  task_action :compare_final_member, CompareMember.Gust,
     map_over: :prepare_final,
     ctx: %{params: params},
     downstream: [:correct_final_family],
@@ -30,5 +30,5 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.DAG do
     [item: params]
   end
 
-  task_action(:correct_final_family, {CorrectFamily, []}, store_result: true)
+  task_action(:correct_final_family, {CorrectFamily.Gust, []}, store_result: true)
 end

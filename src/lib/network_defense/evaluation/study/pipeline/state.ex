@@ -30,12 +30,12 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.State do
     end
   end
 
-  # The stored state is authoritative after a wait. A cancelled or advanced study
-  # stops the stage instead of finishing work it no longer owns.
+  # A stage continues only in the state it was started for. A late attempt that
+  # finds another state stops without touching the execution.
   @spec require_state(Ecto.UUID.t(), atom()) :: :ok | {:stop, atom()}
-  def require_state(execution_id, expected_state) do
+  def require_state(execution_id, expected) do
     transaction(execution_id, fn execution ->
-      if execution.state == expected_state, do: :ok, else: stop(execution.state)
+      if execution.state == expected, do: :ok, else: stop(execution.state)
     end)
   end
 

@@ -3,7 +3,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.IO do
 
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
   alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Revisions}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.WorkItem
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.{Phase, WorkItem}
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo
 
@@ -13,7 +13,6 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.IO do
   # this IO from the persisted run, so no large value crosses a task boundary.
   @phase :pilot_collection
   @active_state :collecting_pilot
-  @terminal_states [:awaiting_final, :succeeded, :failed, :cancelled]
 
   @enforce_keys [:execution, :phase, :definition]
   defstruct [:execution, :phase, :definition, :gust_run, :snapshot_id, work: [], items: []]
@@ -25,7 +24,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.IO do
           gust_run: Gust.Flows.Run.t() | nil,
           snapshot_id: Ecto.UUID.t() | nil,
           work: [WorkItem.t()],
-          items: [Item.t()]
+          items: [NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.IO.Item.t()]
         }
 
   @spec load(term()) :: {:ok, t()} | {:error, StudyError.t()} | {:stop, atom()}
@@ -75,16 +74,7 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.IO do
 
   defp from_run(_run), do: {:error, StudyError.invalid_study_phase()}
 
-  defp active?(%StudyExecution{state: @active_state}), do: :ok
+  defp active?(execution), do: Phase.ensure_active(execution, @active_state)
 
-  defp active?(%StudyExecution{state: state}) when state in @terminal_states, do: {:stop, state}
-
-  defp active?(%StudyExecution{}), do: {:error, StudyError.study_execution_not_found()}
-
-  defp collection_phase(%StudyExecution{id: execution_id}) do
-    case Repo.get_by(StudyPhase, execution_id: execution_id, phase: @phase) do
-      %StudyPhase{} = phase -> {:ok, phase}
-      nil -> {:error, StudyError.invalid_study_phase()}
-    end
-  end
+  defp collection_phase(execution), do: Phase.fetch(execution, @phase)
 end

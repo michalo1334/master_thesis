@@ -6,7 +6,16 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.Pilo
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{Candidate, CandidateResultRow, CandidateSummary, PilotRequest, PilotSampling, Precision, Recommendation, Selection}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    Candidate,
+    CandidateResultRow,
+    CandidateSummary,
+    PilotRequest,
+    PilotSampling,
+    Precision,
+    Recommendation,
+    Selection
+  }
 
   # Stored snapshot values.
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.Payload

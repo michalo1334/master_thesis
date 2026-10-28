@@ -10,7 +10,12 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot do
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.EvidenceAssembler
 
-  alias NetworkDefense.Evaluation.{EvidenceSnapshot, StudyCollectionItem, StudyExecution, StudyPhase}
+  alias NetworkDefense.Evaluation.{
+    EvidenceSnapshot,
+    StudyCollectionItem,
+    StudyExecution,
+    StudyPhase
+  }
 
   alias NetworkDefense.Repo
 

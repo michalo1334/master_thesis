@@ -4,7 +4,14 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection do
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.IO, as: AnalysisIO
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.{Acceptance, IO, ReplicaFamily, Snapshot, Tiers, Workflow}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.{
+    Acceptance,
+    IO,
+    ReplicaFamily,
+    Snapshot,
+    Tiers,
+    Workflow
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.TimingSummary
   alias NetworkDefense.Evaluation.Study.Pipeline.State

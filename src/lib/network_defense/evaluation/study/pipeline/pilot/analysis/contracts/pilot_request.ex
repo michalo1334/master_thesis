@@ -9,7 +9,12 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.Pilo
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.JsonBoundary
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{Candidate, PilotSampling, Precision, Selection}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    Candidate,
+    PilotSampling,
+    Precision,
+    Selection
+  }
 
   # Stored snapshot values.
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.Payload

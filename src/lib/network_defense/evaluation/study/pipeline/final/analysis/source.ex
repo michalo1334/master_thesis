@@ -3,7 +3,9 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Source do
 
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext, as: FinalBindingContext
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext,
+    as: FinalBindingContext
 
   @enforce_keys [
     :study_revision_id,

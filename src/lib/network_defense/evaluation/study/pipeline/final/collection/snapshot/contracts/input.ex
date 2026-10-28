@@ -3,8 +3,8 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Con
   use NetworkDefense.Contracts, export: false
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Payload
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.SchemaValidator
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.SchemaValidator
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Limits,
     as: SnapshotLimits

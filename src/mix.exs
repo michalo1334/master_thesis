@@ -15,7 +15,10 @@ defmodule NetworkDefense.MixProject do
       ],
       aliases: aliases(),
       deps: deps(),
-      dialyzer: [plt_add_apps: [:credo, :mix, :ex_unit]],
+      dialyzer: [
+        plt_add_apps: [:credo, :mix, :ex_unit],
+        ignore_warnings: ".dialyzer_ignore.exs"
+      ],
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]

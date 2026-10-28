@@ -1,30 +1,37 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.RunSimulation do
   @moduledoc false
-  @behaviour Gust.Action
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.{ConcurrencyGate, Receipt}
-  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Runner
-  alias NetworkDefense.Evaluation.Study.Pipeline.Failure
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.{ConcurrencyGate, Receipt, Runner}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO
 
-  @impl true
-  def execute(args, _context) do
-    with {:ok, collection_item_id} <- collection_item_id(args),
-         {:ok, %Receipt{} = result} <-
-           ConcurrencyGate.run(fn ->
-             Runner.run_simulation_item(collection_item_id)
-           end) do
-      Receipt.to_params(result)
-    else
-      {:error, %StudyError{} = error} -> Failure.raise_permanent(error)
-      :error -> Failure.raise_permanent(StudyError.collection_item_not_found())
+  # One mapped simulation item.
+  #
+  # The receipt is the compact result of the stored effect. It carries the
+  # identifiers and trial counts that Final analysis and the tier summary read.
+  @spec run(IO.Item.t()) :: {:ok, IO.Item.t()} | {:error, StudyError.t()}
+  def run(%IO.Item{collection_item_id: collection_item_id} = item) do
+    case ConcurrencyGate.run(fn -> Runner.run_simulation_item(collection_item_id) end) do
+      {:ok, %Receipt{} = receipt} -> {:ok, %{item | receipt: receipt}}
+      {:error, %StudyError{} = error} -> {:error, error}
+      _unexpected -> {:error, StudyError.collection_item_not_found()}
     end
   end
 
-  defp collection_item_id(args) do
-    case Keyword.fetch(args, :collection_item_id) do
-      {:ok, value} -> Ecto.UUID.cast(value)
-      :error -> :error
-    end
+  defmodule Gust do
+    @moduledoc false
+
+    use NetworkDefense.Evaluation.Study.Pipeline.GustAdapter,
+      step: NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.RunSimulation
+
+    alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Receipt
+    alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.IO
+    alias NetworkDefense.Evaluation.Study.Pipeline.GustAdapter
+
+    @impl GustAdapter
+    def decode(args, _context) when is_list(args), do: IO.Item.load_from_args(args)
+
+    @impl GustAdapter
+    def encode(%IO.Item{receipt: %Receipt{} = receipt}), do: Receipt.to_params(receipt)
   end
 end

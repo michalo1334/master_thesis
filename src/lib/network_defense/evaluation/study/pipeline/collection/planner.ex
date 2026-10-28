@@ -6,10 +6,10 @@ defmodule NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner do
   alias NetworkDefense.Evaluation.Study.Contracts.Definition.{Comparison, Graph, Strategy}
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Limits
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Phase
   alias NetworkDefense.Evaluation.Study.Pipeline.Collection.WorkItem
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
 
   # Collection work planning.

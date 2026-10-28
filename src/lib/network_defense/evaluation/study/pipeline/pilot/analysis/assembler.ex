@@ -1,7 +1,14 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Assembler do
   @moduledoc false
 
-  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{CandidateComparisonResult, CandidateResultRow, CandidateSummary, PilotRequest, PilotResult, Recommendation}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Contracts.{
+    CandidateComparisonResult,
+    CandidateResultRow,
+    CandidateSummary,
+    PilotRequest,
+    PilotResult,
+    Recommendation
+  }
 
   alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
 

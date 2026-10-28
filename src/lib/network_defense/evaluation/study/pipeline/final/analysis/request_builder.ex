@@ -1,8 +1,10 @@
 defmodule NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.RequestBuilder do
   @moduledoc false
 
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext,
+    as: FinalBindingContext
+
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Request
-  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.BindingContext, as: FinalBindingContext
   alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
   @spec build(Ecto.UUID.t(), Ecto.UUID.t()) ::
