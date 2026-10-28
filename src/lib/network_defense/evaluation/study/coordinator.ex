@@ -3,34 +3,31 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   import Ecto.Query
 
-  alias NetworkDefense.Evaluation.{EvidenceSnapshots, Final, Pilot}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis, as: FinalAnalysis
 
-  alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request, Result}
-  alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, PilotResult}
-  alias NetworkDefense.Evaluation.Pilot.Contracts.PilotRequest, as: PilotRequestContract
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.{Request, Result}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
 
-  alias NetworkDefense.Evaluation.Pilot.Work
+  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Results, Revisions}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.RequestBuilder, as: FinalRequest
 
-  alias NetworkDefense.Evaluation.Study.{
-    Collection,
-    CollectionWorkflow,
-    ExecutionAccess,
-    FinalReplicaSummaryAssembler,
-    FinalRequest,
-    FinalSnapshot,
-    FinalTierWorkflow,
-    Lifecycle,
-    PhaseRuns,
-    PilotOutcome,
-    PilotRequest,
-    Results,
-    Revisions
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.{
+    ReplicaSummaryAssembler,
+    Snapshot,
+    TierRuns,
+    Workflow
   }
 
-  alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.Timing.Canonical.MeasuredReplica
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner
 
-  alias NetworkDefense.Evaluation.Study.Timing.{
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis, as: PilotAnalysis
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection, as: PilotCollection
+  alias NetworkDefense.Evaluation.Study.Pipeline.State
+
+  alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.Canonical.MeasuredReplica
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.{
     Canonical,
     FinalReplicaSummary,
     ReplicaTiming,
@@ -137,55 +134,30 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp run_pilot(execution_id, opts) do
-    collection = Keyword.get(opts, :collection_workflow, CollectionWorkflow)
-    pilot = Keyword.get(opts, :pilot_workflow, Pilot.Workflow)
+    collection = Keyword.get(opts, :pilot_collection, PilotCollection)
+    analysis = Keyword.get(opts, :pilot_workflow, PilotAnalysis.Workflow)
 
     result =
-      with {:ok, _execution, collection_phase} <- context(execution_id, :collecting_pilot),
-           {:ok, collection_run_id} <- collection.create(collection_phase),
-           :ok <- accept_run(execution_id, :collecting_pilot, collection_phase, collection_run_id),
-           :ok <-
-             dispatch_run(
-               execution_id,
-               :collecting_pilot,
-               collection_phase,
-               collection_run_id,
-               collection
-             ),
-           {:ok, snapshot_id} <- collection.await(collection_run_id),
-           {:ok, execution, analysis_phase, definition} <-
-             begin_analysis(execution_id, snapshot_id),
-           {:ok, request} <- PilotRequest.build(execution, definition, snapshot_id),
-           :ok <- validate_pilot_request(request),
-           {:ok, analysis_run_id} <- pilot.create(Pilot.Wire.request(request)),
-           :ok <- accept_run(execution_id, :analyzing_pilot, analysis_phase, analysis_run_id),
-           :ok <-
-             dispatch_run(
-               execution_id,
-               :analyzing_pilot,
-               analysis_phase,
-               analysis_run_id,
-               pilot
-             ),
-           {:ok, :succeeded} <- pilot.await(analysis_run_id),
-           {:ok, %PilotResult{} = pilot_result} <- pilot.result(analysis_run_id),
-           {:ok, outcome} <- PilotOutcome.from_result(pilot_result) do
-        finish_pilot(execution_id, outcome)
+      with {:ok, collection_io} <- PilotCollection.IO.load(execution_id),
+           {:ok, %PilotAnalysis.IO{} = analysis_io} <-
+             collection.run(collection_io, Keyword.take(opts, [:workflow])),
+           {:ok, :paused} <- PilotAnalysis.run(analysis_io, workflow: analysis) do
+        :ok
       end
 
-    finish_run(execution_id, result, &bounded_pilot_error/1)
+    finish_run(execution_id, result, &as_study_error/1)
   end
 
   defp run_final(execution_id, opts) do
-    tier_workflow = Keyword.get(opts, :final_tier_workflow, FinalTierWorkflow)
-    final = Keyword.get(opts, :final_workflow, Final.Workflow)
-    snapshot = Keyword.get(opts, :final_snapshot, FinalSnapshot)
+    tier_workflow = Keyword.get(opts, :final_tier_workflow, Workflow)
+    final = Keyword.get(opts, :final_workflow, FinalAnalysis.Workflow)
+    snapshot = Keyword.get(opts, :final_snapshot, Snapshot)
     tier_timeout = Keyword.get(opts, :final_tier_timeout, :infinity)
 
     result =
       with {:ok, execution, collection_phase} <- context(execution_id, :collecting_final),
            {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
-           {:ok, tiers} <- Collection.tier_order(definition),
+           {:ok, tiers} <- Planner.tier_order(definition),
            {:ok, timings} <-
              run_tiers(execution_id, tiers, tier_workflow, tier_timeout),
            {:ok, timing_summary} <- TimingSummary.summarize(tiers, timings),
@@ -195,10 +167,16 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
            {:ok, execution, analysis_phase} <-
              begin_final_analysis(execution_id, snapshot_id, tiers),
            {:ok, %Request{} = request} <- FinalRequest.build(execution.id, snapshot_id),
-           {:ok, analysis_run_id} <- final.create(Final.Wire.request(request)),
-           :ok <- accept_run(execution_id, :analyzing_final, analysis_phase, analysis_run_id),
+           {:ok, analysis_run_id} <- final.create(FinalAnalysis.Wire.request(request)),
            :ok <-
-             dispatch_run(
+             State.accept_run(
+               execution_id,
+               :analyzing_final,
+               analysis_phase,
+               analysis_run_id
+             ),
+           :ok <-
+             State.dispatch_run(
                execution_id,
                :analyzing_final,
                analysis_phase,
@@ -254,7 +232,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   # A phase-run row is created under the execution lock, so two coordinators
   # cannot create two rows for one tier position.
   defp prepare_tier(execution_id, tier, tier_position) do
-    transaction(&locked_prepare_tier(&1, tier, tier_position), execution_id)
+    State.transaction(execution_id, &locked_prepare_tier(&1, tier, tier_position))
   end
 
   defp locked_prepare_tier(
@@ -262,9 +240,9 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
          tier,
          tier_position
        ) do
-    phase = lock_named_phase(execution.id, :final_collection)
+    phase = State.lock_named_phase(execution.id, :final_collection)
 
-    case PhaseRuns.get_or_create(phase, tier, tier_position) do
+    case TierRuns.get_or_create(phase, tier, tier_position) do
       {:ok, %StudyPhaseRun{tier: ^tier, tier_position: ^tier_position} = phase_run} ->
         {:ok, phase, phase_run}
 
@@ -276,7 +254,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     end
   end
 
-  defp locked_prepare_tier(%StudyExecution{state: state}, _tier, _tier_position), do: stop(state)
+  defp locked_prepare_tier(%StudyExecution{state: state}, _tier, _tier_position),
+    do: State.stop(state)
 
   # One phase-run row owns one Gust run. A row that already links a run keeps it,
   # so a repeated coordination attempt never creates a second run for it.
@@ -296,9 +275,9 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp link_tier_run(execution_id, %StudyPhase{id: phase_id}, %StudyPhaseRun{id: id}, gust_run_id) do
-    transaction(
-      &locked_link_tier_run(&1, phase_id, id, gust_run_id),
-      execution_id
+    State.transaction(
+      execution_id,
+      &locked_link_tier_run(&1, phase_id, id, gust_run_id)
     )
   end
 
@@ -321,19 +300,19 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp locked_link_tier_run(%StudyExecution{state: state}, _phase_id, _id, _gust_run_id),
-    do: stop(state)
+    do: State.stop(state)
 
   defp link_locked_run(%StudyPhaseRun{} = phase_run, gust_run_id) do
-    case PhaseRuns.link_gust_run(phase_run, gust_run_id) do
+    case TierRuns.link_gust_run(phase_run, gust_run_id) do
       {:ok, %StudyPhaseRun{} = updated} -> {:ok, updated}
       {:error, %StudyError{} = error} -> Repo.rollback({:error, error})
     end
   end
 
   defp dispatch_tier_run(execution_id, %StudyPhaseRun{id: id}, gust_run_id, workflow) do
-    transaction(
-      &locked_dispatch_tier_run(&1, id, gust_run_id, workflow),
-      execution_id
+    State.transaction(
+      execution_id,
+      &locked_dispatch_tier_run(&1, id, gust_run_id, workflow)
     )
   end
 
@@ -350,7 +329,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp locked_dispatch_tier_run(%StudyExecution{state: state}, _id, _gust_run_id, _workflow),
-    do: stop(state)
+    do: State.stop(state)
 
   defp dispatch_locked_run(gust_run_id, workflow) do
     case workflow.dispatch(gust_run_id) do
@@ -392,12 +371,9 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp require_collecting_final(execution_id) do
-    transaction(
-      fn execution ->
-        if execution.state == :collecting_final, do: :ok, else: stop(execution.state)
-      end,
-      execution_id
-    )
+    State.transaction(execution_id, fn execution ->
+      if execution.state == :collecting_final, do: :ok, else: State.stop(execution.state)
+    end)
   end
 
   defp validate_tier_timings(tier, timings) when is_list(timings) do
@@ -461,7 +437,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   defp assemble_replica(phase, %Definition{} = definition, position) do
     with {:ok, summary, items} <-
-           FinalReplicaSummaryAssembler.assemble(phase, definition, position),
+           ReplicaSummaryAssembler.assemble(phase, definition, position),
          {:ok, replica} <-
            Canonical.MeasuredReplica.validate(%MeasuredReplica{
              position: position,
@@ -536,7 +512,11 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     with {:ok, execution} <- ExecutionAccess.fetch(execution_id),
          true <- execution.state == expected_state,
          %StudyPhase{} = phase <-
-           Repo.get_by(StudyPhase, execution_id: execution.id, phase: phase(expected_state)),
+           Repo.get_by(
+             StudyPhase,
+             execution_id: execution.id,
+             phase: State.phase_name(expected_state)
+           ),
          :ok <- reject_legacy_final_run(expected_state, phase) do
       {:ok, execution, phase}
     else
@@ -555,142 +535,11 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
 
   defp reject_legacy_final_run(_state, %StudyPhase{}), do: :ok
 
-  defp accept_run(execution_id, expected_state, %StudyPhase{id: phase_id}, run_id) do
-    transaction(
-      &accept_locked_run(&1, expected_state, phase_id, run_id),
-      execution_id
-    )
-  end
-
-  defp accept_locked_run(
-         %StudyExecution{state: state},
-         expected_state,
-         phase_id,
-         run_id
-       )
-       when state == expected_state do
-    phase = lock_phase(phase_id)
-
-    case phase.gust_run_id do
-      nil ->
-        update_phase!(phase, %{gust_run_id: run_id})
-        :ok
-
-      ^run_id ->
-        :ok
-
-      _different_run_id ->
-        Repo.rollback({:error, workflow_error(expected_state)})
-    end
-  end
-
-  defp accept_locked_run(%StudyExecution{state: state}, _expected_state, _phase_id, _run_id) do
-    stop(state)
-  end
-
-  defp dispatch_run(
-         execution_id,
-         expected_state,
-         %StudyPhase{id: phase_id},
-         run_id,
-         workflow
-       ) do
-    transaction(
-      &dispatch_locked_run(&1, expected_state, phase_id, run_id, workflow),
-      execution_id
-    )
-  end
-
-  defp dispatch_locked_run(
-         %StudyExecution{state: state},
-         expected_state,
-         phase_id,
-         run_id,
-         workflow
-       )
-       when state == expected_state do
-    phase = lock_phase(phase_id)
-    dispatch_accepted_run(phase.gust_run_id, run_id, workflow, expected_state)
-  end
-
-  defp dispatch_locked_run(
-         %StudyExecution{state: state},
-         _expected_state,
-         _phase_id,
-         _run_id,
-         _workflow
-       ) do
-    stop(state)
-  end
-
-  defp dispatch_accepted_run(accepted_run_id, run_id, workflow, expected_state)
-       when accepted_run_id == run_id do
-    case workflow.dispatch(run_id) do
-      :ok -> :ok
-      {:error, reason} -> Repo.rollback({:error, reason})
-      _invalid -> Repo.rollback({:error, workflow_error(expected_state)})
-    end
-  end
-
-  defp dispatch_accepted_run(_accepted_run_id, _run_id, _workflow, expected_state) do
-    Repo.rollback({:error, workflow_error(expected_state)})
-  end
-
-  defp validate_pilot_request(%PilotRequestContract{} = request) do
-    with {:ok, snapshot, payload} <- EvidenceSnapshots.load(request.snapshot_id),
-         :ok <- PilotRequestContract.matches_snapshot(request, snapshot, payload) do
-      Work.preflight(request, payload)
-    end
-  end
-
-  defp begin_analysis(execution_id, snapshot_id) do
-    case transaction(&begin_analysis_transition(&1, snapshot_id), execution_id) do
-      %StudyExecution{} = execution -> load_analysis_context(execution)
-      other -> other
-    end
-  end
-
-  defp begin_analysis_transition(
-         %StudyExecution{state: :collecting_pilot} = execution,
-         snapshot_id
-       ) do
-    phase = lock_named_phase(execution.id, :pilot_collection)
-
-    if is_nil(phase.snapshot_id) or phase.snapshot_id == snapshot_id do
-      update_phase!(phase, %{snapshot_id: snapshot_id})
-      transitioned = transition_execution!(execution, :pilot_collected)
-      insert_pilot_analysis_phase!(execution.id)
-      transitioned
-    else
-      Repo.rollback({:error, StudyError.collection_workflow_failed()})
-    end
-  end
-
-  defp begin_analysis_transition(%StudyExecution{state: state}, _snapshot_id), do: stop(state)
-
-  defp insert_pilot_analysis_phase!(execution_id) do
-    %StudyPhase{}
-    |> StudyPhase.changeset(%{execution_id: execution_id, phase: :pilot_analysis})
-    |> Repo.insert()
-    |> case do
-      {:ok, %StudyPhase{}} -> :ok
-      {:error, _changeset} -> Repo.rollback({:error, StudyError.pilot_analysis_failed()})
-    end
-  end
-
-  defp load_analysis_context(%StudyExecution{} = execution) do
-    with %StudyPhase{} = analysis_phase <-
-           Repo.get_by(StudyPhase, execution_id: execution.id, phase: :pilot_analysis),
-         {:ok, definition} <- Revisions.load_definition(execution.study_revision_id) do
-      {:ok, execution, analysis_phase, definition}
-    else
-      nil -> {:error, StudyError.invalid_study_phase()}
-      {:error, %StudyError{} = error} -> {:error, error}
-    end
-  end
-
   defp begin_final_analysis(execution_id, snapshot_id, tiers) do
-    case transaction(&begin_final_analysis_transition(&1, snapshot_id, tiers), execution_id) do
+    case State.transaction(
+           execution_id,
+           &begin_final_analysis_transition(&1, snapshot_id, tiers)
+         ) do
       %StudyExecution{} = execution ->
         case Repo.get_by(StudyPhase, execution_id: execution.id, phase: :final_analysis) do
           %StudyPhase{} = phase -> {:ok, execution, phase}
@@ -707,12 +556,12 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
          snapshot_id,
          tiers
        ) do
-    phase = lock_named_phase(execution.id, :final_collection)
+    phase = State.lock_named_phase(execution.id, :final_collection)
     :ok = require_ordered_family(phase, tiers)
 
     if is_nil(phase.snapshot_id) or phase.snapshot_id == snapshot_id do
-      update_phase!(phase, %{snapshot_id: snapshot_id})
-      transitioned = transition_execution!(execution, :final_collected)
+      State.update_phase!(phase, %{snapshot_id: snapshot_id})
+      transitioned = State.transition!(execution, :final_collected)
       insert_final_analysis_phase!(execution.id)
       transitioned
     else
@@ -721,12 +570,12 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp begin_final_analysis_transition(%StudyExecution{state: state}, _snapshot_id, _tiers),
-    do: stop(state)
+    do: State.stop(state)
 
   # Final analysis starts only for a complete ordered tier-run family. The Final
   # collection phase keeps no scalar Gust run.
   defp require_ordered_family(%StudyPhase{id: phase_id} = phase, tiers) do
-    case PhaseRuns.ordered_for_phase(phase_id) do
+    case TierRuns.ordered_for_phase(phase_id) do
       {:ok, rows} ->
         complete? =
           is_nil(phase.gust_run_id) and
@@ -746,58 +595,32 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     |> Repo.insert!()
   end
 
-  defp finish_pilot(execution_id, %PilotOutcome{} = outcome) do
-    params = PilotOutcome.to_params(outcome)
-
-    transaction(
-      fn execution ->
-        if execution.state == :analyzing_pilot do
-          phase = lock_named_phase(execution.id, :pilot_analysis)
-          update_phase!(phase, %{result_ref: params})
-
-          execution
-          |> StudyExecution.changeset(%{pilot_outcome: params})
-          |> Repo.update!()
-          |> transition_execution!(:pilot_analyzed)
-
-          :ok
-        else
-          stop(execution.state)
-        end
-      end,
-      execution_id
-    )
-  end
-
   defp fail_active(execution_id, %StudyError{} = error) do
     params = StudyError.to_params(error)
 
-    transaction(
-      fn execution ->
-        case execution.state do
-          state
-          when state in [
-                 :collecting_pilot,
-                 :analyzing_pilot,
-                 :collecting_final,
-                 :analyzing_final
-               ] ->
-            phase = lock_named_phase(execution.id, phase(state))
-            update_phase!(phase, %{error: params})
+    State.transaction(execution_id, fn execution ->
+      case execution.state do
+        state
+        when state in [
+               :collecting_pilot,
+               :analyzing_pilot,
+               :collecting_final,
+               :analyzing_final
+             ] ->
+          phase = State.lock_named_phase(execution.id, State.phase_name(state))
+          State.update_phase!(phase, %{error: params})
 
-            execution
-            |> StudyExecution.changeset(%{error: params})
-            |> Repo.update!()
-            |> transition_execution!(:fail)
+          execution
+          |> StudyExecution.changeset(%{error: params})
+          |> Repo.update!()
+          |> State.transition!(:fail)
 
-            :ok
+          :ok
 
-          _cancelled_or_terminal ->
-            :ok
-        end
-      end,
-      execution_id
-    )
+        _cancelled_or_terminal ->
+          :ok
+      end
+    end)
   rescue
     _exception -> report_failure_persistence(execution_id, error)
   end
@@ -818,7 +641,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     case Repo.get(StudyExecution, execution_id) do
       %StudyExecution{state: state}
       when state in [:collecting_pilot, :analyzing_pilot, :collecting_final, :analyzing_final] ->
-        phase(state)
+        State.phase_name(state)
 
       _inactive_or_unavailable ->
         error_phase(error)
@@ -837,47 +660,6 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     end
   end
 
-  defp transaction(fun, execution_id) do
-    result =
-      Repo.transaction(fn ->
-        case ExecutionAccess.lock(execution_id) do
-          %StudyExecution{} = execution -> fun.(execution)
-          nil -> Repo.rollback({:error, StudyError.study_execution_not_found()})
-        end
-      end)
-
-    case result do
-      {:ok, value} -> value
-      {:error, value} -> value
-    end
-  end
-
-  defp lock_phase(phase_id) do
-    Repo.one!(from phase in StudyPhase, where: phase.id == ^phase_id, lock: "FOR UPDATE")
-  end
-
-  defp lock_named_phase(execution_id, phase_name) do
-    Repo.one!(
-      from phase in StudyPhase,
-        where: phase.execution_id == ^execution_id and phase.phase == ^phase_name,
-        lock: "FOR UPDATE"
-    )
-  end
-
-  defp update_phase!(phase, attrs), do: phase |> StudyPhase.changeset(attrs) |> Repo.update!()
-
-  defp transition_execution!(%StudyExecution{} = execution, event) do
-    {:ok, state} = Lifecycle.transition(execution.state, event)
-    execution |> StudyExecution.changeset(%{state: state}) |> Repo.update!()
-  end
-
-  defp stop(state), do: Repo.rollback({:stop, state})
-
-  defp phase(:collecting_pilot), do: :pilot_collection
-  defp phase(:analyzing_pilot), do: :pilot_analysis
-  defp phase(:collecting_final), do: :final_collection
-  defp phase(:analyzing_final), do: :final_analysis
-
   defp unexpected_error(execution_id) do
     case Repo.get(StudyExecution, execution_id) do
       %StudyExecution{state: :collecting_pilot} -> StudyError.collection_workflow_failed()
@@ -889,13 +671,10 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     _exception -> StudyError.final_analysis_failed()
   end
 
-  defp workflow_error(:collecting_pilot), do: StudyError.collection_workflow_failed()
-  defp workflow_error(:analyzing_pilot), do: StudyError.pilot_analysis_failed()
-  defp workflow_error(:analyzing_final), do: StudyError.final_analysis_failed()
-
-  defp bounded_pilot_error(%StudyError{} = error), do: error
-  defp bounded_pilot_error(%PilotError{}), do: StudyError.pilot_analysis_failed()
-  defp bounded_pilot_error(_reason), do: StudyError.pilot_analysis_failed()
+  # The Pilot stages expose study failures only, so the coordinator keeps one
+  # bounded error family.
+  defp as_study_error(%StudyError{} = error), do: error
+  defp as_study_error(_reason), do: StudyError.pilot_analysis_failed()
 
   defp bounded_final_error(%StudyError{} = error), do: error
   defp bounded_final_error(%FinalError{}), do: StudyError.final_analysis_failed()

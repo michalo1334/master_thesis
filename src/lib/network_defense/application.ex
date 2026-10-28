@@ -37,7 +37,7 @@ defmodule NetworkDefense.Application do
           {Registry, keys: :unique, name: NetworkDefense.Evaluation.Study.CoordinatorRegistry},
           {Registry, keys: :duplicate, name: NetworkDefense.Evaluation.Study.GustWaiterRegistry},
           {Task.Supervisor, name: NetworkDefense.TaskSupervisor},
-          NetworkDefense.Evaluation.Study.CollectionConcurrencyGate,
+          NetworkDefense.Evaluation.Study.Pipeline.Collection.ConcurrencyGate,
           NetworkDefense.Simulations.CoordinatorRegistry,
           NetworkDefenseWeb.Telemetry,
           {Bandit,

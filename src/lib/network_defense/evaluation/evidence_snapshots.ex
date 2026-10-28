@@ -2,18 +2,29 @@ defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.EvidenceSnapshot
-  alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, SnapshotInput}
-  alias NetworkDefense.Evaluation.Final.Contracts.SnapshotPayload, as: FinalSnapshotPayload
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Input,
+    as: FinalSnapshotInput
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Contracts.Payload,
+    as: FinalSnapshotPayload
+
   alias NetworkDefense.Evaluation.JsonBoundary
 
-  alias NetworkDefense.Evaluation.Pilot.Contracts.{
-    EvidenceSnapshotInput,
-    PilotError,
-    SnapshotPayload
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Snapshot.Limits,
+    as: FinalSnapshotLimits
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Limits
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Contracts.{
+    Input,
+    Payload
   }
 
-  alias NetworkDefense.Evaluation.Final.SnapshotLimits, as: FinalSnapshotLimits
-  alias NetworkDefense.Evaluation.Pilot.{Limits, SnapshotLimits}
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.Snapshot.Limits,
+    as: SnapshotLimits
 
   alias NetworkDefense.Repo
 
@@ -23,15 +34,15 @@ defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
   # insert. Reading trusts PostgreSQL row consistency and validates the stored
   # schema, metadata, and dimensions.
 
-  @spec create(EvidenceSnapshotInput.t()) ::
+  @spec create(Input.t()) ::
           {:ok, EvidenceSnapshot.t()} | {:error, PilotError.t()}
-  def create(%EvidenceSnapshotInput{} = input) do
+  def create(%Input{} = input) do
     attrs = %{
       study_revision_id: input.study_revision_id,
       phase: input.phase,
       schema_version: input.schema_version,
       family_id: input.family_id,
-      payload: SnapshotPayload.to_params(input.payload)
+      payload: Payload.to_params(input.payload)
     }
 
     insert(attrs)
@@ -72,7 +83,7 @@ defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
   end
 
   @spec load(String.t()) ::
-          {:ok, EvidenceSnapshot.t(), SnapshotPayload.t()} | {:error, PilotError.t()}
+          {:ok, EvidenceSnapshot.t(), Payload.t()} | {:error, PilotError.t()}
   def load(snapshot_id) do
     with {:ok, uuid} <- cast_uuid(snapshot_id) do
       case Repo.get(EvidenceSnapshot, uuid) do
@@ -92,14 +103,14 @@ defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
   end
 
   defp validate_stored(%EvidenceSnapshot{} = snapshot) do
-    with {:ok, payload} <- SnapshotPayload.parse(snapshot.payload),
+    with {:ok, payload} <- Payload.parse(snapshot.payload),
          :ok <- validate_metadata(snapshot, payload),
          :ok <- SnapshotLimits.validate(payload) do
       {:ok, snapshot, payload}
     end
   end
 
-  defp validate_metadata(%EvidenceSnapshot{} = snapshot, %SnapshotPayload{} = payload) do
+  defp validate_metadata(%EvidenceSnapshot{} = snapshot, %Payload{} = payload) do
     cond do
       snapshot.phase != :pilot or payload.evidence_role != "pilot" ->
         {:error,
@@ -131,9 +142,9 @@ defmodule NetworkDefense.Evaluation.EvidenceSnapshots do
   # satisfy a Pilot read, because each read checks its own phase and evidence
   # role.
 
-  @spec create_final(SnapshotInput.t()) ::
+  @spec create_final(FinalSnapshotInput.t()) ::
           {:ok, EvidenceSnapshot.t()} | {:error, FinalError.t()}
-  def create_final(%SnapshotInput{} = input) do
+  def create_final(%FinalSnapshotInput{} = input) do
     attrs = %{
       study_revision_id: input.study_revision_id,
       phase: input.phase,

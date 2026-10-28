@@ -13,16 +13,4 @@ defmodule NetworkDefense.Evaluation.Study.ActionLoaders do
       nil -> {:error, StudyError.invalid_study_phase()}
     end
   end
-
-  # Pilot reads the run parameter without a Final-style collection-phase guard.
-  @spec pilot_phase_for_run(integer()) :: {:ok, StudyPhase.t()} | {:error, StudyError.t()}
-  def pilot_phase_for_run(run_id) do
-    with %{params: %{"study_phase_id" => phase_id}} <- Gust.Flows.get_run!(run_id),
-         {:ok, id} <- Ecto.UUID.cast(phase_id),
-         %StudyPhase{} = phase <- Repo.get(StudyPhase, id) do
-      {:ok, phase}
-    else
-      _invalid -> {:error, StudyError.invalid_study_phase()}
-    end
-  end
 end

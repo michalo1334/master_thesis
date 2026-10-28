@@ -3,23 +3,26 @@ defmodule NetworkDefense.Evaluation.Study.Results do
 
   import Ecto.Query
 
-  alias NetworkDefense.Evaluation.Final.Contracts.Result, as: FinalResult
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Contracts.Result, as: FinalResult
 
-  alias NetworkDefense.Evaluation.Study.CompactResult
-  alias NetworkDefense.Evaluation.Study.CompactResult.{AnalysisReference, CollectionReference}
-  alias NetworkDefense.Evaluation.Study.CompactResult.PilotAnalysisReference
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Result, as: CompactResult
 
-  alias NetworkDefense.Evaluation.Study.{
-    Collection,
-    FinalSelection,
-    Lifecycle,
-    PhaseRuns,
-    PilotOutcome,
-    Revisions
+  alias NetworkDefense.Evaluation.Study.Pipeline.Result.{
+    AnalysisReference,
+    CollectionReference,
+    PilotAnalysisReference
   }
 
-  alias NetworkDefense.Evaluation.Study.Timing.TimingSummary
+  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+
+  alias NetworkDefense.Evaluation.Study.Lifecycle
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection, as: FinalSelection
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.TierRuns
+  alias NetworkDefense.Evaluation.Study.Revisions
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Collection.Planner
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.Timing.TimingSummary
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Outcome, as: PilotOutcome
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyResult}
   alias NetworkDefense.Repo
 
@@ -107,7 +110,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   # Timing belongs to the immutable declared tier order. The stored summary is
   # rejected unless its tiers follow that order.
   defp validate_timing(%TimingSummary{} = timing, definition) do
-    case Collection.tier_order(definition) do
+    case Planner.tier_order(definition) do
       {:ok, tiers} -> TimingSummary.validate_declared_order(timing, tiers)
       {:error, %StudyError{}} -> {:error, StudyError.final_result_invalid()}
     end
@@ -190,8 +193,8 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   end
 
   defp complete_tier_runs?(%StudyPhase{id: phase_id}, definition) do
-    with {:ok, tiers} <- Collection.tier_order(definition),
-         {:ok, rows} <- PhaseRuns.ordered_for_phase(phase_id),
+    with {:ok, tiers} <- Planner.tier_order(definition),
+         {:ok, rows} <- TierRuns.ordered_for_phase(phase_id),
          true <- Enum.map(rows, & &1.tier) == tiers,
          true <- Enum.map(rows, & &1.tier_position) == tier_positions(tiers),
          true <- Enum.all?(rows, &(&1.study_phase_id == phase_id)),
@@ -282,7 +285,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   end
 
   defp collection_reference(%StudyPhase{phase: :final_collection} = phase) do
-    with {:ok, run_ids} <- PhaseRuns.ordered_run_ids(phase.id),
+    with {:ok, run_ids} <- TierRuns.ordered_run_ids(phase.id),
          true <- Enum.all?(run_ids, &positive_run?/1) do
       {:ok,
        %CollectionReference{
@@ -379,7 +382,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   defp validate_readback_timing(nil, _definition), do: :ok
 
   defp validate_readback_timing(%TimingSummary{} = timing, definition) do
-    with {:ok, tiers} <- Collection.tier_order(definition),
+    with {:ok, tiers} <- Planner.tier_order(definition),
          :ok <- TimingSummary.validate_declared_order(timing, tiers) do
       :ok
     else
@@ -434,7 +437,7 @@ defmodule NetworkDefense.Evaluation.Study.Results do
   # The stored list must equal the authoritative ordered run IDs of the phase.
   defp stored_run_ids?(stored, %StudyPhase{phase: :final_collection} = phase) do
     is_nil(phase.gust_run_id) and
-      match?({:ok, ^stored}, PhaseRuns.ordered_run_ids(phase.id))
+      match?({:ok, ^stored}, TierRuns.ordered_run_ids(phase.id))
   end
 
   defp stored_run_ids?(stored, %StudyPhase{gust_run_id: run_id}), do: stored == [run_id]

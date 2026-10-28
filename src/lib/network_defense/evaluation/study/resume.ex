@@ -8,11 +8,12 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
   alias NetworkDefense.Evaluation.Study.{
     Coordinator,
     ExecutionAccess,
-    FinalSelection,
     Lifecycle,
-    PilotOutcome,
     Revisions
   }
+
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Selection, as: FinalSelection
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Outcome, as: PilotOutcome
 
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase}
   alias NetworkDefense.Repo

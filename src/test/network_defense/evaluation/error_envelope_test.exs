@@ -9,12 +9,11 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelopeTest do
   alias NetworkDefense.Evaluation.Family.Contracts.FamilyError
   alias NetworkDefense.Evaluation.Family.SchemaValidator, as: FamilySchemaValidator
   alias NetworkDefense.Evaluation.Family.Wire, as: FamilyWire
-  alias NetworkDefense.Evaluation.Final.Contracts.FinalError
-  alias NetworkDefense.Evaluation.Final.SchemaValidator, as: FinalSchemaValidator
-  alias NetworkDefense.Evaluation.Final.Wire, as: FinalWire
-  alias NetworkDefense.Evaluation.Pilot.Contracts.PilotError
-  alias NetworkDefense.Evaluation.Pilot.SchemaValidator, as: PilotSchemaValidator
-  alias NetworkDefense.Evaluation.Pilot.Wire, as: PilotWire
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Error, as: FinalError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.SchemaValidator, as: FinalSchemaValidator
+  alias NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.Wire, as: FinalWire
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Error, as: PilotError
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.SchemaValidator, as: PilotSchemaValidator
 
   @issue %{
     "code" => "workflow_failed",
@@ -35,7 +34,7 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelopeTest do
        "The comparison workflow failed safely."},
       {FamilyError, &FamilyWire.error/1, &FamilySchemaValidator.validate/2,
        "The family workflow failed safely."},
-      {PilotError, &PilotWire.error/1, &PilotSchemaValidator.validate/2,
+      {PilotError, &PilotError.to_envelope/1, &PilotSchemaValidator.validate/2,
        "The pilot workflow failed safely."},
       {FinalError, &FinalWire.error/1, &FinalSchemaValidator.validate/2,
        "The Final workflow failed safely."}

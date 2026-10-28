@@ -1,31 +1,20 @@
-defmodule NetworkDefense.Evaluation.Study.PilotCollectionDAG do
+defmodule NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.DAG do
   @moduledoc false
+
   use Gust.DSL, on_finished_callback: :notify_waiters
+  use NetworkDefense.Evaluation.Study.Pipeline.GustCallback
 
-  alias NetworkDefense.Evaluation.Study.GustRunNotifier
+  alias NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.{Assemble, Collect, Prepare}
 
-  alias NetworkDefense.Evaluation.Study.Actions.{
-    AssemblePilotSnapshot,
-    CollectItem,
-    PreparePilotCollection
-  }
+  # Fixed Pilot collection DAG: plan the work once, map one collection item per
+  # stable row, then assemble one snapshot from the authoritative fan-in.
 
-  def notify_waiters(_status, %{id: run_id}) do
-    GustRunNotifier.notify(run_id)
-  rescue
-    _exception -> :ok
-  catch
-    _kind, _reason -> :ok
-  end
-
-  def notify_waiters(_status, _run), do: :ok
-
-  task_action(:prepare_pilot_collection, {PreparePilotCollection, []},
+  task_action(:prepare_pilot_collection, {Prepare.Gust, []},
     downstream: [:collect_pilot_item],
     store_result: true
   )
 
-  task_action :collect_pilot_item, CollectItem,
+  task_action :collect_pilot_item, Collect.Gust,
     map_over: :prepare_pilot_collection,
     ctx: %{params: params},
     downstream: [:assemble_pilot_snapshot],
@@ -33,5 +22,5 @@ defmodule NetworkDefense.Evaluation.Study.PilotCollectionDAG do
     [collection_item_id: params["collection_item_id"]]
   end
 
-  task_action(:assemble_pilot_snapshot, {AssemblePilotSnapshot, []}, store_result: true)
+  task_action(:assemble_pilot_snapshot, {Assemble.Gust, []}, store_result: true)
 end

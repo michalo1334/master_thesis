@@ -215,7 +215,7 @@ end
 
 case RuntimeConfig.study_collection_limits() do
   {:ok, limits} ->
-    config :network_defense, NetworkDefense.Evaluation.Study.CollectionLimits, limits
+    config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Collection.Limits, limits
 
   :unconfigured ->
     :ok
