@@ -24,4 +24,5 @@ local-results/
 .pi/ssh-mcp/config.toml
 __pycache__/
 *.pyc
+*.egg-info/
 # END agent-lib
