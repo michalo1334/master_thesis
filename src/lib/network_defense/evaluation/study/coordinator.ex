@@ -14,6 +14,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   alias NetworkDefense.Evaluation.Study.{
     Collection,
     CollectionWorkflow,
+    ExecutionAccess,
     FinalReplicaSummaryAssembler,
     FinalRequest,
     FinalSnapshot,
@@ -363,7 +364,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   # a cancellation wake-up can reach the coordinator process. The stored state is
   # authoritative after the wait.
   defp await_tier(workflow, execution_id, phase_run_id, gust_run_id, timeout) do
-    with {:ok, execution} <- reload_execution(execution_id),
+    with {:ok, execution} <- ExecutionAccess.fetch(execution_id),
          {:ok, %StudyPhaseRun{gust_run_id: ^gust_run_id} = phase_run} <-
            reload_phase_run(phase_run_id),
          {:ok, timings} <- workflow.await(execution, phase_run, timeout),
@@ -374,15 +375,6 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
       {:stop, _state} = stop -> stop
       {:ok, %StudyPhaseRun{}} -> {:error, StudyError.phase_run_conflict()}
       _invalid -> {:error, StudyError.final_collection_workflow_failed()}
-    end
-  end
-
-  defp reload_execution(execution_id) do
-    with {:ok, id} <- Ecto.UUID.cast(execution_id),
-         %StudyExecution{} = execution <- Repo.get(StudyExecution, id) do
-      {:ok, execution}
-    else
-      _invalid -> {:error, StudyError.study_execution_not_found()}
     end
   end
 
@@ -521,10 +513,8 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp current_state(execution_id) do
-    with {:ok, id} <- Ecto.UUID.cast(execution_id),
-         %StudyExecution{} = execution <- Repo.get(StudyExecution, id) do
-      {:ok, execution.state}
-    else
+    case ExecutionAccess.fetch(execution_id) do
+      {:ok, execution} -> {:ok, execution.state}
       _invalid -> :error
     end
   end
@@ -543,11 +533,10 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   end
 
   defp context(execution_id, expected_state) do
-    with {:ok, id} <- Ecto.UUID.cast(execution_id),
-         %StudyExecution{} = execution <- Repo.get(StudyExecution, id),
+    with {:ok, execution} <- ExecutionAccess.fetch(execution_id),
          true <- execution.state == expected_state,
          %StudyPhase{} = phase <-
-           Repo.get_by(StudyPhase, execution_id: id, phase: phase(expected_state)),
+           Repo.get_by(StudyPhase, execution_id: execution.id, phase: phase(expected_state)),
          :ok <- reject_legacy_final_run(expected_state, phase) do
       {:ok, execution, phase}
     else
@@ -851,7 +840,7 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
   defp transaction(fun, execution_id) do
     result =
       Repo.transaction(fn ->
-        case lock_execution(execution_id) do
+        case ExecutionAccess.lock(execution_id) do
           %StudyExecution{} = execution -> fun.(execution)
           nil -> Repo.rollback({:error, StudyError.study_execution_not_found()})
         end
@@ -860,16 +849,6 @@ defmodule NetworkDefense.Evaluation.Study.Coordinator do
     case result do
       {:ok, value} -> value
       {:error, value} -> value
-    end
-  end
-
-  defp lock_execution(execution_id) do
-    case Ecto.UUID.cast(execution_id) do
-      {:ok, id} ->
-        Repo.one(from execution in StudyExecution, where: execution.id == ^id, lock: "FOR UPDATE")
-
-      :error ->
-        nil
     end
   end
 

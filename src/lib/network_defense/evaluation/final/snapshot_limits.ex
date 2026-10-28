@@ -8,6 +8,7 @@ defmodule NetworkDefense.Evaluation.Final.SnapshotLimits do
   }
 
   alias NetworkDefense.Evaluation.Pilot.Limits
+  alias NetworkDefense.Evaluation.SnapshotDimensions
 
   # Dimension checks for stored Final evidence.
   #
@@ -18,8 +19,6 @@ defmodule NetworkDefense.Evaluation.Final.SnapshotLimits do
   # The check covers the comparison count and the stored matrix shape: plan rows
   # on each side and attack columns for every comparison. The check never
   # changes or truncates the payload.
-
-  @max_issues 50
 
   @doc """
   Read the shared Stage 4 snapshot caps as an owning Final configuration.
@@ -50,95 +49,36 @@ defmodule NetworkDefense.Evaluation.Final.SnapshotLimits do
 
   @spec validate(SnapshotPayload.t(), Limits.t()) :: :ok | {:error, FinalError.t()}
   def validate(%SnapshotPayload{} = payload, %Limits{} = limits) do
-    with :ok <- within_comparison_count(payload.comparisons, limits) do
-      within_matrix_dims(payload.comparisons, limits)
-    end
+    payload.comparisons
+    |> SnapshotDimensions.validate(
+      limits.snapshot_comparisons,
+      &comparison_issues(&1, &2, limits)
+    )
+    |> translate_result()
   end
 
-  defp within_comparison_count(comparisons, %Limits{} = limits) do
-    count = length(comparisons)
+  defp translate_result(:ok), do: :ok
 
-    if count <= limits.snapshot_comparisons do
-      :ok
-    else
-      {:error,
-       FinalError.new(
-         "validation_failed",
-         "invalid_analysis_setting",
-         ["payload", "comparisons"],
-         "The snapshot comparison count exceeds the configured limit.",
-         %{"limit" => limits.snapshot_comparisons, "actual" => count}
-       )}
-    end
+  defp translate_result({:comparison_limit, issue}) do
+    {:error,
+     FinalError.new(
+       "validation_failed",
+       issue["code"],
+       issue["path"],
+       issue["message"],
+       issue["details"]
+     )}
   end
 
-  defp within_matrix_dims(comparisons, %Limits{} = limits) do
-    issues =
-      comparisons
-      |> Enum.with_index()
-      |> Enum.flat_map(fn {comparison, index} -> comparison_issues(comparison, index, limits) end)
-      |> Enum.take(@max_issues)
-
-    case issues do
-      [] -> :ok
-      _issues -> {:error, FinalError.validation_failed(issues)}
-    end
-  end
+  defp translate_result({:matrix_limits, issues}),
+    do: {:error, FinalError.validation_failed(issues)}
 
   defp comparison_issues(%ComparisonEvidence{} = comparison, index, %Limits{} = limits) do
-    plan_issues(length(comparison.evidence.alternative.plans), index, limits) ++
-      reference_issues(length(comparison.evidence.reference.plans), index, limits) ++
-      attack_issues(length(comparison.evidence.attack_seeds), index, limits)
-  end
-
-  defp reference_issues(count, index, %Limits{} = limits) do
-    row_issues(count, ["payload", "comparisons", index, "evidence", "reference", "plans"], limits)
-  end
-
-  defp plan_issues(count, index, %Limits{} = limits) do
-    row_issues(
-      count,
-      ["payload", "comparisons", index, "evidence", "alternative", "plans"],
-      limits
+    SnapshotDimensions.comparison_issues(
+      comparison.evidence,
+      index,
+      limits.plans_per_side,
+      limits.attack_columns
     )
-  end
-
-  defp row_issues(count, path, %Limits{} = limits) do
-    if count <= limits.plans_per_side do
-      []
-    else
-      [
-        limit_issue(
-          path,
-          "The comparison side has more plan rows than the configured limit.",
-          limits.plans_per_side,
-          count
-        )
-      ]
-    end
-  end
-
-  defp attack_issues(count, index, %Limits{} = limits) do
-    if count <= limits.attack_columns do
-      []
-    else
-      [
-        limit_issue(
-          ["payload", "comparisons", index, "evidence", "attack_seeds"],
-          "The comparison has more attack columns than the configured limit.",
-          limits.attack_columns,
-          count
-        )
-      ]
-    end
-  end
-
-  defp limit_issue(path, message, limit, actual) do
-    %{
-      "code" => "invalid_analysis_setting",
-      "path" => path,
-      "message" => message,
-      "details" => %{"limit" => limit, "actual" => actual}
-    }
   end
 end

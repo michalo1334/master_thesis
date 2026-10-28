@@ -5,6 +5,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.SnapshotInput do
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, SnapshotPayload}
   alias NetworkDefense.Evaluation.Final.{SchemaValidator, SnapshotLimits}
   alias NetworkDefense.Evaluation.JsonBoundary
+  alias NetworkDefense.Evaluation.SnapshotContract
 
   # Create document for one immutable Final evidence snapshot.
   #
@@ -41,18 +42,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.SnapshotInput do
   end
 
   def changeset(input, attrs) do
-    input
-    |> change()
-    |> SchemaValidator.matches_schema(attrs, :snapshot)
-    |> cast_if_schema_valid(attrs)
-  end
-
-  defp cast_if_schema_valid(%Ecto.Changeset{valid?: false} = changeset, _attrs), do: changeset
-
-  defp cast_if_schema_valid(changeset, attrs) do
-    changeset
-    |> cast(attrs, [:study_revision_id, :phase, :schema_version, :family_id])
-    |> cast_embed(:payload, required: true)
+    SnapshotContract.input_changeset(input, attrs, &SchemaValidator.matches_schema/3)
   end
 
   # The schema-gated changeset owns the one snapshot schema traversal. A value

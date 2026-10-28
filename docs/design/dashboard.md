@@ -142,5 +142,5 @@ flowchart TD
 ## Core journey capture
 
 The [README](../../README.md#core-workflows) shows real topology, simulation,
-and defense screenshots. [Setup verification](../getting-started-verification.md)
-records the exercised journeys and their limits.
+and defense screenshots. The [infrastructure guide](../infrastructure.md)
+describes the local environment and its limits.

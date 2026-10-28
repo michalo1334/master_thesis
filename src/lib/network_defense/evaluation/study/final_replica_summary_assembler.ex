@@ -6,7 +6,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalReplicaSummaryAssembler do
   alias NetworkDefense.Actions.{AcquireCredential, AttemptedAction, ExploitVulnerability}
   alias NetworkDefense.Actions.ReuseCredential
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Evaluation.Study.Collection
+  alias NetworkDefense.Evaluation.Study.{Collection, RunIdentity}
   alias NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
@@ -19,7 +19,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalReplicaSummaryAssembler do
   alias NetworkDefense.Optimization.ExecutionConfig
   alias NetworkDefense.Optimization.{OptimizationAction, OptimizationRun}
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
+  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run}
 
   @measured_positions 0..4
 
@@ -283,10 +283,10 @@ defmodule NetworkDefense.Evaluation.Study.FinalReplicaSummaryAssembler do
       Enum.map(runs, & &1.trial_index) != indices(experiment.total_trials) ->
         incomplete()
 
-      not Enum.all?(runs, &owned_by_experiment?(&1, experiment)) ->
+      not Enum.all?(runs, &RunIdentity.owned_by_experiment?(&1, experiment)) ->
         incomplete()
 
-      not Enum.all?(runs, &derived_seed?(&1, experiment)) ->
+      not Enum.all?(runs, &RunIdentity.derived_seed?(&1, experiment)) ->
         incomplete()
 
       not Enum.all?(runs, &complete_run?/1) ->
@@ -295,15 +295,6 @@ defmodule NetworkDefense.Evaluation.Study.FinalReplicaSummaryAssembler do
       true ->
         :ok
     end
-  end
-
-  defp owned_by_experiment?(%Run{} = run, %Experiment{} = experiment) do
-    run.experiment_id == experiment.id and run.graph_revision_id == experiment.graph_revision_id
-  end
-
-  defp derived_seed?(%Run{seed: seed, trial_index: index}, %Experiment{master_seed: master_seed}) do
-    is_integer(seed) and is_integer(index) and is_integer(master_seed) and
-      seed == Seed.child_seed(master_seed, index)
   end
 
   defp complete_run?(%Run{initial_attacker_state: %AttackerState{}, iterations: iterations})

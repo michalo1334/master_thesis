@@ -2,8 +2,8 @@ defmodule NetworkDefense.Evaluation.Study.Status do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
+  alias NetworkDefense.Evaluation.Study.ExecutionAccess
   alias NetworkDefense.Evaluation.StudyExecution
-  alias NetworkDefense.Repo
 
   # The study status read boundary.
   #
@@ -13,12 +13,7 @@ defmodule NetworkDefense.Evaluation.Study.Status do
 
   @spec get(Ecto.UUID.t()) :: {:ok, StudyExecution.t()} | {:error, StudyError.t()}
   def get(execution_id) do
-    with {:ok, id} <- Ecto.UUID.cast(execution_id),
-         %StudyExecution{} = execution <- Repo.get(StudyExecution, id) do
-      {:ok, execution}
-    else
-      _not_found -> {:error, StudyError.study_execution_not_found()}
-    end
+    ExecutionAccess.fetch(execution_id)
   rescue
     _exception in [Postgrex.Error, DBConnection.ConnectionError] ->
       {:error, StudyError.study_execution_storage_failed()}

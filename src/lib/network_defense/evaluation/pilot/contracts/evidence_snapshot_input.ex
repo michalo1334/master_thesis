@@ -5,6 +5,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
   alias NetworkDefense.Evaluation.JsonBoundary
   alias NetworkDefense.Evaluation.Pilot.Contracts.{PilotError, SnapshotPayload}
   alias NetworkDefense.Evaluation.Pilot.{Limits, SchemaValidator, SnapshotLimits}
+  alias NetworkDefense.Evaluation.SnapshotContract
 
   # Create document for one immutable Pilot evidence snapshot.
   #
@@ -43,18 +44,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.EvidenceSnapshotInput do
   end
 
   def changeset(input, attrs) do
-    input
-    |> change()
-    |> SchemaValidator.matches_schema(attrs, :snapshot)
-    |> cast_if_schema_valid(attrs)
-  end
-
-  defp cast_if_schema_valid(%Ecto.Changeset{valid?: false} = changeset, _attrs), do: changeset
-
-  defp cast_if_schema_valid(changeset, attrs) do
-    changeset
-    |> cast(attrs, [:study_revision_id, :phase, :schema_version, :family_id])
-    |> cast_embed(:payload, required: true)
+    SnapshotContract.input_changeset(input, attrs, &SchemaValidator.matches_schema/3)
   end
 
   defp materialize(attrs) when is_map(attrs) do

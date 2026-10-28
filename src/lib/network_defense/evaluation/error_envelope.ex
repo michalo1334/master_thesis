@@ -16,6 +16,32 @@ defmodule NetworkDefense.Evaluation.ErrorEnvelope do
           schema_errors: [map()]
         }
 
+  alias NetworkDefense.Evaluation.ContractSupport
+
+  # These constructors receive trusted owner modules, not submitted values.
+  def new(owner, code, issue_code, path, message, details) do
+    struct!(owner,
+      code: code,
+      issues: [ContractSupport.issue(issue_code, path, message, details)]
+    )
+  end
+
+  def materialize(owner, value) do
+    with {:ok, attrs} <- materialize(value), do: {:ok, struct!(owner, attrs)}
+  end
+
+  def parse(owner, value, validate) do
+    with {:ok, attrs} <- parse(value, validate), do: {:ok, struct!(owner, attrs)}
+  end
+
+  def request_size_details(limit_bytes, actual_bytes \\ nil) do
+    if is_integer(actual_bytes) do
+      %{"limit_bytes" => limit_bytes, "actual_bytes" => actual_bytes}
+    else
+      %{"limit_bytes" => limit_bytes}
+    end
+  end
+
   @spec body(term(), [map()], [map()], map()) :: map()
   def body(code, issues, schema_errors, fallback_body) do
     cond do

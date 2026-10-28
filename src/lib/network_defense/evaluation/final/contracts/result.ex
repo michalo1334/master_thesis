@@ -11,6 +11,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Result do
     ResultComparison
   }
 
+  alias NetworkDefense.Evaluation.Family.ResultAssembly
   alias NetworkDefense.Evaluation.Final.Contracts.{Assertions, FinalError, Request}
 
   alias NetworkDefense.Evaluation.Final.SchemaValidator
@@ -92,19 +93,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Result do
   @spec from_response(Request.t(), [member()], HolmResponse.t()) ::
           {:ok, t()} | {:error, FinalError.t()}
   def from_response(%Request{} = request, members, %HolmResponse{} = response) do
-    comparisons =
-      members
-      |> Enum.zip(response.results)
-      |> Enum.map(fn {member, adjusted} ->
-        %ResultComparison{
-          identity: member.identity,
-          statistics: member.statistics,
-          adjustment: %Adjustment{
-            adjusted_p_value: adjusted.adjusted_p_value,
-            reject_null: adjusted.reject_null
-          }
-        }
-      end)
+    comparisons = ResultAssembly.adjusted_comparisons(members, response.results)
 
     result = %__MODULE__{
       schema_version: 1,

@@ -65,6 +65,14 @@ defmodule NetworkDefense.Evaluation.Study.PilotOutcome do
 
   def parse(_attrs), do: {:error, StudyError.pilot_outcome_invalid()}
 
+  @spec parse_accepted_source(term()) :: {:ok, t()} | {:error, StudyError.t()}
+  def parse_accepted_source(params) do
+    case parse(params) do
+      {:ok, %__MODULE__{} = outcome} -> {:ok, outcome}
+      {:error, %StudyError{}} -> {:error, StudyError.pilot_source_incomplete()}
+    end
+  end
+
   @spec to_params(t()) :: map()
   def to_params(%__MODULE__{outcome: :recommended} = outcome) do
     %{

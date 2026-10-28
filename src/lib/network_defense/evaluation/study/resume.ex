@@ -7,6 +7,7 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
 
   alias NetworkDefense.Evaluation.Study.{
     Coordinator,
+    ExecutionAccess,
     FinalSelection,
     Lifecycle,
     PilotOutcome,
@@ -49,9 +50,9 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
 
   defp resume_transaction(execution_id, selection) do
     Repo.transaction(fn ->
-      execution = execution_id |> lock_execution() |> unwrap()
+      execution = execution_id |> ExecutionAccess.fetch_locked_trusted() |> unwrap()
       :ok = execution |> require_awaiting_final() |> unwrap()
-      outcome = execution.pilot_outcome |> parse_pilot_outcome() |> unwrap()
+      outcome = execution.pilot_outcome |> PilotOutcome.parse_accepted_source() |> unwrap()
       definition = execution.study_revision_id |> Revisions.load_definition() |> unwrap()
       _pilot_phase = execution |> accepted_pilot_phase() |> unwrap()
 
@@ -80,26 +81,8 @@ defmodule NetworkDefense.Evaluation.Study.Resume do
   defp transaction_result({:error, %StudyError{} = error}), do: {:error, error}
   defp transaction_result(_result), do: {:error, StudyError.final_selection_storage_failed()}
 
-  defp lock_execution(execution_id) do
-    case Repo.one(
-           from execution in StudyExecution,
-             where: execution.id == ^execution_id,
-             lock: "FOR UPDATE"
-         ) do
-      %StudyExecution{} = execution -> {:ok, execution}
-      nil -> {:error, StudyError.study_execution_not_found()}
-    end
-  end
-
   defp require_awaiting_final(%StudyExecution{state: :awaiting_final}), do: {:ok, :ok}
   defp require_awaiting_final(_execution), do: {:error, StudyError.final_resume_not_allowed()}
-
-  defp parse_pilot_outcome(params) do
-    case PilotOutcome.parse(params) do
-      {:ok, %PilotOutcome{} = outcome} -> {:ok, outcome}
-      {:error, %StudyError{}} -> {:error, StudyError.pilot_source_incomplete()}
-    end
-  end
 
   defp accepted_pilot_phase(%StudyExecution{} = execution) do
     phase =

@@ -1,10 +1,8 @@
 defmodule NetworkDefense.Evaluation.Study.Cancel do
   @moduledoc false
 
-  import Ecto.Query
-
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.Lifecycle
+  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, Lifecycle}
   alias NetworkDefense.Evaluation.StudyExecution
   alias NetworkDefense.Repo
 
@@ -39,19 +37,12 @@ defmodule NetworkDefense.Evaluation.Study.Cancel do
 
   defp cancel_transaction(execution_id) do
     Repo.transaction(fn ->
-      execution_id |> lock_execution() |> unwrap() |> cancel_locked() |> unwrap()
+      execution_id
+      |> ExecutionAccess.fetch_locked_trusted()
+      |> unwrap()
+      |> cancel_locked()
+      |> unwrap()
     end)
-  end
-
-  defp lock_execution(execution_id) do
-    case Repo.one(
-           from execution in StudyExecution,
-             where: execution.id == ^execution_id,
-             lock: "FOR UPDATE"
-         ) do
-      %StudyExecution{} = execution -> {:ok, execution}
-      nil -> {:error, StudyError.study_execution_not_found()}
-    end
   end
 
   defp cancel_locked(%StudyExecution{state: :cancelled} = execution), do: {:ok, execution}

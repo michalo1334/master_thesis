@@ -1,6 +1,6 @@
 defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
   @moduledoc false
-  use NetworkDefense.Contracts, export: false
+  use NetworkDefense.Evaluation.ErrorContract
 
   # Bounded error envelope for the study definition boundary.
   #
@@ -9,23 +9,6 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
   # value, so no message or detail carries document content. A path names caller
   # keys or list indexes only, and the YAML boundary validates every path
   # component before it adds one.
-
-  @type t :: %__MODULE__{
-          schema_version: integer(),
-          code: String.t(),
-          issues: [map()],
-          schema_errors: [map()]
-        }
-
-  embedded_schema do
-    field :schema_version, :integer, default: 1
-    field :code, :string
-    field :issues, {:array, :map}, default: []
-    field :schema_errors, {:array, :map}, default: []
-  end
-
-  def changeset(error, attrs),
-    do: cast(error, attrs, [:schema_version, :code, :issues, :schema_errors])
 
   def schema_failure(diagnostics) when is_list(diagnostics),
     do: %__MODULE__{code: "validation_failed", schema_errors: diagnostics}
@@ -564,13 +547,4 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.StudyError do
 
   defp reason_label(reason) when is_atom(reason), do: Atom.to_string(reason)
   defp reason_label(_reason), do: "unavailable"
-
-  def new(code, issue_code, path, message, details \\ %{}) do
-    %__MODULE__{
-      code: code,
-      issues: [
-        %{"code" => issue_code, "path" => path, "message" => message, "details" => details}
-      ]
-    }
-  end
 end

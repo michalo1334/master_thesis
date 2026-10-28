@@ -187,18 +187,8 @@ defmodule NetworkDefense.Evaluation.Study.Timing.FinalReplicaSummary do
       state
       |> cast(attrs, [:credential_ids])
       |> cast_embed(:footholds)
-      |> validate_identifiers(:credential_ids)
+      |> Contracts.validate_identifier_list(:credential_ids)
     end
-
-    defp validate_identifiers(changeset, field) do
-      validate_change(changeset, field, fn _field, ids ->
-        if Enum.all?(ids, &identifier?/1),
-          do: [],
-          else: [{field, "must contain identifiers"}]
-      end)
-    end
-
-    defp identifier?(value), do: is_binary(value) and String.trim(value) != ""
   end
 
   defmodule AttackAction do
@@ -265,18 +255,8 @@ defmodule NetworkDefense.Evaluation.Study.Timing.FinalReplicaSummary do
       |> cast(attrs, @fields)
       |> validate_required([:kind, :attempt_count, :supporting_edge_ids])
       |> validate_number(:attempt_count, greater_than_or_equal_to: 0)
-      |> validate_identifiers(:supporting_edge_ids)
+      |> Contracts.validate_identifier_list(:supporting_edge_ids)
     end
-
-    defp validate_identifiers(changeset, field) do
-      validate_change(changeset, field, fn _field, ids ->
-        if Enum.all?(ids, &identifier?/1),
-          do: [],
-          else: [{field, "must contain identifiers"}]
-      end)
-    end
-
-    defp identifier?(value), do: is_binary(value) and String.trim(value) != ""
   end
 
   defmodule AttackStep do

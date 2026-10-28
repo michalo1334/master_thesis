@@ -17,7 +17,7 @@ defmodule NetworkDefense.Evaluation.Family.Contracts.FamilyResult do
     ResultComparison
   }
 
-  alias NetworkDefense.Evaluation.Family.SchemaValidator
+  alias NetworkDefense.Evaluation.Family.{ResultAssembly, SchemaValidator}
 
   # Persisted family result. It keeps the per-comparison intervals unchanged
   # and adds one Holm adjustment row per declared identity.
@@ -75,19 +75,7 @@ defmodule NetworkDefense.Evaluation.Family.Contracts.FamilyResult do
   @spec from_response(FamilyRequest.t(), [member()], HolmResponse.t()) ::
           {:ok, t()} | {:error, FamilyError.t()}
   def from_response(%FamilyRequest{} = request, members, %HolmResponse{} = response) do
-    comparisons =
-      members
-      |> Enum.zip(response.results)
-      |> Enum.map(fn {member, adjusted} ->
-        %ResultComparison{
-          identity: member.identity,
-          statistics: member.statistics,
-          adjustment: %Adjustment{
-            adjusted_p_value: adjusted.adjusted_p_value,
-            reject_null: adjusted.reject_null
-          }
-        }
-      end)
+    comparisons = ResultAssembly.adjusted_comparisons(members, response.results)
 
     result = %__MODULE__{
       schema_version: 1,

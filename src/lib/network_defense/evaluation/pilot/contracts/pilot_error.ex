@@ -1,28 +1,9 @@
 defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotError do
   @moduledoc false
-  use NetworkDefense.Contracts, export: false
-
-  alias NetworkDefense.Evaluation.ErrorEnvelope
-
-  @type t :: %__MODULE__{
-          schema_version: integer(),
-          code: String.t(),
-          issues: [map()],
-          schema_errors: [map()]
-        }
-
-  embedded_schema do
-    field :schema_version, :integer, default: 1
-    field :code, :string
-    field :issues, {:array, :map}, default: []
-    field :schema_errors, {:array, :map}, default: []
-  end
-
-  def changeset(error, attrs),
-    do: cast(error, attrs, [:schema_version, :code, :issues, :schema_errors])
-
-  def schema_failure(diagnostics),
-    do: %__MODULE__{code: "validation_failed", schema_errors: diagnostics}
+  use NetworkDefense.Evaluation.ErrorContract,
+    schema_validator: NetworkDefense.Evaluation.Pilot.SchemaValidator,
+    request_size: :with_actual,
+    identifier_errors: true
 
   def invalid_response_contract(
         message \\ "The compute service returned an invalid candidate response."
@@ -67,62 +48,6 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.PilotError do
   def workflow_failed(message \\ "The pilot workflow failed safely."),
     do: new("workflow_failed", "workflow_failed", [], message)
 
-  def request_too_large(limit_bytes, actual_bytes \\ nil) do
-    details =
-      if is_integer(actual_bytes) do
-        %{"limit_bytes" => limit_bytes, "actual_bytes" => actual_bytes}
-      else
-        %{"limit_bytes" => limit_bytes}
-      end
-
-    new(
-      "request_too_large",
-      "request_too_large",
-      [],
-      "The request exceeds the byte limit.",
-      details
-    )
-  end
-
-  def invalid_json_value(path),
-    do:
-      new(
-        "validation_failed",
-        "invalid_type",
-        path,
-        "The request contains a value that is not valid JSON."
-      )
-
-  def invalid_identifier(path),
-    do:
-      new(
-        "validation_failed",
-        "invalid_identifier",
-        path,
-        "The value must be a canonical UUID."
-      )
-
   def validation_failed(issues) when is_list(issues) and issues != [],
     do: %__MODULE__{code: "validation_failed", issues: issues}
-
-  def parse_envelope(value) do
-    alias NetworkDefense.Evaluation.Pilot.SchemaValidator
-
-    with {:ok, attrs} <- ErrorEnvelope.parse(value, &SchemaValidator.validate(:error, &1)) do
-      {:ok, struct!(__MODULE__, attrs)}
-    end
-  end
-
-  def materialize_envelope(value) do
-    with {:ok, attrs} <- ErrorEnvelope.materialize(value), do: {:ok, struct!(__MODULE__, attrs)}
-  end
-
-  def new(code, issue_code, path, message, details \\ %{}) do
-    %__MODULE__{
-      code: code,
-      issues: [
-        %{"code" => issue_code, "path" => path, "message" => message, "details" => details}
-      ]
-    }
-  end
 end

@@ -11,6 +11,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
 
   alias NetworkDefense.Evaluation.Pilot.TaskFailure
   alias NetworkDefense.Evaluation.Study.GustWaiter
+  alias NetworkDefense.Evaluation.WorkflowRun
 
   alias Gust.DAG.Run.Trigger
 
@@ -60,7 +61,7 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
   end
 
   def result(run_id) do
-    case fetch_run(run_id) do
+    case WorkflowRun.fetch_run(run_id) do
       nil ->
         {:error, :not_found}
 
@@ -86,28 +87,11 @@ defmodule NetworkDefense.Evaluation.Pilot.Workflow do
   end
 
   def failure_for_run(run_id) do
-    run_id
-    |> Gust.Flows.get_run_with_tasks!()
-    |> Map.fetch!(:tasks)
-    |> Enum.find(&(&1.status == :failed))
-    |> case do
-      nil -> workflow_error()
-      task -> decode_task_error(task.error)
-    end
-  rescue
-    _exception -> workflow_error()
+    WorkflowRun.failure_or_error(run_id, &decode_task_error/1, &workflow_error/0)
   end
 
-  defp fetch_run(run_id), do: Gust.Repo.get(Gust.Flows.Run, run_id)
-
   defp stored_result(run_id) do
-    case Gust.Flows.get_tasks_by_name(@select_task, run_id) do
-      [%{status: :succeeded, result: result}] when is_map(result) and map_size(result) > 0 ->
-        {:ok, result}
-
-      _missing_or_incomplete ->
-        {:error, invalid_result_error()}
-    end
+    WorkflowRun.stored_result(run_id, @select_task, &invalid_result_error/0)
   end
 
   defp decode_task_error(error) do

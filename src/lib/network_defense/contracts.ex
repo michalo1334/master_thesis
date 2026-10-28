@@ -77,6 +77,21 @@ defmodule NetworkDefense.Contracts do
 
   def to_params(value), do: value
 
+  def validate_or_error(changeset) do
+    case Ecto.Changeset.apply_action(changeset, :validate) do
+      {:ok, contract} -> {:ok, contract}
+      {:error, _changeset} -> :error
+    end
+  end
+
+  def validate_identifier_list(changeset, field) do
+    validate_change(changeset, field, fn _field, ids ->
+      if Enum.all?(ids, &(is_binary(&1) and String.trim(&1) != "")),
+        do: [],
+        else: [{field, "must contain identifiers"}]
+    end)
+  end
+
   def validate_uuid(changeset, field) do
     validate_change(changeset, field, fn ^field, value ->
       case Ecto.UUID.cast(value) do

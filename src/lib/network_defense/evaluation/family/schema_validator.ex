@@ -2,10 +2,8 @@ defmodule NetworkDefense.Evaluation.Family.SchemaValidator do
   @moduledoc false
 
   alias Ecto.Changeset
-  alias ExJsonSchema.Schema
-  alias ExJsonSchema.Validator
   alias NetworkDefense.Evaluation.Family.Contracts.FamilyError
-  alias NetworkDefense.Evaluation.SchemaDiagnostics
+  alias NetworkDefense.Evaluation.SchemaValidation
 
   @schema_dir Application.app_dir(:network_defense, "priv/evaluation/family/v1/schemas")
   @request_path Path.join(@schema_dir, "request.schema.json")
@@ -19,40 +17,30 @@ defmodule NetworkDefense.Evaluation.Family.SchemaValidator do
   @external_resource @result_path
   @external_resource @error_path
 
-  @request_schema @request_path |> File.read!() |> Jason.decode!() |> Schema.resolve()
-  @holm_request_schema @holm_request_path |> File.read!() |> Jason.decode!() |> Schema.resolve()
-  @holm_response_schema @holm_response_path |> File.read!() |> Jason.decode!() |> Schema.resolve()
-  @result_schema @result_path |> File.read!() |> Jason.decode!() |> Schema.resolve()
-  @error_schema @error_path |> File.read!() |> Jason.decode!() |> Schema.resolve()
+  @request_schema SchemaValidation.resolve_contents(File.read!(@request_path))
+  @holm_request_schema SchemaValidation.resolve_contents(File.read!(@holm_request_path))
+  @holm_response_schema SchemaValidation.resolve_contents(File.read!(@holm_response_path))
+  @result_schema SchemaValidation.resolve_contents(File.read!(@result_path))
+  @error_schema SchemaValidation.resolve_contents(File.read!(@error_path))
 
   @type kind :: :request | :holm_request | :holm_response | :result | :error
 
   @spec validate(kind(), term()) :: :ok | {:error, FamilyError.t()}
   def validate(kind, value) do
-    case Validator.validate(schema(kind), value, error_formatter: false) do
-      :ok -> :ok
-      {:error, errors} when is_list(errors) -> {:error, schema_error(errors)}
-      {:error, _reason} -> {:error, safe_error(kind)}
-    end
-  rescue
-    _exception -> {:error, safe_error(kind)}
+    SchemaValidation.validate(
+      value,
+      fn -> schema(kind) end,
+      &FamilyError.schema_failure/1,
+      fn -> safe_error(kind) end
+    )
   end
 
   def matches_schema(%Changeset{} = changeset, raw, kind) do
-    case validate(kind, raw) do
-      :ok ->
-        changeset
-
-      {:error, error} ->
-        Changeset.add_error(changeset, :base, "schema validation failed", family_error: error)
-    end
+    SchemaValidation.matches_schema(changeset, raw, kind, &validate/2, :family_error)
   end
 
-  def error_from_changeset(%Changeset{errors: errors}, fallback) do
-    Enum.find_value(errors, fallback, fn
-      {_field, {_message, options}} -> options[:family_error]
-      _error -> nil
-    end)
+  def error_from_changeset(%Changeset{} = changeset, fallback) do
+    SchemaValidation.error_from_changeset(changeset, fallback, :family_error)
   end
 
   defp schema(:request), do: @request_schema
@@ -61,17 +49,8 @@ defmodule NetworkDefense.Evaluation.Family.SchemaValidator do
   defp schema(:result), do: @result_schema
   defp schema(:error), do: @error_schema
 
-  defp schema_error(errors) do
-    case SchemaDiagnostics.build(errors) do
-      [] -> generic_schema_error("Contract validation failed safely.")
-      diagnostics -> FamilyError.schema_failure(diagnostics)
-    end
-  end
-
   defp generic_schema_error(message) do
-    FamilyError.schema_failure([
-      %{"message" => message, "path" => "#", "causes" => []}
-    ])
+    SchemaValidation.generic_schema_error(message, &FamilyError.schema_failure/1)
   end
 
   defp safe_error(:request), do: generic_schema_error("Family request validation failed safely.")

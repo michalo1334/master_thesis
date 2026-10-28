@@ -2,7 +2,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
   @moduledoc false
 
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.GustWaiter
+  alias NetworkDefense.Evaluation.Study.{GustWaiter, WaitDeadline}
   alias NetworkDefense.Evaluation.Study.Timing.Recorder
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
   alias NetworkDefense.Repo
@@ -20,7 +20,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
       when is_binary(execution_id) and is_binary(tier) and is_binary(phase_run_id) and
              is_integer(run_id) and run_id > 0 and
              (timeout == :infinity or (is_integer(timeout) and timeout >= 0)) do
-    deadline = deadline(timeout)
+    deadline = WaitDeadline.new(timeout)
 
     with :ok <- validate_identity(execution, phase_run) do
       wait_for_run(execution, phase_run, deadline)
@@ -43,7 +43,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
 
     {helper, monitor} =
       spawn_monitor(fn ->
-        result = GustWaiter.await(run_id, remaining(deadline))
+        result = GustWaiter.await(run_id, WaitDeadline.remaining(deadline))
         send(parent, {:final_tier_gust_result, reference, result})
       end)
 
@@ -75,7 +75,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
          monitor,
          reference
        ) do
-    if remaining(deadline) == 0 do
+    if WaitDeadline.remaining(deadline) == 0 do
       terminate({:error, StudyError.final_timing_unavailable()}, helper, monitor, reference)
     else
       receive_result(execution, phase_run, recorder, deadline, helper, monitor, reference)
@@ -114,7 +114,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
       {:DOWN, ^monitor, :process, ^helper, _reason} ->
         terminate({:error, StudyError.final_timing_unavailable()}, helper, monitor, reference)
     after
-      remaining(deadline) ->
+      WaitDeadline.remaining(deadline) ->
         terminate({:error, StudyError.final_timing_unavailable()}, helper, monitor, reference)
     end
   end
@@ -253,11 +253,4 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierAwaiter do
       0 -> :ok
     end
   end
-
-  defp deadline(:infinity), do: :infinity
-  defp deadline(timeout), do: System.monotonic_time(:millisecond) + timeout
-
-  defp remaining(:infinity), do: :infinity
-
-  defp remaining(deadline), do: max(deadline - System.monotonic_time(:millisecond), 0)
 end

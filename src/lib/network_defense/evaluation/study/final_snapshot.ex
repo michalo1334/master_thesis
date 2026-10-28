@@ -6,7 +6,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalSnapshot do
   alias NetworkDefense.Evaluation.EvidenceSnapshots
   alias NetworkDefense.Evaluation.Final.Contracts.SnapshotInput
   alias NetworkDefense.Evaluation.Study.Contracts.{Definition, StudyError}
-  alias NetworkDefense.Evaluation.Study.PilotSnapshot
+  alias NetworkDefense.Evaluation.Study.{ExecutionAccess, PilotSnapshot}
 
   alias NetworkDefense.Evaluation.{
     EvidenceSnapshot,
@@ -109,7 +109,7 @@ defmodule NetworkDefense.Evaluation.Study.FinalSnapshot do
   end
 
   defp accept_locked(phase, items, prepared, definition) do
-    with %StudyExecution{} = execution <- lock_execution(phase.execution_id),
+    with %StudyExecution{} = execution <- ExecutionAccess.lock(phase.execution_id),
          %StudyPhase{} = locked <- lock_phase(phase.id),
          :ok <- require_collecting_final(execution),
          :ok <- require_final_phase(locked),
@@ -134,16 +134,6 @@ defmodule NetworkDefense.Evaluation.Study.FinalSnapshot do
   defp require_collecting_final(%StudyExecution{state: :collecting_final}), do: :ok
 
   defp require_collecting_final(%StudyExecution{state: state}), do: {:stop, state}
-
-  defp lock_execution(execution_id) do
-    case Ecto.UUID.cast(execution_id) do
-      {:ok, id} ->
-        Repo.one(from execution in StudyExecution, where: execution.id == ^id, lock: "FOR UPDATE")
-
-      :error ->
-        nil
-    end
-  end
 
   defp lock_phase(phase_id) do
     case Ecto.UUID.cast(phase_id) do

@@ -2,7 +2,15 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierWorkflow do
   @moduledoc false
 
   alias Gust.DAG.Run.Trigger
-  alias NetworkDefense.Evaluation.Study.{Collection, FinalTierAwaiter, Revisions}
+
+  alias NetworkDefense.Evaluation.Study.{
+    ActionLoaders,
+    Collection,
+    ExecutionAccess,
+    FinalTierAwaiter,
+    Revisions
+  }
+
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
   alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
   alias NetworkDefense.Repo
@@ -13,8 +21,8 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierWorkflow do
   @spec create(StudyPhaseRun.t()) :: {:ok, integer()} | {:error, StudyError.t()}
   def create(%StudyPhaseRun{} = phase_run) do
     with :ok <- stored_phase_run(phase_run),
-         {:ok, phase} <- load_final_phase(phase_run.study_phase_id),
-         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, phase} <- ActionLoaders.final_phase(phase_run.study_phase_id),
+         {:ok, execution} <- ExecutionAccess.fetch_trusted(phase.execution_id),
          {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
          :ok <- validate_phase_run(definition, phase_run),
          %{id: dag_id} <- Gust.Flows.get_dag_by_name(@dag_name),
@@ -123,21 +131,6 @@ defmodule NetworkDefense.Evaluation.Study.FinalTierWorkflow do
   end
 
   defp bounded_task_error(_message), do: nil
-
-  defp load_final_phase(id) do
-    case Repo.get(StudyPhase, id) do
-      %StudyPhase{phase: :final_collection} = phase -> {:ok, phase}
-      %StudyPhase{} -> {:error, StudyError.invalid_study_phase()}
-      nil -> {:error, StudyError.invalid_study_phase()}
-    end
-  end
-
-  defp load_execution(id) do
-    case Repo.get(StudyExecution, id) do
-      %StudyExecution{} = execution -> {:ok, execution}
-      nil -> {:error, StudyError.study_execution_not_found()}
-    end
-  end
 
   defp validate_phase_run(definition, %StudyPhaseRun{tier: tier, tier_position: position})
        when is_integer(position) and position >= 0 do

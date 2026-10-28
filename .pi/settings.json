@@ -21,7 +21,6 @@
     },
     "npm:pi-markdown-preview@0.23.0",
     "npm:@juicesharp/rpiv-ask-user-question@2.13.9",
-    "npm:cc-safety-net@2.6.14",
     "npm:statusline-pi@1.3.1",
     "git:github.com/michalo1334/pi-interactive-subagents@3c474813bf9e8011a80d28255ca3a4ee548dd196",
     "npm:@juicesharp/rpiv-todo@2.13.9",

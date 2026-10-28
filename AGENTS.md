@@ -57,5 +57,6 @@ can and should be addressed to different groups.
 
 # Workflow
 
-- use `scout` with `gpt 5.6 luna` override for exploring codebase or researching internet
-- use `worker` subagent delegation for implementation
+- Use `scout` with the exact `openai/gpt-5.6-luna` model override to explore the codebase or research the internet.
+- Use `worker` subagent delegation for implementation.
+- When you delegate work, tell the subagent to use its available `subagent_tool` tools for further independent delegation.

@@ -2,12 +2,9 @@ defmodule NetworkDefense.Evaluation.Study.Actions.CheckFinalEnvironment do
   @moduledoc false
   @behaviour Gust.Action
 
+  alias NetworkDefense.Evaluation.Study.{ActionLoaders, ExecutionAccess, Revisions, TaskFailure}
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.Study.Revisions
-  alias NetworkDefense.Evaluation.Study.TaskFailure
   alias NetworkDefense.Evaluation.Study.Timing.Environment
-  alias NetworkDefense.Evaluation.StudyExecution
-  alias NetworkDefense.Evaluation.StudyPhase
   alias NetworkDefense.Evaluation.StudyPhaseRun
   alias NetworkDefense.Repo
 
@@ -15,8 +12,8 @@ defmodule NetworkDefense.Evaluation.Study.Actions.CheckFinalEnvironment do
   def execute(args, _context) do
     with {:ok, phase_run_id} <- phase_run_id(args),
          {:ok, phase_run} <- load_phase_run(phase_run_id),
-         {:ok, phase} <- load_phase(phase_run.study_phase_id),
-         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, phase} <- ActionLoaders.final_phase(phase_run.study_phase_id),
+         {:ok, execution} <- ExecutionAccess.fetch_trusted(phase.execution_id),
          {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
          :ok <- matches(definition.study.revisions.environment) do
       %{"study_phase_run_id" => phase_run.id}
@@ -42,21 +39,6 @@ defmodule NetworkDefense.Evaluation.Study.Actions.CheckFinalEnvironment do
     case Repo.get(StudyPhaseRun, id) do
       %StudyPhaseRun{} = phase_run -> {:ok, phase_run}
       nil -> {:error, StudyError.phase_run_storage_failed()}
-    end
-  end
-
-  defp load_phase(id) do
-    case Repo.get(StudyPhase, id) do
-      %StudyPhase{phase: :final_collection} = phase -> {:ok, phase}
-      %StudyPhase{} -> {:error, StudyError.invalid_study_phase()}
-      nil -> {:error, StudyError.invalid_study_phase()}
-    end
-  end
-
-  defp load_execution(id) do
-    case Repo.get(StudyExecution, id) do
-      %StudyExecution{} = execution -> {:ok, execution}
-      nil -> {:error, StudyError.study_execution_not_found()}
     end
   end
 

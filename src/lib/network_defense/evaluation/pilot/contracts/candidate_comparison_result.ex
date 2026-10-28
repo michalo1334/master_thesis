@@ -2,6 +2,8 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonResult do
   @moduledoc false
   use NetworkDefense.Contracts, export: false
 
+  import NetworkDefense.Evaluation.ContractSupport
+
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
   alias NetworkDefense.Evaluation.Pilot.Contracts.{
@@ -235,16 +237,5 @@ defmodule NetworkDefense.Evaluation.Pilot.Contracts.CandidateComparisonResult do
         )
       ]
     end
-  end
-
-  defp issue(code, path, message, details \\ %{}) do
-    %{"code" => code, "path" => path, "message" => message, "details" => details}
-  end
-
-  defp path_sort_key(path) do
-    Enum.map(path, fn
-      value when is_binary(value) -> {0, value}
-      value when is_integer(value) -> {1, value}
-    end)
   end
 end

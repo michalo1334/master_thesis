@@ -2,9 +2,17 @@ defmodule NetworkDefense.Evaluation.Study.Actions.PrepareFinalReplica do
   @moduledoc false
   @behaviour Gust.Action
 
-  alias NetworkDefense.Evaluation.Study.{Collection, CollectionItems, Revisions, TaskFailure}
+  alias NetworkDefense.Evaluation.Study.{
+    ActionLoaders,
+    Collection,
+    CollectionItems,
+    ExecutionAccess,
+    Revisions,
+    TaskFailure
+  }
+
   alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation.{StudyExecution, StudyPhase, StudyPhaseRun}
+  alias NetworkDefense.Evaluation.StudyPhaseRun
   alias NetworkDefense.Repo
 
   @impl true
@@ -12,8 +20,8 @@ defmodule NetworkDefense.Evaluation.Study.Actions.PrepareFinalReplica do
     with {:ok, phase_run_id} <- fetch_id(args, :study_phase_run_id),
          {:ok, replica_position} <- fetch_position(args),
          {:ok, phase_run} <- load_phase_run(phase_run_id),
-         {:ok, phase} <- load_final_phase(phase_run.study_phase_id),
-         {:ok, execution} <- load_execution(phase.execution_id),
+         {:ok, phase} <- ActionLoaders.final_phase(phase_run.study_phase_id),
+         {:ok, execution} <- ExecutionAccess.fetch_trusted(phase.execution_id),
          {:ok, definition} <- Revisions.load_definition(execution.study_revision_id),
          {:ok, work} <-
            Collection.build_collection_work(execution, phase, definition, replica_position),
@@ -50,21 +58,6 @@ defmodule NetworkDefense.Evaluation.Study.Actions.PrepareFinalReplica do
     case Repo.get(StudyPhaseRun, id) do
       %StudyPhaseRun{} = phase_run -> {:ok, phase_run}
       nil -> {:error, StudyError.phase_run_storage_failed()}
-    end
-  end
-
-  defp load_final_phase(id) do
-    case Repo.get(StudyPhase, id) do
-      %StudyPhase{phase: :final_collection} = phase -> {:ok, phase}
-      %StudyPhase{} -> {:error, StudyError.invalid_study_phase()}
-      nil -> {:error, StudyError.invalid_study_phase()}
-    end
-  end
-
-  defp load_execution(id) do
-    case Repo.get(StudyExecution, id) do
-      %StudyExecution{} = execution -> {:ok, execution}
-      nil -> {:error, StudyError.study_execution_not_found()}
     end
   end
 

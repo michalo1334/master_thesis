@@ -17,7 +17,7 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
     SnapshotPayload
   }
 
-  alias NetworkDefense.Evaluation.Study.Collection
+  alias NetworkDefense.Evaluation.Study.{Collection, RunIdentity}
   alias NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem
   alias NetworkDefense.Evaluation.Study.Contracts.Definition
   alias NetworkDefense.Evaluation.Study.Contracts.Definition.Comparison
@@ -27,7 +27,7 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
+  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run}
 
   @collection_phase :pilot_collection
   @replica_position 0
@@ -331,27 +331,18 @@ defmodule NetworkDefense.Evaluation.Study.PilotSnapshot do
       Enum.map(runs, & &1.trial_index) != Enum.to_list(1..experiment.total_trials) ->
         incomplete(item_path(item, "trial_index"))
 
-      not Enum.all?(runs, &owned_by_experiment?(&1, experiment)) ->
+      not Enum.all?(runs, &RunIdentity.owned_by_experiment?(&1, experiment)) ->
         incomplete(item_path(item, "graph_revision_id"))
 
       not Enum.all?(runs, &non_negative_integer?(&1.runtime_us)) ->
         incomplete(item_path(item, "runtime_us"))
 
-      not Enum.all?(runs, &derived_seed?(&1, experiment)) ->
+      not Enum.all?(runs, &RunIdentity.derived_seed?(&1, experiment)) ->
         incomplete(item_path(item, "seed"))
 
       true ->
         :ok
     end
-  end
-
-  defp owned_by_experiment?(%Run{} = run, %Experiment{} = experiment) do
-    run.experiment_id == experiment.id and run.graph_revision_id == experiment.graph_revision_id
-  end
-
-  defp derived_seed?(%Run{seed: seed, trial_index: index}, %Experiment{master_seed: master_seed}) do
-    is_integer(seed) and is_integer(index) and is_integer(master_seed) and
-      seed == Seed.child_seed(master_seed, index)
   end
 
   defp mission_impacts(%Graph{} = graph, runs) do

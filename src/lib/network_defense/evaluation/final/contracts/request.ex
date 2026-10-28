@@ -2,7 +2,10 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
   @moduledoc false
   use NetworkDefense.Contracts, export: false
 
+  import NetworkDefense.Evaluation.ContractSupport
+
   alias NetworkDefense.Evaluation.EvidenceSnapshot
+  alias NetworkDefense.Evaluation.ExpectedComparisons
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
 
   alias NetworkDefense.Evaluation.Final.Contracts.{
@@ -219,7 +222,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
 
   defp validate_request(%__MODULE__{} = request) do
     issues =
-      (duplicate_identity_issues(request.expected_comparisons) ++
+      (ExpectedComparisons.duplicate_issues(request.expected_comparisons) ++
          seed_issues(request) ++
          assertion_issues(request.assertions))
       |> Enum.sort_by(fn issue -> {path_sort_key(issue["path"]), issue["code"]} end)
@@ -236,32 +239,6 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
       :ok -> []
       issues -> issues
     end
-  end
-
-  defp duplicate_identity_issues(identities) do
-    {_seen, issues} =
-      identities
-      |> Enum.with_index()
-      |> Enum.reduce({MapSet.new(), []}, fn {identity, index}, {seen, issues} ->
-        key = Identity.key(identity)
-
-        if MapSet.member?(seen, key) do
-          {seen,
-           [
-             issue(
-               "duplicate_expected_identity",
-               ["expected_comparisons", index],
-               "Expected comparison identities must be unique.",
-               %{"tier" => identity.tier, "budget" => identity.budget}
-             )
-             | issues
-           ]}
-        else
-          {MapSet.put(seen, key), issues}
-        end
-      end)
-
-    Enum.reverse(issues)
   end
 
   # One explicit seed per declared comparison, in declared order. The count
@@ -348,67 +325,11 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
   end
 
   defp identity_issues(%__MODULE__{} = request, %SnapshotPayload{} = payload) do
-    declared = request.expected_comparisons
-    stored = Enum.map(payload.comparisons, & &1.identity)
-    declared_keys = Enum.map(declared, &Identity.key/1)
-    stored_keys = Enum.map(stored, &Identity.key/1)
-    declared_set = MapSet.new(declared_keys)
-    stored_set = MapSet.new(stored_keys)
-
-    ordered_issues =
-      if declared_keys == stored_keys do
-        []
-      else
-        missing_issues(declared, stored_set) ++ unexpected_issues(stored, declared_set)
-      end
-
-    reorder_issues =
-      if declared_keys != stored_keys and declared_set == stored_set do
-        [
-          issue(
-            "changed_snapshot",
-            ["expected_comparisons"],
-            "The stored comparison order differs from the declared order.",
-            %{}
-          )
-        ]
-      else
-        []
-      end
-
-    ordered_issues ++ reorder_issues
-  end
-
-  defp missing_issues(declared, stored_set) do
-    declared
-    |> Enum.with_index()
-    |> Enum.reject(fn {identity, _index} ->
-      MapSet.member?(stored_set, Identity.key(identity))
-    end)
-    |> Enum.map(fn {identity, index} ->
-      issue(
-        "missing_comparison",
-        ["expected_comparisons", index],
-        "Every declared comparison must exist in the Final snapshot.",
-        %{"tier" => identity.tier, "budget" => identity.budget}
-      )
-    end)
-  end
-
-  defp unexpected_issues(stored, declared_set) do
-    stored
-    |> Enum.with_index()
-    |> Enum.reject(fn {identity, _index} ->
-      MapSet.member?(declared_set, Identity.key(identity))
-    end)
-    |> Enum.map(fn {identity, index} ->
-      issue(
-        "unexpected_comparison",
-        ["snapshot", "payload", "comparisons", index, "identity"],
-        "Every stored comparison must be declared.",
-        %{"tier" => identity.tier, "budget" => identity.budget}
-      )
-    end)
+    ExpectedComparisons.snapshot_issues(
+      request.expected_comparisons,
+      Enum.map(payload.comparisons, & &1.identity),
+      "Every declared comparison must exist in the Final snapshot."
+    )
   end
 
   # The snapshot must hold exactly the selected Pilot sample size: one plan row
@@ -457,16 +378,5 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.Request do
       end
 
     plan_issues ++ attack_issues
-  end
-
-  defp issue(code, path, message, details) do
-    %{"code" => code, "path" => path, "message" => message, "details" => details}
-  end
-
-  defp path_sort_key(path) do
-    Enum.map(path, fn
-      value when is_binary(value) -> {0, value}
-      value when is_integer(value) -> {1, value}
-    end)
   end
 end

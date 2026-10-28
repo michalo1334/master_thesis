@@ -1,33 +1,15 @@
 defmodule NetworkDefense.Evaluation.Final.Contracts.FinalError do
   @moduledoc false
-  use NetworkDefense.Contracts, export: false
-
-  alias NetworkDefense.Evaluation.ErrorEnvelope
+  use NetworkDefense.Evaluation.ErrorContract,
+    schema_validator: NetworkDefense.Evaluation.Final.SchemaValidator,
+    request_size: :with_actual,
+    identifier_errors: true,
+    correction_errors: true
 
   # Bounded typed error for the Final snapshot, Final request, and Final
   # workflow. The codes follow the accepted Stage 2 and Stage 3 envelopes. Final
   # adds source-binding issue codes, so a caller can tell a Pilot binding
   # failure from an evidence or correlation failure.
-
-  @type t :: %__MODULE__{
-          schema_version: integer(),
-          code: String.t(),
-          issues: [map()],
-          schema_errors: [map()]
-        }
-
-  embedded_schema do
-    field :schema_version, :integer, default: 1
-    field :code, :string
-    field :issues, {:array, :map}, default: []
-    field :schema_errors, {:array, :map}, default: []
-  end
-
-  def changeset(error, attrs),
-    do: cast(error, attrs, [:schema_version, :code, :issues, :schema_errors])
-
-  def schema_failure(diagnostics),
-    do: %__MODULE__{code: "validation_failed", schema_errors: diagnostics}
 
   def invalid_response_contract(
         message \\ "The compute service returned an invalid correction response."
@@ -75,13 +57,6 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.FinalError do
       when is_binary(message),
       do: new("validation_failed", "changed_pilot_source", [], message)
 
-  def invalid_correction(message \\ "The correction request or response is invalid.")
-      when is_binary(message),
-      do: new("invalid_response_contract", "invalid_correction", [], message)
-
-  def invalid_correction_issues(issues) when is_list(issues) and issues != [],
-    do: %__MODULE__{code: "invalid_response_contract", issues: issues}
-
   def invalid_assertion(message \\ "The caller assertion is not valid.")
       when is_binary(message),
       do: new("validation_failed", "invalid_assertion", [], message)
@@ -115,50 +90,8 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.FinalError do
   def workflow_failed(message \\ "The Final workflow failed safely."),
     do: new("workflow_failed", "workflow_failed", [], message)
 
-  def request_too_large(limit_bytes, actual_bytes \\ nil) do
-    details =
-      if is_integer(actual_bytes) do
-        %{"limit_bytes" => limit_bytes, "actual_bytes" => actual_bytes}
-      else
-        %{"limit_bytes" => limit_bytes}
-      end
-
-    new(
-      "request_too_large",
-      "request_too_large",
-      [],
-      "The request exceeds the byte limit.",
-      details
-    )
-  end
-
-  def invalid_json_value(path),
-    do:
-      new(
-        "validation_failed",
-        "invalid_type",
-        path,
-        "The request contains a value that is not valid JSON."
-      )
-
-  def invalid_identifier(path),
-    do:
-      new("validation_failed", "invalid_identifier", path, "The value must be a canonical UUID.")
-
   def validation_failed(issues) when is_list(issues) and issues != [],
     do: %__MODULE__{code: "validation_failed", issues: issues}
-
-  def parse_envelope(value) do
-    alias NetworkDefense.Evaluation.Final.SchemaValidator
-
-    with {:ok, attrs} <- ErrorEnvelope.parse(value, &SchemaValidator.validate(:error, &1)) do
-      {:ok, struct!(__MODULE__, attrs)}
-    end
-  end
-
-  def materialize_envelope(value) do
-    with {:ok, attrs} <- ErrorEnvelope.materialize(value), do: {:ok, struct!(__MODULE__, attrs)}
-  end
 
   @doc "Copy a bounded error from another evaluation contract into a Final error."
   def from_foreign(%{code: code} = error) do
@@ -166,15 +99,6 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.FinalError do
       code: code,
       issues: Map.get(error, :issues, []),
       schema_errors: Map.get(error, :schema_errors, [])
-    }
-  end
-
-  def new(code, issue_code, path, message, details \\ %{}) do
-    %__MODULE__{
-      code: code,
-      issues: [
-        %{"code" => issue_code, "path" => path, "message" => message, "details" => details}
-      ]
     }
   end
 end

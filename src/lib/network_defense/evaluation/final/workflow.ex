@@ -10,6 +10,7 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
   alias NetworkDefense.Evaluation.Final.Contracts.{FinalError, Request, Result}
   alias NetworkDefense.Evaluation.Final.{Limits, Member, TaskFailure, Wire}
   alias NetworkDefense.Evaluation.Study.GustWaiter
+  alias NetworkDefense.Evaluation.WorkflowRun
 
   # Separate Final workflow.
   #
@@ -81,7 +82,7 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
   # therefore makes the stored result unreadable instead of silently returning
   # an outdated study or family binding.
   defp stored_result_for(run_id) do
-    case fetch_run(run_id) do
+    case WorkflowRun.fetch_run(run_id) do
       nil ->
         {:error, :not_found}
 
@@ -118,14 +119,7 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
 
   @spec failure_for_run(integer()) :: FinalError.t()
   def failure_for_run(run_id) do
-    run_id
-    |> Gust.Flows.get_run_with_tasks!()
-    |> Map.fetch!(:tasks)
-    |> Enum.find(&(&1.status == :failed))
-    |> case do
-      nil -> workflow_error()
-      task -> decode_task_error(task.error)
-    end
+    WorkflowRun.failure_for_run(run_id, &decode_task_error/1, &workflow_error/0)
   rescue
     _exception in [Postgrex.Error, DBConnection.ConnectionError] -> workflow_error()
   end
@@ -140,16 +134,8 @@ defmodule NetworkDefense.Evaluation.Final.Workflow do
     end
   end
 
-  defp fetch_run(run_id), do: Gust.Repo.get(Gust.Flows.Run, run_id)
-
   defp stored_result(run_id) do
-    case Gust.Flows.get_tasks_by_name(@correct_task, run_id) do
-      [%{status: :succeeded, result: result}] when is_map(result) and map_size(result) > 0 ->
-        {:ok, result}
-
-      _missing_or_incomplete ->
-        {:error, invalid_result_error()}
-    end
+    WorkflowRun.stored_result(run_id, @correct_task, &invalid_result_error/0)
   end
 
   # A failed Final run can fail in two ways. A Final task stores a Final error.

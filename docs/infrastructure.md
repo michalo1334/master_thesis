@@ -11,8 +11,8 @@ planes, IAM, quotas, WAN behavior, or provider failures.
 
 Local provisioning needs a working Docker engine and Docker CLI. The helper
 runs Terraform in a container. The secret bootstrap helper also needs Python 3.
-The exercised platform is Linux; see the [setup verification](getting-started-verification.md)
-for the test environment and limits.
+The exercised platform is Linux. Local provisioning checks do not establish
+production readiness.
 
 ## Configuration
 

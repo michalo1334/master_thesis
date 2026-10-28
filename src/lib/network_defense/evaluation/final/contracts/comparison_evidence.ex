@@ -5,6 +5,7 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.ComparisonEvidence do
   alias NetworkDefense.Evaluation.Comparison.Contracts.Evidence
   alias NetworkDefense.Evaluation.Family.Contracts.Identity
   alias NetworkDefense.Evaluation.Pilot.Contracts.Provenance
+  alias NetworkDefense.Evaluation.SnapshotContract
 
   # One declared Final comparison inside a Final evidence snapshot.
   #
@@ -27,10 +28,6 @@ defmodule NetworkDefense.Evaluation.Final.Contracts.ComparisonEvidence do
   end
 
   def changeset(comparison, attrs) do
-    comparison
-    |> cast(attrs, [:position])
-    |> cast_embed(:identity, required: true)
-    |> cast_embed(:evidence, required: true)
-    |> cast_embed(:provenance, required: true)
+    SnapshotContract.comparison_changeset(comparison, attrs)
   end
 end

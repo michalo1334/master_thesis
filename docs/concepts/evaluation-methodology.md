@@ -444,6 +444,26 @@ The study definition supplies every optimizer setting, topology setting,
 numerical tolerance, and random-generator dependency that can change a result.
 Treat a missing value as a validation error.
 
+The definition declares controls, not algorithm constants. The offsets in the
+stream formulas above, the annealing search length and its temperature schedule,
+and the objective weights belong to a fixed version. A definition selects a
+strategy and a version, so these constants never appear as per-study settings.
+This split keeps a study reproducible without turning every internal constant
+into a control that a later run can change.
+
+The definition keeps optimization-scoring and evidence-collection profiles
+separate. A scoring profile declares its objective, trial count, iterations,
+attempts, rules, and feasibility policy. An evidence profile declares its
+iterations, attempts, rules, and feasibility policy. Its trial count comes from
+Pilot capacity or the resumed candidate. A non-scoring strategy has no scoring
+profile. Thus, an optimization trial count cannot become a study observation
+count.
+
+Each phase declares one evaluation root per tier and an ordered selection pool.
+The attack columns of a root follow from the existing child-seed policy and the
+ordered trial index. For each tier, the phase declares a root instead of a
+column list. A stored evidence payload checks its columns against that root.
+
 > **Worked example — reproducibility.** Record the comparison identity, graph
 > revision, candidate `c2`, Pilot and Final seed schedules, selected plans,
 > outcomes, resampling settings, software versions, and measured environment.

@@ -69,10 +69,7 @@ defmodule NetworkDefense.Evaluation.Study.Contracts.CollectionWorkItem do
 
   @spec new(map()) :: {:ok, t()} | :error
   def new(attrs) when is_map(attrs) do
-    case %__MODULE__{} |> changeset(attrs) |> apply_action(:validate) do
-      {:ok, item} -> {:ok, item}
-      {:error, _changeset} -> :error
-    end
+    %__MODULE__{} |> changeset(attrs) |> Contracts.validate_or_error()
   end
 
   def new(_attrs), do: :error

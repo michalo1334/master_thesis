@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation.Study.GustWaiter do
   @moduledoc false
 
+  alias NetworkDefense.Evaluation.Study.WaitDeadline
+
   @registry NetworkDefense.Evaluation.Study.GustWaiterRegistry
 
   @spec await(integer(), timeout()) ::
@@ -10,7 +12,7 @@ defmodule NetworkDefense.Evaluation.Study.GustWaiter do
              (timeout == :infinity or (is_integer(timeout) and timeout >= 0)) do
     caller = self()
     reference = make_ref()
-    deadline = deadline(timeout)
+    deadline = WaitDeadline.new(timeout)
 
     {waiter, waiter_monitor} =
       spawn_monitor(fn -> wait(caller, reference, run_id, deadline) end)
@@ -67,7 +69,7 @@ defmodule NetworkDefense.Evaluation.Study.GustWaiter do
   end
 
   defp wait_for_notification(caller, caller_monitor, reference, run_id, deadline) do
-    case remaining(deadline) do
+    case WaitDeadline.remaining(deadline) do
       0 ->
         deliver_result(caller, caller_monitor, reference, {:error, :timeout})
 
@@ -114,14 +116,5 @@ defmodule NetworkDefense.Evaluation.Study.GustWaiter do
       {:DOWN, ^waiter_monitor, :process, ^waiter, :normal} -> result
       {:DOWN, ^waiter_monitor, :process, ^waiter, reason} -> exit({:gust_waiter_failed, reason})
     end
-  end
-
-  defp deadline(:infinity), do: :infinity
-  defp deadline(timeout), do: System.monotonic_time(:millisecond) + timeout
-
-  defp remaining(:infinity), do: :infinity
-
-  defp remaining(deadline) do
-    max(deadline - System.monotonic_time(:millisecond), 0)
   end
 end
