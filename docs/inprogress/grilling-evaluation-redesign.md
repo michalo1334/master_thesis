@@ -61,6 +61,8 @@ mindmap
       Evidence handling: proposed Q9
     Reuse
       Existing approaches: baseline
+    Documentation
+      Terminology glossary: open follow-up
     Behavior cases
       Check policy: proposed Q10
 ```
@@ -1676,3 +1678,19 @@ THE application SHALL reject Final evidence.
 ```
 
 Automation of these cases is deferred.
+
+## Documentation follow-up
+
+**Open:** Review whether the evaluation documentation needs one shared glossary after the module and contract names stabilize.
+
+The glossary could distinguish these terms:
+
+```text
+tier                 one of the small, medium, or large network sizes
+Pilot candidate       a proposed pair of plan and attack sample counts
+seed                  a deterministic random-stream input with a declared role
+matrix                plain aligned plan-row and attack-column observations
+comparison family     the complete set corrected together
+```
+
+Also search existing documentation for older or ambiguous uses of `tier`, `network size`, `scenario`, `candidate`, and `seed`. Update them only after the redesign fixes the final names.
