@@ -1,21 +1,17 @@
 defmodule NetworkDefense.Evaluation2.Study.Cancel do
-  @moduledoc """
-  Cancellation policy of one study execution.
+  @moduledoc false
 
-  Cancellation is a lifecycle event. It is accepted by every non-terminal state
-  and ignored by a terminal state, so a late phase completion cannot advance a
-  cancelled execution.
-  """
+  # Cancellation policy of one study execution.
+  #
+  # Cancellation is a lifecycle event. Every non-terminal state accepts it, and a
+  # terminal state returns its stored status. A late phase completion therefore
+  # cannot advance a cancelled execution.
 
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation2.StudyExecution
+  alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Status
 
-  @doc """
-  Cancel one execution and return its stored record.
-
-  Scaffold: returns `{:error, :not_implemented}`.
-  """
-  @spec cancel(Ecto.UUID.t()) ::
-          {:ok, StudyExecution.t()} | {:error, StudyError.t() | :not_implemented}
-  def cancel(_execution_id), do: {:error, :not_implemented}
+  # Cancel one execution and return its status view.
+  @spec cancel(Ecto.UUID.t()) :: {:ok, Status.t()} | {:error, Error.t()}
+  def cancel(_execution_id), do: {:error, Placeholder.error(:cancel)}
 end

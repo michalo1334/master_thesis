@@ -1,42 +1,38 @@
 defmodule NetworkDefense.Evaluation2.Study.Final.Collect do
-  @moduledoc """
-  Collection of the Final phase.
+  @moduledoc false
 
-  Final collection runs one Gust run per declared tier, in the closed tier order,
-  and awaits each run before it starts the next. Every tier run measures the
-  declared replicas against the frozen selection.
+  # Collection of the Final phase.
+  #
+  # Final collection runs one Gust run per declared tier, in the closed tier
+  # order, and awaits each run before it starts the next. Every tier run measures
+  # the warm-up and the five measured replicas against the frozen selection.
+  #
+  # Acceptance compares the measured replicas and rejects a tier whose replicas
+  # disagree. Timing values and run identifiers stay outside that gate.
+  #
+  # The aggregate is transient. The accepted snapshot, the phase-run links, and
+  # the Gust timing results remain the durable owners, so a restart rebuilds the
+  # aggregate from them.
 
-  Acceptance compares the measured replicas of a tier and rejects a tier whose
-  replicas disagree. Timing values and run identifiers are outside that gate.
-  """
-
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-
-  alias NetworkDefense.Evaluation2.{
-    FinalCollectionOutput,
-    FinalTierRunResult,
-    NotImplementedError
-  }
-
+  alias NetworkDefense.Evaluation2.EvidenceSnapshot
+  alias NetworkDefense.Evaluation2.FinalTierRunResult
+  alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Result.Timing
   alias NetworkDefense.Evaluation2.StudyExecution
 
-  @doc """
-  Collect every declared Final tier of one execution.
-
-  The result names the accepted snapshot, the ordered tier runs, and the measured
-  timing. A failed tier fails Final collection; no replacement replica runs.
-  """
+  # Collect every declared Final tier of one execution.
+  #
+  # A failed tier fails Final collection, and no replacement replica runs.
   @spec run(StudyExecution.t()) ::
-          {:ok, FinalCollectionOutput.t()} | {:error, StudyError.t()}
-  def run(_execution), do: raise(NotImplementedError, function: :run)
+          {:ok, EvidenceSnapshot.t(), Timing.t()} | {:error, Error.t()}
+  def run(_execution), do: {:error, Placeholder.error(:run)}
 
-  @doc """
-  Accept completed tier runs.
-
-  The received tier runs follow the closed tier order. The replica equality gate
-  runs before the snapshot and the timing summary are created.
-  """
-  @spec accept([FinalTierRunResult.t()]) ::
-          {:ok, FinalCollectionOutput.t()} | {:error, StudyError.t()}
-  def accept(_tier_results), do: raise(NotImplementedError, function: :accept)
+  # Accept completed tier runs.
+  #
+  # The received tier runs follow the closed tier order. The replica equality gate
+  # runs before the snapshot and the timing value are created.
+  @spec accept([FinalTierRunResult.t()], StudyExecution.t()) ::
+          {:ok, EvidenceSnapshot.t(), Timing.t()} | {:error, Error.t()}
+  def accept(_tier_results, _execution), do: {:error, Placeholder.error(:accept)}
 end

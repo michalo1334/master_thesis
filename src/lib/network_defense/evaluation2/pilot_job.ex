@@ -1,11 +1,11 @@
 defmodule NetworkDefense.Evaluation2.PilotJob do
-  @moduledoc """
-  One mapped Pilot analysis job.
+  @moduledoc false
 
-  A job identifies one declared candidate and one declared comparison by position.
-  The derived stream seed makes the historical Pilot stream reproducible, so the
-  job carries no study, family, or snapshot identity.
-  """
+  # One mapped Pilot analysis job.
+  #
+  # A job identifies one declared candidate and one declared comparison by
+  # position. The derived stream seed makes the historical Pilot stream
+  # reproducible, so the job carries no study, family, or snapshot identity.
 
   alias NetworkDefense.Evaluation2.Seed
 

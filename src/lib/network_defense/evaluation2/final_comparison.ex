@@ -1,18 +1,13 @@
 defmodule NetworkDefense.Evaluation2.FinalComparison do
-  @moduledoc """
-  One mapped Final analysis job.
+  @moduledoc false
 
-  A job identifies one declared comparison by position and carries the derived
-  comparison stream seed. Family identity and analysis settings stay in the stored
-  definition, so the job repeats no metadata.
-  """
+  # One mapped Final analysis job.
+  #
+  # A job identifies one declared comparison by position. Family identity,
+  # analysis settings, and the accepted evidence stay in application records that
+  # the task loads.
 
-  alias NetworkDefense.Evaluation2.Seed
+  @type t :: %__MODULE__{comparison_position: non_neg_integer()}
 
-  @type t :: %__MODULE__{
-          comparison_position: non_neg_integer(),
-          stream_seed: Seed.t()
-        }
-
-  defstruct [:comparison_position, :stream_seed]
+  defstruct [:comparison_position]
 end

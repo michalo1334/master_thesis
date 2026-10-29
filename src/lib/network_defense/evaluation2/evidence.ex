@@ -1,23 +1,34 @@
 defmodule NetworkDefense.Evaluation2.Evidence do
-  @moduledoc """
-  Accepted evidence of one study phase.
+  @moduledoc false
 
-  Evidence holds one comparison entry per declared family member, in declared
-  order. Both sides of every comparison share one attack-column list of
-  `NetworkDefense.Evaluation2.Seed` values, and each side is one
-  `NetworkDefense.Evaluation2.Matrix`. A later analysis therefore reads aligned
-  matrices without rebuilding them.
-  """
+  # Ordered comparison observations of one collection phase.
+  #
+  # Evidence holds one entry per declared family member, in declared order. Both
+  # sides of one comparison share one attack-column list of
+  # `NetworkDefense.Evaluation2.Seed` values, and each side is one
+  # `NetworkDefense.Evaluation2.Matrix`.
+  #
+  # Family identity and comparison identity stay in the immutable definition.
+  # Analysis restores readable pairs by declared position.
 
   alias NetworkDefense.Evaluation2.Evidence.ComparisonEvidence
+  alias NetworkDefense.Evaluation2.NotImplementedError
 
-  @type role :: :pilot | :final
+  @type t :: %__MODULE__{comparisons: [ComparisonEvidence.t()]}
 
-  @type t :: %__MODULE__{
-          role: role(),
-          family_id: String.t(),
-          comparisons: [ComparisonEvidence.t()]
-        }
+  defstruct [:comparisons]
 
-  defstruct [:role, :family_id, :comparisons]
+  @spec fetch_comparison!(t(), non_neg_integer()) :: ComparisonEvidence.t()
+  def fetch_comparison!(_evidence, _comparison_position),
+    do: raise(NotImplementedError, function: :fetch_comparison!)
+
+  @spec comparison_count(t()) :: non_neg_integer()
+  def comparison_count(_evidence), do: raise(NotImplementedError, function: :comparison_count)
+
+  @spec plan_counts(t()) :: [non_neg_integer()]
+  def plan_counts(_evidence), do: raise(NotImplementedError, function: :plan_counts)
+
+  @spec attack_count(t(), non_neg_integer()) :: non_neg_integer()
+  def attack_count(_evidence, _comparison_position),
+    do: raise(NotImplementedError, function: :attack_count)
 end

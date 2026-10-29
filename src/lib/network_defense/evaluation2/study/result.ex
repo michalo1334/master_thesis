@@ -1,33 +1,27 @@
 defmodule NetworkDefense.Evaluation2.Study.Result do
   @moduledoc """
-  Stored result of a successful study.
+  Result of one successful study.
 
-  Result storage keeps the compact Pilot outcome, the frozen selection, the
-  corrected Final family, and the measured timing. Read-back returns the stored
-  record; it rebuilds no optimization or simulation history.
+  The value joins the execution-owned Pilot history with the Final-owned
+  corrected family and measured timing. All fields are present because the value
+  exists only after success.
+
+  Complete Pilot candidate detail belongs to
+  `NetworkDefense.Evaluation2.Study.PilotResult`.
   """
 
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation2.CorrectedFamily
-  alias NetworkDefense.Evaluation2.{NotImplementedError, StudyExecution, StudyResult}
-  alias NetworkDefense.Evaluation2.Timing.TimingSummary
+  alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Evaluation2.Study.{PilotOutcome, Revision, Selection}
+  alias NetworkDefense.Evaluation2.Study.Result.{Family, Timing}
 
-  @doc """
-  Store the result of one successful execution.
+  @type t :: %__MODULE__{
+          execution_id: Study.execution_id(),
+          revision: Revision.t(),
+          pilot_outcome: PilotOutcome.t(),
+          selection: Selection.t(),
+          family: Family.t(),
+          timing: Timing.t()
+        }
 
-  Storage happens after the Final analysis run succeeded and the lifecycle
-  accepted its output.
-  """
-  @spec store(StudyExecution.t(), CorrectedFamily.t(), TimingSummary.t()) ::
-          {:ok, StudyResult.t()} | {:error, StudyError.t()}
-  def store(_execution, _family, _timing), do: raise(NotImplementedError, function: :store)
-
-  @doc """
-  Read the stored result of one execution.
-
-  Scaffold: returns `{:error, :not_implemented}`.
-  """
-  @spec get(Ecto.UUID.t()) ::
-          {:ok, StudyResult.t()} | {:error, StudyError.t() | :not_implemented}
-  def get(_execution_id), do: {:error, :not_implemented}
+  defstruct [:execution_id, :revision, :pilot_outcome, :selection, :family, :timing]
 end

@@ -1,21 +1,25 @@
 defmodule NetworkDefense.Evaluation2.Study.Collection.Execute do
-  @moduledoc """
-  Execution of one planned collection item.
+  @moduledoc false
 
-  Execution reserves the domain effects of the stored work item, runs the
-  optimization and the simulation, and records the effect links on the item. A
-  Gust retry of the same item reuses those links, so one item owns one
-  optimization and one experiment.
-  """
+  # Execution of the two collection effects of one item.
+  #
+  # Each operation reserves or reuses its linked domain record, runs it, and waits
+  # for completion. The split matches the two mapped Gust stages and keeps the two
+  # Final timing boundaries separate.
+  #
+  # Success returns `:ok` because the collection item already owns the effect
+  # links.
 
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation2.NotImplementedError
+  alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study.Error
 
-  @doc """
-  Run one collection item.
+  @spec run_optimization(Ecto.UUID.t()) :: :ok | {:error, Error.t()}
+  def run_optimization(_item_id),
+    do: {:error, Placeholder.error(:run_optimization)}
 
-  Success means the linked domain records completed. The item stores no result.
-  """
-  @spec run(Ecto.UUID.t()) :: {:ok, Ecto.UUID.t()} | {:error, StudyError.t()}
-  def run(_collection_item_id), do: raise(NotImplementedError, function: :run)
+  # Run the simulation effect of one collection item.
+  #
+  # The item links the completed optimization run that the simulation consumes.
+  @spec run_simulation(Ecto.UUID.t()) :: :ok | {:error, Error.t()}
+  def run_simulation(_item_id), do: {:error, Placeholder.error(:run_simulation)}
 end

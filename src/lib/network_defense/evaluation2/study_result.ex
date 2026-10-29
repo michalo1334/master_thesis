@@ -1,34 +1,23 @@
 defmodule NetworkDefense.Evaluation2.StudyResult do
-  @moduledoc """
-  Stored result of one successful execution.
+  @moduledoc false
 
-  The result keeps the compact Pilot outcome, the frozen Final selection, the
-  corrected Final family, and the measured timing. Reporting tools read this
-  record instead of rebuilding domain history.
-  """
+  # Stored result of one successful execution.
+  #
+  # The record keeps the Final-owned corrected family and the raw measured
+  # timing. Pilot outcome, selection, and revision stay on the successful
+  # execution, so the supported result view joins both records.
+  #
+  # Reporting reads this record instead of rebuilding domain history.
 
   alias NetworkDefense.Evaluation2.CorrectedFamily
-  alias NetworkDefense.Evaluation2.PilotOutcome
-  alias NetworkDefense.Evaluation2.Selection
-  alias NetworkDefense.Evaluation2.Timing.TimingSummary
+  alias NetworkDefense.Evaluation2.Study.Result.Timing
 
   @type t :: %__MODULE__{
           id: Ecto.UUID.t(),
-          execution_id: Ecto.UUID.t(),
-          schema_version: 1,
-          pilot_outcome: PilotOutcome.t(),
-          selection: Selection.t(),
+          study_execution_id: Ecto.UUID.t(),
           family: CorrectedFamily.t(),
-          timing: TimingSummary.t()
+          timing: Timing.t()
         }
 
-  defstruct [
-    :id,
-    :execution_id,
-    :schema_version,
-    :pilot_outcome,
-    :selection,
-    :family,
-    :timing
-  ]
+  defstruct [:id, :study_execution_id, :family, :timing]
 end

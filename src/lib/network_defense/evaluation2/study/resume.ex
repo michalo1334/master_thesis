@@ -1,26 +1,25 @@
 defmodule NetworkDefense.Evaluation2.Study.Resume do
-  @moduledoc """
-  Approval boundary of one study execution.
+  @moduledoc false
 
-  Resume checks the request against the stored Pilot outcome, freezes the declared
-  candidate with its two sample counts, and applies the lifecycle resume event.
-  Final collection starts only after the transaction commits.
-  """
+  # Approval boundary of one study execution.
+  #
+  # Resume checks the approval intent against the stored Pilot outcome, resolves
+  # the declared candidate, freezes its two sample counts, and applies the
+  # lifecycle resume event. Final collection starts after the transaction
+  # commits.
+  #
+  # The caller states intent only. Sample counts always come from the declared
+  # candidate.
 
-  alias NetworkDefense.Evaluation.Study.Contracts.StudyError
-  alias NetworkDefense.Evaluation2.StudyExecution
+  alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Status
 
-  @typedoc "Approval request: accept the recommendation or override an insufficient outcome."
-  @type final_selection :: :recommended | {:override_insufficient, candidate_id :: String.t()}
-
-  @doc """
-  Accept one approval request.
-
-  A request that names an undeclared candidate leaves the execution at
-  `:awaiting_final` without an event. Scaffold: returns
-  `{:error, :not_implemented}`.
-  """
-  @spec accept(Ecto.UUID.t(), final_selection()) ::
-          {:ok, StudyExecution.t()} | {:error, StudyError.t() | :not_implemented}
-  def accept(_execution_id, _selection), do: {:error, :not_implemented}
+  # Accept one approval intent and return the committed status view.
+  #
+  # An intent that names an undeclared candidate leaves the execution at
+  # `:awaiting_final` and returns a bounded error.
+  @spec accept(Ecto.UUID.t(), Study.approval()) :: {:ok, Status.t()} | {:error, Error.t()}
+  def accept(_execution_id, _approval), do: {:error, Placeholder.error(:accept)}
 end

@@ -1,12 +1,15 @@
 defmodule NetworkDefense.Evaluation2.Study.Lifecycle do
-  @moduledoc """
-  Closed lifecycle of one study execution.
+  @moduledoc false
 
-  Four states own an active phase, and only those states accept a terminal phase
-  failure. `:awaiting_final` is the explicit approval gate: it accepts resume or
-  cancellation. A terminal state keeps its state when a declared event arrives
-  late or twice, so terminal handling is idempotent.
-  """
+  # Closed lifecycle of one study execution.
+  #
+  # Four states own an active phase, and only those states accept a terminal
+  # phase failure. `:awaiting_final` is the explicit approval gate: it accepts
+  # resume or cancellation.
+  #
+  # A terminal state keeps its state when a declared event arrives late or twice,
+  # so terminal handling is idempotent. Gust owns detailed run progress; this
+  # table owns the study lifecycle.
 
   alias NetworkDefense.Evaluation2.NotImplementedError
 
@@ -29,15 +32,10 @@ defmodule NetworkDefense.Evaluation2.Study.Lifecycle do
           | :fail
           | :cancel
 
-  @doc "Return the state of a new execution."
   @spec initial_state() :: state()
-  def initial_state, do: raise(NotImplementedError, function: :initial_state)
+  def initial_state, do: :collecting_pilot
 
-  @doc """
-  Apply one declared event to one state.
-
-  An event that the state does not declare returns `{:error, :invalid_transition}`.
-  """
+  # An event that the state does not declare returns `{:error, :invalid_transition}`.
   @spec transition(state(), event()) :: {:ok, state()} | {:error, :invalid_transition}
   def transition(_state, _event), do: raise(NotImplementedError, function: :transition)
 end

@@ -1,54 +1,46 @@
 defmodule NetworkDefense.Evaluation2.Contracts.PilotAnalysisContract do
-  @moduledoc """
-  Input and output contract of one Pilot analysis Gust run.
+  @moduledoc false
 
-  The root input names the Pilot analysis phase. The terminal output carries the
-  Pilot decision, the recommended candidate with its two sample counts, and the
-  complete candidate summaries.
-  """
-
-  @behaviour NetworkDefense.Evaluation2.Contracts.PhaseContract
+  # Input and output contract of one Pilot analysis Gust run.
+  #
+  # The root input names the phase-run record and the accepted Pilot snapshot.
+  # The terminal output holds the compact Pilot outcome and the complete
+  # candidate summaries. The lifecycle stores the outcome only, so the detailed
+  # summaries stay in the terminal Gust result.
 
   alias NetworkDefense.Evaluation2.CandidateSummary
-  alias NetworkDefense.Evaluation2.Contracts.PhaseContract
   alias NetworkDefense.Evaluation2.NotImplementedError
-  alias NetworkDefense.Evaluation2.PilotOutcome
+  alias NetworkDefense.Evaluation2.Study.PilotOutcome
 
   defmodule Input do
-    @moduledoc "Root input of one Pilot analysis run."
+    @moduledoc false
 
-    @type t :: %__MODULE__{phase_id: Ecto.UUID.t()}
+    # Root input of one Pilot analysis run.
 
-    defstruct [:phase_id]
+    @type t :: %__MODULE__{
+            phase_run_id: Ecto.UUID.t(),
+            snapshot_id: Ecto.UUID.t()
+          }
+
+    defstruct [:phase_run_id, :snapshot_id]
   end
 
   defmodule Output do
-    @moduledoc "Terminal output of one Pilot analysis run."
+    @moduledoc false
+
+    # Terminal output of one Pilot analysis run.
 
     @type t :: %__MODULE__{
-            outcome: :recommended | :insufficient,
-            candidate_id: PilotOutcome.candidate_id() | nil,
-            plan_count_per_side: pos_integer() | nil,
-            attacks_per_plan: pos_integer() | nil,
-            candidate_summaries: [CandidateSummary.t()]
+            outcome: PilotOutcome.t(),
+            candidates: [CandidateSummary.t()]
           }
 
-    defstruct [
-      :outcome,
-      :candidate_id,
-      :plan_count_per_side,
-      :attacks_per_plan,
-      :candidate_summaries
-    ]
+    defstruct [:outcome, :candidates]
   end
 
-  @doc "Encode the Pilot analysis phase identifier into Gust run params."
-  @impl PhaseContract
-  @spec to_params(Input.t()) :: PhaseContract.params()
+  @spec to_params(Input.t()) :: map()
   def to_params(_input), do: raise(NotImplementedError, function: :to_params)
 
-  @doc "Decode the Pilot decision and its candidate summaries from the stored terminal result."
-  @impl PhaseContract
-  @spec decode_output!(PhaseContract.params()) :: Output.t()
+  @spec decode_output!(map()) :: Output.t()
   def decode_output!(_params), do: raise(NotImplementedError, function: :decode_output!)
 end

@@ -1,38 +1,28 @@
 defmodule NetworkDefense.Evaluation2.CorrectedFamily do
-  @moduledoc """
-  Corrected comparison family of one Final analysis.
+  @moduledoc false
 
-  The corrected family keeps the declared family order and adds one adjustment per
-  declared comparison. Every comparison identity carries the network-size tier, so
-  tier order comes from `NetworkDefense.Evaluation2.Tier` and no tier position is
-  stored.
-  """
+  # Corrected Final comparison results in declared family order.
+  #
+  # The Final analysis owns these comparison outputs. The envelope of the
+  # reported family (identifier, method, alpha) stays in the immutable definition
+  # and is joined when the supported result view is built.
 
-  alias NetworkDefense.Evaluation2.CorrectedFamily.Comparison
+  @type t :: %__MODULE__{comparisons: [__MODULE__.Comparison.t()]}
 
-  @type t :: %__MODULE__{
-          family_id: String.t(),
-          method: String.t(),
-          alpha: float(),
-          family_size: pos_integer(),
-          comparisons: [Comparison.t()]
-        }
-
-  defstruct [:family_id, :method, :alpha, :family_size, :comparisons]
+  defstruct [:comparisons]
 
   defmodule Comparison do
-    @moduledoc "One corrected comparison of the declared family."
+    @moduledoc false
 
-    alias NetworkDefense.Evaluation.Comparison.Contracts.ComparisonStatistics
-    alias NetworkDefense.Evaluation.Family.Contracts.Adjustment
-    alias NetworkDefense.Evaluation2.ComparisonIdentity
+    # Statistics and family adjustment of one declared comparison.
+
+    alias NetworkDefense.Evaluation2.Study.Result.Comparison.{Adjustment, Statistics}
 
     @type t :: %__MODULE__{
-            identity: ComparisonIdentity.t(),
-            statistics: ComparisonStatistics.t(),
+            statistics: Statistics.t(),
             adjustment: Adjustment.t()
           }
 
-    defstruct [:identity, :statistics, :adjustment]
+    defstruct [:statistics, :adjustment]
   end
 end
