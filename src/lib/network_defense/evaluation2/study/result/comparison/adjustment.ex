@@ -3,6 +3,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison.Adjustment do
   Family adjustment of one comparison.
   """
 
+  use Spectral
+
   @type t :: %__MODULE__{
           adjusted_p_value: float(),
           reject_null: boolean()

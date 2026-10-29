@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Comparison do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
 
   @type t :: %__MODULE__{

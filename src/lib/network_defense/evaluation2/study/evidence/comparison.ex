@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Evidence.Comparison do
   @moduledoc false
 
+  use Spectral
+
   # Aligned evidence matrices of one declared comparison.
   #
   # One row belongs to one selected plan. One column belongs to one attack seed

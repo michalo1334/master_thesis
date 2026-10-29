@@ -19,6 +19,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   with the issue code `"not_implemented"` until the study pipeline exists.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Pilot.Analysis, as: PilotAnalysis

@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition do
   @moduledoc false
 
+  use Spectral
+
   # Study definition contract of the evaluation subsystem.
   #
   # The definition is the existing YAML contract: one normalized value that holds

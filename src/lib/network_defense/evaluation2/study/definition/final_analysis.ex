@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.FinalAnalysis do
   @moduledoc false
 
+  use Spectral
+
   # The declared test alternative is two-sided.
   @type t :: %__MODULE__{
           comparison_seeds: [non_neg_integer()],

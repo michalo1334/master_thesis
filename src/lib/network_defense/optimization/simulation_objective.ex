@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Optimization.SimulationObjective do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability

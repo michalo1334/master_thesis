@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Pilot do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Definition.{Candidate, PilotAnalysis, PilotCollection}
 
   @type t :: %__MODULE__{

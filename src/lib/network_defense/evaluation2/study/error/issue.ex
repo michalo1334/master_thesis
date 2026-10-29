@@ -7,6 +7,8 @@ defmodule NetworkDefense.Evaluation2.Study.Error.Issue do
   traces, and changesets stay internal.
   """
 
+  use Spectral
+
   @typedoc "One path component: a field name or a list index."
   @type path_component :: String.t() | non_neg_integer()
 

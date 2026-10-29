@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Scoring do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Optimization.SimulationObjective
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
 

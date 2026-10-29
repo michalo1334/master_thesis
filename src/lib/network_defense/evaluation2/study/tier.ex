@@ -10,6 +10,8 @@ defmodule NetworkDefense.Evaluation2.Study.Tier do
   tier.
   """
 
+  use Spectral
+
   @typedoc "One declared network-size tier."
   @type t :: :small | :medium | :large
 

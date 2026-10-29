@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Seed do
   @moduledoc false
 
+  use Spectral
+
   # Seed value of one deterministic stream or one attack column.
   #
   # A seed stays a bare non-negative integer. The type names the role only, so

@@ -6,6 +6,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison.Statistics do
   grouping of the comparison contract.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Result.Comparison.{
     Assessment,
     Estimate,

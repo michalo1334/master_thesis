@@ -8,6 +8,8 @@ defmodule NetworkDefense.Evaluation2.Study.Selection do
   insufficient result.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study
 
   @type t :: %__MODULE__{

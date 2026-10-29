@@ -11,6 +11,8 @@ defmodule NetworkDefense.Evaluation2.Study.PilotOutcome do
   supported public value.
   """
 
+  use Spectral
+
   @typedoc """
   Identifier of one declared Pilot candidate.
 

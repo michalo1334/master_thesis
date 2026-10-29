@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Strategy do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Evaluation2.Study.Definition.Scoring
   alias NetworkDefense.Optimization.Contracts.OptimizationParams

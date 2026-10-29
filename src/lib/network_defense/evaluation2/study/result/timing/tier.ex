@@ -5,6 +5,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Timing.Tier do
   Positions zero through four identify the measured replicas.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Replica
 
   @typedoc "The five measured replicas of one tier, keyed by measured position."

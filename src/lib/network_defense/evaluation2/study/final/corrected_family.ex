@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Final.CorrectedFamily do
   @moduledoc false
 
+  use Spectral
+
   # Corrected Final comparison results in declared family order.
   #
   # The Final analysis owns these comparison outputs. The envelope of the

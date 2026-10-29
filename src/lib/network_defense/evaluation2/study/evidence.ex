@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Evidence do
   @moduledoc false
 
+  use Spectral
+
   # Ordered comparison observations of one collection phase.
   #
   # Evidence holds one entry per declared family member, in declared order. Both

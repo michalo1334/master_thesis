@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Graph do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Definition.Strategy
 
   @type t :: %__MODULE__{

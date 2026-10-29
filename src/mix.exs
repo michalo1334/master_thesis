@@ -85,6 +85,7 @@ defmodule NetworkDefense.MixProject do
       {:logger_json, "~> 7.0"},
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
+      {:spectral, "~> 0.14.0"},
       {:dns_cluster, "~> 0.3.0"},
       {:ex_json_schema, "0.11.5"},
       {:yaml_elixir, "~> 2.12"},

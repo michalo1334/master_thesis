@@ -10,6 +10,8 @@ defmodule NetworkDefense.Evaluation2.Study.Error do
   `NetworkDefense.Evaluation2.Study.Status`.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Error.Issue
 
   @typedoc "Outer failure category of one study operation."

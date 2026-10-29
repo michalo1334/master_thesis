@@ -5,6 +5,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison.Estimate do
   The contrast is the alternative score minus the reference score.
   """
 
+  use Spectral
+
   @typedoc "Direction of the estimated contrast."
   @type contrast :: :alternative_minus_reference
 

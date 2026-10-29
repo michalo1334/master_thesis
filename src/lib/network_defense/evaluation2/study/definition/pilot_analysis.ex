@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.PilotAnalysis do
   @moduledoc false
 
+  use Spectral
+
   # The declared selection rule is lowest predicted runtime.
   @type t :: %__MODULE__{
           base_seed: non_neg_integer(),

@@ -3,6 +3,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison.Test do
   Two-sided test of one comparison.
   """
 
+  use Spectral
+
   @typedoc "Test method of the comparison contract."
   @type method :: :centered_crossed_bootstrap
 

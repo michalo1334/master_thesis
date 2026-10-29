@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Candidate do
   @moduledoc false
 
+  use Spectral
+
   @type t :: %__MODULE__{
           id: String.t(),
           plan_count_per_side: pos_integer(),

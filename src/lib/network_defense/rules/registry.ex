@@ -12,6 +12,8 @@ defmodule NetworkDefense.Rules.Registry do
   is the atom, which `Ecto.Enum` materializes from the wire string.
   """
 
+  use Spectral
+
   alias NetworkDefense.Rules.{
     AcquireCredentialRule,
     LocalVulnerabilityExploitation,

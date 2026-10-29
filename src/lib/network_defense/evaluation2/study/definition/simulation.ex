@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.Simulation do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
 
   @type t :: %__MODULE__{

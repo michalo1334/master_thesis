@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition.PilotCollection do
   @moduledoc false
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Definition.TierRoot
 
   @type t :: %__MODULE__{

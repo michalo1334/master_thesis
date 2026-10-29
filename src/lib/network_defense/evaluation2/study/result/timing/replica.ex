@@ -6,6 +6,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Timing.Replica do
   storage.
   """
 
+  use Spectral
+
   @type t :: %__MODULE__{
           plan_selection_us: non_neg_integer(),
           simulation_us: non_neg_integer(),

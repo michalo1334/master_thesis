@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Optimization.Contracts.OptimizationParams do
   @moduledoc false
 
+  use Spectral
+
   alias Ecto.Changeset
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Optimization.Contracts.SimulationSettings

@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Matrix do
   @moduledoc false
 
+  use Spectral
+
   # Plan-by-attack matrix of one comparison side.
   #
   # A matrix is a plain nested list: one row per selected plan, one column per

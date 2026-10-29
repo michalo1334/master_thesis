@@ -11,6 +11,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Timing do
   on the stored raw values, so reporting keeps every observation.
   """
 
+  use Spectral
+
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Tier
   alias NetworkDefense.Evaluation2.Study.Tier, as: StudyTier
 

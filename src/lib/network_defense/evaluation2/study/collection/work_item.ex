@@ -1,6 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Collection.WorkItem do
   @moduledoc false
 
+  use Spectral
+
   # One resolved collection request of a stored collection plan.
   #
   # The planner writes the request once, and a mapped task decodes the stored
