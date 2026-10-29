@@ -11,7 +11,7 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Timing do
   on the stored raw values, so reporting keeps every observation.
   """
 
-  alias NetworkDefense.Evaluation2.Study.Result.Timing.{Replica, Tier}
+  alias NetworkDefense.Evaluation2.Study.Result.Timing.Tier
   alias NetworkDefense.Evaluation2.Study.Tier, as: StudyTier
 
   @typedoc "One measured elapsed time in microseconds."
@@ -58,45 +58,5 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Timing do
   @spec range(t(), StudyTier.t(), boundary()) :: {elapsed_us(), elapsed_us()}
   def range(timing, tier, boundary) do
     timing |> measurements(tier, boundary) |> Map.values() |> Enum.min_max()
-  end
-
-  defmodule Replica do
-    @moduledoc """
-    Measured boundaries of one Final replica.
-
-    The three values belong to the same replica, so their correlation survives
-    storage.
-    """
-
-    @type t :: %__MODULE__{
-            plan_selection_us: non_neg_integer(),
-            simulation_us: non_neg_integer(),
-            total_us: non_neg_integer()
-          }
-
-    defstruct [:plan_selection_us, :simulation_us, :total_us]
-  end
-
-  defmodule Tier do
-    @moduledoc """
-    Measured replicas of one network-size tier.
-
-    Positions zero through four identify the measured replicas.
-    """
-
-    alias NetworkDefense.Evaluation2.Study.Result.Timing.Replica
-
-    @typedoc "The five measured replicas of one tier, keyed by measured position."
-    @type replicas :: %{
-            required(0) => Replica.t(),
-            required(1) => Replica.t(),
-            required(2) => Replica.t(),
-            required(3) => Replica.t(),
-            required(4) => Replica.t()
-          }
-
-    @type t :: %__MODULE__{replicas: replicas()}
-
-    defstruct [:replicas]
   end
 end

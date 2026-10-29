@@ -1,39 +1,33 @@
 defmodule NetworkDefense.Evaluation2.Study do
   @moduledoc """
-  Supported entry point of the study evaluation subsystem.
+  Supported context of the study evaluation subsystem.
 
   A study is one YAML definition. The operator freezes a revision from that
   definition, starts executions of the revision, reads their lifecycle state,
   approves the Pilot outcome, and reads the result.
 
-  The boundary returns transient values: `Revision`, `Status`, `PilotResult`,
-  `Result`, and bounded `Error` values. Revision storage, executions, phase
-  records, Gust runs, evidence snapshots, and collection items stay internal.
+  This module is the whole supported surface. It owns the short application flow
+  of every operation: it reads or writes internal records through
+  `Study.Persistence` and builds the returned value through `Study.Views`. The
+  values are transient: `Revision`, `Status`, `PilotResult`, `Result`, and
+  bounded `Error` values.
 
-  `create_revision/1` and `start/1` are separate operations. One frozen revision
-  supports several executions.
+  `create_revision/1` and `start/1` are separate operations, so one frozen
+  revision supports several executions.
 
-  Scaffold: each operation delegates to an internal operation that returns a
-  bounded `:unavailable` error with the issue code `"not_implemented"` until the
-  study pipeline exists. Internal constructor and bang operations raise
-  `NetworkDefense.Evaluation2.NotImplementedError` instead.
+  Scaffold: storage and scientific work return a bounded `:unavailable` error
+  with the issue code `"not_implemented"` until the study pipeline exists.
   """
 
-  alias NetworkDefense.Evaluation2.Study.{
-    Cancel,
-    Error,
-    Executions,
-    Pilot,
-    PilotOutcome,
-    PilotResult,
-    Result,
-    Results,
-    Resume,
-    Revision,
-    Revisions,
-    Status
-  }
-
+  alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Persistence
+  alias NetworkDefense.Evaluation2.Study.Pilot.Analysis, as: PilotAnalysis
+  alias NetworkDefense.Evaluation2.Study.PilotOutcome
+  alias NetworkDefense.Evaluation2.Study.PilotResult
+  alias NetworkDefense.Evaluation2.Study.Result
+  alias NetworkDefense.Evaluation2.Study.Revision
+  alias NetworkDefense.Evaluation2.Study.Status
+  alias NetworkDefense.Evaluation2.Study.Views
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
 
   @typedoc "Declared revision identity: study identifier and revision number."
@@ -51,6 +45,19 @@ defmodule NetworkDefense.Evaluation2.Study do
   @typedoc "Approval intent: accept the recommendation or override an insufficient outcome."
   @type approval :: :recommended | {:override_insufficient, candidate_id()}
 
+  # Scaffold only: each composed flow ends in an unimplemented storage read or
+  # view builder, so these functions cannot return yet. Remove this attribute
+  # together with the placeholder implementations.
+  @dialyzer {:nowarn_function,
+             [
+               create_revision: 1,
+               start: 1,
+               status: 1,
+               resume: 2,
+               cancel: 1,
+               result: 1
+             ]}
+
   @doc """
   Freeze one study revision from YAML text.
 
@@ -58,7 +65,10 @@ defmodule NetworkDefense.Evaluation2.Study do
   consistency checks, and graph reference lookup.
   """
   @spec create_revision(binary()) :: {:ok, Revision.t()} | {:error, Error.t()}
-  def create_revision(document), do: Revisions.create(document)
+  def create_revision(document) do
+    Persistence.create_revision(document)
+    |> bind(&{:ok, Views.revision(&1)})
+  end
 
   @doc """
   Start one execution of a frozen revision.
@@ -67,16 +77,25 @@ defmodule NetworkDefense.Evaluation2.Study do
   study lifecycle, and every valid Pilot outcome pauses before Final collection.
   """
   @spec start(revision_ref()) :: {:ok, Status.t()} | {:error, Error.t()}
-  def start(%Revision{} = revision), do: Executions.start(revision)
+  def start(%Revision{} = revision) do
+    Persistence.fetch_revision(revision)
+    |> bind(fn stored ->
+      Persistence.start_execution(stored)
+      |> bind(&{:ok, Views.status(stored, &1)})
+    end)
+  end
 
   @doc """
   Read the lifecycle state of one execution.
 
-  Status reads the execution and its revision only. Gust run detail stays
+  Status joins the execution row with its revision. Gust run detail stays
   internal.
   """
   @spec status(execution_id()) :: {:ok, Status.t()} | {:error, Error.t()}
-  def status(execution_id), do: Executions.status(execution_id)
+  def status(execution_id) do
+    Persistence.fetch_execution(execution_id)
+    |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
+  end
 
   @doc """
   Read the complete Pilot report of one execution.
@@ -86,7 +105,7 @@ defmodule NetworkDefense.Evaluation2.Study do
   is explained by it.
   """
   @spec pilot_result(execution_id()) :: {:ok, PilotResult.t()} | {:error, Error.t()}
-  def pilot_result(execution_id), do: Pilot.Analysis.report(execution_id)
+  def pilot_result(execution_id), do: PilotAnalysis.report(execution_id)
 
   @doc """
   Approve the Pilot outcome and start Final collection.
@@ -96,7 +115,10 @@ defmodule NetworkDefense.Evaluation2.Study do
   waiting for approval.
   """
   @spec resume(execution_id(), approval()) :: {:ok, Status.t()} | {:error, Error.t()}
-  def resume(execution_id, approval), do: Resume.accept(execution_id, approval)
+  def resume(execution_id, approval) do
+    Persistence.accept_approval(execution_id, approval)
+    |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
+  end
 
   @doc """
   Cancel one execution that is not terminal.
@@ -105,7 +127,10 @@ defmodule NetworkDefense.Evaluation2.Study do
   execution cancelled.
   """
   @spec cancel(execution_id()) :: {:ok, Status.t()} | {:error, Error.t()}
-  def cancel(execution_id), do: Cancel.cancel(execution_id)
+  def cancel(execution_id) do
+    Persistence.cancel_execution(execution_id)
+    |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
+  end
 
   @doc """
   Read the result of one successful execution.
@@ -115,5 +140,28 @@ defmodule NetworkDefense.Evaluation2.Study do
   error.
   """
   @spec result(execution_id()) :: {:ok, Result.t()} | {:error, Error.t()}
-  def result(execution_id), do: Results.get(execution_id)
+  def result(execution_id) do
+    Persistence.fetch_execution(execution_id)
+    |> bind(fn {execution, revision} ->
+      Persistence.fetch_result(execution)
+      |> bind(fn stored -> {:ok, Views.result(revision, execution, stored)} end)
+    end)
+  end
+
+  # Continue one storage step with the next step.
+  #
+  # The scaffold's storage calls can only fail, so the success clause stays
+  # unreachable until persistence is implemented.
+  @dialyzer {:nowarn_function, bind: 2}
+  @spec bind(
+          {:ok, value} | {:error, Error.t()},
+          (value -> {:ok, result} | {:error, Error.t()})
+        ) :: {:ok, result} | {:error, Error.t()}
+        when value: var, result: var
+  defp bind(result, next) do
+    case result do
+      {:ok, value} -> next.(value)
+      {:error, error} -> {:error, error}
+    end
+  end
 end

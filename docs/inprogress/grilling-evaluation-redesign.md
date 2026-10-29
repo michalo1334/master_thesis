@@ -53,6 +53,15 @@ mindmap
       Check ownership: proposed Q6
       Start boundary: superseded by Q57
       Definition ownership: Evaluation2-owned Q63
+      Internal grouping policy: Result aggregate Q64
+      Persistence organization: Study context plus Persistence Q65
+      Use-case orchestration: Study context Q66
+      Internal capability namespaces Q67
+      Phase contract ownership Q68
+      Physical file policy: one module per file Q69
+      Cross-cutting ownership: direct Study modules Q70
+      Collection capability: one internal module Q71
+      Target module map: frozen Q72
     Method
       Method baseline: predefined Q3
     Workflow
@@ -4211,6 +4220,257 @@ The owned tree preserves the established YAML shape: study identity, graph and s
 It does not copy the legacy parser, changesets, schema validator, consistency checker, JSON boundary, or legacy error envelope. `Study.Definition.parse/1` and `decode_stored!/1` remain Evaluation2 boundary placeholders.
 
 **Answer:** Evaluation2 owns its complete normalized definition value tree and has no source dependency on `NetworkDefense.Evaluation.*`.
+
+### Q64 — Public Result and internal result persistence
+
+The scaffold has three Result modules:
+
+```text
+Study.Result    public six-field result view
+Study.Results   internal persistence service
+StudyResult     internal persisted record
+```
+
+The public view must remain separate from persistence. The two internal responsibilities belong to one private aggregate module:
+
+```text
+Study.Result
+  public boundary value
+
+Study.Internal.Result
+  internal persisted fields
+  store/3
+  fetch!/1
+  get/1
+```
+
+`Study.Internal.Result.get/1` joins its persisted Final output with the execution-owned Pilot outcome and frozen selection to return `Study.Result.t()`.
+
+**Answer:** Initially chose `Study.Internal.Result` as a combined record and service. Q65 supersedes this choice with the community context-and-schema pattern.
+
+### Q65 — Study context and internal persistence boundary
+
+Phoenix contexts separate the API boundary from persisted schemas. `Study` is already the supported Evaluation2 context, so Evaluation2 does not need a separate context module for each persisted record.
+
+```text
+Study                         supported context and use-case API
+Study.Result                  public return value
+Study.Status                  public return value
+Study.Revision                public return value
+
+Study.Persistence             internal data-access boundary
+Study.Persistence.Result      internal persisted result
+Study.Persistence.Execution   internal persisted execution
+Study.Persistence.Revision    internal persisted revision
+Study.Persistence.Phase       internal persisted phase
+Study.Persistence.PhaseRun    internal Gust-run link
+Study.Persistence.CollectionPlan
+Study.Persistence.CollectionItem
+Study.Persistence.EvidenceSnapshot
+```
+
+`Study.Persistence` returns internal records and performs transactions. It does not construct public views. `Study.Views` converts accepted records and workflow outputs into public values.
+
+This replaces the plural record-specific service modules such as `Study.Results`, `Study.Revisions`, `Study.Executions`, `Study.Phases`, `Study.Collection.Plans`, `Study.Collection.Items`, and `Study.Collection.EvidenceSnapshots`.
+
+**Answer:** Follow the context-and-schema pattern. Keep `Study` as the supported context, use one internal `Study.Persistence` API, and keep internal persisted record structs under `Study.Persistence.*`.
+
+### Q66 — Supported use-case orchestration
+
+The `Study` module is the Evaluation2 context and supported API. It owns the short application flows for its seven public operations:
+
+```elixir
+def result(execution_id) do
+  with {:ok, execution} <- Persistence.fetch_execution(execution_id),
+       {:ok, result} <- Persistence.fetch_result(execution_id) do
+    {:ok, Views.result(execution, result)}
+  end
+end
+```
+
+Complex scientific and phase work remains delegated to focused internal modules such as `Workflow`, `Pilot.Analysis`, `Final.Analysis`, and `Collection`.
+
+This removes thin use-case modules whose only purpose is facade delegation: `Study.Revisions`, `Study.Executions`, `Study.Results`, `Study.Cancel`, and `Study.Resume`.
+
+**Answer:** The supported `Study` context owns create, start, status, Pilot-result read, resume, cancel, and Final-result read orchestration. Persistence and scientific workflow responsibilities remain internal dependencies.
+
+### Q67 — Capability namespaces for non-persistence modules
+
+Internal modules that are not persisted records or data-access operations are grouped by their scientific or workflow owner:
+
+```text
+Study.Collection
+  WorkItem
+  effect execution and reservation
+
+Study.Evidence
+  Comparison
+
+Study.Pilot
+  Job
+  Assessment
+  Summary
+  Analysis
+
+Study.Final
+  ComparisonJob
+  TierRun
+  CorrectedFamily
+  Collect
+  Timing
+  Analysis
+```
+
+Shared scientific primitives remain at the lowest common Study namespace, for example `Study.Matrix` and `Study.Seed`. A side value used only by collection work becomes a type owned by `Study.Collection.WorkItem` instead of a separate module.
+
+Avoid generic buckets such as `Study.Internal.Values`, `Study.Types`, `Study.Helpers`, and `Study.Utils`. They hide the domain owner.
+
+**Answer:** Group non-persistence internal modules by capability namespace. Keep public result values under `Study.Result` and `Study.PilotResult`; keep phase-specific internal values and services under `Study.Collection`, `Study.Evidence`, `Study.Pilot`, and `Study.Final`.
+
+### Q68 — Gust phase contract ownership
+
+Each phase contract belongs beside the workflow stage that owns its input and terminal output:
+
+```text
+Study.Pilot.CollectionContract
+Study.Pilot.AnalysisContract
+Study.Final.TierContract
+Study.Final.AnalysisContract
+```
+
+The macro that generates the two identical empty collection contracts is shared by the cross-phase workflow layer:
+
+```text
+Study.Workflow.CollectionContract
+```
+
+This removes the top-level `Evaluation2.Contracts` namespace. Contract-specific modules remain distinct because Gust task parameters and terminal outputs are phase boundaries.
+
+**Answer:** Place contracts with their Pilot or Final phase owner. Keep only the shared collection-contract generator under `Study.Workflow`.
+
+### Q69 — Physical file policy
+
+Evaluation2 keeps one Elixir module per source file. The reorganization reduces redundant modules and moves modules under coherent namespaces; it does not co-locate several modules in one file only to reduce file count.
+
+```text
+study/pilot/job.ex
+study/pilot/assessment.ex
+study/pilot/summary.ex
+study/persistence/revision.ex
+study/persistence/execution.ex
+study/persistence/result.ex
+```
+
+This keeps module search, compilation dependencies, and file ownership direct.
+
+**Answer:** Use one module per file. Reduce the number of modules through ownership changes such as one `Study.Persistence` context, not through multi-module files.
+
+### Q70 — Cross-cutting module ownership
+
+Subsystem-wide responsibilities live directly under `Study` with specific names:
+
+```text
+Study.Persistence
+Study.Workflow
+Study.Lifecycle
+Study.Views
+Study.Definition
+Study.Matrix
+Study.Seed
+```
+
+Do not add a generic `Study.Core` namespace, and do not fold these responsibilities into the supported `Study` context. `Study` owns public use-case orchestration; these modules own focused cross-cutting mechanisms.
+
+**Answer:** Keep cross-cutting capabilities as direct, specifically named `Study` modules.
+
+### Q71 — Collection capability boundary
+
+One internal `Study.Collection` module owns collection application logic:
+
+```elixir
+prepare_pilot(phase_run_id, definition)
+prepare_final(phase_run_id, definition, selection, tier)
+prepare_replica(plan_id, replica_position)
+run_optimization(collection_item_id)
+run_simulation(collection_item_id)
+assemble_evidence(study_phase_id)
+```
+
+`Study.Persistence` owns plan, item, and snapshot records; data access; and transactional reservation of optimization and simulation effect links. `Study.Collection` builds requests and invokes the optimization and simulation domains.
+
+This removes `Study.Collection.Plans`, `Items`, `Execute`, `Reservations`, and `EvidenceSnapshots`.
+
+**Answer:** Use one internal Collection capability module and one Persistence boundary. Keep scientific `Study.Evidence` as a separate accepted value used by Pilot and Final analysis.
+
+### Q72 — Frozen module organization
+
+The supported context and public values remain under `Study`:
+
+```text
+Study
+Study.Revision
+Study.Status
+Study.Selection
+Study.PilotOutcome
+Study.Comparison
+Study.Tier
+Study.Error
+Study.PilotResult.*
+Study.Result.*
+```
+
+Internal persistence uses one context plus one record module per persisted shape:
+
+```text
+Study.Persistence
+Study.Persistence.Revision
+Study.Persistence.Execution
+Study.Persistence.Phase
+Study.Persistence.PhaseRun
+Study.Persistence.Result
+Study.Persistence.CollectionPlan
+Study.Persistence.CollectionItem
+Study.Persistence.EvidenceSnapshot
+```
+
+Internal scientific and workflow modules use capability namespaces:
+
+```text
+Study.Collection
+Study.Collection.WorkItem
+
+Study.Evidence
+Study.Evidence.Comparison
+
+Study.Pilot.Job
+Study.Pilot.Assessment
+Study.Pilot.Summary
+Study.Pilot.Summary.Comparison
+Study.Pilot.Analysis
+Study.Pilot.CollectionContract
+Study.Pilot.AnalysisContract
+
+Study.Final.ComparisonJob
+Study.Final.TierRun
+Study.Final.CorrectedFamily
+Study.Final.Collection
+Study.Final.Timing
+Study.Final.Analysis
+Study.Final.TierContract
+Study.Final.AnalysisContract
+
+Study.Workflow
+Study.Workflow.CollectionContract
+Study.Lifecycle
+Study.Views
+Study.Definition.*
+Study.Matrix
+Study.Seed
+```
+
+`Study` owns supported use-case orchestration. `Study.Persistence` owns data access and transactions. `Study.Collection`, `Pilot`, `Final`, and `Workflow` own scientific and phase behavior. One module is stored in each source file.
+
+**Answer:** Freeze this module map for the next structural implementation. After it is applied, continue the design with migration squashing and then the exact Persistence API.
 
 ### Scaffold alignment after DeepSeek review
 

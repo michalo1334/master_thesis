@@ -9,10 +9,10 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Timing do
   # The summary keeps raw measurements without warm-up. Public
   # Study.Result.Timing owns median and range queries.
 
-  alias NetworkDefense.Evaluation2.FinalTierRunResult
   alias NetworkDefense.Evaluation2.NotImplementedError
+  alias NetworkDefense.Evaluation2.Study.Final.TierRun
   alias NetworkDefense.Evaluation2.Study.Result.Timing
 
-  @spec summarize([FinalTierRunResult.t()]) :: Timing.t()
+  @spec summarize([TierRun.t()]) :: Timing.t()
   def summarize(_tier_runs), do: raise(NotImplementedError, function: :summarize)
 end

@@ -20,22 +20,22 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
   # This module is a phase implementation detail. It is not part of the supported
   # study API.
 
-  alias NetworkDefense.Evaluation2.CandidateAssessment
-  alias NetworkDefense.Evaluation2.Contracts.PilotAnalysisContract
-  alias NetworkDefense.Evaluation2.PilotJob
   alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Pilot.AnalysisContract
+  alias NetworkDefense.Evaluation2.Study.Pilot.Assessment
+  alias NetworkDefense.Evaluation2.Study.Pilot.Job
   alias NetworkDefense.Evaluation2.Study.PilotResult
 
-  @spec prepare(Ecto.UUID.t()) :: {:ok, [PilotJob.t()]} | {:error, Error.t()}
+  @spec prepare(Ecto.UUID.t()) :: {:ok, [Job.t()]} | {:error, Error.t()}
   def prepare(_snapshot_id), do: {:error, Placeholder.error(:prepare)}
 
   # Assess one candidate and comparison pair against the accepted snapshot.
   #
   # The assessment passes when every outer subsample is informative and the
   # guarded half-width stays within the declared target.
-  @spec evaluate(Ecto.UUID.t(), PilotJob.t()) ::
-          {:ok, CandidateAssessment.t()} | {:error, Error.t()}
+  @spec evaluate(Ecto.UUID.t(), Job.t()) ::
+          {:ok, Assessment.t()} | {:error, Error.t()}
   def evaluate(_snapshot_id, _job), do: {:error, Placeholder.error(:evaluate)}
 
   # Aggregate the assessments and select the Pilot outcome.
@@ -43,8 +43,8 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
   # The selector returns the passing candidate with the smallest predicted Final
   # runtime, or `:insufficient` when no candidate passes every declared
   # comparison.
-  @spec decide(Ecto.UUID.t(), [CandidateAssessment.t()]) ::
-          {:ok, PilotAnalysisContract.Output.t()} | {:error, Error.t()}
+  @spec decide(Ecto.UUID.t(), [Assessment.t()]) ::
+          {:ok, AnalysisContract.Output.t()} | {:error, Error.t()}
   def decide(_snapshot_id, _assessments), do: {:error, Placeholder.error(:decide)}
 
   @spec report(Ecto.UUID.t()) :: {:ok, PilotResult.t()} | {:error, Error.t()}
