@@ -1,34 +1,95 @@
 defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
-  @moduledoc false
+  @moduledoc """
+  Prepares Pilot comparison jobs from a collection snapshot and its definition.
 
-  # Candidate assessment and decision of the Pilot phase.
-  #
-  # The three operations match the three Pilot analysis Gust stages:
-  #
-  #   * `prepare/1` builds one job per declared candidate and comparison pair;
-  #   * `evaluate/2` assesses one pair against the accepted Pilot matrices;
-  #   * `decide/2` creates the complete candidate summaries and selects the
-  #     outcome.
-  #
-  # The accepted snapshot is the study context: it leads to the immutable
-  # definition, the declared family, and the runtime evidence of the runtime
-  # prediction.
-  #
-  # `report/1` maps the accepted terminal Gust result to the supported Pilot
-  # report. Approval uses the report, including an insufficient outcome.
-  #
-  # This module is a phase implementation detail. It is not part of the supported
-  # study API.
+  Candidates share each comparison's historical random stream. Evaluation and
+  outcome selection remain unavailable.
+  """
 
   alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Error.Issue
+  alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Pilot.AnalysisContract
   alias NetworkDefense.Evaluation2.Study.Pilot.Assessment
   alias NetworkDefense.Evaluation2.Study.Pilot.Job
   alias NetworkDefense.Evaluation2.Study.PilotResult
+  alias NetworkDefense.Evaluation2.Study.Views
 
+  @doc """
+  Prepare jobs in candidate order and then comparison order.
+
+  Tier rank follows first appearance; comparison index counts occurrences within
+  that tier. These coordinates preserve the historical stream seed.
+  """
   @spec prepare(Ecto.UUID.t()) :: {:ok, [Job.t()]} | {:error, Error.t()}
-  def prepare(_snapshot_id), do: {:error, Placeholder.error(:prepare)}
+  def prepare(snapshot_id) do
+    case Persistence.fetch_evidence_context(snapshot_id) do
+      {:ok, context} -> prepare_jobs(context)
+      {:error, error} -> {:error, Views.error(error)}
+    end
+  end
+
+  defp prepare_jobs(%{
+         phase: %{phase: :pilot_collection},
+         revision: %{
+           definition: %{
+             pilot: %{candidates: [_ | _] = candidates, analysis: %{base_seed: base_seed}},
+             family: %{comparisons: [_ | _] = comparisons}
+           }
+         },
+         snapshot: %{evidence: %{comparisons: evidence}}
+       })
+       when is_list(candidates) and is_list(comparisons) and is_list(evidence) and
+              is_integer(base_seed) and base_seed >= 0 do
+    with true <- length(comparisons) == length(evidence),
+         {:ok, seeds} <- comparison_seeds(comparisons, base_seed) do
+      {:ok,
+       for {_candidate, candidate_position} <- Enum.with_index(candidates),
+           {seed, comparison_position} <- Enum.with_index(seeds) do
+         %Job{
+           candidate_position: candidate_position,
+           comparison_position: comparison_position,
+           stream_seed: seed
+         }
+       end}
+    else
+      _invalid -> invalid_input()
+    end
+  end
+
+  defp prepare_jobs(_context), do: invalid_input()
+
+  defp comparison_seeds(comparisons, base_seed) do
+    comparisons
+    |> Enum.reduce_while({[], %{}}, fn
+      %{tier: tier}, {seeds, tiers} when is_binary(tier) and byte_size(tier) > 0 ->
+        {rank, index} = Map.get(tiers, tier, {map_size(tiers), 0})
+        seed = base_seed + rank * 1_000_000 + index * 2
+        {:cont, {[seed | seeds], Map.put(tiers, tier, {rank, index + 1})}}
+
+      _comparison, _acc ->
+        {:halt, :error}
+    end)
+    |> case do
+      {seeds, _tiers} -> {:ok, Enum.reverse(seeds)}
+      :error -> :error
+    end
+  end
+
+  defp invalid_input do
+    {:error,
+     %Error{
+       category: :unavailable,
+       issues: [
+         %Issue{
+           code: "invalid_pilot_analysis_input",
+           path: [],
+           message: "Pilot analysis input is invalid."
+         }
+       ]
+     }}
+  end
 
   # Assess one candidate and comparison pair against the accepted snapshot.
   #
