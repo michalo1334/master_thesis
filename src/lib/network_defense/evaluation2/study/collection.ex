@@ -26,14 +26,17 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   scheduler, batch runner, or retry loop. A retried task reuses the effect links
   of its item, so one item never creates a second run or a second experiment.
 
-  Evidence assembly stays unavailable until the evidence slice exists.
+  Pilot evidence preserves plan order and shared attack-seed columns.
   """
 
+  alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Collection.WorkItem
   alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Definition.{Graph, Strategy, TierRoot}
   alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Evidence
+  alias NetworkDefense.Evaluation2.Study.Evidence.Comparison, as: ComparisonEvidence
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.Collection, as: CollectionStore
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
@@ -42,9 +45,11 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   alias NetworkDefense.Evaluation2.Study.Selection
   alias NetworkDefense.Evaluation2.Study.Tier
   alias NetworkDefense.Evaluation2.Study.Views
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Graph.Graph, as: OutputGraph
+  alias NetworkDefense.Graph.Graphs
+  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Optimizations
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
   alias NetworkDefense.Simulations
 
   @doc """
@@ -127,15 +132,188 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   end
 
   @doc """
-  Assemble or load the evidence snapshot of one collection phase.
+  Assemble the Pilot snapshot in declared comparison and plan order.
 
-  Evidence assembly is unavailable until the evidence slice exists, so every call
-  returns the bounded `not_implemented` error.
+  Each comparison shares one attack-seed column list across both sides.
+  Missing or inconsistent observations return a bounded evidence error.
   """
   @spec assemble_evidence(Ecto.UUID.t()) ::
           {:ok, EvidenceSnapshot.t()} | {:error, Error.t()}
-  def assemble_evidence(_study_phase_id),
-    do: {:error, Placeholder.error(:assemble_evidence)}
+  def assemble_evidence(study_phase_id) do
+    with {:ok, context} <- stored(Persistence.fetch_phase_context(study_phase_id)),
+         :ok <- pilot_phase(context.phase),
+         {:ok, phase_run} <- stored(Persistence.fetch_phase_run(study_phase_id, :single)),
+         {:ok, plan} <- stored(CollectionStore.fetch_collection_plan(phase_run.id)),
+         {:ok, items} <- stored(CollectionStore.list_replica_items(phase_run.id, 0)),
+         {:ok, observations} <- item_observations(plan.items, items),
+         {:ok, evidence} <- build_evidence(observations, context.revision.definition) do
+      stored(Persistence.insert_evidence_snapshot(study_phase_id, evidence))
+    end
+  end
+
+  defp pilot_phase(%{phase: :pilot_collection}), do: :ok
+  defp pilot_phase(_phase), do: {:error, incomplete_collection_evidence()}
+
+  defp item_observations(work, items) do
+    positions = Enum.to_list(0..(length(work) - 1)//1)
+
+    if work != [] and Enum.map(items, & &1.item_position) == positions do
+      work
+      |> Enum.zip(items)
+      |> Enum.reduce_while({:ok, []}, &collect_observation/2)
+      |> reverse_observations()
+    else
+      {:error, incomplete_collection_evidence()}
+    end
+  end
+
+  defp collect_observation({request, item}, {:ok, observations}) do
+    case item_observation(request, item) do
+      {:ok, observation} -> {:cont, {:ok, [observation | observations]}}
+      :error -> {:halt, {:error, incomplete_collection_evidence()}}
+    end
+  end
+
+  defp reverse_observations({:ok, values}), do: {:ok, Enum.reverse(values)}
+  defp reverse_observations({:error, error}), do: {:error, error}
+
+  defp item_observation(%WorkItem{} = work, %CollectionItem{} = item) do
+    with {:ok, optimization} <- evidence_optimization(item.optimization_run_id),
+         {:ok, graph} <- evidence_graph(optimization.output_graph_revision_id),
+         {:ok, experiment} <- evidence_experiment(item.experiment_id, optimization, work),
+         {:ok, runs} <- evidence_runs(experiment) do
+      impacts = Enum.map(runs, &mission_impact(graph, &1))
+
+      if Enum.all?(impacts, &is_float/1) do
+        {:ok, %{work: work, seeds: Enum.map(runs, & &1.seed), impacts: impacts}}
+      else
+        :error
+      end
+    end
+  end
+
+  defp evidence_optimization(id) when is_binary(id) do
+    case OptimizationRuns.load(id) do
+      %OptimizationRun{id: ^id, status: "completed", output_graph_revision_id: revision} = run ->
+        case canonical_uuid(revision) do
+          {:ok, _} -> {:ok, run}
+          {:error, _} -> :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp evidence_optimization(_id), do: :error
+
+  defp evidence_graph(revision) do
+    case Graphs.load_revision(revision) do
+      %OutputGraph{} = graph -> {:ok, graph}
+      _ -> :error
+    end
+  end
+
+  defp evidence_experiment(id, optimization, work) when is_binary(id) do
+    case Experiments.load(id) do
+      %Experiment{id: ^id, runs: runs} = experiment when is_list(runs) ->
+        if experiment_matches?(experiment, optimization, work) do
+          {:ok, experiment}
+        else
+          :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp evidence_experiment(_id, _optimization, _work), do: :error
+
+  defp experiment_matches?(experiment, optimization, work) do
+    experiment.status == :completed and
+      experiment.graph_revision_id == optimization.output_graph_revision_id and
+      experiment.master_seed == work.evaluation_root and
+      experiment.initial_foothold_node_id == work.initial_foothold_node_id and
+      valid_trial_count?(experiment, work)
+  end
+
+  defp valid_trial_count?(experiment, work) do
+    is_integer(experiment.total_trials) and experiment.total_trials > 0 and
+      experiment.total_trials == work.attack_count and
+      experiment.completed_trials == experiment.total_trials
+  end
+
+  defp evidence_runs(%Experiment{} = experiment) do
+    runs = Enum.sort_by(experiment.runs, & &1.trial_index)
+
+    # Column identity follows the experiment seed and the trial index.
+    if Enum.map(runs, & &1.trial_index) == Enum.to_list(1..experiment.total_trials) and
+         Enum.all?(runs, fn run ->
+           run.experiment_id == experiment.id and
+             run.graph_revision_id == experiment.graph_revision_id and
+             run.seed == Seed.child_seed(experiment.master_seed, run.trial_index)
+         end) do
+      {:ok, runs}
+    else
+      :error
+    end
+  end
+
+  defp mission_impact(graph, run) do
+    run
+    |> Run.current_attacker_state()
+    |> AttackerState.foothold_nodes()
+    |> then(&MissionImpact.final(graph, &1))
+  end
+
+  defp build_evidence(observations, %Definition{family: family}) do
+    count = length(family.comparisons)
+    positions = Enum.to_list(0..(count - 1)//1)
+
+    if count > 0 and Enum.all?(observations, &(&1.work.comparison_position in positions)) do
+      positions
+      |> Enum.reduce_while({:ok, []}, &collect_comparison(&1, &2, observations))
+      |> reverse_observations()
+      |> case do
+        {:ok, comparisons} -> {:ok, %Evidence{comparisons: comparisons}}
+        error -> error
+      end
+    else
+      {:error, incomplete_collection_evidence()}
+    end
+  end
+
+  defp collect_comparison(position, {:ok, comparisons}, observations) do
+    case comparison_evidence(observations, position) do
+      {:ok, comparison} -> {:cont, {:ok, [comparison | comparisons]}}
+      :error -> {:halt, {:error, incomplete_collection_evidence()}}
+    end
+  end
+
+  defp comparison_evidence(observations, position) do
+    rows = Enum.filter(observations, &(&1.work.comparison_position == position))
+    alternative = Enum.filter(rows, &(&1.work.side == :alternative))
+    reference = Enum.filter(rows, &(&1.work.side == :reference))
+
+    case rows do
+      [%{seeds: seeds} | _] when alternative != [] and reference != [] ->
+        if Enum.all?(rows, &(&1.seeds == seeds and length(&1.impacts) == length(seeds))) and
+             length(alternative) + length(reference) == length(rows) do
+          {:ok,
+           %ComparisonEvidence{
+             attack_seeds: seeds,
+             alternative: Enum.map(alternative, & &1.impacts),
+             reference: Enum.map(reference, & &1.impacts)
+           }}
+        else
+          :error
+        end
+
+      _ ->
+        :error
+    end
+  end
 
   # --- planning ------------------------------------------------------------
 
@@ -319,6 +497,19 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
           code: "incomplete_collection_effect",
           path: [],
           message: "The collection effect reported an incomplete result."
+        }
+      ]
+    }
+  end
+
+  defp incomplete_collection_evidence do
+    %Error{
+      category: :unavailable,
+      issues: [
+        %Error.Issue{
+          code: "incomplete_collection_evidence",
+          path: [],
+          message: "The collection evidence is incomplete or inconsistent."
         }
       ]
     }
