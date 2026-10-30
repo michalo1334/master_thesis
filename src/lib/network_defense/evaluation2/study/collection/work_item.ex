@@ -10,7 +10,8 @@ defmodule NetworkDefense.Evaluation2.Study.Collection.WorkItem do
   # declared strategy group owns the budget and the scoring settings.
   #
   # Positions belong to the collection item. The comparison identity stays in the
-  # immutable definition and is joined by position during analysis.
+  # immutable definition and is joined by position during analysis. The foothold
+  # is part of the resolved request: every stored item is later simulated.
 
   alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Seed
@@ -31,7 +32,7 @@ defmodule NetworkDefense.Evaluation2.Study.Collection.WorkItem do
           comparison_position: non_neg_integer(),
           side: side(),
           graph_revision: graph_revision(),
-          initial_foothold_node_id: Ecto.UUID.t() | nil,
+          initial_foothold_node_id: Ecto.UUID.t(),
           strategy: Definition.strategy(),
           selection_seed: Seed.t(),
           evaluation_root: Seed.t(),

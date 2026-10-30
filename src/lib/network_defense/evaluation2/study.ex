@@ -7,22 +7,28 @@ defmodule NetworkDefense.Evaluation2.Study do
   approves the Pilot outcome, and reads the result.
 
   This module is the whole supported surface. It owns the short application flow
-  of every operation: it reads or writes internal records through
-  `Study.Persistence` and builds the returned value through `Study.Views`. The
+  of every operation: it reads or writes internal records through the internal
+  persistence owners and builds the returned value through `Study.Views`. The
   values are transient: `Revision`, `Status`, `PilotResult`, `Result`, and
   bounded `Error` values.
 
   `create_revision/1` and `start/1` are separate operations, so one frozen
   revision supports several executions.
 
-  Scaffold: storage and scientific work return a bounded `:unavailable` error
-  with the issue code `"not_implemented"` until the study pipeline exists.
+  Revision creation and the Pilot report still return a bounded error until the
+  definition parser and the scientific analysis exist. Storage failures report
+  their fixed public issue code through `Study.Views.error/1`.
   """
 
   use Spectral
 
+  require Logger
+
+  alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Persistence
+  alias NetworkDefense.Evaluation2.Study.Persistence.Executions
+  alias NetworkDefense.Evaluation2.Study.Persistence.Phase
   alias NetworkDefense.Evaluation2.Study.Pilot.Analysis, as: PilotAnalysis
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
   alias NetworkDefense.Evaluation2.Study.PilotResult
@@ -30,6 +36,7 @@ defmodule NetworkDefense.Evaluation2.Study do
   alias NetworkDefense.Evaluation2.Study.Revision
   alias NetworkDefense.Evaluation2.Study.Status
   alias NetworkDefense.Evaluation2.Study.Views
+  alias NetworkDefense.Evaluation2.Study.Workflow
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
 
   @typedoc "Declared revision identity: study identifier and revision number."
@@ -47,19 +54,6 @@ defmodule NetworkDefense.Evaluation2.Study do
   @typedoc "Approval intent: accept the recommendation or override an insufficient outcome."
   @type approval :: :recommended | {:override_insufficient, candidate_id()}
 
-  # Scaffold only: each composed flow ends in an unimplemented storage read or
-  # view builder, so these functions cannot return yet. Remove this attribute
-  # together with the placeholder implementations.
-  @dialyzer {:nowarn_function,
-             [
-               create_revision: 1,
-               start: 1,
-               status: 1,
-               resume: 2,
-               cancel: 1,
-               result: 1
-             ]}
-
   @doc """
   Freeze one study revision from YAML text.
 
@@ -67,24 +61,32 @@ defmodule NetworkDefense.Evaluation2.Study do
   consistency checks, and graph reference lookup.
   """
   @spec create_revision(binary()) :: {:ok, Revision.t()} | {:error, Error.t()}
-  def create_revision(document) do
-    Persistence.create_revision(document)
-    |> bind(&{:ok, Views.revision(&1)})
+  def create_revision(_document) do
+    # Definition decoding and normalization arrive with the definition task. The
+    # storage insert is `Persistence.insert_revision/1`.
+    {:error, Placeholder.error(:create_revision)}
   end
 
   @doc """
   Start one execution of a frozen revision.
 
-  The new execution begins in Pilot collection. Its later states follow the
-  study lifecycle, and every valid Pilot outcome pauses before Final collection.
+  The new execution begins in Pilot collection. The execution transaction commits
+  first, and the call then ensures its Pilot Collection Gust run.
+
+  A failed provisioning keeps the committed execution: the call logs the bounded
+  failure and returns the status, so the caller keeps the execution identifier
+  for a later retry. The status is the refreshed row, or the last committed
+  snapshot when that refresh fails.
   """
   @spec start(revision_ref()) :: {:ok, Status.t()} | {:error, Error.t()}
   def start(%Revision{} = revision) do
-    Persistence.fetch_revision(revision)
-    |> bind(fn stored ->
-      Persistence.start_execution(stored)
-      |> bind(&{:ok, Views.status(stored, &1)})
-    end)
+    case started_execution(revision) do
+      {:ok, %{active_phase: %Phase{} = phase} = context} ->
+        ensure_pilot_collection(context, phase.id)
+
+      {:error, _failure} = failure ->
+        failure
+    end
   end
 
   @doc """
@@ -118,8 +120,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   """
   @spec resume(execution_id(), approval()) :: {:ok, Status.t()} | {:error, Error.t()}
   def resume(execution_id, approval) do
-    Persistence.accept_approval(execution_id, approval)
-    |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
+    Executions.accept_approval(execution_id, approval)
+    |> bind(fn context -> {:ok, Views.status(context.revision, context.execution)} end)
   end
 
   @doc """
@@ -130,8 +132,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   """
   @spec cancel(execution_id()) :: {:ok, Status.t()} | {:error, Error.t()}
   def cancel(execution_id) do
-    Persistence.cancel_execution(execution_id)
-    |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
+    Executions.cancel_execution(execution_id)
+    |> bind(fn context -> {:ok, Views.status(context.revision, context.execution)} end)
   end
 
   @doc """
@@ -144,26 +146,77 @@ defmodule NetworkDefense.Evaluation2.Study do
   @spec result(execution_id()) :: {:ok, Result.t()} | {:error, Error.t()}
   def result(execution_id) do
     Persistence.fetch_execution(execution_id)
-    |> bind(fn {execution, revision} ->
-      Persistence.fetch_result(execution)
-      |> bind(fn stored -> {:ok, Views.result(revision, execution, stored)} end)
-    end)
+    |> bind(fn {execution, revision} -> stored_result(execution, revision) end)
   end
+
+  # The public result exists only for a successful execution.
+  #
+  # The success check happens before the immutable result is read, so the view
+  # joins one successful execution with its own stored result.
+  defp stored_result(%Persistence.Execution{state: :succeeded} = execution, revision) do
+    Persistence.fetch_result(execution.id)
+    |> bind(&Views.result(revision, execution, &1))
+  end
+
+  defp stored_result(_execution, _revision), do: {:error, Views.result_unavailable()}
 
   # Continue one storage step with the next step.
   #
-  # The scaffold's storage calls can only fail, so the success clause stays
-  # unreachable until persistence is implemented.
-  @dialyzer {:nowarn_function, bind: 2}
+  # A storage failure crosses the public boundary once, through the shared error
+  # mapping of `Study.Views`.
   @spec bind(
-          {:ok, value} | {:error, Error.t()},
+          Persistence.response(value),
           (value -> {:ok, result} | {:error, Error.t()})
         ) :: {:ok, result} | {:error, Error.t()}
         when value: var, result: var
   defp bind(result, next) do
     case result do
       {:ok, value} -> next.(value)
-      {:error, error} -> {:error, error}
+      {:error, failure} -> {:error, Views.error(failure)}
+    end
+  end
+
+  # The committed execution keeps its state. Only the storage failure is mapped
+  # into the bounded public error.
+  @spec started_execution(revision_ref()) ::
+          {:ok, Persistence.lifecycle_context()} | {:error, Error.t()}
+  defp started_execution(revision) do
+    case Executions.start_execution(revision) do
+      {:ok, context} -> {:ok, context}
+      {:error, failure} -> {:error, Views.error(failure)}
+    end
+  end
+
+  # The execution is committed, so a bounded provisioning failure becomes a logged
+  # outcome and the caller still receives the execution identifier in the status.
+  @spec ensure_pilot_collection(Persistence.lifecycle_context(), Ecto.UUID.t()) ::
+          {:ok, Status.t()} | {:error, Error.t()}
+  defp ensure_pilot_collection(context, phase_id) do
+    case Workflow.ensure_pilot_collection_run(phase_id) do
+      {:ok, _phase_run} ->
+        status(context.execution.id)
+
+      {:error, failure} ->
+        Logger.error("Evaluation2 Pilot collection provisioning failed",
+          error: inspect(failure)
+        )
+
+        refresh_or_committed_status(context)
+    end
+  end
+
+  # A failed refresh must not hide the committed execution, so the committed
+  # context becomes the returned status. It is the last committed snapshot.
+  @spec refresh_or_committed_status(Persistence.lifecycle_context()) ::
+          {:ok, Status.t()} | {:error, Error.t()}
+  defp refresh_or_committed_status(context) do
+    case status(context.execution.id) do
+      {:ok, _status} = current ->
+        current
+
+      {:error, failure} ->
+        Logger.error("Evaluation2 study status refresh failed", error: inspect(failure))
+        {:ok, Views.status(context.revision, context.execution)}
     end
   end
 end

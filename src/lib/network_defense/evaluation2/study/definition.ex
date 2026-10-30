@@ -9,9 +9,9 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   # the study identity, the scenario graphs, the simulation controls, the family,
   # and the Pilot, approval, and Final settings.
   #
-  # `parse/1` belongs to the external creation boundary. `decode_stored!/1` reads
-  # a definition that creation already accepted, so later phases decode trusted
-  # data instead of repeating the check path.
+  # `parse/1` belongs to the external creation boundary. Stored definitions are
+  # decoded by `Study.Persistence` with Spectral, so later phases read trusted
+  # typed data instead of repeating the check path.
   #
   # The declared graph tier is a definition string. Observed study data uses the
   # closed `NetworkDefense.Evaluation2.Study.Tier` order instead.
@@ -31,7 +31,6 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
 
   alias NetworkDefense.Evaluation2.NotImplementedError
   alias NetworkDefense.Evaluation2.Study.Error
-  alias NetworkDefense.Evaluation2.Study.Tier
 
   @typedoc "Normalized study definition, owned by Evaluation2."
   @type t :: %__MODULE__{
@@ -80,13 +79,4 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   # settings, and a definition whose settings disagree.
   @spec parse(map()) :: {:ok, t()} | {:error, Error.t()}
   def parse(_attrs), do: raise(NotImplementedError, function: :parse)
-
-  @spec decode_stored!(map()) :: t()
-  def decode_stored!(_params), do: raise(NotImplementedError, function: :decode_stored!)
-
-  # Creation validates the tier vocabulary before stored definitions reach this decoder.
-  @spec decode_tier!(String.t()) :: Tier.t()
-  def decode_tier!("small"), do: :small
-  def decode_tier!("medium"), do: :medium
-  def decode_tier!("large"), do: :large
 end

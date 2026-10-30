@@ -2,9 +2,9 @@ defmodule NetworkDefense.Evaluation2.Study.Error.Issue do
   @moduledoc """
   One bounded diagnostic of a study error.
 
-  A path names the rejected position inside the submitted document. The details
-  map carries bounded extra facts. Parser output, submitted values, stack
-  traces, and changesets stay internal.
+  A path names the rejected position inside the submitted document. Parser
+  output, submitted values, stack traces, and changesets stay internal, so the
+  issue carries a fixed code and message only.
   """
 
   use Spectral
@@ -18,9 +18,8 @@ defmodule NetworkDefense.Evaluation2.Study.Error.Issue do
   @type t :: %__MODULE__{
           code: String.t(),
           path: path(),
-          message: String.t(),
-          details: map()
+          message: String.t()
         }
 
-  defstruct [:code, :path, :message, :details]
+  defstruct [:code, :path, :message]
 end

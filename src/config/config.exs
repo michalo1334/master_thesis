@@ -79,6 +79,12 @@ config :network_defense, NetworkDefense.Repo, log: false
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Spectral stores Evaluation2 UUID identifiers as canonical JSON strings.
+config :spectra,
+  codecs: %{
+    {Ecto.UUID, {:type, :t, 0}} => NetworkDefense.Evaluation2.Study.Persistence.UuidCodec
+  }
+
 # OpenTelemetry defaults. Override in env-specific configs.
 config :opentelemetry,
   span_processor: :batch
