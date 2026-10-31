@@ -2,11 +2,12 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
   @moduledoc """
   Prepares Pilot comparison jobs from a collection snapshot and its definition.
 
-  Candidates share each comparison's historical random stream. Evaluation and
+  Candidates share each comparison's deterministic planning stream. Evaluation and
   outcome selection remain unavailable.
   """
 
   alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study.{Definition, Randomness}
   alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Error.Issue
   alias NetworkDefense.Evaluation2.Study.Persistence
@@ -19,8 +20,7 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
   @doc """
   Prepare jobs in candidate order and then comparison order.
 
-  Tier rank follows first appearance; comparison index counts occurrences within
-  that tier. These coordinates preserve the historical stream seed.
+  Logical comparison identity determines the stream. Candidate sizes share it.
   """
   @spec prepare(Ecto.UUID.t()) :: {:ok, [Job.t()]} | {:error, Error.t()}
   def prepare(snapshot_id) do
@@ -32,50 +32,28 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
 
   defp prepare_jobs(%{
          phase: %{phase: :pilot_collection},
-         revision: %{
-           definition: %{
-             pilot: %{candidates: [_ | _] = candidates, analysis: %{base_seed: base_seed}},
-             family: %{comparisons: [_ | _] = comparisons}
-           }
-         },
+         revision: %{definition: %Definition{} = definition},
          snapshot: %{evidence: %{comparisons: evidence}}
        })
-       when is_list(candidates) and is_list(comparisons) and is_list(evidence) and
-              is_integer(base_seed) and base_seed >= 0 do
-    with true <- length(comparisons) == length(evidence),
-         {:ok, seeds} <- comparison_seeds(comparisons, base_seed) do
+       when is_list(evidence) do
+    comparisons = Definition.comparisons(definition)
+
+    if length(comparisons) == length(evidence) do
       {:ok,
-       for {_candidate, candidate_position} <- Enum.with_index(candidates),
-           {seed, comparison_position} <- Enum.with_index(seeds) do
+       for {_candidate, candidate_position} <- Enum.with_index(definition.pilot.candidates),
+           {comparison, comparison_position} <- Enum.with_index(comparisons) do
          %Job{
            candidate_position: candidate_position,
            comparison_position: comparison_position,
-           stream_seed: seed
+           stream_seed: Randomness.pilot_planning_seed(definition, comparison)
          }
        end}
     else
-      _invalid -> invalid_input()
+      invalid_input()
     end
   end
 
   defp prepare_jobs(_context), do: invalid_input()
-
-  defp comparison_seeds(comparisons, base_seed) do
-    comparisons
-    |> Enum.reduce_while({[], %{}}, fn
-      %{tier: tier}, {seeds, tiers} when is_binary(tier) and byte_size(tier) > 0 ->
-        {rank, index} = Map.get(tiers, tier, {map_size(tiers), 0})
-        seed = base_seed + rank * 1_000_000 + index * 2
-        {:cont, {[seed | seeds], Map.put(tiers, tier, {rank, index + 1})}}
-
-      _comparison, _acc ->
-        {:halt, :error}
-    end)
-    |> case do
-      {seeds, _tiers} -> {:ok, Enum.reverse(seeds)}
-      :error -> :error
-    end
-  end
 
   defp invalid_input do
     {:error,

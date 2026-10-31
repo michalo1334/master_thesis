@@ -15,8 +15,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   `create_revision/1` and `start/1` are separate operations, so one frozen
   revision supports several executions.
 
-  Revision creation and the Pilot report still return a bounded error until the
-  definition parser and the scientific analysis exist. Storage failures report
+  Revision creation validates and resolves the new definition before persistence.
+  Pilot analysis and its report remain unavailable. Storage failures report
   their fixed public issue code through `Study.Views.error/1`.
   """
 
@@ -24,7 +24,7 @@ defmodule NetworkDefense.Evaluation2.Study do
 
   require Logger
 
-  alias NetworkDefense.Evaluation2.Placeholder
+  alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
@@ -61,10 +61,28 @@ defmodule NetworkDefense.Evaluation2.Study do
   consistency checks, and graph reference lookup.
   """
   @spec create_revision(binary()) :: {:ok, Revision.t()} | {:error, Error.t()}
-  def create_revision(_document) do
-    # Definition decoding and normalization arrive with the definition task. The
-    # storage insert is `Persistence.insert_revision/1`.
-    {:error, Placeholder.error(:create_revision)}
+  def create_revision(document) when is_binary(document) do
+    with {:ok, attrs} <- decode_yaml(document),
+         {:ok, parsed} <- Definition.parse(attrs),
+         {:ok, definition} <- Definition.resolve(parsed) do
+      Persistence.insert_revision(definition)
+      |> bind(fn revision -> {:ok, Views.revision(revision)} end)
+    end
+  end
+
+  def create_revision(_document), do: {:error, invalid_yaml()}
+
+  defp decode_yaml(document) do
+    case YamlElixir.read_from_string(document) do
+      {:ok, attrs} when is_map(attrs) -> {:ok, attrs}
+      _ -> {:error, invalid_yaml()}
+    end
+  rescue
+    YamlElixir.ParsingError -> {:error, invalid_yaml()}
+  end
+
+  defp invalid_yaml do
+    Definition.Schema.error("invalid_yaml", [], "Supply one YAML definition object.")
   end
 
   @doc """

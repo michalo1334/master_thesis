@@ -3,14 +3,10 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Family do
 
   use Spectral
 
-  alias NetworkDefense.Evaluation2.Study.Definition.Comparison
+  # Declared comparison family. The correction method and the comparison
+  # membership are fixed facts of the construction, not operator settings.
+  # Comparisons are derived in canonical order, so they are not stored here.
 
-  # The declared method is Holm; its string remains part of the definition format.
-  @type t :: %__MODULE__{
-          id: String.t(),
-          method: String.t(),
-          alpha: float(),
-          comparisons: [Comparison.t()]
-        }
-  defstruct [:id, :method, :alpha, :comparisons]
+  @type t :: %__MODULE__{id: String.t(), alpha: float()}
+  defstruct [:id, :alpha]
 end

@@ -16,10 +16,9 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
       S --> E[evidence snapshot]
   ```
 
-  The plan order is the declared comparison order, then the alternative side
-  before the reference side, then the first planned selection seeds in declared
-  order. Planning the same definition twice produces equal work, and the same
-  phase run keeps its stored plan.
+  The plan follows tier order, declared budget order, CVSS then alternatives,
+  and logical row order. Comparisons share the collected CVSS group. Planning
+  the same definition twice produces equal work; a phase run keeps its plan.
 
   Mapped Gust tasks call `run_optimization/1` and `run_simulation/1`. Gust owns
   batch execution, dependency fan-in, and retry, so this module holds no
@@ -33,7 +32,6 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Collection.WorkItem
   alias NetworkDefense.Evaluation2.Study.Definition
-  alias NetworkDefense.Evaluation2.Study.Definition.{Graph, Strategy, TierRoot}
   alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Evidence
   alias NetworkDefense.Evaluation2.Study.Evidence.Comparison, as: ComparisonEvidence
@@ -42,12 +40,13 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionPlan
   alias NetworkDefense.Evaluation2.Study.Persistence.EvidenceSnapshot
+  alias NetworkDefense.Evaluation2.Study.Randomness
   alias NetworkDefense.Evaluation2.Study.Selection
   alias NetworkDefense.Evaluation2.Study.Tier
   alias NetworkDefense.Evaluation2.Study.Views
   alias NetworkDefense.Graph.Graph, as: OutputGraph
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
+  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns, RunIdentity}
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
   alias NetworkDefense.Simulations
@@ -55,15 +54,10 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   @doc """
   Build or load the Pilot plan of one collection phase run.
 
-  The plan covers every declared comparison, both sides of each comparison, and
-  the first `plan_count_per_side` selection seeds in declared order. The resolved
-  strategy owns the optimization budget. A repeated call with the same definition
-  returns the stored plan, and a different payload keeps the stored plan and
-  returns a conflict error.
-
-  A definition that cannot produce one complete work item returns
-  `invalid_collection_definition`. Full definition validation belongs to revision
-  creation.
+  The plan collects each tier/budget/strategy group once per logical row.
+  Resolved requests freeze shared policy, simulation settings, and scalar seeds.
+  An equal retry returns the stored plan. A different payload returns a conflict
+  and preserves that plan. Revision creation establishes the definition invariants.
   """
   @spec prepare_pilot(Ecto.UUID.t(), Definition.t()) ::
           {:ok, CollectionPlan.t()} | {:error, Error.t()}
@@ -179,16 +173,23 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
 
   defp item_observation(%WorkItem{} = work, %CollectionItem{} = item) do
     with {:ok, optimization} <- evidence_optimization(item.optimization_run_id),
+         true <- optimization_matches?(optimization, work),
          {:ok, graph} <- evidence_graph(optimization.output_graph_revision_id),
          {:ok, experiment} <- evidence_experiment(item.experiment_id, optimization, work),
          {:ok, runs} <- evidence_runs(experiment) do
       impacts = Enum.map(runs, &mission_impact(graph, &1))
 
-      if Enum.all?(impacts, &is_float/1) do
+      if Enum.all?(
+           impacts,
+           &(Definition.finite?(&1) and &1 >= work.mission_impact_bound.minimum and
+               &1 <= work.mission_impact_bound.maximum)
+         ) do
         {:ok, %{work: work, seeds: Enum.map(runs, & &1.seed), impacts: impacts}}
       else
         :error
       end
+    else
+      _ -> :error
     end
   end
 
@@ -206,6 +207,15 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   end
 
   defp evidence_optimization(_id), do: :error
+
+  defp optimization_matches?(run, work) do
+    request = WorkItem.optimization_request(work, "evidence")
+    expected = RunIdentity.execution_config(request)
+
+    run.graph_revision_id == work.graph_revision and run.strategy == work.strategy.key and
+      run.requested_budget == work.budget and run.seed == work.selection_seed and
+      run.execution_config == expected
+  end
 
   defp evidence_graph(revision) do
     case Graphs.load_revision(revision) do
@@ -235,6 +245,10 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
       experiment.graph_revision_id == optimization.output_graph_revision_id and
       experiment.master_seed == work.evaluation_root and
       experiment.initial_foothold_node_id == work.initial_foothold_node_id and
+      experiment.iteration_count == work.simulation.iterations_per_run and
+      experiment.max_attempts == work.simulation.max_attempts and
+      experiment.rules == work.simulation.rules and
+      experiment.require_pre_attack_feasibility == work.require_pre_attack_feasibility and
       valid_trial_count?(experiment, work)
   end
 
@@ -267,16 +281,19 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
     |> then(&MissionImpact.final(graph, &1))
   end
 
-  defp build_evidence(observations, %Definition{family: family}) do
-    count = length(family.comparisons)
-    positions = Enum.to_list(0..(count - 1)//1)
+  defp build_evidence(observations, %Definition{} = definition) do
+    comparisons = Definition.comparisons(definition)
+    groups = Definition.collection_groups(definition)
+    capacity = Definition.pilot_capacity(definition)
+    expected = for group <- groups, row <- 0..(capacity.plans - 1), do: {group.position, row}
+    actual = Enum.map(observations, &{&1.work.group_position, &1.work.plan_position})
 
-    if count > 0 and Enum.all?(observations, &(&1.work.comparison_position in positions)) do
-      positions
+    if actual == expected do
+      comparisons
       |> Enum.reduce_while({:ok, []}, &collect_comparison(&1, &2, observations))
       |> reverse_observations()
       |> case do
-        {:ok, comparisons} -> {:ok, %Evidence{comparisons: comparisons}}
+        {:ok, values} -> {:ok, %Evidence{comparisons: values}}
         error -> error
       end
     else
@@ -284,22 +301,25 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
     end
   end
 
-  defp collect_comparison(position, {:ok, comparisons}, observations) do
-    case comparison_evidence(observations, position) do
-      {:ok, comparison} -> {:cont, {:ok, [comparison | comparisons]}}
+  defp collect_comparison(comparison, {:ok, result}, observations) do
+    case comparison_evidence(observations, comparison) do
+      {:ok, value} -> {:cont, {:ok, [value | result]}}
       :error -> {:halt, {:error, incomplete_collection_evidence()}}
     end
   end
 
-  defp comparison_evidence(observations, position) do
-    rows = Enum.filter(observations, &(&1.work.comparison_position == position))
-    alternative = Enum.filter(rows, &(&1.work.side == :alternative))
-    reference = Enum.filter(rows, &(&1.work.side == :reference))
+  defp comparison_evidence(observations, comparison) do
+    alternative =
+      Enum.filter(observations, &(&1.work.group_position == comparison.group_position))
+
+    reference =
+      Enum.filter(observations, &(&1.work.group_position == comparison.reference_group_position))
+
+    rows = alternative ++ reference
 
     case rows do
       [%{seeds: seeds} | _] when alternative != [] and reference != [] ->
-        if Enum.all?(rows, &(&1.seeds == seeds and length(&1.impacts) == length(seeds))) and
-             length(alternative) + length(reference) == length(rows) do
+        if Enum.all?(rows, &(&1.seeds == seeds and length(&1.impacts) == length(seeds))) do
           {:ok,
            %ComparisonEvidence{
              attack_seeds: seeds,
@@ -318,108 +338,38 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   # --- planning ------------------------------------------------------------
 
   defp pilot_work(%Definition{} = definition) do
-    collection = definition.pilot.collection
+    capacity = Definition.pilot_capacity(definition)
 
-    with :ok <- positive_count(collection.plan_count_per_side),
-         :ok <- positive_count(collection.attacks_per_plan),
-         {:ok, seeds} <- pilot_seeds(collection.selection_seeds, collection.plan_count_per_side) do
-      comparison_work(definition, collection, seeds)
-    end
-  end
+    items =
+      for group <- Definition.collection_groups(definition),
+          row <- 0..(capacity.plans - 1) do
+        graph = Enum.find(definition.tiers, &(&1.tier == group.tier))
 
-  defp comparison_work(%Definition{} = definition, collection, seeds) do
-    definition.family.comparisons
-    |> Enum.with_index()
-    |> Enum.reduce_while({:ok, []}, fn {comparison, position}, {:ok, groups} ->
-      case comparison_group(definition, collection, comparison, position, seeds) do
-        {:ok, work_items} -> {:cont, {:ok, [work_items | groups]}}
-        {:error, failure} -> {:halt, {:error, failure}}
+        %WorkItem{
+          group_position: group.position,
+          plan_position: row,
+          graph_revision: graph.graph_revision_id,
+          initial_foothold_node_id: graph.initial_foothold_node_id,
+          strategy: group.strategy,
+          budget: group.budget,
+          candidate_action_types:
+            Definition.effective_action_types(definition, group.strategy.key),
+          require_pre_attack_feasibility: Definition.require_feasibility?(definition),
+          simulation: definition.simulation,
+          mission_impact_bound: graph.mission_impact_bound,
+          selection_seed: Randomness.selection_seed(definition, :pilot, row),
+          evaluation_root: Randomness.evaluation_root(definition, :pilot, group.tier),
+          attack_count: capacity.attacks
+        }
       end
-    end)
-    |> ordered_work()
+
+    {:ok, items}
   end
 
-  defp comparison_group(definition, collection, comparison, position, seeds) do
-    with {:ok, graph} <- tier_graph(definition.graphs, comparison.tier),
-         {:ok, alternative} <- graph_strategy(graph, comparison.alternative),
-         {:ok, reference} <- graph_strategy(graph, comparison.reference),
-         {:ok, root} <- pilot_root(collection.roots, comparison.tier),
-         {:ok, revision} <- canonical_uuid(graph.graph_revision_id),
-         {:ok, foothold} <- canonical_uuid(graph.initial_foothold_node_id) do
-      resolved = %{
-        comparison_position: position,
-        graph_revision: revision,
-        foothold: foothold,
-        seeds: seeds,
-        evaluation_root: root,
-        attack_count: collection.attacks_per_plan
-      }
-
-      {:ok, sides(alternative, reference) |> Enum.flat_map(&side_work(&1, resolved))}
-    end
-  end
-
-  defp sides(alternative, reference),
-    do: [{:alternative, alternative}, {:reference, reference}]
-
-  defp side_work({side, strategy}, resolved) do
-    Enum.map(resolved.seeds, fn seed ->
-      %WorkItem{
-        comparison_position: resolved.comparison_position,
-        side: side,
-        graph_revision: resolved.graph_revision,
-        initial_foothold_node_id: resolved.foothold,
-        strategy: strategy,
-        selection_seed: seed,
-        evaluation_root: resolved.evaluation_root,
-        attack_count: resolved.attack_count
-      }
-    end)
-  end
-
-  defp ordered_work({:ok, groups}), do: {:ok, groups |> Enum.reverse() |> Enum.concat()}
-  defp ordered_work({:error, failure}), do: {:error, failure}
-
-  defp tier_graph(graphs, tier) do
-    case Enum.find(graphs, &(&1.tier == tier)) do
-      %Graph{} = graph -> {:ok, graph}
-      nil -> {:error, invalid_collection_definition()}
-    end
-  end
-
-  defp graph_strategy(%Graph{strategies: strategies}, key) do
-    case Enum.find(strategies, &(&1.key == key)) do
-      %Strategy{} = strategy -> {:ok, strategy}
-      nil -> {:error, invalid_collection_definition()}
-    end
-  end
-
-  defp pilot_root(roots, tier) do
-    case Enum.find(roots, &(&1.tier == tier)) do
-      %TierRoot{value: value} -> {:ok, value}
-      nil -> {:error, invalid_collection_definition()}
-    end
-  end
-
-  defp pilot_seeds(seeds, count) when is_list(seeds) and count > 0 do
-    if length(seeds) >= count do
-      {:ok, Enum.take(seeds, count)}
-    else
-      {:error, invalid_collection_definition()}
-    end
-  end
-
-  defp pilot_seeds(_seeds, _count), do: {:error, invalid_collection_definition()}
-
-  defp positive_count(value) when is_integer(value) and value > 0, do: :ok
-  defp positive_count(_value), do: {:error, invalid_collection_definition()}
-
-  # The persisted request carries canonical identifiers only, so a decoded plan
-  # names one stored graph revision and one stored node without extra parsing.
   defp canonical_uuid(value) when is_binary(value) do
     case Ecto.UUID.cast(value) do
       {:ok, ^value} -> {:ok, value}
-      _not_canonical -> {:error, invalid_collection_definition()}
+      _ -> {:error, invalid_collection_definition()}
     end
   end
 

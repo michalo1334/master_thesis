@@ -3,10 +3,9 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Candidate do
 
   use Spectral
 
-  @type t :: %__MODULE__{
-          id: String.t(),
-          plan_count_per_side: pos_integer(),
-          attacks_per_plan: pos_integer()
-        }
-  defstruct [:id, :plan_count_per_side, :attacks_per_plan]
+  # One declared Pilot sample-size candidate. Plans and attacks stay a pair,
+  # so separate lists cannot form an implicit candidate grid.
+
+  @type t :: %__MODULE__{id: String.t(), plans: pos_integer(), attacks: pos_integer()}
+  defstruct [:id, :plans, :attacks]
 end

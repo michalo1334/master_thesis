@@ -58,7 +58,7 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   def result(revision, execution, stored_result) do
     with {:ok, pilot_outcome} <- accepted_outcome(execution),
          {:ok, selection} <- accepted_selection(execution),
-         {:ok, family} <- family(revision.definition.family, stored_result.family) do
+         {:ok, family} <- family(revision.definition, stored_result.family) do
       {:ok,
        %ResultView{
          execution_id: execution.id,
@@ -131,11 +131,13 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
 
   # The Family size is the declared comparison count, and each stored value keeps
   # its declared position.
-  @spec family(Definition.family(), CorrectedFamily.t()) ::
+  @spec family(Definition.t(), CorrectedFamily.t()) ::
           {:ok, ResultFamily.t()} | {:error, Error.t()}
-  defp family(%{comparisons: declared} = declared_family, %CorrectedFamily{comparisons: stored}) do
+  defp family(%Definition{} = definition, %CorrectedFamily{comparisons: stored}) do
+    declared = Definition.comparisons(definition)
+    declared_family = definition.family
+
     with :ok <- same_comparison_count(declared, stored),
-         {:ok, method} <- family_method(declared_family.method),
          {:ok, identities} <- comparison_identities(declared) do
       comparisons =
         identities
@@ -151,7 +153,7 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
       {:ok,
        %ResultFamily{
          id: declared_family.id,
-         method: method,
+         method: :holm,
          alpha: declared_family.alpha,
          comparisons: comparisons
        }}
@@ -179,11 +181,6 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
       {:error, corrupt_storage_error()}
     end
   end
-
-  # The creation contract validates the correction method, so one accepted literal
-  # exists.
-  defp family_method("holm"), do: {:ok, :holm}
-  defp family_method(_method), do: {:error, corrupt_storage_error()}
 
   defp accepted_outcome(%Persistence.Execution{pilot_outcome: %PilotOutcome{} = outcome}),
     do: {:ok, outcome}

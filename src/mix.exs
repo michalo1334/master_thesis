@@ -118,15 +118,13 @@ defmodule NetworkDefense.MixProject do
       setup: ["deps.get", "ecto.setup", "assets.setup", "assets.build"],
       "ecto.setup": [
         "ecto.create",
-        "ecto.migrate",
-        "ecto.migrate -r Gust.Repo --migrations-path deps/gust/priv/repo/migrations",
+        "ecto.migrate -r NetworkDefense.Repo -r Gust.Repo",
         "run priv/repo/seeds.exs"
       ],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: [
         "ecto.create --quiet",
-        "ecto.migrate --quiet",
-        "ecto.migrate --quiet -r Gust.Repo --migrations-path deps/gust/priv/repo/migrations",
+        "ecto.migrate --quiet -r NetworkDefense.Repo -r Gust.Repo",
         "test"
       ],
       "assets.setup": ["phoenix_vite.npm assets install"],

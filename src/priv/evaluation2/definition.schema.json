@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Evaluation2StudyDefinition",
+  "description": "Operator input of one Evaluation2 study revision. The schema declares required known fields and local primitive bounds. Unknown keys are allowed and dropped during typed construction. Provenance, mission-impact bounds, and comparisons are derived during construction, so they are not part of this input contract.",
+  "type": "object",
+  "required": [
+    "study",
+    "seed",
+    "family",
+    "analysis",
+    "defense",
+    "simulation",
+    "tiers",
+    "pilot"
+  ],
+  "properties": {
+    "study": {
+      "type": "object",
+      "required": ["id", "revision"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Stored revision number of the frozen definition."
+        }
+      }
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775806,
+      "description": "Master study seed. Supported range is 0 <= seed < 2^63 - 1."
+    },
+    "family": {
+      "type": "object",
+      "required": ["id", "alpha"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "alpha": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "exclusiveMinimum": true,
+          "exclusiveMaximum": true
+        }
+      }
+    },
+    "analysis": {
+      "type": "object",
+      "required": ["confidence_level"],
+      "properties": {
+        "confidence_level": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "exclusiveMinimum": true,
+          "exclusiveMaximum": true,
+          "description": "One interval level for Pilot planning and Final reporting."
+        }
+      }
+    },
+    "defense": {
+      "type": "object",
+      "required": ["allowed_action_types"],
+      "properties": {
+        "feasibility": {
+          "type": "string",
+          "enum": ["required", "unrestricted"],
+          "description": "Shared policy for optimization, scoring, and evidence simulation. Omitted means required."
+        },
+        "allowed_action_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/action_type"}
+        }
+      }
+    },
+    "simulation": {
+      "type": "object",
+      "required": ["iterations_per_run", "max_attempts", "rules"],
+      "properties": {
+        "iterations_per_run": {"type": "integer", "minimum": 1},
+        "max_attempts": {"type": "integer", "minimum": 1},
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/definitions/rule"}
+        }
+      }
+    },
+    "tiers": {
+      "type": "object",
+      "required": ["small", "medium", "large"],
+      "properties": {
+        "small": {"$ref": "#/definitions/graph"},
+        "medium": {"$ref": "#/definitions/graph"},
+        "large": {"$ref": "#/definitions/graph"}
+      }
+    },
+    "pilot": {
+      "type": "object",
+      "required": ["candidates", "extra_pool", "precision"],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/candidate"}
+        },
+        "extra_pool": {
+          "$ref": "#/definitions/sample_size",
+          "description": "Extra collection capacity. Zero counts are valid."
+        },
+        "precision": {
+          "type": "object",
+          "required": ["outer_subsamples", "target_half_width", "guard_quantile"],
+          "properties": {
+            "outer_subsamples": {"type": "integer", "minimum": 1},
+            "target_half_width": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMinimum": true
+            },
+            "guard_quantile": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "exclusiveMinimum": true,
+              "exclusiveMaximum": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "action_type": {
+      "type": "string",
+      "enum": ["block_segment_reachability", "patch_vulnerability", "revoke_credential"]
+    },
+    "rule": {
+      "type": "string",
+      "enum": [
+        "remote_service_exploitation",
+        "local_vulnerability_exploitation",
+        "acquire_credential_rule",
+        "reuse_credential_rule"
+      ]
+    },
+    "graph": {
+      "type": "object",
+      "required": [
+        "graph_revision_id",
+        "foothold_node_id",
+        "budgets",
+        "alternatives"
+      ],
+      "properties": {
+        "graph_revision_id": {"$ref": "#/definitions/uuid"},
+        "foothold_node_id": {"$ref": "#/definitions/uuid"},
+        "budgets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 1},
+          "description": "Non-empty unique positive budgets in declaration order."
+        },
+        "alternatives": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/definitions/alternative"},
+          "description": "Primary alternatives in declaration order. CVSS is the implicit reference."
+        }
+      }
+    },
+    "alternative": {
+      "oneOf": [
+        {"$ref": "#/definitions/scored_alternative"},
+        {"$ref": "#/definitions/simple_alternative"}
+      ]
+    },
+    "scored_alternative": {
+      "type": "object",
+      "required": ["strategy", "scoring"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["simulation_informed", "simulated_annealing"]
+        },
+        "scoring": {
+          "type": "object",
+          "required": ["objective", "monte_carlo_trials"],
+          "properties": {
+            "objective": {
+              "type": "string",
+              "enum": [
+                "blast_radius_only",
+                "mission_impact_only",
+                "mission_then_blast_radius"
+              ]
+            },
+            "monte_carlo_trials": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "simple_alternative": {
+      "type": "object",
+      "required": ["strategy"],
+      "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["random", "topology_segmentation"]
+        },
+        "scoring": {
+          "type": "null",
+          "description": "A simple alternative carries no scoring data."
+        }
+      }
+    },
+    "sample_size": {
+      "type": "object",
+      "required": ["plans", "attacks"],
+      "properties": {
+        "plans": {"type": "integer", "minimum": 0},
+        "attacks": {"type": "integer", "minimum": 0}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "required": ["id", "plans", "attacks"],
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "plans": {"type": "integer", "minimum": 1},
+        "attacks": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

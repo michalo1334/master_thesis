@@ -4,14 +4,13 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Scoring do
   use Spectral
 
   alias NetworkDefense.Optimization.SimulationObjective
-  alias NetworkDefense.Rules.Registry, as: RulesRegistry
+
+  # Strategy-specific scoring settings. The simulation model itself belongs to
+  # the study, so this value declares only the objective and the trial budget.
 
   @type t :: %__MODULE__{
           objective: SimulationObjective.t(),
-          monte_carlo_trials: pos_integer(),
-          iterations_per_run: pos_integer(),
-          max_attempts: pos_integer(),
-          rules: [RulesRegistry.rule_type()]
+          monte_carlo_trials: pos_integer()
         }
-  defstruct [:objective, :monte_carlo_trials, :iterations_per_run, :max_attempts, :rules]
+  defstruct [:objective, :monte_carlo_trials]
 end

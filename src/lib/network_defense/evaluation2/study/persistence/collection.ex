@@ -16,19 +16,13 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
 
   alias Ecto.Changeset
   alias NetworkDefense.Evaluation2.Study.Collection.WorkItem
-  alias NetworkDefense.Evaluation2.Study.Definition.Scoring
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionPlan
-  alias NetworkDefense.Optimization.Contracts.OptimizationParams
-  alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
-  alias NetworkDefense.Optimization.Contracts.SimulationSettings
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
-  alias NetworkDefense.Simulation.Contracts.SimulationParams
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulations
@@ -287,10 +281,9 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
 
   defp experiment_for_item(%CollectionItem{experiment_id: nil} = item, operation) do
     with {:ok, run} <- linked_optimization(item, operation),
-         {:ok, chain} <- Persistence.phase_run_chain(item.study_phase_run_id, operation),
          {:ok, work_item} <- planned_work_item(item, operation),
          {:ok, candidate} <-
-           experiment_candidate(item, work_item, run, chain.revision.definition, operation),
+           experiment_candidate(item, work_item, run, operation),
          {:ok, experiment} <- insert_experiment(candidate, operation),
          {:ok, _item} <- link_effect(item, %{experiment_id: experiment.id}, operation) do
       {:ok, experiment}
@@ -355,16 +348,16 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
     end
   end
 
-  defp experiment_candidate(item, work_item, run, definition, operation) do
+  defp experiment_candidate(item, work_item, run, operation) do
     if is_binary(run.output_graph_revision_id) and run.output_graph_revision_id != "" do
-      prepare_experiment(item, work_item, run, definition, operation)
+      prepare_experiment(item, work_item, run, operation)
     else
       {:error, Persistence.error(:storage, operation, :optimization_run, :incomplete)}
     end
   end
 
-  defp prepare_experiment(item, work_item, run, definition, operation) do
-    case Simulations.prepare_candidate(simulation_request(item, work_item, run, definition)) do
+  defp prepare_experiment(item, work_item, run, operation) do
+    case Simulations.prepare_candidate(simulation_request(item, work_item, run)) do
       {:ok, %Experiment{} = candidate} ->
         {:ok, candidate}
 
@@ -393,60 +386,16 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
     end
   end
 
-  # The definition owns the scientific simulation settings and the strategy group
-  # owns the budget, so each request is resolved from authoritative records.
-  defp optimization_request(item, %WorkItem{} = work_item) do
-    strategy = work_item.strategy
+  defp optimization_request(item, work),
+    do: WorkItem.optimization_request(work, correlation_id(item, :optimization))
 
-    %RunOptimizationRequest{
-      graph_revision_id: work_item.graph_revision,
-      correlation_id: correlation_id(item, :optimization),
-      optimization_params: %OptimizationParams{
-        strategy: strategy.key,
-        budget: strategy.budget,
-        seed: work_item.selection_seed,
-        candidate_action_types: strategy.candidate_action_types,
-        require_pre_attack_feasibility: strategy.require_pre_attack_feasibility,
-        initial_foothold_node_id: foothold_node_id(work_item),
-        simulation_params: scoring_settings(strategy.scoring)
-      }
-    }
-  end
-
-  defp foothold_node_id(%WorkItem{} = work_item) do
-    if OptimizationParams.requires_initial_foothold?(work_item.strategy.key) do
-      work_item.initial_foothold_node_id
-    end
-  end
-
-  defp scoring_settings(nil), do: nil
-
-  defp scoring_settings(%Scoring{} = scoring) do
-    %SimulationSettings{
-      objective: scoring.objective,
-      monte_carlo_trials: scoring.monte_carlo_trials,
-      iterations_per_run: scoring.iterations_per_run,
-      max_attempts: scoring.max_attempts,
-      rules: scoring.rules
-    }
-  end
-
-  defp simulation_request(item, work_item, run, definition) do
-    %RunSimulationRequest{
-      graph_revision_id: run.output_graph_revision_id,
-      correlation_id: correlation_id(item, :experiment),
-      simulation_params: %SimulationParams{
-        monte_carlo_trials: work_item.attack_count,
-        iterations_per_run: definition.simulation.iterations_per_run,
-        initial_foothold_node_id: work_item.initial_foothold_node_id,
-        seed: work_item.evaluation_root,
-        generate_seed: false,
-        max_attempts: definition.simulation.max_attempts,
-        rules: definition.simulation.rules,
-        require_pre_attack_feasibility: definition.simulation.require_pre_attack_feasibility
-      }
-    }
-  end
+  defp simulation_request(item, work, run),
+    do:
+      WorkItem.simulation_request(
+        work,
+        run.output_graph_revision_id,
+        correlation_id(item, :experiment)
+      )
 
   defp correlation_id(%CollectionItem{id: id}, step), do: "#{id}/#{step}"
 

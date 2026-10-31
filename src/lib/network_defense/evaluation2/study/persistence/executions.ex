@@ -351,8 +351,8 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   end
 
   defp settle_recommendation(%Candidate{} = candidate, %PilotOutcome{} = outcome, operation) do
-    if candidate.plan_count_per_side == outcome.plan_count_per_side and
-         candidate.attacks_per_plan == outcome.attacks_per_plan do
+    if candidate.plans == outcome.plan_count_per_side and
+         candidate.attacks == outcome.attacks_per_plan do
       {:ok, selection_from_candidate(candidate)}
     else
       {:error,
@@ -368,8 +368,8 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   defp selection_from_candidate(%Candidate{} = candidate) do
     %Selection{
       candidate_id: candidate.id,
-      plan_count_per_side: candidate.plan_count_per_side,
-      attacks_per_plan: candidate.attacks_per_plan
+      plan_count_per_side: candidate.plans,
+      attacks_per_plan: candidate.attacks
     }
   end
 
