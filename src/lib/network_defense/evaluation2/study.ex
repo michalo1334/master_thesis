@@ -16,9 +16,9 @@ defmodule NetworkDefense.Evaluation2.Study do
   revision supports several executions.
 
   Revision creation validates and resolves the new definition before persistence.
-  Caller-owned continuation reaches Pilot approval and collects approved Final
-  tiers. Final analysis belongs to the next milestone. Storage failures use fixed
-  public issue codes.
+  Caller-owned continuation reaches Pilot approval, collects approved Final
+  tiers, and accepts native Final analysis with its durable result. Storage
+  failures use fixed public issue codes.
   """
 
   use Spectral
@@ -110,8 +110,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   @doc """
   Continue study execution to its supported approval or terminal boundary.
 
-  Final collection currently stops with a bounded unavailable result after its
-  accepted snapshot reaches Final analysis.
+  Explicit approval freezes the Final counts. Continuation then completes the
+  tier protocol and accepts the corrected family with its measured timings.
 
   A finite timeout returns current Status and leaves work active. This call
   grants no Final approval. Cancellation is observed through durable state.

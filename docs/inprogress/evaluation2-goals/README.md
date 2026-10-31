@@ -2,9 +2,9 @@
 
 This delivery plan supersedes the earlier single-batch execution decision. The consolidated refactor brief remains the scope reference; execute the six goals below in dependency order.
 
-**Status: Goals 01–04 verified. Goals 05–06 have not started.**
+**Status: Goals 01–05 verified. Goals 05.5 and 06 have not started.**
 
-[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The [Goal 04 collection audit](progress/04-final-collection.md) records real sequential Final tiers, durable timing/equality proof and the accepted snapshot at `analyzing_final`. Final analysis, full calibration and retirement remain later milestones.
+[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The [Goal 04 collection audit](progress/04-final-collection.md) records real sequential Final tiers, durable timing/equality proof and the accepted snapshot at `analyzing_final`. The [Goal 05 audit](progress/05-native-study.md) records native Final analysis, two real successful all-tier executions, public result reads and 990 passing regression cases. It also records the worker's default port-5432 test-database deviation and the operator's confirmation that both targets are development environments, which resolves the preservation gate. Goal 05.5 is next. Full calibration, documentation refresh and retirement retain their later gates.
 
 ## Sequence
 

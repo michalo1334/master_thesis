@@ -58,10 +58,10 @@ defmodule NetworkDefense.Evaluation2.FinalWorkflowTest do
     start_supervised!({Gust.Run.DispatcherSupervisor, []})
 
     for caller <- callers do
-      assert {:error, %Study.Error{}} = Task.await(caller, 45_000)
+      assert {:ok, %{state: :succeeded}} = Task.await(caller, 45_000)
     end
 
-    assert {:ok, %{state: :analyzing_final}} = Study.status(c.context.execution.id)
+    assert {:ok, %{state: :succeeded}} = Study.status(c.context.execution.id)
     assert {:ok, snapshot} = Persistence.fetch_phase_evidence_snapshot(c.context.active_phase.id)
     assert [_small, _medium, _large] = snapshot.evidence.comparisons
 

@@ -48,19 +48,16 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
         remaining(deadline) == 0 ->
           status(context)
 
-        context.execution.state in [:collecting_pilot, :analyzing_pilot] ->
-          progress_pilot(context, deadline)
+        context.execution.state in [:collecting_pilot, :analyzing_pilot, :analyzing_final] ->
+          progress_single(context, deadline)
 
         context.execution.state == :collecting_final ->
           progress_final(context, deadline)
-
-        true ->
-          {:error, error("final_analysis_not_implemented", "Final analysis belongs to Goal 05.")}
       end
     end
   end
 
-  defp progress_pilot(context, deadline) do
+  defp progress_single(context, deadline) do
     case ensure_phase_run(context.active_phase.id, context.active_phase.phase) do
       {:ok, phase_run} -> await_settle(context, phase_run, deadline)
       {:error, failure} -> recover_progress(context, deadline, failure)
@@ -171,7 +168,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
       {:ok, %Run{status: :succeeded}} ->
         if context.active_phase.phase == :final_collection,
           do: progress(context.execution.id, deadline),
-          else: accept_completed(context.active_phase, phase_run, context.execution.id, deadline)
+          else: accept_completed(context, phase_run, deadline)
 
       {:ok, _run} ->
         {:error, incomplete()}
@@ -182,9 +179,16 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   end
 
   defp run_failure(:final_collection), do: error("final_run_failed", "The Final tier run failed.")
+
+  defp run_failure(:final_analysis),
+    do: error("final_analysis_failed", "The Final analysis run failed.")
+
   defp run_failure(_pilot), do: error("pilot_run_failed", "The Pilot run failed.")
 
-  defp accept_completed(phase, phase_run, execution_id, deadline) do
+  defp accept_completed(context, phase_run, deadline) do
+    phase = context.active_phase
+    execution_id = context.execution.id
+
     result =
       case phase.phase do
         :pilot_collection ->
@@ -195,6 +199,13 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
         :pilot_analysis ->
           with {:ok, output} <- pilot_analysis_result(phase_run.id) do
             public(Executions.accept_pilot_analysis(phase.id, output.outcome))
+          end
+
+        :final_analysis ->
+          with {:ok, output} <- final_analysis_result(phase_run.id),
+               {:ok, timing} <- final_timing(execution_id),
+               :ok <- Final.Analysis.validate_provenance(context.revision.definition) do
+            public(Executions.accept_final_analysis(phase.id, output.family_result, timing))
           end
       end
 
@@ -238,7 +249,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   defp ensure_active_run(%{active_phase: nil}), do: {:ok, nil}
 
   defp ensure_active_run(%{active_phase: %{phase: kind, id: id}})
-       when kind in [:pilot_collection, :pilot_analysis],
+       when kind in [:pilot_collection, :pilot_analysis, :final_analysis],
        do: ensure_phase_run(id, kind)
 
   defp ensure_active_run(%{active_phase: %{phase: :final_collection}} = context) do
@@ -248,9 +259,6 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
       failure -> failure
     end
   end
-
-  defp ensure_active_run(_final_analysis),
-    do: {:error, error("final_analysis_not_implemented", "Final analysis belongs to Goal 05.")}
 
   @spec ensure_pilot_collection_run(Ecto.UUID.t()) :: {:ok, PhaseRun.t()} | {:error, Error.t()}
   def ensure_pilot_collection_run(phase_id), do: ensure_phase_run(phase_id, :pilot_collection)
@@ -284,6 +292,12 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   defp active_phase(
          %{phase: %{phase: :final_collection}, execution: %{state: :collecting_final}},
          :final_collection
+       ),
+       do: :ok
+
+  defp active_phase(
+         %{phase: %{phase: :final_analysis}, execution: %{state: :analyzing_final}},
+         :final_analysis
        ),
        do: :ok
 
@@ -333,6 +347,16 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     {:ok, Final.TierContract.to_params(%Final.TierContract.Input{phase_run_id: phase_run_id})}
   end
 
+  defp run_params(context, :final_analysis, phase_run_id) do
+    with {:ok, snapshot} <- final_snapshot(context.execution.id) do
+      {:ok,
+       Final.AnalysisContract.to_params(%Final.AnalysisContract.Input{
+         phase_run_id: phase_run_id,
+         snapshot_id: snapshot.id
+       })}
+    end
+  end
+
   @spec pilot_snapshot(Ecto.UUID.t()) ::
           {:ok, Persistence.EvidenceSnapshot.t()} | {:error, Error.t()}
   def pilot_snapshot(execution_id) do
@@ -342,9 +366,21 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     end
   end
 
+  @doc "Read the Final collection snapshot of the owning execution."
+  @spec final_snapshot(Ecto.UUID.t()) ::
+          {:ok, Persistence.EvidenceSnapshot.t()} | {:error, Error.t()}
+  def final_snapshot(execution_id) do
+    with {:ok, phase} <-
+           public(Persistence.fetch_execution_phase(execution_id, :final_collection)) do
+      public(Persistence.fetch_phase_evidence_snapshot(phase.id))
+    end
+  end
+
+  defp dag_name(:final_analysis), do: "evaluation2_study_final_analysis"
   defp dag_name(:final_collection), do: "evaluation2_study_final_tier_collection"
   defp dag_name(:pilot_collection), do: "evaluation2_study_pilot_collection"
   defp dag_name(:pilot_analysis), do: "evaluation2_study_pilot_analysis"
+  defp terminal_name(:final_analysis), do: "correct_final_family"
   defp terminal_name(:final_collection), do: "complete_final_tier_collection"
   defp terminal_name(:pilot_collection), do: "complete_pilot_collection"
   defp terminal_name(:pilot_analysis), do: "select_pilot_outcome"
@@ -403,6 +439,10 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
           {:ok, Final.TierContract.Output.t()} | {:error, Error.t()}
   def final_tier_result(phase_run_id), do: completed(phase_run_id, :final_collection)
 
+  @spec final_analysis_result(Ecto.UUID.t()) ::
+          {:ok, Final.AnalysisContract.Output.t()} | {:error, Error.t()}
+  def final_analysis_result(phase_run_id), do: completed(phase_run_id, :final_analysis)
+
   @doc "Rebuild completed Final durations from canonical Gust receipts."
   def final_timing(execution_id) do
     with {:ok, phase} <-
@@ -451,7 +491,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
        when tier in [:small, :medium, :large], do: :ok
 
   defp phase_kind(%{phase: %{phase: kind}, phase_run: %{run_key: :single}}, kind)
-       when kind in [:pilot_collection, :pilot_analysis], do: :ok
+       when kind in [:pilot_collection, :pilot_analysis, :final_analysis], do: :ok
 
   defp phase_kind(_context, _kind), do: {:error, incomplete()}
 
@@ -462,6 +502,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     end
   end
 
+  defp decode_output(:final_analysis, raw), do: Final.AnalysisContract.decode_output(raw)
   defp decode_output(:final_collection, raw), do: Final.TierContract.decode_output(raw)
   defp decode_output(:pilot_collection, raw), do: Pilot.CollectionContract.decode_output(raw)
   defp decode_output(:pilot_analysis, raw), do: Pilot.AnalysisContract.decode_output(raw)
@@ -483,6 +524,9 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
 
   defp validate_output(context, :pilot_analysis, output),
     do: Pilot.Analysis.validate_output(context.revision.definition, output)
+
+  defp validate_output(context, :final_analysis, output),
+    do: Final.Analysis.validate_output(context.revision.definition, output)
 
   defp validate_replica_receipts(run_id, output) do
     Enum.reduce_while(0..4, :ok, fn position, :ok ->
@@ -506,7 +550,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   @doc "Best-effort Gust stopping after durable application cancellation."
   @spec stop(Ecto.UUID.t()) :: :ok
   def stop(execution_id) do
-    for kind <- [:pilot_collection, :pilot_analysis, :final_collection] do
+    for kind <- [:pilot_collection, :pilot_analysis, :final_collection, :final_analysis] do
       stop_phase(execution_id, kind)
     end
 

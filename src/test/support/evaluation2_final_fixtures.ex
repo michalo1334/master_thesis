@@ -13,6 +13,7 @@ defmodule NetworkDefense.Evaluation2Test.FinalFixtures do
       GraphFixtures.insert_tiers()
       |> GraphFixtures.document_opts()
       |> FoundationFixtures.valid_attrs()
+      |> put_in(["study", "id"], "final-#{System.unique_integer([:positive])}")
       |> put_in(["pilot", "candidates"], [%{"id" => "tiny", "plans" => 1, "attacks" => 2}])
       |> put_in(["pilot", "extra_pool"], %{"plans" => 0, "attacks" => 0})
       |> put_in(["pilot", "precision", "outer_subsamples"], 2)
