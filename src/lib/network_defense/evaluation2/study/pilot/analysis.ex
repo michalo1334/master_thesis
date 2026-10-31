@@ -4,6 +4,11 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
 
   Widths and targets use frozen-model outcome units. The finite-pool precision
   guard is a planning heuristic for independent future Final observations.
+
+  Every candidate must pass every comparison. Rank passing candidates by the
+  observed-cost heuristic, then larger plan count, smaller attack count and
+  earlier declaration. Shared physical groups count CVSS once per budget.
+  Both recommendation and insufficiency require explicit operator approval.
   """
 
   alias NetworkDefense.Evaluation2.Study.{
@@ -20,6 +25,7 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
   alias NetworkDefense.Evaluation2.Study.Pilot.{AnalysisContract, Assessment, Job, Summary}
   alias NetworkDefense.Evaluation2.Study.Views
 
+  @doc "Prepare all declared candidate/comparison jobs from the owning Pilot snapshot."
   @spec prepare(Ecto.UUID.t()) :: {:ok, [Job.t()]} | {:error, Error.t()}
   def prepare(snapshot_id) do
     with {:ok, context} <- context(snapshot_id) do
@@ -38,6 +44,7 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
     end
   end
 
+  @doc "Assess one candidate using shared-prefix subsets and the frozen precision target."
   @spec evaluate(Ecto.UUID.t(), Job.t()) :: {:ok, Assessment.t()} | {:error, Error.t()}
   def evaluate(snapshot_id, %Job{candidate_position: cp, comparison_position: jp} = job)
       when is_integer(cp) and cp >= 0 and is_integer(jp) and jp >= 0 do
@@ -81,6 +88,7 @@ defmodule NetworkDefense.Evaluation2.Study.Pilot.Analysis do
 
   def evaluate(_snapshot_id, _job), do: invalid_input()
 
+  @doc "Validate complete assessments and select a recommendation or explicit insufficiency."
   @spec decide(Ecto.UUID.t(), [Assessment.t()]) ::
           {:ok, AnalysisContract.Output.t()} | {:error, Error.t()}
   def decide(snapshot_id, assessments) do

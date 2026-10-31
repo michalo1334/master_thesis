@@ -1,6 +1,12 @@
 defmodule Mix.Tasks.Evaluation.Family do
   @moduledoc """
-  Runs a declared primary comparison family through the Gust workflow.
+  Legacy synthetic family command, retained until the verification/deletion gate.
+
+  Use `mix study.*` and `NetworkDefense.Evaluation2.Study` for native studies.
+  This legacy command is outside the supported native path and depends on the
+  earlier numerical service and contracts.
+
+  Runs a declared primary comparison family through the legacy Gust workflow.
 
   Starts only Gust in console role, using one database connection. The command
   prints one row per comparison in declared order and reads the result through

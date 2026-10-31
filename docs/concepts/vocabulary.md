@@ -1,249 +1,155 @@
 # Vocabulary
 
-This page defines the main terms for the network model, simulation, evaluation,
-and study workflow. Use one term for one meaning. The
-[evaluation methodology](evaluation-methodology.md) gives the statistical rules
-and formulas.
+Use one term for one meaning throughout the model, simulation and native Evaluation2 guides.
+The [methodology](evaluation-methodology.md) defines statistical assumptions and formulas.
+The [operator guide](../evaluation2.md) defines the supported input and commands.
 
 ## Graph
 
-- **Graph:** A network context model made of typed nodes and directed
-  relationships.
+- **Graph:** A network context model of typed nodes and directed relationships.
 - **Graph revision:** One immutable version of a graph.
-- **Optimized graph revision:** A graph revision that contains the defense
-  actions selected by an optimization run.
+- **Optimized graph revision:** A graph revision with the changes selected by an optimization run.
+- **Tier:** One fixed size slot: small, medium or large. A study freezes one graph/Host input per slot.
 
 ## Simulation
 
 - **Simulation:** A Monte Carlo experiment on one graph revision.
-- **Experiment:** The saved record of one simulation and its trials.
-- **Trial:** One attacker trajectory in a simulation.
+- **Experiment:** The saved simulation record and its trials.
+- **Trial:** One attacker trajectory.
 - **Iteration:** One attacker action step in a trial.
-- **Simulation seed:** The deterministic random input for one simulation. Each
-  trial derives its own seed from this value.
-- **Baseline simulation:** A simulation on the source graph before defense
-  actions are applied.
-- **Blast radius:** The number of foothold hosts at the end of a trial. It
-  includes the initial foothold.
-- **Mission impact:** The sum of the impact weights of mission capabilities that
-  are disrupted at the end of a trial.
-- **Modeled pre-attack mission disruption:** Loss of required flow or mission
-  support caused by a defense plan before attacker footholds are applied.
+- **Simulation seed:** The root from which the existing simulation policy derives one seed per one-based trial index.
+- **Baseline simulation:** A descriptive simulation on the source graph before defense actions.
+- **Blast radius:** The final number of foothold hosts, including the initial foothold.
+- **Mission impact:** The sum of weights of disrupted mission capabilities.
+- **Modeled pre-attack mission disruption:** Required-flow or mission-support loss caused by defenses before attacker footholds are applied.
 
 ## Optimization
 
-- **Defense action:** One graph change that is selected to reduce modeled attack
-  impact.
-- **Strategy:** A method that selects defense actions under a budget.
-- **Plan:** The actions selected for one strategy, budget, and selection seed.
-- **Budget:** The largest number of defense actions that an optimization run can
-  apply. It sets plan cardinality.
-- **Null strategy:** A no-defense control that selects no actions.
-- **Pre-attack feasibility:** The condition in which every mission capability is
-  operational before an attack begins.
+- **Defense action:** One selected graph change that reduces modeled attack impact.
+- **Strategy:** A method for selecting defenses under a budget.
+- **Plan:** The actions selected for one strategy, budget and row input.
+- **Budget:** The maximum action count an optimization run can apply.
+- **Null strategy:** A no-defense control in the optimization domain; it is outside the native study's primary alternative list.
+- **Pre-attack feasibility:** The condition that every mission capability is operational before an attack.
+- **Scoring trial:** An optimization-internal simulation used to choose a plan, separate from study outcome observations.
 
 ## Evaluation and study
 
-- **Evaluation:** A statistical analysis of one comparison or one declared
-  family of comparisons.
-- **Comparison:** One alternative strategy compared with one reference strategy
-  for one tier, budget, and outcome.
-- **Reference strategy:** The strategy against which an alternative is measured.
-  The primary study uses CVSS prioritization.
-- **CVSS prioritization:** A strategy that orders vulnerability defenses by
-  CVSS severity. It is the primary reference. The null strategy is the
-  descriptive control.
-- **Family:** A set of comparisons declared before Final analysis.
-- **Complete family:** Every declared comparison exactly once. Validation
-  rejects missing, duplicate, and unexpected identities.
-- **Primary family:** The family that supports the primary claim. The study can
-  declare controls, secondary outcomes, or exploratory comparisons as members.
-- **Identity:** The five values `(tier, budget, alternative, reference, outcome)`
-  that name one comparison.
-- **Estimand:** The quantity that a method estimates. Here it is the difference
-  between the mean alternative and reference mission impacts.
-- **Declared order:** The order of items in a declared array. It sets tier rank
-  and occurrence order. JSON object key order is irrelevant.
-- **Interval:** The corrected crossed-bootstrap percentile interval for an
-  effect estimate at the declared confidence level.
-- **Half-width:** Half of an interval's width: `(upper - lower) / 2`.
+- **Evaluation2:** The native study subsystem under `NetworkDefense.Evaluation2.Study`.
+- **Comparison:** An alternative-versus-CVSS mission-impact analysis for one tier and budget.
+- **Reference strategy:** CVSS prioritization, implicit in each native comparison.
+- **CVSS prioritization:** Vulnerability-patch selection based on CVSS severity.
+- **Family:** The frozen ordered set of all declared primary comparisons.
+- **Complete family:** Every expected comparison exactly once, with no foreign member.
+- **Identity:** `(tier, budget, alternative, reference, outcome)`, which names one comparison.
+- **Estimand:** The population mean alternative-minus-CVSS mission-impact contrast under the declared input model.
+- **Estimate:** The all-cell alternative mean minus the all-cell CVSS mean. A negative value favors the alternative.
+- **Canonical order:** Small/medium/large, then declared budgets, then declared alternatives. Object key and completion order are irrelevant.
+- **Physical group:** One tier/budget/strategy collection. A CVSS group supplies several logical comparisons.
+- **Model bound:** The frozen mission-impact range `[0,H]`, derived from finite positive capability weights.
 
 ## Evidence and sampling
 
-- **Evidence matrix:** One side of a comparison. Rows are selected plans and
-  columns are shared attack seeds.
-- **Plan-selection replicate:** One plan selected for a strategy, budget, and
-  selection seed. It supplies one matrix row.
-- **Attack column:** One attack seed used across every plan in a crossed
-  comparison. The alternative and reference sides use the same ordered columns.
-- **Column alignment:** The requirement that all plans in one comparison use the
-  same ordered attack columns.
-- **Outer subsample:** A Pilot selection of plan rows and attack columns without
-  replacement.
-- **Inner bootstrap:** The resampling step inside the crossed bootstrap. It draws
-  rows and columns with replacement.
-- **Non-informative comparison:** A comparison whose estimate and both interval
-  limits are numerically zero. Its raw p-value is one. Equivalence needs a
-  separate test.
-- **Zero-width interval:** An informative interval whose limits are numerically
-  equal. This numerical degeneracy receives a warning.
+- **Evidence matrix:** One strategy's outcomes, with logical plan rows and common attack columns.
+- **Row input:** The optimizer input and all its scoring randomness for one plan position.
+- **Plan-selection replicate:** One plan row for a strategy, budget and selection input.
+- **Attack column:** One attack seed shared across plan rows and comparison sides.
+- **Column alignment:** Identical ordered attack seeds in both matrices and all rows.
+- **IID-input model:** Independent identically distributed inputs within each role, with row and column collections independent of each other.
+- **Matching:** A fixed set of matrix cells with distinct row and column inputs. Its observations are IID under that model.
+- **Matching cover:** The cyclic partition that includes every contrast cell exactly once.
+- **Outer subsample:** An outcome-independent Pilot subset without replacement, restored to logical order before inference.
+- **Timing replica:** A fresh physical execution of fixed scientific inputs, used to measure runtime variation rather than add inferential observations.
 
 ## Seeds and randomness
 
-**Collection randomness** decides which plans and attack trials produce the
-observations. **Analysis randomness** controls subsampling and bootstrap
-resampling. Keeping them separate prevents the analysis process from changing
-the evidence-generation process.
+- **Master seed:** The single operator input for all versioned scientific seed derivation.
+- **Seed contract:** `evaluation2-sha256-json-v1`, the canonical ordered-role hashing rule.
+- **Plan-selection seed:** A phase/row-derived seed shared across strategies, budgets and tiers.
+- **Evaluation root:** A phase/tier-derived root shared across that tier's groups.
+- **Attack seed:** The existing simulation child seed for one one-based trial index.
+- **Planning seed:** A Pilot root for one complete comparison identity, including budget.
+- **Outer seed:** A planning-derived row or column permutation seed for one outer index.
+- **Phase seed separation:** Distinct Pilot and Final scientific contexts, checked for logical stream collisions.
 
-- **Plan-selection seed:** A collection seed that selects one defense plan.
-- **Attack seed:** A collection seed that controls one attack trial.
-- **Resampling seed:** An analysis seed for one comparison calculation.
-- **Pilot base seed:** The declared root seed for Pilot subsampling.
-- **Comparison stream seed:** The analysis seed for one declared Pilot
-  comparison. It is derived from the Pilot base seed, tier rank, and comparison
-  occurrence.
-- **Evaluation root:** The value that initializes one tier's attack-related
-  collection streams.
-- **Phase seed separation:** The rule that Pilot and Final use disjoint
-  plan-selection seeds and disjoint evaluation roots.
+Final inference is deterministic; it needs no resampling seed.
+Distinct deterministic seeds support replay, while statistical independence remains a modeling assumption.
 
 ## Statistics
 
-- **Corrected crossed bootstrap:** The interval method that resamples plan rows
-  and shared attack columns with replacement and applies a finite-sample
-  correction.
-- **Centered crossed bootstrap:** The null method that centers each side by its
-  own mean and then applies the corrected crossed bootstrap.
-- **Add-one correction:** The addition of one to both the extreme-draw count and
-  the total-draw count when calculating a bootstrap p-value. This prevents a
-  reported p-value of zero.
-- **Raw p-value:** The p-value for one comparison before family correction.
-- **Adjusted p-value:** The p-value after family correction.
-- **Holm correction:** A step-down family correction that orders and adjusts raw
-  p-values while preserving monotonicity. Estimates and intervals remain
-  unchanged per-comparison values.
-- **Degeneracy warning:** The warning for a zero-width interval with a nonzero
-  effect.
+- **Matching-based bounded-mean betting:** The native fixed-sample method using predictable bets within each matching and arithmetic capital averages across matchings.
+- **Predictable bet:** A bet based only on earlier observations in the same matching.
+- **Capital:** A product of bounded betting factors under a candidate mean.
+- **Interval:** A closed pointwise confidence interval from directional capital inversion, conservatively enlarged to contain the all-cell estimate.
+- **Half-width:** Half the interval span, `(upper - lower) / 2`; it need not equal the distance from the estimate to an endpoint.
+- **Raw p-value:** The valid marginal zero-contrast test bound before family correction, under the declared assumptions.
+- **Adjusted p-value:** The complete-family Holm-adjusted value.
+- **Holm correction:** Decimal step-down adjustment with canonical output order and inclusive `adjusted_p <= alpha` rejection.
+- **Pointwise coverage:** Coverage for one comparison. The reported intervals have this scope.
+- **Family-wise error:** Probability of at least one false rejection in the family, controlled by Holm under valid marginal tests.
+- **Informative assessment:** Numerical processing needed no conservative fallback; this does not certify precision or power.
+- **Empty inversion:** A numerical inversion with no accepted interval; the method returns the full known contrast range, p-value one and a warning.
+- **Structural zero range:** A graph model with `H = 0`; its contrast is known zero before observing outcomes.
+- **Fixed-sample inference:** Counts, order, tuning and family freeze before fresh Final evidence. Interim outcome-based stopping is outside the supported argument.
 
-The [raw p-value method](evaluation-methodology.md#raw-p-value-centered-crossed-bootstrap)
-states the centered-bootstrap formula.
+See [native inference](evaluation-methodology.md#4-effect-estimate-and-matching-based-inference).
+The rejected bootstrap and its failed diagnostics remain in the [method decision history](../history/evaluation2-statistical-validation.md).
 
 ## Precision Pilot
 
-- **Precision Pilot:** The workflow that selects a common plan count and attack
-  count for Final evidence.
-- **Pilot sample-size candidate:** One ordered item with a stable ID, a plan
-  count per side, and an attack count per plan.
-- **Candidate comparison:** The evaluation of one candidate against one family
-  comparison.
-- **Outer subsample count:** The number of repeated outer subsamples for one
-  candidate comparison.
-- **Guard quantile:** The quantile of the outer half-widths used to guard against
-  one unusually narrow subsample.
-- **Guarded half-width:** The interval half-width at the guard quantile for one
-  candidate comparison.
-- **Worst guarded half-width:** The largest guarded half-width across all family
-  comparisons for one candidate.
-- **Recommendation:** The candidate that passes every comparison and ranks first
-  under the declared selection rule.
-- **Insufficient Pilot:** A valid Pilot outcome in which every candidate fails
-  at least one comparison.
-- **Pilot-to-Final gate:** The required pause after Pilot analysis and before
-  Final collection.
-- **Confirmatory override:** Manual selection of one declared candidate after an
-  insufficient Pilot. The Pilot outcome and precision target remain
-  insufficient.
-- **Pilot override marker:** The `pilot_override` boolean in the compact study
-  result. It records that the insufficient-Pilot exception was used.
+- **Precision Pilot:** Collection and analysis used to select common Final plan/attack counts.
+- **Candidate:** One declared ID and positive `(plans, attacks)` pair.
+- **Pilot capacity:** Coordinate-wise maximum candidate counts plus non-negative extra pool capacity.
+- **Candidate comparison:** One candidate's assessment for one family comparison.
+- **Outer subsample count:** Number of observed-pool subsets assessed for each candidate/comparison.
+- **Guard quantile:** The interpolated empirical quantile of outer interval half-widths; a planning heuristic rather than a fresh-Final success probability.
+- **Guarded half-width:** The half-width at that guard quantile.
+- **Worst guarded half-width:** The largest guarded value across a candidate's comparisons.
+- **Recommendation:** The candidate that passes every comparison and ranks first under the runtime heuristic and tie-breaks.
+- **Insufficient Pilot:** A valid outcome with no passing candidate.
+- **Pilot-to-Final gate:** Required explicit approval after every valid Pilot.
+- **Insufficient override:** Explicit selection of an already-declared candidate after insufficiency. It gives up the precision target.
+- **Frozen selection:** Candidate ID and exact Final counts. An insufficient outcome beside this selection records the override without a separate flag.
 
-The [override method](evaluation-methodology.md#insufficient-pilot-confirmatory-override)
-states the rules and risks.
+See [approval and override](evaluation-methodology.md#explicit-approval-and-insufficient-override).
 
 ## Workflow and deployment
 
-- **Gust:** The Elixir workflow engine that schedules DAG tasks, retries
-  temporary failures, and saves run and task state.
+- **Gust:** The workflow engine for static task scheduling, retries and persisted run/task results.
 - **DAG:** A directed acyclic graph of named tasks and dependencies.
-- **ScatterGather:** The simulation executor that divides trials into batches
-  and runs them locally or through RabbitMQ.
-- **Mapped task:** A task that Gust expands once for each item from an upstream
-  task.
-- **Fan-in:** A task that runs after all mapped tasks succeed. It combines and
-  validates their results.
-- **Preflight:** Local validation that builds all planned analysis requests
-  before a workflow run contacts the compute service.
-- **Wire contract:** A JSON Schema that defines data exchanged between Elixir
-  and Python.
-- **Read-back:** Validation of a saved task result against its request and
-  declared relationships.
-- **Resource cap:** A deployment limit on work size, configured independently
-  from scientific settings.
-- **Evidence snapshot:** An application-managed record that contains Pilot or
-  Final evidence matrices. The application treats it as immutable; the database
-  does not enforce immutability.
-- **Study revision ID:** The identifier of one immutable normalized study
-  definition.
-- **Evidence role:** The declared purpose of evidence, such as Pilot or Final.
-- **Pilot evidence:** Evidence used to choose sample sizes.
-- **Final evidence:** Separate evidence collected after the Pilot decision and
-  used for the confirmatory family analysis.
-- **Source Pilot:** The Pilot result that supplies the selected counts for Final
-  collection and analysis.
-- **Caller assertion:** Metadata whose form a boundary validates. Independent
-  evidence is needed to establish provenance.
+- **ScatterGather:** The retained trial executor, local or RabbitMQ-backed according to configuration.
+- **Mapped task:** A task expanded over an upstream work list.
+- **Fan-in:** A downstream stage that validates and combines all expected mapped results.
+- **Phase contract:** Strict JSON transport for one native phase's root input and terminal output.
+- **Completion proof:** Canonical run/input binding, succeeded status, one succeeded terminal task and valid typed domain output.
+- **Evidence snapshot:** One immutable-by-application phase-owned evidence value in PostgreSQL.
+- **Prepared snapshot:** Stored evidence before lifecycle acceptance; its presence alone proves no acceptance.
+- **Acceptance witness:** The locked state transition and successor phase that authorize downstream work.
+- **Caller-owned continuation:** The Workflow loop run by a Study caller to the next approval/terminal boundary.
+- **RunMonitor:** A wait-only service that polls durable Gust/execution state, including separate-VM cancellation.
+- **Configured environment label:** The operator assertion frozen at creation and rechecked at Final boundaries. It is not an authenticated fingerprint.
 
 ## Study lifecycle
 
-See the [study overview](evaluation-study-overview.md) for the public operations,
-states, resume choices, and current limits.
+- **Study definition:** Native YAML declaring identity, one seed, family settings, shared policies, tier inputs and ordered candidates.
+- **Normalized study revision:** The resolved immutable typed definition; source YAML text and unknown keys are excluded.
+- **Public Revision:** The study ID/revision-number value returned by creation and accepted by `Study.start/1`.
+- **Study execution:** One attempt to run a frozen revision with its own physical effects.
+- **Lifecycle state:** One of `collecting_pilot`, `analyzing_pilot`, `awaiting_final`, `collecting_final`, `analyzing_final`, `succeeded`, `failed`, `cancelled`.
+- **Study phase:** One of the four fixed collection/analysis phases in an execution.
+- **PhaseRun:** One canonical application link to a Gust run. Pilot/analysis use `:single`; Final Collection uses tier keys.
+- **CollectionPlan:** One immutable ordered resolved request set per PhaseRun.
+- **CollectionItem:** One replica/item coordinate owning unique optimization and experiment reservations.
+- **Warm-up replica:** Excluded position `-1`, before a tier's five measured replicas.
+- **Measured replica:** Position `0..4`, with fixed scientific inputs and fresh physical effects.
+- **Scientific equality:** Equality of meaningful inputs, actions, settings, seeds and outcomes, excluding generated IDs and timing.
+- **Representative Final evidence:** Measured position zero after all five positions pass equality.
+- **Clock session:** A transient tier-bound identity for ordered monotonic readings.
+- **Completed duration receipt:** Durable plan-selection/simulation/total microseconds for one measured replica.
+- **Timing summary:** Five measured triplets per tier; helpers derive the median and observed range.
+- **Compact study result:** Public execution/revision identity, Pilot outcome, frozen selection, corrected family and raw measured timing after success.
+- **Task retry:** Another attempt within the same Gust run, reusing reserved effects for its CollectionItem.
+- **Re-entry:** A new caller's continuation through canonical existing work and durable receipts.
+- **Phase replay:** Starting a replacement phase attempt inside one execution; no supported API provides this.
 
-- **Study definition:** Versioned YAML that declares domain revisions,
-  scientific settings, ordered candidates, comparison family, seeds, and the
-  Pilot-to-Final pause.
-- **Normalized study revision:** The immutable JSON-compatible form of a valid
-  study definition. It excludes source YAML text and secrets.
-- **Study execution:** One attempt to run a study revision through its lifecycle.
-- **Lifecycle state:** One explicit state such as Pilot collection, Pilot
-  analysis, the Final gate, Final collection, Final analysis, success, failure,
-  or cancellation.
-- **Study phase:** One fixed collection or analysis phase in a study execution.
-  Pilot collection and each analysis phase link one Gust run. Final collection
-  links an ordered tier-run family instead.
-- **Phase-run tier family:** The ordered Final collection runs, one per tier in
-  the order the comparison family first declares it. Each `StudyPhaseRun` row
-  links its tier and position to one Gust run.
-  These runs are not replay attempts. Final collection's scalar `gust_run_id`
-  remains nil.
-- **Warm-up replica:** The excluded collection at position `-1` before a tier's
-  measured replicas. It supplies neither accepted Final evidence nor timing
-  values.
-- **Measured replica:** One repeat of a tier's Final collection with the same
-  scientific inputs, at position `0` through `4`. Tiers run sequentially.
-- **Complete-family replica summary:** The non-timing scientific evidence for
-  one measured position across every tier. All five summaries must match before
-  replica `0` alone supplies the Final snapshot.
-- **Observed environment assertion:** The operator-configured revision string
-  checked against the study revision before warm-up and before and after each
-  measured replica. It is not an authenticated environment fingerprint.
-- **Final elapsed interval:** A plan-selection, simulation, or total duration
-  measured in the coordinator process. For each tier and each duration type, the
-  compact result stores five measured microsecond values and their median,
-  observed minimum, and observed maximum.
-- **Accepted phase result:** The typed result that the ephemeral coordinator
-  accepts after Gust completion.
-- **Controlled collection:** Evidence collection through role-specific domain
-  APIs, phase runs, item IDs, and declared seed schedules.
-- **Ephemeral coordinator:** One temporary supervised application task that
-  advances a study execution.
-- **Compact study result:** An immutable successful record with accepted phase
-  references, selected counts, the Pilot outcome, the override marker, and the
-  compact Final family result. Collection references use ordered `gust_run_ids`:
-  one for Pilot and one per tier for Final. Analysis references remain scalar.
-  The result stores per-tier timing values, medians, minima, and maxima. Detailed
-  evidence stays in PostgreSQL snapshots and runtime records. Raw monotonic
-  readings and interval boundaries are not persisted.
-- **Gust task retry:** Gust can repeat a task inside one persisted phase run.
-  Application collection items make repeated domain effects safe.
-- **Phase replay:** A new run of a fixed phase within the same study execution.
-  The prototype does not support it. Starting a new execution is a separate
-  operation.
+The [overview](evaluation-study-overview.md) describes states, approval, waiting and cancellation.

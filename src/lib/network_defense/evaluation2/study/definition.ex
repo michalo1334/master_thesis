@@ -1,5 +1,20 @@
 defmodule NetworkDefense.Evaluation2.Study.Definition do
-  @moduledoc false
+  @moduledoc """
+  Native study construction and derived scientific views.
+
+  `parse/1` checks required known input fields and drops unknown keys.
+  `resolve/1` binds persisted graphs and Host footholds, checks policy
+  prerequisites, and freezes finite graph-derived mission-impact bounds.
+  The public creation path is `NetworkDefense.Evaluation2.Study.create_revision/1`.
+
+  Fixed tier order, declared budgets and alternatives determine comparisons and
+  unique physical groups. CVSS is implicit and shared within each tier/budget.
+  Pilot capacity is the coordinate-wise maximum candidate plus extra capacity.
+  The definition owns these invariants once; task adapters use resolved plans.
+
+  The definition freezes method/seed contracts and the configured measurement
+  label. It stores no source YAML, credentials or operator revision checklist.
+  """
   use Spectral
 
   alias NetworkDefense.DefenseActions.Registry, as: Actions
@@ -65,8 +80,10 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   @max_float 1.797_693_134_862_315_7e308
   @method "crossed-matching-betting-v1"
 
+  @doc "Return the native fixed-sample numerical contract identity."
   def method, do: @method
 
+  @doc "Construct a typed declaration and validate its counts, policies and seed allocation."
   def parse(attrs) do
     with :ok <- Schema.validate(attrs),
          {:ok, definition} <- construct(attrs),
@@ -81,12 +98,14 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
     end
   end
 
+  @doc "Resolve graph/Host inputs and freeze model bounds before revision insertion."
   def resolve(%__MODULE__{} = definition) do
     with {:ok, tiers} <- resolve_tiers(definition.tiers, definition) do
       {:ok, %{definition | tiers: tiers}}
     end
   end
 
+  @doc "Derive collected Pilot row/column capacity from candidates and extra pool counts."
   def pilot_capacity(%__MODULE__{pilot: pilot}) do
     %SampleSize{
       plans: Enum.max_by(pilot.candidates, & &1.plans).plans + pilot.extra_pool.plans,
@@ -95,6 +114,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   end
 
   # Group coordinates are global; item positions belong to a phase-run plan.
+  @doc "Return globally positioned groups in tier/budget order, with CVSS before alternatives."
   def collection_groups(%__MODULE__{tiers: tiers}) do
     for tier <- tiers,
         budget <- tier.budgets,
@@ -104,6 +124,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
     |> Enum.with_index(fn group, position -> Map.put(group, :position, position) end)
   end
 
+  @doc "Project the canonical alternative-versus-CVSS family from unique physical groups."
   def comparisons(definition) do
     groups = collection_groups(definition)
 
@@ -124,6 +145,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
     Enum.find(groups, &(&1.tier == tier and &1.budget == budget and &1.strategy.key == key)).position
   end
 
+  @doc "Intersect the shared action policy with the existing strategy's supported actions."
   def effective_action_types(%__MODULE__{defense: defense}, key) do
     supported =
       case key do
@@ -135,6 +157,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
     Enum.filter(defense.allowed_action_types, &(&1 in supported))
   end
 
+  @doc "Return the shared feasibility requirement inherited by selection and simulation."
   def require_feasibility?(%__MODULE__{defense: defense}), do: defense.feasibility == :required
 
   defp construct(a) do
@@ -328,6 +351,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
 
   defp unique?(list), do: length(list) == MapSet.size(MapSet.new(list))
 
+  @doc false
   def finite?(value) when is_integer(value),
     do: value <= @max_float and value >= -@max_float
 

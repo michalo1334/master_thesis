@@ -71,8 +71,9 @@ breaking the mission before the attack starts.
 ## Evaluation analysis
 
 - One comparison must use aligned alternative and reference evidence matrices.
-- A comparison must return an effect estimate, a corrected crossed-bootstrap
-  interval, and a raw p-value.
+- A comparison must return the all-cell mean contrast, a pointwise matching-based bounded-mean interval and a valid marginal p-value under the declared IID-input model.
+- Counts, logical order, tuning and family membership must freeze before fresh Final evidence.
+- Empirical zero spread must retain uncertainty unless the graph model has zero outcome range.
 - A family analysis must require each declared comparison exactly once.
 - A family analysis must apply one Holm correction across the complete family.
 - Pilot and Final evidence must use separate immutable snapshots.
@@ -93,13 +94,14 @@ receiving a misleading multiplicity correction.
 
 ## Study definition and execution
 
-- A study definition must use versioned YAML input.
-- Parsing must reject duplicate or unknown keys, aliases, merges, tags,
-  non-string map keys, unsafe JSON values, environment interpolation, and
-  secrets.
-- The system must normalize valid YAML to immutable JSON-compatible data.
-- The normalized definition must reference immutable domain revisions.
-- The study definition must supply every scientific setting explicitly.
+- A study definition must use the native YAML constructor through `NetworkDefense.Evaluation2.Study`.
+- The constructor must check required known fields and drop unknown keys.
+- Study input must contain no credentials. Environment-like text is literal input, rather than a secret-resolution mechanism.
+- The system must normalize valid YAML to immutable JSON-compatible typed data.
+- The constructor must resolve graph revisions and Host foothold membership before freezing.
+- One seed, shared defense/simulation policies and fixed tier slots must determine derived groups, comparisons, capacity, policies and seeds.
+- The definition must record method/seed contracts and the configured measurement label.
+- Input changes must require a new revision; legacy formats have no compatibility reader.
 - One execution must move through explicit validation, Pilot collection, Pilot
   analysis, the Pilot-to-Final pause, Final collection, Final analysis, and a
   terminal state.
@@ -108,9 +110,8 @@ receiving a misleading multiplicity correction.
   trial batches inside each simulation.
 - The execution must always pause after a valid Pilot analysis.
 - When the Pilot recommends a candidate, resume must use that candidate.
-- When the Pilot is insufficient, resume must require manual selection of one
-  candidate already declared in the study definition. The result must record
-  `pilot_override: true`.
+- When the Pilot is insufficient, resume must require explicit selection of one already-declared candidate.
+- The result must retain the insufficient Pilot outcome beside the frozen selection. These values record the override without a separate boolean.
 - An invalid, failed, partial, or exhausted Pilot must enter the terminal failed
   state.
 - Resume must collect fresh Final observations.
@@ -123,26 +124,27 @@ receiving a misleading multiplicity correction.
   warm-up, before replica `0`, at each shared boundary between adjacent measured
   replicas, and after replica `4`. A missing or different assertion must fail
   collection.
-- The registered coordinator process must measure plan-selection, simulation,
-  and total elapsed intervals in one process clock domain. Final Collection must
-  validate five measured timing values per tier and persist the typed handoff.
-- Five complete-family non-timing summaries must match before replica `0` alone
-  supplies the Final snapshot. A rejected replica must have no replacement.
-- Gust may retry tasks inside a run. Task retries do not create another phase
-  attempt. The prototype supports no phase replay, automatic recovery, polling,
-  PubSub, or Oban lifecycle handoff.
-- A successful study must create one immutable compact result. It must include
-  accepted phase references, the Pilot outcome, the selected candidate, the
-  override marker, the validated Final family result, and one timing summary for
-  each declared tier.
-- Compact collection references must use ordered `gust_run_ids`: one ID for
-  Pilot collection and one ID per tier for Final collection. Analysis references
-  remain scalar. Final collection's scalar `gust_run_id` remains nil.
-- Each tier timing summary must contain five measured microsecond values, the
-  median, the observed minimum, and the observed maximum for plan selection,
-  simulation, and total duration. Raw monotonic readings and interval boundaries
-  are not persisted. Historical schema-version-one results without timing remain
-  readable. Detailed evidence stays in PostgreSQL snapshots and runtime records.
+- The application-supervised clock must measure plan selection, simulation and total in one session per tier.
+- The shared handoff marker must make total equal the sum of plan-selection and simulation durations.
+- Gust must store all five measured duration triplets. Raw monotonic readings must remain transient.
+- A lost incomplete clock session must fail without invented or replacement measurements.
+- Five measured scientific evidence sets must match before replica `0` alone supplies representative Final evidence.
+- Final Collection must prepare the snapshot; Workflow must request lifecycle acceptance from Persistence separately.
+- A prepared snapshot alone must not authorize Final Analysis.
+- Gust task retries must reuse each item's reserved effects, without an exactly-once computation claim.
+- Caller-owned continuation must use canonical linked runs and prove terminal completion before acceptance.
+- RunMonitor must remain wait-only and observe cancellation through durable state across command VMs.
+- A finite API timeout must return Status without cancellation or Final approval.
+- Cancellation must commit before best-effort stopping. Late completion must preserve terminal state.
+- Completed tier timing must remain reconstructable after caller/clock loss.
+- The system provides no phase-replay API, replacement replicas or automatic background lifecycle recovery.
+- A successful execution must own one immutable result, inserted atomically with success.
+- The public result must include execution/revision identity, Pilot outcome, frozen selection, complete corrected family and five timing triplets per tier.
+- Timing helpers must derive medians and observed ranges from the stored raw values.
+- Internal phase/Gust/snapshot links and detailed evidence must remain with their durable owners.
+- Native commands must start the normal application; execution commands require dispatch-capable Gust.
+- Create, inspect and cancel commands must not dispatch unrelated queued Gust work.
+- Full calibration and legacy deletion must follow the documentation gate, with a repeated documentation audit after deletion.
 
 The explicit pause separates sample-size selection from confirmatory evidence
 collection. Gust task retries allow work to execute more than once inside a run;

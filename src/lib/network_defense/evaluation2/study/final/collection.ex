@@ -6,11 +6,26 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Collection do
   calling this capability. This capability checks their physical sources and
   scientific equality before preparing a snapshot.
   Persistence.Executions separately owns lifecycle acceptance.
+
+  ```mermaid
+  flowchart LR
+      Proof[Canonical completed tiers] --> Equality[Validate measured scientific equality]
+      Equality --> Snapshot[Prepare replica-zero snapshot]
+      Snapshot --> Request[Workflow requests acceptance]
+      Request --> Accept[Persistence transition and successor]
+  ```
+
+  Warm-up is excluded from inference and timing summaries. Measured replicas
+  repeat scientific inputs with fresh physical effects. Equality excludes
+  generated IDs, sessions, timestamps and durations, while retaining input
+  identity, logical action meaning and scientific outcomes. Unequal work fails
+  without a replacement replica. Snapshot presence alone is not acceptance.
   """
 
   alias NetworkDefense.Evaluation2.Study.{Collection, Error, Persistence, Tier, Views}
   alias NetworkDefense.Evaluation2.Study.Final.{TierContract, TierRun, Timing}
 
+  @doc "Validate completed tier evidence and prepare representative Final evidence without advancing lifecycle."
   def prepare_snapshot(tier_runs, execution) do
     with {:ok, phase} <-
            stored(Persistence.fetch_execution_phase(execution.id, :final_collection)),

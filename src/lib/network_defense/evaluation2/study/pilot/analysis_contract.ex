@@ -1,26 +1,19 @@
 defmodule NetworkDefense.Evaluation2.Study.Pilot.AnalysisContract do
-  @moduledoc false
+  @moduledoc """
+  Typed transport of one native Pilot Analysis run.
 
-  # Input and output contract of one Pilot analysis Gust run.
-  #
-  # The root input names the phase-run record and the accepted Pilot snapshot.
-  # The terminal output holds the compact Pilot outcome and the complete
-  # candidate summaries. The lifecycle stores the outcome only, so the detailed
-  # summaries stay in the terminal Gust result.
-  #
-  # The transport is strict, because a stored run input and a stored terminal
-  # result cross the Gust JSON boundary:
-  #
-  #   * the run input carries the canonical phase-run UUID under
-  #     `"study_phase_run_id"` and the canonical snapshot UUID under
-  #     `"study_evidence_snapshot_id"`;
-  #   * the terminal output carries the decision under `"outcome"` and one
-  #     complete candidate summary per declared candidate under `"candidates"`.
-  #
-  # The codecs are explicit instead of type-derived, because the nested value
-  # modules own their scientific types and this boundary owns the stored shape.
-  # A stored value that does not match the declared shape fails, so an old or
-  # foreign payload never becomes a Pilot result.
+  Root input names the canonical PhaseRun and accepted Pilot snapshot.
+  Workflow separately proves exact root binding and canonical succeeded
+  completion. Decoding alone is not proof of phase ownership or acceptance.
+
+  Terminal output contains the compact outcome and complete candidate summaries.
+  Only the outcome lives on the execution; the detailed report remains in the
+  Gust terminal result. Pilot.Analysis validates complete candidate/comparison
+  membership, pass decisions and recommendation against the frozen definition.
+
+  Explicit codecs preserve the scientific value types across Gust JSON storage.
+  They do not rerun numerical inference or authenticate stored evidence.
+  """
 
   alias NetworkDefense.Evaluation2.Study.Pilot.AnalysisContract.{Input, Output}
   alias NetworkDefense.Evaluation2.Study.Pilot.Summary

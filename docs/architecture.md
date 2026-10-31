@@ -238,13 +238,9 @@ optimization have no automatic interrupted-job recovery policy.
 
 ## Evaluation analysis
 
-The [evaluation architecture](architecture/evaluation-architecture.md) maps the implemented comparison, family, Precision
-Pilot, and Final analysis components. Gust owns fixed analysis DAG execution and saved task results. The application owns
-Pilot/Final snapshots in PostgreSQL. Python supplies synchronous statistical computation.
+The [native Evaluation2 architecture](architecture/evaluation-architecture.md) maps the supported Study facade, caller-owned Workflow and four static phase DAGs. Gust owns task scheduling, retries and stored task results. Persistence owns revisions, lifecycle transitions, effect reservations, evidence and successful results. Nx/Decimal provide in-process matching-based statistics and Holm correction.
 
-The [target study pipeline](design/evaluation-study-pipeline.md) adds a future lifecycle state machine and role-specific
-collection DAGs. Collection tasks will call existing simulation APIs, which retain ScatterGather trial execution. These
-collection and lifecycle features do not exist yet. Synthetic checks do not authorize a real study or deployment.
+The [pipeline guide](design/evaluation-study-pipeline.md) describes implemented Pilot approval, sequential Final tiers, durable timing and canonical acceptance. Collection uses the retained optimization/simulation APIs and ScatterGather executor. The [operator guide](evaluation2.md) covers commands and required runtime configuration. Two real service-backed studies reached success at small counts; the [verification record](history/evaluation2-verification.md) separates that evidence from pending calibration and retirement.
 
 ## Engineering Rationale
 

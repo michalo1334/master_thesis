@@ -1,16 +1,9 @@
 defmodule NetworkDefense.Evaluation2.Placeholder do
   @moduledoc false
 
-  # Bounded placeholder value of an unimplemented study operation.
-  #
-  # A supported operation returns an `:unavailable` error instead of raising, so
-  # the supported error type stays exact and a caller still receives a bounded
-  # failure. The issue code states that the operation is not implemented yet, and
-  # the operation name stays internal.
-  #
-  # Constructor reads and bang operations raise
-  # `NetworkDefense.Evaluation2.NotImplementedError` instead, because their
-  # declared type has no error member.
+  # Historical scaffold helper retained until the verification/deletion gate.
+  # Supported Study operations use the implemented native path. This helper is
+  # outside that supported interface.
 
   alias NetworkDefense.Evaluation2.Study.Error
 

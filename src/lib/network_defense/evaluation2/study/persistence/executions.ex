@@ -1,16 +1,23 @@
 defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
-  @moduledoc false
+  @moduledoc """
+  Transaction owner of study lifecycle writes.
 
-  # Lifecycle commands of one study execution.
-  #
-  # A command that changes a stored execution locks its row and applies one
-  # transition, and a transition into an active state creates the successor phase
-  # in the same transaction. An equal repeated value returns the current state, a
-  # different value conflicts. Succeeded stays succeeded, and failed or cancelled
-  # executions reject late acceptance.
-  #
-  # Final analysis inserts the result and applies the success transition together,
-  # so a successful execution always owns its result.
+  Mutating commands lock the execution row. Acceptance and its successor phase
+  commit together. Equal repeated accepted values return current state;
+  conflicting values fail. Terminal state fences late acceptance.
+
+  ```mermaid
+  flowchart LR
+      Lock[Lock execution] --> Check[Check state and accepted value]
+      Check --> Transition[Apply transition]
+      Transition --> Successor[Create successor for active state]
+      Successor --> Commit[Commit together]
+  ```
+
+  Final Analysis stores family/timing and success in one transaction, so a
+  successful execution owns its result. Snapshot preparation, Gust dispatch,
+  clock readings and numerical calculations belong to their separate owners.
+  """
 
   import Ecto.Query
 
@@ -51,6 +58,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   # returned context never reports an active state without its phase.
   @spec start_execution(Persistence.revision_ref()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Commit a new execution and its Pilot Collection phase from a frozen public revision."
   def start_execution(revision_ref) do
     with {:ok, identity} <- Persistence.cast_identity(revision_ref, :start_execution) do
       Persistence.tx(:start_execution, :execution, fn ->
@@ -71,12 +79,14 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
 
   @spec accept_pilot_collection(Ecto.UUID.t()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Accept prepared Pilot evidence and create Pilot Analysis atomically."
   def accept_pilot_collection(phase_id) do
     accept_collection(phase_id, :accept_pilot_collection, :pilot_collection)
   end
 
   @spec accept_final_collection(Ecto.UUID.t()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Accept prepared Final evidence; its analyzing_final successor is the acceptance witness."
   def accept_final_collection(phase_id) do
     accept_collection(phase_id, :accept_final_collection, :final_collection)
   end
@@ -165,6 +175,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
 
   @spec accept_pilot_analysis(Ecto.UUID.t(), PilotOutcome.t()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Store a valid compact Pilot outcome and enter the explicit approval boundary."
   def accept_pilot_analysis(phase_id, outcome) do
     with {:ok, uuid} <- Persistence.cast_id(phase_id, :accept_pilot_analysis, :phase),
          {:ok, params} <-
@@ -202,6 +213,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
 
   @spec accept_final_analysis(Ecto.UUID.t(), CorrectedFamily.t(), Timing.t()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Store the corrected family and timing atomically with execution success."
   def accept_final_analysis(phase_id, family, timing) do
     with {:ok, uuid} <- Persistence.cast_id(phase_id, :accept_final_analysis, :phase),
          {:ok, params} <- final_output(family, timing) do
@@ -255,6 +267,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   # is classified before the operator intent is resolved.
   @spec accept_approval(Ecto.UUID.t(), Study.approval()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Freeze one declared candidate's counts from the accepted Pilot outcome and explicit intent."
   def accept_approval(execution_id, approval) do
     with {:ok, uuid} <- Persistence.cast_id(execution_id, :accept_approval, :execution) do
       Persistence.tx(:accept_approval, :execution, fn ->
@@ -397,6 +410,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
 
   @spec fail_phase(Ecto.UUID.t(), StudyError.t()) ::
           Persistence.response(Persistence.lifecycle_context())
+  @doc "Fail the owning active phase while preserving a terminal execution's accepted state."
   def fail_phase(phase_id, public_error) do
     with {:ok, uuid} <- Persistence.cast_id(phase_id, :fail_phase, :phase),
          {:ok, params} <-
@@ -434,6 +448,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   # A terminal execution keeps its stored status, so a late phase completion
   # cannot advance a cancelled execution.
   @spec cancel_execution(Ecto.UUID.t()) :: Persistence.response(Persistence.lifecycle_context())
+  @doc "Commit application cancellation; already-terminal executions return unchanged context."
   def cancel_execution(execution_id) do
     with {:ok, uuid} <- Persistence.cast_id(execution_id, :cancel_execution, :execution) do
       Persistence.tx(:cancel_execution, :execution, fn ->

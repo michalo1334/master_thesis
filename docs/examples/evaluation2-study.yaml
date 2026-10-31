@@ -1,0 +1,68 @@
+# Illustrative native input. Replace all six identity tokens before use.
+# These small counts demonstrate the protocol; they are not research settings.
+study:
+  id: example-native-study
+  revision: 1
+seed: 27182
+family:
+  id: example-mission-impact
+  alpha: 0.05
+analysis:
+  confidence_level: 0.95
+defense:
+  feasibility: required
+  allowed_action_types:
+    - patch_vulnerability
+    - block_segment_reachability
+    - revoke_credential
+simulation:
+  iterations_per_run: 2
+  max_attempts: 2
+  rules:
+    - remote_service_exploitation
+    - local_vulnerability_exploitation
+    - acquire_credential_rule
+    - reuse_credential_rule
+tiers:
+  small:
+    graph_revision_id: SMALL_GRAPH_REVISION
+    foothold_node_id: SMALL_HOST_NODE
+    budgets: [1]
+    alternatives:
+      - strategy: random
+      - strategy: simulation_informed
+        scoring:
+          objective: mission_impact_only
+          monte_carlo_trials: 2
+  medium:
+    graph_revision_id: MEDIUM_GRAPH_REVISION
+    foothold_node_id: MEDIUM_HOST_NODE
+    budgets: [1]
+    alternatives:
+      - strategy: random
+      - strategy: simulation_informed
+        scoring:
+          objective: mission_impact_only
+          monte_carlo_trials: 2
+  large:
+    graph_revision_id: LARGE_GRAPH_REVISION
+    foothold_node_id: LARGE_HOST_NODE
+    budgets: [1]
+    alternatives:
+      - strategy: random
+      - strategy: simulation_informed
+        scoring:
+          objective: mission_impact_only
+          monte_carlo_trials: 2
+pilot:
+  candidates:
+    - id: demonstration
+      plans: 2
+      attacks: 3
+  extra_pool:
+    plans: 0
+    attacks: 0
+  precision:
+    outer_subsamples: 2
+    target_half_width: 0.5
+    guard_quantile: 0.9

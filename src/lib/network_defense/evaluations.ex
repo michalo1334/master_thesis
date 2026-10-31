@@ -15,12 +15,9 @@ defmodule NetworkDefense.Evaluations do
   alias NetworkDefense.Evaluation.Study.Status
   alias NetworkDefense.Evaluation.{StudyExecution, StudyRevision}
 
-  # The public evaluation facade.
-  #
-  # Three public groups remain: the study lifecycle, the comparison workflow,
-  # and the family workflow. The Pilot and Final workflows stay internal to the
-  # study coordinator, so callers never control Gust runs, evidence snapshots,
-  # collection items, evidence matrices, or task history directly.
+  # Historical legacy facade retained until the verification/deletion gate.
+  # Native study callers use NetworkDefense.Evaluation2.Study. The legacy
+  # comparison/family commands below are outside that supported native path.
 
   def submit_comparison(attrs) do
     with {:ok, request} <- ComparisonRequest.parse(attrs) do

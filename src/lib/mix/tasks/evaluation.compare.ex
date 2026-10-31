@@ -1,6 +1,12 @@
 defmodule Mix.Tasks.Evaluation.Compare do
   @moduledoc """
-  Runs a versioned evaluation comparison through the Gust workflow.
+  Legacy synthetic comparison command, retained until the verification/deletion gate.
+
+  Use `mix study.*` and `NetworkDefense.Evaluation2.Study` for native studies.
+  This legacy command is outside the supported native path and depends on the
+  earlier numerical service and contracts.
+
+  Runs a versioned evaluation comparison through the legacy Gust workflow.
 
   Starts only Gust in console role, using one database connection.
   """

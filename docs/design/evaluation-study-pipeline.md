@@ -1,289 +1,223 @@
-# Evaluation study pipeline
+# Evaluation2 pipeline, timing and acceptance
 
-## Status and authority
+This is the current developer guide for native study orchestration.
+It replaces the legacy coordinator/runner design.
+The [architecture](../architecture/evaluation-architecture.md) maps owners and storage.
+The [methodology](../concepts/evaluation-methodology.md) defines inference.
+The [operator guide](../evaluation2.md) defines supported commands.
 
-This document describes the implemented evaluation study pipeline. Application developers are its main audience. Study authors and operators can start with the [study overview](../concepts/evaluation-study-overview.md).
+## Public boundary and lifecycle
 
-The [methodology](../concepts/evaluation-methodology.md) defines the scientific method. The [vocabulary](../concepts/vocabulary.md) defines shared terms. The [decision history](../history/evaluation-decisions.md) records accepted choices and prototype limits.
-
-The modular pipeline refactor is complete through R7. R8 manual end-to-end verification and R9 automated test reconstruction remain separate work.
-
-Real-study settings, evidence collection, and deployment remain unapproved. The examples approve no scientific values.
-
-## Public boundary
-
-`NetworkDefense.Evaluations` keeps six study operations:
-
-- create a study revision;
-- start a study;
-- read study status;
-- resume a paused study;
-- cancel a study; and
-- read a successful result.
-
-The comparison and family APIs remain separate reusable workflows. Pilot and Final stages are internal to the study pipeline.
-
-The public study modules stay under `NetworkDefense.Evaluation.Study`. Pipeline process and stage modules stay under `NetworkDefense.Evaluation.Study.Pipeline`.
-
-## Runtime structure
+`NetworkDefense.Evaluation2.Study` is the supported facade.
+`start/1` commits an execution and ensures Pilot Collection; `resume/2` commits approval and ensures the first Final tier.
+Both return Status.
+`continue/1,2` drives the execution to approval, terminal state or a finite wait bound.
 
 ```mermaid
 flowchart LR
-    CALLER["Caller"] --> FACADE["NetworkDefense.Evaluations"]
-    FACADE --> PUBLIC["Study public modules<br/>Start, Resume, Status, Cancel, Revisions, Results"]
-    PUBLIC --> COORD["Pipeline.Coordinator<br/>process shell"]
-    COORD --> RUNNER["Pipeline.Runner<br/>active-stage selection"]
-    RUNNER --> PC["Pilot.Collection"]
-    PC --> PA["Pilot.Analysis"]
-    PA --> GATE["Persisted pause"]
-    GATE --> FC["Final.Collection"]
-    FC --> FA["Final.Analysis"]
-    FA --> RESULT["Pipeline.Result.Store"]
-    PC & PA & FC & FA --> GUST["Fixed Gust DAGs"]
-    PUBLIC & RUNNER & PC & PA & FC & FA & RESULT --> DB[("Application PostgreSQL")]
+    Caller[Study caller] --> Workflow[Caller-owned Workflow]
+    Workflow --> Proof[Canonical Gust completion proof]
+    Workflow --> Monitor[Wait-only RunMonitor]
+    Workflow --> Capabilities[Collection and analysis capabilities]
+    Workflow --> Acceptance[Persistence.Executions acceptance]
+    Capabilities --> Effects[Retained optimization and simulation]
+    Capabilities --> Store[Persistence storage owners]
+    Acceptance --> State[Execution and successor phase]
 ```
 
-### Process ownership
+Workflow has one progression loop and no stored tier cursor.
+It reloads durable context, ensures the canonical run, waits, proves completion and requests acceptance.
+Persistence creates each successor phase in the same transaction as its transition.
+Final tier progression follows ordered canonical PhaseRuns.
+A dispatched run can finish without a continuation caller; cross-phase progression needs a caller again.
 
-`Pipeline.Coordinator` owns process concerns:
+## Create, link, dispatch
 
-- start one supervised task;
-- claim one execution in the local coordinator registry;
-- complete the caller handshake; and
-- invoke `Pipeline.Runner` in the registered process.
-
-`Pipeline.Runner` owns orchestration:
-
-- select the active stage from persisted execution state;
-- compose Pilot Collection and Pilot Analysis;
-- compose Final Collection and Final Analysis;
-- resume explicit Final Analysis coordination from `analyzing_final`;
-- map stage failures to bounded study errors; and
-- persist active-phase failure state.
-
-Each stage owns its successful database transition. The runner does not duplicate stage-specific persistence.
-
-The registered coordinator process also receives Final timing-boundary messages. This keeps all elapsed measurements in one monotonic clock domain.
-
-### Recovery boundary
-
-Gust persists run and task state. Completion callbacks only wake local waiters. A waiter reloads persisted Gust status before it accepts completion.
-
-The application does not start an automatic recovery worker. An application restart can leave an active execution without a coordinator. Explicit internal coordination can continue `analyzing_final`, but the public API does not perform automatic replay.
-
-## Definition boundary
-
-YAML is the user input transport. PostgreSQL stores one normalized immutable definition.
-
-Revision creation performs these steps:
-
-1. Read one bounded YAML document.
-2. Parse it once.
-3. Validate the versioned definition contract.
-4. Resolve each graph revision.
-5. Store one normalized JSON-compatible revision.
-
-Only graph revisions have application-owned immutable records and loaders. Other revision strings remain bounded caller assertions.
-
-Scientific settings and seeds are required. Deployment resource limits remain application configuration. A resource limit cannot replace or truncate a scientific setting.
-
-The checked-in contract defines the input shape:
-
-- [JSON Schema](../../src/priv/evaluation/study/v1/schemas/definition.schema.json)
-- [YAML example](../../contracts/evaluation/study/v1/valid/study-small.yaml)
-- [Normalized JSON example](../../contracts/evaluation/study/v1/valid/study-small.json)
-
-## Lifecycle
+Application storage and Gust storage have separate transaction owners.
+The provisioning protocol preserves this order:
 
 ```mermaid
-stateDiagram-v2
-    [*] --> collecting_pilot
-    collecting_pilot --> analyzing_pilot: accept Pilot snapshot
-    analyzing_pilot --> awaiting_final: accept Pilot outcome
-    awaiting_final --> collecting_final: explicit valid resume
-    collecting_final --> analyzing_final: accept Final snapshot and handoff
-    analyzing_final --> succeeded: store compact result
-    collecting_pilot --> failed
-    analyzing_pilot --> failed
-    collecting_final --> failed
-    analyzing_final --> failed
-    collecting_pilot --> cancelled
-    analyzing_pilot --> cancelled
-    awaiting_final --> cancelled
-    collecting_final --> cancelled
-    analyzing_final --> cancelled
-    succeeded --> [*]
-    failed --> [*]
-    cancelled --> [*]
+sequenceDiagram
+    participant W as Workflow
+    participant G as Gust Repo
+    participant P as Persistence
+    W->>W: Preallocate PhaseRun UUID
+    W->>G: Create undispatched run with UUID in input
+    W->>P: Link phase/key to proposed UUID and Gust run
+    P-->>W: Return canonical winner
+    alt Proposed run won
+        W->>G: Lock run row
+        W->>G: Dispatch only if status remains created
+    else Another caller already linked a run
+        W->>G: Clean up only known undispatched losing run
+        W->>G: Ensure canonical winner is dispatched conditionally
+    end
 ```
 
-A rejected resume keeps the execution at `awaiting_final`. A valid insufficient Pilot result also pauses. It is not a failed analysis.
+Unique phase/key and Gust-run constraints make concurrent callers converge on one canonical row.
+The authoritative Gust row lock prevents dispatch from a stale `created` status.
+There is no application dispatch flag, general orphan scanner or Gust fork.
 
-| State | Stage responsibility |
-| --- | --- |
-| `collecting_pilot` | Collect Pilot evidence and accept the Pilot snapshot. |
-| `analyzing_pilot` | Evaluate candidates, persist the Pilot outcome, and pause. |
-| `awaiting_final` | Validate the caller selection and freeze one declared candidate. |
-| `collecting_final` | Run sequential tiers, validate replicas and timing, and accept the Final snapshot. |
-| `analyzing_final` | Analyze the complete family and store the compact result. |
+The phase-run UUID travels in the root input before linking.
+Mapped actions verify their acting run and canonical phase ownership before calling a capability.
+Another successful run cannot satisfy this phase merely because its output has the right shape.
 
-Cancellation locks the execution row. A late stage result cannot revive a cancelled execution.
+## Completion proof and acceptance
 
-## Stage contracts
+Before accepting a phase result, Workflow checks:
 
-Each stage has one typed IO family. Mapped Gust work uses smaller item contracts with stable database references.
+1. The linked application PhaseRun belongs to the expected execution, phase and tier key.
+2. Root parameters exactly match its canonical phase-run identity and expected snapshot when applicable.
+3. The Gust run succeeded.
+4. Exactly one expected terminal task succeeded and has a stored result.
+5. The strict codec decodes the complete typed output.
+6. Domain validation confirms frozen scientific contracts and complete membership.
 
-Stage return rules are:
+A succeeded Gust status alone is insufficient.
+Pilot Analysis validates complete candidate/comparison fan-in and outcome consistency.
+Final Analysis validates complete family membership, statistics and recomputed Holm adjustments/decisions.
+Final timing proof also binds prepared session identity and exact completed replica receipts.
 
-- Pilot Collection returns Pilot Analysis IO;
-- Pilot Analysis returns `:paused`;
-- Final Collection returns Final Analysis IO; and
-- Final Analysis returns `:completed`.
+Persistence owns idempotent acceptance.
+An equal retry returns the current accepted state; a conflicting value fails.
+A failed or cancelled execution fences late acceptance.
+Final result insertion and `succeeded` occur atomically.
 
-Gust stores compact identifiers and receipts. In-process IO can contain loaded definitions, phases, snapshots, tier rows, and typed results.
+## Pilot path
 
-The Final Collection-to-Analysis handoff is versioned and stored in the locked Final Collection phase. The handoff contains the accepted snapshot reference, ordered tier references, and validated timing summary. A repeated acceptance must match the stored handoff.
+Pilot Collection prepares one immutable ordered group plan.
+It reserves unique item effects, collects aligned observations and inserts phase-owned evidence.
+Its typed terminal output is empty; Workflow reads the snapshot through its owning phase.
 
-## Gust DAGs
+Pilot Analysis loads that accepted snapshot.
+It creates candidate/comparison jobs, evaluates outcome-independent subsets and returns a complete candidate report.
+The compact accepted outcome lives on the execution.
+Detailed candidate summaries remain in the succeeded Gust terminal result and supply `Study.pilot_result/1`.
 
-The runtime uses six checked-in DAGs. Four belong to the study lifecycle.
+Every valid outcome pauses at `awaiting_final`.
+Approval uses `:recommended` or an explicit insufficient override for a declared candidate.
+The stored selection contains candidate ID and exact counts.
+The insufficient outcome beside that selection records the override without a separate boolean.
 
-| DAG | Role |
-| --- | --- |
-| `evaluation_comparison` | Run one reusable comparison. |
-| `evaluation_family` | Run one reusable corrected family. |
-| `evaluation_study_pilot_collection` | Prepare Pilot work, collect mapped items, and assemble the Pilot snapshot. |
-| `evaluation_pilot` | Prepare candidates, evaluate mapped candidate comparisons, and select the Pilot outcome. |
-| `evaluation_study_final_tier_collection` | Collect one Final tier with warm-up, measured replicas, timing markers, and environment boundaries. |
-| `evaluation_final` | Prepare, compare, and correct the Final family. |
+## Static Final tier sequence
 
-The DAG files define static topology. A compile-time macro expands the five measured Final replica chains. It does not generate a graph at runtime.
+One reusable static DAG executes for each tier in small/medium/large order:
 
-No study DAG starts another DAG. The pipeline stages create, accept, dispatch, await, and read their own Gust runs.
+```text
+prepare tier/session
+  → prepare warm-up -1 and check environment
+  → warm-up optimization → warm-up simulation
+  → prepare measured 0 and check environment → measured chain 0
+  → prepare measured 1 and check environment → measured chain 1
+  → prepare measured 2 and check environment → measured chain 2
+  → prepare measured 3 and check environment → measured chain 3
+  → prepare measured 4 and check environment → measured chain 4
+  → check environment and complete tier
+```
 
-## Shared collection boundary
+Replica positions change physical item/effect identity, while scientific inputs and seeds remain fixed.
+Warm-up performs the same scientific work and contributes no measured durations.
+Replica preparation and the terminal boundary re-read the configured label against the frozen definition.
+The tier opens its clock session before the first label check, but no measurement starts before that check passes.
+They do not authenticate hardware or software.
 
-Pilot and Final collection share these modules under `Pipeline.Collection`:
+### Measured chain and clock ownership
 
-- planning and phase lookup;
-- stable collection-item storage;
-- reservations and run identity;
-- concurrency control;
-- work-item and receipt contracts; and
-- evidence assembly.
+```text
+prepare items
+  → plan_start marker
+  → mapped optimization items complete
+  → simulation_start marker (also the plan-completion boundary)
+  → mapped simulation items complete
+  → replica_end marker and stored duration receipt
+```
 
-Pilot and Final stages keep separate task IO, DAGs, bounded errors, and acceptance rules.
+`Final.Timing` is an application-supervised clock-only GenServer.
+It starts before Gust can dispatch new work.
+A session token binds readings to one canonical tier PhaseRun.
+Marker order is fixed. Repeated markers return the same receipt within that session.
 
-Each collection item has a stable application record. A retry reuses linked optimization and experiment effects. This supports repeat-safe effects, but it does not promise exactly-once computation.
+For monotonic readings `p`, `s` and `e` in microseconds:
 
-Detailed evidence remains in application PostgreSQL. Gust task results contain compact references. Fan-in reloads linked records, rejects incomplete work, and restores declared order.
+| Duration | Definition |
+|---|---|
+| Plan selection | `s - p` |
+| Simulation | `e - s` |
+| Total | `e - p`, equal to the two component durations' sum |
 
-## Pilot
+These are complete-batch elapsed intervals, including queue, scheduling and retry delays inside the boundaries.
+Replica preparation before plan start, inter-replica gaps and later statistical analysis lie outside them.
+The result's `total` is therefore measured collection time, rather than whole-study wall time.
 
-Pilot Collection creates one evidence snapshot. Pilot Analysis evaluates one ordered candidate list.
+Raw readings remain transient.
+Gust stores the completed replica triplets and terminal tier output.
+Workflow checks these durable receipts before releasing transient clock state.
+The [verification record](../history/evaluation2-verification.md#timing-and-failure-evidence) preserves the shared handoff marker and duration-sum invariant.
 
-Each candidate has:
+### Caller loss and clock loss
 
-- a stable candidate ID;
-- a plan count per side; and
-- an attack count per plan.
+Completed tier receipts survive caller or clock loss.
+A later continuation proves the canonical run again and reconstructs the timing summary.
+A prepared or partially measured tier that loses its clock session cannot continue that measurement.
+The clock rejects old incomplete sessions; neither task timestamps nor silent reruns supply replacement durations.
 
-A candidate passes only if every declared comparison passes. Selection uses the declared runtime rule. The tie-break order is lower predicted runtime, more plans, fewer attacks, then earlier declared position.
+This is bounded re-entry, rather than automatic recovery or phase replay.
+Gust may reclaim eligible work under its existing lease rules, but that does not restore transient clock readings.
+Keep a measured command VM alive until its boundary.
 
-Pilot Analysis applies no Holm correction. If no candidate passes, it stores an `insufficient` outcome. The execution always pauses after a valid Pilot outcome.
+## Equality, representative evidence and Final acceptance
 
-Resume accepts:
+After all tier runs complete, Workflow proves their canonical typed outputs.
+`Final.Collection.prepare_snapshot/2` then checks physical sources, warm-up completeness, dimensions, duration receipts and measured equality.
 
-- the recommended candidate; or
-- one declared candidate as an explicit insufficient override.
+The equality payload retains scientific input graphs, action meaning, settings, seeds, trial ordering and outcomes.
+It excludes physical item/effect/output IDs, timestamps, sessions and durations.
+All measured positions must agree with position zero.
+Unequal or interrupted work fails without a replacement replica.
 
-The resume transaction freezes the candidate, counts, and override marker before Final work starts.
+The capability projects representative measured position zero into a complete comparison evidence value.
+It prepares the Final snapshot through Persistence.
+It does not own lifecycle acceptance.
+Workflow separately calls `Persistence.Executions.accept_final_collection/1`.
+That locked transition creates the `analyzing_final` successor, which is the durable acceptance witness.
+A snapshot's presence alone cannot authorize Final analysis.
 
-## Final Collection
+## Native Final analysis
 
-Final Collection runs tiers sequentially in declared family order. Each tier has:
+Final Analysis prepares jobs only from accepted Final evidence.
+It checks frozen model bounds, selected dimensions and derived ordered attack seeds.
+Mapped jobs evaluate deterministic matching-based statistics in outcome units.
+Fan-in requires every canonical comparison once and applies Decimal Holm correction across that complete family.
 
-- one excluded warm-up at position `-1`; and
-- five measured replicas at positions `0` through `4`.
+Workflow proves the terminal result, reconstructs timing from canonical tier receipts and rechecks provenance before acceptance.
+`Persistence.Executions.accept_final_analysis/3` stores family and timing with success in one transaction.
+Public result reads join the owning execution's Pilot history, selection and stored Final values.
+They do not rerun inference or expose private phase links.
 
-The static tier DAG uses seven environment checks:
+## Waiting, failures and cancellation
 
-1. before warm-up;
-2. before measured replica `0`;
-3. one shared boundary between each adjacent measured replica; and
-4. after measured replica `4`.
+RunMonitor only waits.
+It polls linked Gust status and durable execution state, including cancellation from another command VM.
+The caller reloads Status after waiting.
+A finite API timeout returns current Status and leaves work active.
 
-A shared boundary is both the end check for one replica and the start check for the next replica.
+Typed permanent failures remain permanent; unexpected exceptions retain Gust retry behavior.
+Workflow maps definitive failure to the owning active phase.
+Retry-safe item reservations prevent a retry from reserving a second effect for the same item.
+They do not guarantee exactly-once computation after a lost response.
 
-Synchronous markers measure plan selection, simulation, and total elapsed time. Total is measured directly. It is not calculated as the sum of the other intervals.
+Cancellation commits application state before best-effort stopping.
+Gust has succeeded/failed terminal run statuses; application `cancelled` is a separate lifecycle state.
+Created/enqueued runs are fenced under the authoritative Gust row lock; running runs use Gust stopping.
+Underlying effects can still finish.
+Terminal executions return their existing state on cancellation, and late completion cannot advance them.
 
-After all tiers finish, Final Collection:
+## Verification and history
 
-1. validates five measured timing records for every tier;
-2. builds one complete-family non-timing summary for each measured position;
-3. requires all five summaries to match;
-4. selects replica `0` as the evidence source;
-5. creates and accepts the Final snapshot; and
-6. stores the Final Analysis handoff.
+The [verification record](../history/evaluation2-verification.md) preserves constructor, numerical, Pilot, timing and full-study evidence.
+It includes the two real native successful studies and the 990-case implementation regression checkpoint.
+It retains failed checks, corrections and limits separately from successful observations.
 
-The stage creates no replacement replica after a mismatch.
-
-## Final Analysis and result
-
-Final Analysis reloads authoritative values from PostgreSQL. It checks the frozen selection, accepted Pilot source, Final snapshot, ordered family, and analysis settings.
-
-The Final DAG calculates every comparison and applies one Holm correction across the complete declared family.
-
-`Pipeline.Result.Store` creates one immutable compact result and transitions the execution to `succeeded` in the locked success transaction. Read-back validates the result against:
-
-- the study revision;
-- all four phase rows;
-- the ordered Final tier-run family; and
-- the stored compact result contract.
-
-Failed and cancelled executions have no compact scientific result.
-
-## Persistence
-
-| Record | Purpose |
-| --- | --- |
-| Study revision | Immutable normalized definition. |
-| Study execution | Lifecycle state, Pilot outcome, frozen Final selection, and bounded error. |
-| Study phase | One fixed stage with accepted run, snapshot, handoff, result reference, or error. |
-| Study phase run | One ordered Final tier and its Gust run. |
-| Collection item | Stable link to optimization and simulation effects. |
-| Evidence snapshot | Immutable Pilot or Final evidence payload. |
-| Study result | Immutable compact successful result. |
-
-Final Collection keeps its scalar phase run ID empty. Ordered `StudyPhaseRun` rows hold one Gust run per tier. Pilot Collection, Pilot Analysis, and Final Analysis each use one scalar Gust run ID.
-
-Historical migration module and table names remain because Ecto migration history requires them. Current schemas and pipeline persistence use those tables directly.
-
-## Scientific invariants
-
-The refactor preserves these rules:
-
-- scientific identity is `(tier, budget, alternative, reference, outcome)`;
-- alternative and reference plan rows are independent;
-- all plans in one comparison use the same ordered attack columns;
-- intervals use the corrected crossed bootstrap;
-- raw p-values use the centered crossed bootstrap with add-one correction;
-- Final Analysis applies Holm once across the complete family;
-- non-informative members remain in that family;
-- fan-in restores declared order; and
-- scheduling IDs and completion order do not change scientific randomness.
-
-Pilot and Final use separate collection seeds and evidence snapshots.
-
-## Verification state
-
-R7 static verification includes formatting, warnings-as-errors compilation, strict Credo, Dialyzer, DAG loading, and namespace searches.
-
-R8 is the first behavioral gate for the rebuilt pipeline. It must run:
-
-1. one complete public study journey through pause, resume, Final tiers, Final Analysis, and result read-back; and
-2. one cancellation journey during active work.
-
-R9 reconstructs automated tests from the pre-refactor baseline. Tests must target public behavior, scientific calculations, typed stage contracts, persistence invariants, DAG topology, cancellation, bounded failures, environment boundaries, timing summaries, and compact results.
-
-Deployment, real evidence collection, automatic recovery, phase replay, replacement replicas, and UI expansion require separate approval.
+Full calibration and legacy deletion remain pending, with a repeated documentation audit after deletion.
+The [legacy implementation plan](evaluation-study-pipeline-implementation-plan.md), [legacy refactor record](evaluation-study-pipeline-refactor-plan.md)
+and [runtime-contract record](evaluation-study-runtime-contract-future-work.md) are historical references, rather than current interfaces.

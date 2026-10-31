@@ -5,6 +5,22 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   Persistence owns lifecycle transitions. Gust owns scheduling. RunMonitor only
   waits. Run provisioning retains create-link-dispatch order and locks the
   authoritative Gust row before conditional dispatch.
+
+  ```mermaid
+  flowchart LR
+      Load[Reload durable context] --> Ensure[Ensure canonical linked run]
+      Ensure --> Wait[Wait through RunMonitor]
+      Wait --> Proof[Prove canonical terminal output]
+      Proof --> Accept[Request Persistence acceptance]
+      Accept --> Boundary{Approval or terminal?}
+      Boundary -->|No| Load
+      Boundary -->|Yes| Return[Return Status]
+  ```
+
+  A prepared snapshot is separate from accepted collection. The locked
+  transition and successor phase witness acceptance. Completed Final timings
+  rebuild from canonical Gust receipts after caller loss. An incomplete lost
+  clock session cannot supply replacement measurements.
   """
 
   import Ecto.Query
@@ -24,6 +40,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
 
   @boundary_states [:awaiting_final, :succeeded, :failed, :cancelled]
 
+  @doc "Drive canonical work to approval/terminal state, or return Status at a finite wait bound."
   @spec continue(Ecto.UUID.t(), keyword()) :: {:ok, map()} | {:error, Error.t()}
   def continue(execution_id, opts \\ []) do
     case Keyword.get(opts, :timeout, :infinity) do
@@ -241,6 +258,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
   defp remaining(deadline), do: max(deadline - System.monotonic_time(:millisecond), 0)
 
   @spec ensure_next_run(Ecto.UUID.t()) :: {:ok, PhaseRun.t() | nil} | {:error, Error.t()}
+  @doc "Ensure the next canonical active run without waiting or granting approval."
   def ensure_next_run(execution_id) do
     with {:ok, context} <- public(Executions.fetch_context(execution_id)),
          do: ensure_active_run(context)
@@ -260,9 +278,11 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     end
   end
 
+  @doc "Provision the phase's canonical Pilot Collection run in create-link-dispatch order."
   @spec ensure_pilot_collection_run(Ecto.UUID.t()) :: {:ok, PhaseRun.t()} | {:error, Error.t()}
   def ensure_pilot_collection_run(phase_id), do: ensure_phase_run(phase_id, :pilot_collection)
 
+  @doc "Provision Pilot Analysis bound to its canonical accepted snapshot."
   @spec ensure_pilot_analysis_run(Ecto.UUID.t()) :: {:ok, PhaseRun.t()} | {:error, Error.t()}
   def ensure_pilot_analysis_run(phase_id), do: ensure_phase_run(phase_id, :pilot_analysis)
 
@@ -357,6 +377,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     end
   end
 
+  @doc "Read Pilot evidence through the owning execution's collection phase."
   @spec pilot_snapshot(Ecto.UUID.t()) ::
           {:ok, Persistence.EvidenceSnapshot.t()} | {:error, Error.t()}
   def pilot_snapshot(execution_id) do
@@ -427,18 +448,22 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow do
     end
   end
 
+  @doc "Prove canonical Pilot Collection completion and decode its strict terminal output."
   @spec pilot_collection_result(Ecto.UUID.t()) ::
           {:ok, Pilot.CollectionContract.Output.t()} | {:error, Error.t()}
   def pilot_collection_result(phase_run_id), do: completed(phase_run_id, :pilot_collection)
 
+  @doc "Prove canonical Pilot Analysis completion, snapshot binding and complete outcome."
   @spec pilot_analysis_result(Ecto.UUID.t()) ::
           {:ok, Pilot.AnalysisContract.Output.t()} | {:error, Error.t()}
   def pilot_analysis_result(phase_run_id), do: completed(phase_run_id, :pilot_analysis)
 
+  @doc "Prove canonical tier completion with session binding and exact durable replica receipts."
   @spec final_tier_result(Ecto.UUID.t()) ::
           {:ok, Final.TierContract.Output.t()} | {:error, Error.t()}
   def final_tier_result(phase_run_id), do: completed(phase_run_id, :final_collection)
 
+  @doc "Prove canonical Final Analysis completion and validate its corrected family."
   @spec final_analysis_result(Ecto.UUID.t()) ::
           {:ok, Final.AnalysisContract.Output.t()} | {:error, Error.t()}
   def final_analysis_result(phase_run_id), do: completed(phase_run_id, :final_analysis)

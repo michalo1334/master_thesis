@@ -1,5 +1,8 @@
 # Evaluation study runtime contract — gate record
 
+> Historical legacy gate record. The original failure and correction remain below.
+> Native shared-policy inheritance and current interfaces are documented in the [operator guide](../evaluation2.md) and [pipeline guide](evaluation-study-pipeline.md).
+
 ## Status
 
 Implemented in the runtime-contract gate. This document records the condition

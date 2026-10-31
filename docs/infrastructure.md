@@ -133,6 +133,36 @@ container to exit successfully. These checks show local readiness only. They do
 not prove end-to-end telemetry delivery or cross-site behavior. A site collector validates its rendered configuration; that does not
 prove it can scrape every target or export every signal.
 
+## Native Evaluation2 runtime
+
+The native study path runs inside the normal application. It uses PostgreSQL, Gust and the retained optimization/simulation executor.
+Nx float64 and Decimal perform statistics in-process. A Python evaluation service is not a native dependency.
+Legacy deployment-source wiring remains until the separate verification/deletion gate; leave it unchanged during a documentation refresh.
+
+Before setup or tests, verify both `NetworkDefense.Repo` and `Gust.Repo` targets.
+They have separate migration histories, even when they share one local PostgreSQL service.
+The application migrations precede Gust migrations; seeding follows both.
+The existing `mix ecto.setup` alias encodes that order for an authorized fresh environment.
+Do not reset an existing development database to run a study.
+
+| Configuration | Native requirement |
+|---|---|
+| Repo connection | Use the intended local host, port, database and credentials for both Repos. Runtime supports `REPO_*` settings or `DATABASE_URL` |
+| Secrets | Keep passwords in the existing file-secret mechanism, such as `REPO_PASSWORD_FILE`; exclude values from YAML, commands and reports |
+| `GUST_ROLE` | Execution commands default to `core`; `console` and `web` do not dispatch. Inspection/create/cancel force `console` |
+| `EVALUATION_MEASURED_ENVIRONMENT_REVISION` | Set a stable truthful label before revision creation; preserve it through Final boundaries and acceptance |
+| ScatterGather executor | Check its configured transport. Real native verification used the retained RabbitMQ executor and consumers |
+| Broker connection | Use the existing RabbitMQ host/port/vhost/user and file-secret settings when that executor is selected |
+| Measurement lifetime | Keep the owning application VM and clock alive during an incomplete measured tier |
+
+A configured label is an operator assertion, rather than an authenticated runtime fingerprint.
+Completed timings survive through stored Gust receipts; a lost incomplete session cannot supply missing durations.
+Read-only command startup leaves queued Gust work unclaimed, while normal application dependencies still apply.
+
+The current local development evidence does not authorize Terraform apply, service deletion or a new deployment.
+Use the [operator guide](evaluation2.md) for commands and safe sandbox example checks.
+The [verification record](history/evaluation2-verification.md) states the observed protocol and remaining calibration/deletion gates.
+
 ## Teardown
 
 `terraform.sh destroy` removes every Terraform-managed resource: containers,

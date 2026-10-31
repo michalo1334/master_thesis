@@ -1,5 +1,8 @@
 # Evaluation simplification
 
+> Historical legacy interview. Some referenced source documents were removed later; their former paths remain as plain text below.
+> Use the [native operator guide](../evaluation2.md), [methodology](../concepts/evaluation-methodology.md) and [verification record](../history/evaluation2-verification.md) for current guidance.
+
 Status: historical design record. The modular pipeline is implemented through R7. See the [current pipeline design](../design/evaluation-study-pipeline.md) for the active architecture and the [refactor plan](../design/evaluation-study-pipeline-refactor-plan.md) for remaining R8 and R9 work.
 
 The sections below preserve the design discussion, including superseded proposals. They do not define current runtime behavior.
@@ -161,7 +164,7 @@ The Elixir result reader supports legacy `analysis.json` plus `metadata.json` ar
 
 ### M1 — Current pipeline
 
-The [pipeline and relationship diagrams](evaluation-pipeline.md) map collection, study preparation, Pilot and Final analysis, result verification, and manual handoffs.
+The historical pipeline and relationship diagrams (`evaluation-pipeline.md`, removed) map collection, study preparation, Pilot and Final analysis, result verification, and manual handoffs.
 
 The map distinguishes data dependencies, scientific policies, and human decisions. The current study specification selects and validates existing evidence; it does not launch collection. Pilot does not automatically produce or analyze Final evidence.
 
@@ -314,7 +317,7 @@ The second form is not native Gust syntax. The integration resolves run inputs a
 
 **User questions:** How should the shared layer be built? How difficult and verbose is it? What are all the currently planned study/specification stages? What could the Python REST interface look like?
 
-**Detailed answer:** [Prototype integration design, full stage catalog, API examples, and estimates](evaluation-stage-integration.md).
+**Detailed answer:** Historical prototype integration design, stage catalog, API examples and estimates (`evaluation-stage-integration.md`, removed).
 
 **Status after user feedback:** The data-binding compiler is rejected for now. The Python server must be idempotent and stateless. The following records the earlier, heavier proposal; its operation-server design and size estimates are not the current agreed design.
 
@@ -459,7 +462,7 @@ These are proposed type names and boundaries, not implemented structs. Root fiel
 
 **Execution agreement:** Use interactive stage agents in dependency order. Each agent owns implementation/testing of its current stage, not the next stage. The lead reviews stage acceptance and coordinates handoffs. Clarify ambiguous shared-code boundaries before removal; preserve unrelated working changes and stored evaluation data.
 
-**Major stages:** Legacy reset; typed contracts/data; stateless Python computation; Gust study workflow; dashboard integration/verification. The detailed contracts and acceptance criteria are in [the rebuild plan](evaluation-rebuild-plan.md).
+**Major stages:** Legacy reset; typed contracts/data; stateless Python computation; Gust study workflow; dashboard integration/verification. The detailed contracts and acceptance criteria are in the historical rebuild plan (`evaluation-rebuild-plan.md`, removed).
 
 **Deletion scope:** Apply the pristine-code rule throughout each approved stage. Remove replaced adapters, old tests, routes, configuration, and active setup documentation. Do not retain obsolete pieces merely to keep legacy tests passing. Valid shared behavior and scientific regression requirements remain relevant; express new tests through the current contracts.
 
@@ -550,7 +553,7 @@ Additional sources: [pipefunc repository](https://github.com/pipefunc/pipefunc),
 
 **User requirements:** Durable execution as part of a larger workflow. Paid Oban Pro is excluded. Explore Gust as an alternative to Runic. Source inspection and a temporary clone are permitted.
 
-**Source review:** Complete. See [Gust assessment, evidence, and proposed handoff diagram](gust-evaluation-review.md). The review confirmed PostgreSQL state, run leases, saved task outputs, external waits, and the callback ordering described in the pasted conversation. It also found limits in retry recovery, task-effect fencing, and definition versioning.
+**Source review:** Complete. See the historical Gust assessment and handoff diagram (`gust-evaluation-review.md`, removed). The review confirmed PostgreSQL state, run leases, saved task outputs, external waits, and the callback ordering described in the pasted conversation. It also found limits in retry recovery, task-effect fencing, and definition versioning.
 
 **Pasted conversation:** Most central claims are source-supported, but they are not complete guarantees. The review did not run crash tests. GustPy adds a Python execution option that the excerpt did not assess fully.
 
@@ -668,7 +671,7 @@ Pending. Choose changes after the scope and compatibility decisions. This review
 
 ## Related documents
 
-- [Evaluation concepts](../concepts/evaluation.md)
-- [Analysis package](../../evaluation/analysis/README.md)
-- [Cloud tooling plan](cloud-evaluation-tooling-plan.md)
-- [Topology-scale study](topology-scale-study.md)
+- Former evaluation concepts: `docs/concepts/evaluation.md` (removed).
+- Former analysis package guide: `evaluation/analysis/README.md` (removed).
+- Former cloud tooling plan: `cloud-evaluation-tooling-plan.md` (removed).
+- Former topology-scale study: `topology-scale-study.md` (removed).

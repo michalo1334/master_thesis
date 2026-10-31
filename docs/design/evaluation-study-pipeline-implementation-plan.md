@@ -1,5 +1,9 @@
 # Evaluation study pipeline implementation plan
 
+> Historical legacy implementation record. Native Evaluation2 supersedes the interfaces, schemas, coordinator and numerical method below.
+> Use the [current pipeline guide](evaluation-study-pipeline.md), [operator guide](../evaluation2.md) and [verification record](../history/evaluation2-verification.md).
+> The following slice status and commands describe their original checkpoint; they are not current setup or execution instructions.
+
 ## Scope
 
 This plan implements the target in [evaluation-study-pipeline.md](evaluation-study-pipeline.md). It defines a working prototype, not a production workflow service.

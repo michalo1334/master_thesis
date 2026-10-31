@@ -1,16 +1,16 @@
 defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
-  @moduledoc false
+  @moduledoc """
+  Transaction owner of collection plans, replica items and effect reservations.
 
-  # Collection plans, replica items, and the two retry-safe effect links.
-  #
-  # A plan holds the complete resolved request list of one phase run, so every
-  # replica of that run reuses one immutable plan. One item row is one replica
-  # coordinate and owns the optimization run and the simulation experiment that a
-  # retried Gust task reuses.
-  #
-  # Composite writes are short transactions. A plan or item row lock serializes
-  # two attempts, so the loser reads the stored record instead of creating a
-  # second one.
+  One PhaseRun owns one immutable ordered resolved plan. Each replica/item
+  coordinate owns unique optimization and simulation links. A retry reads the
+  reserved effects rather than creating another pair. Another replica, phase
+  or execution receives fresh effects, even with equal scientific inputs.
+
+  Short locked transactions serialize competing reservations. This protects
+  physical ownership; it does not promise exactly-once computation after a
+  lost response. Domain APIs retain ownership of executing the effects.
+  """
 
   import Ecto.Query
 
@@ -87,6 +87,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   # retry returns the stored plan and a different list conflicts.
   @spec insert_collection_plan(Ecto.UUID.t(), [WorkItem.t()]) ::
           Persistence.response(CollectionPlan.t())
+  @doc "Store one immutable resolved plan; an equal retry returns its canonical record."
   def insert_collection_plan(phase_run_id, work_items) do
     with {:ok, uuid} <- Persistence.cast_id(phase_run_id, :insert_collection_plan, :phase_run),
          :ok <- complete_work_items(work_items, :insert_collection_plan),
@@ -127,6 +128,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   defp complete_work_item?(_work_item), do: false
 
   @spec fetch_collection_plan(Ecto.UUID.t()) :: Persistence.response(CollectionPlan.t())
+  @doc "Read the typed plan owned by one canonical PhaseRun."
   def fetch_collection_plan(phase_run_id) do
     with {:ok, uuid} <- Persistence.cast_id(phase_run_id, :fetch_collection_plan, :phase_run) do
       query = from p in CollectionPlan, where: p.study_phase_run_id == ^uuid
@@ -185,6 +187,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   # complete ordered set exists once.
   @spec prepare_collection_items(Ecto.UUID.t(), CollectionItem.replica_position()) ::
           Persistence.response([CollectionItem.t()])
+  @doc "Create or reuse unique item coordinates for warm-up or one measured replica."
   def prepare_collection_items(plan_id, replica_position) do
     with {:ok, uuid} <- Persistence.cast_id(plan_id, :prepare_collection_items, :collection_plan),
          :ok <- expect_replica_position(replica_position, :prepare_collection_items) do
@@ -207,6 +210,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   end
 
   @spec fetch_collection_item(Ecto.UUID.t()) :: Persistence.response(CollectionItem.t())
+  @doc "Read one typed item with its resolved plan context and reserved effect identities."
   def fetch_collection_item(item_id) do
     with {:ok, uuid} <- Persistence.cast_id(item_id, :fetch_collection_item, :collection_item) do
       query = from i in CollectionItem, where: i.id == ^uuid
@@ -217,6 +221,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
 
   @spec list_replica_items(Ecto.UUID.t(), CollectionItem.replica_position()) ::
           Persistence.response([CollectionItem.t()])
+  @doc "Read one replica's items in plan order, independently of effect completion order."
   def list_replica_items(phase_run_id, replica_position) do
     with {:ok, uuid} <- Persistence.cast_id(phase_run_id, :list_replica_items, :phase_run),
          :ok <- expect_replica_position(replica_position, :list_replica_items) do
@@ -287,6 +292,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   # linked record instead of a second one. The planned request is the only input,
   # so a caller cannot supply a second request representation.
   @spec reserve_optimization(Ecto.UUID.t()) :: Persistence.response(OptimizationRun.t())
+  @doc "Reserve or reuse the item's unique optimization effect under its row lock."
   def reserve_optimization(item_id) do
     with {:ok, uuid} <- Persistence.cast_id(item_id, :reserve_optimization, :collection_item) do
       Persistence.tx(:reserve_optimization, :collection_item, fn ->
@@ -298,6 +304,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   # The experiment consumes the optimization run already linked by the item, so a
   # retry of the simulation stage reuses one experiment.
   @spec reserve_experiment(Ecto.UUID.t()) :: Persistence.response(Experiment.t())
+  @doc "Reserve or reuse the item's unique experiment using its optimization output."
   def reserve_experiment(item_id) do
     with {:ok, uuid} <- Persistence.cast_id(item_id, :reserve_experiment, :collection_item) do
       Persistence.tx(:reserve_experiment, :collection_item, fn ->

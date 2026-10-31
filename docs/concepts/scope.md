@@ -56,24 +56,23 @@ observations for confirmation.
 ## Implemented evaluation scope
 
 The [study overview](evaluation-study-overview.md) describes the public operations
-and current limits. The implemented prototype covers:
+and current limits. Native Evaluation2 covers:
 
-- one alternative-versus-CVSS comparison for each declared tier, budget,
-  strategy, and outcome;
-- a corrected crossed bootstrap for each comparison;
+- one mission-impact comparison per declared tier, budget and alternative versus implicit CVSS;
+- fixed-sample matching-based bounded-mean inference under the declared IID-input model;
 - one Holm correction across the complete primary family;
 - a Precision Pilot that selects common plan and attack counts;
-- separate Pilot and Final evidence collection;
-- a required pause before Final collection; and
-- one compact immutable study result.
+- fresh, separate Final evidence after explicit approval;
+- a required pause after every valid Pilot outcome; and
+- one durable successful result.
 
-The study definition uses strict versioned YAML. It references immutable domain
-revisions and declares the scientific settings, ordered Pilot candidates,
-comparison family, seeds, and pause policy. After parsing, the system stores the
-normalized definition and discards the input text.
+The [YAML constructor](../evaluation2.md#input-contract) checks required known fields and drops unknown keys.
+It resolves immutable graph/Host inputs and freezes shared model settings, ordered candidates, one seed and derived contracts.
+The stored definition excludes source YAML text.
+Changed scientific inputs require a new revision.
 
-The default lifecycle begins after optimizer calibration, topology construction,
-and other pilot work have accepted scientific contracts.
+Research use requires accepted model and method assumptions.
+The native protocol is verified at small counts; full empirical calibration remains a later verification gate.
 
 ## Operational timing scope
 
@@ -83,36 +82,35 @@ The configured observed environment assertion must match the revision before
 warm-up, before replica `0`, at each shared boundary between adjacent measured
 replicas, and after replica `4`.
 
-The registered coordinator process measures plan-selection, simulation, and total
-elapsed intervals. Final Collection validates the values and stores the typed
-summary in the Final Analysis handoff. Five complete-family non-timing summaries
-must match before replica `0` alone supplies the Final snapshot. Other replicas
-do not increase the inferential sample size.
+The application-supervised clock measures plan selection, simulation and their total in one session.
+The shared plan-completion/simulation-start boundary makes total equal the sum of its components.
+Gust stores completed duration receipts. Final Collection checks all five measured scientific evidence sets before preparing replica-zero evidence.
+Persistence separately owns acceptance. Timing replicas do not increase inferential sample size.
 
-The compact result stores five measured microsecond values, the median, the
-observed minimum, and the observed maximum for each tier and duration type. Raw
-monotonic readings and interval boundaries are not persisted. Detailed evidence
-stays in PostgreSQL snapshots and runtime records.
+The result stores five measured microsecond triplets per tier.
+Helpers derive medians and observed ranges from those values.
+Raw monotonic readings stay in memory. Detailed evidence stays in PostgreSQL and domain records.
 
-Timing collection does not change the outcome method or authorize real-study
-values, real evidence collection, or deployment. Current verification uses
-synthetic evidence. The prototype adds no replacement replica, automatic
-recovery, replay, polling, PubSub, or Oban lifecycle handoff.
+The [verification record](../history/evaluation2-verification.md) preserves two real service-backed successful local studies.
+Both used small counts and insufficient-Pilot overrides. They establish the protocol, rather than useful precision, power or calibration.
+Caller-owned continuation and durable polling support bounded re-entry and separate-VM cancellation.
+Lost incomplete clock sessions fail without replacement measurements.
+There is no automatic background lifecycle recovery or phase-replay API.
+Deployment remains subject to the [runtime requirements](../infrastructure.md#native-evaluation2-runtime) and operator authorization.
 
 ## Pilot-to-Final boundary
 
 A valid Pilot always leads to a pause.
 
 - When the Pilot recommends a candidate, Final uses that candidate.
-- When the Pilot is insufficient, a user can select one candidate that the
-  study definition already declared. The result records
-  `pilot_override: true`.
-- An invalid or failed Pilot enters the terminal failed state.
+- When the Pilot is insufficient, the operator can explicitly select one already-declared candidate.
+  The insufficient outcome beside the frozen selection records that override.
+- Invalid or failed Pilot work supplies no approval outcome.
 
-After an override, the Pilot outcome remains insufficient. Precision can remain
-poor, intervals can remain wide, raw p-values can remain unstable, and manual
-selection can introduce bias. Holm correction controls familywise error while
-evidence strength continues to depend on sampling precision.
+An override gives up the precision target.
+Final intervals can remain wide and tests can have low power.
+Valid fresh-Final inference still requires the fixed family, independent phase inputs and frozen procedure.
+Holm controls family-wise false rejection only under valid marginal inference.
 
 ## Open research questions
 

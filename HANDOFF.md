@@ -1,6 +1,26 @@
-# Next-agent handoff: modular study pipeline
+# Evaluation2 handoff
 
-## Current status
+## Current native status
+
+Native `NetworkDefense.Evaluation2.Study` supports the complete create-to-result path.
+Two real local service-backed studies reached durable success at small counts.
+Both used explicit insufficient-Pilot overrides; full calibration and legacy deletion remain pending.
+
+Start with the [operator guide](docs/evaluation2.md), [methodology](docs/concepts/evaluation-methodology.md), [architecture](docs/architecture/evaluation-architecture.md)
+and [verification record](docs/history/evaluation2-verification.md).
+The native implementation checkpoint passed 990 tests with two exclusions.
+The verification record distinguishes that historical result from documentation-refresh checks.
+
+Preserve unrelated user work and local data. Do not reset development, commit or apply infrastructure without authorization.
+Legacy runtime/schema/test artifacts remain until the calibration/deletion gate.
+After deletion, repeat the documentation, example, link and diagram audit.
+
+## Historical R7 handoff — superseded
+
+The following sections preserve the earlier modular legacy checkpoint and its limits.
+Their interfaces, pending R8/R9 sequence and verification count are historical, rather than current instructions.
+
+### Recorded status
 
 The evaluation study pipeline refactor is complete through R7.
 
@@ -8,13 +28,13 @@ The current branch is `refactor/modular-study-pipeline`. R7 production and docum
 
 R8 manual end-to-end verification is the next behavioral gate. R9 automated test reconstruction remains future work.
 
-## Worktree safety
+### Historical worktree safety
 
 The worktree also contains unrelated user edits and deletions. Preserve them. In particular, do not restore deleted thesis, in-progress, agent, or tooling documents from Git history or the index.
 
 Local `.pi/tmp` files include manual-journey artifacts and recovery records. Review them separately before staging.
 
-## Authority
+### Historical authority
 
 Read these files before further study-pipeline work:
 
@@ -29,7 +49,7 @@ Read these files before further study-pipeline work:
 
 The current design document defines the architecture. The refactor plan records the destructive migration and the remaining R8 and R9 work.
 
-## Implemented architecture
+### Historical implemented architecture
 
 The public `NetworkDefense.Evaluations` facade keeps six study operations:
 
@@ -53,7 +73,7 @@ Final Collection uses one excluded warm-up at position `-1` and five measured re
 
 The Final Collection phase keeps its scalar Gust run ID empty. Ordered `StudyPhaseRun` rows hold one run per declared tier. The other three stages use scalar run IDs.
 
-## Prototype limits
+### Historical prototype limits
 
 Preserve these boundaries:
 
@@ -68,7 +88,7 @@ Preserve these boundaries:
 
 Gust callbacks are wake-up signals. Persisted Gust status remains authoritative. Stable collection items make repeated effects safe within the prototype contract.
 
-## Verification record
+### Historical verification record
 
 The current `HEAD` passed:
 
@@ -82,7 +102,7 @@ The current `HEAD` passed:
 
 Dialyzer skipped the one documented external Gust type warning.
 
-## Next actions
+### Historical next actions
 
 1. Run R8 manual end-to-end verification:
    - complete one public study through Pilot pause, Final resume, sequential tiers, Final Analysis, and result read-back;

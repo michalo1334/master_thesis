@@ -1,10 +1,14 @@
 # Evaluation decisions
 
+> Historical legacy record. Native Evaluation2 supersedes the bootstrap, Python, coordinator, input and result contracts below.
+> Read the [native verification record](evaluation2-verification.md), [operator guide](../evaluation2.md) and [current architecture](../architecture/evaluation-architecture.md).
+> The earlier decisions and failed/limited checks remain as recorded history. They are not instructions for the native path.
+
 This record preserves durable choices and historical evidence from the evaluation rebuild. It replaces the stage plans, handoffs, remediation notes, Gust review, and design discussion. It is not an implementation plan.
 
 Read the [runtime map](../architecture/evaluation-architecture.md), [target lifecycle](../design/evaluation-study-pipeline.md), and [methodology](../concepts/evaluation-methodology.md) for current authority.
 
-## Accepted decisions
+## Historical accepted decisions
 
 - Remove the legacy evaluation subsystem rather than keep compatibility paths. Git history preserves its source, not deleted database rows. Retain graph, simulation, optimization, and their independent UI behavior.
 - Preserve the alternative-minus-CVSS estimand, independent plan rows, shared attack columns, corrected crossed bootstrap, centered null bootstrap, and complete-family Holm method.
@@ -24,7 +28,7 @@ Read the [runtime map](../architecture/evaluation-architecture.md), [target life
 - Always pause after valid Pilot analysis. Permit explicit confirmatory resume after insufficiency only with one declared candidate. Expose `pilot_override`; store no override actor, reason, or special timestamp. This is limited audit evidence, not a claim of adequate precision.
 - Make repeated Gust task effects safe through stable collection items. Do not claim exactly-once task execution.
 
-The insufficient-Pilot exception changes the earlier no-fallback policy for the study lifecycle only. `resume_study/2` records the declared override candidate and `pilot_override`. Its [scientific risks](../concepts/evaluation-methodology.md#insufficient-pilot-confirmatory-override) remain explicit.
+The insufficient-Pilot exception changes the earlier no-fallback policy for the study lifecycle only. `resume_study/2` records the declared override candidate and `pilot_override`. The current [override rules and limits](../concepts/evaluation-methodology.md#explicit-approval-and-insufficient-override) describe the native replacement.
 
 ## Rejected or superseded designs
 

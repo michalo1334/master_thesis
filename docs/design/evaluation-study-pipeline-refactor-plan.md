@@ -1,5 +1,9 @@
 # Evaluation study pipeline refactor plan
 
+> Historical legacy refactor record. Its R7 checkpoint and pending R8/R9 sequence describe the old delivery, rather than current native status.
+> Use the [current pipeline guide](evaluation-study-pipeline.md), [operator guide](../evaluation2.md) and [verification record](../history/evaluation2-verification.md).
+> Code examples below illustrate superseded contracts and are not executable native guidance.
+
 ## Status
 
 Implemented through R7 on the modular study-pipeline branch.

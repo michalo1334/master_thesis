@@ -1,24 +1,44 @@
 defmodule NetworkDefense.Evaluation2.Study do
   @moduledoc """
-  Supported context of the study evaluation subsystem.
+  Supported public facade of native Evaluation2.
 
-  A study is one YAML definition. The operator freezes a revision from that
-  definition, starts executions of the revision, reads their lifecycle state,
-  approves the Pilot outcome, and reads the result.
+  Freeze YAML with `create_revision/1`, then pass its `Revision` to `start/1`.
+  Keep the returned execution ID. `continue/2` drives caller-owned progression
+  to explicit Pilot approval or a terminal state. `resume/2` freezes the approved
+  counts; it does not grant approval implicitly through continuation.
 
-  This module is the whole supported surface. It owns the short application flow
-  of every operation: it reads or writes internal records through the internal
-  persistence owners and builds the returned value through `Study.Views`. The
-  values are transient: `Revision`, `Status`, `PilotResult`, `Result`, and
-  bounded `Error` values.
+  ```mermaid
+  stateDiagram-v2
+      [*] --> collecting_pilot
+      collecting_pilot --> analyzing_pilot
+      analyzing_pilot --> awaiting_final
+      awaiting_final --> collecting_final: Explicit approval
+      collecting_final --> analyzing_final
+      analyzing_final --> succeeded: Atomic result acceptance
+      collecting_pilot --> cancelled
+      analyzing_pilot --> cancelled
+      awaiting_final --> cancelled
+      collecting_final --> cancelled
+      analyzing_final --> cancelled
+      collecting_pilot --> failed
+      analyzing_pilot --> failed
+      collecting_final --> failed
+      analyzing_final --> failed
+  ```
 
-  `create_revision/1` and `start/1` are separate operations, so one frozen
-  revision supports several executions.
+  Persistence owns transitions and canonical identities. Workflow owns one
+  progression loop. Gust owns static phase tasks, retries and saved results.
+  No background study coordinator advances phases without a continuation caller.
 
-  Revision creation validates and resolves the new definition before persistence.
-  Caller-owned continuation reaches Pilot approval, collects approved Final
-  tiers, and accepts native Final analysis with its durable result. Storage
-  failures use fixed public issue codes.
+  Public values are `Revision`, `Status`, `PilotResult`, `Result` and bounded
+  `Error`. They expose no private persistence row or Gust run ID. A successful
+  result joins Pilot history, the frozen selection, the corrected native family
+  and five measured timing triplets per tier. Intervals remain pointwise under
+  the declared fixed-sample IID-input model.
+
+  One frozen revision supports multiple executions with fresh physical effects.
+  A finite wait leaves work active in a live application. Exit of the whole VM
+  stops its workers and clock; lost incomplete measurements cannot be replaced.
   """
 
   use Spectral
@@ -57,8 +77,11 @@ defmodule NetworkDefense.Evaluation2.Study do
   @doc """
   Freeze one study revision from YAML text.
 
-  Revision creation owns the external checks: YAML parsing, schema checks,
-  consistency checks, and graph reference lookup.
+  Revision creation owns YAML/schema checks, declaration consistency and graph
+  resolution. Unknown keys are dropped. Graph revisions and Host membership must
+  resolve before insertion. Capacity, policies, bounds and scientific seeds are
+  derived from the declared inputs. The configured environment label freezes
+  here, so configure it before creation when Final collection is intended.
   """
   @spec create_revision(binary()) :: {:ok, Revision.t()} | {:error, Error.t()}
   def create_revision(document) when is_binary(document) do
@@ -185,8 +208,9 @@ defmodule NetworkDefense.Evaluation2.Study do
   @doc """
   Cancel one execution that is not terminal.
 
-  Cancellation is a lifecycle event. A late phase completion leaves a cancelled
-  execution cancelled.
+  Commit application cancellation before best-effort Gust stopping. Underlying
+  effects can still finish, but late completion cannot advance terminal state.
+  An already-terminal execution returns its existing Status unchanged.
   """
   @spec cancel(execution_id()) :: {:ok, Status.t()} | {:error, Error.t()}
   def cancel(execution_id) do

@@ -1,154 +1,180 @@
 # Evaluation study overview
 
-This page introduces the implemented study workflow for study authors, evaluators, operators, and new developers. It describes the prototype, not an approved real study or deployment.
-
-A **study** declares a comparison family, scientific settings, seeds, and sample-size candidates. One **study execution** runs that definition through Pilot collection, Pilot analysis, a required pause, Final collection, and Final analysis.
+Evaluation2 runs a study from a frozen YAML revision to a durable native result.
+This page introduces the workflow for study authors, operators and new developers.
+Use the [operator guide](../evaluation2.md) for input, commands and a worked example.
+Use the [methodology](evaluation-methodology.md) for statistical assumptions and interpretation.
 
 ## Define a study revision
 
-The author supplies versioned YAML. The application validates it, resolves graph revisions, and stores an immutable, normalized study revision. Execution uses this stored definition, not the original YAML text.
+A study declares one seed, shared defense and simulation policies, a comparison family, and ordered sample-size candidates.
+It has fixed small, medium and large slots. Each slot names a persisted graph revision and one Host foothold.
+The application resolves those inputs and freezes the normalized definition.
+A changed definition requires a new revision.
+One frozen revision can support several executions with fresh physical effects.
 
-The definition supplies all scientific settings. Resource limits do not change those settings. A changed definition requires a new revision.
-
-Pilot candidates form one ordered list. Each candidate declares a stable ID, a plan count per side, and an attack count per plan. These are complete candidate choices, not separate count lists to combine. The application preserves declared order through analysis and read-back.
-
-Graph revisions identify application-owned immutable inputs. Other declared revision strings are assertions, not independently authenticated provenance.
+The constructor derives CVSS reference groups, comparisons, Pilot capacity, effective policies, seed schedules and graph-based outcome bounds.
+Unknown input keys are ignored and dropped. Required known fields remain strict.
+The definition records method/seed contract identities and the configured environment label.
+It contains no operator-supplied software revision checklist.
 
 ## Public operations
 
-`NetworkDefense.Evaluations` exposes six Elixir application operations. These are not browser controls or public web endpoints.
+[`NetworkDefense.Evaluation2.Study`](../../src/lib/network_defense/evaluation2/study.ex) is the supported Elixir facade.
+It exposes application operations, rather than browser controls or public web endpoints.
 
-| Operation                 | Purpose                                                    |
-| ------------------------- | ---------------------------------------------------------- |
-| `create_study_revision/1` | Validate YAML and return the stored normalized revision.   |
-| `start_study/1`           | Start a new execution from a stored revision ID.           |
-| `study_status/1`          | Read the persisted execution status.                       |
-| `resume_study/2`          | Freeze a valid Final selection and start Final collection. |
-| `cancel_study/1`          | Cancel a nonterminal execution.                            |
-| `study_result/1`          | Read the validated compact result after success.           |
+| Operation | Purpose |
+|---|---|
+| `create_revision(yaml)` | Validate, resolve and freeze a revision; return `Revision` |
+| `start(revision)` | Commit an execution and ensure its first Pilot run; return `Status` |
+| `continue(execution_id, opts)` | Drive work to approval/terminal boundary; return `Status` |
+| `status(execution_id)` | Read lifecycle state, outcome, selection and bounded error |
+| `pilot_result(execution_id)` | Read the complete accepted Pilot report |
+| `resume(execution_id, approval)` | Freeze valid Final counts and ensure the first tier run |
+| `cancel(execution_id)` | Commit cancellation, then attempt to stop active Gust work |
+| `result(execution_id)` | Read the typed result of a successful execution |
 
-`study_status/1` returns the execution identity, revision identity, current state, and timestamps. It also returns the Pilot outcome, frozen candidate and counts, override marker, and bounded error when available. It does not load detailed phase progress, evidence, or Gust task status.
-
-`study_result/1` returns no partial result. Failed and cancelled executions have status information but no compact scientific result.
+Calls return `{:ok, value}` or `{:error, Study.Error}`.
+`start/1` takes the public `Revision` value, identified by study ID and revision number.
+Keep the returned execution ID. A committed execution can remain available even if provisioning needs a later retry.
 
 ## Follow one execution
 
 ```mermaid
 sequenceDiagram
-    actor Author as Study author or evaluator
-    participant App as Elixir application
-    participant Evidence as Evidence collection
-    participant Analysis as Statistical analysis
-    Author->>App: Create revision from YAML
-    App-->>Author: Return stored revision
-    Author->>App: Start execution
-    App->>Evidence: Collect Pilot observations
-    Evidence-->>App: Return Pilot snapshot
-    App->>Analysis: Evaluate declared candidates
-    Analysis-->>App: Return recommendation or insufficiency
-    App-->>Author: Expose awaiting_final status
-    Author->>App: Resume with valid selection
-    App->>Evidence: Collect fresh Final observations
-    Evidence-->>App: Return separate Final snapshot
-    App->>Analysis: Analyze complete Final family
-    Analysis-->>App: Return validated family result
-    Author->>App: Read successful result
-    App-->>Author: Return compact result
+    actor Operator
+    participant Study as Study facade and caller-owned Workflow
+    participant Store as Persistence
+    participant Gust as Native phase DAGs
+    Operator->>Study: create_revision(YAML)
+    Study->>Store: Freeze resolved definition
+    Store-->>Operator: Revision
+    Operator->>Study: start(revision), then continue(id)
+    Study->>Gust: Collect and analyze Pilot
+    Gust-->>Study: Canonical completion and typed outcome
+    Study->>Store: Accept outcome
+    Study-->>Operator: awaiting_final
+    Operator->>Study: resume(id, explicit approval), then continue(id)
+    Study->>Gust: Collect small, medium, large sequentially
+    Gust-->>Study: Durable tier receipts
+    Study->>Store: Accept equal representative Final evidence
+    Study->>Gust: Native comparison analysis and Holm correction
+    Gust-->>Study: Complete corrected family
+    Study->>Store: Store result and succeeded atomically
+    Operator->>Study: result(id)
+    Study-->>Operator: Typed result
 ```
 
-### Pilot collection and analysis
+`start` and `resume` ensure the first run and return.
+`continue` owns blocking progression between phases and tiers.
+There is no background study coordinator or stored tier cursor.
+Without a continuation caller, a dispatched Gust run can finish, while the next lifecycle step waits for another caller.
 
-Pilot collection selects defense plans and runs simulations from the declared inputs. The application assembles the observations into a Pilot evidence snapshot.
+### Pilot and approval
 
-Pilot analysis evaluates each declared candidate against every declared comparison. A recommendation must pass all comparisons and rank first under the declared selection rule. If no candidate passes, the Pilot returns `insufficient`. Pilot analysis does not apply Holm correction.
+Pilot collects unique strategy groups and projects aligned comparison matrices.
+Native analysis evaluates every candidate against every comparison.
+A candidate passes only when all its comparisons pass the finite-pool precision assessment.
+Among passing candidates, the runtime heuristic chooses one recommendation.
+If none passes, the valid outcome is `insufficient`.
+Pilot applies no Holm correction.
 
-Both valid outcomes lead to `awaiting_final`. An insufficient Pilot is not a failed analysis. A failed or invalid Pilot cannot supply a Final selection.
+Every valid Pilot pauses at `awaiting_final`.
 
-### Pause and resume
+| Accepted Pilot outcome | Explicit approval | Effect |
+|---|---|---|
+| Recommended | `:recommended` | Freeze the recommended candidate and exact counts |
+| Insufficient | `{:override_insufficient, candidate_id}` | Freeze one declared candidate and retain the insufficient outcome |
 
-The application never starts Final collection automatically. At `awaiting_final`, the caller has two valid resume choices:
+Rejected approval leaves the execution waiting.
+Approval cannot change graphs, policies, family, seeds or candidate counts.
+An insufficient override gives up the precision target. It does not invalidate fresh-Final inference under its stated assumptions.
+The public result records the insufficient outcome beside the selection; it has no separate override boolean.
 
-| Pilot outcome  | Selection for `resume_study/2`           | Effect                                                                      |
-| -------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
-| Recommendation | `:recommended`                           | Use the recommended candidate and its exact counts.                         |
-| Insufficient   | `{:override_insufficient, candidate_id}` | Use one candidate already declared in the revision and record the override. |
+### Final collection and timing
 
-A rejected resume leaves the execution at `awaiting_final`. Resume cannot change the family, candidate counts, seeds, or other scientific settings.
+Final uses fresh effects and phase-separated scientific seeds.
+Tiers execute in small/medium/large order.
+Each tier runs excluded warm-up `-1`, followed by five measured replicas `0..4`.
+The replicas repeat scientific inputs; they measure runtime variation rather than increase statistical sample size.
 
-The application freezes the accepted selection before Final collection. An override leaves the Pilot outcome insufficient. It does not establish that the precision target passed.
+The application-owned clock measures plan selection, simulation and their total in one session.
+Gust stores completed durations. Raw monotonic readings stay in memory.
+The environment label must match the frozen label before each replica and at tier completion.
+A lost incomplete session or unequal measured scientific evidence fails collection without a replacement replica.
 
-### Final evidence and analysis
+After all tiers finish, Workflow proves canonical completion.
+Final Collection checks measured equality and prepares replica-zero evidence.
+Persistence separately accepts collection and creates `analyzing_final`.
+A prepared snapshot alone is not an acceptance witness.
 
-Final collection uses the frozen counts and separate collection seeds. It runs tiers sequentially. Each tier has one excluded warm-up at position `-1`, then five measured replicas at positions `0..4`. Each replica repeats the same scientific inputs.
+### Final analysis and result
 
-The configured observed environment assertion must match the revision's declared environment before warm-up, before measured replica `0`, at each shared boundary between adjacent measured replicas, and after replica `4`. A missing or different assertion fails collection. This check compares operator assertions; it does not authenticate the environment.
+Final analysis uses deterministic matching-based bounded-mean inference and one complete-family Holm correction.
+It requires accepted Final evidence, frozen dimensions, aligned attack seeds and compatible method/environment contracts.
+Persistence stores the corrected family and timing with the `succeeded` transition in one transaction.
 
-The coordinator process measures plan-selection, simulation, and total elapsed intervals. These intervals include Gust and ScatterGather wait time. Total elapsed time has its own boundaries; it is not the sum of the other intervals. The application keeps the five measured values per tier in memory until successful result creation stores their summaries. Raw monotonic readings and interval boundaries are not persisted.
+The public result contains:
 
-After all tiers complete, the application assembles one complete-family non-timing summary for each measured position. All five summaries must match. Only replica `0` supplies the new Final snapshot. Warm-up supplies neither accepted outcome evidence nor timing values. A rejected replica has no replacement.
+- execution and revision identity;
+- accepted Pilot outcome and frozen selection;
+- complete corrected family, including estimates, pointwise intervals, p-values and warnings;
+- five measured timing triplets per tier.
 
-Pilot observations must not become Final evidence. Final analysis checks the accepted Pilot source, frozen selection, and Final evidence bindings. It analyzes every declared comparison and applies Holm correction once across the complete family.
-
-The application asserts and checks evidence provenance. These checks do not cryptographically authenticate collection history or prove physical freshness from the observations alone.
+Timing helpers derive medians and observed ranges from the stored values.
+Canonical phase/Gust links, evidence matrices and effect histories remain internal durable records.
+The complete Pilot candidate report remains available through `pilot_result/1`.
+A result read before success returns a bounded unavailable error.
 
 ## Public states
 
 ```mermaid
 stateDiagram-v2
-    [*] --> collecting_pilot: Start stored revision
-    collecting_pilot --> analyzing_pilot: Accept Pilot snapshot
-    analyzing_pilot --> awaiting_final: Accept recommendation or insufficiency
-    awaiting_final --> collecting_final: Accept valid resume
-    collecting_final --> analyzing_final: Accept separate Final snapshot
-    analyzing_final --> succeeded: Accept complete Final result
-    collecting_pilot --> failed: Reject failed phase
-    analyzing_pilot --> failed: Reject failed phase
-    collecting_final --> failed: Reject failed phase
-    analyzing_final --> failed: Reject failed phase
-    collecting_pilot --> cancelled: Cancel execution
-    analyzing_pilot --> cancelled: Cancel execution
-    awaiting_final --> cancelled: Cancel execution
-    collecting_final --> cancelled: Cancel execution
-    analyzing_final --> cancelled: Cancel execution
+    [*] --> collecting_pilot
+    collecting_pilot --> analyzing_pilot: Accept Pilot collection
+    analyzing_pilot --> awaiting_final: Accept valid Pilot outcome
+    awaiting_final --> collecting_final: Explicit approval
+    collecting_final --> analyzing_final: Accept Final collection
+    analyzing_final --> succeeded: Store result atomically
+    collecting_pilot --> failed
+    analyzing_pilot --> failed
+    collecting_final --> failed
+    analyzing_final --> failed
+    collecting_pilot --> cancelled
+    analyzing_pilot --> cancelled
+    awaiting_final --> cancelled
+    collecting_final --> cancelled
+    analyzing_final --> cancelled
     succeeded --> [*]
     failed --> [*]
     cancelled --> [*]
 ```
 
-Terminal states do not change when a late completion arrives. Cancellation is idempotent for an already-cancelled execution. A caller cannot cancel a succeeded or failed execution.
+Terminal states fence late completions.
+Cancellation returns the existing Status for any terminal execution and leaves its state unchanged.
+Application cancellation commits first; stopping Gust work is best-effort and does not guarantee immediate termination of underlying effects.
 
-## Evidence and successful results
+## Waiting, re-entry and limits
 
-An **evidence snapshot** is an application-managed record that the application treats as immutable. It holds Pilot or Final evidence matrices. Changed evidence requires a new snapshot; immutability is an application rule, not database-enforced protection.
+`continue(id, timeout: milliseconds)` returns current Status when its wait expires. It leaves work active and grants no approval.
+A timeout in a live application differs from exit of an entire command VM, which stops its workers and clock.
+The wait-only RunMonitor polls durable state, so cancellation from another VM ends a blocked continuation.
 
-The successful compact result contains:
+Re-entry uses canonical linked runs, stored task results and effect reservations.
+It can rebuild completed tier timing after caller or clock loss.
+An interrupted timed session cannot resume with invented durations.
+No phase-replay API, replacement-replica policy or automatic background lifecycle recovery is provided.
+Known incompatible method/seed contracts and changed measurement labels block continuation at their checked boundaries.
 
-- study and execution identities;
-- accepted collection and analysis references, including snapshot identities;
-- the Pilot outcome, selected candidate, counts, and override marker;
-- the complete Final family result, including estimates, intervals, raw and adjusted p-values, and assessments;
-- per-tier plan-selection, simulation, and total timing summaries; and
-- declared software and environment revision assertions.
-
-Collection references use ordered Gust run-ID lists: one entry for Pilot collection and one entry per tier for Final collection. Pilot and Final analysis references each retain one scalar run ID.
-
-The result excludes evidence matrices, raw trial histories, and detailed workflow logs. Each timing summary contains five measured microsecond values, the median, the observed minimum, and the observed maximum. Detailed evidence stays in PostgreSQL snapshots and runtime records. Raw monotonic readings and interval boundaries are not persisted.
-
-## Ownership and current limits
-
-The application owns the study lifecycle, persisted state, source checks, and result validation. Gust runs fixed collection and analysis workflows below that boundary. It schedules tasks, retries temporary failures, and stores workflow state. Gust does not decide when a study resumes or which Final candidate it uses.
-
-The current prototype has these limits:
-
-- Operational timing collection and compact-result timing summaries are implemented. Timing does not change Final evidence selection.
-- An application restart does not automatically recreate coordinators. The prototype has no automatic restart recovery or phase replay. Cancel a stranded execution and start a new one.
-- Cancellation does not cancel underlying Gust, optimization, or simulation work. It prevents late completion from advancing the cancelled execution.
-- Verification uses synthetic evidence. Real-study values, real evidence collection, and deployment remain outside approved prototype scope.
-- Provenance is asserted and checked by the application, not cryptographically authenticated.
+The [verification record](../history/evaluation2-verification.md) preserves two real successful native studies at small counts.
+Full calibration and legacy deletion remain later verification gates.
+The environment label is an operator assertion. It does not authenticate the machine or prove unchanged software.
 
 ## Further reading
 
-- [Evaluation methodology](evaluation-methodology.md): scientific rules and interpretation limits.
-- [Vocabulary](vocabulary.md): shared terms.
-- [Evaluation architecture](../architecture/evaluation-architecture.md): developer-facing runtime boundaries.
-- [Study pipeline](../design/evaluation-study-pipeline.md): implementation authority for the study lifecycle and timing.
+- [Operator guide and worked example](../evaluation2.md)
+- [Evaluation methodology](evaluation-methodology.md)
+- [Native architecture](../architecture/evaluation-architecture.md)
+- [Pipeline, timing and acceptance](../design/evaluation-study-pipeline.md)
+- [Vocabulary](vocabulary.md#evaluation-and-study)
+- [Historical decisions](../history/evaluation-decisions.md)

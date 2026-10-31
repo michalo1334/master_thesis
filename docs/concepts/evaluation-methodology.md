@@ -1,470 +1,316 @@
-# Evaluation Methodology
+# Evaluation methodology
 
-The study compares each defense strategy with CVSS prioritization. It uses the
-same attack columns on both sides of a comparison and represents two sources of
-variation: selected defense plans and attack outcomes.
+This page defines the native Evaluation2 method for study authors and result readers.
+The [study overview](evaluation-study-overview.md) describes the workflow.
+The [operator guide](../evaluation2.md) describes input, commands and safe checks.
 
-The method has four main parts:
-
-1. Build aligned outcome matrices for each comparison.
-2. Estimate the effect and its uncertainty with a crossed bootstrap.
-3. Use the Precision Pilot to choose Final sample counts.
-4. Apply Holm correction to the complete Final comparison family.
-
-A change to the estimand, sampling units, reference strategy, or correction
-family is a method change and needs an explicit justification.
-
-## Running example
-
-The callouts follow one fictional comparison from a 36-comparison family:
-
-- medium tier;
-- budget of three actions;
-- topology-driven policy segmentation;
-- CVSS reference; and
-- mission-impact outcome.
-
-The numbers illustrate how data moves through the method.
+The primary outcome is simulated mission impact. Each declared alternative is compared with CVSS under the same action budget.
+Inference is conditional on the frozen graphs and model settings.
 
 ## 1. Research scope and model
 
-The study examines how controlled topology growth affects:
+The research asks how defense strategies and controlled topology growth affect mission impact and runtime.
+A study contains small, medium and large tiers. Each tier fixes one graph revision and one initial Host foothold.
+Host count describes topology size; edge count and attack-relevant topology properties provide context.
+One graph per tier supports conclusions about those scenarios. It does not sample a population of network topologies.
 
-- simulation runtime;
-- defense-plan selection runtime;
-- total evaluation runtime; and
-- mission-impact differences between defense strategies and CVSS
-  prioritization.
+Mission impact is the sum of weights of disrupted mission capabilities.
+The constructor freezes its model range as `[0, H]`, where `H` is the sum of finite positive capability weights.
+Registered defense actions preserve those weights.
+Bounds come from the model, rather than observed sample extrema.
 
-Use small, medium, and large tiers, with one frozen graph per tier. Host count
-sets topology size. Edge count is a recorded graph property.
+At each step, the simulator selects an eligible attacker action uniformly, then samples its outcome.
+The rules, iteration limit, maximum attempts and initial foothold define the shared attacker model.
+CVSS values, success probabilities, support thresholds, required flows and capability weights are scenario inputs.
+The initial foothold contributes to blast radius.
 
-Keep the model comparable across tiers. This includes node roles, relationship
-types, exposure patterns, reachability policy, attacker entry context, and the
-meaning of an action budget. Record attack-relevant topology diagnostics for
-each tier, including values that stay unchanged.
+These are research-model outcomes. They do not estimate real exploit likelihood or operational loss without further model validation.
 
-The results describe these frozen graphs.
+## 2. Treatments, reference and family
 
-### Model assumptions
+The definition chooses alternatives from the existing optimization strategies:
 
-CVSS scores, exploit probabilities, capability weights, support thresholds,
-required flows, reachability policy, and defense actions are model inputs.
+| Alternative | Selection basis |
+|---|---|
+| `random` | Random defense selection |
+| `topology_segmentation` | Topology and reachability |
+| `simulation_informed` | Simulation scoring |
+| `simulated_annealing` | Stochastic search with simulation scoring |
 
-At each step, the simulator selects one eligible attacker action uniformly and
-then samples its outcome. The initial foothold contributes to blast radius. The
-attack horizon limits the number of action steps.
+CVSS is the implicit reference for every tier/budget context.
+The primary comparison identity is `(tier, budget, alternative, cvss, mission_impact)`.
+A budget limits the number of actions in a plan. It is an action-count limit, rather than an economic cost model.
 
-Mission impact is the weighted sum of disrupted mission capabilities. The
-model's support thresholds and required flows determine capability status. The
-evaluation uses these weights and rules unchanged.
+One shared defense policy declares allowed action types and feasibility.
+The application intersects allowed actions with each strategy's supported actions.
+CVSS uses patches; topology segmentation uses segment-reachability blocks.
+The constructor rejects a strategy whose effective action set is empty.
 
-> **Worked example — model.** Freeze the medium graph, attacker entry, mission
-> weights, reachability policy, and budget definition. Change the defense
-> strategy for the comparison.
+Scored strategies declare an objective and scoring trial count.
+They inherit the shared simulation model and feasibility policy.
+Scoring trials help select a plan; they are separate from outcome observations.
 
-## 2. Treatments, reference, and controls
+The family contains every declared alternative in every declared tier/budget context.
+Comparison order is small, medium, large; then budget declaration order; then alternative declaration order.
+For example, two alternatives and two budgets in each tier produce twelve comparisons.
+A no-defense control or an alternative-versus-alternative contrast requires a separate, explicitly designed analysis.
 
-The primary family compares four alternatives with CVSS prioritization.
+## 3. Sampling units and aligned evidence
 
-| Alternative                         | Role                                   |
-| ----------------------------------- | -------------------------------------- |
-| Random defense selection            | Randomized benchmark.                  |
-| Topology-driven policy segmentation | Selection based on graph structure.    |
-| Simulation-informed selection       | Selection based on simulated outcomes. |
-| Simulated-annealing search          | Stochastic search over defense plans.  |
+| Unit | Meaning | Purpose |
+|---|---|---|
+| Row input | One optimizer input, including its scoring randomness | Plan-selection variation |
+| Column input | One attack seed, shared across rows and comparison sides | Attack variation |
+| Timing replica | A fresh physical execution of fixed scientific inputs | Runtime variation |
+| Frozen graph | One scenario in a size tier | Conditional interpretation |
 
-CVSS is the primary reference. A no-defense experiment provides descriptive
-context.
+For a comparison, let `A` contain alternative outcomes and `C` contain CVSS outcomes.
+Both matrices have `n` rows and the same ordered `m` attack columns.
+Row positions pair the two strategy outcomes under the declared selection input.
+Columns preserve common attack seeds. A shared seed can still produce different paths after a defense changes the graph.
 
-One primary comparison identifies a tier, budget, alternative, reference, and
-outcome. Mission impact is the primary outcome. Direct comparisons between two
-alternative strategies belong to exploratory analysis.
+The statistical model assumes:
 
-Here, budget means the number of defense actions in a plan.
+1. Row inputs are independent and identically distributed within their role.
+2. Column inputs are independent and identically distributed within their role.
+3. The row-input collection and column-input collection are independent.
+4. Frozen model inputs deterministically map these inputs to outcomes.
 
-> **Worked example — treatment.** The comparison identity is medium tier,
-> budget three, topology-driven policy segmentation, CVSS reference, and
-> mission-impact outcome. Each strategy uses a budget of three defense actions.
+Dependence within a row or column is expected.
+All optimizer and stochastic scoring inputs belong to their row.
+A reused stochastic scoring pool across rows, or scoring against Final attack inputs, would violate this model.
+The retained optimizer derives scoring randomness from its selection input, separately from evaluation attack roots.
 
-## 3. Replication units and evidence alignment
+Physical collection uses unique strategy groups: one CVSS group and one group per alternative for each tier/budget.
+Comparisons project those groups. A shared CVSS group can make comparisons dependent.
+It owns one set of effects, rather than duplicate CollectionItems linked to the same effect.
 
-| Unit                     | Meaning                                            | Variation represented     |
-| ------------------------ | -------------------------------------------------- | ------------------------- |
-| Plan-selection replicate | One selected plan.                                 | Plan-selection variation. |
-| Attack replicate         | One attacker execution against a plan.             | Attack variation.         |
-| Timing replica           | One repeated execution of fixed scientific inputs. | Runtime variation.        |
-| Graph                    | One frozen topology in a size tier.                | One conditional scenario. |
+```text
+Alternative A rows ───────────→ A versus CVSS
+CVSS rows ──────────────────┬─→ A versus CVSS
+                           └─→ B versus CVSS
+Alternative B rows ───────────→ B versus CVSS
+```
 
-These units answer different questions. Meet each required count independently.
+## 4. Effect estimate and matching-based inference
 
-Each comparison uses two matrices. A row is one selected plan. A column is one
-shared attack seed.
+The population estimand is the expected mission-impact difference over the declared row and column input distributions:
 
-- The first matrix contains alternative outcomes.
-- The second matrix contains CVSS outcomes with the same ordered columns.
+\[
+\Delta = E\{A(R,T)-C(R,T)\},\qquad
+\widehat\Delta=\overline A-\overline C.
+\]
 
-Every plan must cover the same attack columns in the same order. The same
-attack seed identifies the same column on both sides. A defense can still
-change the resulting attack path and outcome.
+A negative estimate favors the alternative. A positive estimate favors CVSS.
+The known contrast range is `[-H, H]`.
 
-During resampling, use the same sampled columns on both sides. Draw alternative
-and CVSS plan rows independently. Keep stable plan and comparison identities,
-and preserve the matrix structure.
+The frozen native method contract is `crossed-matching-betting-v1`.
+Comparison results label its statistics `matching_bounded_mean_v1` and its marginal test `sign_conservative_betting`.
+The family method label `holm` identifies the correction layer.
+The numerical method partitions the difference matrix `D = A - C` into fixed cyclic matchings.
+Each matching uses each participating row and column once.
+Its observations are IID under the input model above.
+Different matchings can remain dependent.
 
-Before inference, validate the strategy and budget matrix, sample counts,
-selection seeds, and attack-column alignment. A strategy can use an allowed
-subset of the declared selection seeds.
+### Fixed matching cover
 
-**Worked example — aligned matrices.** Each Final matrix has eight plan rows and
-twelve shared attack columns. This table abbreviates the middle rows and
-columns:
+Use zero-based logical coordinates:
 
-| Side         | Plan | Seed 101 | Seed 102 | …   | Seed 112 |
-| ------------ | ---- | -------- | -------- | --- | -------- |
-| Segmentation | A1   | 2        | 3        | …   | 1        |
-| Segmentation | A2   | 3        | 2        | …   | 2        |
-| Segmentation | A8   | 2        | 2        | …   | 1        |
-| CVSS         | C1   | 4        | 5        | …   | 3        |
-| CVSS         | C2   | 5        | 4        | …   | 4        |
-| CVSS         | C8   | 3        | 5        | …   | 4        |
+- If `n <= m`, matching `t` contains `(i, (i+t) mod m)` for all rows; there are `m` matchings.
+- If `n > m`, matching `t` contains `((j+t) mod n, j)` for all columns; there are `n` matchings.
 
-Seed 101 names the same attack column on both sides. The plan rows remain
-independent.
+Each cell appears exactly once.
+For a two-row, three-column matrix, the cover is:
 
-## 4. Primary estimand and interval
+| Matching | First pair | Second pair |
+|---|---|---|
+| 0 | `(0,0)` | `(1,1)` |
+| 1 | `(0,1)` | `(1,2)` |
+| 2 | `(0,2)` | `(1,0)` |
 
-Let $A$ be the alternative matrix with $n_A$ plan rows and $m$ attack columns.
-Let $C$ be the CVSS matrix with $n_C$ rows and the same $m$ columns.
+Logical order is fixed before observation.
+Outcome values, selected-plan features, cost, seed magnitude and task completion order must not determine matching order.
+The independent horizon in each matching is `min(n,m)`, rather than the total cell count.
 
-The effect estimate is the difference between their mean mission impacts:
+### Predictable bets and pointwise intervals
 
-$$
-\widehat{\Delta}=\overline{A}-\overline{C}.
-$$
+For `H > 0`, normalize a difference to `X = (D/H + 1)/2` in `[0,1]`.
+Within each matching, calculate positive and negative betting capitals.
+Each bet uses only that matching's earlier observations.
+The method fixes its variance initialization, confidence-dependent bet size and half-range cap.
+These are versioned algorithm constants, rather than YAML controls.
+The [method record](../history/evaluation2-statistical-validation.md#selected-capital-rule) specifies the exact recipe and its conditional mathematical argument.
 
-- A negative value favors the alternative because it has lower mission impact.
-- A positive value favors CVSS.
+Average capitals arithmetically across matchings, separately for each direction.
+This preserves the null expectation bound despite dependence between matchings.
+Invert the directional capitals at the two-sided threshold to obtain a closed interval.
+The implementation retains conservative outer numerical brackets and enlarges the interval to include the all-cell estimate.
 
-The interval covers plan-selection and attack-outcome variation.
+The interval is pointwise for one comparison at `analysis.confidence_level`.
+Its half-width is half the full span; it need not be symmetric about the estimate.
+The same confidence level applies to Pilot planning and Final reporting.
+It is separate from `family.alpha`.
 
-### Corrected crossed bootstrap
+### Marginal p-value and boundary cases
 
-The crossed bootstrap resamples both sources of variation while keeping attack
-columns paired.
+To test zero population contrast, evaluate the directional capitals at normalized mean one half.
+For a nonzero estimate, use the capital that agrees with its sign.
+The raw p-value is `min(1, 2 / E_direction)`. A zero estimate receives one.
+The factor two protects the two-sided test.
+The direction choice only increases the valid two-sided bound.
 
-For each bootstrap draw:
+The implementation uses float64 log arithmetic for capitals and conservatively handles positive underflow.
+It uses no bootstrap draws or Monte Carlo tail counts for Final inference.
 
-1. Sample $m$ attack-column indices with replacement.
-2. Sample $n_A$ alternative plan-row indices with replacement.
-3. Sample $n_C$ CVSS plan-row indices independently with replacement.
-4. Apply the sampled columns to both matrices.
-5. Calculate the sampled mean difference $\Delta_b$.
-6. Apply the finite-sample correction:
+- If the model has `H = 0`, the contrast is structurally zero: estimate and interval are zero, and the p-value is one.
+- Constant observed outcomes with `H > 0` retain sampling uncertainty.
+- An empty interval inversion returns the full known contrast range, p-value one and an `empty_inversion` warning.
+- Positive row and column counts are input eligibility conditions. They do not guarantee useful precision or power.
 
-$$
-\gamma=\sqrt{
-\max\!\left(\frac{n_A}{n_A-1},\frac{n_C}{n_C-1}\right)
-\frac{m}{m-1}
-},
-\qquad
-\Delta_b^*=\widehat{\Delta}+\gamma(\Delta_b-\widehat{\Delta}).
-$$
+## 5. Complete-family Holm correction
 
-The correction expands variation around the observed effect for small row and
-column counts. For confidence level $1-\alpha$, use the $\alpha/2$ and
-$1-\alpha/2$ percentiles of the corrected draws. Half the distance between the
-limits is the interval half-width.
+Final analysis requires exactly one result for every frozen comparison.
+It rejects missing, duplicate or foreign members before correction.
 
-Require at least five plan rows per side and ten shared attack columns. These are
-eligibility bounds. Actual coverage depends on the model and evidence.
+Holm orders raw p-values, multiplies each by the remaining hypothesis count, and applies a cumulative maximum capped at one.
+The application uses Decimal arithmetic and restores the canonical comparison order.
+The decision rule is inclusive: `adjusted_p <= family.alpha` rejects the zero-effect null.
 
-### Raw p-value: centered crossed bootstrap
-
-The primary test uses a centered crossed bootstrap. Center each matrix by
-subtracting its observed mean. Then run the corrected crossed bootstrap with a
-separate deterministic random stream.
-
-For $B$ centered draws, calculate the two-sided raw p-value:
-
-$$
-p_{\mathrm{raw}}=
-\frac{1+\#\{b:|\Delta_{0,b}^*|\geq|\widehat{\Delta}|\}}{B+1}.
-$$
-
-The added one in the numerator and denominator prevents a reported value of
-zero. Use the declared bootstrap count for both the interval and the centered
-draws.
-
-A comparison is non-informative when the effect and both interval limits are
-numerically zero. Assign a raw p-value of one. A zero-width interval with a
-nonzero effect receives a degeneracy warning.
-
-> **Worked example — effect.** Suppose the full segmentation matrix has mean
-> `2.4` and the CVSS matrix has mean `4.1`. Then
-> $\widehat{\Delta}=2.4-4.1=-1.7$, so segmentation has lower mission impact. A
-> corrected interval could be `[-2.3, -1.0]`. With 999 centered draws and 11 at
-> least as extreme as the estimate, $p_{\mathrm{raw}}=(1+11)/(999+1)=0.012$.
-
-## 5. Complete-family multiplicity correction
-
-Holm correction limits the chance of at least one false rejection across the
-primary family. It orders the raw p-values, adjusts them by the number of
-remaining tests, and keeps the adjusted values in order.
-
-Declare the family before inspecting Final results. Its size follows the study
-design. For example, four alternatives, three budgets, and three tiers produce
-36 comparisons.
-
-Before correction:
-
-1. Collect every expected comparison.
-2. Verify that each declared identity occurs exactly once.
-3. Reject missing, duplicate, or unexpected identities.
-4. Apply Holm once to the complete family, including non-informative results.
-
-After correction, restore the declared comparison order. Holm adjusts p-values.
-Estimates and intervals remain per-comparison quantities. Simultaneous intervals
-require a separate method.
-
-Controls, secondary outcomes, and exploratory comparisons enter the primary
-family when the study definition declares them as members.
-
-> **Worked example — family.** The comparison joins the other 35 declared rows.
-> Holm correction starts after all 36 raw p-values are available and adjusts the
-> example's `0.012` in relation to that complete set.
+Holm controls family-wise false rejection under valid marginal p-values.
+It permits dependence from shared CVSS observations and other shared inputs.
+It does not repair invalid marginal inference.
+The reported intervals remain pointwise; Holm does not make them simultaneous or establish exact interval/test duality.
 
 ## 6. Precision Pilot
 
-The Precision Pilot chooses two common Final sample counts:
+Pilot chooses one common `(plans, attacks)` candidate for fresh Final collection.
+Candidate IDs, count pairs and order are frozen in the revision.
+Pilot capacity is the coordinate-wise maximum candidate count plus `pilot.extra_pool`.
+Extra capacity can be zero.
 
-- plan-selection replicates per comparison side, $n$; and
-- attacks per plan, $m$.
+For each comparison and candidate:
 
-The study declares an ordered list of candidate count pairs. Each candidate has
-a stable ID. The study also supplies the target half-width, guard quantile,
-outer subsample count, confidence level, bootstrap count, and Pilot base seed.
+1. Generate outcome-independent row and column permutations for each outer sample.
+2. Take candidate-sized prefixes without replacement.
+3. Apply the same row positions to both sides and the same attack columns throughout.
+4. Restore logical order before matching-based inference.
+5. Record the resulting interval half-width.
+6. Take the linearly interpolated empirical guard quantile.
 
-Each candidate must meet the minimum bounds and fit every comparison on both
-sides. Reject an oversized candidate.
+All candidates share permutation prefixes for a comparison and outer index.
+An assessment passes when every outer result is informative and the guarded half-width is at most the target.
+A candidate passes when every family comparison passes.
 
-### Candidate evaluation
-
-For each candidate and family comparison:
-
-1. Select alternative rows, CVSS rows, and shared attack columns without
-   replacement.
-2. Run the corrected crossed bootstrap on this subsample.
-3. Record the interval half-width.
-4. Repeat for the declared number of outer subsamples.
-5. Take the declared guard quantile of the half-widths.
-6. Compare the guarded half-width with the target.
-7. Require every outer subsample to be informative.
-
-The outer step tests the candidate across many observed subsets and samples
-without replacement. Inside each subset, the bootstrap resamples rows and
-columns with replacement to estimate uncertainty.
-
-A candidate passes when every family comparison passes. Its worst guarded
-half-width is the largest value across the family.
+The guard quantile is a finite-pool planning heuristic.
+It does not promise a fresh-Final success probability, either per comparison or jointly.
+A full-pool subset contains the same observations in logical order each time.
+Repeated outer evaluations then add no new evidence.
 
 ### Runtime selection heuristic
 
-Among passing candidates, select the one with the lowest predicted runtime:
+Among passing candidates, minimize:
 
-$$
-T(n,m)=L\,G\,n\left(t_{\mathrm{select}}+m\,t_{\mathrm{trial}}\right),
-$$
+\[
+T(n,m)=L\,G\,n\{t_{plan}+m\,t_{attack}\},
+\]
 
-where:
+where `L` is the tier count, `G` is the largest physical group count in a tier, and costs are Pilot medians in milliseconds.
+Count CVSS once per budget.
+This is a ranking heuristic. It is not a prediction of full wall time with warm-up, replicas and orchestration overhead.
 
-- $L$ is the tier count;
-- $G$ is the largest strategy-group count in any tier;
-- $t_{\mathrm{select}}$ is the median plan-selection duration; and
-- $t_{\mathrm{trial}}$ is the median duration per attack trial.
+Ties prefer larger plan count, then smaller attack count, then earlier candidate position.
+If none passes, the outcome is `insufficient`.
+Both a recommendation and insufficiency lead to `awaiting_final`.
 
-Break a tie in this order:
+### Explicit approval and insufficient override
 
-1. lower predicted runtime;
-2. larger plan count;
-3. smaller attack count; and
-4. earlier candidate position.
+A recommendation requires explicit `:recommended` approval.
+An insufficient Pilot permits `{:override_insufficient, candidate_id}` for one already-declared candidate.
+The stored Pilot outcome stays insufficient beside the frozen selection.
+Together, these values record the override; there is no separate override flag.
 
-If every candidate fails, return an insufficient Pilot and pause.
+An override gives up the precision target.
+It preserves the frozen family, method and fresh-Final inference assumptions.
+The operator cannot use it to change the test after observing Final outcomes.
+Failed or invalid Pilot work supplies no approval outcome.
 
-### Insufficient-Pilot confirmatory override
+## 7. Seeds, separation and fixed-sample limits
 
-The study pauses after every valid Pilot. After an insufficient Pilot, resume
-requires one candidate already declared in the study. Invalid, failed, partial,
-and exhausted Pilot outcomes enter the terminal failed state.
+One master seed supplies the versioned `evaluation2-sha256-json-v1` derivation.
+The root hashes a canonical JSON array of contract identity, seed and ordered role context, modulo `2^63 - 1`.
+The constructor rejects collisions among distinct declared logical streams.
 
-The study policy still labels the resumed Final analysis as confirmatory. The
-Pilot outcome stays insufficient. Record `pilot_override: true` and store the
-selected candidate ID and counts as normal result data. The boolean is the
-complete override-specific record.
+| Role | Scientific context |
+|---|---|
+| Selection row | Phase and zero-based row position; shared across strategies, budgets and tiers |
+| Evaluation root | Phase and tier |
+| Attack column | Evaluation root and the existing one-based simulation trial index |
+| Pilot planning | Complete comparison identity, including budget |
+| Pilot outer subset | Planning root, outer index and row/column role |
+| Final inference | Deterministic matching and arithmetic; no resampling stream |
 
-The override carries these risks:
+Pilot and Final use separate phase contexts and fresh physical effects.
+Retries reuse an item's reserved effects.
+Another phase, execution or timing replica uses fresh effects even when its scientific inputs agree.
+Database UUIDs, scheduling, process identity and timing-replica positions do not determine scientific seeds.
 
-- the precision target remains unmet;
-- confidence intervals can remain wide;
-- raw p-values can remain unstable;
-- Holm controls multiplicity while evidence strength remains limited; and
-- manual candidate selection can introduce selection bias.
+Deterministic PRNG streams implement the IID-input model; distinct seeds alone do not prove independence.
+Record seeds and contracts for replay, and state that modeling assumption when interpreting inference.
 
-Evidence separation, matrix alignment, family membership, and Holm correction
-remain in force.
+The validity argument is fixed-sample only.
+Freeze counts, ordering, tuning and the family before fresh Final observations.
+Do not stop early or increase scientific counts because interim Final outcomes look favorable.
+Averaged capitals from different matching histories do not establish an anytime-valid process.
 
-> **Worked example — Pilot.** Candidate `c1 = (5 plans, 10 attacks)` has a worst
-> guarded half-width of `1.3`, above the `1.0` target. Candidate
-> `c2 = (8 plans, 12 attacks)` has `0.8`, and every comparison is informative.
-> The Pilot recommends `c2`.
+## 8. Warm-up, timing and equality
 
-## 7. Pilot/Final separation and scientific freeze
+Final executes tiers in small/medium/large order.
+Each tier performs excluded warm-up `-1`, then measured replicas `0..4` sequentially.
+Every replica repeats scientific inputs with fresh optimization and simulation effects.
+Timing replicas measure runtime variation; they do not multiply the inferential sample size.
 
-Pilot selects sample counts. Final uses fresh evidence collected after that
-decision.
+The domain clock marks plan start, the shared plan-completion/simulation-start boundary, and replica end.
+Thus total duration equals plan-selection plus simulation duration.
+The intervals include scheduling, queue and retry delays inside these boundaries.
+Preparation before plan start and later statistical analysis are outside these measurements.
 
-Apply these seed rules:
+The configured environment label must match the frozen label before each replica and at tier completion.
+It is an operator assertion, rather than authenticated hardware/software identity.
+Completed Gust receipts store durations in microseconds.
+Raw monotonic readings stay in memory.
+A lost incomplete clock session fails; timestamps and replacement replicas cannot supply missing measurements.
 
-- Each tier declares one evaluation root, which starts its attack-related
-  random streams.
-- Observed evaluation roots must match the declared phase set.
-- Each strategy uses a non-empty subset of the phase's selection seeds.
-- Every observed selection seed belongs to that declared set.
-- Final uses the selected plan count from its own selection-seed set.
-- Pilot and Final use disjoint selection seeds and evaluation roots.
+The equality gate compares all five measured scientific evidence sets.
+It retains meaningful graph inputs, logical action targets, settings, seeds and outcomes.
+It excludes generated effect/output IDs, timestamps, clock sessions and durations.
+Only measured replica zero supplies representative Final evidence after equality passes.
+Warm-up contributes neither inferential evidence nor timing summaries.
 
-After the pause, collect Final evidence with the selected counts and Final
-seeds.
+Report five measured values, median and observed range for each tier and metric.
+For example, durations `31, 34, 35, 38, 42` seconds have median `35` and observed range `31–42` seconds.
+This range describes those executions, rather than a population confidence interval.
 
-```mermaid
-flowchart TD
-    Freeze[Freeze model and method] --> Calibrate[Complete accepted calibration work]
-    Calibrate --> CollectPilot[Collect Pilot evidence]
-    CollectPilot --> AnalyzePilot[Run the Precision Pilot]
-    AnalyzePilot --> Pause[Pause and select one declared candidate]
-    Pause --> FreezeFinal[Freeze Final graphs, settings, seeds, and environment]
-    FreezeFinal --> CollectFinal[Collect separate Final evidence]
-    CollectFinal --> AnalyzeFinal[Run complete-family Final analysis]
-```
+## 9. Interpretation and verification limits
 
-Calibration chooses feasible experimental settings. The Precision Pilot chooses
-outcome sample counts. Begin the study lifecycle after calibration has an
-accepted method.
+Read estimate direction, interval size, adjusted p-value and warning status together.
+A non-rejection with a wide interval supports limited evidence, rather than equality of strategies.
+An `informative` assessment means that numerical processing required no conservative fallback.
+It does not certify power, precision or scientific calibration.
 
-A change to a frozen scientific input creates a new study revision and preserves
-the measured evidence. The pause makes the sample-size decision explicit and
-keeps Pilot and Final evidence separate.
+Blast radius, host compromises, capability disruption and pre-attack feasibility remain useful descriptive context in retained simulation records.
+The current primary family analyzes mission impact only.
+A secondary test requires its own declared estimand, method and multiplicity treatment.
 
-> **Worked example — phase separation.** After the pause, collect new Final
-> matrices with eight plan rows, twelve attack columns, and Final seed sets. The
-> matrices above represent these newly collected outcomes.
+The [verification record](../history/evaluation2-verification.md) preserves two real service-backed studies through durable success.
+Both used an explicit insufficient override and two plans by three attacks per group.
+Their six estimates were zero, intervals were `[-8,8]`, and raw/adjusted p-values were one.
+These runs establish the native protocol at small counts. They do not establish useful precision, power or empirical calibration.
 
-## 8. Warm-up and timing replicas
+The [prespecified statistical checks](../history/evaluation2-statistical-checks.md) remain the calibration gate.
+The [statistical validation record](../history/evaluation2-statistical-validation.md) preserves the rejected bootstrap counterexamples and method decision.
+Keep those failures as history. The active method has no Python numerical fallback.
 
-For each tier, use one excluded warm-up and five accepted measured replicas.
-
-The warm-up prepares the environment. Exclude it from timing and outcome
-evidence. Measured replicas repeat fixed scientific inputs and estimate runtime
-variation while outcome sample counts stay fixed.
-
-Report the median and observed range for simulation, plan selection, and total
-evaluation duration. Stop measured collection when the recorded environment
-changes.
-
-Accept a replica when its scientific configuration, graph, and selected plans
-match. Also require matching attack outcomes, capability outcomes, pre-attack
-flow status, host compromises, and non-timing summaries. Run identifiers and
-timing values can differ.
-
-> **Worked example — timing.** Exclude one warm-up. Five measured replicas take
-> `39`, `41`, `42`, `44`, and `47` seconds. Report a median of `42` seconds and a
-> range of `39–47` seconds.
-
-## 9. Secondary and descriptive results
-
-Secondary results can include:
-
-- no-defense outcome context;
-- blast radius, including the initial foothold;
-- capability disruption and host compromise probabilities;
-- pre-attack feasibility and required-flow disruption;
-- variation between selected plans;
-- empirical blast-radius distributions; and
-- plan-selection, simulation, and total runtime.
-
-A secondary attack-level contrast can use a simpler bootstrap over paired attack
-differences. Adding its p-values to the primary Holm family requires a declared
-method change.
-
-A feasibility-policy comparison keeps all other model settings matched.
-
-> **Worked example — secondary results.** Report blast radius, host compromise,
-> and runtime beside the mission-impact result. Their scientific roles stay
-> separate from the primary effect.
-
-## 10. Reproducibility and limits
-
-Record enough information to reconstruct the experiment:
-
-- graph, model, attacker, and defense identities;
-- selected plans, outcomes, strategies, and budgets;
-- phase seeds and sample counts;
-- candidate order and resampling settings;
-- software and dependency versions; and
-- the measured environment.
-
-Keep plan-selection seeds, evaluation roots, attack seeds, resampling seeds, and
-Pilot seeds distinct.
-
-For Pilot analysis, derive the comparison stream seed as:
-
-```text
-comparison stream seed
-    = Pilot base seed
-    + zero-based tier rank × 1,000,000
-    + zero-based comparison occurrence within that tier × 2
-```
-
-Tier rank follows first appearance in the comparison list. Comparison occurrence
-follows within-tier order and stays stable when tiers are interleaved. Combine
-the stream seed with the candidate plan and attack counts. Use separate child
-streams for interval and centered-null calculations.
-
-Canonical order is part of reproducibility. Scientific randomness depends on
-the declared inputs, seeds, and order and stays stable across retries and
-execution schedules.
-
-Interpret results as conditional on the declared exploit model, capability
-weights, frozen graphs, budgets, seeds, and measured environment. Report budget
-claims as action counts, graph inference by tier, and timing for the measured
-environment.
-
-The study definition supplies every optimizer setting, topology setting,
-numerical tolerance, and random-generator dependency that can change a result.
-Treat a missing value as a validation error.
-
-The definition declares controls, not algorithm constants. The offsets in the
-stream formulas above, the annealing search length and its temperature schedule,
-and the objective weights belong to a fixed version. A definition selects a
-strategy and a version, so these constants never appear as per-study settings.
-This split keeps a study reproducible without turning every internal constant
-into a control that a later run can change.
-
-The definition keeps optimization-scoring and evidence-collection profiles
-separate. A scoring profile declares its objective, trial count, iterations,
-attempts, rules, and feasibility policy. An evidence profile declares its
-iterations, attempts, rules, and feasibility policy. Its trial count comes from
-Pilot capacity or the resumed candidate. A non-scoring strategy has no scoring
-profile. Thus, an optimization trial count cannot become a study observation
-count.
-
-Each phase declares one evaluation root per tier and an ordered selection pool.
-The attack columns of a root follow from the existing child-seed policy and the
-ordered trial index. For each tier, the phase declares a root instead of a
-column list. A stored evidence payload checks its columns against that root.
-
-> **Worked example — reproducibility.** Record the comparison identity, graph
-> revision, candidate `c2`, Pilot and Final seed schedules, selected plans,
-> outcomes, resampling settings, software versions, and measured environment.
-> These values reconstruct the example run.
+The derivation uses bounded-mean betting principles from [Waudby-Smith and Ramdas](https://doi.org/10.1093/jrsssb/qkad009)
+and e-value averaging from [Vovk and Wang](https://doi.org/10.1214/20-AOS2020).
+The cyclic crossed-matching adaptation and its full pipeline require their own stated assumptions and verification.
+[Holm's procedure](https://www.jstor.org/stable/4615733) supplies the complete-family correction under valid marginal tests.

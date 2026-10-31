@@ -6,6 +6,12 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Analysis do
   row and attack-column order; timing replicas never add scientific samples.
   Intervals are pointwise under the declared IID-input model. Pilot selection
   freezes the counts before this fresh Final evidence is collected.
+
+  Preparation requires the collection acceptance witness, canonical snapshot,
+  frozen dimensions, aligned attack seeds and graph-derived bounds. A stored
+  snapshot by itself is insufficient. Complete fan-in preserves the declared
+  family and applies Decimal Holm once. Provenance is rechecked before result
+  acceptance; the environment label remains an operator assertion.
   """
 
   alias NetworkDefense.Evaluation2.Study.{
@@ -21,6 +27,7 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Analysis do
   alias NetworkDefense.Evaluation2.Study.Result.Comparison
   alias NetworkDefense.Simulation.Seed
 
+  @doc "Prepare canonical comparison jobs only from accepted Final evidence."
   @spec prepare(Ecto.UUID.t()) :: {:ok, [ComparisonJob.t()]} | {:error, Error.t()}
   def prepare(snapshot_id) do
     with {:ok, context} <- context(snapshot_id),
@@ -34,6 +41,7 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Analysis do
     end
   end
 
+  @doc "Evaluate one canonical comparison in frozen model units with deterministic native inference."
   @spec evaluate(Ecto.UUID.t(), ComparisonJob.t()) ::
           {:ok, Comparison.Statistics.t()} | {:error, Error.t()}
   def evaluate(snapshot_id, %ComparisonJob{comparison_position: position})
@@ -54,6 +62,7 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Analysis do
 
   def evaluate(_snapshot_id, _job), do: invalid_input()
 
+  @doc "Validate exact family fan-in and apply complete-family Decimal Holm correction."
   @spec correct(Ecto.UUID.t(), [Comparison.Statistics.t()]) ::
           {:ok, AnalysisContract.Output.t()} | {:error, Error.t()}
   def correct(snapshot_id, statistics) do

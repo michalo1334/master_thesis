@@ -16,6 +16,19 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
 
   This module touches application tables only. Gust run status, tasks, and
   results belong to `NetworkDefense.Evaluation2.Study.Workflow`.
+
+  ```mermaid
+  flowchart TB
+      Persistence[Persistence shared storage rules] --> Executions[Executions: lifecycle transactions]
+      Persistence --> Collection[Collection: plan and reservation transactions]
+      Persistence --> Links[Revision, phase-run and snapshot ownership]
+      Executions --> Result[Atomic result and success]
+      Collection --> Effects[Unique item effect links]
+  ```
+
+  Snapshot insertion prepares evidence. Lifecycle acceptance and its successor
+  phase are separate durable facts. Public reads expose transient Study values,
+  rather than these internal storage records.
   """
 
   import Ecto.Query
@@ -81,6 +94,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
   # resolves the declared graph references before it calls this function. Equal
   # repeated insertion returns the stored revision, and the same declared
   # identity with different content returns `:conflict`.
+  @doc "Store a resolved immutable definition under its declared study/revision identity."
   @spec insert_revision(Definition.t()) :: response(Revision.t())
   def insert_revision(%Definition{} = definition) do
     with {:ok, identity} <- declared_identity(definition),
@@ -355,6 +369,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
 
   # The snapshot belongs to the collection phase that assembled it, so one
   # snapshot exists per phase no matter how often assembly is retried.
+  @doc "Prepare one phase-owned evidence snapshot; lifecycle acceptance remains a separate transaction."
   @spec insert_evidence_snapshot(Ecto.UUID.t(), Evidence.t()) ::
           response(EvidenceSnapshot.t())
   def insert_evidence_snapshot(phase_id, evidence) do

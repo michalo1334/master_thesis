@@ -4,6 +4,19 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Timing do
 
   Sessions contain only transient readings. Gust stores completed durations.
   A marker can retry within its session. A lost session cannot resume readings.
+
+  ```mermaid
+  flowchart LR
+      Plan[Plan start] --> Handoff[Plan complete and simulation start]
+      Handoff --> End[Replica end]
+      End --> Receipt[Persist completed duration triplet in Gust]
+  ```
+
+  The shared handoff marker partitions total elapsed time into plan selection
+  and simulation. Queue, scheduling and retry delays inside those boundaries
+  remain measured. Preparation before plan start and later analysis stay out.
+  This service owns no lifecycle progression or acceptance. Workflow releases
+  transient state only after proving durable canonical tier completion.
   """
 
   use GenServer
@@ -12,19 +25,24 @@ defmodule NetworkDefense.Evaluation2.Study.Final.Timing do
   alias NetworkDefense.Evaluation2.Study.Result.Timing, as: ResultTiming
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Replica
 
+  @doc "Start the application-owned clock before dispatch-capable Gust work."
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name, __MODULE__))
   end
 
+  @doc "Bind one transient clock session to a canonical tier PhaseRun."
   def begin_tier(phase_run_id, server \\ __MODULE__),
     do: call(server, {:begin_tier, phase_run_id})
 
+  @doc "Record the next ordered boundary, or return its existing receipt on retry."
   def mark(session, position, boundary, server \\ __MODULE__),
     do: call(server, {:mark, session, position, boundary})
 
   # The caller releases a session only after proving its durable terminal result.
+  @doc "Release transient state after canonical durable completion; do not release incomplete proof."
   def release(session, server \\ __MODULE__), do: call(server, {:release, session})
 
+  @doc "Build the typed result timing from proven complete tier receipts."
   def summarize(tier_runs) do
     %ResultTiming{by_tier: Map.new(tier_runs, &{&1.tier, &1.timing})}
   end

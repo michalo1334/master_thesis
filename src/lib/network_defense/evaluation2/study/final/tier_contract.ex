@@ -15,18 +15,9 @@ defmodule NetworkDefense.Evaluation2.Study.Final.TierContract do
     * the terminal result carries the canonical phase-run UUID, the tier name,
       the clock-session identity, and the timing of the five measured replicas.
 
-  ```json
-  {
-    "study_phase_run_id": "<canonical UUID>",
-    "tier": "medium",
-    "clock_session": "<clock-session identity>",
-    "timing": {
-      "replicas": [
-        {"replica_position": 0, "plan_selection_us": 120, "simulation_us": 480, "total_us": 600}
-      ]
-    }
-  }
-  ```
+  Workflow proves this receipt against the canonical tier run, prepared clock
+  session and completed timing-task receipts. Decoding a receipt alone does not
+  establish those ownership facts.
 
   The replica list holds exactly five entries, one per measured position `0..4`,
   in ascending order. Each entry holds nonnegative integer microseconds where
