@@ -16,8 +16,9 @@ defmodule NetworkDefense.Evaluation2.Study do
   revision supports several executions.
 
   Revision creation validates and resolves the new definition before persistence.
-  Caller-owned continuation reaches the Pilot approval boundary. Final execution
-  remains the next milestone. Storage failures use fixed public issue codes.
+  Caller-owned continuation reaches Pilot approval and collects approved Final
+  tiers. Final analysis belongs to the next milestone. Storage failures use fixed
+  public issue codes.
   """
 
   use Spectral
@@ -98,8 +99,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   @spec start(revision_ref()) :: {:ok, Status.t()} | {:error, Error.t()}
   def start(%Revision{} = revision) do
     case started_execution(revision) do
-      {:ok, %{active_phase: %Phase{} = phase} = context} ->
-        ensure_pilot_collection(context, phase.id)
+      {:ok, %{active_phase: %Phase{}} = context} ->
+        ensure_collection(context)
 
       {:error, _failure} = failure ->
         failure
@@ -107,7 +108,10 @@ defmodule NetworkDefense.Evaluation2.Study do
   end
 
   @doc """
-  Continue Pilot execution to its approval or terminal boundary.
+  Continue study execution to its supported approval or terminal boundary.
+
+  Final collection currently stops with a bounded unavailable result after its
+  accepted snapshot reaches Final analysis.
 
   A finite timeout returns current Status and leaves work active. This call
   grants no Final approval. Cancellation is observed through durable state.
@@ -169,13 +173,13 @@ defmodule NetworkDefense.Evaluation2.Study do
   Approve the Pilot outcome and freeze the Final selection.
 
   Resume resolves the declared candidate and freezes its two sample counts.
-  An invalid approval leaves the execution waiting for approval. Final run
-  provisioning and execution remain the next milestone.
+  An invalid approval leaves the execution waiting for approval. A valid approval
+  ensures the first canonical Final tier run after committing the selection.
   """
   @spec resume(execution_id(), approval()) :: {:ok, Status.t()} | {:error, Error.t()}
   def resume(execution_id, approval) do
     Executions.accept_approval(execution_id, approval)
-    |> bind(fn context -> {:ok, Views.status(context.revision, context.execution)} end)
+    |> bind(&ensure_collection/1)
   end
 
   @doc """
@@ -246,15 +250,15 @@ defmodule NetworkDefense.Evaluation2.Study do
 
   # The execution is committed, so a bounded provisioning failure becomes a logged
   # outcome and the caller still receives the execution identifier in the status.
-  @spec ensure_pilot_collection(Persistence.lifecycle_context(), Ecto.UUID.t()) ::
+  @spec ensure_collection(Persistence.lifecycle_context()) ::
           {:ok, Status.t()} | {:error, Error.t()}
-  defp ensure_pilot_collection(context, phase_id) do
-    case Workflow.ensure_pilot_collection_run(phase_id) do
+  defp ensure_collection(context) do
+    case Workflow.ensure_next_run(context.execution.id) do
       {:ok, _phase_run} ->
         status(context.execution.id)
 
       {:error, failure} ->
-        Logger.error("Evaluation2 Pilot collection provisioning failed",
+        Logger.error("Evaluation2 collection provisioning failed",
           error: inspect(failure)
         )
 

@@ -87,7 +87,11 @@ defmodule NetworkDefense.Evaluation2.PilotWorkflowTest do
     assert approved.state == :collecting_final
     assert approved.selection.plan_count_per_side == 1
     assert approved.selection.attacks_per_plan == 2
-    assert {:error, _} = Study.continue(finished.execution_id)
+
+    assert {:ok, final_phase} =
+             Persistence.fetch_execution_phase(finished.execution_id, :final_collection)
+
+    assert {:ok, %{run_key: :small}} = Persistence.fetch_phase_run(final_phase.id, :small)
   end
 
   test "FLOW-03 WHEN continue times out THEN the execution and canonical run SHALL remain active",

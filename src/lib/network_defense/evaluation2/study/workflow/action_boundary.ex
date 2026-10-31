@@ -8,12 +8,17 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.ActionBoundary do
   # they live here. Each phase boundary keeps its own messages, persistence
   # reads, and codecs.
   #
+  # The mapped collection effect is the same task body in every collection phase,
+  # so its adapter lives here too. Each action supplies its own item binding, its
+  # own effect capability, and its own fixed failure message.
+  #
   # The helpers return the tagged result unchanged, so each action keeps the
   # complete declared result type of its capability.
 
   require Logger
 
   alias NetworkDefense.Evaluation2.Study.Persistence
+  alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
   alias NetworkDefense.Evaluation2.Study.Persistence.PhaseRun
 
   @spec logged(String.t(), {:ok, value} | {:error, term()}) :: {:ok, value} | {:error, term()}
@@ -57,4 +62,32 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.ActionBoundary do
     Logger.error(message, run_id: run_id)
     {:error, :foreign_run}
   end
+
+  @doc """
+  Run one mapped collection effect of the item the acting Gust run owns.
+
+  `bind` returns the collection item for the acting run, `effect` runs the
+  capability of one item identity, and `message` is the fixed failure message of
+  the phase. A tagged failure is permanent, so the runner does not retry the
+  task. An exception or an unexpected return stays with the runner and keeps its
+  retry.
+  """
+  @spec run_effect(
+          term(),
+          pos_integer(),
+          (term(), pos_integer() -> {:ok, CollectionItem.t()} | {:error, term()}),
+          (Ecto.UUID.t() -> :ok | {:error, term()}),
+          String.t()
+        ) :: :ok
+  def run_effect(item_id, run_id, bind, effect, message) do
+    with {:ok, item} <- bind.(item_id, run_id),
+         :ok <- logged_status(message, effect.(item.id)) do
+      :ok
+    else
+      {:error, _cause} -> fail(message)
+    end
+  end
+
+  @spec fail(String.t()) :: no_return()
+  defp fail(message), do: raise(Gust.DAG.NonRecError, message)
 end

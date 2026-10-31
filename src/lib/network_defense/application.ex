@@ -48,6 +48,7 @@ defmodule NetworkDefense.Application do
            plug: NetworkDefenseWeb.MetricsPlug,
            ip: {0, 0, 0, 0}},
           NetworkDefense.Repo,
+          NetworkDefense.Evaluation2.Study.Final.Timing,
           NetworkDefense.Evaluation2.Study.Workflow.RunMonitor,
           {Phoenix.PubSub,
            [name: NetworkDefense.PubSub] ++ Application.get_env(:network_defense, :pubsub, [])},

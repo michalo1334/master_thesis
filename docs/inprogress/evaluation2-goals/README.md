@@ -2,9 +2,9 @@
 
 This delivery plan supersedes the earlier single-batch execution decision. The consolidated refactor brief remains the scope reference; execute the six goals below in dependency order.
 
-**Status: Goals 01–03 verified. Goals 04–06 have not started.**
+**Status: Goals 01–04 verified. Goals 05–06 have not started.**
 
-[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The Pilot reaches `awaiting_final`; Final execution, full calibration and retirement remain later milestones.
+[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The [Goal 04 collection audit](progress/04-final-collection.md) records real sequential Final tiers, durable timing/equality proof and the accepted snapshot at `analyzing_final`. Final analysis, full calibration and retirement remain later milestones.
 
 ## Sequence
 

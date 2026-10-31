@@ -63,6 +63,9 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   @tiers ["small", "medium", "large"]
   @max_count 2_147_483_647
   @max_float 1.797_693_134_862_315_7e308
+  @method "crossed-matching-betting-v1"
+
+  def method, do: @method
 
   def parse(attrs) do
     with :ok <- Schema.validate(attrs),
@@ -173,7 +176,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
            }
          },
          provenance: %Provenance{
-           method: "crossed-matching-betting-v1",
+           method: @method,
            seed_contract: Randomness.contract(),
            environment_label:
              Application.get_env(:network_defense, :measured_environment_revision)

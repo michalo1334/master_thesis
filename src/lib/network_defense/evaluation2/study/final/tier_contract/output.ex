@@ -1,12 +1,21 @@
 defmodule NetworkDefense.Evaluation2.Study.Final.TierContract.Output do
   @moduledoc false
 
-  # Terminal output of one Final tier collection Gust run.
+  # Terminal receipt of one Final tier collection Gust run.
   #
-  # The coordinator owns the measured timing and the phase run owns its results,
-  # so Gust success carries no payload.
+  # The receipt binds the tier to its clock session and keeps the measured
+  # durations of the five replicas. Raw clock readings stay in the clock
+  # process, so the stored receipt rebuilds the summary after the clock is gone.
 
-  @type t :: %__MODULE__{}
+  alias NetworkDefense.Evaluation2.Study.Result.Timing
+  alias NetworkDefense.Evaluation2.Study.Tier, as: StudyTier
 
-  defstruct []
+  @type t :: %__MODULE__{
+          phase_run_id: Ecto.UUID.t(),
+          tier: StudyTier.t(),
+          clock_session: String.t(),
+          timing: Timing.Tier.t()
+        }
+
+  defstruct [:phase_run_id, :tier, :clock_session, :timing]
 end

@@ -29,7 +29,6 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   """
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.Evaluation2.Placeholder
   alias NetworkDefense.Evaluation2.Study.Collection.WorkItem
   alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Error
@@ -68,15 +67,36 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   end
 
   @doc """
-  Construct or load the Final plan of one tier collection phase run.
+  Construct or load the frozen Final plan of one canonical tier run.
 
-  Final collection is not part of the current slice, so every call returns the
-  bounded `not_implemented` error.
+  Replica positions reuse this scientific work and own separate physical effects.
   """
   @spec prepare_final(Ecto.UUID.t(), Definition.t(), Selection.t(), Tier.t()) ::
           {:ok, CollectionPlan.t()} | {:error, Error.t()}
-  def prepare_final(_phase_run_id, _definition, _selection, _tier),
-    do: {:error, Placeholder.error(:prepare_final)}
+  def prepare_final(phase_run_id, %Definition{} = definition, %Selection{} = selection, tier) do
+    with {:ok, context} <- stored(Persistence.fetch_phase_run_context(phase_run_id)),
+         true <- context.phase.phase == :final_collection,
+         true <- context.phase_run.run_key == tier,
+         true <- context.execution.selection == selection,
+         true <- context.revision.definition == definition do
+      groups =
+        Enum.filter(Definition.collection_groups(definition), &(&1.tier == to_string(tier)))
+
+      items =
+        work_items(
+          definition,
+          :final,
+          selection.plan_count_per_side,
+          selection.attacks_per_plan,
+          groups
+        )
+
+      stored(CollectionStore.insert_collection_plan(phase_run_id, items))
+    else
+      {:error, _} = failure -> failure
+      _invalid -> {:error, invalid_collection_definition()}
+    end
+  end
 
   @doc """
   Create or load the complete ordered item batch of one replica.
@@ -145,6 +165,19 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
     end
   end
 
+  @doc "Read complete scientific observations of one physical replica."
+  def replica_observations(phase_run_id, replica_position) do
+    with {:ok, plan} <- stored(CollectionStore.fetch_collection_plan(phase_run_id)),
+         {:ok, items} <-
+           stored(CollectionStore.list_replica_items(phase_run_id, replica_position)) do
+      item_observations(plan.items, items)
+    end
+  end
+
+  @doc "Project complete physical observations into ordered comparison matrices."
+  def project_evidence(observations, definition, plans),
+    do: build_evidence(observations, definition, plans)
+
   defp pilot_phase(%{phase: :pilot_collection}), do: :ok
   defp pilot_phase(_phase), do: {:error, incomplete_collection_evidence()}
 
@@ -184,7 +217,13 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
            &(Definition.finite?(&1) and &1 >= work.mission_impact_bound.minimum and
                &1 <= work.mission_impact_bound.maximum)
          ) do
-        {:ok, %{work: work, seeds: Enum.map(runs, & &1.seed), impacts: impacts}}
+        {:ok,
+         %{
+           work: work,
+           seeds: Enum.map(runs, & &1.seed),
+           impacts: impacts,
+           scientific: scientific_observation(work, optimization, graph, runs)
+         }}
       else
         :error
       end
@@ -281,11 +320,57 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
     |> then(&MissionImpact.final(graph, &1))
   end
 
-  defp build_evidence(observations, %Definition{} = definition) do
+  defp scientific_observation(work, optimization, graph, runs) do
+    %{
+      work: work,
+      optimization:
+        Map.take(optimization, [
+          :graph_revision_id,
+          :strategy,
+          :requested_budget,
+          :used_budget,
+          :seed,
+          :execution_config
+        ]),
+      actions:
+        optimization.actions
+        |> Enum.sort_by(& &1.position)
+        |> Enum.map(&Map.take(&1, [:position, :action_type, :target_id, :cost])),
+      graph: %{
+        nodes:
+          graph
+          |> OutputGraph.nodes()
+          |> Enum.sort_by(& &1.id)
+          |> Enum.map(&Map.take(&1, [:id, :type, :data])),
+        edges:
+          graph
+          |> OutputGraph.edges()
+          |> Enum.sort_by(& &1.id)
+          |> Enum.map(&Map.take(&1, [:id, :from_id, :to_id, :type, :data]))
+      },
+      runs: Enum.map(runs, &scientific_run/1)
+    }
+  end
+
+  defp scientific_run(run) do
+    %{
+      seed: run.seed,
+      trial_index: run.trial_index,
+      initial_attacker_state: run.initial_attacker_state,
+      iterations:
+        run.iterations
+        |> Enum.sort_by(& &1.index)
+        |> Enum.map(&Map.take(&1, [:index, :attempted_action, :success?, :attacker_state]))
+    }
+  end
+
+  defp build_evidence(observations, %Definition{} = definition),
+    do: build_evidence(observations, definition, Definition.pilot_capacity(definition).plans)
+
+  defp build_evidence(observations, %Definition{} = definition, plans) do
     comparisons = Definition.comparisons(definition)
     groups = Definition.collection_groups(definition)
-    capacity = Definition.pilot_capacity(definition)
-    expected = for group <- groups, row <- 0..(capacity.plans - 1), do: {group.position, row}
+    expected = for group <- groups, row <- 0..(plans - 1), do: {group.position, row}
     actual = Enum.map(observations, &{&1.work.group_position, &1.work.plan_position})
 
     if actual == expected do
@@ -340,30 +425,37 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   defp pilot_work(%Definition{} = definition) do
     capacity = Definition.pilot_capacity(definition)
 
-    items =
-      for group <- Definition.collection_groups(definition),
-          row <- 0..(capacity.plans - 1) do
-        graph = Enum.find(definition.tiers, &(&1.tier == group.tier))
+    {:ok,
+     work_items(
+       definition,
+       :pilot,
+       capacity.plans,
+       capacity.attacks,
+       Definition.collection_groups(definition)
+     )}
+  end
 
-        %WorkItem{
-          group_position: group.position,
-          plan_position: row,
-          graph_revision: graph.graph_revision_id,
-          initial_foothold_node_id: graph.initial_foothold_node_id,
-          strategy: group.strategy,
-          budget: group.budget,
-          candidate_action_types:
-            Definition.effective_action_types(definition, group.strategy.key),
-          require_pre_attack_feasibility: Definition.require_feasibility?(definition),
-          simulation: definition.simulation,
-          mission_impact_bound: graph.mission_impact_bound,
-          selection_seed: Randomness.selection_seed(definition, :pilot, row),
-          evaluation_root: Randomness.evaluation_root(definition, :pilot, group.tier),
-          attack_count: capacity.attacks
-        }
-      end
+  defp work_items(definition, phase, plans, attacks, groups) do
+    for group <- groups,
+        row <- 0..(plans - 1) do
+      graph = Enum.find(definition.tiers, &(&1.tier == group.tier))
 
-    {:ok, items}
+      %WorkItem{
+        group_position: group.position,
+        plan_position: row,
+        graph_revision: graph.graph_revision_id,
+        initial_foothold_node_id: graph.initial_foothold_node_id,
+        strategy: group.strategy,
+        budget: group.budget,
+        candidate_action_types: Definition.effective_action_types(definition, group.strategy.key),
+        require_pre_attack_feasibility: Definition.require_feasibility?(definition),
+        simulation: definition.simulation,
+        mission_impact_bound: graph.mission_impact_bound,
+        selection_seed: Randomness.selection_seed(definition, phase, row),
+        evaluation_root: Randomness.evaluation_root(definition, phase, group.tier),
+        attack_count: attacks
+      }
+    end
   end
 
   defp canonical_uuid(value) when is_binary(value) do
