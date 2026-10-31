@@ -5,6 +5,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Precision do
 
   # Declared Pilot precision target. The interval level is shared through the
   # study inference settings, so no confidence copy lives here.
+  # target_half_width uses the frozen model's outcome units, like the interval.
 
   @type t :: %__MODULE__{
           outer_subsamples: pos_integer(),

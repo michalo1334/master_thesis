@@ -17,6 +17,8 @@ defmodule NetworkDefense.MixProject do
       deps: deps(),
       dialyzer: [
         plt_add_apps: [:credo, :mix, :ex_unit],
+        # Project modules are analyzed directly, outside the dependency PLT.
+        plt_ignore_apps: [:network_defense],
         ignore_warnings: ".dialyzer_ignore.exs"
       ],
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
@@ -86,6 +88,8 @@ defmodule NetworkDefense.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:spectral, "~> 0.14.0"},
+      {:nx, "== 1.0.0"},
+      {:decimal, "== 3.2.0"},
       {:dns_cluster, "~> 0.3.0"},
       {:ex_json_schema, "0.11.5"},
       {:yaml_elixir, "~> 2.12"},

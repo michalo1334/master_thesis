@@ -8,16 +8,15 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.PilotCollection.Actions.Boun
   # task requires the collection item to belong to that phase run. The binding
   # proves ownership of the stored links; it does not re-derive the planned work.
   #
-  # Every tagged failure is logged here and raised as one fixed permanent Gust
-  # message by the action. The tagged helpers return the tagged result unchanged,
-  # so each action keeps the complete declared result type of its capability.
-
-  require Logger
+  # Every tagged failure is logged through `Workflow.ActionBoundary` and raised
+  # as one fixed permanent Gust message by the action. The tagged helpers return
+  # the tagged result unchanged, so each action keeps the complete declared
+  # result type of its capability.
 
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
-  alias NetworkDefense.Evaluation2.Study.Persistence.PhaseRun
   alias NetworkDefense.Evaluation2.Study.Pilot.CollectionContract
+  alias NetworkDefense.Evaluation2.Study.Workflow.ActionBoundary
 
   @context_failure "Evaluation2 Pilot collection context is unavailable"
   @foreign_run_failure "Evaluation2 Pilot collection task acted for another Gust run"
@@ -27,7 +26,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.PilotCollection.Actions.Boun
   def run_context(params, %{run_id: run_id}) do
     with {:ok, input} <- input(params),
          {:ok, context} <- phase_run_context(input.phase_run_id),
-         :ok <- expect_run_id(context.phase_run, run_id) do
+         :ok <- ActionBoundary.expect_run_id(context.phase_run, run_id, @foreign_run_failure) do
       {:ok, context}
     end
   end
@@ -36,7 +35,7 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.PilotCollection.Actions.Boun
   def run_item(item_id, run_id) do
     with {:ok, item} <- collection_item(item_id),
          {:ok, phase_run} <- phase_run(item.study_phase_run_id),
-         :ok <- expect_run_id(phase_run, run_id) do
+         :ok <- ActionBoundary.expect_run_id(phase_run, run_id, @foreign_run_failure) do
       {:ok, item}
     end
   end
@@ -52,33 +51,15 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.PilotCollection.Actions.Boun
   @spec phase_run_context(Ecto.UUID.t()) ::
           {:ok, Persistence.phase_run_context()} | {:error, term()}
   def phase_run_context(phase_run_id) do
-    logged(@context_failure, Persistence.fetch_phase_run_context(phase_run_id))
+    ActionBoundary.phase_run_context(@context_failure, phase_run_id)
   end
 
   @spec logged(String.t(), {:ok, value} | {:error, term()}) :: {:ok, value} | {:error, term()}
         when value: var
-  def logged(message, result) do
-    case result do
-      {:ok, value} ->
-        {:ok, value}
-
-      {:error, cause} = failure ->
-        Logger.error(message, cause: inspect(cause))
-        failure
-    end
-  end
+  def logged(message, result), do: ActionBoundary.logged(message, result)
 
   @spec logged_status(String.t(), :ok | {:error, term()}) :: :ok | {:error, term()}
-  def logged_status(message, result) do
-    case result do
-      :ok ->
-        :ok
-
-      {:error, cause} = failure ->
-        Logger.error(message, cause: inspect(cause))
-        failure
-    end
-  end
+  def logged_status(message, result), do: ActionBoundary.logged_status(message, result)
 
   defp collection_item(item_id) do
     logged(@context_failure, Persistence.Collection.fetch_collection_item(item_id))
@@ -89,15 +70,5 @@ defmodule NetworkDefense.Evaluation2.Study.Workflow.PilotCollection.Actions.Boun
       {:ok, context} -> {:ok, context.phase_run}
       {:error, _cause} = failure -> failure
     end
-  end
-
-  # The acting Gust run must own the stored phase-run link, so one task cannot
-  # work for another run.
-  @spec expect_run_id(PhaseRun.t(), term()) :: :ok | {:error, :foreign_run}
-  defp expect_run_id(%PhaseRun{gust_run_id: run_id}, run_id), do: :ok
-
-  defp expect_run_id(%PhaseRun{}, run_id) do
-    Logger.error(@foreign_run_failure, run_id: run_id)
-    {:error, :foreign_run}
   end
 end

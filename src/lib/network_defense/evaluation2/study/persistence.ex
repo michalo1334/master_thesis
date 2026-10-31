@@ -25,6 +25,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
   alias NetworkDefense.Evaluation2.Study.Error, as: StudyError
   alias NetworkDefense.Evaluation2.Study.Evidence
   alias NetworkDefense.Evaluation2.Study.Final.CorrectedFamily
+  alias NetworkDefense.Evaluation2.Study.Lifecycle
   alias NetworkDefense.Evaluation2.Study.Persistence.Error
   alias NetworkDefense.Evaluation2.Study.Persistence.EvidenceSnapshot
   alias NetworkDefense.Evaluation2.Study.Persistence.Execution
@@ -201,6 +202,14 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
 
   # --- phases and phase runs ---------------------------------------------
 
+  @spec fetch_execution_phase(Ecto.UUID.t(), Phase.phase_kind()) :: response(Phase.t())
+  def fetch_execution_phase(execution_id, kind) do
+    with {:ok, uuid} <- cast_id(execution_id, :fetch_execution_phase, :execution) do
+      query = from p in Phase, where: p.study_execution_id == ^uuid and p.phase == ^kind
+      fetch_one(:fetch_execution_phase, :phase, query, &{:ok, &1})
+    end
+  end
+
   @spec fetch_phase_context(Ecto.UUID.t()) :: response(phase_context())
   def fetch_phase_context(phase_id) do
     with {:ok, uuid} <- cast_id(phase_id, :fetch_phase_context, :phase) do
@@ -265,8 +274,19 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
   end
 
   defp linked_phase_run(phase_id, run_key, proposed_id, gust_run_id, operation) do
-    with {:ok, phase} <- lock_phase(phase_id, operation) do
-      link_run_once(phase.id, run_key, proposed_id, gust_run_id)
+    with {:ok, initial} <- stored_phase(phase_id, operation),
+         {:ok, execution} <- lock_link_execution(initial.study_execution_id, operation),
+         {:ok, phase} <- lock_phase(phase_id, operation) do
+      link_run_once(phase, execution.state, run_key, proposed_id, gust_run_id, operation)
+    end
+  end
+
+  defp lock_link_execution(execution_id, operation) do
+    query = from e in Execution, where: e.id == ^execution_id, lock: "FOR UPDATE"
+
+    case Repo.one(query) do
+      nil -> {:error, error(:not_found, operation, :execution, nil)}
+      execution -> {:ok, execution}
     end
   end
 
@@ -282,10 +302,17 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
 
   # The phase row lock serializes two linkers, so the loser reads the canonical
   # row instead of provoking a constraint error inside its transaction.
-  defp link_run_once(phase_id, run_key, proposed_id, gust_run_id) do
-    case Repo.get_by(PhaseRun, study_phase_id: phase_id, run_key: run_key) do
-      %PhaseRun{} = phase_run -> {:ok, phase_run}
-      nil -> insert_phase_run(phase_id, run_key, proposed_id, gust_run_id)
+  defp link_run_once(phase, state, run_key, proposed_id, gust_run_id, operation) do
+    case Repo.get_by(PhaseRun, study_phase_id: phase.id, run_key: run_key) do
+      %PhaseRun{} = phase_run ->
+        {:ok, phase_run}
+
+      nil ->
+        if Lifecycle.phase(state) == phase.phase do
+          insert_phase_run(phase.id, run_key, proposed_id, gust_run_id)
+        else
+          {:error, error(:conflict, operation, :phase_run, :inactive_phase)}
+        end
     end
   end
 

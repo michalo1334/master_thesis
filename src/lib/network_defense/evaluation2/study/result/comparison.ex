@@ -2,10 +2,8 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison do
   @moduledoc """
   One corrected comparison of the study result.
 
-  The comparison keeps the declared identity, the typed statistics of the
-  crossed bootstrap estimate, and the family adjustment. Fixed wire literals
-  appear as atom types, and the Python wire shape stays at the transport
-  boundary.
+  The comparison keeps its declared identity, matching-based bounded-mean
+  statistics, and the Holm family adjustment.
   """
 
   alias NetworkDefense.Evaluation2.Study

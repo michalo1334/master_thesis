@@ -23,6 +23,7 @@
         #
         included: [
           "lib/",
+          "scripts/",
           "src/",
           "test/",
           "web/",

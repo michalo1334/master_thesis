@@ -39,6 +39,15 @@ defmodule NetworkDefense.Evaluation2.Study.Lifecycle do
   @spec states() :: [state()]
   def states, do: @states
 
+  @doc "Return the phase owned by an active lifecycle state."
+  @spec phase(state()) ::
+          :pilot_collection | :pilot_analysis | :final_collection | :final_analysis | nil
+  def phase(:collecting_pilot), do: :pilot_collection
+  def phase(:analyzing_pilot), do: :pilot_analysis
+  def phase(:collecting_final), do: :final_collection
+  def phase(:analyzing_final), do: :final_analysis
+  def phase(_state), do: nil
+
   @type event ::
           :pilot_collected
           | :pilot_analyzed

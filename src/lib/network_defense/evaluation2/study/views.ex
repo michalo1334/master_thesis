@@ -10,7 +10,6 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   #
   # `error/1` is the only public normalization of one internal persistence failure.
 
-  alias NetworkDefense.Evaluation2.NotImplementedError
   alias NetworkDefense.Evaluation2.Study.Comparison
   alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Error
@@ -47,9 +46,52 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   end
 
   @spec pilot_result(Persistence.Revision.t(), AnalysisContract.Output.t()) ::
-          PilotResult.t()
-  def pilot_result(_revision, _output),
-    do: raise(NotImplementedError, function: :pilot_result)
+          {:ok, PilotResult.t()} | {:error, Error.t()}
+  def pilot_result(revision, output) do
+    with {:ok, identities} <- comparison_identities(Definition.comparisons(revision.definition)),
+         :ok <- pilot_positions(output, length(identities)) do
+      candidates = Enum.map(output.candidates, &pilot_candidate(&1, identities))
+
+      {:ok,
+       %PilotResult{
+         method: :precision_pilot_v1,
+         selection_rule: :lowest_predicted_runtime,
+         outcome: output.outcome,
+         candidates: candidates
+       }}
+    end
+  end
+
+  defp pilot_positions(output, count) do
+    positions = Enum.to_list(0..(count - 1))
+
+    valid? =
+      Enum.all?(output.candidates, fn candidate ->
+        Enum.map(candidate.comparisons, & &1.comparison_position) == positions
+      end)
+
+    if valid?, do: :ok, else: {:error, corrupt_storage_error()}
+  end
+
+  defp pilot_candidate(candidate, identities) do
+    comparisons =
+      Enum.map(candidate.comparisons, fn assessment ->
+        %PilotResult.Comparison{
+          identity: Enum.fetch!(identities, assessment.comparison_position),
+          guarded_half_width: assessment.guarded_half_width,
+          informative: assessment.informative,
+          passes: assessment.passes
+        }
+      end)
+
+    %PilotResult.Candidate{
+      id: candidate.candidate_id,
+      plan_count_per_side: candidate.plan_count_per_side,
+      attacks_per_plan: candidate.attacks_per_plan,
+      predicted_runtime_ms: candidate.predicted_runtime_ms,
+      comparisons: comparisons
+    }
+  end
 
   # Join the accepted execution facts with the stored Final outputs. A value that
   # lacks one of them is not a result.

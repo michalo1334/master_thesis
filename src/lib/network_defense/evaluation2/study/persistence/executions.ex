@@ -30,6 +30,21 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
   alias NetworkDefense.Evaluation2.Study.Selection
   alias NetworkDefense.Repo
 
+  @doc "Read the current execution and its required active phase without changing state."
+  @spec fetch_context(Ecto.UUID.t()) :: Persistence.response(Persistence.lifecycle_context())
+  def fetch_context(execution_id) do
+    with {:ok, uuid} <- Persistence.cast_id(execution_id, :fetch_context, :execution) do
+      Persistence.contain(:fetch_context, :execution, fn -> read_execution_context(uuid) end)
+    end
+  end
+
+  defp read_execution_context(uuid) do
+    case Repo.get(Execution, uuid) do
+      nil -> {:error, Persistence.error(:not_found, :fetch_context, :execution, nil)}
+      execution -> current(execution, :fetch_context)
+    end
+  end
+
   # --- execution start ----------------------------------------------------
 
   # The transaction inserts the execution and its Pilot collection phase, so the
@@ -408,7 +423,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
       terminal?(execution.state) ->
         current(execution, operation)
 
-      phase_for_state(execution.state) == phase.phase ->
+      Lifecycle.phase(execution.state) == phase.phase ->
         advance(execution, :fail, %{error: params}, operation)
 
       true ->
@@ -524,14 +539,14 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
 
   # Every active state owns its phase identity (Q83).
   defp enter_phase(%Execution{id: id, state: state}, operation) do
-    case phase_for_state(state) do
+    case Lifecycle.phase(state) do
       nil -> {:ok, nil}
       kind -> ensure_phase(id, kind, operation)
     end
   end
 
   defp required_phase(%Execution{id: id, state: state}, operation) do
-    case phase_for_state(state) do
+    case Lifecycle.phase(state) do
       nil -> {:ok, nil}
       kind -> stored_phase_kind(id, kind, operation)
     end
@@ -557,12 +572,6 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Executions do
       {:error, changeset} -> {:error, Persistence.error(:storage, operation, :phase, changeset)}
     end
   end
-
-  defp phase_for_state(:collecting_pilot), do: :pilot_collection
-  defp phase_for_state(:analyzing_pilot), do: :pilot_analysis
-  defp phase_for_state(:collecting_final), do: :final_collection
-  defp phase_for_state(:analyzing_final), do: :final_analysis
-  defp phase_for_state(_state), do: nil
 
   # Classify one lifecycle state against the state of one command.
   #

@@ -52,7 +52,15 @@ defmodule NetworkDefense.Evaluation2.Study.Randomness do
           tier <- definition.tiers,
           do: evaluation_root(definition, phase, tier.tier)
 
-    planning = Enum.map(Definition.comparisons(definition), &pilot_planning_seed(definition, &1))
+    comparisons = Definition.comparisons(definition)
+    planning = Enum.map(comparisons, &pilot_planning_seed(definition, &1))
+
+    outer =
+      for comparison <- comparisons,
+          index <- 0..(definition.pilot.precision.outer_subsamples - 1),
+          role <- [:rows, :columns],
+          do: outer_seed(definition, comparison, index, role)
+
     final_attacks = Enum.max_by(definition.pilot.candidates, & &1.attacks).attacks
 
     columns =
@@ -61,7 +69,7 @@ defmodule NetworkDefense.Evaluation2.Study.Randomness do
           index <- 1..count,
           do: Seed.child_seed(evaluation_root(definition, phase, tier.tier), index)
 
-    values = rows ++ roots ++ planning ++ columns
+    values = rows ++ roots ++ planning ++ outer ++ columns
     if length(values) == MapSet.size(MapSet.new(values)), do: :ok, else: {:error, :seed_collision}
   end
 end

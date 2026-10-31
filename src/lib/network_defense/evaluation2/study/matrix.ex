@@ -13,8 +13,6 @@ defmodule NetworkDefense.Evaluation2.Study.Matrix do
   # planned dimensions and the shared column list, so neither operation checks
   # rectangularity, alignment, or ranges.
 
-  alias NetworkDefense.Evaluation2.NotImplementedError
-
   @typedoc "Position of one row or one column."
   @type index :: non_neg_integer()
 
@@ -31,18 +29,28 @@ defmodule NetworkDefense.Evaluation2.Study.Matrix do
   @type t :: [row()]
 
   @spec dimensions(t()) :: dimensions()
-  def dimensions(_matrix), do: raise(NotImplementedError, function: :dimensions)
+  def dimensions([]), do: {0, 0}
+  def dimensions([first_row | _other_rows] = matrix), do: {length(matrix), length(first_row)}
 
   # Keep the leading rows and the leading columns.
   #
   # The result carries the canonical planned capacity of one matrix.
   @spec take(t(), rows :: index(), columns :: index()) :: t()
-  def take(_matrix, _rows, _columns), do: raise(NotImplementedError, function: :take)
+  def take(matrix, rows, columns) do
+    matrix
+    |> Enum.take(rows)
+    |> Enum.map(&Enum.take(&1, columns))
+  end
 
   # Keep explicit row indexes and explicit shared-column indexes.
   #
   # The caller passes the indexes of the rows and of the one attack-column list
   # that both sides share.
   @spec select(t(), [index()], [index()]) :: t()
-  def select(_matrix, _rows, _columns), do: raise(NotImplementedError, function: :select)
+  def select(matrix, row_indexes, column_indexes) do
+    Enum.map(row_indexes, fn row_index ->
+      row = Enum.at(matrix, row_index)
+      Enum.map(column_indexes, &Enum.at(row, &1))
+    end)
+  end
 end

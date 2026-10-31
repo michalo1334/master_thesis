@@ -16,8 +16,8 @@ defmodule NetworkDefense.Evaluation2.Study do
   revision supports several executions.
 
   Revision creation validates and resolves the new definition before persistence.
-  Pilot analysis and its report remain unavailable. Storage failures report
-  their fixed public issue code through `Study.Views.error/1`.
+  Caller-owned continuation reaches the Pilot approval boundary. Final execution
+  remains the next milestone. Storage failures use fixed public issue codes.
   """
 
   use Spectral
@@ -29,7 +29,6 @@ defmodule NetworkDefense.Evaluation2.Study do
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
   alias NetworkDefense.Evaluation2.Study.Persistence.Phase
-  alias NetworkDefense.Evaluation2.Study.Pilot.Analysis, as: PilotAnalysis
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
   alias NetworkDefense.Evaluation2.Study.PilotResult
   alias NetworkDefense.Evaluation2.Study.Result
@@ -108,6 +107,15 @@ defmodule NetworkDefense.Evaluation2.Study do
   end
 
   @doc """
+  Continue Pilot execution to its approval or terminal boundary.
+
+  A finite timeout returns current Status and leaves work active. This call
+  grants no Final approval. Cancellation is observed through durable state.
+  """
+  @spec continue(execution_id(), keyword()) :: {:ok, Status.t()} | {:error, Error.t()}
+  def continue(execution_id, opts \\ []), do: Workflow.continue(execution_id, opts)
+
+  @doc """
   Read the lifecycle state of one execution.
 
   Status joins the execution row with its revision. Gust run detail stays
@@ -127,14 +135,42 @@ defmodule NetworkDefense.Evaluation2.Study do
   is explained by it.
   """
   @spec pilot_result(execution_id()) :: {:ok, PilotResult.t()} | {:error, Error.t()}
-  def pilot_result(execution_id), do: PilotAnalysis.report(execution_id)
+  def pilot_result(execution_id) do
+    with {:ok, {execution, revision}} <- Persistence.fetch_execution(execution_id),
+         %PilotOutcome{} <- execution.pilot_outcome,
+         {:ok, phase} <- Persistence.fetch_execution_phase(execution_id, :pilot_analysis),
+         {:ok, phase_run} <- Persistence.fetch_phase_run(phase.id, :single),
+         {:ok, output} <- Workflow.pilot_analysis_result(phase_run.id),
+         true <- output.outcome == execution.pilot_outcome do
+      Views.pilot_result(revision, output)
+    else
+      {:error, %Persistence.Error{} = failure} ->
+        {:error, Views.error(failure)}
+
+      {:error, %Error{}} = failure ->
+        failure
+
+      _not_accepted ->
+        {:error,
+         %Error{
+           category: :validation_failed,
+           issues: [
+             %Error.Issue{
+               code: "pilot_report_not_available",
+               path: [],
+               message: "The Pilot report has not been accepted."
+             }
+           ]
+         }}
+    end
+  end
 
   @doc """
-  Approve the Pilot outcome and start Final collection.
+  Approve the Pilot outcome and freeze the Final selection.
 
-  The approval states intent only. Resume resolves the declared candidate and
-  freezes its two sample counts. An invalid approval leaves the execution
-  waiting for approval.
+  Resume resolves the declared candidate and freezes its two sample counts.
+  An invalid approval leaves the execution waiting for approval. Final run
+  provisioning and execution remain the next milestone.
   """
   @spec resume(execution_id(), approval()) :: {:ok, Status.t()} | {:error, Error.t()}
   def resume(execution_id, approval) do
@@ -151,7 +187,10 @@ defmodule NetworkDefense.Evaluation2.Study do
   @spec cancel(execution_id()) :: {:ok, Status.t()} | {:error, Error.t()}
   def cancel(execution_id) do
     Executions.cancel_execution(execution_id)
-    |> bind(fn context -> {:ok, Views.status(context.revision, context.execution)} end)
+    |> bind(fn context ->
+      Workflow.stop(context.execution.id)
+      {:ok, Views.status(context.revision, context.execution)}
+    end)
   end
 
   @doc """

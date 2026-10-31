@@ -16,7 +16,7 @@ defmodule NetworkDefense.Evaluation2.Study.Result.Comparison.Statistics do
   }
 
   @typedoc "Statistics method of the Final comparison."
-  @type method :: :corrected_crossed_bootstrap_v1
+  @type method :: :matching_bounded_mean_v1
 
   @type t :: %__MODULE__{
           method: method(),

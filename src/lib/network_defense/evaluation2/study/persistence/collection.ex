@@ -30,6 +30,57 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   # Replica positions of one planned work set: warm-up and measured replicas.
   @replica_positions -1..4
 
+  @doc "Read completed Pilot physical-effect costs, counting each item once."
+  @spec runtime_samples(Ecto.UUID.t()) :: Persistence.response(map())
+  def runtime_samples(phase_run_id) do
+    with {:ok, uuid} <- Persistence.cast_id(phase_run_id, :runtime_samples, :phase_run) do
+      query =
+        from item in CollectionItem,
+          left_join: optimization in OptimizationRun,
+          on: optimization.id == item.optimization_run_id,
+          left_join: experiment in Experiment,
+          on: experiment.id == item.experiment_id,
+          where: item.study_phase_run_id == ^uuid and item.replica_position == 0,
+          order_by: item.item_position,
+          select:
+            {optimization.status, optimization.runtime_ms, experiment.status,
+             experiment.runtime_ms, experiment.total_trials}
+
+      Persistence.contain(:runtime_samples, :collection_item, fn ->
+        query |> Repo.all() |> cost_samples()
+      end)
+    end
+  end
+
+  defp cost_samples([_ | _] = rows) do
+    valid? =
+      Enum.all?(rows, fn
+        {"completed", plan, :completed, simulation, trials}
+        when is_number(plan) and plan >= 0 and is_number(simulation) and simulation >= 0 and
+               is_integer(trials) and trials > 0 ->
+          true
+
+        _row ->
+          false
+      end)
+
+    if valid? do
+      {:ok,
+       %{
+         plan_ms: Enum.map(rows, &elem(&1, 1)),
+         attack_ms: Enum.map(rows, fn {_, _, _, runtime, trials} -> runtime / trials end)
+       }}
+    else
+      invalid_cost_samples()
+    end
+  end
+
+  defp cost_samples(_rows), do: invalid_cost_samples()
+
+  defp invalid_cost_samples do
+    {:error, Persistence.error(:storage, :runtime_samples, :collection_item, :incomplete_costs)}
+  end
+
   # --- plans ---------------------------------------------------------------
 
   # The stored JSONB object is one `CollectionPlan.payload()` value. An equal
