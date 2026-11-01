@@ -3,6 +3,7 @@
 This page defines the native Evaluation2 method for study authors and result readers.
 The [study overview](evaluation-study-overview.md) describes the workflow.
 The [operator guide](../evaluation2.md) describes input, commands and safe checks.
+The [plain-English explanation](evaluation-methodology-explained.md) teaches the method through one synthetic matrix.
 
 The primary outcome is simulated mission impact. Each declared alternative is compared with CVSS under the same action budget.
 Inference is conditional on the frozen graphs and model settings.
@@ -39,7 +40,17 @@ The definition chooses alternatives from the existing optimization strategies:
 
 CVSS is the implicit reference for every tier/budget context.
 The primary comparison identity is `(tier, budget, alternative, cvss, mission_impact)`.
-A budget limits the number of actions in a plan. It is an action-count limit, rather than an economic cost model.
+A budget sets the maximum number of actions in a plan. The approved study uses the same maximum caps of one, two and three for every strategy.
+A strategy can stop early. Report requested and used budgets and selected targets, including empty and short plans.
+These comparisons estimate selection-policy differences under equal caps. Strategy-specific action sets remain part of each treatment.
+The caps represent model action counts; real money, effort and operational risk require separate measures.
+
+Random selection uses a fresh reproducible permutation of currently useful candidates at each step.
+The plan seed and remaining positive budget determine the step's seed. A repeated permutation can occur by chance.
+The optimizer chooses the first affordable candidate that satisfies the declared feasibility policy.
+A uniform permutation makes each feasible, useful candidate equally likely to be first among the eligible candidates.
+Unrestricted plans retain useful-action eligibility and can disrupt mission operations.
+Credential revocation is useful while an outgoing authentication link remains; repeated application stays idempotent.
 
 One shared defense policy declares allowed action types and feasibility.
 The application intersects allowed actions with each strategy's supported actions.

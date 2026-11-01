@@ -35,7 +35,9 @@ Each experiment uses:
 - a finite action-step limit; and
 - an action-count budget.
 
-Each defense action has unit cost. Equal budgets compare plan cardinality.
+Each defense action has unit cost. The author approved equal maximum caps of one, two and three.
+Early stopping is allowed. Report actual action use and selected targets for every plan.
+Comparisons therefore concern selection policies under equal caps; realized plan lengths can differ.
 
 At each attack step, the simulator selects uniformly from eligible actions. It
 then samples the selected action's outcome from the vulnerability's scenario
@@ -70,6 +72,12 @@ The [YAML constructor](../evaluation2.md#input-contract) checks required known f
 It resolves immutable graph/Host inputs and freezes shared model settings, ordered candidates, one seed and derived contracts.
 The stored definition excludes source YAML text.
 Changed scientific inputs require a new revision.
+
+The thesis study adds an explicit scientific check before Pilot, before fresh Final observations and after Final analysis.
+It requires the complete 36-member family, positive model ranges and the one-point precision target.
+A zero-range scenario or collapsed interval requires investigation. A wide Final stays visibly imprecise under its frozen counts.
+The paired feasibility procedure remains descriptive and outside the primary family.
+See [scientific study admission](evaluation-methodology.md#9-scientific-study-admission).
 
 Research use requires accepted model and method assumptions.
 The native protocol is verified at small counts. The complete [prespecified calibration](../history/evaluation2-calibration-20261031.md) passed its declared model-grid checks.

@@ -57,7 +57,9 @@ advantage.
   objective, and maximum action budget.
 - The system must support patching a vulnerability, blocking a segment policy,
   and revoking a credential.
-- The system must apply at most the configured number of actions.
+- The system must apply at most the configured number of actions. It must retain actual use when a plan stops early.
+- Random selection must use fresh reproducible step draws and exclude actions that cannot change the current graph.
+- When feasibility is required, random selection must choose uniformly among the affordable, feasible, useful actions. An infeasible candidate must not hide a feasible alternative.
 - When feasibility is required, the system must reject an action that disrupts
   any mission capability before the attack.
 - The system must save the optimized graph as a new revision.
@@ -91,6 +93,15 @@ breaking the mission before the attack starts.
 
 These rules keep the sampling units intact and prevent a partial family from
 receiving a misleading multiplicity correction.
+
+## Scientific study boundary
+
+- The thesis preflight must check three resolved tiers, caps 1/2/3, all four alternatives against CVSS, 36 primary contrasts, positive model ranges and a one-point target.
+- The pre-Final record must bind the definition, selected declared counts, seeds, settings and family before fresh observations.
+- The result check must verify that binding and every actual Final interval half-width. A wide interval must retain an insufficient-precision finding without extending the same sample.
+- Zero-range study input and a collapsed Final interval must require investigation. Generic structural-zero arithmetic must remain correct.
+- Native statistics contract validity, scientific precision and internal lifecycle success must remain separate findings.
+- A separate descriptive feasibility procedure must pair initially feasible inputs, strategies, caps and selection seeds. It must retain actions, actual use, missing flows and weighted pre-attack disruption under both policies.
 
 ## Study definition and execution
 
