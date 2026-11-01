@@ -2,13 +2,20 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.AttackerState.AttackerState
-  alias NetworkDefense.DefenseActions.PatchVulnerability
+  alias NetworkDefense.DefenseActions.{DefenseAction, PatchVulnerability, RevokeCredential}
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
-  alias NetworkDefense.Optimization.{SimulationInformedStrategy, SimulationObjective, Strategy}
+  alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
+
+  alias NetworkDefense.Optimization.{
+    SimulationInformedStrategy,
+    SimulationObjective,
+    SimulationStrategy,
+    Strategy
+  }
 
   alias NetworkDefense.Relationships.{
+    AuthenticatesTo,
     Contains,
     HasVulnerability,
     NetworkReachability,
@@ -116,6 +123,36 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
       ])
 
     assert {:error, :invalid_request} = SimulationInformedStrategy.new(graph, params)
+  end
+
+  # ELIG-SI-01
+  # Requirement: WHEN a credential holds no outgoing AuthenticatesTo edge, THE
+  # simulation-informed strategy SHALL offer no revocation action for it.
+  test "offers no revocation for a credential without an AuthenticatesTo edge" do
+    graph = credential_eligibility_graph(false)
+
+    strategy = %SimulationInformedStrategy{
+      initial_attacker_state: AttackerState.new("source"),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 1,
+      iteration_count: 1,
+      seed: 42
+    }
+
+    assert Strategy.rank(strategy, [RevokeCredential], graph, 1) == []
+  end
+
+  # ELIG-SI-02
+  # Requirement: WHEN a credential holds an outgoing AuthenticatesTo edge, THE
+  # shared candidate helper SHALL keep that revocation and SHALL exclude an
+  # orphan credential from the same graph.
+  test "keeps an authenticated credential eligible and useful" do
+    graph = credential_eligibility_graph(true)
+
+    assert [%RevokeCredential{credential_id: "credential-authenticated"} = candidate] =
+             SimulationStrategy.candidate_actions([RevokeCredential], graph)
+
+    assert DefenseAction.apply(candidate, graph) != graph
   end
 
   defp scoring_params(source) do
@@ -278,6 +315,35 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
 
   defp segment(id),
     do: GraphFixtures.node(id, NetworkSegment, %{"name" => id})
+
+  defp credential_eligibility_graph(include_authenticated?) do
+    source = GraphFixtures.node("source", Host, %{"name" => "source"})
+    service = service("service")
+    orphan = credential("credential-orphan")
+
+    authenticated = credential("credential-authenticated")
+
+    nodes =
+      [source, service, orphan] ++ if(include_authenticated?, do: [authenticated], else: [])
+
+    edges =
+      [GraphFixtures.edge("runs", source, service, Runs)] ++
+        if include_authenticated? do
+          [
+            GraphFixtures.edge("auth", authenticated, service, AuthenticatesTo, %{
+              "granted_privilege" => "user"
+            })
+          ]
+        else
+          []
+        end
+
+    GraphFixtures.graph(nodes, edges)
+  end
+
+  defp credential(id) do
+    GraphFixtures.node(id, Credential, %{"identifier" => id, "credential_type" => "password"})
+  end
 
   defp policy, do: %{"protocol" => "tcp"}
 

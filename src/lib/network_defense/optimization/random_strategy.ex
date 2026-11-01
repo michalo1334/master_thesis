@@ -1,9 +1,14 @@
 defmodule NetworkDefense.Optimization.RandomStrategy do
   @moduledoc """
-  Coin flip strategy:
-    1. select random action
-    2. for this action select random target
-    3. return
+  Uniform random strategy.
+
+  `rank/4` returns a full uniform random permutation of the currently useful
+  candidates. The optimizer applies the first candidate it can afford and that
+  keeps the mission feasible, so one infeasible candidate does not stop the step.
+
+  Each call derives a child seed from the declared plan seed and the remaining
+  budget. Every useful action costs one positive unit, so the remaining budget
+  decreases between steps and supplies a fresh draw without protocol state.
   """
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.Graph.Graph
@@ -25,20 +30,28 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
     def plan?(_strategy), do: false
 
     @spec rank(Strategy.t(), [module()], Graph.t(), Budget.t()) :: [DefenseAction.t()]
-    def rank(strategy, action_types, graph, _budget) do
-      case SimulationStrategy.candidate_actions(action_types, graph) do
-        [] ->
-          []
+    def rank(strategy, action_types, graph, remaining_budget) do
+      candidates = SimulationStrategy.candidate_actions(action_types, graph)
+      state = Seed.integer_to_state(Seed.child_seed(strategy.seed, remaining_budget))
 
-        [candidate] ->
-          [candidate]
+      permutation(candidates, state)
+    end
 
-        candidates ->
-          {index, _state} =
-            :rand.uniform_s(length(candidates), Seed.integer_to_state(strategy.seed))
+    # Selection with removal: every step picks one element uniformly from the
+    # remaining candidates, so all orderings are equally likely.
+    defp permutation(candidates, state) do
+      candidates
+      |> permute(length(candidates), state, [])
+      |> Enum.reverse()
+    end
 
-          [Enum.at(candidates, index - 1)]
-      end
+    defp permute([], 0, _state, acc), do: acc
+
+    defp permute(remaining, count, state, acc) do
+      {index, state} = :rand.uniform_s(count, state)
+      {picked, rest} = List.pop_at(remaining, index - 1)
+
+      permute(rest, count - 1, state, [picked | acc])
     end
   end
 end

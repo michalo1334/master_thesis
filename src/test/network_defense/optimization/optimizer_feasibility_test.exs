@@ -5,7 +5,14 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
-  alias NetworkDefense.Optimization.{Optimizer, TopologySegmentationStrategy}
+
+  alias NetworkDefense.Optimization.{
+    Optimizer,
+    RandomStrategy,
+    Strategy,
+    TopologySegmentationStrategy
+  }
+
   alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability, Supports}
 
   test "refuses to cut a segment policy that a required flow depends on" do
@@ -32,6 +39,44 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
       Optimizer.apply(
         graph,
         %TopologySegmentationStrategy{initial_foothold_node_id: source.id},
+        1,
+        action_types: [BlockSegmentReachability],
+        require_pre_attack_feasibility: true
+      )
+
+    assert [%BlockSegmentReachability{edge_id: "a-other-policy"}] = result.actions
+    assert result.budget_used == 1
+    assert Graph.edge(result.graph, "target-policy")
+    refute Graph.edge(result.graph, "a-other-policy")
+  end
+
+  # FEAS-RAND-01
+  # Requirement: WHEN the first ranked random candidate is infeasible and a later
+  # candidate is feasible, THE optimizer SHALL apply the feasible candidate.
+  @tag :integration
+  @tag case_id: "FEAS-RAND-01"
+  test "applies a feasible policy when the first random candidate is infeasible" do
+    {graph, _source} = required_flow_graph(extra_policy: true)
+
+    infeasible_first_seed =
+      Enum.find(1..32, fn seed ->
+        [%BlockSegmentReachability{edge_id: first} | _] =
+          Strategy.rank(
+            %RandomStrategy{seed: seed},
+            [BlockSegmentReachability],
+            graph,
+            1
+          )
+
+        first == "target-policy"
+      end)
+
+    assert infeasible_first_seed != nil
+
+    result =
+      Optimizer.apply(
+        graph,
+        %RandomStrategy{seed: infeasible_first_seed},
         1,
         action_types: [BlockSegmentReachability],
         require_pre_attack_feasibility: true

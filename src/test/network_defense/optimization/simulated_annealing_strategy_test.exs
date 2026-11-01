@@ -5,14 +5,29 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
 
   alias NetworkDefense.DefenseActions.{
     BlockSegmentReachability,
+    DefenseAction,
     PatchVulnerability,
     RevokeCredential
   }
 
   alias NetworkDefense.GraphFixtures
-  alias NetworkDefense.Nodes.{Host, NetworkSegment, Service, Vulnerability}
-  alias NetworkDefense.Optimization.{Optimizer, SimulatedAnnealingStrategy, Strategy}
-  alias NetworkDefense.Relationships.{Contains, HasVulnerability, Runs, SegmentReachability}
+  alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
+
+  alias NetworkDefense.Optimization.{
+    Optimizer,
+    SimulatedAnnealingStrategy,
+    SimulationStrategy,
+    Strategy
+  }
+
+  alias NetworkDefense.Relationships.{
+    AuthenticatesTo,
+    Contains,
+    HasVulnerability,
+    Runs,
+    SegmentReachability
+  }
+
   alias NetworkDefense.Rules.RemoteServiceExploitation
 
   test "returns a deterministic valid defense plan" do
@@ -103,6 +118,36 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
     assert result.budget_used == 2
     assert Enum.map(result.actions, & &1.edge_id) == Enum.map(plan, & &1.edge_id)
     assert Strategy.plan?(strategy) == true
+  end
+
+  # ELIG-SA-01
+  # Requirement: WHEN a credential holds no outgoing AuthenticatesTo edge, THE
+  # simulated annealing strategy SHALL select no revocation action for it.
+  test "selects no revocation for a credential without an AuthenticatesTo edge" do
+    graph = credential_eligibility_graph(false)
+
+    strategy = %SimulatedAnnealingStrategy{
+      initial_attacker_state: AttackerState.new("source"),
+      rules: [%RemoteServiceExploitation{}],
+      run_count: 1,
+      iteration_count: 1,
+      seed: 42
+    }
+
+    assert Strategy.rank(strategy, [RevokeCredential], graph, 1) == []
+  end
+
+  # ELIG-SA-02
+  # Requirement: WHEN a credential holds an outgoing AuthenticatesTo edge, THE
+  # shared candidate helper SHALL keep that revocation and SHALL exclude an
+  # orphan credential from the same graph.
+  test "keeps an authenticated credential eligible and useful" do
+    graph = credential_eligibility_graph(true)
+
+    assert [%RevokeCredential{credential_id: "credential-authenticated"} = candidate] =
+             SimulationStrategy.candidate_actions([RevokeCredential], graph)
+
+    assert DefenseAction.apply(candidate, graph) != graph
   end
 
   defp graph do
@@ -260,6 +305,34 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
 
   defp service(id),
     do: GraphFixtures.node(id, Service, %{"name" => id, "protocol" => "tcp", "port" => 443})
+
+  defp credential_eligibility_graph(include_authenticated?) do
+    source = GraphFixtures.node("source", Host, %{"name" => "source"})
+    service = service("service")
+    orphan = credential("credential-orphan")
+    authenticated = credential("credential-authenticated")
+
+    nodes =
+      [source, service, orphan] ++ if(include_authenticated?, do: [authenticated], else: [])
+
+    edges =
+      [GraphFixtures.edge("runs", source, service, Runs)] ++
+        if include_authenticated? do
+          [
+            GraphFixtures.edge("auth", authenticated, service, AuthenticatesTo, %{
+              "granted_privilege" => "user"
+            })
+          ]
+        else
+          []
+        end
+
+    GraphFixtures.graph(nodes, edges)
+  end
+
+  defp credential(id) do
+    GraphFixtures.node(id, Credential, %{"identifier" => id, "credential_type" => "password"})
+  end
 
   defp vulnerability(id) do
     GraphFixtures.node(id, Vulnerability, %{

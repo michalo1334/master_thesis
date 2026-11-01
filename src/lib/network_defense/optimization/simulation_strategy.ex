@@ -2,7 +2,10 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
   @moduledoc false
 
   alias NetworkDefense.DefenseActions.DefenseAction
+  alias NetworkDefense.DefenseActions.RevokeCredential
   alias NetworkDefense.Graph.Graph
+  alias NetworkDefense.Graph.Node
+  alias NetworkDefense.Relationships.AuthenticatesTo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Simulator
 
@@ -42,17 +45,35 @@ defmodule NetworkDefense.Optimization.SimulationStrategy do
   end
 
   @doc """
-  Enumerates every eligible `{action, target}` candidate across the graph.
+  Enumerates every eligible `{action, target}` candidate that still changes the graph.
+
+  Candidates come from the current nodes and edges, so a patch or a block always
+  targets an edge that exists. A credential revocation is useful only while the
+  credential holds an outgoing `AuthenticatesTo` edge.
   """
   @spec candidate_actions([module()], Graph.t()) :: [DefenseAction.t()]
   def candidate_actions(action_types, graph) do
-    Enum.flat_map(action_types, fn action_type ->
+    authenticating_node_ids =
+      graph
+      |> Graph.edges()
+      |> Enum.filter(&(&1.type == AuthenticatesTo))
+      |> MapSet.new(& &1.from_id)
+
+    Enum.flat_map(Enum.uniq(action_types), fn action_type ->
       action = struct!(action_type)
       eligible_types = DefenseAction.eligible_types(action)
 
       (Graph.nodes(graph) ++ Graph.edges(graph))
-      |> Enum.filter(&(&1.type in eligible_types))
+      |> Enum.filter(
+        &(&1.type in eligible_types and effective_target?(action, &1, authenticating_node_ids))
+      )
       |> Enum.map(&DefenseAction.with_target_id(action, &1.id))
     end)
   end
+
+  defp effective_target?(%RevokeCredential{}, %Node{id: node_id}, authenticating_node_ids) do
+    MapSet.member?(authenticating_node_ids, node_id)
+  end
+
+  defp effective_target?(_action, _target, _authenticating_node_ids), do: true
 end

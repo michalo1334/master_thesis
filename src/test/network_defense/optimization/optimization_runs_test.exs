@@ -765,6 +765,12 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
         data: %{"required_privilege" => "none", "granted_privilege" => "user"}
       })
     )
+    |> Graph.add_edge(
+      Edge.new(graph.id, credential.id, service.id, %{
+        type: Atom.to_string(NetworkDefense.Relationships.AuthenticatesTo),
+        data: %{"granted_privilege" => "user"}
+      })
+    )
   end
 
   defp graph_with_segment_policy do
