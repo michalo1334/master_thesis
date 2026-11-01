@@ -16,7 +16,7 @@ defmodule NetworkDefense.Evaluation2.FinalTierCollectionDAGTest do
 
   alias NetworkDefense.Evaluation2.Study.Workflow.FinalTierCollection.DAG
 
-  @dag_file "gust/dags/evaluation2_study_final_tier_collection.exs"
+  @dag_file "gust/dags/evaluation2_study_final_tier_collection.ex"
   @terminal :complete_final_tier_collection
   @measured_positions 0..4
 

@@ -185,44 +185,9 @@ if enable_file_log do
   ]
 end
 
-config :network_defense, NetworkDefense.Evaluation.Comparison.Client,
-  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
-
-config :network_defense, NetworkDefense.Evaluation.Family.Client,
-  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
-
-config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.Client,
-  base_url: System.get_env("EVALUATION_COMPUTE_URL", "http://127.0.0.1:8080")
-
 config :network_defense,
        :measured_environment_revision,
        System.get_env("EVALUATION_MEASURED_ENVIRONMENT_REVISION")
-
-# Pilot limits are deployment resource caps, not scientific settings.
-# They are all-or-none. Without them, unrelated application paths run normally
-# and every Pilot call fails with a bounded configuration_invalid error. A
-# partial or malformed set is reported here and stays unconfigured.
-case RuntimeConfig.pilot_limits() do
-  {:ok, limits} ->
-    config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Pilot.Limits, limits
-
-  :unconfigured ->
-    :ok
-
-  {:error, message} ->
-    IO.puts(:stderr, "Pilot limits are invalid and stay unconfigured: #{message}")
-end
-
-case RuntimeConfig.study_collection_limits() do
-  {:ok, limits} ->
-    config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Collection.Limits, limits
-
-  :unconfigured ->
-    :ok
-
-  {:error, message} ->
-    IO.puts(:stderr, "Study collection controls are invalid and stay unconfigured: #{message}")
-end
 
 gust_key_source =
   RuntimeConfig.read_secret("GUST_CLOAK_KEY") ||

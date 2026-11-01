@@ -210,7 +210,7 @@ defmodule NetworkDefense.Evaluation2.PilotAnalysisContractTest do
   # The checked-in DAG source is the Gust input; the loader names it by file.
   defp dag_path do
     Application.fetch_env!(:gust, :dags_folder)
-    |> Path.join("evaluation2_study_pilot_analysis.exs")
+    |> Path.join("evaluation2_study_pilot_analysis.ex")
   end
 
   defp recommended do

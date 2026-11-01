@@ -3,8 +3,7 @@ defmodule NetworkDefense.Repo.Migrations.CreateEvaluation2StudyTables do
 
   # Physical Evaluation2 study storage.
   #
-  # The legacy `evaluation_*` tables stay untouched: the legacy subsystem still
-  # owns them until the final cutover. `gust_run_id` is a plain bigint because the
+  # `gust_run_id` is a plain bigint because the
   # main repository migrates before Gust on a fresh database, so the Gust table
   # may not exist yet. The application-level link owns that pair.
 

@@ -18,7 +18,7 @@ defmodule NetworkDefense.Evaluation2.Study.Compute do
   family test decisions; it does not make the intervals simultaneous.
   """
 
-  alias NetworkDefense.Evaluation2.Study.Compute.{Betting, Holm, Input, Intervals, PilotPrecision}
+  alias NetworkDefense.Evaluation2.Study.Compute.{Betting, Holm, Input, Kernel, PilotPrecision}
 
   @doc "Analyze aligned crossed matrices using frozen model outcome bounds."
   @spec compare(map(), map()) :: {:ok, map()} | {:error, term()}
@@ -36,17 +36,23 @@ defmodule NetworkDefense.Evaluation2.Study.Compute do
   end
 
   defp compare_prepared(%{matchings: xs, estimate: estimate, range: range}, error) do
-    bets = Betting.prepare(xs, error)
-    p_value = Betting.p_value(bets, estimate)
+    {lower, upper, plus, minus} =
+      Nx.Defn.jit_apply(&Kernel.analyze/2, [xs, Nx.tensor(error, type: :f64)],
+        compiler: EXLA,
+        client: :host
+      )
 
-    case Intervals.invert(bets, error) do
-      {:ok, {lower, upper}} ->
-        low = min(range * (2 * lower - 1), estimate)
-        high = max(range * (2 * upper - 1), estimate)
-        result(estimate, low, high, p_value, [])
+    lower = Nx.to_number(lower)
+    upper = Nx.to_number(upper)
 
-      :empty ->
-        result(estimate, -range, range, 1.0, [:empty_inversion])
+    if lower <= upper do
+      p_value = Betting.p_value_from_logs({Nx.to_number(plus), Nx.to_number(minus)}, estimate)
+
+      low = min(range * (2 * lower - 1), estimate)
+      high = max(range * (2 * upper - 1), estimate)
+      result(estimate, low, high, p_value, [])
+    else
+      result(estimate, -range, range, 1.0, [:empty_inversion])
     end
   end
 

@@ -51,46 +51,28 @@ module "rabbitmq" {
   virtual_host          = local.rabbitmq.virtual_host
 }
 
-module "evaluation_compute" {
-  source = "../../modules/local/evaluation_compute"
-
-  container_port      = var.evaluation_compute.container_port
-  host_ports          = var.evaluation_compute.host_ports
-  image_name          = var.evaluation_compute.image_name
-  log_level           = var.evaluation_compute.log_level
-  name_prefix         = local.name_prefix
-  pilot_limits        = var.evaluation_compute.pilot_limits
-  process_count       = var.evaluation_compute.process_count
-  request_limit_bytes = var.evaluation_compute.request_limit_bytes
-  site_networks       = { for site, network in docker_network.site : site => network.name }
-  sites               = local.sites
-  source_path         = abspath("${path.module}/../../../services/evaluation_compute")
-}
-
 module "app" {
   source = "../../modules/local/app"
 
-  adapter                 = local.pubsub_adapter
-  app_source_path         = abspath("${path.module}/../../../src")
-  application             = local.application
-  database                = local.database
-  database_host           = module.database.postgres_host
-  database_port           = module.database.postgres_port
-  evaluation_compute_urls = module.evaluation_compute.internal_service_urls
-  host                    = var.application.host
-  host_ports              = var.application.host_ports
-  log_level               = var.application.log_level
-  log_volume_name         = docker_volume.application_logs.name
-  name_prefix             = local.name_prefix
-  nodes                   = local.nodes
-  pilot_limits            = var.pilot_limits
-  rabbitmq                = local.rabbitmq
-  secret_mount_path       = local.secret_mount_path
-  service_name            = local.application.service_name
-  site_networks           = { for site, network in docker_network.site : site => network.name }
-  sites                   = local.sites
+  adapter           = local.pubsub_adapter
+  app_source_path   = abspath("${path.module}/../../../src")
+  application       = local.application
+  database          = local.database
+  database_host     = module.database.postgres_host
+  database_port     = module.database.postgres_port
+  host              = var.application.host
+  host_ports        = var.application.host_ports
+  log_level         = var.application.log_level
+  log_volume_name   = docker_volume.application_logs.name
+  name_prefix       = local.name_prefix
+  nodes             = local.nodes
+  rabbitmq          = local.rabbitmq
+  secret_mount_path = local.secret_mount_path
+  service_name      = local.application.service_name
+  site_networks     = { for site, network in docker_network.site : site => network.name }
+  sites             = local.sites
 
-  depends_on = [module.database, module.evaluation_compute, module.rabbitmq, module.redis]
+  depends_on = [module.database, module.rabbitmq, module.redis]
 }
 
 module "haproxy" {

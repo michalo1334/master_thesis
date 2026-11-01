@@ -167,7 +167,7 @@ No phase-replay API, replacement-replica policy or automatic background lifecycl
 Known incompatible method/seed contracts and changed measurement labels block continuation at their checked boundaries.
 
 The [verification record](../history/evaluation2-verification.md) preserves two real successful native studies at small counts.
-Full calibration and legacy deletion remain later verification gates.
+The [complete calibration](../history/evaluation2-calibration-20261031.md) passed its declared model-grid checks. The obsolete implementation is removed.
 The environment label is an operator assertion. It does not authenticate the machine or prove unchanged software.
 
 ## Further reading

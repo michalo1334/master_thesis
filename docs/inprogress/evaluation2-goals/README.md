@@ -1,10 +1,10 @@
 # Evaluation2 implementation goals
 
-This delivery plan supersedes the earlier single-batch execution decision. The consolidated refactor brief remains the scope reference; execute the six goals below in dependency order.
+This delivery plan supersedes the earlier single-batch execution decision. The consolidated refactor brief remains the scope reference; execute the seven goals below in dependency order, including documentation Goal 05.5.
 
-**Status: Goals 01–05 verified. Goals 05.5 and 06 have not started.**
+**Status: Goals 01–06, including Goal 05.5, are verified complete.**
 
-[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The [Goal 04 collection audit](progress/04-final-collection.md) records real sequential Final tiers, durable timing/equality proof and the accepted snapshot at `analyzing_final`. The [Goal 05 audit](progress/05-native-study.md) records native Final analysis, two real successful all-tier executions, public result reads and 990 passing regression cases. It also records the worker's default port-5432 test-database deviation and the operator's confirmation that both targets are development environments, which resolves the preservation gate. Goal 05.5 is next. Full calibration, documentation refresh and retirement retain their later gates.
+[Goal 01 evidence](progress/01-foundation.md) records the requirement audit, setup fixes, review, and passing checks. The [Goal 02 numerical audit](progress/02-native-numerics.md) and [Goal 03 Pilot audit](progress/03-pilot-workflow.md) record the later scoped gates. The [Goal 04 collection audit](progress/04-final-collection.md) records real sequential Final tiers, durable timing/equality proof and the accepted snapshot at `analyzing_final`. The [Goal 05 audit](progress/05-native-study.md) records native Final analysis, two real successful all-tier executions, public result reads and 990 passing regression cases. It also records the worker's default port-5432 test-database deviation and the operator's confirmation that both targets are development environments, which resolves the preservation gate. Goal 05.5 now passes its documentation/source/example gate, with 994 regression cases passed and two excluded. ExDoc HTML and Mermaid rendering remain explicitly unverified because no toolchain is configured. Lasting guides use stable history rather than disposable goal files. Goal 06 ran the complete calibration and removed the obsolete implementation and authorized local remnants. Its final retained-tree audit passes:835 retained cases,882 scanned source files with zero leftovers, four unchanged native DAGs with 35 runs/1,652 tasks/39,068 logs,281 checked local documentation targets and independent final APPROVE. The final checkpoint records cleanup and the original clock.
 
 ## Sequence
 
@@ -15,9 +15,10 @@ This delivery plan supersedes the earlier single-batch execution decision. The c
 | [03 — Pilot and continuation](03-pilot-workflow.txt) | Real Pilot reaches awaiting_final with a complete report | Caller-owned workflow, canonical completion, Pilot policy and facade | Pilot DAG/actions/codecs; monitor/supervision/test scaffolding |
 | [04 — Final collection](04-final-collection.txt) | All tier collections have durable timing/equality proof and an accepted Final snapshot | Clock sessions, replica validation, tier progression and acceptance | Tier DAG/actions; timing/result contracts and fixtures |
 | [05 — Complete native study](05-native-study.txt) | Explicit approval drives native Final analysis to a durable result | Final scientific preparation/acceptance, result reads, CLI integration and real study | Analysis DAG/contracts; thin commands/report views |
+| [05.5 — Documentation refresh](05.5-documentation-refresh.txt) | Current guides, examples, diagrams and ExDoc match the implemented native system | Source/evidence reconciliation, substantive writing, example/link/diagram audit | Example validation scaffolding; diagram/ExDoc inventory and outlines |
 | [06 — Verification and deletion](06-verify-and-delete.txt) | Scientific/regression evidence passes and the obsolete implementation is absent | Verification, defect correction, actual deletion and final audit | Calibration fixtures/runner completion; retirement manifest/audit scaffolding |
 
-Each goal has a **3-hour total elapsed-time budget**. The planned sequence therefore has an 18-hour maximum allocation if all six milestones finish within their original budgets. This is not a completion-time guarantee. An unmet goal blocks its successors and needs an explicit follow-up plan.
+Each goal has a **3-hour total elapsed-time budget**. The planned sequence therefore has a 21-hour maximum allocation if all seven milestones finish within their original budgets. Adding Goal 05.5 does not restart or extend any existing goal's deadline. This is not a completion-time guarantee. An unmet goal blocks its successors and needs an explicit follow-up plan.
 
 ## Owner and worker rules
 
@@ -44,6 +45,8 @@ Reserve the final 15 minutes for bounded checks and handoff. Apply remaining-tim
 - Intermediate goals are explicit milestones, not claims that the whole system works. In particular, Goal 04 does not claim Final analysis is implemented.
 - Preserve working behavior inside completed scope. Leave unrelated future placeholders clearly identified; do not introduce temporary feature flags or compatibility adapters to conceal missing work.
 - Use TDD and the named behavior cases. Each goal records exact commands and results, file changes, and remaining limitations.
+- Goal 05.5 follows verified Goal 05 and blocks Goal 06. It updates current documentation, examples, diagrams, module docs and navigation against actual implementation/evidence. It does not perform runtime retirement or claim unrun calibration passed.
+- Goal 06 repeats the documentation/example/link/diagram audit after deletion and fixes references to removed artifacts. Documentation is part of its zero-leftover completion gate.
 - Keep the full statistical checks for Goal 06. Earlier smoke checks are not empirical calibration passes.
 - Use fresh local validation executions when frozen provenance is incompatible. Never weaken provenance checks to resume an old fixture.
 

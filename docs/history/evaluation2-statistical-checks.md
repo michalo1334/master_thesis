@@ -5,7 +5,8 @@
 
 > Prespecified validation protocol for the matching-based method selected in Q141.
 > Read with [the method specification](evaluation2-statistical-validation.md) and [retained behavior tests](../../src/test/network_defense/evaluation2/).
-> Status: planned, not executed. The arithmetic probes in the method record are separate evidence.
+> Execution status: the complete protocol passed its declared model-grid checks. See the [calibration report](evaluation2-calibration-20261031.md).
+> The prespecified scientific body below preserves the original models, seed, counts and criteria. The earlier arithmetic probes remain separate evidence.
 
 ## Purpose
 

@@ -136,7 +136,7 @@ prove it can scrape every target or export every signal.
 ## Native Evaluation2 runtime
 
 The native study path runs inside the normal application. It uses PostgreSQL, Gust and the retained optimization/simulation executor.
-Nx float64 and Decimal perform statistics in-process. A Python evaluation service is not a native dependency.
+Nx float64, CPU EXLA and Decimal perform statistics in-process. The kernel uses EXLA's host client.
 Legacy deployment-source wiring remains until the separate verification/deletion gate; leave it unchanged during a documentation refresh.
 
 Before setup or tests, verify both `NetworkDefense.Repo` and `Gust.Repo` targets.
@@ -161,7 +161,8 @@ Read-only command startup leaves queued Gust work unclaimed, while normal applic
 
 The current local development evidence does not authorize Terraform apply, service deletion or a new deployment.
 Use the [operator guide](evaluation2.md) for commands and safe sandbox example checks.
-The [verification record](history/evaluation2-verification.md) states the observed protocol and remaining calibration/deletion gates.
+The [verification record](history/evaluation2-verification.md) states the observed protocol and retained-tree checks.
+The [calibration report](history/evaluation2-calibration-20261031.md) records the completed synthetic protocol and its scientific limits.
 
 ## Teardown
 

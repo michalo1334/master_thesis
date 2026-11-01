@@ -40,8 +40,8 @@ defmodule NetworkDefense.Evaluation2.DocumentationExampleTest do
 
     assert {:ok, %{definition: definition}} = Persistence.fetch_revision(revision)
     assert Definition.pilot_capacity(definition) == %Definition.SampleSize{plans: 2, attacks: 3}
-    assert length(Definition.collection_groups(definition)) == 9
-    assert length(Definition.comparisons(definition)) == 6
+    assert Enum.count(Definition.collection_groups(definition)) == 9
+    assert Enum.count(Definition.comparisons(definition)) == 6
     assert Enum.map(definition.tiers, & &1.tier) == ["small", "medium", "large"]
     assert definition.provenance.method == "crossed-matching-betting-v1"
     assert definition.provenance.seed_contract == "evaluation2-sha256-json-v1"

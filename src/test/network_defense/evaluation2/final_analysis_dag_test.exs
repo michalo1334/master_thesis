@@ -15,7 +15,7 @@ defmodule NetworkDefense.Evaluation2.FinalAnalysisDAGTest do
 
   alias NetworkDefense.Evaluation2.Study.Workflow.FinalAnalysis.DAG
 
-  @dag_file "gust/dags/evaluation2_study_final_analysis.exs"
+  @dag_file "gust/dags/evaluation2_study_final_analysis.ex"
   @terminal :correct_final_family
 
   # Load during serialized execution. A loader can compile this source while

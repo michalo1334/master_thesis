@@ -31,13 +31,6 @@ config :network_defense, NetworkDefense.Compute.ScatterGather,
   executor: NetworkDefense.Compute.RabbitMQExecutor
 
 config :gust,
-  dag_adapter: [
-    comparison: %{
-      parser: NetworkDefense.Evaluation.Comparison.DAGParser,
-      runtime: Gust.DAG.Runtime.Adapters.Elixir,
-      task_worker: Gust.DAG.TaskWorker.Adapters.Elixir
-    }
-  ],
   dag_loader: Gust.DAG.Loader.Worker,
   dag_logger: Gust.DAG.Logger.Database,
   dag_runner_supervisor: Gust.DAG.RunnerSupervisor.DynamicSupervisor,

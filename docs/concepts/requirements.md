@@ -144,7 +144,7 @@ receiving a misleading multiplicity correction.
 - Internal phase/Gust/snapshot links and detailed evidence must remain with their durable owners.
 - Native commands must start the normal application; execution commands require dispatch-capable Gust.
 - Create, inspect and cancel commands must not dispatch unrelated queued Gust work.
-- Full calibration and legacy deletion must follow the documentation gate, with a repeated documentation audit after deletion.
+- Verification must include the complete prespecified calibration, actual native study evidence, complete implementation retirement and a retained-tree documentation audit.
 
 The explicit pause separates sample-size selection from confirmatory evidence
 collection. Gust task retries allow work to execute more than once inside a run;

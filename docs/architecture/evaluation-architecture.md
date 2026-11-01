@@ -5,8 +5,8 @@ Read the [overview](../concepts/evaluation-study-overview.md) for the lifecycle 
 The [methodology](../concepts/evaluation-methodology.md) states the scientific assumptions.
 
 The [verification record](../history/evaluation2-verification.md) preserves the complete native path with retained optimization/simulation services.
-Calibration and legacy deletion remain later verification work.
-Legacy runtime files remain until that gate; they are outside the supported Evaluation2 path.
+The [calibration report](../history/evaluation2-calibration-20261031.md) records the completed model-grid checks and their limits.
+The obsolete implementation and its runtime wiring are removed.
 
 ## System context
 
@@ -148,7 +148,7 @@ They do not rerun numerical inference or prove tamper resistance.
 The public result omits internal phase/run/snapshot IDs and environment assertions.
 Detailed evidence remains available to internal owners.
 
-The legacy HTTP schemas, service caps and Python response classifications do not govern native Evaluation2.
+Native phase codecs and the frozen definition govern Evaluation2 boundaries.
 Native input has a 1 MiB CLI document limit and constructor count/shape checks.
 It has no claimed general memory/work-budget framework.
 Choose tractable counts and assess representative workloads before larger studies.

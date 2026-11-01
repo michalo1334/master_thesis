@@ -5,8 +5,8 @@ Start with the [overview](concepts/evaluation-study-overview.md).
 Read the [methodology](concepts/evaluation-methodology.md) before choosing research settings or interpreting results.
 
 The [verification record](history/evaluation2-verification.md) preserves the verified create-to-result path.
-Full calibration and removal of the legacy implementation remain later verification gates.
-The commands below use the supported native facade. They have no Python analysis-service dependency.
+The complete [prespecified calibration](history/evaluation2-calibration-20261031.md) passed its declared model-grid checks.
+The obsolete implementation is removed. The commands below use the native facade and in-process numerical kernel.
 
 ## Runtime preparation
 

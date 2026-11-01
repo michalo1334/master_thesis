@@ -51,31 +51,6 @@ config :network_defense, NetworkDefenseWeb.Endpoint,
 
 config :network_defense, :metrics_port, 0
 
-# Test-only Pilot limits. Unrelated application paths start without them.
-# Manual checks supply their own explicit values.
-config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Pilot.Limits,
-  snapshot_payload_bytes: 2_097_152,
-  snapshot_comparisons: 16,
-  comparison_count: 16,
-  candidate_count: 16,
-  plans_per_side: 256,
-  attack_columns: 512,
-  work_items: 1024,
-  outer_subsamples: 128,
-  bootstrap_replicates: 1024,
-  candidate_request_bytes: 1_048_576
-
-# Synthetic test-only Final resource limits. They guard the comparison endpoint
-# used by Final, which the Pilot caps do not cover. They are not scientific
-# settings and not deployment values: Stage 5 real-study caps stay unapproved.
-config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Final.Limits,
-  max_bootstrap_replicates: 1_000,
-  max_total_work: 1_000_000
-
-config :network_defense, NetworkDefense.Evaluation.Study.Pipeline.Collection.Limits,
-  max_phase_items: 24,
-  max_gust_concurrency: 2
-
 # Print only warnings and errors during test
 config :logger, level: :warning
 

@@ -72,7 +72,7 @@ The stored definition excludes source YAML text.
 Changed scientific inputs require a new revision.
 
 Research use requires accepted model and method assumptions.
-The native protocol is verified at small counts; full empirical calibration remains a later verification gate.
+The native protocol is verified at small counts. The complete [prespecified calibration](../history/evaluation2-calibration-20261031.md) passed its declared model-grid checks.
 
 ## Operational timing scope
 

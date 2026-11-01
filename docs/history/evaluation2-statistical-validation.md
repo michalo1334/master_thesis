@@ -1,17 +1,17 @@
 # Evaluation2 statistical validation
 
 > Stable method-decision record. It preserves the original failure diagnostics, alternatives and conditional mathematical audit.
-> The [current methodology](../concepts/evaluation-methodology.md) defines supported usage. The [prespecified protocol](evaluation2-statistical-checks.md) defines the remaining calibration gate.
+> The [current methodology](../concepts/evaluation-methodology.md) defines supported usage. The [prespecified protocol](evaluation2-statistical-checks.md) defines the completed calibration; the [report](evaluation2-calibration-20261031.md) records its results and limits.
 
 ## Current gate
 
-**Q141 selects matching-based bounded-mean betting. The native implementation and two real small-count full studies are verified. Full prespecified empirical calibration remains pending.**
+**Q141 selects matching-based bounded-mean betting. The native implementation, real small-count studies and complete prespecified model-grid calibration are verified.**
 
 The engineering workflow is largely specified. The previous numerical procedure is not an accepted statistical oracle. Independent review found material inference concerns, and direct diagnostics reproduce false certainty under a known population null.
 
 The [current methodology](../concepts/evaluation-methodology.md) defines the implemented method and its assumptions.
 The [stable verification record](../history/evaluation2-verification.md) preserves implementation evidence.
-The failures and alternative-method assessments below remain as historical decision evidence. No full calibration pass is claimed.
+The failures and alternative-method assessments below remain historical decision evidence. Subsequent calibration results are recorded separately in the linked report.
 
 ## 1. Estimand and experimental units
 
@@ -261,6 +261,6 @@ Before handing off the full source implementation:
 5. Define reproducible calibration criteria before inspecting calibration results.
 6. Independently review the mathematical specification.
 
-The [prespecified statistical checks](evaluation2-statistical-checks.md) define controlled models, dimensions, error flags, family checks, planning evaluation, and reporting. They are planned, not executed.
+The [prespecified statistical checks](evaluation2-statistical-checks.md) fixed controlled models, dimensions, error flags, family checks, planning evaluation and reporting before execution. The [subsequent calibration report](evaluation2-calibration-20261031.md) records the completed results.
 
 During implementation validation, run those checks and the real full study. If the supported regime fails, correct or restrict the method and report the evidence rather than declare completion.

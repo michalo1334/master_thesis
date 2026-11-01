@@ -100,10 +100,9 @@ The original probe logs contained credential values in OTP supervisor reports.
 The owner redacted those values, restricted all 42 owned logs to mode 0600, and found zero exact-value hits on rescan.
 This history does not imply credential rotation or authorization for further infrastructure changes.
 
-Full prespecified calibration remains pending.
-The [statistical protocol](evaluation2-statistical-checks.md) defines its models, counts and assessment criteria.
-Legacy implementation/schema/service deletion also remains pending until that verification gate passes.
-Deletion requires a repeated documentation, example and link audit.
+These limits describe the earlier native milestone. The subsequent complete [calibration](evaluation2-calibration-20261031.md) passed its prespecified model-grid checks.
+The obsolete implementation and authorized local remnants are now removed.
+The retained-tree checks below record the later verification without rewriting the earlier failures or outcomes.
 
 ## Documentation checks
 
@@ -142,3 +141,47 @@ Neither `mmdc` nor a Mermaid package is installed, and no diagram-render configu
 The refresh adds no documentation platform or renderer dependencies.
 Diagram checks establish source-to-code agreement and declared relationships, rather than Mermaid parser or visual-layout validity.
 Rendered ExDoc HTML and Mermaid SVG/PNG remain unverified. No rendered-output claim follows from these source checks.
+
+## Complete calibration and implementation retirement
+
+The full corrected-source protocol ran from 22:40:21 to 23:04:25 UTC on 31 October 2026.
+The [calibration report](evaluation2-calibration-20261031.md) distinguishes conditional mathematical validity, deterministic tests, synthetic rates and uncertainty, planning performance, runtime and separate real-study evidence.
+It records 54,000 datasets, 8,000 families, 400 planning repetitions, 134 diagnostic checks and zero flags.
+Weak family power and the Pilot heuristic remain explicit limits.
+
+A third real small-count study reached durable success through normal commands and the retained RabbitMQ executor.
+Its execution is `b5a4ad25-bfbd-4ba7-8733-f9b04ac855c5`; its artifact is `local-results/evaluation2-native-study-goal06.json`.
+The later `evaluation2-native-study-post-retirement-goal06.json` independently rebuilds all 15 receipts and rechecks 108 unique effect pairs, scientific equality, the accepted snapshot and the public result after deletion.
+The first owner attempt stopped at its tool bound and was explicitly cancelled. A fresh execution supplied success; no replacement replica supplied the evidence.
+
+Retirement removed the facade, pipelines/clients/tasks, six source DAGs, Python service and old analysis environment, wire schemas/fixtures/tests, service-only configuration and Terraform source wiring.
+Dead placeholders and obsolete standalone code illustrations are removed.
+The four native DAG sources use Gust's default `.ex` parser and retain their original persisted names and IDs.
+The native input schema, validator dependency, measurement label and shared graph/optimization/simulation/compute infrastructure remain.
+
+Both approved local targets contained seven empty legacy tables.
+Guarded transactions locked and rechecked those exact tables, then dropped them without CASCADE.
+Six exact legacy DAG definitions had zero runs/tasks and were deleted through the existing Gust API.
+Three unused exact Python-service image tags had zero container references and were removed without force.
+No development reset, commit, history rewrite or Terraform apply occurred.
+
+Gust startup removes persisted DAGs absent from its folder.
+The owner kept Gust stopped through the complete source/parser transition, parsed the four native definitions offline, and compared the entire persisted DAG set before startup.
+All four native DAG IDs and their **35 runs, 1,652 tasks and 39,068 logs** were preserved.
+The five original development graph identities and earlier native artifacts remain.
+
+| Retained-tree check | Actual result |
+|---|---|
+| Final pre-deletion `mix precommit` | 997 passed, two default broker exclusions; all source/frontend/static gates passed |
+| Rebuilt retained `mix precommit` | 835 passed, the same two exclusions; obsolete-only cases were deleted, and retained gates passed |
+| Test/development and production compilation | Retained application rebuilt from cleaned application output directories; warnings-as-errors application compile passed |
+| Fresh isolated test bootstrap | Both schemas present, eight native tables, zero retired tables, five standard seeded graphs and successful public revision construction; no scientific execution dispatched |
+| Focused fresh-target checks | 21 constructor/example/preservation cases passed |
+| Actual native DAG parsing | Four `.ex` sources parsed without errors; complete folder matched persisted native definitions before startup |
+| Retirement source audit | Zero obsolete paths, live references, schema declarations or retired beams on the checked source/build/deployment surfaces |
+| Terraform source | Required Terraform 1.15.8: initialization without backend, validation and format check passed; no apply |
+
+The old numerical smoke scaffold is superseded by the complete explicit calibration runner.
+The exact-floor regression, independent threshold-side assertions and independent runner review remain part of the verification evidence.
+Current guides link to this stable record and the calibration report, rather than disposable execution files.
+ExDoc HTML and Mermaid parser/visual rendering retain the missing-tool limits stated above.

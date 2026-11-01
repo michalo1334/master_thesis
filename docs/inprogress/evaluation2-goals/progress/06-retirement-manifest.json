@@ -1,0 +1,1607 @@
+{
+  "schema_version": 1,
+  "manifest_id": "evaluation2-retirement-manifest",
+  "goal": "docs/inprogress/evaluation2-goals/06-verify-and-delete.txt",
+  "created_at_utc": "2026-10-31T22:16:31Z",
+  "goal_deadline_utc": "2026-11-01T01:03:04Z",
+  "prepared_by": "bounded scaffold worker (read-only discovery); the Goal 06 owner performs and audits every deletion",
+  "status": "COMPLETE",
+  "completed_at_utc": "2026-11-01T00:31:24Z",
+  "final_review": "APPROVE",
+  "closing_evidence": ["local-results/evaluation2-closure-goal06.json", "local-results/evaluation2-cleanup-goal06.json", "local-results/evaluation2-retirement-closing-dev-goal06.json", "local-results/evaluation2-native-performance-goal06.json"],
+  "final_reference_audit": {"scanned_files": 882, "errors": 0, "warnings": 0},
+  "deletion_performed": true,
+  "gates": {
+    "deletion_allowed_only_after": [
+      "prespecified statistical protocol with assumptions and Monte Carlo uncertainty passes",
+      "required behavior and regression checks pass on the native path",
+      "native full-study evidence is accepted",
+      "independent code and test review passes",
+      "owner confirms every entry flagged owner_confirmation_required"
+    ],
+    "owner_actions": "Owner performed exact source/object deletion, clean rebuild, native checks, protected-data checks and the closing audit.",
+    "evidence": [
+      "full protocol 54,000 datasets/8,000 families/400 planning repetitions;134 checks;zero flags;current source identities",
+      "real native study b5a4ad25-bfbd-4ba7-8733-f9b04ac855c5;108 unique effects;15 receipts",
+      "997 passed,2 excluded final pre-deletion precommit",
+      "independent numerical/code/test/runner/calibration and retirement-safety review PASS",
+      "complete ten-DAG local inventory;offline .ex native parser proof"
+    ],
+    "native_gate_decision": "Verified before the first retirement edit; final pre-deletion precommit997/2 and independent full-protocol review passed. File deletion receipt records2026-10-31T23:17:26Z."
+  },
+  "discovery_scope": {
+    "repository_root": "/home/michalo/master_thesis",
+    "surfaces_scanned": [
+      "src/lib (Elixir implementation)",
+      "src/test (Elixir tests and test support)",
+      "src/config (compile-time and runtime configuration)",
+      "src/priv (schemas, fixtures, DAG sources, migrations, structure dump)",
+      "src/mix.exs, src/.formatter.exs, src/.credo.exs (build and tool configuration)",
+      "src/scripts (operator scripts)",
+      "contracts (checked-in wire contracts and fixture links)",
+      "services (Python compute service tree)",
+      "infra (Terraform modules, environment wiring, deployment variables)",
+      "docs current guides, README, HANDOFF (documentation)",
+      "build and cache artifacts under src/_build, src/cover, src/tmp, project-root caches"
+    ],
+    "method": [
+      "exact path enumeration of legacy trees, then reference search with exact patterns that cannot match Evaluation2 or evaluation2_",
+      "each reference classified as delete target, edit target, historical record, or unexpected leftover",
+      "persisted object names read from DAG sources, Ecto schemas, migration sources and the structure dump",
+      "no database connection, no secret read, no service start, no dependency change, no deletion"
+    ],
+    "reference_scan_tool": "src/scripts/evaluation2_retirement_audit.py"
+  },
+  "native_scope_protected": {
+    "rule": "Every path below stays. No group in this manifest covers it. The audit script asserts its presence.",
+    "paths": [
+      {
+        "path": "src/lib/network_defense/evaluation2/",
+        "role": "native Evaluation2 implementation"
+      },
+      {
+        "path": "src/test/network_defense/evaluation2/",
+        "role": "native Evaluation2 tests"
+      },
+      {
+        "path": "src/test/support/evaluation2_foundation_fixtures.ex",
+        "role": "native fixtures"
+      },
+      {
+        "path": "src/test/support/evaluation2_graph_fixtures.ex",
+        "role": "native fixtures"
+      },
+      {
+        "path": "src/test/support/evaluation2_final_fixtures.ex",
+        "role": "native fixtures"
+      },
+      {
+        "path": "src/test/support/evaluation2_numeric_anchors.ex",
+        "role": "native numeric anchors"
+      },
+      {
+        "path": "src/priv/evaluation2/definition.schema.json",
+        "role": "native input schema; the native constructor reads it"
+      },
+      {
+        "path": "src/priv/gust/dags/evaluation2_study_pilot_collection.ex",
+        "role": "native DAG source"
+      },
+      {
+        "path": "src/priv/gust/dags/evaluation2_study_pilot_analysis.ex",
+        "role": "native DAG source"
+      },
+      {
+        "path": "src/priv/gust/dags/evaluation2_study_final_tier_collection.ex",
+        "role": "native DAG source"
+      },
+      {
+        "path": "src/priv/gust/dags/evaluation2_study_final_analysis.ex",
+        "role": "native DAG source"
+      },
+      {
+        "path": "src/priv/repo/migrations/20261029195122_create_evaluation2_study_tables.exs",
+        "role": "native schema migration (evaluation2_* tables)"
+      },
+      {
+        "path": "src/lib/network_defense/graph/",
+        "role": "shared graph infrastructure"
+      },
+      {
+        "path": "src/lib/network_defense/optimization/",
+        "role": "shared optimization infrastructure"
+      },
+      {
+        "path": "src/lib/network_defense/simulation/",
+        "role": "shared simulation infrastructure"
+      },
+      {
+        "path": "src/lib/network_defense/compute/",
+        "role": "shared scatter-gather compute infrastructure"
+      },
+      {
+        "path": "src/lib/network_defense/simulations/",
+        "role": "shared simulation context"
+      },
+      {
+        "path": "src/lib/network_defense/optimizations/",
+        "role": "shared optimization context"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.create.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.pilot.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.final.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.continue.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.status.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.result.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.pilot_result.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/study.cancel.ex",
+        "role": "native command"
+      },
+      {
+        "path": "src/lib/mix/tasks/evaluate/options.ex",
+        "role": "shared command option validation, used by tests outside the evaluation scope"
+      },
+      {
+        "path": "src/scripts/evaluation2_retirement_audit.py",
+        "role": "this manifest's read-only audit tool"
+      },
+      {
+        "path": "local-results/evaluation2-native-study-definition-20261031.yaml",
+        "role": "native study evidence"
+      },
+      {
+        "path": "local-results/evaluation2-native-study-d826b08c-8b2a-44b9-b927-d4b0a3b38a43.json",
+        "role": "native study evidence"
+      },
+      {
+        "path": "local-results/evaluation2-native-study-be462a1c-c17f-476e-861a-3b86392c7d08.json",
+        "role": "native study evidence"
+      },
+      {
+        "path": "local-results/evaluation2-native-study-originals-20261031.json",
+        "role": "native graph identity baseline"
+      },
+      {
+        "path": "src/scripts/evaluation2_calibration.exs",
+        "role": "Complete prespecified production-kernel runner"
+      },
+      {
+        "path": "src/scripts/evaluation2_calibration_models.exs",
+        "role": "Fixed-seed protocol generators"
+      }
+    ],
+    "shared_bindings_kept": [
+      {
+        "key": ":measured_environment_revision",
+        "env": "EVALUATION_MEASURED_ENVIRONMENT_REVISION",
+        "reason": "native readers: evaluation2/study/definition.ex, workflow/final_tier_collection/actions/boundary.ex, study/final/analysis.ex"
+      },
+      {
+        "key": "NetworkDefense.RuntimeConfig.role/0 and rabbitmq/0",
+        "reason": "shared runtime configuration outside the evaluation scope"
+      }
+    ]
+  },
+  "retirement_groups": [
+    {
+      "id": "G01",
+      "title": "Legacy Elixir evaluation implementation tree",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/lib/network_defense/evaluation/",
+          "kind": "directory",
+          "git_tracked": true,
+          "file_count": 228,
+          "breakdown": {
+            "top_level_modules": 23,
+            "comparison": 21,
+            "family": 25,
+            "study": 159
+          },
+          "legacy_only_because": "the whole subtree implements the retired facade, comparison/family clients, study pipeline, Gust adapters and persistence schemas; no file survives retirement",
+          "data_impact": "none persisted; tracked files remain in Git history, which the retirement decision accepts",
+          "owner_confirmation_required": false
+        }
+      ],
+      "rationale": "Goal 06 requires the obsolete implementation to be absent from the active project. The tree has no native reader: a reference search of src, config, priv, contracts, infra and current docs finds legacy references only inside this tree and in the wiring entries below.",
+      "verification": "src/scripts/evaluation2_retirement_audit.py --phase post-deletion reports zero references and zero compiled artifacts for this path"
+    },
+    {
+      "id": "G02",
+      "title": "Legacy public facade",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/lib/network_defense/evaluations.ex",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluations",
+          "legacy_only_because": "module docstring states it is a historical legacy facade retained until the verification/deletion gate; native callers use NetworkDefense.Evaluation2.Study",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        }
+      ],
+      "rationale": "A forwarded alias facade is explicitly forbidden by the removal contract."
+    },
+    {
+      "id": "G03",
+      "title": "Legacy mix commands",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/lib/mix/tasks/evaluation.compare.ex",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "Mix.Tasks.Evaluation.Compare",
+          "legacy_only_because": "docstring declares it legacy and outside the supported native path",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/lib/mix/tasks/evaluation.family.ex",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "Mix.Tasks.Evaluation.Family",
+          "legacy_only_because": "docstring declares it legacy and outside the supported native path",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        }
+      ],
+      "rationale": "Current documentation points callers to the eight native study commands instead."
+    },
+    {
+      "id": "G04",
+      "title": "Legacy tests and test support",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/test/network_defense/evaluation/",
+          "kind": "directory",
+          "git_tracked": true,
+          "file_count": 12,
+          "legacy_only_because": "comparison and family contract, client, workflow, console and Gust integration tests for retired modules only",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/test/mix/tasks/evaluation.compare_test.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "tests the retired command",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/test/mix/tasks/evaluation.family_test.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "tests the retired command",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/test/support/family_conformance.ex",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.FamilyConformance",
+          "legacy_only_because": "only importer is the retired family tests; it also reads contracts/evaluation/family/v1",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        }
+      ],
+      "rationale": "Retained tests must describe the retained implementation. The native suite keeps 994 passing cases from Goals 01-05.5 minus the retired cases; the owner records the new count.",
+      "note": "src/test/support/evaluation2_*.ex and src/test/support/graph_fixtures.ex stay."
+    },
+    {
+      "id": "G05",
+      "title": "Legacy wire schemas, fixtures and their checked-in links",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/priv/evaluation/",
+          "kind": "directory",
+          "git_tracked": true,
+          "file_count": 110,
+          "breakdown": {
+            "contracts/v1": 63,
+            "family/v1": 23,
+            "final/v1": 4,
+            "pilot/v1": 19,
+            "study/v1": 1
+          },
+          "legacy_only_because": "schemas and fixtures read only by retired validators, consoles and tests",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/README.md",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "directory notice that preserves the legacy fixtures; it becomes a dangling pointer after removal",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/gen_fixtures.py",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "fixture generator for the retired Final wire format",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/final-small.correction-request.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final correction fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/final-small.correction-response.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final correction fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/final-small.request.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final request fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/final-small.snapshot.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final snapshot fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/member-requests/0.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final member fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/member-requests/1.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final member fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/member-responses/0.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final member fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/final/v1/valid/member-responses/1.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "retired Final member fixture",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/study/v1/valid/study-small.json",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "legacy study document that the native constructor rejects; no code reader",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "contracts/evaluation/study/v1/valid/study-small.yaml",
+          "kind": "file",
+          "git_tracked": true,
+          "legacy_only_because": "legacy study document that the native constructor rejects; the native template is docs/examples/evaluation2-study.yaml",
+          "data_impact": "none persisted",
+          "owner_confirmation_required": false
+        }
+      ],
+      "symlinks": [
+        {
+          "path": "contracts/evaluation/comparison/v1/valid",
+          "target": "../../../../src/priv/evaluation/contracts/v1/valid"
+        },
+        {
+          "path": "contracts/evaluation/comparison/v1/schemas",
+          "target": "../../../../src/priv/evaluation/contracts/v1/schemas"
+        },
+        {
+          "path": "contracts/evaluation/comparison/v1/invalid",
+          "target": "../../../../src/priv/evaluation/contracts/v1/invalid"
+        },
+        {
+          "path": "contracts/evaluation/family/v1/valid",
+          "target": "../../../../src/priv/evaluation/family/v1/valid"
+        },
+        {
+          "path": "contracts/evaluation/family/v1/schemas",
+          "target": "../../../../src/priv/evaluation/family/v1/schemas"
+        },
+        {
+          "path": "contracts/evaluation/family/v1/invalid",
+          "target": "../../../../src/priv/evaluation/family/v1/invalid"
+        },
+        {
+          "path": "contracts/evaluation/pilot/v1/valid",
+          "target": "../../../../src/priv/evaluation/pilot/v1/valid"
+        },
+        {
+          "path": "contracts/evaluation/pilot/v1/schemas",
+          "target": "../../../../src/priv/evaluation/pilot/v1/schemas"
+        },
+        {
+          "path": "contracts/evaluation/pilot/v1/invalid",
+          "target": "../../../../src/priv/evaluation/pilot/v1/invalid"
+        }
+      ],
+      "rationale": "The checked-in contracts mirror src/priv/evaluation. Deleting only one side leaves dangling symlinks or an orphan fixture tree. A plain `find -type f` misses the nine symlinks; the audit script counts symlinks explicitly.",
+      "note": "contracts/evaluation/ has no other consumer: only retired code and retired tests read it."
+    },
+    {
+      "id": "G06",
+      "title": "Legacy Gust DAG definitions",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/priv/gust/dags/evaluation_comparison.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Comparison.DAG",
+          "dag_name": "evaluation_comparison",
+          "legacy_only_because": "DAG for the retired comparison command",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/priv/gust/dags/evaluation_family.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Family.DAG",
+          "dag_name": "evaluation_family",
+          "legacy_only_because": "DAG for the retired family command",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/priv/gust/dags/evaluation_pilot.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Study.Pipeline.Pilot.Analysis.DAG",
+          "dag_name": "evaluation_pilot",
+          "legacy_only_because": "Pilot analysis DAG of the retired pipeline",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/priv/gust/dags/evaluation_final.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Study.Pipeline.Final.Analysis.DAG",
+          "dag_name": "evaluation_final",
+          "legacy_only_because": "Final analysis DAG of the retired pipeline",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/priv/gust/dags/evaluation_study_pilot_collection.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Study.Pipeline.Pilot.Collection.DAG",
+          "dag_name": "evaluation_study_pilot_collection",
+          "legacy_only_because": "Pilot collection DAG of the retired pipeline",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/priv/gust/dags/evaluation_study_final_tier_collection.exs",
+          "kind": "file",
+          "git_tracked": true,
+          "module": "NetworkDefense.Evaluation.Study.Pipeline.Final.Collection.DAG",
+          "dag_name": "evaluation_study_final_tier_collection",
+          "legacy_only_because": "Final tier collection DAG of the retired pipeline",
+          "data_impact": "its Gust run rows are removed with the persisted DAG row, see G09",
+          "owner_confirmation_required": false
+        }
+      ],
+      "deletion_rule": "Delete these six exact file paths. A prefix such as `evaluation_` also matches nothing else today, yet an explicit list prevents a future native file named with that prefix from matching.",
+      "blocking_dependency": "src/lib/network_defense/evaluation/comparison/dag_parser.ex is registered as the only `.exs` DAG parser in config/config.exs. See blocking_findings BF-01 before deleting this group.",
+      "rationale": "The six legacy DAG sources define the only Gust topology that the retired pipeline uses. Deleting them removes the DAG rows that the loader would otherwise keep creating."
+    },
+    {
+      "id": "G07",
+      "title": "Legacy Python compute service tree",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "services/evaluation_compute/",
+          "kind": "directory",
+          "git_tracked": true,
+          "tracked_file_count": 35,
+          "legacy_only_because": "the retired numerical service; native numerics run in Elixir under evaluation2/study/compute",
+          "data_impact": "none persisted; tracked files remain in Git history",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "services/evaluation_compute/.venv/",
+          "kind": "untracked_tree",
+          "git_tracked": false,
+          "approx_size": "133 MB",
+          "legacy_only_because": "local virtual environment of the retired service",
+          "data_impact": "rebuildable local cache; not recoverable from Git",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "services/evaluation_compute/.pytest_cache/",
+          "kind": "untracked_tree",
+          "git_tracked": false,
+          "legacy_only_because": "test cache of the retired service",
+          "data_impact": "none",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "services/",
+          "kind": "directory",
+          "git_tracked": true,
+          "post_deletion_state": "becomes empty; remove the empty directory",
+          "legacy_only_because": "evaluation_compute is its only member",
+          "data_impact": "none",
+          "owner_confirmation_required": false,
+          "empty_directory_only": true
+        }
+      ],
+      "rationale": "The service tree is the only Python component. docs/infrastructure.md already states that native statistics run in-process."
+    },
+    {
+      "id": "G08",
+      "title": "Legacy infrastructure module and deployment wiring",
+      "action": "delete_and_edit",
+      "delete": [
+        {
+          "path": "infra/modules/local/evaluation_compute/",
+          "kind": "directory",
+          "git_tracked": true,
+          "file_count": 4,
+          "files": [
+            "main.tf",
+            "outputs.tf",
+            "variables.tf",
+            "versions.tf"
+          ],
+          "legacy_only_because": "Terraform module that builds and runs the retired service container",
+          "data_impact": "no data; a Terraform apply is out of scope for this goal",
+          "owner_confirmation_required": false
+        }
+      ],
+      "edit": [
+        {
+          "path": "infra/environments/local/main.tf",
+          "lines": "54-68",
+          "symbol": "module \"evaluation_compute\"",
+          "legacy_only_because": "instantiates the retired module",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/main.tf",
+          "lines": "79",
+          "symbol": "evaluation_compute_urls = module.evaluation_compute.internal_service_urls",
+          "legacy_only_because": "passes retired service URLs into the app module",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/main.tf",
+          "lines": "93",
+          "symbol": "depends_on includes module.evaluation_compute",
+          "legacy_only_because": "startup ordering for the retired service",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/outputs.tf",
+          "lines": "6",
+          "symbol": "urls.evaluation_compute",
+          "legacy_only_because": "publishes the retired service loopback URLs",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/variables.tf",
+          "lines": "41,50",
+          "symbol": "port-collision validation over evaluation_compute.host_ports",
+          "legacy_only_because": "validates the retired service ports",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/variables.tf",
+          "lines": "94-130",
+          "symbol": "variable \"evaluation_compute\"",
+          "legacy_only_because": "declares the retired service settings",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/environments/local/local.auto.tfvars",
+          "lines": "14-30",
+          "symbol": "evaluation_compute = {...}",
+          "legacy_only_because": "local values for the retired service",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/modules/local/app/variables.tf",
+          "lines": "44-52,167",
+          "symbol": "variable \"evaluation_compute_urls\" and its site-key validation",
+          "legacy_only_because": "input for the retired service URLs",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/modules/local/app/locals.tf",
+          "lines": "113",
+          "symbol": "EVALUATION_COMPUTE_URL=${var.evaluation_compute_urls[node.site]}",
+          "legacy_only_because": "environment binding read only by retired clients",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "infra/modules/local/app/locals.tf",
+          "lines": "78-87",
+          "symbol": "EVALUATION_PILOT_MAX_* (10 variables)",
+          "legacy_only_because": "read only by NetworkDefense.RuntimeConfig.pilot_limits/0 and the retired Pilot limit modules",
+          "owner_confirmation_required": false,
+          "confirmation_question": "These variables are deployment resource caps for a path that is being removed. Confirm that no operational runbook or external deployment depends on them.",
+          "owner_confirmed": true
+        },
+        {
+          "path": "infra/modules/local/app/variables.tf",
+          "lines": "175-193",
+          "symbol": "variable \"pilot_limits\"",
+          "legacy_only_because": "feeds the EVALUATION_PILOT_MAX_* bindings",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Same as the EVALUATION_PILOT_MAX_* bindings.",
+          "owner_confirmed": true
+        },
+        {
+          "path": "infra/environments/local/variables.tf",
+          "lines": "71-92",
+          "symbol": "variable \"pilot_limits\"",
+          "legacy_only_because": "feeds the EVALUATION_PILOT_MAX_* bindings",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Same as the EVALUATION_PILOT_MAX_* bindings.",
+          "owner_confirmed": true
+        },
+        {
+          "path": "infra/environments/local/local.auto.tfvars",
+          "lines": "33-45",
+          "symbol": "pilot_limits = {...}",
+          "legacy_only_because": "local values for the EVALUATION_PILOT_MAX_* bindings",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Same as the EVALUATION_PILOT_MAX_* bindings.",
+          "owner_confirmed": true
+        },
+        {
+          "path": "infra/environments/local/main.tf",
+          "lines": "83",
+          "symbol": "pilot_limits = var.pilot_limits passed to module.app",
+          "legacy_only_because": "feeds the EVALUATION_PILOT_MAX_* bindings",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Same as the EVALUATION_PILOT_MAX_* bindings.",
+          "owner_confirmed": true
+        }
+      ],
+      "keep": [
+        {
+          "path": "infra/environments/local/main.tf",
+          "lines": "other modules",
+          "reason": "database, rabbitmq, redis, haproxy, observability, app source wiring are shared"
+        },
+        {
+          "path": "infra/deployments/thesis-lab.tfvars",
+          "reason": "contains no evaluation_compute or pilot_limits value; the audit confirms zero references"
+        }
+      ],
+      "rationale": "Terraform source is deployment source per the removal contract. The owner edits these files and runs `terraform validate`/`fmt -check` only; `terraform apply` is forbidden by the goal."
+    },
+    {
+      "id": "G09",
+      "title": "Persisted legacy-only database objects and rows",
+      "action": "delete_exact_empty_local_objects",
+      "owner_confirmation_required": false,
+      "confirmation_question": "Resolved by explicit Goal 06 authority and exact local empty-object checks. Stop if any row or protected dependency appears.",
+      "data_impact": "Seven exact empty tables and six zero-run legacy DAG definitions. No measurement, native evidence, shared effects or user rows may be deleted.",
+      "schema_source_objects": {
+        "source": "src/priv/repo/migrations/structure.sql, loaded by src/priv/repo/migrations/20260908000000_apply_squashed_migrations.exs",
+        "tables": [
+          "public.evaluation_evidence_snapshots",
+          "public.evaluation_study_collection_items",
+          "public.evaluation_study_executions",
+          "public.evaluation_study_phase_runs",
+          "public.evaluation_study_phases",
+          "public.evaluation_study_results",
+          "public.evaluation_study_revisions"
+        ],
+        "function": "public.prevent_evaluation_study_result_change()",
+        "trigger": "public.evaluation_study_results.evaluation_study_results_immutable",
+        "indexes": [
+          "evaluation_evidence_snapshots_pkey",
+          "evaluation_evidence_snapshots_study_revision_id_family_id_phase",
+          "evaluation_study_collection_items_pkey",
+          "evaluation_study_collection_items_position_index",
+          "evaluation_study_executions_pkey",
+          "evaluation_study_phase_runs_gust_run_id_index",
+          "evaluation_study_phase_runs_pkey",
+          "evaluation_study_phase_runs_study_phase_id_tier_index",
+          "evaluation_study_phase_runs_study_phase_id_tier_position_index",
+          "evaluation_study_phases_execution_id_phase_index",
+          "evaluation_study_phases_pkey",
+          "evaluation_study_results_execution_id_index",
+          "evaluation_study_results_pkey",
+          "evaluation_study_revisions_pkey",
+          "evaluation_study_revisions_study_id_revision_index"
+        ],
+        "constraints": [
+          "evaluation_evidence_snapshots_phase_valid",
+          "evaluation_evidence_snapshots_schema_version_valid",
+          "evaluation_study_collection_items_experiment_id_fkey",
+          "evaluation_study_collection_items_optimization_run_id_fkey",
+          "evaluation_study_collection_items_study_phase_id_fkey",
+          "evaluation_study_executions_final_selection_all_or_none",
+          "evaluation_study_executions_selected_attacks_per_plan_positive",
+          "evaluation_study_executions_selected_candidate_id_valid",
+          "evaluation_study_executions_selected_plan_count_positive",
+          "evaluation_study_executions_state_valid",
+          "evaluation_study_executions_study_revision_id_fkey",
+          "evaluation_study_phase_runs_study_phase_id_fkey",
+          "evaluation_study_phases_execution_id_fkey",
+          "evaluation_study_phases_phase_valid",
+          "evaluation_study_phases_snapshot_id_fkey",
+          "evaluation_study_results_execution_id_fkey",
+          "evaluation_study_results_schema_version_valid"
+        ],
+        "sequences": "none; the retired tables use uuid primary keys"
+      },
+      "retirement_steps": [
+        "With all Gust application VMs stopped, inventory ALL persisted DAGs (IDs/names/enabled state and run/task counts), plus protected native/shared tables.",
+        "After native verification, lock only seven exact legacy tables; recheck zero rows and no external incoming foreign keys; drop in dependency order without CASCADE; drop only the owned trigger function.",
+        "Remove owned object blocks from the shared baseline structure.sql. Retain no legacy-only retirement migration.",
+        "Delete only six exact zero-run legacy DAG rows through existing Gust Flows APIs.",
+        "Rename all four native source files to .ex with unchanged names, finish the parser/config transition offline, and parse the complete folder without starting Gust.",
+        "Before any normal startup, compare the complete parsed folder with ALL persisted DAG names/IDs. Stop if any protected/unrelated definition would be omitted.",
+        "After startup, recheck native DAG IDs/runs/tasks and original/native study evidence."
+      ],
+      "edit": [
+        {
+          "path": "src/priv/repo/migrations/structure.sql",
+          "symbol": "seven retired table definitions, their indexes, constraints, function and trigger",
+          "legacy_only_because": "the baseline dump must stop creating retired objects",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Confirm the baseline dump edit, which changes what a fresh database creates.",
+          "owner_confirmed": true
+        }
+      ],
+      "native_objects_that_must_stay": [
+        "evaluation2_study_revisions",
+        "evaluation2_study_executions",
+        "evaluation2_study_phases",
+        "evaluation2_study_phase_runs",
+        "evaluation2_collection_plans",
+        "evaluation2_collection_items",
+        "evaluation2_evidence_snapshots",
+        "evaluation2_study_results"
+      ],
+      "gust_rows": {
+        "owner_confirmation_required": false,
+        "confirmation_question": "Resolved only for six exact local definitions with zero runs/tasks; guard this immediately before API deletion.",
+        "dag_names": [
+          "evaluation_comparison",
+          "evaluation_family",
+          "evaluation_pilot",
+          "evaluation_final",
+          "evaluation_study_pilot_collection",
+          "evaluation_study_final_tier_collection"
+        ],
+        "predicate": "gust_dags.name IN (the six names above)",
+        "cascade": [
+          "gust_runs",
+          "gust_tasks",
+          "gust_logs"
+        ],
+        "name_source": "Gust.DAG.Folder.dag_name/1 returns the file basename without extension, so the retired file names equal the persisted DAG names",
+        "owner_confirmed": true
+      },
+      "owner_precheck_sql": [
+        "SELECT relname, n_live_tup FROM pg_stat_user_tables WHERE relname LIKE 'evaluation_%' AND relname NOT LIKE 'evaluation2_%' ORDER BY relname;",
+        "SELECT d.name, count(r.id) FROM gust_dags d LEFT JOIN gust_runs r ON r.dag_id = d.id WHERE d.name IN ('evaluation_comparison','evaluation_family','evaluation_pilot','evaluation_final','evaluation_study_pilot_collection','evaluation_study_final_tier_collection') GROUP BY d.name ORDER BY d.name;",
+        "SELECT d.id,d.name,d.enabled,count(DISTINCT r.id),count(DISTINCT t.id) FROM gust_dags d LEFT JOIN gust_runs r ON r.dag_id=d.id LEFT JOIN gust_tasks t ON t.run_id=r.id GROUP BY d.id,d.name,d.enabled ORDER BY d.id;"
+      ],
+      "note": "The worker ran neither query. No database connection was opened.",
+      "rationale": "Persisted legacy-only objects are part of the retirement scope. The rows are the only artifact that Git cannot restore, so they need an explicit owner decision and a recorded count."
+    },
+    {
+      "id": "G10",
+      "title": "Elixir runtime, application and configuration wiring",
+      "action": "edit",
+      "entries": [
+        {
+          "path": "src/config/config.exs",
+          "lines": "34-40",
+          "symbol": "gust dag_adapter comparison: %{parser: NetworkDefense.Evaluation.Comparison.DAGParser, ...}",
+          "legacy_only_because": "registers the retired delegating parser; see BF-01",
+          "owner_confirmation_required": false,
+          "blocking": true
+        },
+        {
+          "path": "src/config/runtime.exs",
+          "lines": "188-196",
+          "symbol": "client base_url blocks for Evaluation.Comparison.Client, Evaluation.Family.Client, Evaluation.Study.Pipeline.Pilot.Analysis.Client",
+          "legacy_only_because": "configuration for retired HTTP clients",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/config/runtime.exs",
+          "lines": "198-199",
+          "symbol": ":measured_environment_revision",
+          "owner_confirmation_required": false,
+          "action": "keep",
+          "keep": true,
+          "reason": "shared: evaluation2/study/definition.ex, workflow/final_tier_collection/actions/boundary.ex and study/final/analysis.ex read this key, so the block stays"
+        },
+        {
+          "path": "src/config/runtime.exs",
+          "lines": "203-222",
+          "symbol": "RuntimeConfig.pilot_limits/0 and study_collection_limits/0 result to legacy Limit modules",
+          "legacy_only_because": "configures retired Pilot and Collection limit modules",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/config/test.exs",
+          "lines": "54-76",
+          "symbol": "test limits for Evaluation.Study.Pipeline.Pilot.Limits, .Final.Limits, .Collection.Limits",
+          "legacy_only_because": "test configuration for retired modules",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/lib/network_defense/application.ex",
+          "lines": "36-43",
+          "symbol": "CoordinatorRegistry, GustWaiterRegistry, Collection.ConcurrencyGate children",
+          "legacy_only_because": "supervised processes of retired modules",
+          "owner_confirmation_required": false,
+          "note": "the surrounding TaskSupervisor, Simulations.CoordinatorRegistry, Repo and Evaluation2 timing/monitor children stay"
+        },
+        {
+          "path": "src/lib/network_defense/runtime_config.ex",
+          "lines": "50-66,78-92,94-116",
+          "symbol": "@pilot_limit_variables, @study_collection_variables, pilot_limits/0, study_collection_limits/0, read_positive_set/2",
+          "legacy_only_because": "the only readers are the retired limit modules and the runtime config cases above; read_positive_set/2 has no other caller",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/test/network_defense/runtime_config_test.exs",
+          "lines": "121-226",
+          "symbol": "describe blocks 'Stage 4 Pilot limits' and 'study collection controls'",
+          "legacy_only_because": "tests the removed runtime configuration readers",
+          "owner_confirmation_required": false
+        }
+      ],
+      "rationale": "These are the only non-legacy files that name retired modules. Each edit removes a runtime path to the retired implementation. After the edits the retained application must compile and run: `mix compile --warnings-as-errors` plus the full test suite."
+    },
+    {
+      "id": "G11",
+      "title": "Retired compiled and cache artifacts",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "src/_build/dev/lib/network_defense/ebin/",
+          "kind": "beam_set",
+          "pattern": "*Evaluation* excluding *Evaluation2*",
+          "observed_count": 265,
+          "legacy_only_because": "compiled beams of retired modules and retired mix tasks",
+          "data_impact": "rebuildable",
+          "owner_confirmation_required": false,
+          "cleanup": "Clean exact application build/cache directory to regenerate compiled manifest; rebuild retained app. Preserve dependency builds and priv symlink targets."
+        },
+        {
+          "path": "src/_build/test/lib/network_defense/ebin/",
+          "kind": "beam_set",
+          "pattern": "*Evaluation* excluding *Evaluation2*",
+          "observed_count": 266,
+          "legacy_only_because": "compiled beams of retired modules and retired mix tasks",
+          "data_impact": "rebuildable",
+          "owner_confirmation_required": false,
+          "cleanup": "Clean exact application build/cache directory to regenerate compiled manifest; rebuild retained app. Preserve dependency builds and priv symlink targets."
+        },
+        {
+          "path": "src/_build/prod/lib/network_defense/ebin/",
+          "kind": "beam_set",
+          "pattern": "*Evaluation* excluding *Evaluation2*",
+          "observed_count": 56,
+          "legacy_only_because": "compiled beams of retired modules",
+          "data_impact": "rebuildable",
+          "owner_confirmation_required": false,
+          "cleanup": "Clean exact application build/cache directory to regenerate compiled manifest; rebuild retained app. Preserve dependency builds and priv symlink targets."
+        },
+        {
+          "path": "evaluation/",
+          "kind": "untracked_tree",
+          "git_tracked": false,
+          "approx_size": "311 MB",
+          "file_count_excluding_venv": 22,
+          "content": "evaluation/analysis/.venv, evaluation/analysis/src/**/__pycache__/*.pyc, evaluation/analysis/tests/**/__pycache__/*.pyc; no Python source remains",
+          "legacy_only_because": "retired analysis project and its virtual environment; no source file and no reader anywhere in the repository",
+          "data_impact": "untracked and not recoverable from Git; contains no source, only compiled bytecode and installed packages",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Confirm removal of the untracked 311 MB retired analysis environment. It holds only bytecode caches and installed dependencies.",
+          "owner_confirmed": true
+        },
+        {
+          "path": "src/cover/",
+          "kind": "assert_clean_directory",
+          "git_tracked": false,
+          "observed_legacy_entries": 0,
+          "legacy_only_because": "no retired coverage artifact remains",
+          "data_impact": "none",
+          "owner_confirmation_required": false,
+          "note": "listed so the audit can assert zero retired entries instead of assuming it"
+        },
+        {
+          "path": "src/tmp/",
+          "kind": "assert_clean_directory",
+          "git_tracked": false,
+          "legacy_only_because": "empty project-local temporary directory",
+          "data_impact": "none",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "tmp/",
+          "kind": "assert_clean_directory",
+          "git_tracked": false,
+          "legacy_only_because": "empty project-root temporary directory",
+          "data_impact": "none",
+          "owner_confirmation_required": false
+        },
+        {
+          "path": "src/.elixir_ls/build/test/lib/network_defense/ebin/",
+          "kind": "beam_set",
+          "pattern": "exact legacy namespace/facade/tasks and dead placeholder module names",
+          "observed_count": 266,
+          "legacy_only_because": "Language-server compiled retired modules",
+          "data_impact": "rebuildable",
+          "cleanup": "Clean exact application build/cache directory to regenerate compiled manifest; rebuild retained app. Preserve dependency builds and priv symlink targets."
+        }
+      ],
+      "rationale": "The goal names project-local compiled and cache artifacts of retired modules. Rebuild after deletion produces a tree with zero retired beams."
+    },
+    {
+      "id": "G12",
+      "title": "Stale development-tool artifact for the retired branch",
+      "action": "delete",
+      "entries": [
+        {
+          "path": ".vscode/annotations/evaluation/rebuild.json",
+          "kind": "file",
+          "git_tracked": true,
+          "content": "{\"schemaVersion\": 3, \"branchName\": \"evaluation/rebuild\", \"annotations\": []}",
+          "legacy_only_because": "annotation file of the prunable worktree branch evaluation/rebuild with an empty annotation list; the current branch is refactor/modular-study-pipeline",
+          "data_impact": "none; the file holds no annotation",
+          "owner_confirmation_required": false,
+          "confirmation_question": "Confirm deletion of the empty annotation file for the retired evaluation/rebuild branch.",
+          "owner_confirmed": true
+        }
+      ],
+      "kept": [
+        {
+          "path": ".vscode/annotations/README.md",
+          "reason": "tool documentation, branch independent"
+        },
+        {
+          "path": ".vscode/launch.json, .vscode/settings.json",
+          "reason": "shared editor configuration"
+        }
+      ],
+      "rationale": "The annotation file belongs to a prunable worktree branch that this project no longer uses. Its empty annotation list carries no information, and its directory name names the retired subsystem."
+    },
+    {
+      "id": "G13",
+      "title": "Dead native scaffolds",
+      "action": "delete_and_edit",
+      "entries": [
+        {
+          "path": "src/lib/network_defense/evaluation2/placeholder.ex",
+          "kind": "file",
+          "legacy_only_because": "Unused historical placeholder; no caller",
+          "data_impact": "none"
+        },
+        {
+          "path": "src/lib/network_defense/evaluation2/not_implemented_error.ex",
+          "kind": "file",
+          "legacy_only_because": "Used only by four unused raising Evidence methods removed here",
+          "data_impact": "none"
+        },
+        {
+          "path": "src/scripts/evaluation2_statistical_check.exs",
+          "kind": "file",
+          "legacy_only_because": "Smoke scaffold superseded by complete protocol runner",
+          "data_impact": "none; prior evidence retained"
+        }
+      ],
+      "edit": [
+        {
+          "path": "src/lib/network_defense/evaluation2/study/evidence.ex",
+          "symbol": "NotImplementedError alias and four raising methods: fetch_comparison!, comparison_count, plan_counts, attack_count",
+          "legacy_only_because": "No caller; preserve Evidence struct/types/Spectral codec"
+        }
+      ],
+      "rationale": "Delete dead superseded scaffolds."
+    },
+    {
+      "id": "G14",
+      "title": "Superseded standalone code illustrations",
+      "action": "delete",
+      "entries": [
+        {
+          "path": "docs/design/examples/evaluation-study-pipeline-refactor/",
+          "kind": "directory",
+          "legacy_only_because": "README marks standalone code as superseded illustrations",
+          "data_impact": "none persisted"
+        }
+      ],
+      "edit": [
+        {
+          "path": "docs/design/evaluation-study-pipeline-refactor-plan.md",
+          "symbol": "links into deleted illustrations",
+          "legacy_only_because": "Repair historical links"
+        }
+      ],
+      "rationale": "Historical prose stays; standalone obsolete code copies do not."
+    },
+    {
+      "id": "G15",
+      "title": "Unused local retired-service image artifacts",
+      "action": "delete_exact_local_images",
+      "entries": [],
+      "images": [
+        {
+          "tag": "evaluation-compute:stage2",
+          "id": "sha256:82d5be65720bde0f3a3990e60d55d7f2099c4395915bd461b206dd055cf63309",
+          "command": "python -m evaluation_compute.run",
+          "container_references": 0
+        },
+        {
+          "tag": "evaluation-compute-stage2-test:latest",
+          "id": "sha256:af4e0e41c5ee78396172a74b547530ef02c3beeedb4581597981d9a79cf48a3a",
+          "command": "uvicorn evaluation_compute.api:app",
+          "container_references": 0
+        },
+        {
+          "tag": "network-defense-setup-smoke-analysis:dev",
+          "id": "sha256:fc5df3df20b1aa734e1cd76c85aaed689132249860daf2e504dc621d37a9aab3",
+          "command": "network-defense-analysis-server",
+          "container_references": 0
+        }
+      ],
+      "rationale": "Exact image tags and entrypoints identify the retired Python services. No stopped/running container references them. Removing only these tags without force destroys no volume or user data. Shared Docker resources, unrelated efstudy images and unowned global build cache remain protected.",
+      "verification": "Recheck exact ID/tag ownership and zero container references immediately before removal; inspect exact tags/IDs afterward."
+    }
+  ],
+  "current_documentation_edits": [
+    {
+      "path": "HANDOFF.md",
+      "lines": "18-112",
+      "symbol": "section 'Historical R7 handoff — superseded'",
+      "action": "delete the superseded section, which describes the retired facade, pipeline boundaries and prototype limits",
+      "reason": "the section already labels itself superseded and would otherwise describe an implementation that no longer exists; durable history stays in docs/history/evaluation-decisions.md",
+      "owner_confirmation_required": false
+    },
+    {
+      "path": "docs/infrastructure.md",
+      "line": 139,
+      "text": "Nx float64 and Decimal perform statistics in-process. A Python evaluation service is not a native dependency.",
+      "action": "rewrite the sentence so it describes the current in-process implementation without naming the retired service",
+      "owner_confirmation_required": false
+    }
+  ],
+  "current_documentation_clean": [
+    "README.md",
+    "HANDOFF.md",
+    "docs/architecture.md",
+    "docs/evaluation2.md",
+    "docs/infrastructure.md",
+    "docs/architecture/evaluation-architecture.md",
+    "docs/concepts/attack.md",
+    "docs/concepts/defense.md",
+    "docs/concepts/evaluation-methodology.md",
+    "docs/concepts/evaluation-study-overview.md",
+    "docs/concepts/graph.md",
+    "docs/concepts/model-example.md",
+    "docs/concepts/requirements.md",
+    "docs/concepts/scope.md",
+    "docs/concepts/vocabulary.md",
+    "docs/design/dashboard.md",
+    "docs/design/evaluation-study-pipeline.md",
+    "docs/design/rabbitmq-distributed-executor.md",
+    "docs/examples/evaluation2-study.yaml"
+  ],
+  "classification_exclusions": {
+    "rule": "These records may name the retired implementation. They contain no runtime path, no setup instruction and no current guidance. The audit script excludes them by exact path, and the owner re-checks the exclusion list after deletion.",
+    "entries": [
+      {
+        "path": "local-results/",
+        "class": "immutable execution evidence",
+        "evidence": "native study artifacts, statistical evidence and browser captures; gitignored local evidence, not runtime"
+      },
+      {
+        "path": ".pi/tmp/",
+        "class": "agent scratch",
+        "evidence": "gitignored local scratch files, not part of the project"
+      },
+      {
+        "path": "docs/history/evaluation-decisions.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/history/evaluation2-statistical-validation.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-full-refactor-brief.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-goals/",
+        "class": "goal record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-redesign-context.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-redesign-overview.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-redesign-persistence.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-redesign-workflow.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-refactor-sketches.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/evaluation2-statistical-validation.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/grilling-evaluation.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/inprogress/grilling-evaluation2-gust-coordination.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/design/evaluation-study-pipeline-implementation-plan.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/design/evaluation-study-pipeline-refactor-plan.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      },
+      {
+        "path": "docs/design/evaluation-study-runtime-contract-future-work.md",
+        "class": "historical scientific/design/decision record",
+        "evidence": "Owner inspected status/header/context; exclusion retains no runtime reader or implementation."
+      }
+    ],
+    "exclusion_hygiene": [
+      "docs/design/examples/evaluation-study-pipeline-refactor/ is the only excluded documentation entry that contains executable-looking source; it is not compiled and its README states so",
+      "local-results/goal-verification/secret-bootstrap-evidence/workspace/ contains a workspace copy that includes the retired tree; it is frozen evidence of an earlier bootstrap check, not an active path"
+    ]
+  },
+  "owner_confirmation_required": [
+    {
+      "id": "OC-01",
+      "topic": "Retired database tables and DAG rows",
+      "why": "irreversible loss of measurement history",
+      "evidence": "G09",
+      "resolution": "Seven exact tables empty in both targets; locked zero-row guard and no external incoming FK; no CASCADE; receipts retained.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-02",
+      "topic": "Retired gust_dags rows and their cascaded runs, tasks and logs",
+      "why": "cascade deletes historical execution records",
+      "evidence": "G09.gust_rows",
+      "resolution": "Six exact dev definitions zero runs/tasks; deleted through Gust API; complete native DAG IDs and35 runs/1,652 tasks/39,068 logs preserved.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-03",
+      "topic": "Untracked 311 MB retired analysis environment at evaluation/",
+      "why": "untracked content is not recoverable from Git",
+      "evidence": "G11",
+      "resolution": "Untracked analysis tree contained only bytecode/caches/installed packages; no source or user observations; exact retired tree removed.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-04",
+      "topic": "EVALUATION_PILOT_MAX_* deployment caps and their Terraform variables",
+      "why": "an external runbook or deployment could still read them",
+      "evidence": "G08.edit",
+      "resolution": "Only service-only caps/bindings removed from local source; measured native label and shared inputs preserved; no external deployment or apply.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-05",
+      "topic": "Empty annotation file .vscode/annotations/evaluation/rebuild.json",
+      "why": "tracked file removal for a prunable branch",
+      "evidence": "G12",
+      "resolution": "Exact tracked annotation held no annotations; removed with its empty retired branch directory.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-06",
+      "topic": "Historical pipeline illustration directory docs/design/examples/evaluation-study-pipeline-refactor/",
+      "why": "either keep as history or delete and repair eight historical links",
+      "evidence": "classification_exclusions",
+      "resolution": "Standalone superseded code illustrations removed;19 historical links repaired without deleting the prose decision record.",
+      "status": "resolved"
+    },
+    {
+      "id": "OC-07",
+      "topic": "DAG parser replacement strategy",
+      "why": "the retired parser is the only registered .exs parser, so removal needs a native replacement decision",
+      "evidence": "BF-01",
+      "resolution": "Four native files renamed to default .ex parser; no shim; offline/full persisted-set preflight and post-startup identity proof pass.",
+      "status": "resolved"
+    }
+  ],
+  "blocking_findings": [
+    {
+      "id": "BF-01",
+      "severity": "blocking",
+      "title": "Removing the retired DAG parser stops loading of every .exs DAG",
+      "detail": "config/config.exs registers `gust dag_adapter comparison: %{parser: NetworkDefense.Evaluation.Comparison.DAGParser}`. Gust resolves a parser by file extension: Adapter.parser_for_extension/1 iterates the configured adapters, and DAG folders load only files whose extension equals a configured parser extension (Gust.DAG.Parser.File.parse_folder/1). The default elixir adapter declares extension \".ex\", while the retired DAGParser declares \".exs\" and only delegates to Gust.DAG.Parser.Adapters.Elixir. Deleting the parser without a replacement leaves all four native .exs DAG sources unparsed, and the loader then reports them as absent.",
+      "options": [
+        {
+          "id": "BF-01-A",
+          "title": "Rename the four native DAG sources from .exs to .ex and drop the comparison adapter entry",
+          "work": "rename src/priv/gust/dags/evaluation2_study_{pilot_collection,pilot_analysis,final_tier_collection,final_analysis}.exs; update the two test constants @dag_file in test/network_defense/evaluation2/final_analysis_dag_test.exs and final_tier_collection_dag_test.exs",
+          "effect": "zero parser configuration remains; persisted DAG names stay identical because Gust derives the name from the file basename without extension",
+          "risk": "the four native files are not covered by the formatter inputs today, so renaming changes no format check; the loader reload path and the four DAG tests must both be re-run"
+        },
+        {
+          "id": "BF-01-B",
+          "title": "Register a native .exs parser adapter outside the retired namespace",
+          "work": "add one small adapter module that declares extension \".exs\" and delegates to Gust.DAG.Parser.Adapters.Elixir, then register it under a non-legacy adapter key",
+          "effect": "native DAG file names and test constants stay unchanged",
+          "risk": "adds a delegating shim that a reviewer may read as a compatibility wrapper, which the removal contract forbids unless the shim is a native component serving native files only"
+        }
+      ],
+      "owner_action": "Choose one option, run `mix test` plus a real DAG load, and record the decision in the Goal 06 checkpoint before deleting G06.",
+      "evidence_commands": [
+        "grep -n \"dag_adapter\" -A 6 src/config/config.exs",
+        "grep -n \"def extension\" src/lib/network_defense/evaluation/comparison/dag_parser.ex",
+        "grep -n \"def parse_folder\" -A 14 deps/gust/lib/gust/dag/parser/file.ex"
+      ],
+      "status": "resolved",
+      "resolution": "Default .ex parser; complete offline source transition and protected persisted-set proof pass."
+    },
+    {
+      "id": "BF-03",
+      "severity": "attention",
+      "title": "Deployment source edits cannot be proven by an apply",
+      "detail": "The goal forbids `terraform apply`. The retirement proof for G08 is therefore static: `terraform fmt -check -recursive`, `terraform validate` where a provider is initialised, and a text audit for zero retired references.",
+      "owner_action": "Record the exact static commands and their results.",
+      "status": "resolved",
+      "resolution": "Required Terraform1.15.8 static validation passed; no apply."
+    }
+  ],
+  "verification_required_after_deletion": [
+    "mix compile --warnings-as-errors",
+    "mix credo --strict",
+    "mix test (full retained suite; record the new count and compare with 994 passed, 2 excluded from Goal 05.5)",
+    "mix precommit or its individual gates, unchanged by this manifest",
+    "one disposable fresh test database created from the updated baseline with zero retired tables",
+    "native study smoke evidence retained from Goal 05 plus a post-deletion status read on the same execution",
+    "src/scripts/evaluation2_retirement_audit.py --phase post-deletion exits 0",
+    "documentation link, anchor and image check over the retained tree",
+    "git status and git diff --check: only intended paths changed"
+  ],
+  "audit": {
+    "script": "src/scripts/evaluation2_retirement_audit.py",
+    "phases": {
+      "inventory": "report what exists; fail only on references outside owned paths",
+      "pre-deletion": "every delete file must exist; fail on references outside owned paths",
+      "post-deletion": "every delete path must be absent; no reference may remain outside the classified historical records"
+    },
+    "scan_roots": [
+      "src",
+      "contracts",
+      "services",
+      "infra",
+      "docs",
+      "README.md",
+      "HANDOFF.md",
+      ".vscode",
+      ".github",
+      ".githooks",
+      ".gitignore",
+      "src/.dockerignore"
+    ],
+    "exclude_paths": [
+      ".git/",
+      ".pi/",
+      "local-results/",
+      "tmp/",
+      "src/_build/",
+      "src/deps/",
+      "src/cover/",
+      "src/node_modules/",
+      "src/tmp/",
+      "src/assets/node_modules/",
+      "src/assets/svelte/node_modules/",
+      "node_modules/",
+      "infra/environments/local/.terraform/",
+      "docs/history/evaluation-decisions.md",
+      "docs/history/evaluation2-statistical-validation.md",
+      "docs/inprogress/evaluation2-full-refactor-brief.md",
+      "docs/inprogress/evaluation2-goals/",
+      "docs/inprogress/evaluation2-redesign-context.md",
+      "docs/inprogress/evaluation2-redesign-overview.md",
+      "docs/inprogress/evaluation2-redesign-persistence.md",
+      "docs/inprogress/evaluation2-redesign-workflow.md",
+      "docs/inprogress/evaluation2-refactor-sketches.md",
+      "docs/inprogress/evaluation2-statistical-validation.md",
+      "docs/inprogress/grilling-evaluation.md",
+      "docs/inprogress/grilling-evaluation2-gust-coordination.md",
+      "docs/design/evaluation-study-pipeline-implementation-plan.md",
+      "docs/design/evaluation-study-pipeline-refactor-plan.md",
+      "docs/design/evaluation-study-runtime-contract-future-work.md"
+    ],
+    "allowed_reference_paths": [
+      {
+        "glob": "src/scripts/evaluation2_retirement_audit.py",
+        "reason": "the audit tool declares the exact patterns it searches for"
+      },
+      {
+        "glob": "docs/inprogress/evaluation2-goals/progress/*.json",
+        "reason": "this manifest is the removal record"
+      }
+    ],
+    "reference_patterns": [
+      {
+        "id": "legacy_module_namespace",
+        "regex": "NetworkDefense\\.Evaluations?\\b",
+        "note": "the \\b after Evaluation cannot match NetworkDefense.Evaluation2, because a word character follows"
+      },
+      {
+        "id": "priv_fixture_tree",
+        "regex": "priv/evaluation/",
+        "note": "the trailing slash cannot match priv/evaluation2/"
+      },
+      {
+        "id": "checked_in_contracts",
+        "regex": "contracts/evaluation/"
+      },
+      {
+        "id": "retired_analysis_tree",
+        "regex": "evaluation/analysis"
+      },
+      {
+        "id": "compute_service_tree",
+        "regex": "evaluation_compute"
+      },
+      {
+        "id": "compute_service_url_env",
+        "regex": "EVALUATION_COMPUTE_URL"
+      },
+      {
+        "id": "retired_pilot_limit_env",
+        "regex": "EVALUATION_PILOT_MAX_"
+      },
+      {
+        "id": "retired_collection_limit_env",
+        "regex": "EVALUATION_STUDY_MAX_"
+      },
+      {
+        "id": "retired_mix_tasks",
+        "regex": "mix evaluation\\.(compare|family)"
+      },
+      {
+        "id": "retired_db_tables",
+        "regex": "evaluation_(study_|evidence_snapshots)",
+        "note": "native tables are evaluation2_study_*, so the pattern cannot match them"
+      },
+      {
+        "id": "retired_dag_names",
+        "regex": "evaluation_(comparison|family|final|pilot|study_pilot_collection|study_final_tier_collection)\\b"
+      },
+      {
+        "id": "dead_native_placeholder",
+        "regex": "Evaluation2\\.(Placeholder|NotImplementedError)\\b"
+      },
+      {
+        "id": "superseded_numeric_smoke",
+        "regex": "evaluation2_statistical_check\\.exs"
+      },
+      {
+        "id": "retired_analysis_package",
+        "regex": "network_defense_analysis"
+      },
+      {
+        "id": "retired_service_environment",
+        "regex": "EVALUATION_(BIND_HOST|PORT|REQUEST_LIMIT_BYTES|WORKERS|LOG_LEVEL|SHUTDOWN_TIMEOUT_SECONDS|FINAL_MAX_)\\b"
+      }
+    ],
+    "protected_patterns_that_must_survive": [
+      {
+        "id": "measured_environment_env",
+        "regex": "EVALUATION_MEASURED_ENVIRONMENT_REVISION",
+        "min_hits": 1
+      },
+      {
+        "id": "native_input_schema",
+        "path": "src/priv/evaluation2/definition.schema.json"
+      },
+      {
+        "id": "native_db_tables",
+        "regex": "evaluation2_study_revisions",
+        "min_hits": 1
+      }
+    ],
+    "forbidden_disguise_markers": [
+      {
+        "id": "deferred_removal",
+        "regex": "(?i)remove (this |the )?(legacy )?later|TODO[^\\n]{0,40}remov"
+      },
+      {
+        "id": "legacy_archive_dirs",
+        "globs": [
+          "src/lib/**/legacy/",
+          "src/lib/**/archive/",
+          "src/lib/**/compat/",
+          "src/priv/**/legacy/",
+          "src/priv/**/archive/",
+          "src/priv/**/compat/",
+          "services/**/archive/"
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Finite-model-grid calibration is conditional implementation evidence, not universal validity or a power guarantee.",
+    "Pilot guard remains a heuristic; two stored near-one binomial tails have3e-13 rounding and change no decision.",
+    "ExDoc HTML and Mermaid parser/visual rendering are unverified under the permitted missing-tool limit; source/compiled docs and code agreement pass.",
+    "Terraform source validated only; no apply or remote/production operations.",
+    "Protected mixed historical state backup retains one former path as deployment history; it contains no obsolete implementation payload or current runtime binding."
+  ],
+  "owner_review": {
+    "utc": "2026-10-31T22:49:00Z",
+    "deletion_authority": "Goal 06 authorizes exact obsolete source/cache and safe local legacy-only cleanup after native verification. Shared data and Terraform apply remain protected.",
+    "schema_strategy": "Drop exact empty legacy objects through local maintenance SQL after verification; edit the shared baseline dump; retain no legacy-only drop migration.",
+    "dag_strategy": "Use Gust.Flows.get_dag_by_name/1 and delete_dag!/1 for six exact names after proving zero associated runs/tasks. Native DAGs use default .ex parser with unchanged DAG names.",
+    "history_strategy": "Keep prose decisions/interviews/scientific records; delete obsolete standalone code illustrations and repair historical links.",
+    "coverage_fixes": [
+      "Language-server beams and compiled metadata",
+      "Two native placeholders and four unused raising Evidence methods; preserve persisted struct",
+      "Superseded smoke runner",
+      "Narrow historical exclusions"
+    ],
+    "gust_bootstrap_risk": "Independent review found the existing loader purges every persisted DAG absent from its folder. Exact manual retirement alone is insufficient. Keep Gust stopped through the whole parser/source transition; prove complete folder/persisted-set safety before startup and native identity/data preservation after it."
+  },
+  "persisted_owner_evidence": {
+    "development": "local-results/evaluation2-retirement-before-dev-goal06.json",
+    "test": "local-results/evaluation2-retirement-before-test-goal06.json",
+    "tables": "Seven exact empty legacy tables in both targets",
+    "dags": "Six exact development rows, zero runs/tasks; none in test",
+    "dependencies": "No external table references a legacy table; preserve shared effects referenced outward",
+    "terraform": "Shared backend metadata/two state backups contain no evaluation_compute resource metadata; preserve state/credentials; no apply."
+  },
+  "retirement_receipts": {
+    "files": "local-results/evaluation2-retirement-files-goal06.json",
+    "development": "local-results/evaluation2-retirement-database-dev-goal06.json",
+    "test": "local-results/evaluation2-retirement-database-test-goal06.json",
+    "protected_before": "local-results/evaluation2-retirement-predelete-dev-goal06.json",
+    "protected_after": "local-results/evaluation2-retirement-after-startup-dev-goal06.json",
+    "native_read": "local-results/evaluation2-native-study-post-retirement-goal06.json",
+    "fresh_bootstrap": "local-results/evaluation2-fresh-bootstrap-goal06.json",
+    "secret_audit": "local-results/evaluation2-secret-audit-goal06.json"
+  },
+  "retained_checks": {
+    "predelete_precommit": {
+      "passed": 997,
+      "excluded": 2
+    },
+    "postdelete_precommit": {
+      "passed": 835,
+      "excluded": 2
+    },
+    "fresh_target_cases": 21,
+    "full_protocol": {
+      "datasets": 54000,
+      "families": 8000,
+      "planning": 400,
+      "checks": 134,
+      "flags": 0
+    },
+    "offline_boundary_cases": 37,
+    "native_dags_preserved": 4,
+    "native_gust_counts": {
+      "runs": 35,
+      "tasks": 1652,
+      "logs": 39068
+    },
+    "compiled_docs": {
+      "modules": 53,
+      "documented_operations": 171,
+      "primary_names_checked": 38,
+      "mermaid_sources": 7,
+      "lifecycle_edges": 14,
+      "c4_sources": 2
+    },
+    "links": {
+      "files": 183,
+      "targets": 280,
+      "failures": 0
+    },
+    "terraform": "1.15.8 checksum checked; init-backend=false, validate and fmt-check pass; no apply",
+    "images": "three exact unused tags removed without force; referenced older analysis image in historical state is already absent",
+    "fresh_target_cleanup": "owned network_defense_test_goal06 created, standard setup/constructor checked, dropped without force; default test/development retained"
+  },
+  "protected_shared_history": {
+    "path": "infra/environments/local/terraform.tfstate.backup",
+    "resource_groups": 16,
+    "former_build_context_mentions": 1,
+    "former_resource": "module.analysis/docker_image.analysis",
+    "recorded_image_exists": false,
+    "reason": "Mixed historical deployment-state/decision record with shared infrastructure data. It contains a former build-context path, not implementation code or an active configuration binding. Current source/module cache has no reader/reference to that backup. Preserve shared data/credentials; do not rewrite or delete the mixed backup."
+  }
+}

@@ -4,7 +4,7 @@ defmodule NetworkDefense.Evaluation2.Study.Final.TierRun do
   # Combined result of one Final tier run.
   #
   # The runner joins the tier coordinate of the collection loop with the Gust run
-  # identity and the timing that the coordinator measured for that run.
+  # identity and the durations that the application-owned clock measured.
   # The value is transient.
   #
   # The clock session binds the measured values to one clock owner. Warm-up

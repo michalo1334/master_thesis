@@ -218,6 +218,6 @@ The [verification record](../history/evaluation2-verification.md) preserves cons
 It includes the two real native successful studies and the 990-case implementation regression checkpoint.
 It retains failed checks, corrections and limits separately from successful observations.
 
-Full calibration and legacy deletion remain pending, with a repeated documentation audit after deletion.
+The [complete calibration](../history/evaluation2-calibration-20261031.md) passed its declared model-grid checks. The obsolete implementation is removed; the verification record tracks the retained-tree audit.
 The [legacy implementation plan](evaluation-study-pipeline-implementation-plan.md), [legacy refactor record](evaluation-study-pipeline-refactor-plan.md)
 and [runtime-contract record](evaluation-study-runtime-contract-future-work.md) are historical references, rather than current interfaces.

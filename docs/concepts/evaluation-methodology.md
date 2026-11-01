@@ -306,7 +306,8 @@ Both used an explicit insufficient override and two plans by three attacks per g
 Their six estimates were zero, intervals were `[-8,8]`, and raw/adjusted p-values were one.
 These runs establish the native protocol at small counts. They do not establish useful precision, power or empirical calibration.
 
-The [prespecified statistical checks](../history/evaluation2-statistical-checks.md) remain the calibration gate.
+The [prespecified statistical checks](../history/evaluation2-statistical-checks.md) define the completed calibration.
+The [results](../history/evaluation2-calibration-20261031.md) report conditional model-grid validity, Monte Carlo uncertainty, weak family power and Pilot limitations.
 The [statistical validation record](../history/evaluation2-statistical-validation.md) preserves the rejected bootstrap counterexamples and method decision.
 Keep those failures as history. The active method has no Python numerical fallback.
 

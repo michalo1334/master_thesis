@@ -37,8 +37,7 @@ variable "application" {
         var.grafana.host_port,
         var.pgadmin.host_port,
         var.prometheus.host_port
-      ],
-      values(var.evaluation_compute.host_ports)
+      ]
       )) == length(distinct(concat(
         values(var.application.host_ports),
         [
@@ -46,8 +45,7 @@ variable "application" {
           var.grafana.host_port,
           var.pgadmin.host_port,
           var.prometheus.host_port
-        ],
-        values(var.evaluation_compute.host_ports)
+        ]
     )))
     error_message = "All configured host entry ports must be pairwise unique."
   }
@@ -65,71 +63,6 @@ variable "database" {
       var.database.host_port >= 1 && var.database.host_port <= 65535
     )
     error_message = "database.host_port must be an integer between 1 and 65535."
-  }
-}
-
-variable "pilot_limits" {
-  description = "Stage 4 Pilot resource caps for the application. Deployment caps, not scientific settings."
-  type = object({
-    snapshot_payload_bytes  = number
-    snapshot_comparisons    = number
-    comparison_count        = number
-    candidate_count         = number
-    plans_per_side          = number
-    attack_columns          = number
-    work_items              = number
-    outer_subsamples        = number
-    bootstrap_replicates    = number
-    candidate_request_bytes = number
-  })
-
-  validation {
-    condition = alltrue([
-      for value in values(var.pilot_limits) : value == floor(value) && value > 0
-    ])
-    error_message = "Every Pilot limit must be a positive integer."
-  }
-}
-
-variable "evaluation_compute" {
-  description = "Local evaluation-compute configuration."
-  type = object({
-    container_port = number
-    host_ports     = map(number)
-    image_name     = string
-    log_level      = string
-    pilot_limits = object({
-      max_outer_subsamples        = number
-      max_bootstrap_replicates    = number
-      max_combined_bootstrap_work = number
-    })
-    process_count       = number
-    request_limit_bytes = number
-  })
-
-  validation {
-    condition = (
-      var.evaluation_compute.container_port == floor(var.evaluation_compute.container_port) &&
-      var.evaluation_compute.container_port >= 1 &&
-      var.evaluation_compute.container_port <= 65535 &&
-      alltrue([
-        for port in values(var.evaluation_compute.host_ports) :
-        port == floor(port) && port >= 1 && port <= 65535
-      ]) &&
-      length(values(var.evaluation_compute.host_ports)) ==
-      length(distinct(values(var.evaluation_compute.host_ports))) &&
-      trimspace(var.evaluation_compute.image_name) != "" &&
-      contains(["debug", "info", "warning", "error", "critical"], lower(var.evaluation_compute.log_level)) &&
-      var.evaluation_compute.process_count == floor(var.evaluation_compute.process_count) &&
-      var.evaluation_compute.process_count > 0 &&
-      var.evaluation_compute.request_limit_bytes == floor(var.evaluation_compute.request_limit_bytes) &&
-      var.evaluation_compute.request_limit_bytes > 0 &&
-      alltrue([
-        for value in values(var.evaluation_compute.pilot_limits) :
-        value == floor(value) && value > 0
-      ])
-    )
-    error_message = "Evaluation-compute settings require a named image, a supported log level, distinct integer ports, positive integer process and request limits, and positive integer Pilot caps."
   }
 }
 

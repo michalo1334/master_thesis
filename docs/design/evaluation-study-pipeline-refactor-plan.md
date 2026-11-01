@@ -134,14 +134,14 @@ NetworkDefense.Evaluation.Study
 
 The plan keeps substantial Elixir examples in separate files:
 
-- [coordinator and runner](examples/evaluation-study-pipeline-refactor/pipeline_runner.ex);
-- [stage IO families](examples/evaluation-study-pipeline-refactor/stage_io.ex);
-- [Gust adapter and completion callback](examples/evaluation-study-pipeline-refactor/gust_adapter.ex);
-- [Pilot Collection task](examples/evaluation-study-pipeline-refactor/pilot_collection_prepare.ex);
-- [Pilot Collection DAG](examples/evaluation-study-pipeline-refactor/pilot_collection_dag.exs);
-- [Final Collection DAG](examples/evaluation-study-pipeline-refactor/final_collection_dag.exs);
-- [measured-replica DAG macro](examples/evaluation-study-pipeline-refactor/measured_replica_dag.ex);
-- [provisional persistence schemas](examples/evaluation-study-pipeline-refactor/persistence.ex).
+- coordinator and runner (former illustration: `examples/evaluation-study-pipeline-refactor/pipeline_runner.ex`);
+- stage IO families (former illustration: `examples/evaluation-study-pipeline-refactor/stage_io.ex`);
+- Gust adapter and completion callback (former illustration: `examples/evaluation-study-pipeline-refactor/gust_adapter.ex`);
+- Pilot Collection task (former illustration: `examples/evaluation-study-pipeline-refactor/pilot_collection_prepare.ex`);
+- Pilot Collection DAG (former illustration: `examples/evaluation-study-pipeline-refactor/pilot_collection_dag.exs`);
+- Final Collection DAG (former illustration: `examples/evaluation-study-pipeline-refactor/final_collection_dag.exs`);
+- measured-replica DAG macro (former illustration: `examples/evaluation-study-pipeline-refactor/measured_replica_dag.ex`);
+- provisional persistence schemas (former illustration: `examples/evaluation-study-pipeline-refactor/persistence.ex`).
 
 These examples are design references. They are not production modules. The example formatter keeps the native Gust `task_action` style.
 
@@ -187,7 +187,7 @@ The Final collection stage runs in the coordinator process. Timing messages can 
 
 ### Elixir reference
 
-See [the coordinator and runner example](examples/evaluation-study-pipeline-refactor/pipeline_runner.ex).
+See the coordinator and runner example (former illustration: `examples/evaluation-study-pipeline-refactor/pipeline_runner.ex`).
 
 The example keeps process ownership in `Coordinator` and stage composition in `Runner`. Each stage performs its own successful transition.
 
@@ -208,7 +208,7 @@ Persisted state remains authoritative after pause and completion.
 
 ### Stage handoff reference
 
-The [coordinator and runner example](examples/evaluation-study-pipeline-refactor/pipeline_runner.ex) shows the intended handoff:
+The coordinator and runner example (former illustration: `examples/evaluation-study-pipeline-refactor/pipeline_runner.ex`) shows the intended handoff:
 
 - a collection stage returns the next analysis IO;
 - Pilot Analysis returns `:paused`;
@@ -220,7 +220,7 @@ The phase IO contains loaded domain values for the active execution, phase, defi
 
 A nested item IO represents one mapped collection item. Gust persists only compact stable references.
 
-See [the stage IO example](examples/evaluation-study-pipeline-refactor/stage_io.ex) for the Pilot and Final IO families.
+See the stage IO example (former illustration: `examples/evaluation-study-pipeline-refactor/stage_io.ex`) for the Pilot and Final IO families.
 
 The IO loader creates a complete domain value from an execution or Gust run. The loader can reject an invalid stage before task work starts.
 
@@ -239,7 +239,7 @@ Use scoped types owned by the phase:
 - replica IO for one warm-up or measured replica;
 - item IO for one mapped plan or simulation item.
 
-This avoids one flat struct with many optional fields. The [stage IO example](examples/evaluation-study-pipeline-refactor/stage_io.ex) shows the scoped structs and types.
+This avoids one flat struct with many optional fields. The stage IO example (former illustration: `examples/evaluation-study-pipeline-refactor/stage_io.ex`) shows the scoped structs and types.
 
 A plan task accepts `IO.Item`, while tier orchestration accepts `IO.Tier`.
 
@@ -269,8 +269,8 @@ The central DAG uses Gust's native `task_action` declarations. Add all used `tas
 
 See:
 
-- [the shared Gust adapter and callback example](examples/evaluation-study-pipeline-refactor/gust_adapter.ex);
-- [the Pilot Collection task example](examples/evaluation-study-pipeline-refactor/pilot_collection_prepare.ex).
+- the shared Gust adapter and callback example (former illustration: `examples/evaluation-study-pipeline-refactor/gust_adapter.ex`);
+- the Pilot Collection task example (former illustration: `examples/evaluation-study-pipeline-refactor/pilot_collection_prepare.ex`).
 
 The adapter macro standardizes transport behavior. It does not create graph edges or rescue unexpected exceptions. The domain task works with loaded values. Its nested Gust module owns compact persisted payloads.
 
@@ -280,7 +280,7 @@ The adapter macro standardizes transport behavior. It does not create graph edge
 
 The callback sends only the Gust run ID. Persisted Gust state remains authoritative.
 
-See [the shared Gust adapter and callback example](examples/evaluation-study-pipeline-refactor/gust_adapter.ex).
+See the shared Gust adapter and callback example (former illustration: `examples/evaluation-study-pipeline-refactor/gust_adapter.ex`).
 
 A callback failure cannot change the Gust run result. The waiter reloads the persisted run before it accepts completion.
 
@@ -300,7 +300,7 @@ prepare collection
 → assemble Pilot snapshot
 ```
 
-See [the Pilot Collection DAG example](examples/evaluation-study-pipeline-refactor/pilot_collection_dag.exs).
+See the Pilot Collection DAG example (former illustration: `examples/evaluation-study-pipeline-refactor/pilot_collection_dag.exs`).
 
 The example keeps every dependency edge in one checked-in DAG. Its native `task_action` syntax requires formatter entries for the used arities.
 
@@ -339,8 +339,8 @@ The phase DAG shows the five replica declarations. The measured-replica module s
 
 See:
 
-- [the Final Collection DAG example](examples/evaluation-study-pipeline-refactor/final_collection_dag.exs);
-- [the measured-replica macro example](examples/evaluation-study-pipeline-refactor/measured_replica_dag.ex).
+- the Final Collection DAG example (former illustration: `examples/evaluation-study-pipeline-refactor/final_collection_dag.exs`);
+- the measured-replica macro example (former illustration: `examples/evaluation-study-pipeline-refactor/measured_replica_dag.ex`).
 
 The central DAG shows every shared environment boundary. The macro creates named static tasks and supplies bounded replica positions and timing events to the task adapters.
 
@@ -404,7 +404,7 @@ Do not persist complete in-memory IO structs. Persist stable identifiers, accept
 
 ### Elixir reference
 
-See [the provisional persistence example](examples/evaluation-study-pipeline-refactor/persistence.ex).
+See the provisional persistence example (former illustration: `examples/evaluation-study-pipeline-refactor/persistence.ex`).
 
 The example separates stage attempts from ordered Gust run bindings. The final fields depend on the completed stage IO design. Stable collection work remains separate because retries must reuse the same external effects.
 

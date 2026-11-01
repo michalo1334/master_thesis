@@ -74,17 +74,7 @@ locals {
     "RABBITMQ_RESULT_INACTIVITY_TIMEOUT_MS=${var.rabbitmq.result_inactivity_timeout_ms}",
     "RABBITMQ_USERNAME=${var.rabbitmq.username}",
     "RABBITMQ_VIRTUAL_HOST=${var.rabbitmq.virtual_host}",
-    "RABBITMQ_PASSWORD_FILE=/run/secrets/rabbitmq-password",
-    "EVALUATION_PILOT_MAX_SNAPSHOT_PAYLOAD_BYTES=${var.pilot_limits.snapshot_payload_bytes}",
-    "EVALUATION_PILOT_MAX_SNAPSHOT_COMPARISONS=${var.pilot_limits.snapshot_comparisons}",
-    "EVALUATION_PILOT_MAX_COMPARISONS=${var.pilot_limits.comparison_count}",
-    "EVALUATION_PILOT_MAX_CANDIDATES=${var.pilot_limits.candidate_count}",
-    "EVALUATION_PILOT_MAX_PLANS_PER_SIDE=${var.pilot_limits.plans_per_side}",
-    "EVALUATION_PILOT_MAX_ATTACK_COLUMNS=${var.pilot_limits.attack_columns}",
-    "EVALUATION_PILOT_MAX_WORK_ITEMS=${var.pilot_limits.work_items}",
-    "EVALUATION_PILOT_MAX_OUTER_SUBSAMPLES=${var.pilot_limits.outer_subsamples}",
-    "EVALUATION_PILOT_MAX_BOOTSTRAP_REPLICATES=${var.pilot_limits.bootstrap_replicates}",
-    "EVALUATION_PILOT_MAX_CANDIDATE_REQUEST_BYTES=${var.pilot_limits.candidate_request_bytes}"
+    "RABBITMQ_PASSWORD_FILE=/run/secrets/rabbitmq-password"
   ]
 
   runtime_secret_mounts = [
@@ -110,7 +100,6 @@ locals {
         "LOG_FILE_PATH=/var/log/${var.service_name}/app.${node.site}.${node.index}.jsonl",
         "ROLE=${node.role}",
         "GUST_ROLE=core",
-        "EVALUATION_COMPUTE_URL=${var.evaluation_compute_urls[node.site]}",
         "PUBSUB_ADAPTER=${var.adapter}",
         "DNS_CLUSTER_QUERY=app",
         "OTEL_SERVICE_NAME=${var.service_name}",

@@ -89,6 +89,7 @@ defmodule NetworkDefense.MixProject do
       {:jason, "~> 1.2"},
       {:spectral, "~> 0.14.0"},
       {:nx, "== 1.0.0"},
+      {:exla, "== 1.0.0"},
       {:decimal, "== 3.2.0"},
       {:dns_cluster, "~> 0.3.0"},
       {:ex_json_schema, "0.11.5"},

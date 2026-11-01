@@ -41,11 +41,6 @@ variable "database_port" {
   }
 }
 
-variable "evaluation_compute_urls" {
-  description = "Site-local evaluation-compute URL per site."
-  type        = map(string)
-}
-
 variable "host" {
   description = "Phoenix host name."
   type        = string
@@ -164,33 +159,9 @@ variable "sites" {
     condition = (
       length(var.sites) > 0 &&
       toset(keys(var.sites)) == toset(keys(var.site_networks)) &&
-      toset(keys(var.sites)) == toset(keys(var.evaluation_compute_urls)) &&
       contains(keys(var.sites), var.application.primary_site) &&
       alltrue([for node in values(var.nodes) : contains(keys(var.sites), node.site)])
     )
-    error_message = "Site networks, compute URLs, the primary site, and every application node must match declared site keys."
-  }
-}
-
-variable "pilot_limits" {
-  description = "Stage 4 Pilot resource caps for the application and setup containers."
-  type = object({
-    snapshot_payload_bytes  = number
-    snapshot_comparisons    = number
-    comparison_count        = number
-    candidate_count         = number
-    plans_per_side          = number
-    attack_columns          = number
-    work_items              = number
-    outer_subsamples        = number
-    bootstrap_replicates    = number
-    candidate_request_bytes = number
-  })
-
-  validation {
-    condition = alltrue([
-      for value in values(var.pilot_limits) : value == floor(value) && value > 0
-    ])
-    error_message = "Every Pilot limit must be a positive integer."
+    error_message = "Site networks, the primary site, and every application node must match declared site keys."
   }
 }
