@@ -53,6 +53,7 @@ flowchart LR
 | [Behavior and statistical test plan](evaluation2-test-plan.md) | Concern-based unit/integration cases, manual study validation, calibration, and test-review requirements |
 | [Statistical validation](evaluation2-statistical-validation.md) | Selected matching-based inference, conditional proof audit, baseline defects, and numerical contract |
 | [Prespecified statistical checks](evaluation2-statistical-checks.md) | Planned controlled models, error/coverage flags, family/precision experiments, and reporting |
+| [Delivery, review, and thesis goals](evaluation2-goals/README.md) | Execution/evidence index, methodology/thesis-fit Goal 07, manuscript/rationale Goal 08 and plain-English programmer tutorial Goal 09 |
 | [Consolidated refactor scope](evaluation2-full-refactor-brief.md) | Complete end state and constraints; latest delivery uses goal batches |
 | [Native verification record](../history/evaluation2-verification.md) | Stable implementation evidence, failures and limits; independent of temporary execution files |
 

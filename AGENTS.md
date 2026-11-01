@@ -41,3 +41,4 @@ Use persistent (resume as needed) `worker` with `openai/gpt-6.1-terra`, thinking
  - tasks that involve computer use/handling UI. Do not use it just because it's easier. Prioritize first programmatic access. When programmatic access becomes too difficult (failed after 2 attempts or no access at all), then use it.
 
 - **Always** plan or design yourself.
+- **When** having access to `subagent_done` tool, **Always** call it **when** you are ready to report back to main agent.

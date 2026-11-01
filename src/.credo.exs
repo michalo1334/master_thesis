@@ -173,8 +173,7 @@
                {Credo.Check.Warning.UnusedTupleOperation, []},
                {Credo.Check.Warning.WrongTestFilename, []}
              ] ++ Enum.map(ExSlop.checks(), &{&1, [exit_status: 0]})) ++
-              [{ExDNA.Credo, [excluded_macros: [:embedded_schema]]}] ++
-              Enum.map(ExSlop.recommended_checks(), &{&1, []}),
+              [{ExDNA.Credo, [excluded_macros: [:embedded_schema]]}],
             &elem(&1, 0)
           ),
         disabled: [

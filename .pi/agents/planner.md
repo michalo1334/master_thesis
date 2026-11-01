@@ -1,7 +1,7 @@
 ---
 name: planner
 description: Clarify requirements and produce a scoped plan with executable tasks
-model: openai/gpt-5.6-sol
+model: openai/gpt-6.1-sol
 thinking: high
 system-prompt: append
 ---
