@@ -1,22 +1,8 @@
 {
   "mcpServers": {
-    "android-mcp": {
-      "command": "uvx",
-      "args": [
-        "--python",
-        "3.13",
-        "android-mcp==0.2.0"
-      ],
-      "requestTimeoutMs": 120000,
-      "directTools": false
-    },
     "blender-mcp": {
       "command": "uvx",
-      "args": [
-        "--python",
-        "3.11",
-        "blender-mcp==2.0.0"
-      ],
+      "args": ["--python", "3.11", "blender-mcp==2.0.0"],
       "env": {
         "UV_PYTHON_PREFERENCE": "only-managed",
         "BLENDER_MCP_SAFE_MODE": "1",
@@ -24,12 +10,15 @@
       },
       "requestTimeoutMs": 120000
     },
-    "docs-mcp-server": {
+    "svelte": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@arabold/docs-mcp-server@3.3.0"
-      ],
+      "args": ["-y", "@sveltejs/mcp@0.1.27"],
+      "requestTimeoutMs": 120000,
+      "directTools": false
+    },
+    "android-mcp": {
+      "command": "uvx",
+      "args": ["--python", "3.13", "android-mcp==0.2.0"],
       "requestTimeoutMs": 120000,
       "directTools": false
     },
@@ -49,47 +38,31 @@
       "requestTimeoutMs": 120000,
       "directTools": false
     },
-    "paper-search-mcp": {
-      "command": "uvx",
-      "args": [
-        "--with",
-        "mcp==1.30.0",
-        "paper-search-mcp==0.1.4"
-      ],
-      "requestTimeoutMs": 120000,
-      "directTools": false
-    },
     "ssh-mcp": {
       "command": "npx",
-      "args": [
-        "-y",
-        "ssh-mcp@2.19.1",
-        "--config=.pi/ssh-mcp/config.toml"
-      ],
+      "args": ["-y", "ssh-mcp@2.19.1", "--config=.pi/ssh-mcp/config.toml"],
       "requestTimeoutMs": 120000,
       "directTools": false,
       "description": "Controlled SSH access to remote hosts (security-first, approval-gated)"
     },
-    "svelte": {
-      "command": "npx",
+    "scrapling": {
+      "command": "docker",
       "args": [
-        "-y",
-        "@sveltejs/mcp@0.1.27"
+        "run",
+        "-i",
+        "--rm",
+        "pyd4vinci/scrapling@sha256:1d876879813759959bc4ba6fbb1ce8247ebbc2b67eee77b140baf7c80af6ae6b",
+        "mcp"
       ],
       "requestTimeoutMs": 120000,
-      "directTools": false
+      "directTools": false,
+      "description": "Scrape and interact with web pages through HTTP, stealth browsers, and persistent sessions"
     },
-    "web-search": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "exec node \"${WEB_SEARCH_MCP_BIN:?set WEB_SEARCH_MCP_BIN}\""
-      ],
+    "paper-search-mcp": {
+      "command": "uvx",
+      "args": ["--with", "mcp==1.30.0", "paper-search-mcp==0.1.4"],
       "requestTimeoutMs": 120000,
       "directTools": false
     }
-  },
-  "settings": {
-    "scriptMode": true
   }
 }

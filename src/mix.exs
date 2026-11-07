@@ -54,8 +54,6 @@ defmodule NetworkDefense.MixProject do
       {:exograph, "== 0.9.12", only: [:dev, :test], runtime: true},
       {:ex_dna, "== 1.5.4", only: [:dev, :test], runtime: true},
       {:ex_ast, "== 0.12.9", only: [:dev, :test], runtime: true},
-      {:agent_lib_elixir,
-       [only: [:dev, :test], path: "../.agent-lib/elixir/installer", override: true]},
       {:live_debugger, "~> 1.0", only: [:dev]},
       {:live_svelte, "~> 0.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

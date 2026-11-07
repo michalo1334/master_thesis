@@ -1,8 +1,8 @@
 ---
 name: reviewer
 description: Review correctness, security, ownership, and verification evidence
-model: openai/gpt-6.1-terra
-thinking: xhigh
+model: openai/gpt-5.6-terra
+thinking: medium
 tools: read, bash, write, ctx_execute, ctx_execute_file, ctx_search
 spawning: false
 auto-exit: true

@@ -1,4 +1,11 @@
+# Local Pi runtime files are not catalog resources.
+# Consumer ignore rules are installed by the bundle command.
 node_modules
+npm
 package.json
 package-lock.json
 bun.lock
+
+# ssh-mcp config is repo-local but may hold real SSH credentials; never commit it.
+# The source template lives at adapters/pi/ssh-config.toml.example.
+ssh-mcp/config.toml

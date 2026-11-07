@@ -3,7 +3,7 @@ name: worker
 description: Implement a scoped task, run checks, and report evidence
 model: openai/gpt-5.6-luna
 thinking: high
-tools: read, bash, write, edit, ask_user_question, todo, ctx_execute, ctx_execute_file, ctx_index, ctx_search, ctx_fetch_and_index, ctx_batch_execute, mcp, mcpScript
+tools: read, bash, write, edit, ask_user_question, todo, mcp
 spawning: false
 auto-exit: true
 system-prompt: append

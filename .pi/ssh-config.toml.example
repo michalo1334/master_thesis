@@ -1,0 +1,14 @@
+# Copy to .pi/ssh-mcp/config.toml and replace these illustrative values.
+# Keep that file untracked. Restrict the directory to mode 700 and the file to 600.
+[defaults]
+defaultProfile = "example"
+approvalMode = "ask-destructive"
+
+[[profiles]]
+name = "example"
+host = "host.example.invalid"
+port = 22
+user = "deploy"
+auth = "key"
+keyRef = "~/.ssh/project_key"
+readOnly = true
