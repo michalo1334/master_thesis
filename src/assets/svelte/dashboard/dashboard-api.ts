@@ -1,5 +1,10 @@
 import type * as DashboardGraphContracts from "../contracts.generated/dashboard/graph";
 import type * as OptimizationContracts from "../contracts.generated/dashboard/optimization";
+import type {
+  Request as StudyRequest,
+  Reply as StudyReply,
+} from "../contracts.generated/dashboard/study";
+import type { StudyRequestName } from "./study/types";
 import type * as RunsContracts from "../contracts.generated/dashboard/runs";
 import type * as SimulationContracts from "../contracts.generated/dashboard/simulation";
 import type {
@@ -21,11 +26,14 @@ export type LiveServer = {
   pushEvent<TPayload extends object, TReply = unknown>(
     event: string,
     payload?: TPayload,
-    onReply?: (reply: TReply, ref: number) => void,
-  ): number;
+  ): Promise<TReply>;
 };
 
 export interface DashboardApi {
+  studyRequest(
+    event: StudyRequestName,
+    payload?: Partial<StudyRequest>,
+  ): Promise<StudyReply>;
   openGraph(
     graphRevisionId: string,
   ): Promise<DashboardGraphContracts.OpenGraphReply>;
@@ -89,18 +97,23 @@ export interface DashboardApi {
   ): Promise<RunsContracts.CancelRunReply>;
 }
 
-function requestReply<TPayload extends object, TReply>(
+async function requestReply<TPayload extends object, TReply>(
   live: LiveServer,
   event: string,
   payload: TPayload,
 ): Promise<TReply> {
-  return new Promise((resolve) => {
-    live.pushEvent<TPayload, TReply>(event, payload, resolve);
-  });
+  return live.pushEvent<TPayload, TReply>(event, payload);
 }
 
 export function createDashboardApi(live: LiveServer): DashboardApi {
   return {
+    studyRequest(event, payload = {}) {
+      return requestReply<Partial<StudyRequest>, StudyReply>(
+        live,
+        event,
+        payload,
+      );
+    },
     openGraph(graphRevisionId) {
       return requestReply<
         DashboardGraphContracts.OpenGraphPayload,

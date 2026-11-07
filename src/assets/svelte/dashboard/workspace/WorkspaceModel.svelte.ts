@@ -9,6 +9,12 @@ import { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
+import { StudyDocument } from "../study/StudyDocument.svelte";
+import { draftFromDefinition } from "../study/types";
+import type {
+  Definition as StudyDefinition,
+  Revision as StudyRevision,
+} from "../../contracts.generated/dashboard/study";
 import { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { DashboardApi } from "../dashboard-api";
 import type {
@@ -49,6 +55,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
   graphSummaries = $state.raw<DashboardGraphContracts.GraphSummary[]>([]);
   folders = $state.raw<DashboardGraphContracts.FolderSummary[]>([]);
 
+  studyPickerOpen = $state(false);
   topologyPickerOpen = $state(false);
   topologyPickerStatus = $state("");
   graphComparisonPickerOpen = $state(false);
@@ -285,6 +292,51 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     );
   }
 
+  createStudyDraft(definition?: StudyDefinition): StudyDocument {
+    const document = new StudyDocument();
+    if (definition) {
+      document.definition.draft = draftFromDefinition(definition);
+      document.definition.draft.revision = "";
+    }
+    document.attach({ api: this.api!, workspace: this });
+    this.documents.push(document);
+    this.selectDocument(document.id);
+    return document;
+  }
+
+  openStudy(revision: StudyRevision): StudyDocument {
+    const existing = this.documents.find(
+      (d): d is StudyDocument =>
+        d.kind === "study" &&
+        d.revision?.study_id === revision.study_id &&
+        d.revision.revision === revision.revision,
+    );
+    if (existing) {
+      this.selectDocument(existing.id);
+      return existing;
+    }
+    const document = new StudyDocument(revision);
+    document.attach({ api: this.api!, workspace: this });
+    this.documents.push(document);
+    this.selectDocument(document.id);
+    return document;
+  }
+
+  studyFrozen(document: StudyDocument): void {
+    const existing = this.documents.find(
+      (d) =>
+        d !== document &&
+        d.kind === "study" &&
+        d.revision?.study_id === document.revision?.study_id &&
+        d.revision?.revision === document.revision?.revision,
+    );
+    if (existing) {
+      this.documents = this.documents.filter((d) => d !== document);
+      document.dispose();
+      this.selectDocument(existing.id);
+    }
+  }
+
   openRuns(): RunsDocument {
     const existing = this.documents.find(
       (document) => document.kind === "runs",
@@ -323,6 +375,7 @@ export class WorkspaceModel extends GenericWorkspaceModel<
     this.selectedDocumentId = document?.id;
     this.ensureInitialFoothold(document);
     if (document && isReport(document)) document.markRead();
+    if (document?.kind === "study") document.markRead();
   }
 
   canCloseDocument(document: WorkspaceDocument): boolean {
@@ -335,7 +388,15 @@ export class WorkspaceModel extends GenericWorkspaceModel<
 
   closeDocumentNow(id: string): void {
     const document = this.documents.find((d) => d.id === id);
+    if (
+      document?.kind === "study" &&
+      document.isDraft &&
+      !globalThis.confirm("Discard this unfinished study draft?")
+    )
+      return;
     super.closeDocument(id);
+    if (document?.kind === "study" && !this.documents.includes(document))
+      document.dispose();
     if (document instanceof EditableGraphDocument) {
       if (!this.documents.includes(document)) document.dispose();
     }

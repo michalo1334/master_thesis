@@ -11,7 +11,8 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
 
     overrides =
       Map.new(values, fn {field, atoms} ->
-        {field, Map.get(aliases, field) || enum_override(field, atoms, fields)}
+        value = Map.get(aliases, field) || enum_override(field, atoms, fields)
+        {field, nullable_override(value, Map.get(fields, field))}
       end)
 
     enum_fields = Enum.map_join(values, ", ", fn {field, _} -> field end)
@@ -29,6 +30,18 @@ defmodule Mix.Tasks.Gen.Contracts.EnumValues do
       do: enum_array_type(field, atoms),
       else: enum_type(field, atoms)
   end
+
+  defp nullable_override(value, {:type, _, :union, members}) do
+    if Enum.any?(members, &match?({:atom, _, nil}, &1)) do
+      if String.starts_with?(value, "\n    |"),
+        do: value <> "\n    | null",
+        else: value <> " | null"
+    else
+      value
+    end
+  end
+
+  defp nullable_override(value, _type), do: value
 
   defp list?(fields, field) do
     case Map.fetch(fields, field) do

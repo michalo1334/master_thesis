@@ -36,6 +36,14 @@ defmodule NetworkDefense.Evaluation2.Study do
   and five measured timing triplets per tier. Intervals remain pointwise under
   the declared fixed-sample IID-input model.
 
+  Authoring and browsing additions keep the same response shape. `definition_options/0`
+  reports registered authoring values, `create_revision_from_params/1` freezes
+  structured input through the YAML construction path, and `get_revision/1`,
+  `list_revisions/1` and `list_executions/2` read frozen revisions and their
+  execution history in bounded pages. A list entry exposes declared identities
+  and compact accepted context, so no list read loads a stored report, result,
+  timing or collection matrix.
+
   One frozen revision supports multiple executions with fresh physical effects.
   A finite wait leaves work active in a live application. Exit of the whole VM
   stops its workers and clock; lost incomplete measurements cannot be replaced.
@@ -46,14 +54,20 @@ defmodule NetworkDefense.Evaluation2.Study do
   require Logger
 
   alias NetworkDefense.Evaluation2.Study.Definition
+  alias NetworkDefense.Evaluation2.Study.DefinitionOptions
   alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.Page
   alias NetworkDefense.Evaluation2.Study.Persistence
+  alias NetworkDefense.Evaluation2.Study.Persistence.Browsing
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
   alias NetworkDefense.Evaluation2.Study.Persistence.Phase
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
   alias NetworkDefense.Evaluation2.Study.PilotResult
+  alias NetworkDefense.Evaluation2.Study.Progress
+  alias NetworkDefense.Evaluation2.Study.ProgressSnapshot
   alias NetworkDefense.Evaluation2.Study.Result
   alias NetworkDefense.Evaluation2.Study.Revision
+  alias NetworkDefense.Evaluation2.Study.RevisionDetail
   alias NetworkDefense.Evaluation2.Study.Status
   alias NetworkDefense.Evaluation2.Study.Views
   alias NetworkDefense.Evaluation2.Study.Workflow
@@ -67,6 +81,9 @@ defmodule NetworkDefense.Evaluation2.Study do
 
   @typedoc "Identifier of one declared Pilot candidate."
   @type candidate_id :: PilotOutcome.candidate_id()
+
+  @max_search_length 200
+  @max_page_size Page.max_size()
 
   @typedoc "Optimization strategy of the existing optimization domain."
   @type strategy :: OptimizationParams.strategy()
@@ -82,18 +99,103 @@ defmodule NetworkDefense.Evaluation2.Study do
   resolve before insertion. Capacity, policies, bounds and scientific seeds are
   derived from the declared inputs. The configured environment label freezes
   here, so configure it before creation when Final collection is intended.
+
+  This path and `create_revision_from_params/1` share one parse, resolve and
+  insertion step, so equal declarations freeze equal definitions.
   """
   @spec create_revision(binary()) :: {:ok, Revision.t()} | {:error, Error.t()}
   def create_revision(document) when is_binary(document) do
-    with {:ok, attrs} <- decode_yaml(document),
-         {:ok, parsed} <- Definition.parse(attrs),
+    with {:ok, attrs} <- decode_yaml(document) do
+      freeze(attrs)
+    end
+  end
+
+  def create_revision(_document), do: {:error, invalid_yaml()}
+
+  @doc """
+  Freeze one study revision from structured authoring values.
+
+  The input carries the declared settings of the definition input. The master
+  seed arrives as a decimal string and becomes an exact integer before
+  construction, so no browser number range limits it. Validation, graph
+  resolution and freezing match the YAML path.
+
+  """
+  @spec create_revision_from_params(map()) :: {:ok, Revision.t()} | {:error, Error.t()}
+  def create_revision_from_params(params) when is_map(params) do
+    with {:ok, attrs} <- Definition.decode_params(params) do
+      freeze(attrs)
+    end
+  end
+
+  def create_revision_from_params(_params), do: {:error, invalid_params()}
+
+  @doc """
+  Return the authoring options of one new study revision.
+
+  The options come from the registries that own the values, so the caller never
+  declares a value that the application cannot construct. They describe the
+  current application rather than a frozen revision.
+  """
+  @spec definition_options() :: {:ok, DefinitionOptions.t()} | {:error, Error.t()}
+  def definition_options, do: {:ok, Views.definition_options()}
+
+  @doc """
+  Read one frozen revision with its authored settings.
+
+  The detail reports the declared scientific settings, the frozen provenance
+  and the derived study structure as separate values. A missing revision
+  returns the bounded not-found error.
+  """
+  @spec get_revision(revision_ref()) :: {:ok, RevisionDetail.t()} | {:error, Error.t()}
+  def get_revision(revision) do
+    Persistence.fetch_revision(revision)
+    |> bind(fn stored -> {:ok, Views.revision_detail(stored)} end)
+  end
+
+  @doc """
+  List one bounded page of frozen revisions.
+
+  The optional `:search` value matches the declared study identifier text. The
+  request is an atom-keyed map with optional `:page` and `:page_size` values. Each entry
+  reports its execution count and the state of its most recently changed
+  execution, so a revision without executions reports `latest_state: nil`.
+  """
+  @spec list_revisions(map()) :: {:ok, Page.t()} | {:error, Error.t()}
+  def list_revisions(params) do
+    with {:ok, page} <- page_params(params),
+         {:ok, search} <- search_text(Map.get(params, :search)) do
+      Browsing.list_revisions(Map.put(page, :search, search))
+      |> bind(fn stored -> {:ok, Views.page(stored, &Views.revision_summary/1)} end)
+    end
+  end
+
+  @doc """
+  List one bounded page of executions of one declared revision.
+
+  The request is an atom-keyed map with optional `:page` and `:page_size`. A
+  missing revision returns the bounded not-found error, and an existing revision
+  without executions returns an empty page with `total: 0`. Each entry holds the
+  accepted lifecycle state and the compact accepted context only.
+  """
+  @spec list_executions(revision_ref(), map()) ::
+          {:ok, Page.t()} | {:error, Error.t()}
+  def list_executions(revision, params) do
+    with {:ok, request} <- page_params(params) do
+      Browsing.list_executions(revision, request)
+      |> bind(fn stored ->
+        {:ok, Views.page(stored, &Views.execution_summary(stored.revision, &1))}
+      end)
+    end
+  end
+
+  defp freeze(attrs) do
+    with {:ok, parsed} <- Definition.parse(attrs),
          {:ok, definition} <- Definition.resolve(parsed) do
       Persistence.insert_revision(definition)
       |> bind(fn revision -> {:ok, Views.revision(revision)} end)
     end
   end
-
-  def create_revision(_document), do: {:error, invalid_yaml()}
 
   defp decode_yaml(document) do
     case YamlElixir.read_from_string(document) do
@@ -106,6 +208,70 @@ defmodule NetworkDefense.Evaluation2.Study do
 
   defp invalid_yaml do
     Definition.Schema.error("invalid_yaml", [], "Supply one YAML definition object.")
+  end
+
+  defp invalid_params do
+    Definition.Schema.error("invalid_definition", [], "Supply one structured definition object.")
+  end
+
+  defp page_params(params) when is_map(params) do
+    if Enum.all?(Map.keys(params), &is_atom/1) do
+      with {:ok, page} <- page_number(Map.get(params, :page, 1)),
+           {:ok, size} <- page_size(Map.get(params, :page_size, Page.default_size())) do
+        {:ok, %{page: page, page_size: size}}
+      end
+    else
+      page_params(:invalid)
+    end
+  end
+
+  defp page_params(_params),
+    do: request_error("invalid_page_request", "Supply the list options as an atom-keyed map.")
+
+  defp page_number(value) when is_integer(value) and value > 0, do: {:ok, value}
+
+  defp page_number(_value),
+    do: request_error("invalid_page", "The page must be a positive integer.")
+
+  defp page_size(value) when is_integer(value) and value in 1..@max_page_size,
+    do: {:ok, value}
+
+  defp page_size(value) when is_integer(value) and value > @max_page_size,
+    do:
+      request_error(
+        "page_size_too_large",
+        "The page size must not exceed #{@max_page_size}.",
+        :request_too_large
+      )
+
+  defp page_size(_value),
+    do: request_error("invalid_page_size", "The page size must be a positive integer.")
+
+  defp search_text(nil), do: {:ok, nil}
+
+  defp search_text(text) when is_binary(text) do
+    case String.trim(text) do
+      "" ->
+        {:ok, nil}
+
+      value ->
+        if String.length(value) <= @max_search_length,
+          do: {:ok, value},
+          else:
+            request_error(
+              "search_too_long",
+              "The search text must not exceed #{@max_search_length} characters.",
+              :request_too_large
+            )
+    end
+  end
+
+  defp search_text(_text),
+    do: request_error("invalid_search", "The search text must be a string.")
+
+  defp request_error(code, message, category \\ :validation_failed) do
+    {:error,
+     %Error{category: category, issues: [%Error.Issue{code: code, path: [], message: message}]}}
   end
 
   @doc """
@@ -153,6 +319,11 @@ defmodule NetworkDefense.Evaluation2.Study do
     Persistence.fetch_execution(execution_id)
     |> bind(fn {execution, revision} -> {:ok, Views.status(revision, execution)} end)
   end
+
+  @doc "Read scoped progress without advancing the execution."
+  @spec progress(execution_id()) ::
+          {:ok, ProgressSnapshot.t()} | {:error, Error.t()}
+  def progress(execution_id), do: Progress.snapshot(execution_id)
 
   @doc """
   Read the complete Pilot report of one execution.

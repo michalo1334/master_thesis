@@ -3,6 +3,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   require Logger
 
+  alias NetworkDefenseWeb.StudyRequests
+
+  @study_events NetworkDefenseWeb.StudyRequests.events()
+
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Errors
   alias NetworkDefense.Graph.Contracts.GraphContract
@@ -73,6 +77,14 @@ defmodule NetworkDefenseWeb.DashboardLive do
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
 
   @impl true
+  def terminate(_reason, socket), do: StudyRequests.close_session(socket)
+
+  @impl true
+  def handle_async({:study_continue, id, request_id}, result, socket) do
+    {:noreply, StudyRequests.finished(socket, id, request_id, result)}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} full_screen>
@@ -107,16 +119,24 @@ defmodule NetworkDefenseWeb.DashboardLive do
       socket
       |> assign(:graph_summaries, graph_summaries())
       |> assign(:folders, folder_summaries())
+      |> StudyRequests.init()
 
     if connected?(socket) do
       PubSub.subscribe(NetworkDefense.PubSub, Simulations.simulation_events_topic())
       PubSub.subscribe(NetworkDefense.PubSub, Optimizations.optimization_events_topic())
     end
 
+    socket =
+      if connected?(socket), do: push_event(socket, "study_session_ready", %{}), else: socket
+
     {:ok, socket}
   end
 
   @impl true
+  def handle_event(event, params, socket) when event in @study_events do
+    StudyRequests.handle_event(event, params, socket)
+  end
+
   def handle_event("open_graph", params, socket) do
     {:reply, open_graph(params), socket}
   end
@@ -402,6 +422,10 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   @impl true
+  def handle_info({:study_observed, event}, socket) do
+    {:noreply, StudyRequests.observed(socket, event)}
+  end
+
   def handle_info({:simulation_completed, payload}, socket) do
     {:noreply,
      push_contract_event(socket, "simulation_completed", SimulationCompletedEvent, payload)}

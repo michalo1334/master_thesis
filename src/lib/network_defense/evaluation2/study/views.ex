@@ -10,11 +10,17 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   #
   # `error/1` is the only public normalization of one internal persistence failure.
 
+  alias NetworkDefense.DefenseActions.Registry, as: Actions
+  alias NetworkDefense.Evaluation2.Study.AuthoredDefinition
   alias NetworkDefense.Evaluation2.Study.Comparison
   alias NetworkDefense.Evaluation2.Study.Definition
+  alias NetworkDefense.Evaluation2.Study.DefinitionOptions
   alias NetworkDefense.Evaluation2.Study.Error
+  alias NetworkDefense.Evaluation2.Study.ExecutionSummary
   alias NetworkDefense.Evaluation2.Study.Final.CorrectedFamily
+  alias NetworkDefense.Evaluation2.Study.Page
   alias NetworkDefense.Evaluation2.Study.Persistence
+  alias NetworkDefense.Evaluation2.Study.Persistence.Browsing
   alias NetworkDefense.Evaluation2.Study.Pilot.AnalysisContract
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
   alias NetworkDefense.Evaluation2.Study.PilotResult
@@ -22,15 +28,105 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   alias NetworkDefense.Evaluation2.Study.Result.Comparison, as: ResultComparison
   alias NetworkDefense.Evaluation2.Study.Result.Family, as: ResultFamily
   alias NetworkDefense.Evaluation2.Study.Revision, as: RevisionView
+  alias NetworkDefense.Evaluation2.Study.RevisionContext
+  alias NetworkDefense.Evaluation2.Study.RevisionDetail
+  alias NetworkDefense.Evaluation2.Study.RevisionSummary
   alias NetworkDefense.Evaluation2.Study.Selection
   alias NetworkDefense.Evaluation2.Study.Status
+  alias NetworkDefense.Evaluation2.Study.StrategyOption
+  alias NetworkDefense.Optimization.Contracts.OptimizationParams
+  alias NetworkDefense.Optimization.SimulationObjective
+  alias NetworkDefense.Rules.Registry, as: Rules
 
   @typedoc "One supported result view or its bounded failure."
   @type result_response :: {:ok, ResultView.t()} | {:error, Error.t()}
 
-  @spec revision(Persistence.Revision.t()) :: RevisionView.t()
-  def revision(%Persistence.Revision{study_id: study_id, revision: revision}) do
+  @spec revision(%{
+          required(:study_id) => String.t(),
+          required(:revision) => pos_integer(),
+          optional(atom()) => term()
+        }) :: RevisionView.t()
+  def revision(%{study_id: study_id, revision: revision}) do
     %RevisionView{study_id: study_id, revision: revision}
+  end
+
+  @spec revision_detail(Persistence.Revision.t()) :: RevisionDetail.t()
+  def revision_detail(%Persistence.Revision{definition: definition} = stored) do
+    %RevisionDetail{
+      revision: revision(stored),
+      authored: AuthoredDefinition.new(definition),
+      context: %RevisionContext{
+        method: definition.provenance.method,
+        seed_contract: definition.provenance.seed_contract,
+        measurement_label: definition.provenance.environment_label
+      },
+      structure: Definition.structure(definition)
+    }
+  end
+
+  @spec revision_summary(Browsing.revision_entry()) :: RevisionSummary.t()
+  def revision_summary(entry) do
+    %RevisionSummary{
+      revision: revision(entry),
+      created_at: entry.inserted_at,
+      execution_count: entry.execution_count,
+      latest_state: entry.latest_state
+    }
+  end
+
+  @spec execution_summary(
+          %{study_id: String.t(), revision: pos_integer()},
+          Browsing.execution_entry()
+        ) ::
+          ExecutionSummary.t()
+  def execution_summary(identity, entry) do
+    %ExecutionSummary{
+      execution_id: entry.id,
+      revision: revision(identity),
+      state: entry.state,
+      pilot_outcome: entry.pilot_outcome,
+      selection: entry.selection,
+      started_at: entry.inserted_at,
+      updated_at: entry.updated_at
+    }
+  end
+
+  @spec page(
+          %{
+            entries: [stored_entry],
+            page: pos_integer(),
+            page_size: pos_integer(),
+            total: non_neg_integer()
+          },
+          (stored_entry -> Page.entry())
+        ) :: Page.t()
+        when stored_entry: term()
+  def page(stored, map_entry) do
+    %Page{
+      entries: Enum.map(stored.entries, map_entry),
+      page: stored.page,
+      page_size: stored.page_size,
+      total: stored.total
+    }
+  end
+
+  @spec definition_options() :: DefinitionOptions.t()
+  def definition_options do
+    %DefinitionOptions{
+      actions: Enum.map(Actions.values(), &Atom.to_string/1),
+      rules: Enum.map(Rules.values(), &Atom.to_string/1),
+      alternatives: Enum.map(Definition.alternative_strategies(), &strategy_option/1),
+      objectives: Enum.map(SimulationObjective.values(), &Atom.to_string/1),
+      measurement_label: Definition.measurement_label()
+    }
+  end
+
+  defp strategy_option(strategy) do
+    %StrategyOption{
+      value: Atom.to_string(strategy),
+      scoring_required: OptimizationParams.requires_simulation_params?(strategy),
+      action_types: Enum.map(Definition.supported_action_types(strategy), &Atom.to_string/1)
+    }
   end
 
   @spec status(Persistence.Revision.t(), Persistence.Execution.t()) :: Status.t()

@@ -332,7 +332,7 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp broadcast_completed(graph, request, run) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @optimization_events_topic,
       {:optimization_completed,
@@ -347,7 +347,7 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp broadcast_failed(graph, correlation_id, reason) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @optimization_events_topic,
       {:optimization_failed,
@@ -361,7 +361,7 @@ defmodule NetworkDefense.Optimizations do
   end
 
   defp broadcast_progress(graph, correlation_id, completed_steps, total_steps, phase) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @optimization_events_topic,
       {:optimization_progress,

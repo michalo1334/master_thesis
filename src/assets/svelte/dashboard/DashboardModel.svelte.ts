@@ -30,7 +30,33 @@ import { formatDashboardErrorCode } from "./error-code";
 
 import type { EditableGraphDocument } from "./graph/EditableGraphDocument.svelte";
 
+import type {
+  ExecutionEvent as StudyExecutionEvent,
+  ContinueFinished as StudyContinueFinished,
+} from "../contracts.generated/dashboard/study";
+
 export class DashboardModel {
+  onStudyEvent(event: StudyExecutionEvent): void {
+    const document = this.workspace.documents.find(
+      (d) => d.kind === "study" && d.id === event.document_id,
+    );
+    if (document?.kind === "study")
+      document.observed(
+        event,
+        this.workspace.selectedDocumentId === document.id,
+      );
+  }
+  onStudyContinueFinished(event: StudyContinueFinished): void {
+    const document = this.workspace.documents.find(
+      (d) => d.kind === "study" && d.id === event.document_id,
+    );
+    if (document?.kind === "study") document.finished(event);
+  }
+  reconcileStudies(): void {
+    for (const document of this.workspace.documents)
+      if (document.kind === "study") document.reconnect();
+  }
+
   workspace: WorkspaceModel;
   api: DashboardApi;
   private pendingCancellations = new SvelteSet<string>();

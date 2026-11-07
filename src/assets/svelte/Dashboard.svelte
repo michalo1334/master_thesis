@@ -3,6 +3,7 @@
   import type { OptimizationParams } from "./contracts.generated/optimization";
   import type { DashboardModel } from "./dashboard/DashboardModel.svelte";
   import { AppBar, StatusBar } from "./ui-kit/layout";
+  import StudyPicker from "./dashboard/study/StudyPicker.svelte";
   import DashboardInspector from "./dashboard/inspector/DashboardInspector.svelte";
   import DashboardRibbon from "./dashboard/ribbon/DashboardRibbon.svelte";
   import Workspace from "./dashboard/workspace/Workspace.svelte";
@@ -166,6 +167,8 @@
     onSelect={handleGraphComparisonSelect}
     onFavoriteChange={handleFavoriteChange}
   />
+
+  {#if wm.studyPickerOpen}<StudyPicker workspace={wm} {api} />{/if}
 
   <StatusBar
     documentName={wm.activeDocument?.title ?? ""}

@@ -1,8 +1,8 @@
 # Dashboard
 
 The dashboard is the browser UI of the system. It presents a graph workspace
-and report views. It drives attack simulation and defense optimization. This
-page describes the current behavior.
+and report views. It drives attack simulation, defense optimization and native
+Evaluation2 studies. This page describes the current behavior.
 
 The model rules behind the workflows live in the concepts pages
 ([graph](../concepts/graph.md), [defense](../concepts/defense.md), and
@@ -138,6 +138,75 @@ flowchart TD
     OPT -->|Open result| OR[Optimized graph revision]
     OPT -->|Compare graphs| DIFF[Graph diff: base vs optimized]
 ```
+
+## Native Study documents
+
+Use **+ → Study** to search saved revisions or create a new revision. Opening an
+existing workspace revision selects its tab. Each Study document holds one
+revision and its execution history.
+
+The definition form controls the authored settings. Select a saved graph revision
+for each tier, then select one of that revision's Hosts. Supply scientific
+settings explicitly. The generated YAML is read-only and supports copy and
+download. Master seeds remain exact decimal strings across the browser boundary.
+
+**Freeze revision** sends the entered field text to the backend. The web boundary
+casts numeric values and returns field-path errors. The shared definition
+constructor validates scientific settings before saving an immutable definition.
+Generated backend contracts supply lifecycle states, phases, tiers, approval
+values and execution-control classifications. The client owns display labels,
+view tabs and display units.
+The frozen view shows declared settings, derived structure and the measurement
+label. **Create revision from this** copies declared settings into a draft. The
+author supplies the new revision number and confirms its identity before freezing.
+Workspace persistence restores unfinished drafts and saved view selections.
+
+### Execute and review
+
+| Action | Accepted behavior |
+|---|---|
+| Start new Pilot | Create a separate execution and ensure its first collection run |
+| Continue | Advance that execution until approval, a terminal state or the finite request timeout |
+| Approve recommended candidate | Freeze the backend recommendation's exact counts |
+| Approve insufficient override | Freeze a declared candidate after explicit confirmation |
+| Cancel execution | Commit cancellation and end this session's pending continuation caller |
+| Refresh | Read accepted state and reconcile execution history |
+
+Continue runs asynchronously under the LiveView. Switching workspace tabs or
+selected executions preserves its request. Closing a Study document releases its
+observers and continuation callers. Disconnect does the same when the owning
+LiveView ends. Reopening reads current facts and requires another explicit Continue.
+Dispatched effects follow the backend's existing completion and cancellation rules.
+
+If a Start reply is uncertain, reconcile execution history before starting another
+attempt. A failed or cancelled execution retains its accepted context. A new
+attempt uses a separate execution identity.
+
+Progress identifies the current phase, tier and replica. Warm-up has an explicit
+excluded label. Optimization items, simulation trials and analysis jobs use
+separate counters. Unknown totals use the waiting indicator. Accepted Study
+state controls Pilot and Final availability. Persistent notices show approval,
+success, failure and cancellation. Background executions can mark their Study
+tab for attention.
+
+Final results show stored comparison estimates, pointwise intervals, raw and
+Holm-adjusted p-values, decisions, assessments and warnings. Timing shows
+server-derived summaries and all five measured triplets for each tier. Display
+unit changes preserve the stored values. The inspector shows revision,
+execution and selected-comparison context.
+
+Final dispatch requires an execution-capable Gust runtime, the intended Repo
+and executor targets, a live application clock and a stable measurement label.
+The existing graph, simulation and optimization ribbon remains available.
+
+See the [integration plan](evaluation-study-ui-plan.md) for ownership and lifecycle
+constraints.
+
+Source references:
+
+- supported backend facade: [`study.ex`](../../src/lib/network_defense/evaluation2/study.ex);
+- browser document: [`StudyDocument.svelte.ts`](../../src/assets/svelte/dashboard/study/StudyDocument.svelte.ts);
+- request ownership: [`study_requests.ex`](../../src/lib/network_defense_web/study_requests.ex).
 
 ## Core journey capture
 

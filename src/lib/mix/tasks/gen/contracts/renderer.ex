@@ -49,7 +49,7 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
   end
 
   def property(field, type, override \\ nil) do
-    optional = if override || !optional?(type), do: "", else: "?"
+    optional = if optional?(type), do: "?", else: ""
     ts_type = override || type(type)
     separator = if String.starts_with?(ts_type, "\n"), do: "", else: " "
     "  #{field}#{optional}:#{separator}#{ts_type};"
@@ -61,6 +61,9 @@ defmodule Mix.Tasks.Gen.Contracts.Renderer do
   def type({:remote_type, _, [{:atom, _, module}, {:atom, _, :t}, _]}) do
     module_path(module)
   end
+
+  def type({:type, _, :list, [{:type, _, :union, _} = item]}),
+    do: "Array<#{type(item)}>"
 
   def type({:type, _, :list, [item]}), do: "#{type(item)}[]"
 

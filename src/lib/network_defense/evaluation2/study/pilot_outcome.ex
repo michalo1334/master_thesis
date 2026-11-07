@@ -42,4 +42,7 @@ defmodule NetworkDefense.Evaluation2.Study.PilotOutcome do
         }
 
   defstruct [:outcome, :candidate_id, :plan_count_per_side, :attacks_per_plan]
+
+  @doc "Return the supported Pilot outcome tags."
+  def values, do: [:recommended, :insufficient]
 end

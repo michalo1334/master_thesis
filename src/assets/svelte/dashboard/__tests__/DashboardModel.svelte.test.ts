@@ -40,6 +40,7 @@ function api(): DashboardApi & {
   requestOptimizationReport: ReturnType<typeof vi.fn>;
 } {
   return {
+    studyRequest: vi.fn(),
     openGraph: vi.fn(),
     saveGraph: vi.fn(),
     runSimulation: vi.fn(),

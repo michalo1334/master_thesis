@@ -47,6 +47,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
   alias NetworkDefense.Evaluation2.Study.Persistence.Result
   alias NetworkDefense.Evaluation2.Study.Persistence.Revision
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
+  alias NetworkDefense.Evaluation2.Study.Progress
   alias NetworkDefense.Evaluation2.Study.Result.Timing
   alias NetworkDefense.Evaluation2.Study.Revision, as: RevisionIdentity
   alias NetworkDefense.Evaluation2.Study.Selection
@@ -601,7 +602,11 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence do
     end
   end
 
-  defp committed({:ok, value}, _operation, _resource), do: {:ok, value}
+  defp committed({:ok, value}, _operation, _resource) do
+    Progress.notify(value)
+    {:ok, value}
+  end
+
   defp committed({:error, %Error{} = failure}, _operation, _resource), do: {:error, failure}
 
   defp committed({:error, cause}, operation, resource) do

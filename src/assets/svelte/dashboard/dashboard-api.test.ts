@@ -6,10 +6,7 @@ describe("DashboardApi", () => {
   it("sends only the save contract fields", async () => {
     const reply = { status: "ok" as const };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
     const graph: GraphContract = {
       id: "g1",
@@ -25,19 +22,15 @@ describe("DashboardApi", () => {
     await expect(createDashboardApi(live).saveGraph(graph)).resolves.toEqual(
       reply,
     );
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "save_graph",
-      {
-        graph: {
-          id: "g1",
-          revision_id: "r1",
-          title: "Graph",
-          nodes: [],
-          edges: [],
-        },
+    expect(live.pushEvent).toHaveBeenCalledWith("save_graph", {
+      graph: {
+        id: "g1",
+        revision_id: "r1",
+        title: "Graph",
+        nodes: [],
+        edges: [],
       },
-      expect.any(Function),
-    );
+    });
   });
 
   it("rejects saves without a revision id", async () => {
@@ -64,10 +57,7 @@ describe("DashboardApi", () => {
       run_id: "optimization-run-1",
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     const params = {
@@ -94,26 +84,22 @@ describe("DashboardApi", () => {
     );
 
     expect(result).toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "run_optimization_request",
-      {
-        generate_seed: true,
-        request: {
-          graph_revision_id: "r1",
-          correlation_id: "corr-1",
-          optimization_params: {
-            strategy: "simulation_informed",
-            budget: 3,
-            seed: 7,
-            candidate_action_types: ["block_segment_reachability"],
-            require_pre_attack_feasibility: true,
-            initial_foothold_node_id: "host-1",
-            simulation_params: params.simulation_params,
-          },
+    expect(live.pushEvent).toHaveBeenCalledWith("run_optimization_request", {
+      generate_seed: true,
+      request: {
+        graph_revision_id: "r1",
+        correlation_id: "corr-1",
+        optimization_params: {
+          strategy: "simulation_informed",
+          budget: 3,
+          seed: 7,
+          candidate_action_types: ["block_segment_reachability"],
+          require_pre_attack_feasibility: true,
+          initial_foothold_node_id: "host-1",
+          simulation_params: params.simulation_params,
         },
       },
-      expect.any(Function),
-    );
+    });
   });
 
   it("omits scoring settings and an empty foothold for a non-scoring strategy", async () => {
@@ -124,10 +110,7 @@ describe("DashboardApi", () => {
       run_id: "optimization-run-1",
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     await createDashboardApi(live).runOptimization("r1", "corr-1", {
@@ -147,47 +130,38 @@ describe("DashboardApi", () => {
       },
     });
 
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "run_optimization_request",
-      {
-        generate_seed: false,
-        request: {
-          graph_revision_id: "r1",
-          correlation_id: "corr-1",
-          optimization_params: {
-            strategy: "cvss",
-            budget: 1,
-            seed: 0,
-            candidate_action_types: ["patch_vulnerability"],
-            require_pre_attack_feasibility: true,
-            initial_foothold_node_id: undefined,
-          },
+    expect(live.pushEvent).toHaveBeenCalledWith("run_optimization_request", {
+      generate_seed: false,
+      request: {
+        graph_revision_id: "r1",
+        correlation_id: "corr-1",
+        optimization_params: {
+          strategy: "cvss",
+          budget: 1,
+          seed: 0,
+          candidate_action_types: ["patch_vulnerability"],
+          require_pre_attack_feasibility: true,
+          initial_foothold_node_id: undefined,
         },
       },
-      expect.any(Function),
-    );
+    });
   });
 
-  it("fetches experiments through the LiveView reply callback", async () => {
+  it("sends revision filters when fetching experiments", async () => {
     const reply = { experiments: [] };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     const result = await createDashboardApi(live).fetchExperiments(["r1"]);
 
     expect(result).toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "fetch_experiments",
-      { graph_revision_ids: ["r1"] },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("fetch_experiments", {
+      graph_revision_ids: ["r1"],
+    });
   });
 
-  it("fetches the document catalog through the LiveView reply callback", async () => {
+  it("sends document catalog filters", async () => {
     const reply = {
       items: [],
       total_count: 0,
@@ -199,10 +173,7 @@ describe("DashboardApi", () => {
       },
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     await expect(
@@ -217,46 +188,32 @@ describe("DashboardApi", () => {
         offset: 40,
       }),
     ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "fetch_document_catalog",
-      {
-        search: "gateway",
-        types: ["graph"],
-        graph_ids: ["graph-1"],
-        related_graph_ids: ["graph-2"],
-        strategies: ["greedy"],
-        revision_kinds: ["original"],
-        limit: 20,
-        offset: 40,
-      },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("fetch_document_catalog", {
+      search: "gateway",
+      types: ["graph"],
+      graph_ids: ["graph-1"],
+      related_graph_ids: ["graph-2"],
+      strategies: ["greedy"],
+      revision_kinds: ["original"],
+      limit: 20,
+      offset: 40,
+    });
   });
 
-  it("fetches active runs through the LiveView reply callback", async () => {
+  it("requests active runs through LiveView", async () => {
     const reply = { runs: [] };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     await expect(createDashboardApi(live).fetchRuns()).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "fetch_runs",
-      {},
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("fetch_runs", {});
   });
 
   it("requests an optimization report and fetches saved optimization runs", async () => {
     const reply = { runs: [] };
     const live = {
-      pushEvent: vi.fn((event, _, onReply) => {
-        if (event === "fetch_optimization_runs") onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
     const api = createDashboardApi(live);
 
@@ -275,7 +232,6 @@ describe("DashboardApi", () => {
       2,
       "fetch_optimization_runs",
       { graph_revision_ids: ["r1"] },
-      expect.any(Function),
     );
   });
 
@@ -301,47 +257,36 @@ describe("DashboardApi", () => {
       },
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     await expect(
       createDashboardApi(live).compareGraphs("base-r1", "comparison-r1"),
     ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "compare_graphs",
-      { base_revision_id: "base-r1", comparison_revision_id: "comparison-r1" },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("compare_graphs", {
+      base_revision_id: "base-r1",
+      comparison_revision_id: "comparison-r1",
+    });
   });
 
   it("sets a graph revision favorite", async () => {
     const reply = { status: "ok" as const, favorite: true };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     await expect(
       createDashboardApi(live).setGraphRevisionFavorite("r1", true),
     ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "set_graph_revision_favorite",
-      { graph_revision_id: "r1", favorite: true },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("set_graph_revision_favorite", {
+      graph_revision_id: "r1",
+      favorite: true,
+    });
   });
 
-  it("sends folder requests through LiveView reply callbacks", async () => {
+  it("sends folder requests through native LiveView promises", async () => {
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply({ status: "ok" }, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue({ status: "ok" }),
     } as unknown as LiveServer;
     const api = createDashboardApi(live);
 
@@ -349,24 +294,16 @@ describe("DashboardApi", () => {
     await api.deleteFolder("folder-1");
     await api.moveGraphToFolder("graph-1", null);
 
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      1,
-      "create_folder",
-      { name: "Threat models" },
-      expect.any(Function),
-    );
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      2,
-      "delete_folder",
-      { folder_id: "folder-1" },
-      expect.any(Function),
-    );
-    expect(live.pushEvent).toHaveBeenNthCalledWith(
-      3,
-      "move_graph_to_folder",
-      { graph_id: "graph-1", folder_id: null },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenNthCalledWith(1, "create_folder", {
+      name: "Threat models",
+    });
+    expect(live.pushEvent).toHaveBeenNthCalledWith(2, "delete_folder", {
+      folder_id: "folder-1",
+    });
+    expect(live.pushEvent).toHaveBeenNthCalledWith(3, "move_graph_to_folder", {
+      graph_id: "graph-1",
+      folder_id: null,
+    });
   });
 
   it("fetches graph connectivity through the LiveView reply callback", async () => {
@@ -380,20 +317,13 @@ describe("DashboardApi", () => {
       ],
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
 
     const result = await createDashboardApi(live).fetchGraphConnectivity();
 
     expect(result).toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "fetch_graph_connectivity",
-      {},
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("fetch_graph_connectivity", {});
   });
 
   it("sends the full graph to the draft projection event", async () => {
@@ -413,10 +343,7 @@ describe("DashboardApi", () => {
       errors: [],
     };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
     const graph: GraphContract = {
       id: "g1",
@@ -428,44 +355,30 @@ describe("DashboardApi", () => {
     await expect(
       createDashboardApi(live).projectTopologyDraft("document-1", 4, graph),
     ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "project_topology_draft",
-      {
-        document_id: "document-1",
-        semantic_version: 4,
-        graph,
-      },
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("project_topology_draft", {
+      document_id: "document-1",
+      semantic_version: 4,
+      graph,
+    });
   });
 
   it("creates node drafts through the LiveView reply callback", async () => {
     const reply = { status: "ok" as const };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
     const payload = { node_type: "Host" as const, x_pos: 30, y_pos: 40 };
 
     await expect(
       createDashboardApi(live).createNodeDraft(payload),
     ).resolves.toEqual(reply);
-    expect(live.pushEvent).toHaveBeenCalledWith(
-      "create_node_draft",
-      payload,
-      expect.any(Function),
-    );
+    expect(live.pushEvent).toHaveBeenCalledWith("create_node_draft", payload);
   });
 
   it("creates connection drafts through the LiveView reply callback", async () => {
     const reply = { status: "ok" as const };
     const live = {
-      pushEvent: vi.fn((_, __, onReply) => {
-        onReply(reply, 1);
-        return 1;
-      }),
+      pushEvent: vi.fn().mockResolvedValue(reply),
     } as unknown as LiveServer;
     const payload = {
       relationship_type: "Runs" as const,
@@ -482,7 +395,6 @@ describe("DashboardApi", () => {
     expect(live.pushEvent).toHaveBeenCalledWith(
       "create_connection_draft",
       payload,
-      expect.any(Function),
     );
   });
 });

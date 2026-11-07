@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Select } from "bits-ui";
+  import FieldError from "./FieldError.svelte";
 
   interface SelectOption {
     value: string;
@@ -13,6 +14,7 @@
     value?: string;
     placeholder?: string;
     disabled?: boolean;
+    error?: string;
     onchange?: (value: string) => void;
     class?: string;
     "aria-label"?: string;
@@ -28,6 +30,7 @@
     value = $bindable(""),
     placeholder = "Select…",
     disabled = false,
+    error = "",
     onchange = undefined,
     class: className = undefined,
     "aria-label": ariaLabel = undefined,
@@ -36,6 +39,11 @@
   }: Props = $props();
 
   const labelId = `${generatedId}-label`;
+  const errorId = `${generatedId}-error`;
+  const description = $derived(
+    [ariaDescribedBy, error ? errorId : undefined].filter(Boolean).join(" ") ||
+      undefined,
+  );
   let items = $derived(
     options.map((option) => ({
       value: option.value,
@@ -62,7 +70,8 @@
       aria-labelledby={label ? labelId : undefined}
       aria-label={ariaLabel}
       aria-invalid={ariaInvalid}
-      aria-describedby={ariaDescribedBy}
+      data-invalid={error ? "true" : undefined}
+      aria-describedby={description}
     >
       <Select.Value {placeholder} />
       <span class="dashboard-select-caret" aria-hidden="true">▾</span>
@@ -85,6 +94,7 @@
       </Select.Content>
     </Select.Portal>
   </Select.Root>
+  <FieldError id={errorId} {error} />
 </div>
 
 <style>
@@ -128,6 +138,11 @@
   :global(.dashboard-select-control:focus-visible) {
     outline: 2px solid var(--ui-color-focus);
     outline-offset: 1px;
+  }
+
+  :global(.dashboard-select-control[aria-invalid="true"]),
+  :global(.dashboard-select-control[data-invalid="true"]) {
+    border-color: var(--ui-color-danger);
   }
 
   :global(.dashboard-select-control:disabled) {

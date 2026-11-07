@@ -4,6 +4,7 @@ import type { GraphDiffDocument } from "../graph/GraphDiffDocument.svelte";
 import type { SimulationReportDocument } from "../simulation-report/SimulationReportDocument.svelte";
 import type { OptimizationReportDocument } from "../optimization-report/OptimizationReportDocument.svelte";
 import type { DocumentCatalogDocument } from "../document-catalog/DocumentCatalogDocument.svelte";
+import type { StudyDocument } from "../study/StudyDocument.svelte";
 import type { RunsDocument } from "../runs/RunsDocument.svelte";
 import type { ReportDataMap, ReportKind } from "../report-events";
 import { formatDashboardErrorCode } from "../error-code";
@@ -25,6 +26,10 @@ export abstract class AsyncReportDocument<
 
   setRunId(_runId: string): void {
     // Reports that receive their run ID from the start reply override this.
+  }
+
+  get hasAttention(): boolean {
+    return this.hasUnread;
   }
 
   isReportDocument(): true {
@@ -140,6 +145,7 @@ export type WorkspaceDocument =
   | SimulationReportDocument
   | OptimizationReportDocument
   | DocumentCatalogDocument
+  | StudyDocument
   | RunsDocument;
 
 export function isReport(

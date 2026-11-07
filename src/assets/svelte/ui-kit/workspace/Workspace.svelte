@@ -106,7 +106,14 @@
               onkeydown={(event) =>
                 reorderDocumentWithKeyboard(event, document.id)}
             >
-              <span class="dashboard-document-dot" aria-hidden="true"></span>
+              <span
+                class="dashboard-document-dot"
+                class:has-attention={document.hasAttention}
+                aria-hidden="true"
+              ></span>
+              {#if document.hasAttention}<span class="attention-label"
+                  >Needs attention:
+                </span>{/if}
               <span class="dashboard-document-title">{document.title}</span>
             </Tabs.Trigger>
             <button
@@ -200,7 +207,19 @@
     color: var(--ui-color-text);
     font-weight: 600;
   }
+  .attention-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .dashboard-document-dot.has-attention {
+    opacity: 1;
+    background: var(--ui-color-accent);
+  }
   .dashboard-document-dot {
+    opacity: 0;
     width: var(--ui-space-2);
     height: var(--ui-space-2);
     flex: none;

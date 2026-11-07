@@ -315,7 +315,7 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp broadcast_simulation_completed(graph, experiment, correlation_id) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_completed,
@@ -329,7 +329,7 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp broadcast_simulation_progress(graph, correlation_id, completed_runs, total_runs) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_progress,
@@ -344,7 +344,7 @@ defmodule NetworkDefense.Simulations do
   end
 
   defp broadcast_simulation_failed(graph, correlation_id, reason) do
-    Phoenix.PubSub.broadcast(
+    NetworkDefense.ProgressPublication.broadcast(
       NetworkDefense.PubSub,
       @simulation_events_topic,
       {:simulation_failed,

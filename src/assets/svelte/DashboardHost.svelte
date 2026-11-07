@@ -6,6 +6,10 @@
     FolderSummary,
     GraphSummary,
   } from "./contracts.generated/dashboard/graph";
+  import type {
+    ExecutionEvent as StudyExecutionEvent,
+    ContinueFinished as StudyContinueFinished,
+  } from "./contracts.generated/dashboard/study";
   import type { RunCancelledEvent } from "./contracts.generated/dashboard/runs";
 
   import type { Live } from "live_svelte";
@@ -31,7 +35,8 @@
   const model = untrack(
     () =>
       new DashboardModel(
-        createDashboardApi(live as LiveServer),
+        // LiveSvelte types still declare the legacy pushEvent return type.
+        createDashboardApi(live as unknown as LiveServer),
         graphSummaries,
         folders,
       ),
@@ -43,13 +48,10 @@
     model.workspace.selectDocument(model.workspace.selectedDocumentId);
   }
 
+  const persistence = $derived(model.workspace.toPersistence());
   $effect(() => {
-    const persistence = model.workspace.toPersistence();
-    if (persistence) {
-      untrack(() =>
-        writeWorkspaceEnvelope("dashboard.workspace.v1", persistence),
-      );
-    }
+    if (persistence)
+      writeWorkspaceEnvelope("dashboard.workspace.v1", persistence);
   });
 
   useLiveEvent("simulation_completed", (payload: unknown) => {
@@ -119,6 +121,14 @@
       payload: payload as OptimizationContracts.OptimizationReportErrorEvent,
     });
   });
+
+  useLiveEvent("study_progress", (payload: unknown) =>
+    model.onStudyEvent(payload as StudyExecutionEvent),
+  );
+  useLiveEvent("study_continue_finished", (payload: unknown) =>
+    model.onStudyContinueFinished(payload as StudyContinueFinished),
+  );
+  useLiveEvent("study_session_ready", () => model.reconcileStudies());
 
   useLiveEvent("run_cancelled", (payload: unknown) => {
     model.onRunCancelled(payload as RunCancelledEvent);

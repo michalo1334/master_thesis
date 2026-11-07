@@ -9,6 +9,10 @@ export abstract class UiWorkspaceDocument {
 
   protected persistedData: unknown;
 
+  get hasAttention(): boolean {
+    return false;
+  }
+
   canClose(): boolean {
     return true;
   }

@@ -5,7 +5,12 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   `parse/1` checks required known input fields and drops unknown keys.
   `resolve/1` binds persisted graphs and Host footholds, checks policy
   prerequisites, and freezes finite graph-derived mission-impact bounds.
-  The public creation path is `NetworkDefense.Evaluation2.Study.create_revision/1`.
+  `decode_params/1` turns structured authoring values into the same input, so
+  YAML and structured creation share one parse, resolve and insertion path.
+  The public creation paths are `NetworkDefense.Evaluation2.Study.create_revision/1`
+  and `NetworkDefense.Evaluation2.Study.create_revision_from_params/1`.
+
+  `structure/1` derives the study shape from the declared settings.
 
   Fixed tier order, declared budgets and alternatives determine comparisons and
   unique physical groups. CVSS is implicit and shared within each tier/budget.
@@ -37,6 +42,8 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   }
 
   alias NetworkDefense.Evaluation2.Study.Definition.Schema
+  alias NetworkDefense.Evaluation2.Study.DefinitionStructure
+  alias NetworkDefense.Evaluation2.Study.Error
   alias NetworkDefense.Evaluation2.Study.Randomness
   alias NetworkDefense.Graph.Graph, as: DomainGraph
   alias NetworkDefense.Graph.Graphs
@@ -83,6 +90,47 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   @doc "Return the native fixed-sample numerical contract identity."
   def method, do: @method
 
+  @doc """
+  Decode structured authoring values into definition input.
+
+  The master seed crosses the browser boundary as a decimal string, so it
+  becomes an exact integer here, before any scientific construction. Every other
+  value arrives in the declared input form.
+  """
+  @spec decode_params(map()) :: {:ok, map()} | {:error, Error.t()}
+  def decode_params(params) when is_map(params), do: decode_seed(params)
+
+  def decode_params(_params) do
+    {:error, Schema.error("invalid_definition", [], "Supply one structured definition object.")}
+  end
+
+  defp decode_seed(params) do
+    case Map.fetch(params, "seed") do
+      :error -> {:ok, params}
+      {:ok, seed} -> with {:ok, value} <- exact_seed(seed), do: {:ok, %{params | "seed" => value}}
+    end
+  end
+
+  defp exact_seed(seed) when is_integer(seed), do: {:ok, seed}
+
+  defp exact_seed(seed) when is_binary(seed) do
+    if Regex.match?(~r/^[0-9]+$/, seed) do
+      case Integer.parse(seed) do
+        {value, ""} -> {:ok, value}
+        _partial -> invalid_seed()
+      end
+    else
+      invalid_seed()
+    end
+  end
+
+  defp exact_seed(_seed), do: invalid_seed()
+
+  defp invalid_seed do
+    {:error,
+     Schema.error("invalid_seed", ["seed"], "Supply the master seed as a decimal string.")}
+  end
+
   @doc "Construct a typed declaration and validate its counts, policies and seed allocation."
   def parse(attrs) do
     with :ok <- Schema.validate(attrs),
@@ -104,6 +152,27 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
       {:ok, %{definition | tiers: tiers}}
     end
   end
+
+  @doc "Derive the study structure that the declared settings imply."
+  @spec structure(t()) :: DefinitionStructure.t()
+  def structure(%__MODULE__{} = definition) do
+    capacity = pilot_capacity(definition)
+
+    %DefinitionStructure{
+      comparisons: length(comparisons(definition)),
+      collection_groups: length(collection_groups(definition)),
+      pilot_plans: capacity.plans,
+      pilot_attacks: capacity.attacks
+    }
+  end
+
+  @doc "Return every selectable plan-selection alternative in optimization order."
+  @spec alternative_strategies() :: [OptimizationParams.strategy()]
+  def alternative_strategies, do: OptimizationParams.strategy_values() -- [:cvss, :null]
+
+  @doc "Return the configured measurement environment label, or nil when none is set."
+  @spec measurement_label() :: String.t() | nil
+  def measurement_label, do: Application.get_env(:network_defense, :measured_environment_revision)
 
   @doc "Derive collected Pilot row/column capacity from candidates and extra pool counts."
   def pilot_capacity(%__MODULE__{pilot: pilot}) do
@@ -145,15 +214,15 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
     Enum.find(groups, &(&1.tier == tier and &1.budget == budget and &1.strategy.key == key)).position
   end
 
+  @doc "Return the defense action types that one strategy supports intrinsically."
+  @spec supported_action_types(OptimizationParams.strategy()) :: [Actions.action_type()]
+  def supported_action_types(:cvss), do: [:patch_vulnerability]
+  def supported_action_types(:topology_segmentation), do: [:block_segment_reachability]
+  def supported_action_types(_strategy), do: Actions.values()
+
   @doc "Intersect the shared action policy with the existing strategy's supported actions."
   def effective_action_types(%__MODULE__{defense: defense}, key) do
-    supported =
-      case key do
-        :cvss -> [:patch_vulnerability]
-        :topology_segmentation -> [:block_segment_reachability]
-        _ -> Actions.values()
-      end
-
+    supported = supported_action_types(key)
     Enum.filter(defense.allowed_action_types, &(&1 in supported))
   end
 
@@ -201,8 +270,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
          provenance: %Provenance{
            method: @method,
            seed_contract: Randomness.contract(),
-           environment_label:
-             Application.get_env(:network_defense, :measured_environment_revision)
+           environment_label: measurement_label()
          }
        }}
     end
@@ -236,7 +304,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
 
   defp construct_strategies(attrs) do
     Enum.reduce_while(attrs, {:ok, []}, fn a, {:ok, result} ->
-      allowed = OptimizationParams.strategy_values() -- [:cvss, :null]
+      allowed = alternative_strategies()
 
       with {:ok, [key]} <- enums([a["strategy"]], allowed),
            {:ok, scoring} <- construct_scoring(key, a["scoring"]) do

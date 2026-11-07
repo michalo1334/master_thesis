@@ -490,7 +490,10 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
     do: {:error, incomplete_collection_effect()}
 
   defp simulation_effect(%Experiment{id: experiment_id}, item_id) do
-    case Simulations.run(experiment_id, correlation_id: "#{item_id}/experiment") do
+    case Simulations.run(experiment_id,
+           correlation_id: "#{item_id}/experiment",
+           publish_events: true
+         ) do
       {:ok, %Experiment{} = experiment} -> {:ok, experiment}
       {:error, _reason} -> {:error, collection_effect_failed()}
     end

@@ -15,6 +15,8 @@ import SimulationReport from "../simulation-report/SimulationReport.svelte";
 import OptimizationReport from "../optimization-report/OptimizationReport.svelte";
 import DocumentCatalog from "../document-catalog/DocumentCatalog.svelte";
 import Runs from "../runs/Runs.svelte";
+import { StudyDocument } from "../study/StudyDocument.svelte";
+import Study from "../study/Study.svelte";
 
 export interface DashboardDocumentRegistration {
   view: Component<{
@@ -58,6 +60,14 @@ export const dashboardRegistry: Record<string, DashboardDocumentRegistration> =
       fromPersisted: DocumentCatalogDocument.fromPersisted,
       createOption: DocumentCatalogDocument.createOption,
       create: (workspace) => workspace.openDocumentCatalog(),
+    },
+    study: {
+      view: Study as unknown as DashboardDocumentRegistration["view"],
+      fromPersisted: StudyDocument.fromPersisted,
+      createOption: StudyDocument.createOption,
+      create: (workspace) => {
+        workspace.studyPickerOpen = true;
+      },
     },
     runs: {
       view: Runs as unknown as DashboardDocumentRegistration["view"],

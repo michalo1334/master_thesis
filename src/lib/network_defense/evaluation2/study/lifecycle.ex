@@ -39,6 +39,18 @@ defmodule NetworkDefense.Evaluation2.Study.Lifecycle do
   @spec states() :: [state()]
   def states, do: @states
 
+  @doc "Return whether the state owns an active phase."
+  def active?(state), do: state in @active_states
+
+  @doc "Return whether the state accepts cancellation."
+  def cancellable?(state), do: state in @cancellable_states
+
+  @doc "Return whether the state is terminal."
+  def terminal?(state), do: state in @states and state not in @cancellable_states
+
+  @doc "Return the ordered successful progression, including its approval gate."
+  def progression, do: @states -- [:failed, :cancelled]
+
   @doc "Return the phase owned by an active lifecycle state."
   @spec phase(state()) ::
           :pilot_collection | :pilot_analysis | :final_collection | :final_analysis | nil

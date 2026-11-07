@@ -67,6 +67,17 @@ describe("Select", () => {
     expect(onchange).not.toHaveBeenCalled();
   });
 
+  it("describes a supplied field error without changing the selection", () => {
+    render(Select, {
+      label: "Policy",
+      value: "beta",
+      options,
+      error: "Choose a supported policy.",
+    });
+    const trigger = screen.getByRole("button", { name: "Policy" });
+    expect(trigger).toHaveAccessibleDescription("Choose a supported policy.");
+    expect(trigger).toHaveTextContent("Beta");
+  });
   it("disables the trigger", () => {
     render(Select, {
       props: { label: "Foothold", options, disabled: true },

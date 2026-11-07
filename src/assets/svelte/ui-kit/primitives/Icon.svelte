@@ -6,6 +6,7 @@
 
   const iconClasses: Record<string, string> = {
     shield: "hero-shield-check",
+    beaker: "hero-beaker",
     search: "hero-magnifying-glass",
     filter: "hero-funnel",
     help: "hero-question-mark-circle",

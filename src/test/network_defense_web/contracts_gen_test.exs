@@ -1,7 +1,7 @@
 defmodule NetworkDefenseWeb.ContractsGenTest do
   use ExUnit.Case, async: true
 
-  alias Mix.Tasks.Gen.Contracts.{Registry, TypespecParser}
+  alias Mix.Tasks.Gen.Contracts.{Registry, RuntimeValues, TypespecParser}
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
@@ -9,11 +9,24 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
 
+  defmodule RuntimeFixture do
+    @moduledoc false
+    def contract_meta,
+      do: %{runtime_values: [sampleValues: %{empty: %{}, labels: ["comma,value", "plain"]}]}
+  end
+
+  test "runtime literals preserve strings and empty objects" do
+    output = RuntimeValues.render(RuntimeFixture)
+    assert output =~ "empty: {}"
+    assert output =~ ~s(labels: ["comma,value", "plain"])
+  end
+
   @dashboard_categories [
     :graph,
     :simulation,
     :optimization,
     :workspace,
+    :study,
     :runs
   ]
 
@@ -77,6 +90,48 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
     assert output =~ "feasible: boolean;"
 
     refute output =~ ~r/^export (interface|type) /m
+  end
+
+  test "Study runtime vocabulary and classifications come from backend owners" do
+    alias NetworkDefense.Evaluation2.Study.Lifecycle
+    alias NetworkDefense.Evaluation2.Study.Tier
+    alias NetworkDefenseWeb.Contracts.Dashboard.Study.Vocabulary
+
+    metadata = Vocabulary.contract_meta()
+    values = metadata.runtime_values
+    assert Keyword.fetch!(values, :studyStates) == Map.new(Lifecycle.states(), &{&1, &1})
+    assert Keyword.fetch!(values, :studyTiers) == Tier.all()
+    assert Keyword.fetch!(values, :studyProgression) == Lifecycle.progression()
+
+    for state <- Lifecycle.states() do
+      entry = Keyword.fetch!(values, :studyLifecycle)[state]
+      assert entry.canContinue == Lifecycle.active?(state)
+      assert entry.canCancel == Lifecycle.cancellable?(state)
+      assert entry.terminal == Lifecycle.terminal?(state)
+      assert entry.phase == Lifecycle.phase(state)
+    end
+
+    study = Registry.render_import_modules() |> Map.new() |> Map.fetch!("dashboard/study.ts")
+
+    for {name, _value} <- values do
+      assert study =~ "export const #{name} = "
+    end
+
+    status = Registry.generate(NetworkDefenseWeb.Contracts.Dashboard.Study.Status)
+    assert status =~ ~s("collecting_pilot")
+    refute status =~ "state: string;"
+    summary = Registry.generate(NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionSummary)
+    assert summary =~ "latest_state?:"
+    assert summary =~ "| null;"
+    progress = Registry.generate(NetworkDefenseWeb.Contracts.Dashboard.Study.Progress)
+    assert progress =~ "phase?:"
+    assert progress =~ ~s("final_collection")
+    assert progress =~ "| null;"
+
+    input = Registry.generate(NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionInput)
+    assert input =~ "revision: number | string;"
+    assert input =~ "family_alpha: number | string;"
+    assert input =~ "seed: string;"
   end
 
   test "discovers contracts for multiple categories" do
@@ -265,6 +320,7 @@ defmodule NetworkDefenseWeb.ContractsGenTest do
              "dashboard/optimization.ts",
              "dashboard/runs.ts",
              "dashboard/simulation.ts",
+             "dashboard/study.ts",
              "dashboard/workspace.ts",
              "errors.ts",
              "graph.ts",

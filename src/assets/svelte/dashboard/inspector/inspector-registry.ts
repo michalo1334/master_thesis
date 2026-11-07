@@ -9,6 +9,7 @@ import type { WorkspaceDocument } from "../workspace/WorkspaceDocument.svelte";
 import GraphInspector from "./graph/GraphInspector.svelte";
 import SelectionInspector from "./graph/SelectionInspector.svelte";
 import ReportInspector from "./report/ReportInspector.svelte";
+import StudyInspector from "../study/StudyInspector.svelte";
 
 export interface InspectorContext {
   document: WorkspaceDocument | undefined;
@@ -137,6 +138,17 @@ function reportPerspective(
 }
 
 export const inspectorPerspectives: readonly InspectorPerspective[] = [
+  {
+    id: "study",
+    matches: matchesDocumentKind("study"),
+    create: (context) => {
+      if (context.document?.kind !== "study")
+        throw new Error("study context required");
+      return makeRequest("study", StudyInspector, {
+        document: context.document,
+      });
+    },
+  },
   graphSelectablePerspective,
   graphPerspective,
   reportPerspective("simulation-report"),

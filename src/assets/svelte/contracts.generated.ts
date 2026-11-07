@@ -1210,6 +1210,538 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Simulation {
   }
 }
 
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Alternative (lib/network_defense_web/contracts/dashboard/study/alternative.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Alternative {
+    monte_carlo_trials?: number | null;
+    objective?: string | null;
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.AlternativeInput (lib/network_defense_web/contracts/dashboard/study/alternative_input.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface AlternativeInput {
+    monte_carlo_trials?: number | string | null;
+    objective?: string | null;
+    strategy: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Candidate (lib/network_defense_web/contracts/dashboard/study/candidate.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Candidate {
+    attacks: number;
+    id: string;
+    plans: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.CandidateInput (lib/network_defense_web/contracts/dashboard/study/candidate_input.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface CandidateInput {
+    attacks: number | string;
+    id: string;
+    plans: number | string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.ComparisonIdentity (lib/network_defense_web/contracts/dashboard/study/comparison_identity.ex) — enum fields: tier
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface ComparisonIdentity {
+    alternative: string;
+    budget: number;
+    outcome: string;
+    reference: string;
+    tier: "small" | "medium" | "large";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.ContinueFinished (lib/network_defense_web/contracts/dashboard/study/continue_finished.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface ContinueFinished {
+    document_id: string;
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Error | null;
+    execution_id: string;
+    request_id: string;
+    status?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Status | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Counter (lib/network_defense_web/contracts/dashboard/study/counter.ex) — enum fields: unit
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Counter {
+    completed: number;
+    total?: number | null;
+    unit: "optimization_items" | "simulation_trials" | "analysis_jobs";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Definition (lib/network_defense_web/contracts/dashboard/study/definition.ex) — enum fields: rules, allowed_action_types, feasibility
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Definition {
+    allowed_action_types:
+      Array<
+        "block_segment_reachability" | "patch_vulnerability" | "revoke_credential"
+      >;
+    candidates: NetworkDefenseWeb.Contracts.Dashboard.Study.Candidate[];
+    confidence_level: number;
+    extra_pool_attacks: number;
+    extra_pool_plans: number;
+    family_alpha: number;
+    family_id: string;
+    feasibility: "required" | "unrestricted";
+    guard_quantile: number;
+    iterations_per_run: number;
+    max_attempts: number;
+    outer_subsamples: number;
+    revision: number;
+    rules:
+      Array<
+        "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
+      >;
+    seed: string;
+    study_id: string;
+    target_half_width: number;
+    tiers: NetworkDefenseWeb.Contracts.Dashboard.Study.Tier[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionInput (lib/network_defense_web/contracts/dashboard/study/definition_input.ex) — enum fields: rules, allowed_action_types
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface DefinitionInput {
+    allowed_action_types:
+      Array<
+        "block_segment_reachability" | "patch_vulnerability" | "revoke_credential"
+      >;
+    candidates: NetworkDefenseWeb.Contracts.Dashboard.Study.CandidateInput[];
+    confidence_level: number | string;
+    extra_pool_attacks: number | string;
+    extra_pool_plans: number | string;
+    family_alpha: number | string;
+    family_id: string;
+    feasibility: string;
+    guard_quantile: number | string;
+    iterations_per_run: number | string;
+    max_attempts: number | string;
+    outer_subsamples: number | string;
+    revision: number | string;
+    rules:
+      Array<
+        "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
+      >;
+    seed: string;
+    study_id: string;
+    target_half_width: number | string;
+    tiers: NetworkDefenseWeb.Contracts.Dashboard.Study.TierInput[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionOptions (lib/network_defense_web/contracts/dashboard/study/definition_options.ex) — enum fields: rules, actions
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface DefinitionOptions {
+    actions:
+      Array<
+        "block_segment_reachability" | "patch_vulnerability" | "revoke_credential"
+      >;
+    alternatives: NetworkDefenseWeb.Contracts.Dashboard.Study.StrategyOption[];
+    measurement_label?: string | null;
+    objectives: string[];
+    rules:
+      Array<
+        "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
+      >;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionStructure (lib/network_defense_web/contracts/dashboard/study/definition_structure.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface DefinitionStructure {
+    collection_groups: number;
+    comparisons: number;
+    pilot_attacks: number;
+    pilot_plans: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Error (lib/network_defense_web/contracts/dashboard/study/error.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Error {
+    category: string;
+    issues: NetworkDefenseWeb.Contracts.Dashboard.Study.Issue[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.ExecutionEvent (lib/network_defense_web/contracts/dashboard/study/execution_event.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface ExecutionEvent {
+    document_id: string;
+    execution_id: string;
+    progress: NetworkDefenseWeb.Contracts.Dashboard.Study.Progress;
+    sequence: number;
+    status: NetworkDefenseWeb.Contracts.Dashboard.Study.Status;
+    watch_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.ExecutionSummary (lib/network_defense_web/contracts/dashboard/study/execution_summary.ex) — enum fields: state
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface ExecutionSummary {
+    execution_id: string;
+    pilot_outcome?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.PilotOutcome | null;
+    revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
+    selection?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Selection | null;
+    started_at: string;
+    state:
+      | "collecting_pilot"
+      | "analyzing_pilot"
+      | "awaiting_final"
+      | "collecting_final"
+      | "analyzing_final"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+    updated_at: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.FinalComparison (lib/network_defense_web/contracts/dashboard/study/final_comparison.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface FinalComparison {
+    adjusted_p_value: number;
+    assessment: string;
+    confidence_level: number;
+    contrast: string;
+    estimate: number;
+    identity: NetworkDefenseWeb.Contracts.Dashboard.Study.ComparisonIdentity;
+    lower: number;
+    method: string;
+    raw_p_value: number;
+    reject_null: boolean;
+    test_alternative: string;
+    test_method: string;
+    upper: number;
+    warnings: string[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Issue (lib/network_defense_web/contracts/dashboard/study/issue.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Issue {
+    code: string;
+    message: string;
+    path: Array<string | number>;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.PilotCandidate (lib/network_defense_web/contracts/dashboard/study/pilot_candidate.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface PilotCandidate {
+    attacks_per_plan: number;
+    comparisons: NetworkDefenseWeb.Contracts.Dashboard.Study.PilotComparison[];
+    id: string;
+    passes: boolean;
+    plan_count_per_side: number;
+    predicted_runtime_ms: number;
+    worst_guarded_half_width?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.PilotComparison (lib/network_defense_web/contracts/dashboard/study/pilot_comparison.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface PilotComparison {
+    guarded_half_width?: number | null;
+    identity: NetworkDefenseWeb.Contracts.Dashboard.Study.ComparisonIdentity;
+    informative: boolean;
+    passes: boolean;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.PilotOutcome (lib/network_defense_web/contracts/dashboard/study/pilot_outcome.ex) — enum fields: outcome
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface PilotOutcome {
+    attacks_per_plan?: number | null;
+    candidate_id?: string | null;
+    outcome: "recommended" | "insufficient";
+    plan_count_per_side?: number | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.PilotResult (lib/network_defense_web/contracts/dashboard/study/pilot_result.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface PilotResult {
+    candidates: NetworkDefenseWeb.Contracts.Dashboard.Study.PilotCandidate[];
+    method: string;
+    outcome: NetworkDefenseWeb.Contracts.Dashboard.Study.PilotOutcome;
+    selection_rule: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Progress (lib/network_defense_web/contracts/dashboard/study/progress.ex) — enum fields: phase, tier
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Progress {
+    activity?: string | null;
+    counters: NetworkDefenseWeb.Contracts.Dashboard.Study.Counter[];
+    execution_id: string;
+    phase?:
+      | "pilot_collection"
+      | "pilot_analysis"
+      | "final_collection"
+      | "final_analysis"
+      | null;
+    replica?: number | null;
+    status: NetworkDefenseWeb.Contracts.Dashboard.Study.Status;
+    tier?: "small" | "medium" | "large" | null;
+    warm_up: boolean;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Reply (lib/network_defense_web/contracts/dashboard/study/reply.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Reply {
+    detail?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionDetail | null;
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Error | null;
+    execution?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Status | null;
+    executions: NetworkDefenseWeb.Contracts.Dashboard.Study.ExecutionSummary[];
+    options?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionOptions | null;
+    pilot?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.PilotResult | null;
+    progress?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Progress | null;
+    request_id?: string | null;
+    result?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Result | null;
+    revision?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Revision | null;
+    revisions: NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionSummary[];
+    status: string;
+    total?: number | null;
+    watch_id?: string | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Request (lib/network_defense_web/contracts/dashboard/study/request.ex) — enum fields: approval
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Request {
+    approval?: "recommended" | "override_insufficient" | null;
+    candidate_id?: string | null;
+    definition?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionInput | null;
+    document_id?: string | null;
+    execution_id?: string | null;
+    limit?: number | null;
+    offset?: number | null;
+    query?: string | null;
+    request_id?: string | null;
+    revision?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Revision | null;
+    timeout_ms?: number | null;
+    watch_id?: string | null;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Result (lib/network_defense_web/contracts/dashboard/study/result.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Result {
+    comparisons: NetworkDefenseWeb.Contracts.Dashboard.Study.FinalComparison[];
+    execution_id: string;
+    family_alpha: number;
+    family_id: string;
+    family_method: string;
+    pilot_outcome: NetworkDefenseWeb.Contracts.Dashboard.Study.PilotOutcome;
+    revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
+    selection: NetworkDefenseWeb.Contracts.Dashboard.Study.Selection;
+    timing: NetworkDefenseWeb.Contracts.Dashboard.Study.TimingTier[];
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Revision (lib/network_defense_web/contracts/dashboard/study/revision.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Revision {
+    revision: number;
+    study_id: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionContext (lib/network_defense_web/contracts/dashboard/study/revision_context.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface RevisionContext {
+    measurement_label?: string | null;
+    method: string;
+    seed_contract: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionDetail (lib/network_defense_web/contracts/dashboard/study/revision_detail.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface RevisionDetail {
+    authored: NetworkDefenseWeb.Contracts.Dashboard.Study.Definition;
+    context: NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionContext;
+    revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
+    structure: NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionStructure;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.RevisionSummary (lib/network_defense_web/contracts/dashboard/study/revision_summary.ex) — enum fields: latest_state
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface RevisionSummary {
+    created_at: string;
+    execution_count: number;
+    latest_state?:
+      | "collecting_pilot"
+      | "analyzing_pilot"
+      | "awaiting_final"
+      | "collecting_final"
+      | "analyzing_final"
+      | "succeeded"
+      | "failed"
+      | "cancelled"
+      | null;
+    revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Selection (lib/network_defense_web/contracts/dashboard/study/selection.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Selection {
+    attacks_per_plan: number;
+    candidate_id: string;
+    plan_count_per_side: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Status (lib/network_defense_web/contracts/dashboard/study/status.ex) — enum fields: state
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Status {
+    error?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Error | null;
+    execution_id: string;
+    pilot_outcome?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.PilotOutcome | null;
+    revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
+    selection?:
+      NetworkDefenseWeb.Contracts.Dashboard.Study.Selection | null;
+    state:
+      | "collecting_pilot"
+      | "analyzing_pilot"
+      | "awaiting_final"
+      | "collecting_final"
+      | "analyzing_final"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.StrategyOption (lib/network_defense_web/contracts/dashboard/study/strategy_option.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface StrategyOption {
+    action_types: string[];
+    scoring_required: boolean;
+    value: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Tier (lib/network_defense_web/contracts/dashboard/study/tier.ex) — enum fields: tier
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Tier {
+    alternatives: NetworkDefenseWeb.Contracts.Dashboard.Study.Alternative[];
+    budgets: number[];
+    foothold_node_id: string;
+    graph_revision_id: string;
+    tier: "small" | "medium" | "large";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.TierInput (lib/network_defense_web/contracts/dashboard/study/tier_input.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface TierInput {
+    alternatives: NetworkDefenseWeb.Contracts.Dashboard.Study.AlternativeInput[];
+    budgets: Array<number | string>;
+    foothold_node_id: string;
+    graph_revision_id: string;
+    tier: string;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.TimingReplica (lib/network_defense_web/contracts/dashboard/study/timing_replica.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface TimingReplica {
+    plan_selection_us: number;
+    position: number;
+    simulation_us: number;
+    total_us: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.TimingSummary (lib/network_defense_web/contracts/dashboard/study/timing_summary.ex)
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface TimingSummary {
+    boundary: string;
+    maximum_us: number;
+    median_us: number;
+    minimum_us: number;
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.TimingTier (lib/network_defense_web/contracts/dashboard/study/timing_tier.ex) — enum fields: tier
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface TimingTier {
+    replicas: NetworkDefenseWeb.Contracts.Dashboard.Study.TimingReplica[];
+    summaries: NetworkDefenseWeb.Contracts.Dashboard.Study.TimingSummary[];
+    tier: "small" | "medium" | "large";
+  }
+}
+
+// NetworkDefenseWeb.Contracts.Dashboard.Study.Vocabulary (lib/network_defense_web/contracts/dashboard/study/vocabulary.ex) — enum fields: state, phase, tier, outcome, approval, feasibility, counter_unit, request
+export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
+  export interface Vocabulary {
+    approval: "recommended" | "override_insufficient";
+    counter_unit: "optimization_items" | "simulation_trials" | "analysis_jobs";
+    feasibility: "required" | "unrestricted";
+    outcome: "recommended" | "insufficient";
+    phase:
+      | "pilot_collection"
+      | "pilot_analysis"
+      | "final_collection"
+      | "final_analysis";
+    request:
+      | "fetch_study_options"
+      | "create_study_revision"
+      | "fetch_study_revisions"
+      | "fetch_study_revision"
+      | "fetch_study_executions"
+      | "start_study_execution"
+      | "continue_study_execution"
+      | "approve_study_final"
+      | "cancel_study_execution"
+      | "fetch_study_status"
+      | "fetch_study_pilot_result"
+      | "fetch_study_result"
+      | "watch_study_execution"
+      | "unwatch_study_execution"
+      | "close_study_document";
+    state:
+      | "collecting_pilot"
+      | "analyzing_pilot"
+      | "awaiting_final"
+      | "collecting_final"
+      | "analyzing_final"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+    tier: "small" | "medium" | "large";
+  }
+}
+
 // NetworkDefenseWeb.Contracts.Dashboard.Workspace.DocumentCatalogFilterOptions (lib/network_defense_web/contracts/dashboard/workspace/document_catalog_filter_options.ex)
 export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Workspace {
   export interface DocumentCatalogFilterOptions {
