@@ -68,6 +68,7 @@ defmodule NetworkDefense.Evaluation2.Study.Views do
   def revision_summary(entry) do
     %RevisionSummary{
       revision: revision(entry),
+      name: entry.name,
       created_at: entry.inserted_at,
       execution_count: entry.execution_count,
       latest_state: entry.latest_state

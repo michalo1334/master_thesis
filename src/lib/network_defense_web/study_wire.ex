@@ -82,7 +82,7 @@ defmodule NetworkDefenseWeb.StudyWire do
 
   def definition_params(definition) do
     %{
-      study: %{id: definition.study_id, revision: definition.revision},
+      study: %{id: definition.study_id, revision: definition.revision, name: definition.name},
       seed: definition.seed,
       family: %{id: definition.family_id, alpha: definition.family_alpha},
       analysis: %{confidence_level: definition.confidence_level},

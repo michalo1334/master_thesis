@@ -19,6 +19,7 @@ defmodule NetworkDefense.Evaluation2.Study.AuthoredDefinition do
         }
   @type t :: %__MODULE__{
           study_id: String.t(),
+          name: String.t() | nil,
           revision: pos_integer(),
           seed: String.t(),
           family_id: String.t(),
@@ -40,6 +41,7 @@ defmodule NetworkDefense.Evaluation2.Study.AuthoredDefinition do
 
   defstruct [
     :study_id,
+    :name,
     :revision,
     :seed,
     :family_id,
@@ -64,6 +66,7 @@ defmodule NetworkDefense.Evaluation2.Study.AuthoredDefinition do
   def new(%Definition{} = definition) do
     %__MODULE__{
       study_id: definition.study.id,
+      name: definition.study.name,
       revision: definition.study.revision,
       seed: Integer.to_string(definition.seed),
       family_id: definition.family.id,

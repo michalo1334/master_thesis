@@ -156,7 +156,7 @@ defmodule NetworkDefense.Evaluation2.Study do
   @doc """
   List one bounded page of frozen revisions.
 
-  The optional `:search` value matches the declared study identifier text. The
+  The optional `:search` value matches the study name or declared identifier text. The
   request is an atom-keyed map with optional `:page` and `:page_size` values. Each entry
   reports its execution count and the state of its most recently changed
   execution, so a revision without executions reports `latest_state: nil`.

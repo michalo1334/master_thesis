@@ -54,6 +54,20 @@ describe("Study rendered views", () => {
         screen.getByRole("button", { name: "Freeze revision" }),
       ).toBeEnabled(),
     );
+    expect(screen.queryByRole("textbox", { name: "Study ID" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Family ID" })).toBeNull();
+    await fireEvent.input(
+      screen.getByRole("textbox", { name: "Study name (optional)" }),
+      { target: { value: "Defense study" } },
+    );
+    expect(document.title).toContain("Defense study");
+    expect(
+      (
+        screen.getByRole("textbox", {
+          name: "Read-only YAML",
+        }) as HTMLTextAreaElement
+      ).value,
+    ).toContain("name: Defense study");
     expect(screen.getByRole("textbox", { name: "Master seed" })).toHaveValue(
       "9007199254740993",
     );
@@ -76,6 +90,9 @@ describe("Study rendered views", () => {
     await fireEvent.click(
       screen.getByRole("button", { name: "Freeze revision" }),
     );
+    expect(api.studyRequest).toHaveBeenCalledWith("create_study_revision", {
+      definition: expect.objectContaining({ name: "Defense study" }),
+    });
     await waitFor(() =>
       expect(
         screen.getByText(/Choose a different revision/),
@@ -129,6 +146,9 @@ describe("Study rendered views", () => {
     const document = workspace.createStudyDraft();
     render(Study, { document, api });
     await screen.findByRole("textbox", { name: "small budget 1" });
+    expect(document.definition.draft.study_id).toBe(options.study_id);
+    expect(document.definition.draft.family_id).toBe(options.family_id);
+    expect(document.definition.draft.name).toBe("");
     vi.spyOn(globalThis, "confirm").mockReturnValue(true);
     await fireEvent.click(
       screen.getByRole("button", { name: "Freeze revision" }),

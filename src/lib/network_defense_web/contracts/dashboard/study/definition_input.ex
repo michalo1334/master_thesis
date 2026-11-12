@@ -6,6 +6,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionInput do
 
   embedded_schema do
     field :study_id, :string
+    field :name, :string
     field :revision, :integer
     field :seed, :string
     field :family_id, :string
@@ -30,6 +31,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionInput do
 
   @type t :: %__MODULE__{
           study_id: String.t(),
+          name: String.t() | nil,
           revision: integer() | String.t(),
           seed: String.t(),
           family_id: String.t(),

@@ -157,8 +157,18 @@ defmodule NetworkDefenseWeb.StudyRequests do
     end
   end
 
-  defp read_or_command("fetch_study_options", _r),
-    do: response(Study.definition_options(), :options)
+  defp read_or_command("fetch_study_options", r) do
+    reply = response(Study.definition_options(), :options)
+
+    if r.document_id do
+      update_in(
+        reply.options,
+        &Map.merge(&1, %{study_id: r.document_id, family_id: "family-" <> r.document_id})
+      )
+    else
+      reply
+    end
+  end
 
   defp read_or_command("create_study_revision", r),
     do:

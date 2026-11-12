@@ -1296,6 +1296,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
     guard_quantile: number;
     iterations_per_run: number;
     max_attempts: number;
+    name?: string | null;
     outer_subsamples: number;
     revision: number;
     rules:
@@ -1326,6 +1327,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
     guard_quantile: number | string;
     iterations_per_run: number | string;
     max_attempts: number | string;
+    name?: string | null;
     outer_subsamples: number | string;
     revision: number | string;
     rules:
@@ -1347,12 +1349,14 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
         "block_segment_reachability" | "patch_vulnerability" | "revoke_credential"
       >;
     alternatives: NetworkDefenseWeb.Contracts.Dashboard.Study.StrategyOption[];
+    family_id?: string | null;
     measurement_label?: string | null;
     objectives: string[];
     rules:
       Array<
         "remote_service_exploitation" | "local_vulnerability_exploitation" | "acquire_credential_rule" | "reuse_credential_rule"
       >;
+    study_id?: string | null;
   }
 }
 
@@ -1605,6 +1609,7 @@ export declare namespace NetworkDefenseWeb.Contracts.Dashboard.Study {
       | "failed"
       | "cancelled"
       | null;
+    name?: string | null;
     revision: NetworkDefenseWeb.Contracts.Dashboard.Study.Revision;
   }
 }

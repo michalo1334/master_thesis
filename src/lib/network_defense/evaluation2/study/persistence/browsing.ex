@@ -40,6 +40,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Browsing do
   @type revision_entry :: %{
           id: Ecto.UUID.t(),
           study_id: String.t(),
+          name: String.t() | nil,
           revision: pos_integer(),
           inserted_at: DateTime.t(),
           execution_count: non_neg_integer(),
@@ -73,7 +74,7 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Browsing do
           total: non_neg_integer()
         }
 
-  @doc "List one bounded page of revisions, optionally filtered by study identifier text."
+  @doc "List one bounded page of revisions, optionally filtered by study name or identifier."
   @spec list_revisions(revision_request()) :: Persistence.response(page(revision_entry()))
   def list_revisions(%{page: page, page_size: page_size} = request) do
     Persistence.read(:list_revisions, :revision, fn ->
@@ -138,22 +139,31 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Browsing do
       select: %{
         id: r.id,
         study_id: r.study_id,
+        name: fragment("?->'study'->>'name'", r.definition),
         revision: r.revision,
         inserted_at: r.inserted_at,
         execution_count: count(e.id)
       }
     )
-    |> search_study_id(request.search)
+    |> search_revisions(request.search)
   end
 
-  defp search_study_id(query, nil), do: query
+  defp search_revisions(query, nil), do: query
 
-  defp search_study_id(query, search),
-    do: where(query, [r], ilike(r.study_id, ^like_pattern(search)))
+  defp search_revisions(query, search) do
+    pattern = like_pattern(search)
+
+    where(
+      query,
+      [r],
+      ilike(r.study_id, ^pattern) or
+        ilike(fragment("?->'study'->>'name'", r.definition), ^pattern)
+    )
+  end
 
   defp revision_total(request) do
     from(r in Revision, select: count(r.id))
-    |> search_study_id(request.search)
+    |> search_revisions(request.search)
     |> Repo.one()
   end
 

@@ -30,11 +30,39 @@ defmodule NetworkDefenseWeb.StudyLiveTest do
        c do
     {:ok, view, _} = live(c.conn, ~p"/")
     {:ok, parsed} = Definition.parse(c.attrs)
+    document_id = Ecto.UUID.generate()
+
+    for _ <- 1..2 do
+      render_hook(view, "fetch_study_options", %{document_id: document_id})
+
+      assert_reply(view, %{status: "ok", options: %{study_id: ^document_id, family_id: family_id}})
+
+      assert family_id == "family-" <> document_id
+    end
+
     authored = parsed |> AuthoredDefinition.new() |> StudyWire.wire()
-    render_hook(view, "create_study_revision", %{definition: authored})
-    assert_reply(view, %{status: "ok", revision: %{study_id: "ui-test", revision: 1}})
-    render_hook(view, "fetch_study_revision", %{revision: StudyWire.wire(c.revision)})
-    assert_reply(view, %{status: "ok", detail: %{authored: %{seed: "9007199254740993"}}})
+
+    authored =
+      Map.merge(authored, %{
+        study_id: document_id,
+        family_id: "family-" <> document_id,
+        name: "  Defense study  "
+      })
+
+    for _ <- 1..2 do
+      render_hook(view, "create_study_revision", %{definition: authored})
+      assert_reply(view, %{status: "ok", revision: %{study_id: ^document_id, revision: 1}})
+    end
+
+    render_hook(view, "fetch_study_revision", %{revision: %{study_id: document_id, revision: 1}})
+
+    assert_reply(view, %{
+      status: "ok",
+      detail: %{authored: %{name: "Defense study", seed: "9007199254740993"}}
+    })
+
+    render_hook(view, "fetch_study_revisions", %{query: "Defense study"})
+    assert_reply(view, %{status: "ok", revisions: [%{name: "Defense study"}]})
     render_hook(view, "fetch_study_revisions", %{limit: 101})
     assert_reply(view, %{status: "error", error: %{issues: [%{code: "invalid_request"}]}})
     render_hook(view, "fetch_study_revision", %{revision: %{study_id: "missing", revision: 1}})

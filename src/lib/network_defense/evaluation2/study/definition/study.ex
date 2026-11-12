@@ -3,10 +3,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Study do
 
   use Spectral
 
-  # Operator-declared study identity. The revision number is the durable
-  # identity of one frozen definition, so it is declared here and never
-  # asserted from runtime metadata.
-
-  @type t :: %__MODULE__{id: String.t(), revision: pos_integer()}
-  defstruct [:id, :revision]
+  # The optional display name leaves revision identity and scientific seeds unchanged.
+  @type t :: %__MODULE__{id: String.t(), revision: pos_integer(), name: String.t() | nil}
+  defstruct [:id, :revision, :name]
 end

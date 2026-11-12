@@ -229,6 +229,15 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   @doc "Return the shared feasibility requirement inherited by selection and simulation."
   def require_feasibility?(%__MODULE__{defense: defense}), do: defense.feasibility == :required
 
+  defp study_name(nil), do: nil
+
+  defp study_name(name) do
+    case String.trim(name) do
+      "" -> nil
+      value -> value
+    end
+  end
+
   defp construct(a) do
     # Enum conversion searches registered values; submitted text never creates atoms.
     with {:ok, actions} <- enums(a["defense"]["allowed_action_types"], Actions.values()),
@@ -236,7 +245,11 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
          {:ok, tiers} <- construct_tiers(a["tiers"]) do
       {:ok,
        %__MODULE__{
-         study: %Study{id: a["study"]["id"], revision: a["study"]["revision"]},
+         study: %Study{
+           id: a["study"]["id"],
+           revision: a["study"]["revision"],
+           name: study_name(a["study"]["name"])
+         },
          seed: a["seed"],
          family: %Family{id: a["family"]["id"], alpha: a["family"]["alpha"]},
          analysis: %Inference{confidence_level: a["analysis"]["confidence_level"]},

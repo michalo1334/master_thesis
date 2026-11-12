@@ -12,6 +12,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionOptions do
   end
 
   embedded_schema do
+    field :study_id, :string
+    field :family_id, :string
     field :actions, {:array, :string}
     field :rules, {:array, :string}
 
@@ -23,6 +25,8 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Study.DefinitionOptions do
   end
 
   @type t :: %__MODULE__{
+          study_id: String.t() | nil,
+          family_id: String.t() | nil,
           actions: [String.t()],
           rules: [String.t()],
           alternatives: [NetworkDefenseWeb.Contracts.Dashboard.Study.StrategyOption.t()],

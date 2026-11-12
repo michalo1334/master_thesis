@@ -27,6 +27,10 @@ defmodule NetworkDefense.Evaluation2.StudyBrowsingTest do
     assert {:ok, ^stored} = Persistence.fetch_revision(revision)
     assert {:ok, detail} = Study.get_revision(revision)
     assert detail.authored.seed == Integer.to_string(seed)
+    assert detail.authored.name == nil
+    {:ok, encoded} = Spectral.encode(resolved, Definition, :t, :json, [:pre_encoded])
+    legacy = update_in(encoded["study"], &Map.delete(&1, "name"))
+    assert {:ok, ^resolved} = Spectral.decode(legacy, Definition, :t, :json, [:pre_decoded])
     assert detail.structure.comparisons == length(Definition.comparisons(resolved))
 
     assert {:ok, ^revision} =

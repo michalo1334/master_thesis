@@ -72,7 +72,7 @@
             {
               key: "study",
               header: "Study",
-              getValue: (r) => r.revision.study_id,
+              getValue: (r) => r.name || r.revision.study_id,
               filterable: true,
             },
             {

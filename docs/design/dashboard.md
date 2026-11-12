@@ -145,6 +145,9 @@ Use **+ → Study** to search saved revisions or create a new revision. Opening 
 existing workspace revision selects its tab. Each Study document holds one
 revision and its execution history.
 
+Study ID and Family ID are assigned automatically. An optional Study name labels
+the document and saved revision; leaving it empty uses the identifier as a fallback.
+
 The definition form controls the authored settings. Select a saved graph revision
 for each tier, then select one of that revision's Hosts. Supply scientific
 settings explicitly. The generated YAML is read-only and supports copy and

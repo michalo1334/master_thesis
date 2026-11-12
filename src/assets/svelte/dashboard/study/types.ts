@@ -20,6 +20,7 @@ export type DraftTier = {
 };
 export type StudyDraft = Omit<
   Definition,
+  | "name"
   | "revision"
   | "family_alpha"
   | "confidence_level"
@@ -34,6 +35,7 @@ export type StudyDraft = Omit<
   | "target_half_width"
   | "guard_quantile"
 > & {
+  name: string;
   revision: string;
   family_alpha: string;
   confidence_level: string;
@@ -52,6 +54,7 @@ export type StudyDraft = Omit<
 export function newDraft(): StudyDraft {
   return {
     study_id: "",
+    name: "",
     revision: "",
     seed: "",
     family_id: "",
@@ -110,10 +113,12 @@ export function isStudyDraft(value: unknown): value is StudyDraft {
   const v = value as Record<string, unknown>;
   const sample = newDraft();
   return (
-    Object.entries(sample).every(([key, field]) =>
-      typeof field === "string"
-        ? typeof v[key] === "string"
-        : Array.isArray(v[key]),
+    Object.entries(sample).every(
+      ([key, field]) =>
+        (key === "name" && v[key] === undefined) ||
+        (typeof field === "string"
+          ? typeof v[key] === "string"
+          : Array.isArray(v[key])),
     ) &&
     (v.allowed_action_types as unknown[]).every((x) => typeof x === "string") &&
     (v.rules as unknown[]).every((x) => typeof x === "string") &&

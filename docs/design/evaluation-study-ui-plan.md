@@ -1,6 +1,9 @@
 # Study UI integration plan
 
-Updated: 2026-11-07.
+Updated: 2026-11-12.
+
+Baseline: native Study UI commit `b2f58b4`.
+The [minimal identity amendment](#amendment-automatic-identifiers-and-optional-study-name) defines the implemented follow-up scope and replaces the earlier expanded proposal.
 
 The cleanup in [Legacy retirement](#legacy-retirement) remains complete.
 Proposed function, type and file names can change during implementation. Their responsibilities and the agreed behavior remain fixed.
@@ -12,7 +15,8 @@ Proposed function, type and file names can change during implementation. Their r
 | Workflow | Full cycle: define a revision, run Pilot, review, approve Final, continue execution and read results |
 | Location | New Study document type in the existing dashboard workspace |
 | Document identity | One document per revision, containing its execution history and selected execution |
-| Authoring | Structured form controls the definition |
+| Authoring | Structured settings, optional Study name and automatically supplied Study/Family IDs |
+| Revision number | Retain the existing explicit revision-number input |
 | YAML | Generated, read-only view with copy/download; no YAML import or two-way editing |
 | Progression | Manual Continue; no background study coordinator |
 | Components | Reuse existing components; add missing reusable controls to the UI kit |
@@ -24,13 +28,41 @@ Implementation defaults proposed for the first version:
 
 - Restore unfinished forms through existing workspace persistence. Server-side draft storage is outside this version.
 - Keep study controls inside the document. Preserve the current graph/simulation/optimization ribbon.
-- Use existing storage. Add indexes only if the new query workload requires them.
-- Use a YAML serializer for presentation. Select the package during implementation; no YAML-writing library is currently declared.
+- Use existing storage and the existing YAML serializer.
 - Keep notification history in the client session. Stored execution state supplies the facts needed after reconnect.
+
+## Amendment: automatic identifiers and optional Study name
+
+Remove the **Study ID** and **Family ID** controls. Add an optional **Study name**.
+Keep the revision-number input and scientific settings unchanged.
+
+### Smallest implementation
+
+1. **Reuse the options request.** Send the existing workspace document UUID with `fetch_study_options`. Elixir derives stable default Study/Family IDs from it and returns them with the options. Fill only blank draft IDs. Existing persistence keeps them stable across reload; YAML and Freeze use the same values.
+2. **Use the existing definition JSON for the name.** Add a nullable name to the study declaration and current projections/contracts. The codec already supports missing nullable/default fields. Normalize blank names to absent in the backend. Show the name in titles and the picker, with Study ID as fallback; include it in YAML and the existing search query.
+3. **Reuse creation and cloning.** Keep the existing Freeze request, shared constructor, Study ID/revision uniqueness and conflict handling. Cloning keeps its current IDs and copies the name; the user enters the new revision number.
+
+```text
+Document UUID -> existing options request -> default IDs
+Draft fields + optional name -> existing Freeze -> saved definition
+```
+
+Preserve saved IDs, existing draft fields, lazy recovery, lost-reply feedback and request guards.
+A missing name means unnamed. Names leave scientific seeds, comparison membership and inference unchanged.
+
+**Excluded:** new endpoints, authoring-key storage, database columns/indexes, snapshot versions, recovery state machines and automatic save retries.
+If existing JSON storage cannot support the change, stop and explain the blocker before expanding scope.
+
+### Verification
+
+Update the existing backend authoring test and rendered form test for stable IDs, optional-name round-trip and removed controls.
+Reuse existing clone/recovery coverage; add a missing-name compatibility assertion only if needed.
+Run the focused Study frontend tests and `mix precommit` once after implementation.
+Skip new test suites, fault-injection matrices, full browser lifecycle journeys and recalibration.
 
 ## Initial implementation baseline
 
-This table records the starting state of the integration work. The implementation record above describes the delivered browser integration.
+This table records the starting state of the original integration work.
 
 The supported facade is [`NetworkDefense.Evaluation2.Study`](../../src/lib/network_defense/evaluation2/study.ex).
 The [study overview](../concepts/evaluation-study-overview.md), [operator guide](../evaluation2.md) and
@@ -165,12 +197,11 @@ The inspector supplies context and selected-row details. Scientific inputs remai
 | FORM                                                       | GENERATED YAML                  |
 |                                                            | Read-only         [Copy] [Save] |
 | IDENTITY                                                   | ------------------------------- |
-| Study ID          [......................................] | <serialized authored fields>    |
+| Study name (optional) [..................................] | <serialized authored fields>    |
 | Revision          [........]                               |                                 |
 | Master seed       [......................................] | Updates from the form.          |
 |                                                            |                                 |
 | ANALYSIS                                                   |                                 |
-| Family ID         [......................................] |                                 |
 | Family alpha      [........]                               |                                 |
 | Confidence level  [........]                               |                                 |
 |                                                            |                                 |
@@ -221,6 +252,7 @@ Form behavior:
 - A graph revision constrains foothold selection to its Hosts. Reuse the existing graph read/picker path.
 - Each tier has independent budgets and alternatives. Scoring fields appear only for strategies that require them.
 - Scientific defaults must be explicit. The illustrative YAML template is not a source of recommended research settings.
+- Study name is optional. IDs are supplied once through the existing options load and stay out of editable controls.
 - Freeze sends unchanged form text to the backend. The web boundary casts numeric fields and returns field-path errors; the shared definition constructor validates scientific settings.
 - Preserve backend issue paths when available. General constructor errors appear in the form summary.
 - Changing the form regenerates YAML. Preserve seed precision during scalar conversion.
@@ -249,7 +281,7 @@ Form behavior:
 ```
 
 The frozen view comes from the saved typed definition. The backend does not retain original YAML text.
-Create revision from this copies declared settings into a new draft. The user supplies and confirms its revision identity.
+Create revision from this copies settings, existing IDs and the optional name into a new draft. The user supplies and confirms the new revision number.
 
 ### Execution history and status
 
@@ -651,7 +683,7 @@ P1 precedes P2/P3. P4 builds on the execution model. Each phase keeps the existi
 ## Execution goal
 
 The [Pi execution goal](../inprogress/evaluation-study-ui-goal.txt) converts this plan into one pasteable `/goal` command.
-It includes the agreed behavior and P1-P5 acceptance requirements. Saving the command does not activate goal mode.
+It describes the original P1-P5 work. Update the saved command to the smaller identity-amendment scope before using it for that work. Saving the command does not activate goal mode.
 
 | Goal part | Contract |
 |---|---|
@@ -663,6 +695,9 @@ It includes the agreed behavior and P1-P5 acceptance requirements. Saving the co
 | Blocked stop | Report verified work, attempted paths, exact blocker, uncertainty and next input |
 
 ## Verification
+
+For the identity amendment, use its focused verification above plus normal precommit checks.
+The requirements below describe the original full integration; repeat additional checks only for behavior affected by the change.
 
 Use focused checks for distinct risks:
 

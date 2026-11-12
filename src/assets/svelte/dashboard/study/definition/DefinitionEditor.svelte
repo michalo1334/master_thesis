@@ -37,7 +37,7 @@
   async function freeze() {
     if (
       globalThis.confirm(
-        `Freeze study ${d.study_id}, revision ${d.revision}? The saved definition is immutable.`,
+        `Freeze study ${d.name.trim() || d.study_id}, revision ${d.revision}? The saved definition is immutable.`,
       )
     ) {
       await document.freeze();
@@ -68,12 +68,12 @@
         backend checks.
       </p>
       <fieldset>
-        <legend>Identity</legend>
+        <legend>Study</legend>
         <div class="fields">
           <TextInput
-            label="Study ID"
-            bind:value={d.study_id}
-            error={model.fieldError("study_id")}
+            label="Study name (optional)"
+            bind:value={d.name}
+            error={model.fieldError("name")}
           />
           <TextInput
             label="Revision"
@@ -92,11 +92,6 @@
       <fieldset>
         <legend>Analysis</legend>
         <div class="fields">
-          <TextInput
-            label="Family ID"
-            bind:value={d.family_id}
-            error={model.fieldError("family_id")}
-          />
           <TextInput
             label="Family alpha"
             bind:value={d.family_alpha}
@@ -277,7 +272,9 @@
     {#if model.formError}<pre>{errorText(
           model.formError,
         )}</pre>{:else if model.error}<p>Review the highlighted fields.</p>{/if}
-    <button type="submit" disabled={model.freezing}
+    <button
+      type="submit"
+      disabled={model.freezing || !d.study_id || !d.family_id}
       >{model.freezing ? "Freezing…" : "Freeze revision"}</button
     >
   </div>

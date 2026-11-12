@@ -19,6 +19,7 @@
       "required": ["id", "revision"],
       "properties": {
         "id": {"$ref": "#/definitions/identifier"},
+        "name": {"type": ["string", "null"]},
         "revision": {
           "type": "integer",
           "minimum": 1,

@@ -16,7 +16,7 @@ describe("Study authoring and workspace", () => {
   it("sends explicit blank fields unchanged for backend validation", () => {
     const model = new StudyDefinitionModel();
     expect(model.draft).toEqual(newDraft());
-    expect(model.toWire()).toEqual(newDraft());
+    expect(model.toWire()).toEqual({ ...newDraft(), name: null });
     expect(model.error).toBeNull();
     model.draft.revision = "-1.5";
     model.draft.family_alpha = "not a number";
@@ -90,10 +90,14 @@ describe("Study authoring and workspace", () => {
     document.definition.draft.revision = "4";
     document.definition.draft.seed = "9007199254740993";
     const saved = document.toPersisted();
+    delete (saved.data!.draft as Partial<typeof document.definition.draft>)
+      .name;
     expect(JSON.stringify(saved)).not.toContain("pendingRequest");
     const restored = StudyDocument.fromPersisted(saved, { api, workspace })!;
     expect(restored.definition.draft.seed).toBe("9007199254740993");
     expect(restored.definition.draft.revision).toBe("4");
+    expect(restored.definition.draft.name).toBe("");
+    expect(restored.definition.draft.study_id).toBe(definition.study_id);
     expect(
       api.studyRequest.mock.calls.every(
         ([event]) => !event.includes("continue") && !event.includes("start_"),
@@ -281,6 +285,8 @@ describe("Study authoring and workspace", () => {
     const document = workspace.createStudyDraft(definition);
     expect(document.definition.draft.revision).toBe("");
     expect(document.definition.draft.seed).toBe(definition.seed);
+    expect(document.definition.draft.study_id).toBe(definition.study_id);
+    expect(document.definition.draft.family_id).toBe(definition.family_id);
   });
   it("clears attention for a reviewed completion and keeps background execution attention", async () => {
     const api = apiFixture();

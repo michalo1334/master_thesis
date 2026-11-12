@@ -14,7 +14,11 @@
   {@const d = detail.authored}
   <section class="frozen-definition" aria-label="Frozen study definition">
     <div class="facts">
-      <p><strong>Study:</strong> {d.study_id} · Revision {d.revision}</p>
+      <p>
+        <strong>Study:</strong>
+        {d.name || d.study_id} · Revision {d.revision}
+      </p>
+      {#if d.name}<p><strong>Study ID:</strong> {d.study_id}</p>{/if}
       <p><strong>Master seed:</strong> {d.seed}</p>
       <p>
         <strong>Family:</strong>
@@ -106,7 +110,7 @@
     <details>
       <summary>Derived structure and frozen context</summary>
       <dl>
-        {#each Object.entries(detail.structure) as [key, value]}<dt>
+        {#each Object.entries(detail.structure) as [key, value] (key)}<dt>
             {key.replaceAll("_", " ")}
           </dt>
           <dd>{String(value)}</dd>{/each}

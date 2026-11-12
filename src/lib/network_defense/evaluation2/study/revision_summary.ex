@@ -2,13 +2,12 @@ defmodule NetworkDefense.Evaluation2.Study.RevisionSummary do
   @moduledoc """
   Browse entry of one frozen revision.
 
-  The value names the declared revision identity, the creation time, the number
-  of stored executions and the state of the most recently changed execution.
+  The value contains the optional display name, declared revision identity,
+  creation time, stored execution count and most recently changed execution state.
   `latest_state` is nil when the revision has no execution, so an existing
   revision without executions stays distinguishable from a missing revision.
 
-  The entry holds no definition, report or collection matrix, so listing
-  revisions never reads stored scientific payloads.
+  SQL projects the name and scalar browse fields into compact application summaries.
   """
 
   use Spectral
@@ -18,10 +17,11 @@ defmodule NetworkDefense.Evaluation2.Study.RevisionSummary do
 
   @type t :: %__MODULE__{
           revision: Revision.t(),
+          name: String.t() | nil,
           created_at: DateTime.t(),
           execution_count: non_neg_integer(),
           latest_state: Lifecycle.state() | nil
         }
 
-  defstruct [:revision, :created_at, :execution_count, :latest_state]
+  defstruct [:revision, :name, :created_at, :execution_count, :latest_state]
 end

@@ -12,6 +12,7 @@ import type {
 } from "../../contracts.generated/dashboard/study";
 export const definition: Definition = {
   study_id: "browser-test",
+  name: null,
   revision: 1,
   seed: "9007199254740993",
   family_id: "family",
@@ -39,6 +40,8 @@ export const definition: Definition = {
   guard_quantile: 0.9,
 };
 export const options: DefinitionOptions = {
+  study_id: "default-study",
+  family_id: "default-family",
   actions: ["patch_vulnerability"],
   rules: ["remote_service_exploitation"],
   alternatives: [

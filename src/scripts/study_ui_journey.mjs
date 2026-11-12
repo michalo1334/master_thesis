@@ -94,10 +94,9 @@ try {
     )
   )
     throw new Error("Blank scientific fields did not reach backend validation");
-  await fill("Study ID", input.study_id);
+  await fill("Study name (optional)", input.study_id);
   await fill("Revision", input.revision);
   await fill("Master seed", input.seed);
-  await fill("Family ID", input.family_id);
   await fill("Family alpha", input.family_alpha);
   await fill("Confidence level", input.confidence_level);
   await select("Feasibility", "Unrestricted");

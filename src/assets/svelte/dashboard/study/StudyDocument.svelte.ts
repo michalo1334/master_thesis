@@ -69,9 +69,13 @@ export class StudyDocument extends WorkspaceDocumentBase {
   }
 
   get title(): string {
+    const name = (
+      this.detail?.authored.name ?? this.definition.draft.name
+    ).trim();
+    if (this.persistedData) return (this.persistedData as PersistedStudy).title;
     return this.revision
-      ? `Study: ${this.revision.study_id} r${this.revision.revision}`
-      : `Study draft${this.definition.draft.study_id ? ": " + this.definition.draft.study_id : ""}`;
+      ? `Study: ${name || this.revision.study_id} r${this.revision.revision}`
+      : `Study draft${name ? ": " + name : ""}`;
   }
   get hasAttention(): boolean {
     return this.executionModels.some((model) => model.attention);
@@ -118,10 +122,16 @@ export class StudyDocument extends WorkspaceDocumentBase {
     this.loading = true;
     this.loaded = true;
     try {
-      const options = await this.api.studyRequest("fetch_study_options");
+      const options = await this.api.studyRequest("fetch_study_options", {
+        document_id: this.id,
+      });
       if (this.disposed) return;
       this.definition.options = options.options ?? null;
       this.definition.error = options.error ?? null;
+      if (!this.revision && options.options) {
+        this.definition.draft.study_id ||= options.options.study_id ?? "";
+        this.definition.draft.family_id ||= options.options.family_id ?? "";
+      }
       if (this.revision) {
         const reply = await this.api.studyRequest("fetch_study_revision", {
           revision: this.revision,
@@ -368,7 +378,10 @@ export class StudyDocument extends WorkspaceDocumentBase {
         : undefined;
     const document = new StudyDocument(identity, data.ids.document_id);
     if (!identity && data.data?.draft)
-      document.definition.draft = structuredClone(data.data.draft);
+      document.definition.draft = {
+        ...structuredClone(data.data.draft),
+        name: data.data.draft.name ?? "",
+      };
     document.setPersisted(data);
     return document;
   }

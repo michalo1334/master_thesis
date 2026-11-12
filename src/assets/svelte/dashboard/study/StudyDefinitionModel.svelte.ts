@@ -39,7 +39,12 @@ export class StudyDefinitionModel {
 
   private fieldPaths(): string[] {
     const fields = Object.entries(this.draft)
-      .filter(([, value]) => typeof value === "string")
+      .filter(
+        ([key, value]) =>
+          typeof value === "string" &&
+          key !== "study_id" &&
+          key !== "family_id",
+      )
       .map(([key]) => key);
     fields.push("allowed_action_types", "rules", "candidates");
     this.draft.candidates.forEach((candidate, index) =>
@@ -80,6 +85,7 @@ export class StudyDefinitionModel {
     let path = input[0] === "definition" ? input.slice(1) : [...input];
     const aliases: Record<string, string> = {
       "study.id": "study_id",
+      "study.name": "name",
       "study.revision": "revision",
       "family.id": "family_id",
       "family.alpha": "family_alpha",
@@ -128,7 +134,11 @@ export class StudyDefinitionModel {
     const n = (v: string) =>
       v.trim() === "" ? null : Number.isFinite(Number(v)) ? Number(v) : v;
     return {
-      study: { id: d.study_id, revision: n(d.revision) },
+      study: {
+        id: d.study_id,
+        revision: n(d.revision),
+        ...(d.name ? { name: d.name } : {}),
+      },
       seed: /^\d+$/.test(d.seed) ? BigInt(d.seed) : d.seed,
       family: { id: d.family_id, alpha: n(d.family_alpha) },
       analysis: { confidence_level: n(d.confidence_level) },
@@ -186,6 +196,7 @@ export class StudyDefinitionModel {
     const d = this.draft;
     return {
       ...d,
+      name: d.name || null,
       allowed_action_types: [...d.allowed_action_types],
       rules: [...d.rules],
       tiers: d.tiers.map((t) => ({
