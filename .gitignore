@@ -8,21 +8,12 @@ infra/environments/local/secrets/
 infra/environments/local/.env
 local-results/
 
-# Peru local import state and cache
-.peru/
-.agent-lib/backups/
-# BEGIN agent-lib
-.agent-lib/state/
-.agent-lib/backups/
-.peru/
-.pi/npm/
-.pi/git/
-.pi/node_modules/
-.pi/package.json
-.pi/package-lock.json
-.pi/bun.lock
-.pi/ssh-mcp/config.toml
 __pycache__/
 *.pyc
 *.egg-info/
-# END agent-lib
+
+# Track project Pi resources; ignore generated package caches
+!.pi/
+!.pi/**
+.pi/npm/
+.pi/git/

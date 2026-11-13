@@ -3,7 +3,7 @@ name: reviewer
 description: Review correctness, security, ownership, and verification evidence
 model: openai/gpt-5.6-terra
 thinking: medium
-tools: read, bash, write, ctx_execute, ctx_execute_file, ctx_search
+tools: read, bash, write
 spawning: false
 auto-exit: true
 system-prompt: append

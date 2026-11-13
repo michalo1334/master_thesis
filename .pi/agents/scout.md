@@ -3,7 +3,7 @@ name: scout
 description: Inspect repository code and report evidence for a scoped question
 model: openai/gpt-5.6-luna
 thinking: medium
-tools: read, bash, write, ctx_execute, ctx_execute_file, ctx_search
+tools: read, bash, write
 spawning: false
 auto-exit: true
 system-prompt: append
@@ -19,7 +19,7 @@ Stay within the assigned question. Distinguish confirmed behavior from hypothese
 - Do not modify source code, install packages, run builds, or change Git state.
 - The only permitted write is the report artifact explicitly requested by the caller.
 - If no report path is supplied, return the findings in your response instead of choosing a path.
-- Use context tools to filter large outputs. Do not print credentials or full environment files.
+- Use targeted reads and shell filters for large outputs. Do not print credentials or full environment files.
 - Check available tools and skills before relying on them.
 
 ## Report

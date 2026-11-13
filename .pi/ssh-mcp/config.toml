@@ -1,0 +1,26 @@
+# SSH MCP Server configuration — repo-local.
+# Docs: https://github.com/tufantunc/ssh-mcp
+#
+# The server refuses to start with no profiles, so an example "dev" profile is
+# active below. Replace host/user/keyRef with your real host before use.
+# Never use a root account. Keep this file private (mode 0600, dir 0700).
+
+[defaults]
+defaultProfile = "dev"
+approvalMode = "ask-destructive"   # auto | ask-destructive | ask-all | deny
+
+[[profiles]]
+name = "dev"
+host = "192.168.1.100"             # EDIT ME
+port = 22
+user = "deploy"                    # EDIT ME — NOT root!
+auth = "key"                       # key | agent | password | keychain
+keyRef = "~/.ssh/id_ed25519"       # EDIT ME — for auth = "key"
+role = "admin"                     # viewer | operator | admin
+group = "dev"                      # policy tier: prod | staging | dev (or custom)
+approvalPolicy = "ask-destructive" # auto | ask-destructive | ask-all | deny
+
+# Add more hosts as additional [[profiles]] blocks.
+#
+# Credentials never go on the command line. Use env vars (SSH_MCP_PASSWORD,
+# SSH_MCP_KEY, ...), the SSH agent, or the OS keychain instead.
