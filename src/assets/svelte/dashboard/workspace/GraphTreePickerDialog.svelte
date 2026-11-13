@@ -244,6 +244,7 @@
             <div class="graph-tree-toolbar">
               <Button.Root
                 type="button"
+                class="dashboard-action-button"
                 onclick={expandAllGraphs}
                 disabled={isSelecting}
               >
@@ -251,6 +252,7 @@
               </Button.Root>
               <Button.Root
                 type="button"
+                class="dashboard-action-button"
                 onclick={collapseAllGraphs}
                 disabled={isSelecting}
               >
@@ -297,7 +299,10 @@
         {/if}
 
         <div class="graph-tree-picker-actions">
-          <Dialog.Close class="graph-tree-picker-button" disabled={isSelecting}>
+          <Dialog.Close
+            class="graph-tree-picker-button dashboard-action-button"
+            disabled={isSelecting}
+          >
             Cancel
           </Dialog.Close>
         </div>
@@ -329,6 +334,7 @@
     background: var(--ui-color-paper);
     box-shadow: var(--ui-shadow-md);
     color: var(--ui-color-text);
+    font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
     transform: translate(-50%, -50%);
   }
 
@@ -365,17 +371,11 @@
     border-bottom: 1px solid var(--ui-color-border-soft);
   }
 
-  .graph-tree-toolbar :global(button),
   :global(.graph-tree-toggle) {
     border: 1px solid var(--ui-color-border);
     border-radius: var(--ui-radius-sm);
     background: var(--ui-color-surface);
     color: inherit;
-  }
-
-  .graph-tree-toolbar :global(button) {
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.75rem;
   }
 
   .graph-tree-picker-table th {
@@ -498,8 +498,7 @@
 
   .graph-tree-select:disabled,
   .graph-tree-favorite:disabled,
-  :global(.graph-tree-toggle:disabled),
-  .graph-tree-toolbar :global(button:disabled) {
+  :global(.graph-tree-toggle:disabled) {
     cursor: default;
     color: var(--ui-color-text-faint);
   }
@@ -543,19 +542,6 @@
     display: flex;
     justify-content: flex-end;
     margin-top: var(--ui-space-4);
-  }
-
-  :global(.graph-tree-picker-button) {
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.75rem;
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-md);
-    background: var(--ui-color-surface);
-    color: inherit;
-  }
-
-  :global(.graph-tree-picker-button:not(:disabled):hover) {
-    filter: brightness(0.96);
   }
 
   @media (max-width: 30rem) {

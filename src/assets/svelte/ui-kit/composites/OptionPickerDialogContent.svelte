@@ -114,13 +114,13 @@
 
     <div class="option-picker-actions">
       <Dialog.Close
-        class="option-picker-button option-picker-cancel"
+        class="dashboard-action-button option-picker-button option-picker-cancel"
         disabled={isConfirming}
       >
         Cancel
       </Dialog.Close>
       <button
-        class="option-picker-button option-picker-confirm"
+        class="dashboard-action-button option-picker-button option-picker-confirm"
         type="button"
         disabled={!canConfirm}
         onclick={handleConfirm}
@@ -154,6 +154,7 @@
     background: var(--ui-color-paper);
     box-shadow: var(--ui-shadow-md);
     color: var(--ui-color-text);
+    font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
     transform: translate(-50%, -50%);
   }
 
@@ -188,27 +189,9 @@
     margin-top: var(--ui-space-4);
   }
 
-  :global(.option-picker-button) {
-    min-height: var(--ui-control-height);
-    padding: 0.375rem 0.75rem;
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-md);
-    background: var(--ui-color-surface);
-    color: inherit;
-  }
-
-  :global(.option-picker-confirm) {
+  :global(.dashboard-action-button.option-picker-confirm) {
     border-color: var(--ui-color-accent);
     background: var(--ui-color-accent);
     color: var(--ui-color-paper);
-  }
-
-  :global(.option-picker-button:not(:disabled):hover) {
-    filter: brightness(0.96);
-  }
-
-  :global(.option-picker-button:disabled) {
-    cursor: default;
-    opacity: 0.55;
   }
 </style>

@@ -43,6 +43,7 @@
   <legend>{tier.tier}</legend>
   <div class="row">
     <button
+      class="dashboard-action-button"
       type="button"
       data-invalid={fieldError("graph_revision_id") ? "true" : undefined}
       aria-describedby={fieldError("graph_revision_id")
@@ -57,6 +58,7 @@
         (tier.graph_revision_id || "No revision selected")}</span
     >
     {#if tier.graph_revision_id}<button
+        class="dashboard-action-button"
         type="button"
         onclick={() => onOpenGraph(tier.graph_revision_id)}>Open graph</button
       >{/if}
@@ -89,6 +91,7 @@
           onchange={(value) => (tier.budgets[index] = value)}
         />
         <button
+          class="dashboard-action-button"
           type="button"
           aria-label={`Remove ${tier.tier} budget ${index + 1}`}
           onclick={() => {
@@ -98,8 +101,10 @@
         >
       </div>
     {/each}
-    <button type="button" onclick={() => tier.budgets.push("")}
-      >Add budget</button
+    <button
+      class="dashboard-action-button"
+      type="button"
+      onclick={() => tier.budgets.push("")}>Add budget</button
     >
   </div>
   <FieldError error={fieldError("budgets")} />
@@ -136,6 +141,7 @@
         />
       {/if}
       <button
+        class="dashboard-action-button"
         type="button"
         aria-label={`Remove ${tier.tier} alternative ${index + 1}`}
         onclick={() => {
@@ -146,6 +152,7 @@
     </div>
   {/each}
   <button
+    class="dashboard-action-button"
     type="button"
     onclick={() =>
       tier.alternatives.push({

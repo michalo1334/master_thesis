@@ -201,9 +201,9 @@
     box-sizing: border-box;
   }
 
-  .dashboard-app :global(button),
-  .dashboard-app :global(input),
-  .dashboard-app :global(select) {
+  :global(
+    :where(.dashboard-app button, .dashboard-app input, .dashboard-app select)
+  ) {
     color: inherit;
     font: inherit;
   }

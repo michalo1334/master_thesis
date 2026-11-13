@@ -25,9 +25,10 @@
 <section class="yaml-view" aria-label="Generated YAML">
   <header>
     <h3>Generated YAML · read-only</h3>
-    <button type="button" onclick={copy}>Copy YAML</button><button
-      type="button"
-      onclick={download}>Download YAML</button
+    <button class="dashboard-action-button" type="button" onclick={copy}
+      >Copy YAML</button
+    ><button class="dashboard-action-button" type="button" onclick={download}
+      >Download YAML</button
     >
   </header>
   <textarea readonly aria-label="Read-only YAML" value={yaml} rows={25}

@@ -18,10 +18,13 @@
       <h1>{document.title}</h1>
     </div>
     <div class="study-actions">
-      <button type="button" onclick={() => void document.load()}
-        >Refresh study</button
+      <button
+        class="dashboard-action-button"
+        type="button"
+        onclick={() => void document.load()}>Refresh study</button
       >
       {#if !document.isDraft}<button
+          class="dashboard-action-button"
           type="button"
           disabled={!document.detail}
           onclick={() => document.clone()}>Create revision from this</button
@@ -53,6 +56,7 @@
     <Tabs.Content value="executions">
       <div class="study-actions history-actions">
         <button
+          class="dashboard-action-button"
           type="button"
           disabled={document.starting ||
             document.startUncertain ||
@@ -60,7 +64,10 @@
           onclick={() => void document.start()}
           >{document.starting ? "Starting…" : "Start new Pilot"}</button
         >
-        <button type="button" onclick={() => void document.refreshExecutions()}
+        <button
+          class="dashboard-action-button"
+          type="button"
+          onclick={() => void document.refreshExecutions()}
           >Refresh execution history</button
         >
       </div>
@@ -170,25 +177,27 @@
     overflow: auto;
     margin-bottom: var(--ui-space-4);
   }
-  .study-document :global(button) {
-    border: 1px solid var(--ui-color-border);
-    border-radius: var(--ui-radius-sm);
-    padding: var(--ui-space-2) var(--ui-space-3);
-    background: var(--ui-color-paper);
-    color: var(--ui-color-text);
-  }
-  .study-document :global(button:disabled) {
-    opacity: 0.5;
-    cursor: default;
-  }
-  .study-document :global(button:focus-visible) {
-    outline: 2px solid var(--ui-color-accent);
-    outline-offset: 2px;
-  }
   .study-document :global([role="tablist"]) {
     display: flex;
     gap: var(--ui-space-2);
     margin-bottom: var(--ui-space-3);
+  }
+  .study-document :global([role="tab"]) {
+    min-height: var(--ui-control-height);
+    padding: var(--ui-space-2) var(--ui-space-3);
+    border: 1px solid var(--ui-color-border);
+    border-radius: var(--ui-radius-sm);
+    background: transparent;
+    color: var(--ui-color-text);
+    font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
+  }
+  .study-document :global([role="tab"]:disabled) {
+    opacity: 0.55;
+    cursor: default;
+  }
+  .study-document :global([role="tab"]:focus-visible) {
+    outline: 2px solid var(--ui-color-focus);
+    outline-offset: 2px;
   }
   .study-document :global([role="tab"][data-state="active"]) {
     border-bottom: 2px solid var(--ui-color-accent);

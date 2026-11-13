@@ -108,6 +108,7 @@
       <p role="status">{message}</p>
       <footer>
         <button
+          class="dashboard-action-button"
           type="button"
           onclick={() => {
             workspace.createStudyDraft();
@@ -115,10 +116,11 @@
           }}>New study revision</button
         >
         <button
+          class="dashboard-action-button"
           type="button"
           disabled={!selected.length || loading}
           onclick={openSelected}>Open selected</button
-        ><Dialog.Close>Close</Dialog.Close>
+        ><Dialog.Close class="dashboard-action-button">Close</Dialog.Close>
       </footer>
     </Dialog.Content></Dialog.Portal
   >
@@ -137,12 +139,21 @@
     z-index: 61;
     background: var(--ui-color-paper);
     color: var(--ui-color-text);
+    font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
     padding: var(--ui-space-4);
     display: flex;
     flex-direction: column;
     gap: var(--ui-space-3);
     border: 1px solid var(--ui-color-border);
     border-radius: var(--ui-radius-md);
+  }
+  :global(.study-picker [data-dialog-title]) {
+    margin: 0;
+    font-size: var(--ui-text-xl);
+  }
+  :global(.study-picker [data-dialog-description]) {
+    margin: var(--ui-space-2) 0 0;
+    color: var(--ui-color-text-secondary);
   }
   .study-picker-table {
     flex: 1;

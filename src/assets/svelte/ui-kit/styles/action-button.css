@@ -1,0 +1,24 @@
+.dashboard-action-button {
+  min-height: var(--ui-control-height);
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--ui-color-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-color-surface);
+  color: var(--ui-color-text);
+  font: var(--ui-text-lg) / var(--ui-line-height) var(--ui-font-ui);
+  cursor: pointer;
+}
+
+.dashboard-action-button:not(:disabled):hover {
+  filter: brightness(0.96);
+}
+
+.dashboard-action-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dashboard-action-button:focus-visible {
+  outline: 2px solid var(--ui-color-focus);
+  outline-offset: 2px;
+}

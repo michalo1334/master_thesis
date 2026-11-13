@@ -119,6 +119,7 @@
           onchange={(value) => (d.feasibility = value)}
         />
         <button
+          class="dashboard-action-button"
           type="button"
           data-invalid={model.fieldError("allowed_action_types")
             ? "true"
@@ -154,6 +155,7 @@
           />
         </div>
         <button
+          class="dashboard-action-button"
           type="button"
           data-invalid={model.fieldError("rules") ? "true" : undefined}
           aria-describedby={model.fieldError("rules")
@@ -203,6 +205,7 @@
               inputmode="numeric"
             />
             <button
+              class="dashboard-action-button"
               type="button"
               aria-label={`Remove candidate ${index + 1}`}
               onclick={() => {
@@ -213,6 +216,7 @@
           </div>
         {/each}
         <button
+          class="dashboard-action-button"
           type="button"
           onclick={() => d.candidates.push({ id: "", plans: "", attacks: "" })}
           >Add candidate</button
@@ -273,6 +277,7 @@
           model.formError,
         )}</pre>{:else if model.error}<p>Review the highlighted fields.</p>{/if}
     <button
+      class="dashboard-action-button"
       type="submit"
       disabled={model.freezing || !d.study_id || !d.family_id}
       >{model.freezing ? "Freezing…" : "Freeze revision"}</button

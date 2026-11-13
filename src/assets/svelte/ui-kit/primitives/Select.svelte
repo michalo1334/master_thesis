@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Select } from "bits-ui";
   import FieldError from "./FieldError.svelte";
+  import Icon from "./Icon.svelte";
 
   interface SelectOption {
     value: string;
@@ -74,7 +75,9 @@
       aria-describedby={description}
     >
       <Select.Value {placeholder} />
-      <span class="dashboard-select-caret" aria-hidden="true">▾</span>
+      <span class="dashboard-select-caret" aria-hidden="true"
+        ><Icon name="chevron-down" size={14} /></span
+      >
     </Select.Trigger>
     <Select.Portal>
       <Select.Content class="dashboard-select-content" sideOffset={4}>
@@ -131,7 +134,11 @@
     text-align: start;
   }
 
-  :global(.dashboard-select-control:not(:disabled):hover) {
+  :global(
+    .dashboard-select-control:not(:disabled):not([aria-invalid="true"]):not(
+        [data-invalid="true"]
+      ):hover
+  ) {
     border-color: var(--ui-color-accent);
   }
 
@@ -156,7 +163,6 @@
 
   .dashboard-select-caret {
     flex: none;
-    font-size: var(--ui-text-xs);
   }
 
   :global(.dashboard-select-content) {

@@ -1,3 +1,5 @@
+@import "../svelte/ui-kit/styles/action-button.css";
+
 .dashboard-menu-content,
 .dashboard-menu-content * {
   box-sizing: border-box;

@@ -123,6 +123,7 @@
               .outcome.attacks_per_plan} attacks per plan.
           </p>
           <button
+            class="dashboard-action-button"
             id="study-approve-recommended"
             type="button"
             disabled={model.commandPending}
@@ -151,6 +152,7 @@
             bind:checked={model.overrideConfirmed}
           />
           <button
+            class="dashboard-action-button"
             id="study-approve-override"
             type="button"
             disabled={model.commandPending || !model.overrideConfirmed}

@@ -115,16 +115,20 @@
       </p>
       <div class="actions">
         <button
+          class="dashboard-action-button"
           id="study-continue"
           type="button"
           disabled={!model.canContinue}
           onclick={() => void model.continue()}
           >{model.pendingRequestId ? "Continue pending…" : "Continue"}</button
         >
-        <button type="button" onclick={() => void model.refresh()}
-          >Refresh status</button
+        <button
+          class="dashboard-action-button"
+          type="button"
+          onclick={() => void model.refresh()}>Refresh status</button
         >
         <button
+          class="dashboard-action-button"
           type="button"
           disabled={!model.canCancel}
           onclick={() => void cancel()}>Cancel execution</button
@@ -134,9 +138,13 @@
           Continuation request active. Switching tabs preserves this request.
         </p>{/if}
       {#if model.lifecycle?.restartable}<div class="actions">
-          <button type="button" onclick={() => (document.tab = "definition")}
+          <button
+            class="dashboard-action-button"
+            type="button"
+            onclick={() => (document.tab = "definition")}
             >View definition</button
           ><button
+            class="dashboard-action-button"
             type="button"
             disabled={document.starting || document.startUncertain}
             onclick={() => void document.start()}>Start new execution</button
@@ -145,8 +153,10 @@
     </Tabs.Content>
     <Tabs.Content value="pilot"
       ><PilotReview {model} />
-      {#if model.canCancel}<button type="button" onclick={() => void cancel()}
-          >Cancel execution</button
+      {#if model.canCancel}<button
+          class="dashboard-action-button"
+          type="button"
+          onclick={() => void cancel()}>Cancel execution</button
         >{/if}
     </Tabs.Content>
     <Tabs.Content value="results"><FinalResults {model} /></Tabs.Content>
