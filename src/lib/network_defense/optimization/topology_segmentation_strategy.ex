@@ -32,7 +32,7 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategy do
   end
 
   defimpl Strategy, for: __MODULE__ do
-    use Boundary, classify_to: NetworkDefense
+    use Boundary, classify_to: NetworkDefense.Optimization
 
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Topology segmentation strategy"
