@@ -2,11 +2,11 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
   @moduledoc false
 
   alias Ecto.Changeset
-  alias NetworkDefense.Rules.Registry, as: RulesRegistry
+  alias NetworkDefense.Simulation.RuleSelection
 
   use NetworkDefense.Contracts, category: :simulation
 
-  @enum_values [rules: RulesRegistry.values()]
+  @enum_values [rules: RuleSelection.values()]
 
   def contract_meta, do: %{enum_values: @enum_values}
 
@@ -17,7 +17,7 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
     field :seed, :integer
     field :generate_seed, :boolean, default: false
     field :max_attempts, :integer, default: 1
-    field :rules, {:array, Ecto.Enum}, values: RulesRegistry.values()
+    field :rules, {:array, Ecto.Enum}, values: RuleSelection.values()
     field :require_pre_attack_feasibility, :boolean
   end
 
@@ -28,7 +28,7 @@ defmodule NetworkDefense.Simulation.Contracts.SimulationParams do
           seed: integer(),
           generate_seed: boolean(),
           max_attempts: pos_integer(),
-          rules: [RulesRegistry.rule_type()],
+          rules: [RuleSelection.rule_type()],
           require_pre_attack_feasibility: boolean()
         }
 

@@ -3,7 +3,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Simulation do
 
   use Spectral
 
-  alias NetworkDefense.Rules.Registry, as: RulesRegistry
+  alias NetworkDefense.Simulation.RuleSelection
 
   # One study-level simulation model. Scoring and evidence collection execute
   # the same declared model; only objectives and scoring effort are
@@ -12,7 +12,7 @@ defmodule NetworkDefense.Evaluation2.Study.Definition.Simulation do
   @type t :: %__MODULE__{
           iterations_per_run: pos_integer(),
           max_attempts: pos_integer(),
-          rules: [RulesRegistry.rule_type()]
+          rules: [RuleSelection.rule_type()]
         }
   defstruct [:iterations_per_run, :max_attempts, :rules]
 end

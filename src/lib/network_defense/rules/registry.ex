@@ -21,6 +21,8 @@ defmodule NetworkDefense.Rules.Registry do
     ReuseCredentialRule
   }
 
+  alias NetworkDefense.Simulation.RuleSelection
+
   @rules [
     remote_service_exploitation: RemoteServiceExploitation,
     local_vulnerability_exploitation: LocalVulnerabilityExploitation,
@@ -28,17 +30,15 @@ defmodule NetworkDefense.Rules.Registry do
     reuse_credential_rule: ReuseCredentialRule
   ]
 
-  @values Keyword.keys(@rules)
+  if Keyword.keys(@rules) != RuleSelection.values() do
+    raise "rule registry mappings must match the stable rule selection order"
+  end
 
-  @type rule_type ::
-          :remote_service_exploitation
-          | :local_vulnerability_exploitation
-          | :acquire_credential_rule
-          | :reuse_credential_rule
+  @type rule_type :: RuleSelection.rule_type()
 
   @doc "Every declared rule identifier, in the default evaluation order."
   @spec values() :: [rule_type()]
-  def values, do: @values
+  def values, do: RuleSelection.values()
 
   @doc "The rule module that one identifier names, or `nil`."
   @spec module_for(rule_type()) :: module() | nil
@@ -46,7 +46,7 @@ defmodule NetworkDefense.Rules.Registry do
 
   @doc "The default rule structs, in the default evaluation order."
   @spec default_rules() :: [NetworkDefense.Rules.Rule.t()]
-  def default_rules, do: Enum.map(@values, &struct(module_for(&1)))
+  def default_rules, do: Enum.map(RuleSelection.values(), &struct(module_for(&1)))
 
   @doc """
   Resolves ordered rule identifiers to rule structs.

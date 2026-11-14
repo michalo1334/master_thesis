@@ -2,13 +2,13 @@ defmodule NetworkDefense.Optimization.Contracts.SimulationSettings do
   @moduledoc false
 
   alias NetworkDefense.Optimization.SimulationObjective
-  alias NetworkDefense.Rules.Registry, as: RulesRegistry
+  alias NetworkDefense.Simulation.RuleSelection
 
   use NetworkDefense.Contracts, category: :optimization
 
   @enum_values [
     objective: SimulationObjective.values(),
-    rules: RulesRegistry.values()
+    rules: RuleSelection.values()
   ]
 
   def contract_meta, do: %{enum_values: @enum_values}
@@ -18,7 +18,7 @@ defmodule NetworkDefense.Optimization.Contracts.SimulationSettings do
     field :monte_carlo_trials, :integer
     field :iterations_per_run, :integer
     field :max_attempts, :integer, default: 1
-    field :rules, {:array, Ecto.Enum}, values: RulesRegistry.values()
+    field :rules, {:array, Ecto.Enum}, values: RuleSelection.values()
   end
 
   @type t :: %__MODULE__{
@@ -26,7 +26,7 @@ defmodule NetworkDefense.Optimization.Contracts.SimulationSettings do
           monte_carlo_trials: pos_integer(),
           iterations_per_run: pos_integer(),
           max_attempts: pos_integer(),
-          rules: [RulesRegistry.rule_type()]
+          rules: [RuleSelection.rule_type()]
         }
 
   def changeset(schema, attrs) do

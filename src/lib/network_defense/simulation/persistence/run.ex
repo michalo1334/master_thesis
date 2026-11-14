@@ -5,7 +5,6 @@ defmodule NetworkDefense.Simulation.Persistence.Run do
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, GraphRevision}
-  alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Persistence.Experiment
   alias NetworkDefense.Simulation.Persistence.IterationStep
 
@@ -20,7 +19,7 @@ defmodule NetworkDefense.Simulation.Persistence.Run do
           trial_index: non_neg_integer(),
           runtime_us: non_neg_integer() | nil,
           initial_attacker_state: AttackerState.t(),
-          rules: list(Rule.t()),
+          rules: list(struct()),
           iterations: list(IterationStep.t()) | Ecto.Association.NotLoaded.t(),
           experiment_id: String.t() | nil,
           experiment: Experiment.t() | Ecto.Association.NotLoaded.t() | nil

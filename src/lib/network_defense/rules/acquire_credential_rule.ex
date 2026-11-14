@@ -8,7 +8,7 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
   defstruct []
 
   defimpl Rule, for: __MODULE__ do
-    use Boundary, classify_to: NetworkDefense
+    use Boundary, classify_to: NetworkDefense.Rules
 
     alias NetworkDefense.Actions.AcquireCredential
     alias NetworkDefense.AttackerState.AttackerState

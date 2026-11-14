@@ -4,9 +4,9 @@ defmodule NetworkDefense.Simulation.Persistence.Experiment do
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.{Graph, GraphRevision}
-  alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Persistence.Experiment.Status
   alias NetworkDefense.Simulation.Persistence.Run
+  alias NetworkDefense.Simulation.RuleSelection
   alias NetworkDefense.Simulation.Seed
 
   @primary_key {:id, :binary_id, autogenerate: true}
@@ -24,7 +24,7 @@ defmodule NetworkDefense.Simulation.Persistence.Experiment do
           completed_trials: non_neg_integer(),
           status: Status.t(),
           initial_foothold_node_id: String.t() | nil,
-          rules: [RulesRegistry.rule_type()],
+          rules: [RuleSelection.rule_type()],
           require_pre_attack_feasibility: boolean(),
           runs: list(Run.t()) | Ecto.Association.NotLoaded.t()
         }
@@ -41,7 +41,7 @@ defmodule NetworkDefense.Simulation.Persistence.Experiment do
     field(:completed_trials, :integer, default: 0)
     field(:status, Ecto.Enum, values: Status.values(), default: :completed)
     field(:initial_foothold_node_id, :binary_id)
-    field(:rules, {:array, Ecto.Enum}, values: RulesRegistry.values())
+    field(:rules, {:array, Ecto.Enum}, values: RuleSelection.values())
     field(:require_pre_attack_feasibility, :boolean)
 
     has_many(:runs, Run)
