@@ -14,7 +14,7 @@ defmodule NetworkDefense.Actions.AcquireCredential do
   end
 
   defimpl Action, for: __MODULE__ do
-    use Boundary, classify_to: NetworkDefense
+    use Boundary, classify_to: NetworkDefense.Actions
 
     alias NetworkDefense.AttackerState.AttackerState
 
