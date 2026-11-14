@@ -3,6 +3,15 @@ defmodule NetworkDefense.Optimizations do
   Public context module for working with optimization related aspects
   """
 
+  use Boundary,
+    deps: [
+      NetworkDefense,
+      NetworkDefense.DefenseActions,
+      NetworkDefense.Graph,
+      NetworkDefense.Optimization
+    ],
+    exports: :all
+
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
