@@ -7,6 +7,7 @@ defmodule NetworkDefense.Simulation.Persistence.Run do
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Simulation.Persistence.Experiment
   alias NetworkDefense.Simulation.Persistence.IterationStep
+  alias NetworkDefense.SimulationRunState
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
@@ -89,17 +90,11 @@ defmodule NetworkDefense.Simulation.Persistence.Run do
     }
   end
 
-  def current_iteration(%__MODULE__{iterations: []}), do: nil
+  def current_iteration(%__MODULE__{} = state),
+    do: SimulationRunState.current_iteration(state)
 
-  def current_iteration(%__MODULE__{iterations: iterations}),
-    do: Enum.max_by(iterations, & &1.index)
-
-  def current_attacker_state(%__MODULE__{} = state) do
-    case current_iteration(state) do
-      nil -> state.initial_attacker_state
-      iteration -> iteration.attacker_state
-    end
-  end
+  def current_attacker_state(%__MODULE__{} = state),
+    do: SimulationRunState.current_attacker_state(state)
 
   def current_seed(%__MODULE__{seed: seed}), do: seed
 

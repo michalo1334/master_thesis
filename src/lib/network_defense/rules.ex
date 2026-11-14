@@ -8,8 +8,7 @@ defmodule NetworkDefense.Rules do
       NetworkDefense.AttackerState,
       NetworkDefense.Graph,
       NetworkDefense.Nodes,
-      NetworkDefense.Relationships,
-      NetworkDefense.Simulation.Persistence
+      NetworkDefense.Relationships
     ],
     exports: :all
 end

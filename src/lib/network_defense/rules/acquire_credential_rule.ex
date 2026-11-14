@@ -16,12 +16,11 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
     alias NetworkDefense.Nodes.Credential
     alias NetworkDefense.Nodes.Host
     alias NetworkDefense.Relationships.StoresCredential
-    alias NetworkDefense.Simulation.Persistence.Run
+    alias NetworkDefense.SimulationRunState
 
     def evaluate(_rule, state) do
-      %Run{} = state
-      attacker_state = Run.current_attacker_state(state)
-      graph = state.graph
+      attacker_state = SimulationRunState.current_attacker_state(state)
+      graph = Map.fetch!(state, :graph)
       foothold_ids = MapSet.new(AttackerState.foothold_nodes(attacker_state))
 
       graph

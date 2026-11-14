@@ -20,12 +20,11 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
     alias NetworkDefense.Relationships.AuthenticatesTo
     alias NetworkDefense.Relationships.NetworkReachability
     alias NetworkDefense.Relationships.Runs
-    alias NetworkDefense.Simulation.Persistence.Run
+    alias NetworkDefense.SimulationRunState
 
     def evaluate(_rule, state) do
-      %Run{} = state
-      attacker_state = Run.current_attacker_state(state)
-      graph = state.graph
+      attacker_state = SimulationRunState.current_attacker_state(state)
+      graph = Map.fetch!(state, :graph)
       foothold_ids = MapSet.new(AttackerState.foothold_nodes(attacker_state))
       creds = MapSet.new(attacker_state.credential_ids)
 

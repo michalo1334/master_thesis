@@ -9,7 +9,7 @@ defmodule NetworkDefense.Optimization do
       NetworkDefense.Graph,
       NetworkDefense.Relationships,
       NetworkDefense.Repo,
-      NetworkDefense.Simulation.Persistence
+      NetworkDefense.Simulation
     ],
     exports: :all
 end
