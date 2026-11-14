@@ -1,12 +1,19 @@
 # Proposal: enforce Elixir module boundaries
 
-Status: proposed. Scope: static audit of `src/lib`, Mix configuration, test support, and CI. No application changes or compile-time Boundary trial were made.
+Status: in progress. The outer boundaries are implemented. The next work tightens these boundaries and adds inner boundaries.
 
 ## Recommendation
 
-Adopt [Boundary](https://github.com/sasa1977/boundary) in stages within the existing OTP application. First enforce the web/domain split. Then protect the Study facade. Separate the coupled execution modules after targeted dependency changes.
+Adopt [Boundary](https://github.com/sasa1977/boundary) from the outside inward. Start with wide outer boundaries that describe the current architecture. Tighten their exports and dependencies in small steps. Then extract inner boundaries.
 
-Boundary checks module dependencies during compilation. It fits the existing Phoenix application without an umbrella conversion or runtime service split.
+Use this extraction order:
+
+1. Define wide outer boundaries.
+2. Tighten each boundary as the code makes its public interface clear.
+3. Extract modules that already have clean dependency directions.
+4. Refactor and extract the coupled modules last.
+
+This order gives immediate enforcement without requiring a large initial rewrite. Boundary checks module dependencies during compilation. It fits the existing Phoenix application without an umbrella conversion or runtime service split.
 
 ## Audit findings
 
@@ -27,7 +34,7 @@ Repository access inside persistence contexts is expected. Public value types an
 
 ## Proposed boundary structure
 
-Boundary assigns ordinary modules by namespace. Use this structure first:
+Boundary assigns ordinary modules by namespace. The first stage uses wide boundaries and permissive exports. Later stages tighten them:
 
 | Boundary | Responsibility and allowed access |
 | --- | --- |
@@ -38,15 +45,19 @@ Boundary assigns ordinary modules by namespace. Use this structure first:
 | Proposed `NetworkDefense.Tooling` | Mix commands and contract generation. Reclassify Mix tasks here. Move ordinary helpers such as `Mix.Study.Command` under this namespace. |
 | Proposed test-support root | Compile only in tests. Allow access to internals through a dedicated boundary with incoming/outgoing checks disabled. Move support modules out of production namespaces. |
 
-Next, add `NetworkDefense.Evaluation2.Study` as a nested boundary. Export the facade and its public response, authoring, error, and result types, including nested values used by wire conversion. Keep Persistence, Workflow, and Compute implementation modules private. Provide a supervision entry point for Study processes that startup currently names directly. Re-export approved Study modules through `NetworkDefense` for web and tooling callers.
+After the outer structure is stable, tighten one boundary at a time. Replace broad exports with reviewed service modules, public values, contracts, and required shared helpers.
 
-Retain Graph, Nodes, Actions, Rules, Simulation, and Optimization in the parent boundary during this stage. Later extraction requires resolving the cycles above and aligning singular implementation namespaces with plural service namespaces.
+Then add `NetworkDefense.Evaluation2.Study` as a nested boundary. Export the facade and its public response, authoring, error, and result types, including nested values used by wire conversion. Keep Persistence, Workflow, and Compute implementation modules private. Provide a supervision entry point for Study processes that startup currently names directly. Re-export approved Study modules through `NetworkDefense` for web and tooling callers.
+
+After Study, extract other modules that already have clean dependency directions. Retain Graph, Nodes, Actions, Rules, Simulation, and Optimization in the parent boundary until their dependencies are ready. Extract these coupled groups last. Their extraction requires cycle removal, shared-contract placement, and namespace alignment.
 
 ## Rollout and verification
 
-1. **Install and establish the outer boundaries.** Add Boundary `~> 0.12` with `runtime: false`. Prepend its compiler while retaining the existing LiveView compiler. Classify Mix tasks and protocol implementations. Separate test support. Review each diagnostic and each public export.
-2. **Protect Study.** Add the nested boundary and explicit exports. Replace web calls to private helpers with supported API calls. Check that web and CLI callers cannot access Persistence or Workflow.
-3. **Extract independent groups.** Remove the aggregate-error reverse dependency. Move operation registration to composition/configuration while retaining the transport allowlist. Separate shared run contracts from rules and simulation implementations before extracting Compute and execution boundaries.
+1. **Establish wide outer boundaries.** Add Boundary `~> 0.12` with `runtime: false`. Prepend its compiler while retaining the existing LiveView compiler. Classify Mix tasks and protocol implementations. Separate test support. Use broad exports where the public interface is not yet clear.
+2. **Tighten the outer boundaries.** Review one dependency path at a time. Replace broad exports with explicit exports. Add small facade functions when a caller currently reaches into implementation modules.
+3. **Protect Study.** Add the nested boundary and explicit exports. Replace web calls to private helpers with supported API calls. Check that web and CLI callers cannot access Persistence or Workflow.
+4. **Extract clean groups.** Add boundaries for modules that already have one-way dependencies and clear public interfaces. Keep each change small and compile after each extraction.
+5. **Prepare and extract coupled groups.** Remove dependency cycles before adding their boundaries. Remove the aggregate-error reverse dependency. Move operation registration to composition or configuration while retaining the transport allowlist. Separate shared run contracts from rules and simulation implementations before extracting Compute and execution boundaries.
 
 Enable alias checks to catch module-valued references such as transport operation registrations. Defer global strict external-dependency checks: domain contracts currently use Ecto, and progress publication uses Phoenix PubSub.
 
