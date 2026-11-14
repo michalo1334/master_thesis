@@ -1,4 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Compute do
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: :all
+
   @moduledoc """
   Pure fixed-sample matching-based bounded-mean inference.
 
