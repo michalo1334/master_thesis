@@ -1,6 +1,10 @@
 defmodule NetworkDefense.DocumentCatalog do
   @moduledoc false
 
+  use Boundary,
+    deps: [NetworkDefense, NetworkDefense.Repo],
+    exports: [Kind]
+
   import Ecto.Query
 
   alias NetworkDefense.DocumentCatalog.Kind
