@@ -6,8 +6,9 @@ defmodule NetworkDefense.Graph.Graphs do
   import Ecto.Query
 
   alias Ecto.{Changeset, UUID}
+  alias NetworkDefense.DynamicData
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
-  alias NetworkDefense.Graph.{Data, Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
+  alias NetworkDefense.Graph.{Edge, Graph, GraphRevision, GraphRevisionFavorite, Node}
   alias NetworkDefense.Graph.Errors, as: GraphErrors
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Registry, as: RelationshipRegistry
@@ -359,7 +360,7 @@ defmodule NetworkDefense.Graph.Graphs do
       from_id: edge.from_id,
       to_id: edge.to_id,
       type: if(is_atom(edge.type), do: Atom.to_string(edge.type), else: edge.type),
-      data: Data.to_params(edge.data)
+      data: DynamicData.to_params(edge.data)
     }
   end
 

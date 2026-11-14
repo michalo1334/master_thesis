@@ -3,8 +3,9 @@ defmodule NetworkDefense.Graph.GraphTest do
 
   import Ecto.Query
 
-  alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Data, Edge, Folders, Graph, GraphRevision, Graphs, Node}
+  alias NetworkDefense.DynamicData
+  alias NetworkDefense.Graph.ContractAdapter
+  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphRevision, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
@@ -55,7 +56,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     assert %{title: "Topology"} = Graphs.load_revision!(original.revision_id)
 
     assert {:ok, %{parent_revision_id: parent_revision_id}} =
-             GraphContract.from_domain(saved)
+             ContractAdapter.from_domain(saved)
 
     assert parent_revision_id == original.revision_id
   end
@@ -202,7 +203,7 @@ defmodule NetworkDefense.Graph.GraphTest do
         uuid(first.id),
         uuid(second_host.id),
         Atom.to_string(second_host.type),
-        Data.to_params(second_host.data),
+        DynamicData.to_params(second_host.data),
         second_host.view_data
       ]
     )
@@ -464,7 +465,7 @@ defmodule NetworkDefense.Graph.GraphTest do
     %{
       "id" => node.id,
       "type" => Atom.to_string(node.type),
-      "data" => Data.to_params(node.data),
+      "data" => DynamicData.to_params(node.data),
       "view_data" => %{"x_pos" => node.view_data.x_pos, "y_pos" => node.view_data.y_pos}
     }
   end
@@ -484,7 +485,7 @@ defmodule NetworkDefense.Graph.GraphTest do
       "from_id" => edge.from_id,
       "to_id" => edge.to_id,
       "type" => Atom.to_string(edge.type),
-      "data" => Data.to_params(edge.data)
+      "data" => DynamicData.to_params(edge.data)
     }
   end
 

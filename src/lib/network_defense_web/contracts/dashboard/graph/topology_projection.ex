@@ -44,7 +44,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection do
   the dashboard wire surface already uses ("Vulnerability", "StoresCredential").
   Issue codes and severities stay in their domain spelling.
 
-  Returns the wire map, like `GraphContract.from_domain/1`, so callers can embed
+  Returns the wire map, like `ContractAdapter.from_domain/1`, so callers can embed
   it directly into another contract.
   """
   @spec from_domain(DomainProjection.t()) :: {:ok, map()} | {:error, Ecto.Changeset.t()}

@@ -3,6 +3,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
 
   use NetworkDefenseWeb.Contracts, category: :simulation
 
+  alias NetworkDefense.Graph.ContractAdapter
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection
@@ -91,7 +92,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReport
   """
   @spec from_domain(SimulationReport.t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def from_domain(%SimulationReport{} = report, topology_projection) do
-    with {:ok, wire_graph} <- GraphContract.from_domain(report.graph) do
+    with {:ok, wire_graph} <- ContractAdapter.from_domain(report.graph) do
       report
       |> Contracts.to_wire()
       |> Map.put(:graph, wire_graph)

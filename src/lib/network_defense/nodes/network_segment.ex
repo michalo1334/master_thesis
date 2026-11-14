@@ -1,7 +1,7 @@
 defmodule NetworkDefense.Nodes.NetworkSegment do
   use Ecto.Schema
 
-  alias NetworkDefense.Graph.Data
+  alias NetworkDefense.Nodes.Validation
 
   @primary_key false
 
@@ -12,5 +12,5 @@ defmodule NetworkDefense.Nodes.NetworkSegment do
 
   def default_data, do: %{name: "New segment", cidr: nil}
 
-  def changeset(schema, attrs), do: Data.network_segment_changeset(schema, attrs)
+  def changeset(schema, attrs), do: Validation.network_segment_changeset(schema, attrs)
 end

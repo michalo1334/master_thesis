@@ -5,8 +5,10 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
+  alias NetworkDefense.DynamicData
+  alias NetworkDefense.Graph.ContractAdapter
   alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Data, Edge, Folders, Graph}
+  alias NetworkDefense.Graph.{Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
   alias NetworkDefense.Nodes.Host
@@ -1648,25 +1650,25 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             %{
               "id" => segment.id,
               "type" => "NetworkSegment",
-              "data" => Data.to_params(segment.data),
+              "data" => DynamicData.to_params(segment.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             },
             %{
               "id" => other_segment.id,
               "type" => "NetworkSegment",
-              "data" => Data.to_params(other_segment.data),
+              "data" => DynamicData.to_params(other_segment.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             },
             %{
               "id" => source.id,
               "type" => "Host",
-              "data" => Data.to_params(source.data),
+              "data" => DynamicData.to_params(source.data),
               "view_data" => %{"x_pos" => 120, "y_pos" => 240}
             },
             %{
               "id" => target.id,
               "type" => "Service",
-              "data" => Data.to_params(target.data),
+              "data" => DynamicData.to_params(target.data),
               "view_data" => %{"x_pos" => 360, "y_pos" => 480}
             }
           ],
@@ -1766,7 +1768,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
             %{
               "id" => source.id,
               "type" => "Host",
-              "data" => Data.to_params(source.data),
+              "data" => DynamicData.to_params(source.data),
               "view_data" => %{"x_pos" => 0, "y_pos" => 0}
             }
           ],
@@ -1960,7 +1962,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   end
 
   defp draft_payload(graph, document_id, semantic_version) do
-    assert {:ok, wire_graph} = GraphContract.from_domain(graph)
+    assert {:ok, wire_graph} = ContractAdapter.from_domain(graph)
 
     %{
       "document_id" => document_id,

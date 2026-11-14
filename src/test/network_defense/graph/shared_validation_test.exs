@@ -7,8 +7,7 @@ defmodule NetworkDefense.Graph.SharedValidationTest do
     VulnerabilityData
   }
 
-  alias NetworkDefense.Graph.Data
-  alias NetworkDefense.Nodes.{MissionCapability, NetworkSegment, Vulnerability}
+  alias NetworkDefense.Nodes.{MissionCapability, NetworkSegment, Validation, Vulnerability}
 
   test "GRAPH-DATA-01: applies the same vulnerability validation to both model types" do
     attrs = %{
@@ -17,12 +16,12 @@ defmodule NetworkDefense.Graph.SharedValidationTest do
       "cvss" => cvss()
     }
 
-    assert Data.vulnerability_changeset(%Vulnerability{}, attrs).valid?
-    assert Data.vulnerability_changeset(%VulnerabilityData{}, attrs).valid?
+    assert Validation.vulnerability_changeset(%Vulnerability{}, attrs).valid?
+    assert Validation.vulnerability_changeset(%VulnerabilityData{}, attrs).valid?
 
     for schema <- [%Vulnerability{}, %VulnerabilityData{}] do
       errors =
-        schema |> Data.vulnerability_changeset(%{"exploit_probability" => 2}) |> errors_on()
+        schema |> Validation.vulnerability_changeset(%{"exploit_probability" => 2}) |> errors_on()
 
       assert errors.identifier == ["can't be blank"]
       assert errors.cvss == ["can't be blank"]
@@ -32,11 +31,14 @@ defmodule NetworkDefense.Graph.SharedValidationTest do
 
   test "GRAPH-DATA-02: applies the same segment validation to both model types" do
     for schema <- [%NetworkSegment{}, %NetworkSegmentData{}] do
-      assert Data.network_segment_changeset(schema, %{"name" => "DMZ", "cidr" => "10.0.0.0/24"}).valid?
+      assert Validation.network_segment_changeset(schema, %{
+               "name" => "DMZ",
+               "cidr" => "10.0.0.0/24"
+             }).valid?
 
       errors =
         schema
-        |> Data.network_segment_changeset(%{"name" => "DMZ", "cidr" => "10.0.0.0/40"})
+        |> Validation.network_segment_changeset(%{"name" => "DMZ", "cidr" => "10.0.0.0/40"})
         |> errors_on()
 
       assert errors.cidr == ["must be a valid CIDR"]
@@ -51,13 +53,13 @@ defmodule NetworkDefense.Graph.SharedValidationTest do
       "required_flows" => []
     }
 
-    assert Data.mission_capability_changeset(%MissionCapability{}, attrs).valid?
-    assert Data.mission_capability_changeset(%MissionCapabilityData{}, attrs).valid?
+    assert Validation.mission_capability_changeset(%MissionCapability{}, attrs).valid?
+    assert Validation.mission_capability_changeset(%MissionCapabilityData{}, attrs).valid?
 
     for schema <- [%MissionCapability{}, %MissionCapabilityData{}] do
       errors =
         schema
-        |> Data.mission_capability_changeset(%{
+        |> Validation.mission_capability_changeset(%{
           "name" => "Orders",
           "impact_weight" => 0,
           "min_operational_support" => 0

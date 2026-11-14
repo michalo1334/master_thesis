@@ -15,6 +15,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
     StoresCredentialData
   }
 
+  alias NetworkDefense.Graph.ContractAdapter
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Graph.Graph
@@ -210,12 +211,12 @@ defmodule NetworkDefense.Graph.ContractsTest do
     end
   end
 
-  describe "GraphContract.to_domain/2" do
+  describe "ContractAdapter.to_domain/2" do
     test "converts a valid contract into a domain graph" do
       {params, ids} = complete_graph()
 
       assert {:ok, contract} = GraphContract.validate(params)
-      assert {:ok, graph} = GraphContract.to_domain(contract)
+      assert {:ok, graph} = ContractAdapter.to_domain(contract)
 
       assert graph.id == contract.id
       assert graph.title == contract.title
@@ -236,10 +237,10 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
       assert {:ok, contract} = GraphContract.validate(params)
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
       assert to_domain_error(changeset, :edges, "multiple_segments")
 
-      assert {:ok, graph} = GraphContract.to_domain(contract, validate_membership: false)
+      assert {:ok, graph} = ContractAdapter.to_domain(contract, validate_membership: false)
       assert Enum.count(Graph.nodes(graph)) == 4
       assert Enum.count(Graph.edges(graph)) == 2
     end
@@ -251,7 +252,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       unknown = %{Enum.at(contract.nodes, 0) | type: "Worm"}
       contract = %{contract | nodes: List.replace_at(contract.nodes, 0, unknown)}
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
       assert to_domain_error(changeset, :nodes, "invalid_node")
     end
 
@@ -262,7 +263,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       invalid = %{Enum.at(contract.nodes, 0) | data: %{}}
       contract = %{contract | nodes: List.replace_at(contract.nodes, 0, invalid)}
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
       assert to_domain_error(changeset, :nodes, "invalid_node")
     end
 
@@ -274,7 +275,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       contract = %{contract | edges: List.replace_at(contract.edges, 0, unknown)}
 
       assert {:error, changeset} =
-               GraphContract.to_domain(contract, validate_membership: false)
+               ContractAdapter.to_domain(contract, validate_membership: false)
 
       assert to_domain_error(changeset, :edges, "invalid_edge")
     end
@@ -287,7 +288,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       assert {:ok, contract} = GraphContract.validate(params)
 
       assert {:error, changeset} =
-               GraphContract.to_domain(contract, validate_membership: false)
+               ContractAdapter.to_domain(contract, validate_membership: false)
 
       assert to_domain_error(changeset, :nodes, "duplicate_ids")
     end
@@ -300,13 +301,13 @@ defmodule NetworkDefense.Graph.ContractsTest do
       assert {:ok, contract} = GraphContract.validate(params)
 
       assert {:error, changeset} =
-               GraphContract.to_domain(contract, validate_membership: false)
+               ContractAdapter.to_domain(contract, validate_membership: false)
 
       assert to_domain_error(changeset, :edges, "duplicate_ids")
     end
 
     test "rejects a contract that is missing its graph identity" do
-      assert {:error, changeset} = GraphContract.to_domain(%GraphContract{id: nil, title: nil})
+      assert {:error, changeset} = ContractAdapter.to_domain(%GraphContract{id: nil, title: nil})
 
       assert to_domain_error(changeset, :id, "can't be blank")
       assert to_domain_error(changeset, :title, "can't be blank")
@@ -320,7 +321,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
         edges: nil
       }
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
 
       assert to_domain_error(changeset, :nodes, "can't be blank")
       assert to_domain_error(changeset, :edges, "can't be blank")
@@ -329,7 +330,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
     test "rejects a graph id that is not a uuid" do
       contract = %GraphContract{id: "not-a-uuid", title: "Graph", nodes: [], edges: []}
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
       assert to_domain_error(changeset, :id, "is invalid")
     end
 
@@ -344,7 +345,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       ]
 
       Enum.each(cases, fn {attrs, field} ->
-        assert {:error, changeset} = GraphContract.to_domain(struct(GraphContract, attrs))
+        assert {:error, changeset} = ContractAdapter.to_domain(struct(GraphContract, attrs))
         assert to_domain_error(changeset, field, "is invalid")
       end)
     end
@@ -364,11 +365,11 @@ defmodule NetworkDefense.Graph.ContractsTest do
 
       assert {:ok, contract} = GraphContract.validate(params)
 
-      assert {:error, changeset} = GraphContract.to_domain(contract)
+      assert {:error, changeset} = ContractAdapter.to_domain(contract)
       assert to_domain_error(changeset, :edges, "invalid_endpoints")
 
       assert {:error, changeset} =
-               GraphContract.to_domain(contract, validate_membership: false)
+               ContractAdapter.to_domain(contract, validate_membership: false)
 
       assert to_domain_error(changeset, :edges, "invalid_endpoints")
     end
@@ -389,7 +390,7 @@ defmodule NetworkDefense.Graph.ContractsTest do
       assert {:ok, contract} = GraphContract.validate(params)
 
       assert {:error, changeset} =
-               GraphContract.to_domain(contract, validate_membership: false)
+               ContractAdapter.to_domain(contract, validate_membership: false)
 
       assert to_domain_error(changeset, :edges, "invalid_endpoints")
     end

@@ -7,8 +7,7 @@ defmodule NetworkDefense.Graph.Node do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias NetworkDefense.Graph.Contracts.Node, as: NodeContract
-  alias NetworkDefense.Graph.Data
+  alias NetworkDefense.DynamicData
   alias NetworkDefense.Nodes.Registry
 
   @primary_key false
@@ -37,7 +36,7 @@ defmodule NetworkDefense.Graph.Node do
     node
     |> cast(attrs, [:type, :data, :view_data])
     |> validate_required([:type, :view_data])
-    |> Data.validate_dynamic_data(Registry)
+    |> DynamicData.validate_dynamic_data(Registry)
     |> validate_view_data()
   end
 
@@ -47,29 +46,11 @@ defmodule NetworkDefense.Graph.Node do
     |> then(&struct!(__MODULE__, &1))
   end
 
-  def draft(type, %{x_pos: x_pos, y_pos: y_pos})
-      when is_binary(type) and is_number(x_pos) and is_number(y_pos) do
-    with module when not is_nil(module) <- Registry.module_for_contract(type),
-         {:ok, node} <-
-           NodeContract.validate(%{
-             id: Ecto.UUID.generate(),
-             type: type,
-             data: module.default_data(),
-             view_data: %{x_pos: x_pos, y_pos: y_pos}
-           }) do
-      {:ok, NodeContract.to_wire(node)}
-    else
-      _ -> :error
-    end
-  end
-
-  def draft(_type, _position), do: :error
-
   def hydrate(%__MODULE__{type: type} = node) when is_atom(type), do: {:ok, node}
 
   def hydrate(%__MODULE__{} = node) do
     with type when not is_nil(type) <- Registry.module_for(node.type),
-         {:ok, data} <- Data.load(type, node.data),
+         {:ok, data} <- DynamicData.load(type, node.data),
          {:ok, view_data} <- normalize_view_data(node.view_data) do
       {:ok, %{node | type: type, data: data, view_data: view_data}}
     else
@@ -88,7 +69,7 @@ defmodule NetworkDefense.Graph.Node do
     %{
       node
       | type: Registry.type_for(node.type),
-        data: Data.to_params(node.data),
+        data: DynamicData.to_params(node.data),
         view_data: view_data_params(node.view_data)
     }
   end

@@ -3,6 +3,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
   alias Mix.Tasks.Gen.Contracts.Registry
   alias NetworkDefense.Contracts
+  alias NetworkDefense.Graph.ContractAdapter
   alias NetworkDefense.Graph.Contracts.GraphContract
   alias NetworkDefense.Graph.Contracts.SaveGraphContract
   alias NetworkDefense.Graph.Edge
@@ -356,7 +357,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
 
     assert {:ok, graph} = Graph.hydrate(graph, nodes, edges)
 
-    assert {:ok, wire} = GraphContract.from_domain(graph)
+    assert {:ok, wire} = ContractAdapter.from_domain(graph)
 
     assert wire.parent_revision_id == nil
     assert wire.revision_kind == "initial"
@@ -404,7 +405,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
       |> Map.put(:revision_number, 2)
       |> Map.put(:revision_kind, :optimization)
 
-    assert {:ok, wire_graph} = GraphContract.from_domain(graph)
+    assert {:ok, wire_graph} = ContractAdapter.from_domain(graph)
     assert {:ok, reply} = OpenGraphReply.validate(%{status: "ok", graph: wire_graph})
 
     assert %{

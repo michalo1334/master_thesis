@@ -3,7 +3,8 @@ defmodule NetworkDefense.Graph.GraphDiff do
   Compares complete graph states by stable node and edge IDs.
   """
 
-  alias NetworkDefense.Graph.{Data, Graph}
+  alias NetworkDefense.DynamicData
+  alias NetworkDefense.Graph.Graph
 
   @doc """
   Compares graph topology while ignoring graph metadata and node view data.
@@ -156,7 +157,7 @@ defmodule NetworkDefense.Graph.GraphDiff do
   defp type_key(type) when is_atom(type), do: Atom.to_string(type)
   defp type_key(type), do: type
 
-  defp canonical(value) when is_struct(value), do: value |> Data.to_params() |> canonical()
+  defp canonical(value) when is_struct(value), do: value |> DynamicData.to_params() |> canonical()
   defp canonical(nil), do: "null"
   defp canonical(value) when is_binary(value), do: inspect(value)
   defp canonical(value) when is_integer(value), do: Integer.to_string(value)

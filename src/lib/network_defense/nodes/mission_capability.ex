@@ -1,8 +1,8 @@
 defmodule NetworkDefense.Nodes.MissionCapability do
   use Ecto.Schema
 
-  alias NetworkDefense.Graph.Data
   alias NetworkDefense.Nodes.RequiredServiceFlow
+  alias NetworkDefense.Nodes.Validation
 
   @primary_key false
 
@@ -23,5 +23,5 @@ defmodule NetworkDefense.Nodes.MissionCapability do
     }
   end
 
-  def changeset(schema, attrs), do: Data.mission_capability_changeset(schema, attrs)
+  def changeset(schema, attrs), do: Validation.mission_capability_changeset(schema, attrs)
 end

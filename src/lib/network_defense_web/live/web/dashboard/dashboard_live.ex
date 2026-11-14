@@ -9,8 +9,9 @@ defmodule NetworkDefenseWeb.DashboardLive do
 
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Errors
-  alias NetworkDefense.Graph.Contracts.GraphContract
-  alias NetworkDefense.Graph.{Edge, Folders, Graph, GraphDiff, Graphs, Node, TopologyProjection}
+  alias NetworkDefense.Graph.ContractAdapter
+  alias NetworkDefense.Graph.Drafts
+  alias NetworkDefense.Graph.{Folders, Graph, GraphDiff, Graphs, TopologyProjection}
   alias NetworkDefense.Graph.SemanticConnectivity
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Runs
@@ -225,7 +226,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
     reply =
       with {:ok, payload} <- CreateNodeDraftPayload.validate(params),
            {:ok, node} <-
-             Node.draft(payload.node_type, %{x_pos: payload.x_pos, y_pos: payload.y_pos}) do
+             Drafts.node(payload.node_type, %{x_pos: payload.x_pos, y_pos: payload.y_pos}) do
         node_draft_reply("ok", node)
       else
         _ -> node_draft_reply("invalid")
@@ -241,7 +242,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
            {:ok, node, target} <- connection_target(payload),
            source = %{id: payload.source_id, type: payload.source_type},
            {from, to} <- if(payload.source_is_from, do: {source, target}, else: {target, source}),
-           {:ok, edge} <- Edge.draft(payload.relationship_type, from, to) do
+           {:ok, edge} <- Drafts.edge(payload.relationship_type, from, to) do
         connection_draft_reply("ok", node, edge)
       else
         _ -> connection_draft_reply("invalid")
@@ -669,7 +670,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   defp graph_open_reply({:error, _reason}), do: open_graph_reply("unmapped_error")
 
   defp graph_open_reply(graph) do
-    with {:ok, wire_graph} <- GraphContract.from_domain(graph),
+    with {:ok, wire_graph} <- ContractAdapter.from_domain(graph),
          {:ok, wire_projection} <- topology_projection(graph) do
       open_graph_reply("ok", wire_graph, wire_projection)
     else
@@ -734,7 +735,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
          %NetworkDefense.Graph.Graph{} = comparison <-
            Graphs.load_revision(request.comparison_revision_id),
          %{graph: graph} = diff <- GraphDiff.structural(base, comparison),
-         {:ok, wire_graph} <- GraphContract.from_domain(graph) do
+         {:ok, wire_graph} <- ContractAdapter.from_domain(graph) do
       compare_graphs_reply("ok", Map.put(diff, :graph, wire_graph))
     else
       nil -> compare_graphs_reply("not_found")
@@ -757,7 +758,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   # The graph is persisted at this point. A failure here returns an error reply
   # for a save that did happen, so log it without graph data and without retry.
   defp save_graph_wire(persisted) do
-    case GraphContract.from_domain(persisted) do
+    case ContractAdapter.from_domain(persisted) do
       {:ok, wire_graph} ->
         case topology_projection(persisted) do
           {:ok, wire_projection} -> {:ok, wire_graph, wire_projection}
@@ -1124,7 +1125,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
   end
 
   defp draft_topology_projection(request) do
-    case GraphContract.to_domain(request.graph, validate_membership: false) do
+    case ContractAdapter.to_domain(request.graph, validate_membership: false) do
       {:ok, %Graph{} = graph} ->
         case topology_projection(graph) do
           {:ok, projection} ->
@@ -1186,7 +1187,7 @@ defmodule NetworkDefenseWeb.DashboardLive do
        do: {:ok, nil, %{id: target_id, type: target_type}}
 
   defp connection_target(%{new_node_type: type, x_pos: x_pos, y_pos: y_pos}) do
-    with {:ok, node} <- Node.draft(type, %{x_pos: x_pos, y_pos: y_pos}) do
+    with {:ok, node} <- Drafts.node(type, %{x_pos: x_pos, y_pos: y_pos}) do
       {:ok, node, %{id: node.id, type: node.type}}
     end
   end

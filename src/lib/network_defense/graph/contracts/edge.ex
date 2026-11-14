@@ -4,8 +4,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
   use NetworkDefense.Contracts, category: :graph
 
   alias NetworkDefense.Contracts
-  alias NetworkDefense.Graph.Contracts.Variant
-  alias NetworkDefense.Graph.Data
+  alias NetworkDefense.DynamicData
 
   alias NetworkDefense.Graph.Contracts.Data.{
     AuthenticatesToData,
@@ -16,6 +15,8 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
     StoresCredentialData,
     SupportsData
   }
+
+  alias NetworkDefense.Graph.Contracts.Variant
 
   @discriminant [
     field: :type,
@@ -96,7 +97,7 @@ defmodule NetworkDefense.Graph.Contracts.Edge do
 
   def from_domain(edge) do
     with {:ok, {tag, data_contract}} <- Variant.for_domain(edge.type, @variants),
-         {:ok, data} <- data_contract.validate(Data.to_params(edge.data)) do
+         {:ok, data} <- data_contract.validate(DynamicData.to_params(edge.data)) do
       validate(%{
         id: edge.id,
         from_id: edge.from_id,

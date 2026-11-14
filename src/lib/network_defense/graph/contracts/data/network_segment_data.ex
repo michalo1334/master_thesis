@@ -3,7 +3,7 @@ defmodule NetworkDefense.Graph.Contracts.Data.NetworkSegmentData do
 
   use NetworkDefense.Contracts, category: :graph
 
-  alias NetworkDefense.Graph.Data
+  alias NetworkDefense.Nodes.Validation
 
   embedded_schema do
     field :name, :string
@@ -15,5 +15,5 @@ defmodule NetworkDefense.Graph.Contracts.Data.NetworkSegmentData do
           cidr: String.t() | nil
         }
 
-  def changeset(schema, attrs), do: Data.network_segment_changeset(schema, attrs)
+  def changeset(schema, attrs), do: Validation.network_segment_changeset(schema, attrs)
 end

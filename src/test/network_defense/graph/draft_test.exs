@@ -1,10 +1,10 @@
 defmodule NetworkDefense.Graph.DraftTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.Graph.{Edge, Node}
+  alias NetworkDefense.Graph.Drafts
 
   test "node draft uses the selected type defaults" do
-    assert {:ok, node} = Node.draft("Service", %{x_pos: 30, y_pos: 40})
+    assert {:ok, node} = Drafts.node("Service", %{x_pos: 30, y_pos: 40})
 
     assert %{
              type: "Service",
@@ -19,7 +19,7 @@ defmodule NetworkDefense.Graph.DraftTest do
     from_id = from_segment.id
     to_id = to_segment.id
 
-    assert {:ok, edge} = Edge.draft("SegmentReachability", from_segment, to_segment)
+    assert {:ok, edge} = Drafts.edge("SegmentReachability", from_segment, to_segment)
 
     assert %{
              type: "SegmentReachability",
@@ -33,14 +33,14 @@ defmodule NetworkDefense.Graph.DraftTest do
     service = %{id: Ecto.UUID.generate(), type: "Service"}
     host = %{id: Ecto.UUID.generate(), type: "Host"}
 
-    assert :error = Edge.draft("Runs", service, host)
+    assert :error = Drafts.edge("Runs", service, host)
   end
 
   test "edge draft rejects the operational NetworkReachability marker" do
     host = %{id: Ecto.UUID.generate(), type: "Host"}
     service = %{id: Ecto.UUID.generate(), type: "Service"}
 
-    assert {:ok, _edge} = Edge.draft("Runs", host, service)
-    assert :error = Edge.draft("NetworkReachability", host, service)
+    assert {:ok, _edge} = Drafts.edge("Runs", host, service)
+    assert :error = Drafts.edge("NetworkReachability", host, service)
   end
 end
