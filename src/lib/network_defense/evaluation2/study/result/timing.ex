@@ -1,4 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Result.Timing do
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: :all
+
   @moduledoc """
   Measured Final timing of one study result.
 

@@ -1,4 +1,8 @@
 defmodule NetworkDefense.Evaluation2.Study.Evidence do
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: :all
+
   @moduledoc false
 
   use Spectral
