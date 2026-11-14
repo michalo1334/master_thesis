@@ -6,7 +6,7 @@ defmodule NetworkDefense.Simulation.Simulator do
 
    The entrypoint function executes multiple runs to produce blast-radius statistics.
   """
-  alias NetworkDefense.Actions.Action
+  alias NetworkDefense.Actions.{Action, AttemptedAction}
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.Host
@@ -123,7 +123,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   defp do_run_iteration(experiment, run_state, random_state, index) do
     case get_possible_actions(run_state)
          |> Enum.filter(
-           &AttackerState.can_attempt?(
+           &AttemptedAction.can_attempt?(
              Run.current_attacker_state(run_state),
              &1,
              experiment.max_attempts
@@ -144,7 +144,7 @@ defmodule NetworkDefense.Simulation.Simulator do
             experiment.max_attempts
           )
 
-        attempted_action = AttackerState.attempted_action(attacker_state, action)
+        attempted_action = AttemptedAction.attempted_action(attacker_state, action)
 
         iteration =
           IterationStep.new(
@@ -170,7 +170,7 @@ defmodule NetworkDefense.Simulation.Simulator do
   def maybe_execute_action(action, attacker_state, random_state, max_attempts) do
     {sample, random_state} = :rand.uniform_s(random_state)
 
-    attacker_state = AttackerState.mark_attempted(attacker_state, action, max_attempts)
+    attacker_state = AttemptedAction.mark_attempted(attacker_state, action, max_attempts)
 
     if sample <= Action.probability(action) do
       {true, random_state, Action.execute(action, attacker_state)}

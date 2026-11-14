@@ -4,7 +4,7 @@ defmodule NetworkDefense.AttackerState.AttackerState do
   """
   use Ecto.Schema
 
-  alias NetworkDefense.Actions.AttemptedAction
+  alias NetworkDefense.AttackerState.AttemptedAction
 
   @type t :: %__MODULE__{
           foothold_ids: [String.t()],
@@ -69,29 +69,28 @@ defmodule NetworkDefense.AttackerState.AttackerState do
     credential_id in state.credential_ids
   end
 
-  def attempted?(state, action) do
-    attempt_count(state, action) > 0
+  def attempted?(state, %AttemptedAction{} = attempted_action) do
+    attempt_count(state, attempted_action) > 0
   end
 
-  def can_attempt?(state, action, max_attempts) do
-    attempt_count(state, action) < max_attempts
+  def can_attempt?(state, %AttemptedAction{} = attempted_action, max_attempts) do
+    attempt_count(state, attempted_action) < max_attempts
   end
 
-  def attempted_action(state, action) do
-    Enum.find(state.attempted_actions, fn aa ->
-      AttemptedAction.action(aa) == action
-    end)
+  def attempted_action(state, %AttemptedAction{} = attempted_action) do
+    Enum.find(state.attempted_actions, &AttemptedAction.same_action?(&1, attempted_action))
   end
 
-  def mark_attempted(state, action, max_attempts) do
+  def mark_attempted(state, %AttemptedAction{} = attempted_action, max_attempts) do
     idx =
-      Enum.find_index(state.attempted_actions, fn aa ->
-        AttemptedAction.action(aa) == action
-      end)
+      Enum.find_index(
+        state.attempted_actions,
+        &AttemptedAction.same_action?(&1, attempted_action)
+      )
 
     case idx do
       nil ->
-        attempted_action = AttemptedAction.new(action) |> AttemptedAction.increment(max_attempts)
+        attempted_action = AttemptedAction.increment(attempted_action, max_attempts)
         %{state | attempted_actions: [attempted_action | state.attempted_actions]}
 
       i ->
@@ -102,8 +101,8 @@ defmodule NetworkDefense.AttackerState.AttackerState do
     end
   end
 
-  defp attempt_count(state, action) do
-    case attempted_action(state, action) do
+  defp attempt_count(state, attempted_action) do
+    case attempted_action(state, attempted_action) do
       nil -> 0
       attempted_action -> attempted_action.attempt_count
     end

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Actions do
   @moduledoc false
 
   use Boundary,
-    deps: [NetworkDefense],
+    deps: [NetworkDefense, NetworkDefense.AttackerState],
     exports: [
       AcquireCredential,
       Action,

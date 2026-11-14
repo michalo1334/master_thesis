@@ -1,8 +1,7 @@
 defmodule NetworkDefense.AttackerState.AttackerStateTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.Actions.AcquireCredential
-  alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.AttackerState.{AttackerState, AttemptedAction}
 
   describe "new/2" do
     test "creates state with default user privilege" do
@@ -66,11 +65,14 @@ defmodule NetworkDefense.AttackerState.AttackerStateTest do
   end
 
   describe "attempted actions" do
-    test "tracks complete action structs" do
-      action = %AcquireCredential{credential_id: "cred-1", host_id: "host-1"}
-      state = AttackerState.new("host-1") |> AttackerState.mark_attempted(action, 2)
+    test "tracks neutral action identities" do
+      attempted_action = AttemptedAction.new("AcquireCredential", %{"credential_id" => "cred-1"})
 
-      assert AttackerState.attempted?(state, action)
+      state =
+        AttackerState.new("host-1")
+        |> AttackerState.mark_attempted(attempted_action, 2)
+
+      assert AttackerState.attempted?(state, attempted_action)
     end
   end
 end

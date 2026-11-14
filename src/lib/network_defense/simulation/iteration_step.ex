@@ -3,8 +3,7 @@ defmodule NetworkDefense.Simulation.IterationStep do
 
   import Ecto.Changeset
 
-  alias NetworkDefense.Actions.AttemptedAction
-  alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.AttackerState.{AttackerState, AttemptedAction}
   alias NetworkDefense.Simulation.Run
 
   @primary_key {:id, :binary_id, autogenerate: true}

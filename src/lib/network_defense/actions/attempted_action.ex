@@ -1,43 +1,36 @@
 defmodule NetworkDefense.Actions.AttemptedAction do
   @moduledoc """
-  Represents one action variant and its attempt count.
+  Converts action structs to stored attacker-state attempts.
   """
-  use Ecto.Schema
 
   alias NetworkDefense.Actions.Registry
+  alias NetworkDefense.AttackerState.AttackerState
+  alias NetworkDefense.AttackerState.AttemptedAction, as: StoredAttempt
 
-  @type t :: %__MODULE__{
-          attempt_count: non_neg_integer(),
-          action_type: String.t(),
-          action_data: map()
-        }
-
-  @primary_key false
-  embedded_schema do
-    field :attempt_count, :integer, default: 0
-    field :action_type, :string
-    field :action_data, :map
-  end
-
-  @doc "Constructs an AttemptedAction from an action struct."
+  @spec new(struct()) :: StoredAttempt.t()
   def new(%module{} = action) do
-    %__MODULE__{
-      attempt_count: 0,
-      action_type: Registry.type_for!(module),
-      action_data: Ecto.embedded_dump(action, :json)
-    }
+    StoredAttempt.new(
+      Registry.type_for!(module),
+      Ecto.embedded_dump(action, :json)
+    )
   end
 
-  @doc "Retrieves the action struct from the AttemptedAction."
-  def action(%__MODULE__{action_type: type, action_data: data}) do
+  @spec action(StoredAttempt.t()) :: map()
+  def action(%StoredAttempt{action_type: type, action_data: data}) do
     case Registry.module_for(type) do
       nil -> raise ArgumentError, "unknown attempted action type"
       module -> Ecto.embedded_load(module, data, :json)
     end
   end
 
-  @doc "Increments attempt count capped at max_attempts."
-  def increment(%__MODULE__{attempt_count: count} = aa, max_attempts) do
-    %{aa | attempt_count: min(count + 1, max_attempts)}
-  end
+  def attempted?(state, action), do: AttackerState.attempted?(state, new(action))
+
+  def can_attempt?(state, action, max_attempts),
+    do: AttackerState.can_attempt?(state, new(action), max_attempts)
+
+  def attempted_action(state, action),
+    do: AttackerState.attempted_action(state, new(action))
+
+  def mark_attempted(state, action, max_attempts),
+    do: AttackerState.mark_attempted(state, new(action), max_attempts)
 end
