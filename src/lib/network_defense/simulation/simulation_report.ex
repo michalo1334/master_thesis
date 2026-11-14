@@ -3,6 +3,10 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   Pure computation of simulation report statistics from loaded Experiment data.
   """
 
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: [Charts]
+
   alias NetworkDefense.Actions.AttemptedAction
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
