@@ -1,6 +1,10 @@
 defmodule NetworkDefense.Compute.ScatterGather do
   @moduledoc false
 
+  use Boundary,
+    deps: [],
+    exports: [Executor]
+
   @otp_app :network_defense
 
   @spec run(module(), term(), keyword()) :: {:ok, term()} | {:error, term()}
