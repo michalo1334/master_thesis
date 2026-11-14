@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Cancel do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Cancels one study execution that is not terminal.
 
@@ -21,8 +23,8 @@ defmodule Mix.Tasks.Study.Cancel do
   @shortdoc "Cancels one study execution that is not terminal"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.cancel <execution-id>"
 

@@ -1,4 +1,4 @@
-defmodule Mix.Study.CommandTest do
+defmodule NetworkDefense.Tooling.StudyCommandTest do
   @moduledoc """
   CMD-02: startup policy of the study commands.
 
@@ -12,7 +12,7 @@ defmodule Mix.Study.CommandTest do
 
   use ExUnit.Case, async: false
 
-  alias Mix.Study.Command
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   setup do
     previous_role = System.get_env("GUST_ROLE")

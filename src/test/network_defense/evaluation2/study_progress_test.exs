@@ -1,12 +1,12 @@
 defmodule NetworkDefense.Evaluation2.StudyProgressTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
   alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Collection, Progress}
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.Collection, as: Store
-  alias NetworkDefense.Evaluation2Test.FinalFixtures
-  alias NetworkDefense.Evaluation2Test.UiFixtures
+  alias NetworkDefenseTest.Evaluation2.FinalFixtures
+  alias NetworkDefenseTest.Evaluation2.UiFixtures
   alias NetworkDefenseWeb.StudyObserver
 
   setup do

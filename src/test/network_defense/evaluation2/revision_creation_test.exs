@@ -15,9 +15,9 @@ defmodule NetworkDefense.Evaluation2.RevisionCreationTest do
       mix test test/network_defense/evaluation2/revision_creation_test.exs
   """
 
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
-  import NetworkDefense.Evaluation2Test.FoundationFixtures
+  import NetworkDefenseTest.Evaluation2.FoundationFixtures
 
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.Definition
@@ -25,8 +25,8 @@ defmodule NetworkDefense.Evaluation2.RevisionCreationTest do
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.Error, as: PersistenceError
   alias NetworkDefense.Evaluation2.Study.Revision
-  alias NetworkDefense.Evaluation2Test.GraphFixtures
   alias NetworkDefense.Topology.EnterpriseTopology
+  alias NetworkDefenseTest.Evaluation2.GraphFixtures
 
   @moduletag :integration
   @moduletag :evaluation2_integration

@@ -17,7 +17,7 @@ defmodule NetworkDefense.Evaluation2.FinalAnalysisLoadTest do
       mix test test/network_defense/evaluation2/final_analysis_load_test.exs
   """
 
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.DAG.Definition
@@ -34,7 +34,7 @@ defmodule NetworkDefense.Evaluation2.FinalAnalysisLoadTest do
     Evaluate
   }
 
-  alias NetworkDefense.Evaluation2Test.FinalFixtures
+  alias NetworkDefenseTest.Evaluation2.FinalFixtures
 
   @moduletag :integration
   @moduletag case_id: "BIND-02"

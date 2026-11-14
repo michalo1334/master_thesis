@@ -19,7 +19,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
   alias NetworkDefense.Rules.Rule
   alias NetworkDefense.Simulation.Run
 
-  import NetworkDefense.GraphFixtures
+  import NetworkDefenseTest.GraphFixtures
 
   describe "AcquireCredentialRule" do
     test "acquires credential from host with required privilege" do

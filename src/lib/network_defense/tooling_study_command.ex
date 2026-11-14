@@ -1,4 +1,4 @@
-defmodule Mix.Study.Command do
+defmodule NetworkDefense.Tooling.StudyCommand do
   @moduledoc """
   Shared startup policy and operator-facing output of the `mix study.*` commands.
 

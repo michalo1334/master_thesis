@@ -23,6 +23,8 @@ defmodule NetworkDefense.Optimization.RandomStrategy do
   def new(_graph, params), do: {:ok, %__MODULE__{seed: params.seed}}
 
   defimpl Strategy, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     @spec name(Strategy.t()) :: String.t()
     def name(_strategy), do: "Random strategy"
 

@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Evaluation2.FinalAnalysisWorkflowTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   import Ecto.Query
 
@@ -11,7 +11,7 @@ defmodule NetworkDefense.Evaluation2.FinalAnalysisWorkflowTest do
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
   alias NetworkDefense.Evaluation2.Study.Persistence.Result
   alias NetworkDefense.Evaluation2.Study.Workflow
-  alias NetworkDefense.Evaluation2Test.FinalFixtures
+  alias NetworkDefenseTest.Evaluation2.FinalFixtures
 
   @moduletag :integration
   @moduletag case_id: "FLOW-05/RESULT-01/BIND-01/BIND-02"

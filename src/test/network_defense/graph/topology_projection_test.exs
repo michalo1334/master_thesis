@@ -25,7 +25,7 @@ defmodule NetworkDefense.Graph.TopologyProjectionTest do
     Supports
   }
 
-  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 2, node: 3]
+  import NetworkDefenseTest.GraphFixtures, only: [edge: 4, edge: 5, graph: 2, node: 3]
 
   describe "topology elements" do
     test "projects membership, ownership, counts, and order" do

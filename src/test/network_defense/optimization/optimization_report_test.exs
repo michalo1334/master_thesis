@@ -1,10 +1,10 @@
 defmodule NetworkDefense.Optimization.OptimizationReportTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Optimization.{OptimizationAction, OptimizationReport, OptimizationRun}
   alias NetworkDefense.Relationships.SegmentReachability
+  alias NetworkDefenseTest.GraphFixtures
 
   test "summarizes a segment-boundary cut with source, target, protocol, and port range" do
     source = segment("source-segment")

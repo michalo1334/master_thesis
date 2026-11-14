@@ -10,8 +10,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategyTest do
     RevokeCredential
   }
 
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefenseTest.GraphFixtures
 
   alias NetworkDefense.Optimization.{
     Optimizer,

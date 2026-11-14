@@ -344,25 +344,10 @@ defmodule NetworkDefenseWeb.Telemetry do
     end
   end
 
-  defp repo_available? do
-    case Process.whereis(NetworkDefense.Repo) do
-      pid when is_pid(pid) -> true
-      _ -> false
-    end
-  end
+  defp repo_available?, do: NetworkDefense.Observability.repo_available?()
 
   defp emit_oban_depth do
-    import Ecto.Query
-
-    rows =
-      from(j in Oban.Job,
-        where: j.state in ^@oban_states,
-        group_by: [j.queue, j.state],
-        select: {j.queue, j.state, count(j.id)}
-      )
-      |> NetworkDefense.Repo.all()
-
-    counts = Map.new(rows, fn {queue, state, count} -> {{queue, state}, count} end)
+    counts = NetworkDefense.Observability.oban_queue_counts(@oban_states)
     queues = Application.get_env(:network_defense, :oban_queue_names, [])
 
     for queue <- queues, state <- @oban_states do

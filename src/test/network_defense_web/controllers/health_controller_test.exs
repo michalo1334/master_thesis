@@ -1,5 +1,5 @@
 defmodule NetworkDefenseWeb.HealthControllerTest do
-  use NetworkDefenseWeb.ConnCase, async: true
+  use NetworkDefenseTest.ConnCase, async: true
 
   test "reports liveness", %{conn: conn} do
     conn = get(conn, "/healthz")

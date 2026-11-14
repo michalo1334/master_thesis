@@ -6,7 +6,7 @@ defmodule NetworkDefense.Graph.MaterializeReachabilityTest do
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs, SegmentReachability}
 
-  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 3, node: 4]
+  import NetworkDefenseTest.GraphFixtures, only: [edge: 4, edge: 5, graph: 3, node: 4]
 
   describe "deny by default" do
     test "emits no operational flows without a matching policy" do

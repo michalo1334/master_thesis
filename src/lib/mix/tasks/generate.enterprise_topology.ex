@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Generate.EnterpriseTopology do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   use Mix.Task
 
   alias NetworkDefense.Graph.{Graph, Graphs}

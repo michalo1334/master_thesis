@@ -49,7 +49,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogReply
 
-  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 3, node: 4]
+  import NetworkDefenseTest.GraphFixtures, only: [edge: 4, edge: 5, graph: 3, node: 4]
 
   @graph_id "00000000-0000-0000-0000-000000000001"
   @parent_graph_id "00000000-0000-0000-0000-000000000011"

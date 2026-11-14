@@ -17,6 +17,8 @@ defmodule NetworkDefense.Actions.ReuseCredential do
   end
 
   defimpl Action, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     alias NetworkDefense.AttackerState.AttackerState
 
     def execute(action, attacker_state) do

@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Evaluation2.RunMonitorTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.Flows.{Dag, Run}

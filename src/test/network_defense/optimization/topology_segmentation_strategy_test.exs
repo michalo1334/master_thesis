@@ -2,10 +2,10 @@ defmodule NetworkDefense.Optimization.TopologySegmentationStrategyTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.DefenseActions.BlockSegmentReachability
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, NetworkSegment, Service}
   alias NetworkDefense.Optimization.{Strategy, TopologySegmentationStrategy}
   alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability}
+  alias NetworkDefenseTest.GraphFixtures
 
   test "new/2 accepts a canonical graph with segment policy edges" do
     {graph, source} = graph()

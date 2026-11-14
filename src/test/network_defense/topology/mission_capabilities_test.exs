@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Topology.MissionCapabilitiesTest do
-  use NetworkDefense.DataCase
+  use NetworkDefenseTest.DataCase
 
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.{MissionCapability, NetworkSegment, Service}

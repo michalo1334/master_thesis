@@ -1,5 +1,5 @@
 defmodule NetworkDefense.DocumentCatalogTest do
-  use NetworkDefense.DataCase
+  use NetworkDefenseTest.DataCase
 
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Graph.{Graph, Graphs}

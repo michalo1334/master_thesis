@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Gen.Contracts.RuntimeValues do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc false
 
   alias NetworkDefense.Contracts

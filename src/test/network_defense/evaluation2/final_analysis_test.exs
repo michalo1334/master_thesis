@@ -1,12 +1,12 @@
 defmodule NetworkDefense.Evaluation2.FinalAnalysisTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.Evaluation2.Study.{Definition, Evidence, Persistence, Randomness}
   alias NetworkDefense.Evaluation2.Study.Final.{Analysis, ComparisonJob}
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
-  alias NetworkDefense.Evaluation2Test.{FinalFixtures, NumericAnchors}
   alias NetworkDefense.Simulation.Seed
+  alias NetworkDefenseTest.Evaluation2.{FinalFixtures, NumericAnchors}
 
   @moduletag :integration
   @moduletag case_id: "NUM-01/NUM-06/HOLM-01/RESULT-01"

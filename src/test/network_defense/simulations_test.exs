@@ -1,5 +1,5 @@
 defmodule NetworkDefense.SimulationsTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
   use Oban.Testing, repo: NetworkDefense.Repo
 
   import Ecto.Query

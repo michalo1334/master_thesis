@@ -8,6 +8,8 @@ defmodule NetworkDefense.DefenseActions.BlockSegmentReachability do
   defstruct [:edge_id, cost: 1]
 
   defimpl DefenseAction, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     alias NetworkDefense.Relationships.SegmentReachability
     def target(action), do: {Edge, action.edge_id}
     def with_target_id(action, target_id), do: %{action | edge_id: target_id}

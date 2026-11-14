@@ -3,7 +3,10 @@ defmodule NetworkDefense.Observability do
 
   require Logger
 
+  import Ecto.Query
+
   alias NetworkDefense.Observability.LogValue
+  alias NetworkDefense.Repo
 
   def emit_duration(event, started_at, metadata \\ %{}) do
     :telemetry.execute(event, %{duration: System.monotonic_time() - started_at}, metadata)
@@ -13,6 +16,18 @@ defmodule NetworkDefense.Observability do
     started_at
     |> then(&(System.monotonic_time() - &1))
     |> System.convert_time_unit(:native, :millisecond)
+  end
+
+  def repo_available?, do: is_pid(Process.whereis(Repo))
+
+  def oban_queue_counts(states) do
+    from(job in Oban.Job,
+      where: job.state in ^states,
+      group_by: [job.queue, job.state],
+      select: {job.queue, job.state, count(job.id)}
+    )
+    |> Repo.all()
+    |> Map.new(fn {queue, state, count} -> {{queue, state}, count} end)
   end
 
   @ecto_query_event [:network_defense, :repo, :query]

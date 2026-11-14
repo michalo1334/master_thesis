@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation2Test.FoundationFixtures do
+defmodule NetworkDefenseTest.Evaluation2.FoundationFixtures do
   @moduledoc """
   Independent documents and small accessors for the Evaluation2 foundation boundary.
 

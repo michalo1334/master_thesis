@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Continue do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Continues one study execution to its next supported boundary.
 
@@ -17,8 +19,8 @@ defmodule Mix.Tasks.Study.Continue do
   @shortdoc "Continues one study execution to its next boundary"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.continue <execution-id>"
 

@@ -38,7 +38,7 @@ defmodule Mix.PrecommitCredoTest do
     assert Enum.at(steps, index + 1) == "dialyzer"
 
     assert Enum.reject(steps, &(&1 == credo_step)) == [
-             "compile --warning-as-errors",
+             "compile --warnings-as-errors",
              "gen.contracts",
              "format --check-formatted",
              "cmd npm run format:check",

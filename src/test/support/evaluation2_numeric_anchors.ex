@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation2Test.NumericAnchors do
+defmodule NetworkDefenseTest.Evaluation2.NumericAnchors do
   @moduledoc """
   Independent reference arithmetic for the matching-based bounded-mean method.
 

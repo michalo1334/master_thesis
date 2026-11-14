@@ -4,8 +4,8 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategyTest do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.DefenseActions.{DefenseAction, PatchVulnerability, RevokeCredential}
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service, Vulnerability}
+  alias NetworkDefenseTest.GraphFixtures
 
   alias NetworkDefense.Optimization.{
     SimulationInformedStrategy,

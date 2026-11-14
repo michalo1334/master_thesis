@@ -1,4 +1,4 @@
-defmodule NetworkDefense.GraphFixtures do
+defmodule NetworkDefenseTest.GraphFixtures do
   @moduledoc false
 
   alias NetworkDefense.Graph.{Edge, Graph, Node}

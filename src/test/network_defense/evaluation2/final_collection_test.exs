@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Evaluation2.FinalCollectionTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   import Ecto.Query
   alias Ecto.Adapters.SQL.Sandbox
@@ -9,9 +9,9 @@ defmodule NetworkDefense.Evaluation2.FinalCollectionTest do
   alias NetworkDefense.Evaluation2.Study.Persistence.Collection, as: Store
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Replica
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Tier, as: TimingTier
-  alias NetworkDefense.Evaluation2Test.FinalFixtures
   alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Simulation.{Experiment, Experiments, IterationStep}
+  alias NetworkDefenseTest.Evaluation2.FinalFixtures
 
   @moduletag :integration
   @moduletag case_id: "COL-01/COL-03/COL-04/TIME-04"

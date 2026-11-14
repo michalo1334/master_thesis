@@ -1,12 +1,12 @@
 defmodule NetworkDefense.Optimization.OptimizationRunsTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
   use Oban.Testing, repo: NetworkDefense.Repo
 
   import Ecto.Query
 
   alias NetworkDefense.Graph.{Edge, Graph, Graphs}
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
+  alias NetworkDefenseTest.GraphFixtures
 
   alias NetworkDefense.Optimization.Contracts.{
     OptimizationParams,

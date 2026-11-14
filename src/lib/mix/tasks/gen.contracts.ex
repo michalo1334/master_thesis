@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Gen.Contracts do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   use Mix.Task
   @moduledoc false
   alias Mix.Tasks.Gen.Contracts.Registry

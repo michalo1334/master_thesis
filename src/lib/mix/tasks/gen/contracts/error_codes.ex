@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Gen.Contracts.ErrorCodes do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc false
 
   alias Mix.Tasks.Gen.Contracts.Renderer

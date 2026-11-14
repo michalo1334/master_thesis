@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Evaluation2.CollectionTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
 
@@ -14,9 +14,9 @@ defmodule NetworkDefense.Evaluation2.CollectionTest do
   alias NetworkDefense.Evaluation2.Study.Persistence.Collection, as: Store
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
   alias NetworkDefense.Evaluation2.Study.Pilot.Analysis
-  alias NetworkDefense.Evaluation2Test.{FoundationFixtures, GraphFixtures}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Simulation.{Experiment, Run, Seed}
+  alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
 
   @moduletag :integration
 

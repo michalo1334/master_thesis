@@ -1,4 +1,4 @@
-defmodule NetworkDefense.DataCase do
+defmodule NetworkDefenseTest.DataCase do
   @moduledoc "Sets up the database sandbox for data-access tests."
 
   use ExUnit.CaseTemplate
@@ -13,12 +13,12 @@ defmodule NetworkDefense.DataCase do
       import Ecto
       import Ecto.Changeset
       import Ecto.Query
-      import NetworkDefense.DataCase
+      import NetworkDefenseTest.DataCase
     end
   end
 
   setup tags do
-    NetworkDefense.DataCase.setup_sandbox(tags)
+    NetworkDefenseTest.DataCase.setup_sandbox(tags)
     :ok
   end
 

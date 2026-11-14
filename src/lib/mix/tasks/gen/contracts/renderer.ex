@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Gen.Contracts.Renderer do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc false
 
   @basic_types %{

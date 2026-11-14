@@ -1,8 +1,8 @@
 defmodule NetworkDefense.Simulation.SimulationOperationTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   import Ecto.Query
-  import NetworkDefense.GraphFixtures
+  import NetworkDefenseTest.GraphFixtures
 
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Nodes.{Host, NetworkSegment}

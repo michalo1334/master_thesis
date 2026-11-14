@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Graph.SemanticEndpointTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   alias NetworkDefense.Graph.{Edge, Graph, Graphs, Node}
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}

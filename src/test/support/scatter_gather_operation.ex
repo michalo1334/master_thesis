@@ -1,4 +1,4 @@
-defmodule NetworkDefense.TestScatterGatherOperation do
+defmodule NetworkDefenseTest.ScatterGatherOperation do
   @moduledoc false
 
   @behaviour NetworkDefense.Compute.ScatterGather

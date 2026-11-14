@@ -6,7 +6,7 @@ defmodule NetworkDefense.Evaluation2.CompiledComputeTest do
 
   alias NetworkDefense.Evaluation2.Study.Compute
   alias NetworkDefense.Evaluation2.Study.Compute.{Input, Kernel}
-  alias NetworkDefense.Evaluation2Test.NumericAnchors, as: Anchor
+  alias NetworkDefenseTest.Evaluation2.NumericAnchors, as: Anchor
 
   test "WHEN CPU compilation is used THEN inference agrees with independent scalar arithmetic" do
     for {rows, columns} <- [{5, 10}, {10, 5}, {20, 40}], confidence <- [0.8, 0.95, 0.99] do

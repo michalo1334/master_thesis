@@ -26,7 +26,7 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
   alias NetworkDefenseWeb.Contracts.Dashboard.Graph.TopologyProjection,
     as: TopologyProjectionContract
 
-  import NetworkDefense.GraphFixtures
+  import NetworkDefenseTest.GraphFixtures
 
   test "generates grouped raw report data for completed simulations" do
     report = SimulationReport.generate(experiment([run("source-host")]))

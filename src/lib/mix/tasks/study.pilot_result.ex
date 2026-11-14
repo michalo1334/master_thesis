@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.PilotResult do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Prints the complete Pilot report of one study execution.
 
@@ -15,8 +17,8 @@ defmodule Mix.Tasks.Study.PilotResult do
   @shortdoc "Prints the complete Pilot report of one study execution"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.pilot_result <execution-id>"
 

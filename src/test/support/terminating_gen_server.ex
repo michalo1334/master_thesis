@@ -1,4 +1,4 @@
-defmodule NetworkDefense.TerminatingGenServer do
+defmodule NetworkDefenseTest.TerminatingGenServer do
   @moduledoc false
 
   use GenServer

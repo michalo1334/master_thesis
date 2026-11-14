@@ -1,5 +1,5 @@
 defmodule NetworkDefenseWeb.StudyLiveTest do
-  use NetworkDefenseWeb.ConnCase
+  use NetworkDefenseTest.ConnCase
   import Phoenix.LiveViewTest
   alias Ecto.Adapters.SQL.Sandbox
   alias NetworkDefense.Evaluation2.Study
@@ -14,7 +14,7 @@ defmodule NetworkDefenseWeb.StudyLiveTest do
   }
 
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
-  alias NetworkDefense.Evaluation2Test.UiFixtures
+  alias NetworkDefenseTest.Evaluation2.UiFixtures
   alias NetworkDefenseWeb.StudyWire
 
   setup do

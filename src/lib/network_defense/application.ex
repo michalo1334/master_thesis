@@ -1,4 +1,8 @@
 defmodule NetworkDefense.Application do
+  use Boundary,
+    top_level?: true,
+    deps: [NetworkDefense, NetworkDefense.Repo, NetworkDefenseWeb]
+
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false

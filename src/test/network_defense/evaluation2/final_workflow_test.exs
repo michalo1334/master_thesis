@@ -1,12 +1,12 @@
 defmodule NetworkDefense.Evaluation2.FinalWorkflowTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.DAG.Loader.Worker, as: DAGLoader
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.Final.Timing
   alias NetworkDefense.Evaluation2.Study.{Persistence, Tier, Workflow}
-  alias NetworkDefense.Evaluation2Test.FinalFixtures
+  alias NetworkDefenseTest.Evaluation2.FinalFixtures
 
   @moduletag :integration
   @moduletag case_id: "BIND-01/BIND-02/FLOW-03/FLOW-04/TIME-02/TIME-03"

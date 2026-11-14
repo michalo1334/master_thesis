@@ -10,7 +10,7 @@ defmodule NetworkDefense.Evaluation2.RandomnessTest do
   use ExUnit.Case, async: true
   @moduletag :unit
 
-  import NetworkDefense.Evaluation2Test.FoundationFixtures
+  import NetworkDefenseTest.Evaluation2.FoundationFixtures
 
   alias NetworkDefense.Evaluation2.Study.Definition
   alias NetworkDefense.Evaluation2.Study.Randomness

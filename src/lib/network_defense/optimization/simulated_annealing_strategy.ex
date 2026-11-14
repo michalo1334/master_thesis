@@ -34,6 +34,8 @@ defmodule NetworkDefense.Optimization.SimulatedAnnealingStrategy do
   def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
 
   defimpl Strategy, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     @max_steps 100
     @infeasible_score {1.0e9, 1.0e9, 1.0e9}
 

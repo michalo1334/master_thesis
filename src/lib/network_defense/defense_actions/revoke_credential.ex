@@ -8,6 +8,8 @@ defmodule NetworkDefense.DefenseActions.RevokeCredential do
   defstruct [:credential_id, cost: 1]
 
   defimpl DefenseAction, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     alias NetworkDefense.Nodes.Credential
     def target(action), do: {Node, action.credential_id}
 

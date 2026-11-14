@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Final do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Approves the Pilot outcome of one execution and waits for the Final result.
 
@@ -21,9 +23,9 @@ defmodule Mix.Tasks.Study.Final do
   @shortdoc "Approves one Pilot outcome and runs Final collection to its result"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.Status
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage """
   Usage: mix study.final <execution-id> --recommended

@@ -1,5 +1,5 @@
 defmodule NetworkDefenseWeb.DashboardLiveTest do
-  use NetworkDefenseWeb.ConnCase
+  use NetworkDefenseTest.ConnCase
   use Oban.Testing, repo: NetworkDefense.Repo
 
   import ExUnit.CaptureLog
@@ -9,7 +9,6 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Graph.{Data, Edge, Folders, Graph}
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Graph.Node
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
@@ -24,6 +23,7 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.{Experiment, Experiments, SimulationReport}
   alias NetworkDefense.Simulations
+  alias NetworkDefenseTest.GraphFixtures
   alias NetworkDefenseWeb.DashboardLive
 
   describe "report assembly progress" do

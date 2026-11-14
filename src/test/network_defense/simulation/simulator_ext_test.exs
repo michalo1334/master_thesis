@@ -19,7 +19,7 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
   alias NetworkDefense.Simulation.Run
   alias NetworkDefense.Simulation.Simulator
 
-  import NetworkDefense.GraphFixtures
+  import NetworkDefenseTest.GraphFixtures
 
   test "simulation progresses by selecting one random action per iteration" do
     {graph, source_host, target_host, _service, _vuln} = full_exploit_graph()

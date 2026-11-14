@@ -8,7 +8,7 @@ defmodule NetworkDefense.Evaluation2.ComputeTest do
   NUM-05 (scale behavior and repeatability), NUM-06 (frozen model bounds),
   HOLM-01 (decimal family correction).
 
-  Expected values come from `NetworkDefense.Evaluation2Test.NumericAnchors`,
+  Expected values come from `NetworkDefenseTest.Evaluation2.NumericAnchors`,
   which implements the documented method independently in plain sequential
   Elixir. No expectation is read from the kernel. The fixtures are closed-form
   matrices, so the cases need no random stream.
@@ -23,7 +23,7 @@ defmodule NetworkDefense.Evaluation2.ComputeTest do
   @moduletag :unit
 
   alias NetworkDefense.Evaluation2.Study.Compute
-  alias NetworkDefense.Evaluation2Test.NumericAnchors, as: Anchor
+  alias NetworkDefenseTest.Evaluation2.NumericAnchors, as: Anchor
 
   @confidence 0.95
 

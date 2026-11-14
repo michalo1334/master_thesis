@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Topology.CharacterizationFlowsTest do
-  use NetworkDefense.DataCase
+  use NetworkDefenseTest.DataCase
 
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability

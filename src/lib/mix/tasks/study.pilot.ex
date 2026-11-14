@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Pilot do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Starts one Pilot execution of a frozen revision and waits for its decision.
 
@@ -18,10 +20,10 @@ defmodule Mix.Tasks.Study.Pilot do
   @shortdoc "Runs one Pilot execution to the approval boundary"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.Revision
   alias NetworkDefense.Evaluation2.Study.Status
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.pilot <study-id> <revision>"
 

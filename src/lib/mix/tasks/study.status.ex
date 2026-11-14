@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Status do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Prints the lifecycle status of one study execution.
 
@@ -15,8 +17,8 @@ defmodule Mix.Tasks.Study.Status do
   @shortdoc "Prints the lifecycle status of one study execution"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.status <execution-id>"
 

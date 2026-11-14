@@ -1,4 +1,4 @@
-defmodule NetworkDefense.LogEventHandler do
+defmodule NetworkDefenseTest.LogEventHandler do
   @moduledoc false
 
   @behaviour :logger_handler

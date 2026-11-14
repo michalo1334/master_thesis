@@ -1,9 +1,9 @@
 defmodule NetworkDefense.Evaluation2.StudyBrowsingTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Definition, Persistence, Revision}
-  alias NetworkDefense.Evaluation2Test.{FoundationFixtures, GraphFixtures}
+  alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
   alias NetworkDefenseWeb.StudyWire
 
   setup do

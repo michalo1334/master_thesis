@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Evaluation2Test.GraphFixtures do
+defmodule NetworkDefenseTest.Evaluation2.GraphFixtures do
   @moduledoc """
   Persisted tier graphs for Evaluation2 integration cases.
 

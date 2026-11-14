@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Create do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Freezes one study revision from a YAML definition file.
 
@@ -18,9 +20,9 @@ defmodule Mix.Tasks.Study.Create do
   @shortdoc "Freezes one study revision from a YAML file"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.Revision
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.create <file>"
   @document_limit 1_048_576

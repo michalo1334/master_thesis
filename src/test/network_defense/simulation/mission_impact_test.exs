@@ -1,10 +1,10 @@
 defmodule NetworkDefense.Simulation.MissionImpactTest do
   use ExUnit.Case, async: true
 
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
   alias NetworkDefense.Relationships.{Contains, Runs, SegmentReachability, Supports}
   alias NetworkDefense.Simulation.MissionImpact
+  alias NetworkDefenseTest.GraphFixtures
 
   test "marks a capability down when fewer than its required supports remain" do
     primary = GraphFixtures.node("primary", Host, %{"name" => "primary"})

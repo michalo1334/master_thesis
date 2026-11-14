@@ -3,7 +3,7 @@ defmodule NetworkDefense.Compute.ScatterGatherTest do
 
   alias NetworkDefense.Compute.ScatterGather
   alias NetworkDefense.Compute.ScatterGather.Executor
-  alias NetworkDefense.TestScatterGatherOperation, as: Operation
+  alias NetworkDefenseTest.ScatterGatherOperation, as: Operation
 
   test "defines scatter, execute, and gather callbacks" do
     assert Enum.sort(ScatterGather.behaviour_info(:callbacks)) ==

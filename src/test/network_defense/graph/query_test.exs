@@ -13,7 +13,7 @@ defmodule NetworkDefense.Graph.QueryTest do
   alias NetworkDefense.Relationships.NetworkReachability
   alias NetworkDefense.Relationships.Runs
 
-  import NetworkDefense.GraphFixtures, only: [edge: 4, edge: 5, graph: 2]
+  import NetworkDefenseTest.GraphFixtures, only: [edge: 4, edge: 5, graph: 2]
 
   test "matches the remote service exploitation path and returns bound domain objects" do
     foothold = node("foothold", Host)

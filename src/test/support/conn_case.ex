@@ -1,4 +1,4 @@
-defmodule NetworkDefenseWeb.ConnCase do
+defmodule NetworkDefenseTest.ConnCase do
   @moduledoc "Sets up connections and the database sandbox for web tests."
 
   use ExUnit.CaseTemplate
@@ -13,12 +13,12 @@ defmodule NetworkDefenseWeb.ConnCase do
       # Import conveniences for testing with connections
       import Plug.Conn
       import Phoenix.ConnTest
-      import NetworkDefenseWeb.ConnCase
+      import NetworkDefenseTest.ConnCase
     end
   end
 
   setup tags do
-    NetworkDefense.DataCase.setup_sandbox(tags)
+    NetworkDefenseTest.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
 end

@@ -5,7 +5,7 @@ defmodule NetworkDefense.Evaluation2.PilotPolicyTest do
   alias NetworkDefense.Evaluation2.Study.{Definition, Views}
   alias NetworkDefense.Evaluation2.Study.Persistence.Revision
   alias NetworkDefense.Evaluation2.Study.Pilot.{Analysis, Assessment}
-  alias NetworkDefense.Evaluation2Test.FoundationFixtures
+  alias NetworkDefenseTest.Evaluation2.FoundationFixtures
 
   @moduletag :unit
   @moduletag case_id: "PILOT-01/PILOT-02/FLOW-03/RESULT-01"

@@ -56,17 +56,17 @@ defmodule Mix.Tasks.Study.CommandsTest do
   @identity %Revision{study_id: "example-study", revision: 1}
 
   setup do
-    :meck.new(Mix.Study.Command, [:passthrough, :no_link])
+    :meck.new(NetworkDefense.Tooling.StudyCommand, [:passthrough, :no_link])
     :meck.new(Study, [:no_link])
     parent = self()
 
-    :meck.expect(Mix.Study.Command, :start!, fn mode ->
+    :meck.expect(NetworkDefense.Tooling.StudyCommand, :start!, fn mode ->
       send(parent, {:start!, mode})
       :ok
     end)
 
     on_exit(fn ->
-      :meck.unload(Mix.Study.Command)
+      :meck.unload(NetworkDefense.Tooling.StudyCommand)
       :meck.unload(Study)
     end)
 

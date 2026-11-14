@@ -1,10 +1,10 @@
-defmodule NetworkDefense.Evaluation2Test.FinalFixtures do
+defmodule NetworkDefenseTest.Evaluation2.FinalFixtures do
   @moduledoc false
 
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Evidence, Persistence, PilotOutcome}
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
-  alias NetworkDefense.Evaluation2Test.{FoundationFixtures, GraphFixtures}
+  alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
 
   # Focused Final cases enter through existing transaction owners. They do not
   # claim that their synthetic Pilot receipt is a real Pilot execution.

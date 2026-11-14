@@ -3,8 +3,8 @@ defmodule NetworkDefense.Optimization.OptimizerFeasibilityTest do
 
   alias NetworkDefense.DefenseActions.BlockSegmentReachability
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Host, MissionCapability, NetworkSegment, Service}
+  alias NetworkDefenseTest.GraphFixtures
 
   alias NetworkDefense.Optimization.{
     Optimizer,

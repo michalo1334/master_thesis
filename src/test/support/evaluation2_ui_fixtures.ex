@@ -1,9 +1,9 @@
-defmodule NetworkDefense.Evaluation2Test.UiFixtures do
+defmodule NetworkDefenseTest.Evaluation2.UiFixtures do
   @moduledoc false
   alias Gust.Flows
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Collection, Definition, Persistence}
-  alias NetworkDefense.Evaluation2Test.{FoundationFixtures, GraphFixtures}
+  alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
 
   # Small explicit settings for UI checks. These are test inputs, not research defaults.
   def attrs(study_id \\ "ui-test") do

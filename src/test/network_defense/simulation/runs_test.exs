@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Simulation.RunsTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}

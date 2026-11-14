@@ -15,7 +15,9 @@ defmodule NetworkDefense.ObservabilityTest do
     handler = :network_defense_log_event_handler
 
     :ok =
-      :logger.add_handler(handler, NetworkDefense.LogEventHandler, %{config: %{test_pid: self()}})
+      :logger.add_handler(handler, NetworkDefenseTest.LogEventHandler, %{
+        config: %{test_pid: self()}
+      })
 
     on_exit(fn ->
       :logger.remove_handler(handler)
@@ -28,7 +30,7 @@ defmodule NetworkDefense.ObservabilityTest do
   test "formats GenServer termination reports as complete structured JSON" do
     Process.flag(:trap_exit, true)
 
-    {:ok, pid} = NetworkDefense.TerminatingGenServer.start_link()
+    {:ok, pid} = NetworkDefenseTest.TerminatingGenServer.start_link()
     GenServer.cast(pid, :crash)
 
     entry =

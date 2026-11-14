@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Study.Result do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc """
   Prints the stored result of one successful study execution.
 
@@ -15,8 +17,8 @@ defmodule Mix.Tasks.Study.Result do
   @shortdoc "Prints the stored result of one successful study execution"
   @requirements ["app.config"]
 
-  alias Mix.Study.Command
   alias NetworkDefense.Evaluation2.Study
+  alias NetworkDefense.Tooling.StudyCommand, as: Command
 
   @usage "Usage: mix study.result <execution-id>"
 

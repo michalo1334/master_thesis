@@ -12,13 +12,13 @@ defmodule NetworkDefense.Evaluation2.DocumentationExampleTest do
   These cases dispatch no Gust, optimization or simulation work.
   """
 
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Definition, Error, Persistence, Revision}
-  alias NetworkDefense.Evaluation2Test.GraphFixtures
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefenseTest.Evaluation2.GraphFixtures
 
   @moduletag :integration
   @moduletag :evaluation2_integration

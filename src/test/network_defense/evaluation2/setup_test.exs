@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Evaluation2.SetupTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Topology.EnterpriseTopology

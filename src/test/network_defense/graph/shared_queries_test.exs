@@ -5,7 +5,7 @@ defmodule NetworkDefense.Graph.SharedQueriesTest do
   alias NetworkDefense.Nodes.{Host, NetworkSegment}
   alias NetworkDefense.Relationships.Contains
 
-  import NetworkDefense.GraphFixtures, only: [edge: 4, graph: 2, node: 3]
+  import NetworkDefenseTest.GraphFixtures, only: [edge: 4, graph: 2, node: 3]
 
   test "GRAPH-QUERY-01: groups contained hosts by segment and ignores other edges" do
     first_segment = node("segment-1", NetworkSegment, %{"name" => "First"})

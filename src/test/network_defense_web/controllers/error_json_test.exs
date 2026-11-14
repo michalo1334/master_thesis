@@ -1,5 +1,5 @@
 defmodule NetworkDefenseWeb.ErrorJSONTest do
-  use NetworkDefenseWeb.ConnCase, async: true
+  use NetworkDefenseTest.ConnCase, async: true
 
   test "renders 404" do
     assert NetworkDefenseWeb.ErrorJSON.render("404.json", %{}) == %{

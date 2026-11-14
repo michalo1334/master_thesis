@@ -10,7 +10,7 @@ defmodule NetworkDefense.Evaluation2.FinalTierCollectionLoadTest do
       mix test test/network_defense/evaluation2/final_tier_collection_load_test.exs
   """
 
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.DAG.Definition

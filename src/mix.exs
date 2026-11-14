@@ -15,13 +15,14 @@ defmodule NetworkDefense.MixProject do
       ],
       aliases: aliases(),
       deps: deps(),
+      boundary: [default: [check: [aliases: true]]],
       dialyzer: [
         plt_add_apps: [:credo, :mix, :ex_unit],
         # Project modules are analyzed directly, outside the dependency PLT.
         plt_ignore_apps: [:network_defense],
         ignore_warnings: ".dialyzer_ignore.exs"
       ],
-      compilers: [:phoenix_live_view] ++ Mix.compilers(),
+      compilers: [:boundary, :phoenix_live_view] ++ Mix.compilers(),
       listeners: [Phoenix.CodeReloader]
     ]
   end
@@ -51,6 +52,7 @@ defmodule NetworkDefense.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:boundary, "~> 0.12", runtime: false},
       {:exograph, "== 0.9.12", only: [:dev, :test], runtime: true},
       {:ex_dna, "== 1.5.4", only: [:dev, :test], runtime: true},
       {:ex_ast, "== 0.12.9", only: [:dev, :test], runtime: true},
@@ -139,7 +141,7 @@ defmodule NetworkDefense.MixProject do
         "assets.build"
       ],
       precommit: [
-        "compile --warning-as-errors",
+        "compile --warnings-as-errors",
         "gen.contracts",
         "format --check-formatted",
         "cmd npm run format:check",

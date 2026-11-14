@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Simulation.ExperimentsTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   import Ecto.Query
 

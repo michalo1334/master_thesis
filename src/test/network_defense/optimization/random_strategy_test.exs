@@ -7,11 +7,11 @@ defmodule NetworkDefense.Optimization.RandomStrategyTest do
 
   alias NetworkDefense.DefenseActions.{BlockSegmentReachability, DefenseAction, RevokeCredential}
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Credential, Host, NetworkSegment, Service}
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
   alias NetworkDefense.Optimization.{Optimizer, RandomStrategy, SimulationStrategy, Strategy}
   alias NetworkDefense.Relationships.{AuthenticatesTo, Contains, Runs, SegmentReachability}
+  alias NetworkDefenseTest.GraphFixtures
 
   # Fixed seed enumeration keeps the ordering assertions deterministic.
   @seeds Enum.to_list(1..12)

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Compute.LocalExecutorTest do
   use ExUnit.Case, async: false
 
   alias NetworkDefense.Compute.LocalExecutor
-  alias NetworkDefense.TestScatterGatherOperation, as: Operation
+  alias NetworkDefenseTest.ScatterGatherOperation, as: Operation
 
   test "gathers keyed unordered results after all partitions succeed" do
     input = input([{":a", 2, {:ok, :first}}, {":b", 3, {:ok, :second}}])

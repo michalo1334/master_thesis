@@ -153,8 +153,11 @@ defmodule NetworkDefense.Evaluation2.Study.Progress do
       Gust.Repo.all(from r in Gust.Flows.Run, where: r.id in ^ids, select: {r.id, r.status})
       |> Map.new()
 
-    Enum.find(ordered, &(Map.get(statuses, &1.gust_run_id) != :succeeded)) ||
-      List.last(ordered)
+    Enum.reduce_while(ordered, nil, fn run, _last_succeeded ->
+      if Map.get(statuses, run.gust_run_id) == :succeeded,
+        do: {:cont, run},
+        else: {:halt, run}
+    end)
   end
 
   defp replica(id),

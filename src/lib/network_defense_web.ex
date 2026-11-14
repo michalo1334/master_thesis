@@ -1,4 +1,8 @@
 defmodule NetworkDefenseWeb do
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: [Endpoint, MetricsPlug, Telemetry]
+
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.

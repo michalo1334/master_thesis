@@ -1,8 +1,7 @@
 defmodule NetworkDefense.RunsTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Repo
@@ -10,6 +9,7 @@ defmodule NetworkDefense.RunsTest do
   alias NetworkDefense.Runs
   alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefenseTest.GraphFixtures
 
   describe "active/0" do
     test "lists running simulations and optimizations, newest first" do

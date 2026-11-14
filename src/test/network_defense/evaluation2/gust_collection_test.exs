@@ -1,11 +1,11 @@
 defmodule NetworkDefense.Evaluation2.GustCollectionTest do
-  use NetworkDefense.DataCase, async: false
+  use NetworkDefenseTest.DataCase, async: false
 
   alias Ecto.Adapters.SQL.Sandbox
   alias Gust.DAG.Loader.Worker, as: DAGLoader
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Definition, Persistence, Workflow}
-  alias NetworkDefense.Evaluation2Test.{FoundationFixtures, GraphFixtures}
+  alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
 
   @moduletag :integration
   @moduletag case_id: "COL-01/COL-02/COL-04/SETUP-01"

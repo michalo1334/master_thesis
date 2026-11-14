@@ -32,6 +32,8 @@ defmodule NetworkDefense.Optimization.SimulationInformedStrategy do
   def new(graph, params), do: SimulationStrategy.new(__MODULE__, graph, params)
 
   defimpl Strategy, for: __MODULE__ do
+    use Boundary, classify_to: NetworkDefense
+
     @infeasible_score {1.0e9, 1.0e9, 1.0e9}
 
     @spec name(Strategy.t()) :: String.t()

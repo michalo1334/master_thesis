@@ -2,10 +2,10 @@ defmodule NetworkDefense.Optimization.CvssStrategyTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.DefenseActions.PatchVulnerability
-  alias NetworkDefense.GraphFixtures
   alias NetworkDefense.Nodes.{Service, Vulnerability}
   alias NetworkDefense.Optimization.{CvssStrategy, Strategy}
   alias NetworkDefense.Relationships.HasVulnerability
+  alias NetworkDefenseTest.GraphFixtures
 
   test "ranks vulnerability patches by CVSS score and then edge ID" do
     service =

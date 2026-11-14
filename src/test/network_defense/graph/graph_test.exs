@@ -1,5 +1,5 @@
 defmodule NetworkDefense.Graph.GraphTest do
-  use NetworkDefense.DataCase, async: true
+  use NetworkDefenseTest.DataCase, async: true
 
   import Ecto.Query
 
