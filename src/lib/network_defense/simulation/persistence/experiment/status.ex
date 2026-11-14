@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.Experiment.Status do
+defmodule NetworkDefense.Simulation.Persistence.Experiment.Status do
   @moduledoc false
 
   @values [:running, :failed, :completed, :cancelled]

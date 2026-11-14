@@ -16,7 +16,7 @@ defmodule NetworkDefense.Rules.AcquireCredentialRule do
     alias NetworkDefense.Nodes.Credential
     alias NetworkDefense.Nodes.Host
     alias NetworkDefense.Relationships.StoresCredential
-    alias NetworkDefense.Simulation.Run
+    alias NetworkDefense.Simulation.Persistence.Run
 
     def evaluate(_rule, state) do
       %Run{} = state

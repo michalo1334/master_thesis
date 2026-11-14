@@ -2,7 +2,7 @@ defprotocol NetworkDefense.Rules.Rule do
   @moduledoc """
   Represents a condition that produces candidate actions (see `Action`) for simulator to perform
   """
-  @spec evaluate(t(), NetworkDefense.Simulation.Run.t()) ::
+  @spec evaluate(t(), NetworkDefense.Simulation.Persistence.Run.t()) ::
           list(NetworkDefense.Actions.Action.t())
   def evaluate(rule, run_state)
 end

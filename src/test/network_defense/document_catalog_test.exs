@@ -6,7 +6,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
   alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, Experiments}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments}
   alias NetworkDefenseWeb.Contracts.Dashboard.Workspace.FetchDocumentCatalogPayload
 
   test "paginates catalog items after applying all filters" do

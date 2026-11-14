@@ -5,7 +5,7 @@ defmodule NetworkDefense.Simulation.CharacterizationBaselineTest do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.Nodes.Host
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Topology.EnterpriseTopology

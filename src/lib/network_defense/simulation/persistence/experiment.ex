@@ -1,12 +1,12 @@
-defmodule NetworkDefense.Simulation.Experiment do
+defmodule NetworkDefense.Simulation.Persistence.Experiment do
   use Ecto.Schema
 
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.Experiment.Status
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment.Status
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.Seed
 
   @primary_key {:id, :binary_id, autogenerate: true}

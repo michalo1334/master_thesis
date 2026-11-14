@@ -23,8 +23,8 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiments
   alias NetworkDefense.Simulations
 
   # Replica positions of one planned work set: warm-up and measured replicas.

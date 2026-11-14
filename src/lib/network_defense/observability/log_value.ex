@@ -4,7 +4,7 @@ defmodule NetworkDefense.Observability.LogValue do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
 
   def normalize(value) when is_binary(value) do
     if String.valid?(value) and String.printable?(value) do

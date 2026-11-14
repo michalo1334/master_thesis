@@ -17,7 +17,7 @@ defmodule NetworkDefense.Rules.CredentialRuleTest do
   alias NetworkDefense.Rules.RemoteServiceExploitation
   alias NetworkDefense.Rules.ReuseCredentialRule
   alias NetworkDefense.Rules.Rule
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Run
 
   import NetworkDefenseTest.GraphFixtures
 

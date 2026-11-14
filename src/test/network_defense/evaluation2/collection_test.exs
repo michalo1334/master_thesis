@@ -15,7 +15,8 @@ defmodule NetworkDefense.Evaluation2.CollectionTest do
   alias NetworkDefense.Evaluation2.Study.Persistence.Executions
   alias NetworkDefense.Evaluation2.Study.Pilot.Analysis
   alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Simulation.{Experiment, Run, Seed}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Run}
+  alias NetworkDefense.Simulation.Seed
   alias NetworkDefenseTest.Evaluation2.{FoundationFixtures, GraphFixtures}
 
   @moduletag :integration

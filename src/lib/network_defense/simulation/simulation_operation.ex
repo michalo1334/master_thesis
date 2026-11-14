@@ -5,7 +5,8 @@ defmodule NetworkDefense.Simulation.SimulationOperation do
 
   alias NetworkDefense.Graph.{Graphs, MaterializeReachability}
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Simulator}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments}
+  alias NetworkDefense.Simulation.Simulator
   alias NetworkDefense.Simulation.Telemetry, as: SimulationTelemetry
 
   @trial_batch_size 25

@@ -23,7 +23,8 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, Experiments, SimulationReport}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments}
+  alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulations
   alias NetworkDefenseTest.GraphFixtures
   alias NetworkDefenseWeb.DashboardLive

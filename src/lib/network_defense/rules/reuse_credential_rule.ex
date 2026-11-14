@@ -20,7 +20,7 @@ defmodule NetworkDefense.Rules.ReuseCredentialRule do
     alias NetworkDefense.Relationships.AuthenticatesTo
     alias NetworkDefense.Relationships.NetworkReachability
     alias NetworkDefense.Relationships.Runs
-    alias NetworkDefense.Simulation.Run
+    alias NetworkDefense.Simulation.Persistence.Run
 
     def evaluate(_rule, state) do
       %Run{} = state

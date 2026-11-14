@@ -278,7 +278,7 @@ defmodule NetworkDefense.Evaluation2.PilotWorkflowTest do
     optimization =
       Repo.get!(NetworkDefense.Optimization.OptimizationRun, item.optimization_run_id)
 
-    experiment = Repo.get!(NetworkDefense.Simulation.Experiment, item.experiment_id)
+    experiment = Repo.get!(NetworkDefense.Simulation.Persistence.Experiment, item.experiment_id)
     Repo.update!(Ecto.Changeset.change(optimization, runtime_ms: 100))
     Repo.update!(Ecto.Changeset.change(experiment, runtime_ms: 200))
     assert {:ok, samples} = store.runtime_samples(collected.run.id)
@@ -292,13 +292,18 @@ defmodule NetworkDefense.Evaluation2.PilotWorkflowTest do
       status: "completed"
     )
 
-    change_effect(NetworkDefense.Simulation.Experiment, experiment.id, status: :failed)
+    change_effect(NetworkDefense.Simulation.Persistence.Experiment, experiment.id,
+      status: :failed
+    )
+
     assert {:error, _} = store.runtime_samples(collected.run.id)
 
-    change_effect(NetworkDefense.Simulation.Experiment, experiment.id, status: :completed)
+    change_effect(NetworkDefense.Simulation.Persistence.Experiment, experiment.id,
+      status: :completed
+    )
 
     invalid_trials =
-      Repo.get!(NetworkDefense.Simulation.Experiment, experiment.id)
+      Repo.get!(NetworkDefense.Simulation.Persistence.Experiment, experiment.id)
       |> Ecto.Changeset.change(total_trials: 0, completed_trials: 0)
       |> Ecto.Changeset.check_constraint(:total_trials, name: :experiments_total_trials_positive)
 

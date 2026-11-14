@@ -17,9 +17,9 @@ defmodule NetworkDefense.Simulation.SimulationReportTest do
     Supports
   }
 
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.IterationStep
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefenseWeb.Contracts.Dashboard.Simulation.FetchSimulationReportReply
 

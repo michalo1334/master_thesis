@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.Runs do
+defmodule NetworkDefense.Simulation.Persistence.Runs do
   @moduledoc """
   Persists `Run` records into the `simulation_runs` table.
   """
@@ -6,8 +6,8 @@ defmodule NetworkDefense.Simulation.Runs do
   import Ecto.Query
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.IterationStep
+  alias NetworkDefense.Simulation.Persistence.Run
 
   def insert(%Run{} = run) do
     Repo.transaction(fn ->

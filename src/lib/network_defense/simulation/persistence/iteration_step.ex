@@ -1,10 +1,10 @@
-defmodule NetworkDefense.Simulation.IterationStep do
+defmodule NetworkDefense.Simulation.Persistence.IterationStep do
   use Ecto.Schema
 
   import Ecto.Changeset
 
   alias NetworkDefense.AttackerState.{AttackerState, AttemptedAction}
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Run
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

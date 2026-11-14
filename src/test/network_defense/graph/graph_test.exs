@@ -10,7 +10,7 @@ defmodule NetworkDefense.Graph.GraphTest do
   alias NetworkDefense.Relationships.{Contains, NetworkReachability, Runs}
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, IterationStep, Run}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, IterationStep, Run}
 
   test "creates a graph with an immutable root revision" do
     assert {:ok, saved} = Graphs.insert(graph("Topology"))

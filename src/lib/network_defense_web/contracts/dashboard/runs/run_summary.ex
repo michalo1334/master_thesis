@@ -3,7 +3,7 @@ defmodule NetworkDefenseWeb.Contracts.Dashboard.Runs.RunSummary do
 
   use NetworkDefenseWeb.Contracts, category: :runs
 
-  @enum_values status: NetworkDefense.Simulation.Experiment.Status.wire_values()
+  @enum_values status: NetworkDefense.Simulation.Persistence.Experiment.Status.wire_values()
   def contract_meta, do: %{enum_values: @enum_values}
 
   embedded_schema do

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.ExperimentsTest do
+defmodule NetworkDefense.Simulation.Persistence.ExperimentsTest do
   use NetworkDefenseTest.DataCase, async: true
 
   import Ecto.Query
@@ -7,7 +7,7 @@ defmodule NetworkDefense.Simulation.ExperimentsTest do
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Run}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments, Run}
 
   test "persists committed batches for the pinned graph revision" do
     assert {:ok, graph} = Graphs.insert(Graph.new("Topology"))

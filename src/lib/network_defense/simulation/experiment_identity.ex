@@ -2,7 +2,7 @@ defmodule NetworkDefense.Simulation.ExperimentIdentity do
   @moduledoc false
 
   alias NetworkDefense.Simulation.Contracts.RunSimulationRequest
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
   alias NetworkDefense.Simulation.Seed
 
   @doc false

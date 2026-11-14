@@ -16,7 +16,7 @@ defmodule NetworkDefense.Evaluation2.Study.Progress do
   alias NetworkDefense.Evaluation2.Study.Views
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
 
   def topic(execution_id), do: "study:execution:#{execution_id}"
 

@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.Run do
+defmodule NetworkDefense.Simulation.Persistence.Run do
   use Ecto.Schema
 
   import Ecto.Changeset
@@ -6,8 +6,8 @@ defmodule NetworkDefense.Simulation.Run do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Rules.Rule
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.IterationStep
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.IterationStep
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

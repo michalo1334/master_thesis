@@ -12,9 +12,9 @@ defmodule NetworkDefense.Simulation.SimulationReport do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
   alias NetworkDefense.ReportProgress
-  alias NetworkDefense.Simulation.Experiment
   alias NetworkDefense.Simulation.MissionImpact
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.SimulationReport.Charts
   alias NetworkDefense.Simulation.Telemetry
   alias NetworkDefense.Statistics

@@ -47,7 +47,8 @@ defmodule NetworkDefense.Evaluation2.Study.Collection do
   alias NetworkDefense.Graph.Graphs
   alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns, RunIdentity}
   alias NetworkDefense.Optimizations
-  alias NetworkDefense.Simulation.{Experiment, Experiments, MissionImpact, Run, Seed}
+  alias NetworkDefense.Simulation.{MissionImpact, Seed}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments, Run}
   alias NetworkDefense.Simulations
 
   @doc """

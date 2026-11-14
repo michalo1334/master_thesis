@@ -11,7 +11,7 @@ defmodule NetworkDefense.DocumentCatalog do
   alias NetworkDefense.Graph.{Graph, GraphRevision}
   alias NetworkDefense.Optimization.OptimizationRun
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
 
   @graph_kind Kind.value(:graph)
   @simulation_report_kind Kind.value(:simulation_report)

@@ -6,7 +6,8 @@ defmodule NetworkDefense.Optimization.SimulationObjective do
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Graph.MaterializeReachability
-  alias NetworkDefense.Simulation.{MissionImpact, Run, Simulator}
+  alias NetworkDefense.Simulation.{MissionImpact, Simulator}
+  alias NetworkDefense.Simulation.Persistence.Run
 
   @objectives [:blast_radius_only, :mission_impact_only, :mission_then_blast_radius]
   @wire_objectives Enum.map(@objectives, &Atom.to_string/1)

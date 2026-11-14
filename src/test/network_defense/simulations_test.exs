@@ -19,13 +19,8 @@ defmodule NetworkDefense.SimulationsTest do
 
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
 
-  alias NetworkDefense.Simulation.{
-    Experiment,
-    Experiments,
-    IterationStep,
-    Run,
-    SimulationReport
-  }
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments, IterationStep, Run}
+  alias NetworkDefense.Simulation.SimulationReport
 
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulations

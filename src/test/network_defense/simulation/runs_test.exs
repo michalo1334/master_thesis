@@ -1,9 +1,9 @@
-defmodule NetworkDefense.Simulation.RunsTest do
+defmodule NetworkDefense.Simulation.Persistence.RunsTest do
   use NetworkDefenseTest.DataCase, async: true
 
   alias NetworkDefense.AttackerState.AttackerState
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Simulation.{IterationStep, Run, Runs}
+  alias NetworkDefense.Simulation.Persistence.{IterationStep, Run, Runs}
 
   test "persists a run pinned to a graph revision" do
     assert {:ok, graph} = Graphs.insert(Graph.new("Simulation graph"))

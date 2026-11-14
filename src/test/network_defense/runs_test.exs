@@ -7,8 +7,8 @@ defmodule NetworkDefense.RunsTest do
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Runs
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Experiments
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiments
   alias NetworkDefenseTest.GraphFixtures
 
   describe "active/0" do

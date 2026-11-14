@@ -16,7 +16,7 @@ defmodule NetworkDefense.Simulation.SimulatorExtTest do
   alias NetworkDefense.Rules.LocalVulnerabilityExploitation
   alias NetworkDefense.Rules.RemoteServiceExploitation
   alias NetworkDefense.Rules.ReuseCredentialRule
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.Simulator
 
   import NetworkDefenseTest.GraphFixtures

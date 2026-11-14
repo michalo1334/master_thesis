@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Simulation.Experiments do
+defmodule NetworkDefense.Simulation.Persistence.Experiments do
   @moduledoc """
   Persists `Experiment` records into the `experiments` table.
 
@@ -9,10 +9,10 @@ defmodule NetworkDefense.Simulation.Experiments do
   import Ecto.Query
 
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Experiment.Status
-  alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment.Status
+  alias NetworkDefense.Simulation.Persistence.IterationStep
+  alias NetworkDefense.Simulation.Persistence.Run
 
   require Status
 

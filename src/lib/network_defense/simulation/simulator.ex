@@ -11,9 +11,9 @@ defmodule NetworkDefense.Simulation.Simulator do
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Rules.{Registry, Rule}
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.IterationStep
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.IterationStep
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.Seed, as: Seed
 
   @spec initial_attacker_state(term(), Ecto.UUID.t()) :: AttackerState.t()

@@ -2,7 +2,7 @@ defmodule NetworkDefense.Simulation.Telemetry do
   @moduledoc false
 
   alias NetworkDefense.Graph.Graph
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
 
   require Logger
   require OpenTelemetry.Tracer, as: Tracer

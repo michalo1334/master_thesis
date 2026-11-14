@@ -7,12 +7,12 @@ defmodule NetworkDefense.Simulations do
   alias NetworkDefense.Repo
   alias NetworkDefense.ReportProgress
   alias NetworkDefense.Simulation.Contracts.{RunSimulationRequest, SimulationParams}
-  alias NetworkDefense.Simulation.Experiment
-  alias NetworkDefense.Simulation.Experiment.Status
   alias NetworkDefense.Simulation.ExperimentIdentity
-  alias NetworkDefense.Simulation.Experiments
   alias NetworkDefense.Simulation.MissionImpact
-  alias NetworkDefense.Simulation.Run
+  alias NetworkDefense.Simulation.Persistence.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment.Status
+  alias NetworkDefense.Simulation.Persistence.Experiments
+  alias NetworkDefense.Simulation.Persistence.Run
   alias NetworkDefense.Simulation.SimulationOperation
   alias NetworkDefense.Simulation.SimulationReport
   alias NetworkDefense.Simulation.Simulator

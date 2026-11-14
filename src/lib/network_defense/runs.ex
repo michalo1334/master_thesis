@@ -7,7 +7,7 @@ defmodule NetworkDefense.Runs do
 
   alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Repo
-  alias NetworkDefense.Simulation.Experiment
+  alias NetworkDefense.Simulation.Persistence.Experiment
 
   def cancel(kind, id) when kind in ["simulation", "optimization"] do
     case kind do

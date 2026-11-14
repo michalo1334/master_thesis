@@ -9,7 +9,8 @@ defmodule NetworkDefense.Simulation.SimulationOperationTest do
   alias NetworkDefense.Relationships.Contains
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
-  alias NetworkDefense.Simulation.{Experiment, Experiments, Run, SimulationOperation}
+  alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments, Run}
+  alias NetworkDefense.Simulation.SimulationOperation
 
   test "scatters weighted trial ranges and rejects completed trials" do
     experiment =
