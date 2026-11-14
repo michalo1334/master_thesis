@@ -1,6 +1,10 @@
 defmodule NetworkDefense.Observability do
   @moduledoc false
 
+  use Boundary,
+    deps: [NetworkDefense],
+    exports: [LoggerFormatter, LogValue]
+
   require Logger
 
   import Ecto.Query
