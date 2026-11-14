@@ -14,7 +14,7 @@ defmodule NetworkDefense.Evaluation2.Study.Progress do
   alias NetworkDefense.Evaluation2.Study.ProgressSnapshot
   alias NetworkDefense.Evaluation2.Study.Tier
   alias NetworkDefense.Evaluation2.Study.Views
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Persistence.Experiment
 

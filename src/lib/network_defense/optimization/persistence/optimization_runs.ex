@@ -1,12 +1,12 @@
-defmodule NetworkDefense.Optimization.OptimizationRuns do
+defmodule NetworkDefense.Optimization.Persistence.OptimizationRuns do
   @moduledoc """
   Persists `OptimizationRun` records and their applied `OptimizationAction` rows.
   """
 
   import Ecto.Query
 
-  alias NetworkDefense.Optimization.OptimizationAction
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationAction
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.Repo
 
   def create(%OptimizationRun{} = run) do

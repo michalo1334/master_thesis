@@ -16,7 +16,7 @@ defmodule NetworkDefenseWeb.DashboardContractsTest do
   alias NetworkDefense.Nodes.Service
   alias NetworkDefense.Nodes.Vulnerability
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
 
   alias NetworkDefense.Relationships.{
     AuthenticatesTo,

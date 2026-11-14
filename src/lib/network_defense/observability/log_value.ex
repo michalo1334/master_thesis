@@ -3,7 +3,7 @@ defmodule NetworkDefense.Observability.LogValue do
 
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.Simulation.Persistence.Experiment
 
   def normalize(value) when is_binary(value) do

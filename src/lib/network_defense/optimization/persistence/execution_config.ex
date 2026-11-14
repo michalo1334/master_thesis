@@ -1,4 +1,4 @@
-defmodule NetworkDefense.Optimization.ExecutionConfig do
+defmodule NetworkDefense.Optimization.Persistence.ExecutionConfig do
   @moduledoc false
 
   use Ecto.Schema

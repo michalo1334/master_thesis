@@ -1,11 +1,11 @@
-defmodule NetworkDefense.Optimization.OptimizationRun do
+defmodule NetworkDefense.Optimization.Persistence.OptimizationRun do
   use Ecto.Schema
   import Ecto.Changeset
 
   alias NetworkDefense.Graph.GraphRevision
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
-  alias NetworkDefense.Optimization.ExecutionConfig
-  alias NetworkDefense.Optimization.OptimizationAction
+  alias NetworkDefense.Optimization.Persistence.ExecutionConfig
+  alias NetworkDefense.Optimization.Persistence.OptimizationAction
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

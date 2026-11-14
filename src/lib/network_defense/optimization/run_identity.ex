@@ -2,7 +2,7 @@ defmodule NetworkDefense.Optimization.RunIdentity do
   @moduledoc false
 
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
-  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
+  alias NetworkDefense.Optimization.Persistence.{ExecutionConfig, OptimizationRun}
 
   @doc false
   @spec new(RunOptimizationRequest.t()) :: OptimizationRun.t()

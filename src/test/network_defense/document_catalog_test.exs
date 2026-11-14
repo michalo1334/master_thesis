@@ -3,7 +3,7 @@ defmodule NetworkDefense.DocumentCatalogTest do
 
   alias NetworkDefense.DocumentCatalog
   alias NetworkDefense.Graph.{Graph, Graphs}
-  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
+  alias NetworkDefense.Optimization.Persistence.{ExecutionConfig, OptimizationRun}
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments}

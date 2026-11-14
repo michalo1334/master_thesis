@@ -14,7 +14,13 @@ defmodule NetworkDefenseWeb.DashboardLiveTest do
   alias NetworkDefense.Nodes.Host
   alias NetworkDefense.Nodes.NetworkSegment
   alias NetworkDefense.Nodes.Service
-  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun, OptimizationRuns}
+
+  alias NetworkDefense.Optimization.Persistence.{
+    ExecutionConfig,
+    OptimizationRun,
+    OptimizationRuns
+  }
+
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Optimizations.OptimizationWorker
   alias NetworkDefense.Relationships.Contains

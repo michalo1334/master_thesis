@@ -1,10 +1,10 @@
-defmodule NetworkDefense.Optimization.OptimizationAction do
+defmodule NetworkDefense.Optimization.Persistence.OptimizationAction do
   use Ecto.Schema
   import Ecto.Changeset
 
   alias NetworkDefense.DefenseActions.DefenseAction
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
 
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id

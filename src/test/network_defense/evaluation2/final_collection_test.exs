@@ -9,7 +9,7 @@ defmodule NetworkDefense.Evaluation2.FinalCollectionTest do
   alias NetworkDefense.Evaluation2.Study.Persistence.Collection, as: Store
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Replica
   alias NetworkDefense.Evaluation2.Study.Result.Timing.Tier, as: TimingTier
-  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
+  alias NetworkDefense.Optimization.Persistence.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Simulation.Persistence.{Experiment, Experiments, IterationStep}
   alias NetworkDefenseTest.Evaluation2.FinalFixtures
 

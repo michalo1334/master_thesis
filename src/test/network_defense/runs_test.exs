@@ -2,8 +2,8 @@ defmodule NetworkDefense.RunsTest do
   use NetworkDefenseTest.DataCase, async: true
 
   alias NetworkDefense.Graph.Graphs
-  alias NetworkDefense.Optimization.{ExecutionConfig, OptimizationRun}
-  alias NetworkDefense.Optimization.OptimizationRuns
+  alias NetworkDefense.Optimization.Persistence.{ExecutionConfig, OptimizationRun}
+  alias NetworkDefense.Optimization.Persistence.OptimizationRuns
   alias NetworkDefense.Repo
   alias NetworkDefense.Rules.Registry, as: RulesRegistry
   alias NetworkDefense.Runs

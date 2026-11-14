@@ -276,7 +276,7 @@ defmodule NetworkDefense.Evaluation2.PilotWorkflowTest do
     assert {:ok, [item | _]} = store.list_replica_items(collected.run.id, 0)
 
     optimization =
-      Repo.get!(NetworkDefense.Optimization.OptimizationRun, item.optimization_run_id)
+      Repo.get!(NetworkDefense.Optimization.Persistence.OptimizationRun, item.optimization_run_id)
 
     experiment = Repo.get!(NetworkDefense.Simulation.Persistence.Experiment, item.experiment_id)
     Repo.update!(Ecto.Changeset.change(optimization, runtime_ms: 100))
@@ -285,10 +285,14 @@ defmodule NetworkDefense.Evaluation2.PilotWorkflowTest do
     assert Enum.count(samples.plan_ms) == 9
     assert hd(samples.plan_ms) == 100
     assert hd(samples.attack_ms) == 100.0
-    change_effect(NetworkDefense.Optimization.OptimizationRun, optimization.id, status: "failed")
+
+    change_effect(NetworkDefense.Optimization.Persistence.OptimizationRun, optimization.id,
+      status: "failed"
+    )
+
     assert {:error, _} = store.runtime_samples(collected.run.id)
 
-    change_effect(NetworkDefense.Optimization.OptimizationRun, optimization.id,
+    change_effect(NetworkDefense.Optimization.Persistence.OptimizationRun, optimization.id,
       status: "completed"
     )
 

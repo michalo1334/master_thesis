@@ -14,10 +14,10 @@ defmodule NetworkDefense.Optimization.OptimizationRunsTest do
     SimulationSettings
   }
 
-  alias NetworkDefense.Optimization.ExecutionConfig
-  alias NetworkDefense.Optimization.OptimizationAction
-  alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Optimization.OptimizationRuns
+  alias NetworkDefense.Optimization.Persistence.ExecutionConfig
+  alias NetworkDefense.Optimization.Persistence.OptimizationAction
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRuns
   alias NetworkDefense.Optimization.RunIdentity
   alias NetworkDefense.Optimization.SimulationInformedStrategy
   alias NetworkDefense.Optimizations

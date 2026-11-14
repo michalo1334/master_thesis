@@ -8,11 +8,11 @@ defmodule NetworkDefense.Optimizations do
   alias NetworkDefense.Optimization.Contracts.RunOptimizationRequest
   alias NetworkDefense.Optimization.CvssStrategy
   alias NetworkDefense.Optimization.NullStrategy
-  alias NetworkDefense.Optimization.OptimizationAction
   alias NetworkDefense.Optimization.OptimizationReport
-  alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Optimization.OptimizationRuns
   alias NetworkDefense.Optimization.Optimizer
+  alias NetworkDefense.Optimization.Persistence.OptimizationAction
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRuns
   alias NetworkDefense.Optimization.RandomStrategy
   alias NetworkDefense.Optimization.RunIdentity
   alias NetworkDefense.Optimization.SimulatedAnnealingStrategy

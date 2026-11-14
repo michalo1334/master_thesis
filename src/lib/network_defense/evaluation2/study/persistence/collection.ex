@@ -19,8 +19,8 @@ defmodule NetworkDefense.Evaluation2.Study.Persistence.Collection do
   alias NetworkDefense.Evaluation2.Study.Persistence
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionItem
   alias NetworkDefense.Evaluation2.Study.Persistence.CollectionPlan
-  alias NetworkDefense.Optimization.OptimizationRun
-  alias NetworkDefense.Optimization.OptimizationRuns
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRuns
   alias NetworkDefense.Optimizations
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Persistence.Experiment

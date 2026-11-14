@@ -5,7 +5,7 @@ defmodule NetworkDefense.Runs do
 
   import Ecto.Query
 
-  alias NetworkDefense.Optimization.{OptimizationRun, OptimizationRuns}
+  alias NetworkDefense.Optimization.Persistence.{OptimizationRun, OptimizationRuns}
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Persistence.Experiment
 

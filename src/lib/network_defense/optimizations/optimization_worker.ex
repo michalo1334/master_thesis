@@ -3,7 +3,7 @@ defmodule NetworkDefense.Optimizations.OptimizationWorker do
 
   use Oban.Worker, queue: :optimizations, max_attempts: 1
 
-  alias NetworkDefense.Optimization.OptimizationRuns
+  alias NetworkDefense.Optimization.Persistence.OptimizationRuns
   alias NetworkDefense.Optimizations
 
   @impl Oban.Worker

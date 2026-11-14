@@ -16,7 +16,7 @@ defmodule NetworkDefense.Evaluation2.DocumentationExampleTest do
 
   alias NetworkDefense.Evaluation2.Study
   alias NetworkDefense.Evaluation2.Study.{Definition, Error, Persistence, Revision}
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.Simulation.Persistence.Experiment
   alias NetworkDefenseTest.Evaluation2.GraphFixtures
 

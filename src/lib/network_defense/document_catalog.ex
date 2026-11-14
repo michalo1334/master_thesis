@@ -9,7 +9,7 @@ defmodule NetworkDefense.DocumentCatalog do
 
   alias NetworkDefense.DocumentCatalog.Kind
   alias NetworkDefense.Graph.{Graph, GraphRevision}
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.Repo
   alias NetworkDefense.Simulation.Persistence.Experiment
 

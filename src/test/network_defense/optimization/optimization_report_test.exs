@@ -2,7 +2,8 @@ defmodule NetworkDefense.Optimization.OptimizationReportTest do
   use ExUnit.Case, async: true
 
   alias NetworkDefense.Nodes.NetworkSegment
-  alias NetworkDefense.Optimization.{OptimizationAction, OptimizationReport, OptimizationRun}
+  alias NetworkDefense.Optimization.OptimizationReport
+  alias NetworkDefense.Optimization.Persistence.{OptimizationAction, OptimizationRun}
   alias NetworkDefense.Relationships.SegmentReachability
   alias NetworkDefenseTest.GraphFixtures
 

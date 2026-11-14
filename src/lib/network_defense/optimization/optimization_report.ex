@@ -16,8 +16,8 @@ defmodule NetworkDefense.Optimization.OptimizationReport do
   alias NetworkDefense.DefenseActions.Registry, as: DefenseActionsRegistry
   alias NetworkDefense.Graph.Graph
   alias NetworkDefense.Optimization.Contracts.OptimizationParams
-  alias NetworkDefense.Optimization.OptimizationAction
-  alias NetworkDefense.Optimization.OptimizationRun
+  alias NetworkDefense.Optimization.Persistence.OptimizationAction
+  alias NetworkDefense.Optimization.Persistence.OptimizationRun
   alias NetworkDefense.ReportProgress
 
   require Logger
