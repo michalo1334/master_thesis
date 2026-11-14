@@ -27,6 +27,11 @@ config :network_defense,
   ecto_repos: [NetworkDefense.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+config :network_defense, NetworkDefense.Compute.OperationRegistry,
+  operations: %{
+    "simulation" => NetworkDefense.Simulation.SimulationOperation
+  }
+
 config :network_defense, NetworkDefense.Compute.ScatterGather,
   executor: NetworkDefense.Compute.RabbitMQExecutor
 

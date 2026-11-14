@@ -4,6 +4,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
   @behaviour NetworkDefense.Compute.ScatterGather.Executor
 
   alias NetworkDefense.Compute.{
+    OperationRegistry,
     Progress,
     RabbitMQ.Connection,
     RabbitMQ.Envelope,
@@ -23,7 +24,7 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
     }
 
     Telemetry.run(operation, metadata, fn started_at ->
-      with {:ok, operation_name} <- operation_name(operation) do
+      with {:ok, operation_name} <- OperationRegistry.wire_name(operation) do
         run_partitions(partitions, operation, operation_name, input, metadata, started_at, opts)
       end
     end)
@@ -216,9 +217,6 @@ defmodule NetworkDefense.Compute.RabbitMQExecutor do
       compute_duration_ms: NetworkDefense.Observability.duration_ms(started_at)
     })
   end
-
-  defp operation_name(NetworkDefense.Simulation.SimulationOperation), do: {:ok, "simulation"}
-  defp operation_name(_operation), do: {:error, :unsupported_operation}
 
   defp deadline do
     System.monotonic_time(:millisecond) + result_timeout()

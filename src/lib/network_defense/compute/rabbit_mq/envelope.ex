@@ -2,7 +2,8 @@ defmodule NetworkDefense.Compute.RabbitMQ.Envelope do
   @moduledoc false
 
   @version 1
-  @operation_modules %{"simulation" => NetworkDefense.Simulation.SimulationOperation}
+
+  alias NetworkDefense.Compute.OperationRegistry
 
   @type work :: %{
           version: 1,
@@ -143,12 +144,7 @@ defmodule NetworkDefense.Compute.RabbitMQ.Envelope do
     end
   end
 
-  defp operation_module(operation) do
-    case @operation_modules do
-      %{^operation => operation_module} when is_binary(operation) -> {:ok, operation_module}
-      _ -> {:error, :unknown_operation}
-    end
-  end
+  defp operation_module(operation), do: OperationRegistry.module(operation)
 
   defp valid_identifier?(value), do: is_binary(value) and byte_size(value) in 1..255
 
