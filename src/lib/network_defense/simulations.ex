@@ -2,6 +2,9 @@ defmodule NetworkDefense.Simulations do
   @moduledoc """
   Public context module for working with simulation related aspects
   """
+
+  use Boundary, deps: [NetworkDefense], exports: :all
+
   alias NetworkDefense.Compute.ScatterGather
   alias NetworkDefense.Graph.{Graph, Graphs}
   alias NetworkDefense.Repo
