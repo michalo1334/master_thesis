@@ -11,6 +11,8 @@ defmodule NetworkDefense.Evaluation2.Study.PilotResult do
   outcome stays explainable from its comparison details.
   """
 
+  use Boundary, deps: [NetworkDefense], exports: :all
+
   alias NetworkDefense.Evaluation2.Study.PilotOutcome
   alias NetworkDefense.Evaluation2.Study.PilotResult.Candidate
 
