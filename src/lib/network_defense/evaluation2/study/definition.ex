@@ -22,6 +22,18 @@ defmodule NetworkDefense.Evaluation2.Study.Definition do
   """
   use Spectral
 
+  use Boundary,
+    deps: [
+      NetworkDefense,
+      NetworkDefense.DefenseActions,
+      NetworkDefense.Graph,
+      NetworkDefense.Nodes,
+      NetworkDefense.Optimization,
+      NetworkDefense.Rules,
+      NetworkDefense.Simulation
+    ],
+    exports: :all
+
   alias NetworkDefense.DefenseActions.Registry, as: Actions
 
   alias NetworkDefense.Evaluation2.Study.Definition.{
