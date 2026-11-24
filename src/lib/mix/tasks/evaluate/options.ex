@@ -1,4 +1,6 @@
 defmodule Mix.Tasks.Evaluate.Options do
+  use Boundary, classify_to: NetworkDefense.Tooling
+
   @moduledoc false
 
   @spec validate(keyword(), [String.t()], keyword(), [atom()]) :: :ok | {:error, String.t()}
